@@ -182,6 +182,16 @@ namespace zefDB {
             }
 
 
+            void handle_incoming_message(json & j, std::vector<std::string> & rest);
+
+            void handle_incoming_terminate(json & j);
+            void handle_incoming_graph_update(json & j, std::vector<std::string> & rest);
+            void handle_incoming_update_tag_list(json & j);
+            void handle_incoming_merge_request(json & j);
+            void handle_incoming_chunked(json & j, std::vector<std::string> & rest);
+
+
+
             // Every thread should be listening to this bool.
             std::atomic_bool should_stop = false;
 

@@ -50,6 +50,10 @@ void Butler::ws_message_handler(std::string msg) {
     if(zwitch.debug_zefhub_json_output())
         std::cerr << j << std::endl;
 
+    handle_incoming_message(j, rest);
+}
+
+void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) {
     if(!j.contains("protocol_type") || !j.contains("protocol_version") || !j.contains("msg_type")) {
         std::cerr << "Invalid message from upstream, doesn't contain protocol_type, protocol_version and msg_type. Ignoring" << std::endl;
         return;
@@ -131,129 +135,19 @@ void Butler::ws_message_handler(std::string msg) {
                     std::cerr << "Warning: msg_version for " << msg_type << " is not appropriately matched with the negotiated client version." << std::endl;
 
             if(msg_type == "terminate") {
-                std::cerr << "Server is terminating our connection: " << j["reason"].get<std::string>() << std::endl;
+                handle_incoming_terminate(j);
                 return;
             } else if(msg_type == "graph_update") {
-                GraphUpdate content;
-                content.graph_uid = j["graph_uid"].get<std::string>();
-                // content.blob_index_lo = j["blob_index_lo"].get<blob_index>();
-                // content.blob_index_hi = j["blob_index_hi"].get<blob_index>();
-                // content.last_tx = j["index_of_latest_complete_tx_node"].get<blob_index>();
-
-                // content.blob_bytes = rest[0];
-
-                content.payload = UpdatePayload{j, rest};
-
-                auto data = find_graph_manager(BaseUID::from_hex(content.graph_uid));
-                if(!data) {
-                    std::cerr << "Received graph update for unmanaged graph." << std::endl;
-                } else {
-                    auto msg = std::make_shared<RequestWrapper>(content);
-                    data->queue.push(std::move(msg), true);
-                }
+                handle_incoming_graph_update(j, rest);
                 return;
             } else if(msg_type == "update_tag_list") {
-                OLD_STYLE_UpdateTagList content;
-                content.graph_uid = j["graph_uid"].get<std::string>();
-                content.tag_list = j["tag_list"].get<std::vector<std::string>>();
-
-                auto data = find_graph_manager(BaseUID::from_hex(content.graph_uid));
-                if(!data) {
-                    std::cerr << "Received updated tag list for unmanaged graph." << std::endl;
-                } else {
-                    auto msg = std::make_shared<RequestWrapper>(content);
-                    data->queue.push(std::move(msg), true);
-                }
+                handle_incoming_update_tag_list(j);
                 return;
             } else if(msg_type == "merge_request") {
-                std::optional<MergeRequest> content;
-
-                std::string task_uid = j["task_uid"].get<std::string>();
-                std::string target_guid = j["target_guid"].get<std::string>();
-                int msg_version = 0;
-                if(j.contains("msg_version"))
-                    msg_version = j["msg_version"].get<int>();
-
-                if(msg_version <= 0) {
-                    blob_index merge_tx_index = std::stoi(j["merge_tx_index"].get<std::string>());
-                    std::vector<blob_index> merge_indices;
-
-                    std::string p_string = j["merge_indices"].get<std::string>();
-                    // Dodgy parsing - this will go away in the future!
-                    p_string[p_string.length()-1] = ',';
-                    int pos = 0;
-                    while(true) {
-                        int start_pos = pos+1;
-                        pos = p_string.find(',', start_pos);
-                        if(pos == std::string::npos)
-                            break;
-                        int end_pos = pos;
-
-                        merge_indices.push_back(std::stoi(p_string.substr(start_pos, end_pos-start_pos)));
-                    }
-                    MergeRequest::PayloadIndices payload{
-                        j["source_guid"].get<std::string>(),
-                        merge_tx_index,
-                        merge_indices
-                    };
-
-                    content = MergeRequest{
-                        task_uid,
-                        target_guid,
-                        payload,
-                        msg_version
-                    };
-                } else {
-                    std::string payload_type = j["payload"]["type"].get<std::string>();
-                    if(payload_type == "indices") {
-                        content = MergeRequest{
-                            task_uid,
-                            target_guid,
-                            MergeRequest::PayloadIndices{
-                                j["payload"]["source_guid"].get<std::string>(),
-                                j["payload"]["source_tx_index"].get<blob_index>(),
-                                j["payload"]["source_indices"].get<std::vector<blob_index>>()
-                            },
-                            msg_version
-                        };
-                    } else if(payload_type == "delta") {
-                        content = MergeRequest{
-                            task_uid,
-                            target_guid,
-                            MergeRequest::PayloadGraphDelta{
-                                j["payload"]["delta"].get<json>(),
-                            },
-                            msg_version
-                        };
-                    }
-                }
-
-                auto data = find_graph_manager(BaseUID::from_hex(content->target_guid));
-                if(!data) {
-                    std::cerr << "Received merge request for unmanaged graph." << std::endl;
-                    if(msg_version == 0) {
-                        send_ZH_message({
-                                {"msg_type", "merge_request_response"},
-                                {"task_uid", task_uid},
-                                {"success", "0"},
-                                {"reason", "Don't have target graph loaded"},
-                                // {"indices", std::vector<blob_index>()},
-                                {"indices", "[]"},
-                                {"merged_tx_index", -1}
-                            });
-                    } else {
-                        send_ZH_message({
-                                {"msg_type", "merge_request_response"},
-                                {"msg_version", 1},
-                                {"task_uid", task_uid},
-                                {"success", false},
-                                {"reason", "Don't have target graph loaded"},
-                            });
-                    }
-                } else {
-                    auto msg = std::make_shared<RequestWrapper>(*content);
-                    data->queue.push(std::move(msg), true);
-                }
+                handle_incoming_merge_request(j);
+                return;
+            } else if(msg_type == "chunked") {
+                handle_incoming_chunked(j, rest);
                 return;
             }
 
@@ -444,4 +338,141 @@ void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr &
     }
 
     task_promise->promise.set_value(response);
+}
+
+
+
+
+void Butler::handle_incoming_terminate(json & j) {
+    std::cerr << "Server is terminating our connection: " << j["reason"].get<std::string>() << std::endl;
+}
+
+void Butler::handle_incoming_graph_update(json & j, std::vector<std::string> & rest) {
+    GraphUpdate content;
+    content.graph_uid = j["graph_uid"].get<std::string>();
+    // content.blob_index_lo = j["blob_index_lo"].get<blob_index>();
+    // content.blob_index_hi = j["blob_index_hi"].get<blob_index>();
+    // content.last_tx = j["index_of_latest_complete_tx_node"].get<blob_index>();
+
+    // content.blob_bytes = rest[0];
+
+    content.payload = UpdatePayload{j, rest};
+
+    auto data = find_graph_manager(BaseUID::from_hex(content.graph_uid));
+    if(!data) {
+        std::cerr << "Received graph update for unmanaged graph." << std::endl;
+    } else {
+        auto msg = std::make_shared<RequestWrapper>(content);
+        data->queue.push(std::move(msg), true);
+    }
+}
+
+void Butler::handle_incoming_update_tag_list(json & j) {
+    OLD_STYLE_UpdateTagList content;
+    content.graph_uid = j["graph_uid"].get<std::string>();
+    content.tag_list = j["tag_list"].get<std::vector<std::string>>();
+
+    auto data = find_graph_manager(BaseUID::from_hex(content.graph_uid));
+    if(!data) {
+        std::cerr << "Received updated tag list for unmanaged graph." << std::endl;
+    } else {
+        auto msg = std::make_shared<RequestWrapper>(content);
+        data->queue.push(std::move(msg), true);
+    }
+}
+
+void Butler::handle_incoming_merge_request(json & j) {
+    // TODO: This should be spun off into a separate thread.
+
+    std::optional<MergeRequest> content;
+
+    std::string task_uid = j["task_uid"].get<std::string>();
+    std::string target_guid = j["target_guid"].get<std::string>();
+    int msg_version = 0;
+    if(j.contains("msg_version"))
+        msg_version = j["msg_version"].get<int>();
+
+    if(msg_version <= 0) {
+        blob_index merge_tx_index = std::stoi(j["merge_tx_index"].get<std::string>());
+        std::vector<blob_index> merge_indices;
+
+        std::string p_string = j["merge_indices"].get<std::string>();
+        // Dodgy parsing - this will go away in the future!
+        p_string[p_string.length()-1] = ',';
+        int pos = 0;
+        while(true) {
+            int start_pos = pos+1;
+            pos = p_string.find(',', start_pos);
+            if(pos == std::string::npos)
+                break;
+            int end_pos = pos;
+
+            merge_indices.push_back(std::stoi(p_string.substr(start_pos, end_pos-start_pos)));
+        }
+        MergeRequest::PayloadIndices payload{
+            j["source_guid"].get<std::string>(),
+            merge_tx_index,
+            merge_indices
+        };
+
+        content = MergeRequest{
+            task_uid,
+            target_guid,
+            payload,
+            msg_version
+        };
+    } else {
+        std::string payload_type = j["payload"]["type"].get<std::string>();
+        if(payload_type == "indices") {
+            content = MergeRequest{
+                task_uid,
+                target_guid,
+                MergeRequest::PayloadIndices{
+                    j["payload"]["source_guid"].get<std::string>(),
+                    j["payload"]["source_tx_index"].get<blob_index>(),
+                    j["payload"]["source_indices"].get<std::vector<blob_index>>()
+                },
+                msg_version
+            };
+        } else if(payload_type == "delta") {
+            content = MergeRequest{
+                task_uid,
+                target_guid,
+                MergeRequest::PayloadGraphDelta{
+                    j["payload"]["delta"].get<json>(),
+                },
+                msg_version
+            };
+        }
+    }
+
+    auto data = find_graph_manager(BaseUID::from_hex(content->target_guid));
+    if(!data) {
+        std::cerr << "Received merge request for unmanaged graph." << std::endl;
+        if(msg_version == 0) {
+            send_ZH_message({
+                    {"msg_type", "merge_request_response"},
+                    {"task_uid", task_uid},
+                    {"success", "0"},
+                    {"reason", "Don't have target graph loaded"},
+                    // {"indices", std::vector<blob_index>()},
+                    {"indices", "[]"},
+                    {"merged_tx_index", -1}
+                });
+        } else {
+            send_ZH_message({
+                    {"msg_type", "merge_request_response"},
+                    {"msg_version", 1},
+                    {"task_uid", task_uid},
+                    {"success", false},
+                    {"reason", "Don't have target graph loaded"},
+                });
+        }
+    } else {
+        auto msg = std::make_shared<RequestWrapper>(*content);
+        data->queue.push(std::move(msg), true);
+    }
+}
+
+void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) {
 }
