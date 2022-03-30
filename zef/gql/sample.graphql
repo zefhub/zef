@@ -1,0 +1,93 @@
+type User @auth(
+  query: "z >> RT.FirebaseID | value | equals[info.context['auth']['USER_ID']]",
+  add: "params['firebaseID'] == info.context['auth']['USER_ID']"
+) {
+  firebaseID: String! @unique
+  email: String @unique
+  givenName: String
+  familyName: String
+  phone: String
+  birthday: DateTime
+  transactions: [Transaction] @incoming @relation(source: "Transaction", rt: "User", target: "User")
+  categories: [Category] @incoming @relation(source: "Category", rt: "User", target: "User")
+}
+
+enum TransactionType {
+  EXPENSE
+  INCOME
+}
+
+type Transaction @auth(
+  query: "z >> RT.User >> RT.FirebaseID | value | equals[info.context['auth']['USER_ID']]",
+  # First path is for creating a new user - weird case. The second path is for
+  # checking against the user given an ID.
+  add: """((params
+              | get_in['user', 'firebaseID'][None]
+              | equals[info.context['auth']['USER_ID']]
+              | collect)
+          or
+             (info.context['g']
+              | now
+              | all[ET.User]
+              | filter[uid | equals[params | get_in['user','id'][None] | collect]]
+              | filter[Z >> RT.FirebaseID | value | equals[info.context['auth']['USER_ID']]]
+              | length
+              | equals[1]
+              | collect))"""
+  # Alternatively:
+#   add: """gql_query('queryUser(filter: {id: {eq: $id}, firebaseID: {eq: $firebase}}) {
+# id
+# }', id=params['user']['id'], firebase=info.context['auth']['USER_ID'])"""
+
+  # update: """(And[Z >> RT.User >> RT.FirebaseID | value | equals[info.context['auth']['USER_ID']] | collect]
+  #                [params | get_in['input', 'user', 'id'][None] | contained_in[[None, info.context['auth']['USER_ID']]]])"""
+) {
+  user: User!
+  type: TransactionType! @search
+  amount: Float! @search
+  when: DateTime @search
+  category: Category
+  comment: String
+}
+
+enum CategoryType {
+  DEFAULT
+  PRIVATE
+}
+    
+type Category @auth(
+  query: """(Or[Z >> O[RT.User] >> O[RT.FirebaseID] | value_or[None] | equals[info.context['auth']['USER_ID']]]
+            [Z >> RT.Type | value | equals[EN.CategoryType.DEFAULT]])"""
+) {
+  type: CategoryType! @search
+  user: User
+  title: String!
+  titleLangEn: String
+  titleLangJa: String
+  description: String
+  descriptionLangEn: String
+  descriptionLangJa: String
+  color: String
+  icon: String
+  transactions: [Transaction] @incoming @relation(rt: Category)
+  createdAt: DateTime!
+}
+    
+
+type Company {
+  name: String! @search
+  description: String
+  categories: [Category]
+}
+
+
+# Dgraph.Authorization {"JWKUrl":"https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com", "Namespace": "https://dgraph.io/jwt/claims", "Audience": ["ikura-9437c"], "Header": "X-Auth-Token"}
+
+type _Auth @details(
+  JWKURL: "https://www.googleapis.com/service_accounts/v1/jwk/securetoken@system.gserviceaccount.com"
+  Audience: "ikura-9437c"
+  Header: "X-Auth-Token"
+  Namespace: "https://dgraph.io/jwt/claims"
+  ) {
+  dummy: String
+}

@@ -1,0 +1,169 @@
+name: 'Build'
+inputs:
+  with-julia:
+    # Note that all inputs are strings - which means we need to compare more
+    # carefully later
+    default: 'false'
+    required: false
+  python-version:
+    type: string
+    required: true
+  os:
+    type: string
+    required: true
+
+  build-wheel:
+    default: 'false'
+    required: false
+  run-cmake-tests:
+    default: 'true'
+    required: false
+
+runs:
+  using: 'composite'
+  steps:
+
+    ########
+    # Python
+
+    - name: Setup python on linux
+      if: ${{ !startsWith(inputs.os, 'macos') }}
+      uses: actions/setup-python@v2
+      with:
+        python-version: ${{ inputs.python-version }}
+
+    - name: install python from homebrew
+      if: ${{ startsWith(inputs.os, 'macos') }}
+      env:
+        PYVERSION: ${{ inputs.python-version }}
+      shell: bash
+      run: |
+        brew install python@$PYVERSION || echo "Would have errored"
+        brew link --overwrite python@$PYVERSION
+
+    - name: show the actual python binary used
+      shell: bash
+      run: |
+        ls -la `which python3`
+
+    - name: identify pip cache directory
+      id: pipdir
+      shell: bash
+      run: |
+        python3 -m pip install --upgrade pip
+        echo ::set-output name=pipdir::$(pip3 cache dir)
+
+    - name: pip cache
+      uses: actions/cache@v2
+      with:
+        path: ${{ steps.pipdir.outputs.pipdir }}
+        key: ${{ inputs.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+
+    - name: Install python dependencies for build
+      shell: bash
+      run: |
+        python3 -m pip install --upgrade pip
+        pip3 install absl-py protobuf
+        if [ -f requirements.txt ]; then pip3 install -r requirements.txt; fi
+
+    ########
+    # Julia
+
+    # - name: Julia cache
+    #   uses: actions/cache@v2
+    #   with:
+    #     path: ~/.julia
+    #     key: ${{ runner.os }}-julia_depot-${{ steps.pipdir.outputs.pyver }}-${{ hashFiles('**/Manifest.toml', '**/Project.toml') }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-julia_depot-${{ steps.pipdir.outputs.pyver }}
+
+    - uses: julia-actions/setup-julia@v1
+      if: inputs.with-julia == 'true'
+      id: julia_install
+    - name: overwrite julia libstdc++
+      if: inputs.with-julia == 'true'
+      # continue-on-error: true
+      shell: bash
+      run: |
+        rm ${{ steps.julia_install.outputs.julia-bindir }}/../lib/julia/libstdc++.so.6 || echo "Would have had an error"
+    - name: setup julia registry
+      if: inputs.with-julia == 'true'
+      shell: bash
+      run: |
+        julia -e 'using Pkg; Registry.add("General"); Registry.add(RegistrySpec(url="https://github.com/synchronoustechnologies/JuliaRegistry"))'
+
+    - name: Force local python in julia
+      if: inputs.with-julia == 'true'
+      # This is necessary because PyCall tries to use Conda (very slow and breaks) on macos and windows
+      shell: bash
+      run: |
+        export PYTHON=$(which python3)
+        julia -e 'using Pkg; Pkg.add("PyCall")'
+        julia -e 'using PyCall; sys = pyimport("sys"); @show sys.path'
+
+    ########
+    # Making
+    - name: Grab ubuntu packages
+      if: ${{ startsWith(inputs.os, 'ubuntu') }}
+      shell: bash
+      run: |
+        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev
+
+    - name: Grab homebrew packages
+      if: ${{ startsWith(inputs.os, 'macos') }}
+      shell: bash
+      run: |
+        brew install openssl
+        brew install zstd
+
+    - name: Make
+      env:
+        WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
+      shell: bash
+      run: |
+        bash make_everything.sh
+
+    #########
+    # Testing
+    - name: Run tests
+      if: inputs.run-cmake-tests == 'true'
+      shell: bash
+      run: |
+        export LD_LIBRARY_PATH="${JULIA_LIB_DIR}:$LD_LIBRARY_PATH"
+        export PYTHONPATH="${GITHUB_WORKSPACE}:$PYTHONPATH"
+        pip3 install -r tests/requirements_tests.txt
+        cd cmake_build
+        ctest -V
+
+    #########
+    # Wheel building
+    - name: Get tag
+      if: inputs.build-wheel == 'true'
+      id: vars
+      shell: bash
+      run: |
+        echo GITHUB_REF is ${GITHUB_REF}
+        echo ::set-output name=tag::${GITHUB_REF##*/v}
+
+    - name: build wheel
+      if: inputs.build-wheel == 'true'
+      env:
+        VERSION_STRING: ${{ steps.vars.outputs.tag }}
+        WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
+        FORCE_PYTHON_VERSION: ${{ inputs.python-version }}
+      shell: bash
+      run: |
+        pip3 install wheel
+        bash setup_tools_wrapper.sh
+
+    - name: Ensure no early token creation
+      if: inputs.build-wheel == 'true'
+      shell: bash
+      run: |
+        ORIG_DIR=$(pwd)
+        cd /
+        pip3 install ${ORIG_DIR}/dist/*.whl
+        cd ${ORIG_DIR}/update_tokens
+        bash assert_no_created_tokens.sh

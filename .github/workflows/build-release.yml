@@ -1,0 +1,223 @@
+name: Build Release
+
+#on:
+#  push:
+#    tags:
+#      - "v*"
+#      - "!v*-macos"
+
+on:
+  release:
+    types: [published, create]
+
+jobs:
+  build-wheels:
+    name: Build wheels
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, macos-latest]
+        # Note: need "3.10" as yaml will truncate floating point number
+        python-version: [3.8, 3.9, "3.10"]
+        # julia-option: [false, true]
+        julia-option: [false]
+        exclude:
+          - os: macos-latest
+            python-version: 3.8
+    env:
+      ZEFHUB_AUTH_KEY: "GUEST"
+      S3_PATH: cdn.zefhub.io/releases/${{ github.sha }}/
+
+    steps:
+      ########
+      # Git things
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GIT_ACCESS_KEY }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-1
+
+      - name: Showing tags from different sources
+        env:
+          FROM_RELEASE: ${{ toJSON(github.event.release.tag_name) }}
+        run: |
+          echo GITHUB_REF is $GITHUB_REF
+          echo FROM_RELEASE is $FROM_RELEASE
+
+      - name: Build wheel
+        uses: ./.github/actions/build
+        with:
+          with-julia: ${{ matrix.julia-option }}
+          python-version: ${{ matrix.python-version }}
+          os: ${{ matrix.os }}
+
+          build-wheel: true
+          run-cmake-tests: false
+        
+      ######
+      # Release asset
+      - name: release asset
+        uses: softprops/action-gh-release@v1
+        with:
+          files: dist/*
+
+      - name: upload to s3 bucket
+        run: |
+          cd dist
+          [[ $(ls | wc | awk '{print $1}') == 1 ]] || exit 1
+          FILENAME=$(ls *.whl)
+          aws s3 cp $FILENAME s3://${S3_PATH}$FILENAME --acl public-read
+
+      #######
+      # Errors to slack
+      - uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          if_mention: failure
+          channel: "#alerts-github-ci"
+          fields: repo,message,commit,author,ref,workflow # selectable (default: repo,message)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: ${{ failure() && !contains(github.ref, 'dev') }}
+
+  update-index:
+    name: Update s3 index
+    runs-on: ubuntu-18.04
+    needs: [build-wheels]
+    env:
+      S3_PATH: cdn.zefhub.io/releases/${{ github.sha }}/
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GIT_ACCESS_KEY }}
+          persist-credentials: true
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v1
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ap-southeast-1
+
+      - name: Find wheels
+        run: |
+          aws s3 ls s3://${S3_PATH} | grep .whl | awk '{print $4}' > wheels.txt
+
+      - name: Create index file
+        run: |
+          python3 .github/scripts/make_s3_index.py wheels.txt
+
+      - name: Push index file
+        run: |
+          aws s3 cp index.html s3://${S3_PATH}index.html --acl public-read
+
+      - name: Release announcement
+        if: ${{ (!contains(github.ref, 'dev') && github.event.release.prerelease == false) }}
+        env:
+          MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
+          CHANNEL: releases
+          NAME: ${{ github.event.release.name }}
+          DESCRIPTION: ${{ github.event.release.body }}
+        run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
+
+      - name: Release announcement for dev
+        if: ${{ (contains(github.ref, 'dev') || github.event.release.prerelease == true) }}
+        env:
+          MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
+          CHANNEL: dev-releases
+          NAME: "${{ github.event.release.name }}"
+          DESCRIPTION: "${{ github.event.release.body }}"
+        run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
+
+  upload-zefops:
+    name: Deploy zefops docstrings to zef-docs.
+    runs-on: ubuntu-20.04
+    needs: [build-wheels]
+    if: ${{ !contains(github.ref, 'dev') && github.event.release.prerelease == 'false' }}
+    strategy:
+      matrix:
+        python-version: [3.8]
+    #env:
+    #ZEFHUB_AUTH_KEY: "ci@synchronous.ai:iwantanewamp"
+    #PYTHONPATH: "${GITHUB_WORKSPACE}:$PYTHONPATH"
+    steps:
+      ########
+      # Git things
+      - uses: actions/checkout@v2
+        with:
+          # repository: synchronoustechnologies/zef-docs
+          path: /home/runner/work/zefDB/zefDB/zefDB
+          token: ${{ secrets.GIT_ACCESS_KEY }}
+          persist-credentials: true
+      - uses: fusion-engineering/setup-git-credentials@v2
+        with:
+          credentials: https://synchronous:${{secrets.GIT_ACCESS_KEY}}@github.com/
+      ########
+      # Python
+      - run: cd zefDB
+      - name: Setup python
+        uses: actions/setup-python@v2
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: identify pip cache directory
+        id: pipdir
+        run: |
+          python3 -m pip install --upgrade pip
+          echo ::set-output name=pipdir::$(pip3 cache dir)
+
+      - name: pip cache
+        uses: actions/cache@v2
+        with:
+          path: ${{ steps.pipdir.outputs.pipdir }}
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install python dependencies for build
+        run: |
+          python3 -m pip install --upgrade pip
+          pip3 install absl-py protobuf
+          if [ -f requirements.txt ]; then pip3 install -r requirements.txt; fi
+
+        ########
+      # Making
+      - name: Grab ubuntu packages
+        run: |
+          sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev
+
+      - name: Make without julia
+        env:
+          WITH_JULIA: 0
+        run: |
+          cd zefDB
+          bash make_everything.sh
+
+      ########
+      # Generate docs
+      - name: Run extract docstrings script
+        run: |
+          export PYTHONPATH="${GITHUB_WORKSPACE}/zefDB:$PYTHONPATH"
+          echo $PYTHONPATH
+          python zefDB/scripts/extract-docstrings.py
+      - uses: actions/checkout@v2
+        with:
+          repository: synchronoustechnologies/zef-docs
+          path: /home/runner/work/zefDB/zefDB/zef-docs
+          token: ${{ secrets.GIT_ACCESS_KEY }}
+          persist-credentials: true
+      - run: |
+          mv zef-ops.mdx /home/runner/work/zefDB/zefDB/zef-docs/docs/zef-ops.mdx
+          cd /home/runner/work/zefDB/zefDB/zef-docs
+          git status
+          git config user.email "thedanielforum@gmail.com"
+          git config user.name "Zef Bot by Github Actions"
+          git add docs/zef-ops.mdx
+          git commit -m "Auto generated zef-ops docs from docstrings in Zef repo."
+          git push origin master

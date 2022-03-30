@@ -1,0 +1,7 @@
+
+/*[[[cog
+import cog
+for indx,name in et:
+    cog.outl(f'const EntityType {name} = EntityType({indx});')
+]]]*/
+//[[[end]]]		

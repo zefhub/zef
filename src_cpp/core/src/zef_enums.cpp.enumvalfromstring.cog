@@ -1,0 +1,5 @@
+/*[[[cog
+for name in en:
+    cog.outl(f'case hash_char_array("{name[1]}"): return ZefEnumValue{{ {name[0]} }};')
+]]]*/
+//[[[end]]]		

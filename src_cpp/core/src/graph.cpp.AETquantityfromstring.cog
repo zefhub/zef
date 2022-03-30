@@ -1,0 +1,10 @@
+/*[[[cog
+for n in [x for x in en if x[1] == 'Unit' and x[2] != '']:
+    cog.outl(f'case hash_char_array("{n[2]}"): return AtomicEntityType{{ {n[0]} + 2 }};')   # add 2 for 'quantity_float' type offset
+]]]*/
+case hash_char_array("_undefined"): return AtomicEntityType{ 490188288 + 2 };
+case hash_char_array("seconds"): return AtomicEntityType{ 1972227744 + 2 };
+case hash_char_array("kilometers_p_hour"): return AtomicEntityType{ 2784568080 + 2 };
+case hash_char_array("cents_singapore_dollar"): return AtomicEntityType{ 1189824112 + 2 };
+case hash_char_array("cents_us_dollar"): return AtomicEntityType{ 2798090880 + 2 };
+//[[[end]]]	

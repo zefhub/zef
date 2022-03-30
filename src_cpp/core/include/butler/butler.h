@@ -1,0 +1,359 @@
+#pragma once
+
+#include <thread>
+#include "zefDB_utils.h"
+#include "butler/msgqueue.h"
+#include "butler/messages.h"
+#include "butler/communication.h"
+#include "butler/auth.h"
+
+#include <nlohmann/json.hpp>
+
+#include <pybind11/pybind11.h>
+#include <pybind11/embed.h>
+#include <pybind11/stl.h>
+namespace py = pybind11;
+#include <pybind11_json/pybind11_json.hpp>
+
+namespace zefDB {
+
+    LIBZEF_DLL_EXPORTED extern bool initialised_python_core;
+
+    namespace Butler {
+
+        using namespace zefDB::Messages;
+
+        struct RequestWrapper {
+            // Guests get their results back by "callbacks" or promise/futures.
+            // There are no other ways for the butler to communicate with
+            // guests. Have to think what this means for subscriptions. However,
+            // note that the butler doesn't know how many threads are running,
+            // and if we wanted to allow for that, we'd need each thread to
+            // "init" before doing anything.
+            //
+            // Note: to help prevent deadlock, we should try and make the
+            // requester not hold onto the promise, only the future. This is so
+            // that when the promise is deconstructed, the future will return
+            // and not block forever. This is achieved using move semantics in
+            // the message queue.
+            std::promise<Response> promise;
+
+            Request content;
+
+            RequestWrapper(Request && content) : content(std::move(content)) {}
+            RequestWrapper(std::promise<Response> promise, Request && content)
+                : promise(std::move(promise)),
+                  content(std::move(content)) {}
+        };
+        // }
+
+        // I struggled with making this overload the to_str function. This did not
+        // seem to trigger it, which I thought was something to do with the order of
+        // definitions of the to_str functions. In the end I didn't want to waste
+        // more time, so this is defined as a workaround.
+    
+        // template<>
+        inline std::string msgqueue_to_str(const RequestWrapper & wrapper) {
+            // return std::visit(&to_str, wrapper.content);
+            return std::visit([](const auto & x) { return msgqueue_to_str(x); },
+                              wrapper.content);
+        }
+
+        using json = nlohmann::json;
+        inline std::string json_string_default(json j, const char field[]) {
+            if(!j.contains(field))
+                return "";
+            return j[field].get<std::string>();
+        }
+            
+
+        std::filesystem::path zefdb_config_path();
+        std::optional<std::string> load_forced_zefhub_key();
+        std::string get_default_zefhub_uri();
+        std::string get_auto_connect();
+
+        // If this is set, the butler no longer needs to commmunicate with
+        // upstream to ask permission or take primary etc...
+        extern bool butler_is_master;
+        struct LIBZEF_DLL_EXPORTED Butler {
+            using msg_ptr = MessageQueue<RequestWrapper>::ptr;
+            // The main thread of the butler.
+            std::unique_ptr<std::thread> thread;
+            std::promise<bool> return_value;
+            // Message queue MWSR for guests.
+            MessageQueue<RequestWrapper> msgqueue;
+            // A set of tasks that have begun, but are waiting on ZH feedback
+            struct Task {
+                std::promise<Response> promise;
+                std::string task_uid = generate_random_task_uid();
+                Time started_time;
+                // In the future, this might become a std::optional<...> with the responsible connection inside.
+                // For now, this just indicates tasks that should be cancelled when the online connection goes down.
+                bool is_online;
+                // The nothing constructor is for receiving a looked-up task
+                // only.
+                Task() {}
+                Task(Time time, bool is_online)
+                    : started_time(time),
+                      is_online(is_online) {}
+                Task(Task&&) = default;
+                Task(const Task&) = delete;
+                // Handle when making a Task from a RequestMesssage, which
+                // is forwarding a client request straight to zefhub, letting
+                // the client wait on the response rather than the butler.
+                Task(Time time, bool is_online, std::promise<Response> && promise)
+                    : started_time(time),
+                      promise(std::move(promise)),
+                      is_online(is_online) {}
+                // This is to make it explicit to avoid problematic cases.
+                Task& operator=(const Task &) = delete;
+                Task& operator=(Task &&) = default;
+            };
+            using task_ptr = std::shared_ptr<Task>;
+            // std::forward_list<Task> waiting_tasks;
+            // std::forward_list<task_ptr> waiting_tasks;
+            // std::vector<Task> waiting_tasks;
+            std::vector<task_ptr> waiting_tasks;
+            // For simplicity, need a lock
+            std::mutex waiting_tasks_mutex;
+            // Note: we can't have add_task return a reference here, as it will
+            // reference a location in the vector which may later change from
+            // multi-threaded behaviour.
+            template<class... ARGS>
+            task_ptr add_task(bool is_online, ARGS... args);
+            bool find_task(std::string task_uid, Task * return_task);
+            bool forget_task(std::string task_uid);
+            void cancel_online_tasks();
+
+            void send_ZH_message(json & j, const std::vector<std::string> & rest = {});
+            // This is to allow brace initialisation, while still preferring pass-by-reference.
+            void send_ZH_message(json && j, const std::vector<std::string> & rest = {}) {
+                send_ZH_message(j, rest);
+            }
+
+            Response wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest = {}, std::chrono::duration<double> timeout = constants::zefhub_generic_timeout, bool throw_on_failure = false);
+
+            template<class T=GenericZefHubResponse>
+            T wait_on_zefhub_message(json & j, const std::vector<std::string> & rest = {}, std::chrono::duration<double> timeout = constants::zefhub_generic_timeout, bool throw_on_failure = false);
+
+            // This is to allow brace initialisation, while still preferring pass-by-reference.
+            Response wait_on_zefhub_message_any(json && j, const std::vector<std::string> & rest = {}, std::chrono::duration<double> timeout = constants::zefhub_generic_timeout, bool throw_on_failure = false) {
+                return wait_on_zefhub_message_any(j, rest, timeout, throw_on_failure);
+            }
+
+            template<class T=GenericZefHubResponse>
+            T wait_on_zefhub_message(json && j, const std::vector<std::string> & rest = {}, std::chrono::duration<double> timeout = constants::zefhub_generic_timeout, bool throw_on_failure = false) {
+                return wait_on_zefhub_message(j, rest, timeout, throw_on_failure);
+            }
+
+
+            // Every thread should be listening to this bool.
+            std::atomic_bool should_stop = false;
+
+
+            // Networking things.
+            Communication::PersistentConnection network;
+            std::atomic_bool connection_authed = false;
+            std::atomic_bool fatal_connection_error = false;
+            std::atomic_bool no_credentials_warning = false;
+            // The authentication string. This is set on connection.
+            std::string auth_token = "";
+            std::string auth_username = "";
+            // The protocol version chosen for communication. This may have to be autodetected in earlier versions.
+            std::atomic_int zefdb_protocol_version = -1;
+            constexpr static int zefdb_protocol_version_min = 4;
+            constexpr static int zefdb_protocol_version_max = 4;
+            AtomicLockWrapper auth_locker;
+
+            using header_list_t = Communication::PersistentConnection::header_list_t;
+            header_list_t prepare_send_headers();
+            void start_connection();
+            void stop_connection();
+            bool want_upstream_connection();
+            // wait_for_auth: will start_connection if not already connected
+            bool wait_for_auth(std::chrono::duration<double> timeout=std::chrono::seconds(-1));
+            void determine_auth_token();
+            // ensure_auth_credentials: if no credentials will pop up browser
+            void ensure_auth_credentials();
+            bool have_auth_credentials();
+            bool is_credentials_file_valid();
+            // user_login: throws if already logged in, otherwise ensure_auth_credentials
+            void user_login();
+            // user_logout: noop if already logged out, otherwise delete credentials. If connected, reset the connection.
+            void user_logout();
+
+            bool have_logged_in_as_guest = false;
+
+
+            Butler() : Butler(get_default_zefhub_uri()) {}
+            Butler(std::string uri);
+
+
+            void ws_open_handler(void); 
+            void ws_message_handler(std::string msg);
+            void ws_close_handler(void);
+            void ws_fatal_handler(std::string reason);
+            void handle_successful_auth(void);
+
+            template <typename T>
+            void handle_guest_message(T & content, msg_ptr & msg);
+            void handle_guest_message_passthrough(msg_ptr & msg, GraphData * gd);
+
+            void msgqueue_listener(void);
+            std::future<Response> msg_push_internal(Request && content, bool ignore_closed=false);
+
+            template <class T>
+            T msg_push(Request && content);
+
+            void msg_push(Request && content, bool wait = true, bool ignore_closed=false);
+
+            // NOTE: This should not be used very much because it is far better
+            // to keep the timeouts in one place i.e. the graph manager. The
+            // only time this could be useful is if there is nobody blocking on
+            // a ZH query, e.g. a zearch request.
+            template <class T>
+            T msg_push_timeout(Request && content, std::chrono::duration<double> timeout = constants::butler_generic_timeout, bool ignore_closed=false);
+
+            ////////////////////////////////////////////////////
+            // * Graph manager functions
+
+            struct GraphTrackingData {
+                GraphData * gd;
+                // Note: we need to have uid here, as this object starts its
+                // life before the graph is loaded.
+                BaseUID uid;
+                // If we wish to keep the graph alive ever when all other
+                // references disappear, we keep a reference in here.
+                std::optional<Graph> keep_alive_g;
+
+                std::unique_ptr<std::thread> managing_thread;
+                std::unique_ptr<std::thread> sync_thread;
+                std::promise<bool> return_value;
+                MessageQueue<RequestWrapper> queue;
+                std::atomic<bool> please_stop = false;
+
+                // blob_index latest_blob_upstream_knows_about = 0;
+                // Note: this variable is really only so we don't spam zefhub.
+                // At the moment, the graph manager should pause while it waits
+                // to receive the acknowledgement so this should actually do
+                // nothing. But if this changes in the future, we won't get caught out...
+                // blob_index latest_blob_sent_out = 0;
+
+                std::string info_str();
+
+                std::string debug_last_action = "";
+            };
+
+            std::vector<std::shared_ptr<GraphTrackingData>> graph_manager_list;
+            std::shared_mutex graph_manager_list_mutex;
+
+            std::shared_ptr<GraphTrackingData> spawn_graph_manager(BaseUID uid);
+            void spawn_graph_sync_thread(GraphTrackingData & me);
+            std::shared_ptr<GraphTrackingData> find_graph_manager(GraphData * gd);
+            std::shared_ptr<GraphTrackingData> find_graph_manager(BaseUID uid);
+            void remove_graph_manager(std::shared_ptr<GraphTrackingData> gtd);
+            std::vector<BaseUID> list_graph_manager_uids();
+            
+            void manage_graph_worker(std::shared_ptr<GraphTrackingData> graph_tracking_data);
+            // void manage_graph_sync_worker(GraphTrackingData & graph_tracking_data, std::unique_lock<std::shared_mutex> && key_lock);
+            void manage_graph_sync_worker(Butler::GraphTrackingData & me, std::promise<bool> && promise);
+
+            template <typename T>
+            void graph_worker_handle_message(GraphTrackingData & graph_tracking_data, T & content, msg_ptr & msg);
+            template <typename T>
+            T parse_ws_response(json j);
+
+
+            void load_graph_from_uid(msg_ptr & msg, BaseUID uid);
+            // This is for threads that are just looking up the uid of a graph.
+            // We have these, so that we don't block the main thread, and so
+            // that we don't need to fake a "GraphTrackingData" which actually
+            // has no graph.
+            void load_graph_from_tag_worker(msg_ptr msg);
+            void load_graph_from_file(msg_ptr & msg, std::filesystem::path dir);
+            void send_update(GraphTrackingData & me);
+
+
+            std::string upstream_name();
+
+            std::optional<Graph> local_process_graph;
+            Graph get_local_process_graph();
+        };
+
+
+
+
+        LIBZEF_DLL_EXPORTED void initialise_butler();
+        LIBZEF_DLL_EXPORTED void initialise_butler(std::string zefhub_uri);
+        LIBZEF_DLL_EXPORTED void initialise_butler_as_master();
+        LIBZEF_DLL_EXPORTED bool is_butler_running();
+        LIBZEF_DLL_EXPORTED std::shared_ptr<Butler> get_butler();
+        LIBZEF_DLL_EXPORTED void stop_butler();
+        // This is for debugging, and detecting which tokens need to be added to the everyone group.
+        extern bool before_first_graph;
+        void maybe_show_early_tokens();
+        void add_to_early_tokens(TokenQuery::Group group, const std::string & name);
+        LIBZEF_DLL_EXPORTED std::vector<std::string> early_token_list();
+        LIBZEF_DLL_EXPORTED std::vector<std::string> created_token_list();
+
+        LIBZEF_DLL_EXPORTED MMap::FileGraph create_file_graph(BaseUID tag_or_uid);
+        LIBZEF_DLL_EXPORTED std::filesystem::path file_graph_prefix(BaseUID uid, std::string upstream_name);
+        LIBZEF_DLL_EXPORTED std::filesystem::path local_graph_prefix(std::filesystem::path dir);
+        LIBZEF_DLL_EXPORTED std::filesystem::path local_graph_uid_path(std::filesystem::path dir);
+
+        LIBZEF_DLL_EXPORTED void ensure_or_get_range(void * ptr, size_t size);
+
+        // These are just for butler_zefhub.cpp
+        template<typename T1, typename T2>
+        void update_bidirection_name_map(thread_safe_bidirectional_map<T1,T2>& map_to_update, const T1 & indx, const T2 & name);
+        void update_zef_enum_bidirectional_map(thread_safe_zef_enum_bidirectional_map& map_to_update, const enum_indx& indx, const std::string & name);
+
+
+        GenericResponse generic_from_json(json j);
+
+
+
+        ////////////////////////////////////////////////
+        // * Graph update messages
+
+        struct UpdateHeads {
+            struct {
+                blob_index from;
+                blob_index to;
+                int revision;
+            } blobs;
+
+            struct NamedHeadRange {
+                std::string name;
+                size_t from;
+                size_t to;
+                size_t revision;
+            };
+            std::vector<NamedHeadRange> caches;
+
+        };
+        inline std::ostream & operator<<(std::ostream & o, const UpdateHeads & heads) {
+            o << "UpdateHeads(";
+            o << "blobs:" << heads.blobs.from << ":" << heads.blobs.to;
+            for(auto & cache : heads.caches)
+                o << ", (" << cache.revision << ") " << cache.name << ":" << cache.from << ":" << cache.to;
+            o << ")";
+            return o;
+        }
+
+        LIBZEF_DLL_EXPORTED bool is_up_to_date(const UpdateHeads & update_heads);
+        LIBZEF_DLL_EXPORTED bool heads_apply(const UpdateHeads & update_heads, const GraphData & gd);
+        LIBZEF_DLL_EXPORTED UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & update_heads);
+        LIBZEF_DLL_EXPORTED UpdateHeads client_create_update_heads(const GraphData & gd);
+        LIBZEF_DLL_EXPORTED json create_heads_json_from_sync_head(const GraphData & gd, const UpdateHeads & update_heads);
+        LIBZEF_DLL_EXPORTED void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j);
+        LIBZEF_DLL_EXPORTED UpdateHeads parse_payload_update_heads(const UpdatePayload & payload);
+        LIBZEF_DLL_EXPORTED UpdateHeads parse_message_update_heads(const json & j);
+        // UpdateHeads client_create_update_heads(const GraphData & gd);
+        LIBZEF_DLL_EXPORTED void apply_update(GraphData & gd, const UpdatePayload & payload, bool update_upstream);
+        LIBZEF_DLL_EXPORTED void apply_sync_heads(GraphData & gd, const UpdateHeads & update_heads);
+
+    }
+}
+
+#include "butler.hpp"

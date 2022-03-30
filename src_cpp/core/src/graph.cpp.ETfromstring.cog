@@ -1,0 +1,5 @@
+/*[[[cog
+for indx, name in et:
+    cog.outl(f'case hash_char_array("{name}"): return EntityType({indx});')
+]]]*/
+//[[[end]]]		

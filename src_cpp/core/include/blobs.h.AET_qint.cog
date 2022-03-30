@@ -1,0 +1,10 @@
+/*[[[cog
+for n in [x for x in en if enum_type(x[1])=='Unit' and enum_val(x[1])!='']:
+    cog.outl(f'static constexpr AtomicEntityType {enum_val(n[1])}{{ {n[0]+3} }};')
+]]]*/
+static constexpr AtomicEntityType _undefined{ 490188290 };
+static constexpr AtomicEntityType seconds{ 1972227746 };
+static constexpr AtomicEntityType kilometers_p_hour{ 2784568082 };
+static constexpr AtomicEntityType cents_singapore_dollar{ 1189824114 };
+static constexpr AtomicEntityType cents_us_dollar{ 2798090882 };
+//[[[end]]]	

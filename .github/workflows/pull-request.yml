@@ -1,0 +1,29 @@
+name: Validate Pull Request
+
+on: [pull_request]
+
+jobs:
+  test-code:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+        python-version: [3.8, 3.9, "3.10"]
+    env:
+      ZEFHUB_AUTH_KEY: "GUEST"
+    steps:
+      ########
+      # Git things
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GIT_ACCESS_KEY }}
+          persist-credentials: true
+      - uses: fusion-engineering/setup-git-credentials@v2
+        with:
+          credentials: https://synchronous:${{secrets.GIT_ACCESS_KEY}}@github.com/
+
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          python-version: ${{ matrix.python-version }}
+          os: ${{ matrix.os }}

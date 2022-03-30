@@ -1,0 +1,8 @@
+
+/*[[[cog
+import cog
+for indx,name in et:
+    cog.outl(f'case {indx}: {{o << "{name}"; break; }}')
+
+]]]*/
+//[[[end]]]

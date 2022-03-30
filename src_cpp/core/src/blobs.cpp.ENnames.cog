@@ -1,0 +1,7 @@
+/*[[[cog
+import cog
+for names_vec in en:
+    cog.outl(f'ENs.insert({names_vec[0]}, {{"{enum_type(names_vec[1])}", "{enum_val(names_vec[1])}"}});')
+
+]]]*/
+//[[[end]]]

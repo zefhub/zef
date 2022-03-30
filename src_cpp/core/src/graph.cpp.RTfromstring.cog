@@ -1,0 +1,5 @@
+/*[[[cog
+for indx, name in rt:
+    cog.outl(f'case hash_char_array("{name}"): return RelationType({indx});')
+]]]*/
+//[[[end]]]		

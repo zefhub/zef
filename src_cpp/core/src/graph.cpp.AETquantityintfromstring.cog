@@ -1,0 +1,5 @@
+/*[[[cog
+for n in [x for x in en if x[1] == 'Unit' and x[2] != '']:
+    cog.outl(f'case hash_char_array("{n[2]}"): return AtomicEntityType{{ {n[0]} + 3 }};')   # add 3 for 'quantity_int' type offset
+]]]*/
+//[[[end]]]	

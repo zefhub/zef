@@ -1,0 +1,31 @@
+name: Validate Push
+
+on:
+  push:
+    branches-ignore:
+      - master
+      - lazy-zefops
+
+jobs:
+  run-tests:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+        python-version: [3.8]
+    env:
+      ZEFHUB_AUTH_KEY: "GUEST"
+    steps:
+      ########
+      # Git things
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GIT_ACCESS_KEY }}
+
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          python-version: ${{ matrix.python-version }}
+          os: ${{ matrix.os }}
+
+
