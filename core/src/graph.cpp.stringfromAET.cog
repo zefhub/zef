@@ -1,0 +1,17 @@
+/*[[[cog
+for n in [x for x in en if enum_val(x[1])=='']:
+    cog.outl(f'case AET.Enum.{enum_type(n[1])}.value: {{return "Enum.{enum_type(n[1])}"; }}')
+]]]*/
+//[[[end]]]	
+
+/*[[[cog
+for n in [x for x in en if enum_type(x[1])=='Unit' and enum_val(x[1])!='']:
+    cog.outl(f'case AET.QuantityFloat.{enum_val(n[1])}.value: {{return "QuantityFloat.{enum_val(n[1])}"; }}')
+]]]*/
+//[[[end]]]	
+
+/*[[[cog
+for n in [x for x in en if enum_type(x[1])=='Unit' and enum_val(x[1])!='']:
+    cog.outl(f'case AET.QuantityInt.{enum_val(n[1])}.value: {{return "QuantityInt.{enum_val(n[1])}"; }}')
+]]]*/
+//[[[end]]]	

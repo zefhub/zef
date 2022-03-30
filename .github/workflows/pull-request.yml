@@ -1,0 +1,27 @@
+name: Validate Pull Request
+
+on: [pull_request]
+
+jobs:
+  test-code:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04]
+        python-version: [3.8, 3.9, "3.10"]
+    env:
+      ZEFHUB_AUTH_KEY: "GUEST"
+    steps:
+      ########
+      # Git things
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      # TODO: Update this to check via building the wheel rather than a local build
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          python-version: ${{ matrix.python-version }}
+          os: ${{ matrix.os }}

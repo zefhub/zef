@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<!--
+ Copyright 2022 Synchronous Technologies Pte Ltd
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+-->
+
+<html>
+    <head>
+        <script src="https://www.gstatic.com/firebasejs/9.6.3/firebase-app-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/9.6.3/firebase-auth-compat.js"></script>
+        <script src="https://www.gstatic.com/firebasejs/ui/6.0.0/firebase-ui-auth.js"></script>
+        <link type="text/css" rel="stylesheet" href="https://www.gstatic.com/firebasejs/ui/6.0.0/firebase-ui-auth.css" />
+    </head>
+    <body>
+        <div id="firebaseui-auth-container"></div>
+        <div id="loader">Loading...</div>
+
+        <!-- Signin as guest button -->
+        <div class="firebaseui-container firebaseui-page-provider-sign-in firebaseui-id-page-provider-sign-in firebaseui-use-spinner">
+            <div class="firebaseui-card-content">
+                <ul class="firebaseui-idp-list">
+                    <li class="firebaseui-list-item">
+                        <a class="firebaseui-idp-button mdl-button mdl-js-button mdl-button--raised firebaseui-id-idp-button" href="/callback/guest" style="padding-top: 10px; min-height: 20px; padding-bottom: 10px; max-width: 185px; text-align: center; margin-top: 30px;">
+                            Sign in as Guest
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+        <div class="firebaseui-container firebaseui-page-provider-sign-in firebaseui-id-page-provider-sign-in firebaseui-use-spinner">
+            <div class="firebaseui-card-content">
+                <ul class="firebaseui-idp-list">
+                    <li class="firebaseui-list-item">
+                        <button type="button" onclick="onCancel()" class="firebaseui-idp-button mdl-button mdl-js-button mdl-button--raised firebaseui-id-idp-button" href="/auth/guest" style="padding-top: 10px; min-height: 20px; padding-bottom: 10px; max-width: 185px; text-align: center; background-color: rgb(237 235 235 / 20%);">
+                            Cancel
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <script type="text/javascript">
+            // Your web app's Firebase configuration
+            // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+            const firebaseConfig = {
+                apiKey: "AIzaSyD3kLQjN2yDch3ptct-xcFfGewCzFFE1mM",
+                authDomain: "zefhub-io.firebaseapp.com",
+                projectId: "zefhub-io",
+                storageBucket: "zefhub-io.appspot.com",
+                messagingSenderId: "2826807872",
+                appId: "1:2826807872:web:f872498831f4941ff40da5",
+                measurementId: "G-2ZPFQ2QT9E"
+            };
+            const app = firebase.initializeApp(firebaseConfig);
+
+
+            // Initialize the FirebaseUI Widget using Firebase.
+            var ui = new firebaseui.auth.AuthUI(firebase.auth());
+
+            ui.start('#firebaseui-auth-container', {
+                signInOptions: [
+                  firebase.auth.EmailAuthProvider.PROVIDER_ID,
+                  firebase.auth.GithubAuthProvider.PROVIDER_ID
+                ],
+                signInFlow: 'redirect',
+                callbacks: {
+                    signInSuccessWithAuthResult: function(authResult, redirectUrl) {
+                      // Get redirect url
+                      var params = (new URL(document.location)).searchParams;
+
+                      // Send to callback
+                      window.location.replace(params.get("redirectUrl") + "?refreshToken=" + authResult.user.refreshToken+"&state=");
+
+                      return false;
+                    },
+                    uiShown: function() {
+                      // The widget is rendered.
+                      // Hide the loader.
+                      document.getElementById('loader').style.display = 'none';
+                    }
+                },
+            });
+
+            // Register exit call
+            function onCancel (e) {
+                // Get base url of the server
+                var baseUrl = window.location.origin;
+
+                // call /exit
+                var xhttp = new XMLHttpRequest();
+                xhttp.open("GET", baseUrl + "/exit", false);
+                xhttp.onload = function (e) {
+                    if (xhttp.readyState === 4) {
+                      // Clode the window
+                      window.close();
+                    }
+                  };
+                  xhttp.onerror = function (e) {
+                    console.error(xhttp.statusText);
+                  };
+                xhttp.send();
+            };
+        </script>
+    </body>
+</html>

@@ -1,0 +1,24 @@
+
+/*[[[cog
+def map_enum_type_to_code_str_inner(indx_and_val_name_list):
+    return f"    static constexpr ZefEnumValue {enum_val(indx_and_val_name_list[1])}{{ {indx_and_val_name_list[0]} }};"
+
+def map_enum_type_to_struct_defs(el):
+    new_line='\n'
+    return f"""\
+struct {el[0]}_ {{
+{new_line.join([map_enum_type_to_code_str_inner(x) for x in el[1]])}
+}};
+static constexpr {el[0]}_ {el[0]}{{}};
+"""
+
+from functional import seq
+
+(seq(en)
+        .filter(lambda el: enum_val(el[1]) != '')  # exclude the enum types
+        .group_by(lambda el: enum_type(el[1]))
+        .map(map_enum_type_to_struct_defs)
+        .for_each(cog.outl)
+        )
+]]]*/
+//[[[end]]]		

@@ -1,0 +1,24 @@
+# This should be run from the zef repo root
+FROM debian:stable
+
+RUN apt-get update
+RUN apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    make \
+    ninja-build \
+    curl \
+    git \
+    zstd \
+    libzstd-dev \
+    openssl \
+    libssl-dev \
+    libsecret-1-0 \
+    libcurl4-openssl-dev \
+    python3 \
+    python3-pip \
+    python3-dev
+
+COPY . .
+
+RUN LIBZEF_LOCATION=$(realpath core) pip3 install ./python

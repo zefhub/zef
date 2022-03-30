@@ -1,0 +1,8 @@
+
+/*[[[cog
+import cog
+for index, name in et:
+    cog.outl(f'ETs.insert({index}, "{name}");')
+
+]]]*/
+//[[[end]]]

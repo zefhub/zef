@@ -1,0 +1,6 @@
+/*[[[cog
+for n in [x for x in en if enum_val(x[1])=='']:
+    cog.outl(f'static constexpr AtomicEntityType {enum_type(n[1])}{{ {n[0]+1} }};')
+]]]*/
+static constexpr AtomicEntityType Unit{ 419318977 };
+//[[[end]]]		

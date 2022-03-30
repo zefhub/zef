@@ -1,0 +1,5 @@
+/*[[[cog
+for n in [x for x in en if enum_val(x[1]) == '']:
+    cog.outl(f'case hash_char_array("{enum_type(n[1])}"): return AtomicEntityType{{ {n[0]} + 1 }};')   # add 1 for 'Enum' type offset
+]]]*/
+//[[[end]]]	

@@ -1,0 +1,239 @@
+# [[[cog
+# import cog
+# import json
+# from functional import seq
+# ]]]
+# [[[end]]]
+
+class EntityTypeStruct():
+    """
+    ET will be a singleton of this class. Defined here instead of within the C++ to add for adding new entity types
+    without recompiling and have the IDE autocomplete
+    """
+
+    # [[[cog
+    #    for indx,name in et:
+    #       cog.outl(f"{name} = None")
+    # ]]]
+    _unspecified = get_entity_type_from_string('_unspecified')
+    ZEF_Unspecified = get_entity_type_from_string('ZEF_Unspecified')
+    ZEF_Any = get_entity_type_from_string('ZEF_Any')
+    # [[[end]]]
+
+    def __getattr__(self, attr_name):
+        pass
+
+    def __len__(self):
+        """
+        IDEs sometimes ask for this. Don't have this routed to be understood as an attribute
+        """
+        return 0
+
+    def __call__(self, arg):
+        pass
+
+    def __ror__(self, arg):
+        pass
+
+ET = EntityTypeStruct()
+
+class RelationTypeStruct():
+    """
+    RT will be a singleton of this class
+    """
+
+    # [[[cog
+    #    for indx,name in rt:
+    #       cog.outl(f"{name} = None")
+    # ]]]
+    # [[[end]]]
+
+    def __getattr__(self, attr_name):
+        pass
+
+    def __len__(self):
+        """
+        IDEs sometimes ask for this. Don't have this routed to be understood as an attribute
+        """
+        return 0
+
+    def __call__(self, arg):
+        pass
+
+    def __ror__(self, arg):
+        pass
+
+RT = RelationTypeStruct()
+
+
+# the following three classes are defined outside AtomicEntitiesClass to not clutter the auto-complete of AET. ...
+class AtomicEntityTypeStruct_Enum():
+    # [[[cog
+    # for n in [x for x in en if enum_val(x[1]) == '']:
+    #     cog.outl(f'{enum_type(n[1])} = AtomicEntityType(0)')
+    # ]]]
+    # [[[end]]]
+    def __getattr__(self, enum_type_name):
+        pass
+    def __call__(self, enum_type_name):
+        pass
+
+    def __ge__(self, other):
+        pass
+
+
+class AtomicEntityTypeStruct_QuantityFloat():
+    # [[[cog
+    # for n in [x for x in en if enum_type(x[1]) == 'Unit' and enum_val(x[1]) != '']:
+    #     cog.outl(f'{enum_val(n[1])} = AtomicEntityType(0)')
+    # ]]]
+    # [[[end]]]
+    def __getattr__(self, unit_name):
+        pass
+    def __call__(self, unit_name):
+        pass
+    def __ge__(self, other):
+        pass
+
+
+class AtomicEntityTypeStruct_QuantityInt():
+    # [[[cog
+    # for n in [x for x in en if enum_type(x[1]) == 'Unit' and enum_val(x[1]) != '']:
+    #     cog.outl(f'{enum_val(n[1])} = AtomicEntityType(0)')
+    # ]]]
+    # [[[end]]]
+    def __getattr__(self, unit_name):
+        pass
+    def __call__(self, unit_name):
+        pass
+
+    def __ge__(self, other):
+        pass
+
+
+class AtomicEntityStruct():
+    _unspecified = AtomicEntityType(0)
+    String = AtomicEntityType(1)
+    Bool = AtomicEntityType(2)
+    Float = AtomicEntityType(3)
+    Int = AtomicEntityType(4)
+    Time = AtomicEntityType(5)
+
+    Enum = AtomicEntityTypeStruct_Enum()
+    QuantityFloat = AtomicEntityTypeStruct_QuantityFloat()
+    QuantityInt = AtomicEntityTypeStruct_QuantityInt()
+
+    def __call__(self, arg):
+        pass
+
+    def __ror__(self, arg):
+        pass
+
+AET = AtomicEntityStruct()
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class _KnownZefEnumTypes():
+    '''
+    keep class definitions here: used only as a name space. To be able to ctach new unknown enum value names of known
+    enum types, we need to define the __getattr__ method in the class definition and use the instance in ZefEnumsClass
+    '''
+    # [[[cog
+    # def map_enum_type_to_code_str_inner(indx_and_val_name_list):
+    #     if enum_val(indx_and_val_name_list[1]) == '':
+    #         return ''
+    #     return f"    {enum_val(indx_and_val_name_list[1])} = get_enum_value_from_string('{enum_type(indx_and_val_name_list[1])}', '{enum_val(indx_and_val_name_list[1])}')"
+    #
+    # def map_enum_type_to_struct_defs(el):
+    #     new_line = '\n'
+    #     return f"""\
+    # class {el[0]}Class:
+    # {new_line.join([map_enum_type_to_code_str_inner(x) for x in el[1]])}
+    #     def __getattr__(self, enum_val_name):
+    #         if enum_val_name[0] != '_':
+    #             return get_enum_value_from_string('{el[0]}', enum_val_name)
+    # """
+    #
+    # (seq(en)
+    #  #.filter(lambda x: x[2]!='')
+    #  .group_by(lambda el: enum_type(el[1]))
+    #  .map(map_enum_type_to_struct_defs)
+    #  .for_each(cog.outl)
+    #  )
+    # ]]]
+    class UnitClass:
+
+        _undefined = get_enum_value_from_string('Unit', '_undefined')
+        seconds = get_enum_value_from_string('Unit', 'seconds')
+        kilometers_p_hour = get_enum_value_from_string('Unit', 'kilometers_p_hour')
+        kilometers = get_enum_value_from_string('Unit', 'kilometers')
+        miles = get_enum_value_from_string('Unit', 'miles')
+        def __getattr__(self, enum_val_name):
+            if enum_val_name[0] != '_':
+                return get_enum_value_from_string('Unit', enum_val_name)
+    # [[[end]]]
+
+
+
+class ZefEnumsClass():
+    """
+    EN will be a singleton of this class
+    """
+
+    # [[[cog
+    # def map_enum_type_to_code_str_inner(indx_and_val_name_list):
+    #     return f"    {enum_type(indx_and_val_name_list[1][1])} = get_enum_value_from_string('{indx_and_val_name_list[1][0]}', '{enum_type(indx_and_val_name_list[1][1])}')"
+    #
+    # def map_enum_type_to_struct_defs(el):
+    #     return f"{el[0]} = _KnownZefEnumTypes.{el[0]}Class()"
+    #
+    # (seq(en)
+    #  .group_by(lambda el: enum_type(el[1]))
+    #  .map(map_enum_type_to_struct_defs)
+    #  .for_each(cog.outl)
+    #  )
+    # ]]]
+    # [[[end]]]
+
+    def __getattr__(self, enum_type_name):
+        class ZefEnumTypeInterceptor:
+            def __init__(self, enum_type_name):
+                self.enum_type_name = enum_type_name
+
+            def __getattr__(self, enum_val_name):
+                if enum_val_name[0] != '_':
+                    return get_enum_value_from_string(self.enum_type_name, enum_val_name)
+        if enum_type_name[0] != '_':
+            return ZefEnumTypeInterceptor(enum_type_name)   # call ctor and curry this in
+
+    def __len__(self):
+        """
+        IDEs sometimes ask for this. Don't have this routed to be understood as an attribute
+        """
+        return 0
+
+    # enable EN('MachineStatus', 'IDLE')
+    def __call__(self, *arg):   # we want to pass two strings
+        enum_type, enum_val = (arg[0], arg[1]) if isinstance(arg, tuple) and len(arg) > 1 else (arg[0], '')
+        if isinstance(enum_type, str) and isinstance(enum_val, str):
+            return get_enum_value_from_string(enum_type, enum_val)
+        else:
+            raise RuntimeError('EN() called for unsuitable type')
+
+
+EN = ZefEnumsClass()

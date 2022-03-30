@@ -1,0 +1,8 @@
+
+/*[[[cog
+import cog
+for index, name in kw:
+    cog.outl(f'KWs.insert({index}, "{name}");')
+
+]]]*/
+//[[[end]]]

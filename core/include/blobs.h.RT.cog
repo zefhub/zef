@@ -1,0 +1,22 @@
+
+/*[[[cog
+import cog
+for indx,name in rt:
+    cog.outl(f'const RelationType {name} = RelationType({indx});')
+]]]*/
+const RelationType ZEF_Unspecified = RelationType(0);
+const RelationType ZEF_Any = RelationType(1);
+const RelationType ZEF_OnInstantiation = RelationType(2);
+const RelationType ZEF_OnValueAssignment = RelationType(3);
+const RelationType ZEF_OnTermination = RelationType(4);
+const RelationType ZEF_Instantiate = RelationType(5);
+const RelationType ZEF_Terminate = RelationType(6);
+const RelationType ZEF_Python = RelationType(7);
+const RelationType PrimaryInstance = RelationType(8);
+const RelationType UsedBy = RelationType(9);
+const RelationType TypeOf = RelationType(10);
+const RelationType PreviousOperation = RelationType(11);
+const RelationType ChildOf = RelationType(12);
+const RelationType Next = RelationType(13);
+const RelationType GraphSubscription = RelationType(14);
+//[[[end]]]

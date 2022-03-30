@@ -1,0 +1,8 @@
+
+/*[[[cog
+import cog
+for index, name in rt:
+    cog.outl(f'RTs.insert({index}, "{name}");')
+
+]]]*/
+//[[[end]]]

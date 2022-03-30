@@ -1,0 +1,11 @@
+include versioneer.py
+include requirements.txt
+include setup.py
+include setup.cfg
+include pyproject.toml
+include MANIFEST.in
+include lookforzef.cmake
+include CHANGELOG
+graft pyzef
+include tests/test*.py
+prune pyzef/build

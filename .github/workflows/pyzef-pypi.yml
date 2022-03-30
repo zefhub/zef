@@ -1,0 +1,129 @@
+name: PyPI releases
+
+on:
+ push:
+   tags:
+     - "pyzef-*"
+
+jobs:
+  build-wheels:
+    name: Build wheels
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, macos-latest]
+        # os: [ubuntu-20.04]
+        # Note: need "3.10" as yaml will truncate floating point number
+        python-version: ["cp38", "cp39", "cp310"]
+        # python-version: ["cp310"]
+        exclude:
+          - os: macos-latest
+            python-version: "cp38"
+    env:
+      ZEFHUB_AUTH_KEY: "GUEST"
+
+    steps:
+      ########
+      # Git things
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Install OpenSSL on macos
+        if: ${{ !startsWith(matrix.os, 'macos') }}
+        run: |
+          brew install openssl
+
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.4.0
+        with:
+          package-dir: python
+        env:
+          CIBW_BUILD: "${{ matrix.python-version}}*"
+
+      - name: save wheels in artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: |
+            wheelhouse/*
+
+      #######
+      # Errors to slack
+      - uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          if_mention: failure
+          channel: "#alerts-github-ci"
+          fields: repo,message,commit,author,ref,workflow # selectable (default: repo,message)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: ${{ failure() && !contains(github.ref, 'dev') }}
+
+  upload-to-pypi:
+    name: Upload wheels to PyPI
+    runs-on: ubuntu-20.04
+    needs: [build-wheels]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Grab built wheels
+        uses: actions/download-artifact@v3
+        with:
+          name: wheels
+          path: wheelhouse
+
+      - name: Generate sdist as well
+        run: |
+          pip3 install --upgrade pip setuptools
+          cd python
+          python setup.py sdist --dist-dir="../wheelhouse"
+
+      - name: upload to pypi
+        env:
+          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: |
+          ls -R wheelhouse
+          pip3 install --upgrade twine
+          python3 -m twine upload --repository testpypi -u __token__ -p "${PYPI_TOKEN}" --skip-existing wheelhouse/*
+          
+  dev-announcement:
+    name: Dev announcement
+    runs-on: ubuntu-20.04
+    needs: [upload-to-pypi]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Get tag
+        id: vars
+        run: |
+          echo ::set-output name=tag::${GITHUB_REF##*/pyzef-}
+
+      # - name: Release announcement
+      #   if: ${{ (!contains(github.ref, 'dev') && github.event.release.prerelease == false) }}
+      #   env:
+      #     MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
+      #     CHANNEL: releases
+      #     NAME: ${{ github.event.release.name }}
+      #     DESCRIPTION: ${{ github.event.release.body }}
+      #     VERSION_STRING: ${{ steps.vars.outputs.tag }}
+      #     DOWNLOAD_STRING: "`pip3 install --upgrade zef`"
+      #   run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
+
+      - name: Release announcement for dev
+        if: ${{ (contains(github.ref, 'dev') || github.event.release.prerelease == true) }}
+        env:
+          MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
+          CHANNEL: dev-releases
+          NAME: "${{ github.event.release.name }}"
+          DESCRIPTION: "${{ github.event.release.body }}"
+          VERSION_STRING: ${{ steps.vars.outputs.tag }}
+          DOWNLOAD_STRING: "`pip install zef==${{ steps.vars.outputs.tag }}`"
+        run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go

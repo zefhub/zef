@@ -1,0 +1,43 @@
+name: Validate Master Push/Merge
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test-code:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-18.04, macos-latest]
+        python-version: [3.8, 3.9, "3.10"]
+        exclude:
+          - os: macos-latest
+            python-version: 3.8
+    env:
+      ZEFHUB_AUTH_KEY: "GUEST"
+    steps:
+      ########
+      # Git things
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # TODO: Update this to check via building the wheel rather than a local build
+      - name: Build
+        uses: ./.github/actions/build
+        with:
+          python-version: ${{ matrix.python-version }}
+          os: ${{ matrix.os }}
+
+      - uses: 8398a7/action-slack@v3
+        with:
+          status: ${{ job.status }}
+          if_mention: failure
+          channel: '#alerts-github-ci'
+          fields: repo,message,commit,author,ref,workflow # selectable (default: repo,message)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        if: failure()

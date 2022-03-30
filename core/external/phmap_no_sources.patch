@@ -1,0 +1,13 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 9b67727..1359020 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -21,7 +21,7 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}")
+ 
+ add_library(${PROJECT_NAME} INTERFACE)
+ 
+-target_sources(${PROJECT_NAME} INTERFACE ${PHMAP_HEADERS})
++# target_sources(${PROJECT_NAME} INTERFACE ${PHMAP_HEADERS})
+ 
+ target_include_directories(
+      ${PROJECT_NAME} INTERFACE

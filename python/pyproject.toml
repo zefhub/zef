@@ -1,0 +1,16 @@
+[tool.cibuildwheel]
+skip = ["pp*", "*musllinux*"]
+archs = ["auto64"]
+test-requires = "pytest networkx>=2.6.3"
+test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST ZEFDB_QUIET=YES pytest {project}/python/tests"
+
+[tool.cibuildwheel.linux]
+before-all = "yum install -y openssl-devel"
+
+[tool.cibuildwheel.macos]
+before-all = "brew install openssl"
+
+[build-system]
+# TODO: Get rid of these deps from the libzef part
+requires = ["setuptools", "cmake", "pybind11", "cogapp", "pyfunctional"]
+build-backend = "setuptools.build_meta"
