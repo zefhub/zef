@@ -1,5 +1,6 @@
 from .._ops import *
 from .._core import *
+from ... import core
 
 class FunctionZefOp:
     @staticmethod
@@ -24,3 +25,29 @@ class FunctionZefOp:
         return ZefOp(((RT.Function, ((2, arg), )), ))
 
 func2 = FunctionZefOp()
+
+def function_imp(x0, func_info, *args, **kwargs):
+    """
+    func_repr is of form (int, any)
+    where the first integer encodes how the function is
+    represented in the ZefOp:
+    -------- representation types -------
+    0) Abstract Entity
+    1) Zef Lambda
+    2) captured python lambda or local function
+    """
+    repr_indx, fct = func_info
+    if repr_indx == 0:
+        # TODO: Convert Abstract Entity to ZefRef? Or implement Abstract Entity specfic caching and compilation!
+
+        # extract the atomic entity and look in the compiled function cache.
+        # apply that function to the args, similar to the case below
+        from zef.core.zef_functions import _overloaded_zefref_call
+        return _overloaded_zefref_call(fct, x0, *args, **kwargs)
+    if repr_indx == 2:
+        return fct(x0, *args, **kwargs)
+    else:
+        raise NotImplementedError('Zef Lambda expressions is not implemented yet.')
+
+
+core.op_implementations.dispatch_dictionary._op_to_functions[RT.Function] = (function_imp, None)
