@@ -41,7 +41,6 @@ from . import abstract_raes
 from . import graph_delta
 from . import graph_slice
 from . import flat_graph
-from . import bytes_value
 from . import fx
 from . import serialization
 
@@ -59,8 +58,6 @@ from .graph_slice import GraphSlice
 
 
 from .flat_graph import FlatGraph, FlatRef, FlatRefs
-
-from .bytes_value import Bytes
 
 from .VT import TX
 from .abstract_raes import Entity, AtomicEntity, Relation

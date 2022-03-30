@@ -114,7 +114,7 @@ int resolve_memory_style(int mem_style, bool synced) {
     return mem_style;
 }
 
-void apply_update(GraphData & gd, const UpdatePayload & payload, bool update_upstream) {
+void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, bool double_link, bool update_upstream) {
     LockGraphData lock{&gd};
 
     UpdateHeads heads = parse_payload_update_heads(payload);
@@ -132,7 +132,7 @@ void apply_update(GraphData & gd, const UpdatePayload & payload, bool update_ups
 
     // Apply blob updates
 
-    internals::include_new_blobs(gd, heads.blobs.from, heads.blobs.to, blob_bytes, true, false);
+    internals::include_new_blobs(gd, heads.blobs.from, heads.blobs.to, blob_bytes, double_link, false);
     gd.latest_complete_tx = index(internals::get_latest_complete_tx_node(gd));
 
     // Apply cache updates
@@ -232,7 +232,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
         me.gd->should_sync = false;
 
         if(content.payload) {
-            apply_update(*me.gd, *content.payload, false);
+            apply_update_with_caches(*me.gd, *content.payload, false, false);
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
             // Note: don't set sync_head here, it should remain at 0.
         }
@@ -356,8 +356,8 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                     {"msg_type", "subscribe_to_graph"},
                     {"graph_uid_or_tag", str(me.uid)},
                 },
-                {},
-                constants::zefhub_subscribe_to_graph_timeout_default
+                {}
+                // constants::zefhub_subscribe_to_graph_timeout_default
             );
             if(!response.generic.success) {
                 msg->promise.set_value(GraphLoaded(response.generic.reason));
@@ -381,7 +381,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
 
             LockGraphData gd_lock{me.gd};
             UpdatePayload payload{response.j, response.rest};
-            apply_update(*me.gd, payload, true);
+            apply_update_with_caches(*me.gd, payload, false, true);
 
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
             // internals::apply_actions_to_blob_range(*me.gd, index_lo, index_hi, true, false);
@@ -614,13 +614,20 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
             // This occurs via us triggering the sync thread.
             blob_index sync_to = me.gd->read_head;
             wake(me.gd->heads_locker);
-            bool reached_sync = wait_pred(me.gd->heads_locker,
-                           [&]() { return me.gd->sync_head >= sync_to; },
-                           constants::butler_generic_timeout);
-            if(!reached_sync) { 
-                msg->promise.set_value(GenericResponse{false, "Timed out waiting for sync."});
-                return;
-            }
+            // bool reached_sync = wait_pred(
+            //     me.gd->heads_locker,
+            //     [&]() { return me.gd->sync_head >= sync_to; },
+            //     std::chrono::duration<double>(butler_generic_timeout.value));
+            // if(!reached_sync) { 
+            //     msg->promise.set_value(GenericResponse{false, "Timed out waiting for sync."});
+            //     return;
+            // }
+            wait_pred(me.gd->heads_locker,
+                      [&]() { return me.gd->sync_head >= sync_to || !network.connected || me.gd->error_state != GraphData::ErrorState::OK; });
+
+            if(!network.connected)
+                msg->promise.set_value(GenericResponse{false, "Lost network connection while trying to sync."});
+                
             if(!me.gd->in_sync()) {
                 // The only reason we get here should be because another
                 // thread is writing to the graph and the read/write
@@ -657,7 +664,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, GraphUp
     if(me.gd->is_primary_instance)
         throw std::runtime_error("Shouldn't be receiving updates if we are the primary role!");
 
-    apply_update(*me.gd, content.payload, true);
+    apply_update_with_caches(*me.gd, content.payload, true, true);
 
     // TODO: In the future, we need to acknowledge that we have applied this update successfully.
 }
@@ -897,7 +904,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, TagGrap
         msg->promise.set_value(GenericResponse("Can't tag graph when not being synchronised."));
         return;
     }
-    if(!wait_diff(me.gd->heads_locker, me.gd->sync_head, 0, constants::butler_generic_timeout)) {
+    if(!wait_diff(me.gd->heads_locker, me.gd->sync_head, 0, std::chrono::duration<double>(butler_generic_timeout.value))) {
         msg->promise.set_value(GenericResponse("Timed out waiting for graph to be synced."));
         return;
     }

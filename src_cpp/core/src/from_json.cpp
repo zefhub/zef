@@ -3,6 +3,8 @@
 #include "low_level_api.h"
 #include "butler/utils.h"
 #include "high_level_api.h"
+#include "synchronization.h"
+#include "verification.h"
 
 
 
@@ -243,10 +245,16 @@ namespace zefDB {
             // create_from_bytes does not do this.
             {
                 // We have to cheat a little here by taking a reference without letting the butler know this graph exists...
-                gd->reference_count++;
+                Graph g(*gd);
                 LockGraphData lock{gd};
-                apply_actions_to_blob_range(*gd, constants::ROOT_NODE_blob_index, gd->write_head, true, true, true);
-                gd->reference_count--;
+                blob_index cur_index = constants::ROOT_NODE_blob_index;
+                while (cur_index < gd->write_head) {
+                    EZefRef uzr(cur_index, *gd);
+                    apply_action_blob(*gd, uzr, true);
+                    cur_index += blob_index_size(uzr);
+                }
+
+                verification::verify_graph_double_linking(g);
             }
             // Now use this byte data to construct a new graph which will do
             // apply blobs, create the caches and make it managed by the butler.

@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 void handle_token_response(Butler & butler, json & j);
-void handle_token_response(Butler & butler, json & j, Butler::Task && task);
+void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr & task);
 
 
 void Butler::ws_open_handler(void) {
@@ -13,8 +13,7 @@ void Butler::ws_open_handler(void) {
     fatal_connection_error = false;
 
     json j({
-            {"username", auth_username},
-            {"token", auth_token},
+            {"token", get_firebase_token_refresh_token(refresh_token)},
             {"desired_protocol_version", zefdb_protocol_version_max},
         });
 
@@ -283,28 +282,40 @@ void Butler::ws_message_handler(std::string msg) {
 
             // All of these messages must be passed down the line
             std::string task_uid = j["task_uid"].get<std::string>();
-            Task task;
-            if(!find_task(task_uid, &task))
+            task_promise_ptr task_promise = find_task(task_uid);
+            if(!task_promise)
                 throw std::runtime_error("Task uid isn't in the waiting list!");
             try {
+                if(msg_type == "poke") {
+                    if(zwitch.developer_output())
+                        std::cerr << "Got a poke for task " << task_uid << std::endl;
+                    task_promise->task->last_activity = now();
+                    return;
+                }
+
+                // If we're here, then we definitely are going to be finished
+                // with the task
+                forget_task(task_uid);
+
                 if(zwitch.developer_output())
-                    std::cerr << "Task response time was: " << now() - task.started_time << std::endl;
+                    std::cerr << "Task response time was: " << now() - task_promise->task->started_time << std::endl;
                 if(msg_type == "merge_request_response") {
                     auto msg = parse_ws_response<MergeRequestResponse>(j);
-                    task.promise.set_value(msg);
+                    task_promise->promise.set_value(msg);
                 } else if(msg_type == "token_response") {
-                    handle_token_response(*this, j, std::move(task));
+                    handle_token_response(*this, j, task_promise);
                 } else {
                     // The fallback
                     GenericZefHubResponse msg;
                     msg.generic = generic_from_json(j);
                     msg.j = j;
                     msg.rest = rest;
-                    task.promise.set_value(msg);
+                    task_promise->promise.set_value(msg);
                 }
                 return;
             } catch(...) {
-                task.promise.set_exception(std::current_exception());
+                task_promise->promise.set_exception(std::current_exception());
+                forget_task(task_uid);
                 throw;
             }
 
@@ -405,7 +416,7 @@ void handle_token_response(Butler & butler, json & j) {
     }
 }
 
-void handle_token_response(Butler & butler, json & j, Butler::Task && task) {
+void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr & task_promise) {
     TokenQueryResponse response;
     response.generic = generic_from_json(j);
     
@@ -432,5 +443,5 @@ void handle_token_response(Butler & butler, json & j, Butler::Task && task) {
         }
     }
 
-    task.promise.set_value(response);
+    task_promise->promise.set_value(response);
 }

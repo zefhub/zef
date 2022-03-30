@@ -33,6 +33,12 @@ namespace zefDB {
             network.outside_fatal_handler = std::bind(&Butler::ws_fatal_handler, this, std::placeholders::_1);
             network.outside_open_handler = std::bind(&Butler::ws_open_handler, this);
             network.uri = uri;
+
+            // Note: defaults for this are set in the class.
+            const char * env = std::getenv("ZEFDB_TRANSFER_CHUNK_SIZE");
+            if (env != nullptr) {
+                throw std::runtime_error("Not implemented");
+            }
         }
 
         bool is_butler_running() {
@@ -174,12 +180,16 @@ namespace zefDB {
             }
         }
         void stop_butler() {
+            if(zwitch.developer_output()) {
+                std::cerr << "stop_butler was called" << std::endl;
+            }
+
             if (!butler) {
                 std::cerr << "Butler wasn't running." << std::endl;
                 return;
             }
 
-            butler->should_stop = true;
+            update(butler->auth_locker, butler->should_stop, true);
             butler->msgqueue.set_closed();
 
             if(zwitch.developer_output())
@@ -202,6 +212,7 @@ namespace zefDB {
                 auto extra_print = [&data]() {
                     std::cerr << "Last action was: " << data->debug_last_action << std::endl;
                     std::cerr << "Number of msgs queue: " << data->queue.num_messages.load() << std::endl;
+                    std::cerr << "please_stop: " << data->please_stop << std::endl;
                     std::cerr << "Last msg (or current msg) processed: " << data->queue.last_popped << std::endl;
                     std::cerr << "Items are: [";
                     for (auto & slot : data->queue.slots) {
@@ -220,7 +231,7 @@ namespace zefDB {
                     std::cerr << "]" << std::endl;
                 };
                 long_wait_or_kill(*data->managing_thread, data->return_value, data->uid, extra_print);
-                                    }
+            }
             butler->graph_manager_list.clear();
             if(zwitch.developer_output())
                 std::cerr << "Removing local process graph" << std::endl;
@@ -303,31 +314,34 @@ namespace zefDB {
         ////////////////////////////////
         // * Task handling and WS msgs
 
-        template<class... ARGS>
-        Butler::task_ptr Butler::add_task(bool is_online, ARGS... args) {
+        Butler::task_ptr Butler::add_task(bool is_online, QuantityFloat timeout) {
+            return add_task(is_online, timeout, std::promise<Response>(), true);
+        };
+        Butler::task_ptr Butler::add_task(bool is_online, QuantityFloat timeout, std::promise<Response> && promise, bool acquire_future) {
             std::lock_guard lock(waiting_tasks_mutex);
 #ifdef ZEF_DEBUG
             if(waiting_tasks.size() > 100)
                 std::cerr << "Warning, there are a lot of tasks building up in the task_list! These should probably be removed at some point." << std::endl;
 #endif
-            return waiting_tasks.emplace_back(std::make_shared<Task>(now(), is_online, std::forward<ARGS>(args)...));
+            task_ptr task = std::make_shared<Task>(now(), is_online, timeout, promise, acquire_future);
+            waiting_tasks.emplace_back(std::make_shared<TaskPromise>(task, std::move(promise)));
+            return task;
         };
         // Search and pop a task from the waiting tasks. Return true/false if found.
         // Note the iteration style is due to the forward_list type.
-        bool Butler::find_task(std::string task_uid, Task * return_task) {
+        Butler::task_promise_ptr Butler::find_task(std::string task_uid, bool forget) {
             std::lock_guard lock(waiting_tasks_mutex);
             for(auto it = waiting_tasks.begin() ; it != waiting_tasks.end() ; it++) {
-                if ((*it)->task_uid == task_uid) {
-                    *return_task = std::move(**it);
-                    waiting_tasks.erase(it);
-                    return true;
+                if ((*it)->task->task_uid == task_uid) {
+                    if(forget)
+                        waiting_tasks.erase(it);
+                    return *it;
                 }
             }
-            return false;
+            return {};
         }
         bool Butler::forget_task(std::string task_uid) {
-            Task dummy;
-            return find_task(task_uid, &dummy);
+            return (bool)find_task(task_uid, true);
         }
         void Butler::cancel_online_tasks() {
             std::lock_guard lock(waiting_tasks_mutex);
@@ -335,9 +349,9 @@ namespace zefDB {
             waiting_tasks.erase(
                 std::remove_if(waiting_tasks.begin(),
                                waiting_tasks.end(),
-                               [](task_ptr & task) {
-                                   if(task->is_online) {
-                                       task->promise.set_exception(std::make_exception_ptr(std::runtime_error("Disconnected from upstream")));
+                               [](task_promise_ptr & task_promise) {
+                                   if(task_promise->task->is_online) {
+                                       task_promise->promise.set_exception(std::make_exception_ptr(disconnected_exception()));
                                        return true;
                                    }
                                    return false;
@@ -346,31 +360,49 @@ namespace zefDB {
             );
         }
 
-        Response Butler::wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest, std::chrono::duration<double> timeout, bool throw_on_failure) {
-            std::future<Response> future;
-            std::string task_uid;
-            std::string msg_type = j["msg_type"].get<std::string>();
-            {
+        Response wait_future(Butler::task_ptr task) {
+            if(task->timeout.value > 0) {
+                while(true) {
+                    assert(task->timeout.unit == EN.Unit.seconds);
+                    // TODO: We might have to make last_activity an atomic to make sure updates come through.
+                    auto wait_time = task->last_activity + task->timeout - now();
+                    auto status = task->future.wait_for(std::chrono::duration<double>(wait_time.value));
+                    if(status == std::future_status::ready) {
+                        if(zwitch.developer_output())
+                            std::cerr << "Zefhub message took " << (now() - task->started_time) << std::endl;
+                        break;
+                    }
 
-                task_ptr task = add_task(true);
-                future = task->promise.get_future();
-                task_uid = task->task_uid;
-                j["task_uid"] = task->task_uid;
-                send_ZH_message(j, rest);
+                    if(now() > task->last_activity + task->timeout) {
+                        std::cerr << "Throwing timeout exception because last_activity was " << task->last_activity << " and now is " << now() << std::endl;
+                        throw Butler::timeout_exception();
+                    }
+                }
             }
+            return task->future.get();
+        }
+        Response Butler::wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest, QuantityFloat timeout, bool throw_on_failure, bool chunked) {
+            std::string msg_type = j["msg_type"].get<std::string>();
+            task_ptr task = add_task(true, timeout);
+            j["task_uid"] = task->task_uid;
+
+            if(chunked) {
+                send_chunked_ZH_message(task->task_uid, j, rest);
+            }
+            else
+                // Note: send returns before the data is actually sent.
+                send_ZH_message(j, rest);
+
+            task->last_activity = now();
+
             // Make sure we clean up the task from the task_list in all cases
-            RAII_CallAtEnd call_at_end([this,&task_uid]() {
-                forget_task(task_uid);
+            RAII_CallAtEnd call_at_end([this,&task]() {
+                forget_task(task->task_uid);
             });
             
-            auto start_time = now();
-            auto status = future.wait_for(timeout);
-            if(status != std::future_status::ready)
-                throw std::runtime_error("Timed out waiting for ZefHub response");
-            if(zwitch.developer_output())
-                std::cerr << "Zefhub message (" << msg_type << ") took " << (now() - start_time) << std::endl;
+            // The timeout is an inactivity timeout
+            auto result = wait_future(task);
 
-            auto result = future.get();
             if(throw_on_failure) {
                 GenericResponse generic = std::visit(overloaded {
                         [](auto & v)->GenericResponse { return v.generic; },
@@ -384,14 +416,18 @@ namespace zefDB {
             return result;
         }
 
+        void Butler::fill_out_ZH_message(json & j) {
+            j["protocol_type"] = "ZEFDB";
+            j["protocol_version"] = zefdb_protocol_version.load();
+            j["who"] = get_firebase_token_refresh_token(refresh_token);
+        }
+
         void Butler::send_ZH_message(json & j, const std::vector<std::string> & rest) {
             if(!want_upstream_connection()) {
                 throw std::runtime_error("Not connecting to ZefHub, can't send messages.");
             }
 
-            j["protocol_type"] = "ZEFDB";
-            j["protocol_version"] = zefdb_protocol_version.load();
-            j["who"] = auth_token;
+            fill_out_ZH_message(j);
 
             if(zwitch.debug_zefhub_json_output())
                 std::cerr << "About to send out: " << j << std::endl;
@@ -407,6 +443,171 @@ namespace zefDB {
                 throw std::runtime_error("Network did not connect in time to send message.");
             network.send(zh_msg);
         }
+
+        void Butler::send_chunked_ZH_message(std::string main_task_uid, json & j, const std::vector<std::string> & rest) {
+            Butler::task_promise_ptr main_task = find_task(main_task_uid);
+
+            // Currently hardcoded but we need a way to extract this from config.
+            int chunk_size = this->chunked_transfer_size;
+            // This uid links all chunks in the transfer together.
+            std::string chunk_uid = generate_random_task_uid();
+
+            std::vector<int> rest_sizes(rest.size());
+            for(int i = 0; i < rest.size(); i++)
+                rest_sizes[i] = rest[i].size();
+
+            fill_out_ZH_message(j);
+            task_ptr task = add_task(true, chunk_timeout*seconds);
+            send_ZH_message(json{
+                    {"msg_type", "chunked"},
+                    {"task_uid", task->task_uid},
+                    {"chunk_type", "new"},
+                    {"chunk_uid", chunk_uid},
+                    {"rest_sizes", rest_sizes},
+                    {"msg", j}
+                });
+            std::deque<task_ptr> futures;
+            futures.emplace_back(task);
+
+            auto do_wait = [&](task_ptr & task) -> double {
+                try {
+                    auto start_time = now();
+                    auto result = wait_future(task);
+                    double this_waited_time = (now() - start_time).value;
+                    
+                    auto resp = std::visit(overloaded {
+                            [](const GenericZefHubResponse & response) { return response; },
+                            [](const auto & response) -> GenericZefHubResponse {
+                                throw std::runtime_error("Response from ZefHub is not of the right type in send_chunked_ZH_message.");
+                                }
+                            }, result);
+                    if(!resp.generic.success)
+                        throw std::runtime_error("Failure in chunked send: " + resp.generic.reason);
+                    main_task->task->last_activity = now();
+                    std::cerr << "Got back one response to a chunk after waiting: " << this_waited_time << std::endl;
+                    return this_waited_time;
+                } catch(const timeout_exception & exc) {
+                    // Reduce the chunk size. Unfortunately we can't restart the
+                    // transfer (without making a new chunk uid) as it could be
+                    // that the packets are still en route. This needs to be
+                    // improved.
+                    //
+                    // What could happen is a query back to ask "where are you
+                    // up to?" and then continuing from that point. This would
+                    // require removing the for loop over rest_index below, and
+                    // reacting to variables.
+                    if(chunked_transfer_auto_adjust)
+                        // Big adjustment down, smaller adjustments up.
+                        chunked_transfer_size /= 10;
+                    std::rethrow_exception(std::current_exception());
+                }
+            };
+
+            auto start_time = now();
+            int transfer_total_size = 0;
+
+            // Split rest into chunks
+            for(int rest_index = 0;rest_index < rest.size();rest_index++) {
+                // The chunk size can change over the message, so we do this chunking in a kind of weird way.
+                int rest_size = rest[rest_index].size();
+                transfer_total_size += rest_size;
+                int cur_start = 0;
+                while(cur_start < rest_size) {
+                    int this_chunk_size = std::min(chunk_size, rest_size - cur_start);
+                    std::string this_bytes = rest[rest_index].substr(cur_start, this_chunk_size);
+                    std::cerr << "Sending a chunk, size: " << this_bytes.size() << ", start: " << cur_start << "/" << rest_size << ", rest_index: " << rest_index << std::endl;
+                    task = add_task(true, chunk_timeout*seconds);
+                    send_ZH_message(json{
+                            {"task_uid", task->task_uid},
+                            {"msg_type", "chunked"},
+                            {"chunk_type", "payload"},
+                            {"chunk_uid", chunk_uid},
+                            {"rest_index", rest_index},
+                            {"bytes_start", cur_start}
+                        }, {this_bytes});
+                    futures.emplace_back(task);
+
+                    if(futures.size() > this->chunked_transfer_queued) {
+                        // Wait on first future
+                        auto & it = futures.front();
+                        double first_wait_time = do_wait(it);
+                        futures.pop_front();
+
+                        if(chunked_transfer_auto_adjust) {
+                            // Now wait on more until the queue is half-empty, this
+                            // gives us a way to check the response times. If they
+                            // are ping-dominated then the spacing between these
+                            // times will be heavily bimodal (i.e. one slow and the
+                            // rest nearly instant afterwards).
+                            double max_wait_time = first_wait_time;
+                            double second_wait_time = 0;
+                            while(futures.size() > this->chunked_transfer_queued / 2) {
+                                auto & it = futures.front();
+                                double this_time = do_wait(it);
+                                if(this_time > max_wait_time) {
+                                    second_wait_time = max_wait_time;
+                                    max_wait_time = this_time;
+                                } else if (this_time > second_wait_time) {
+                                    second_wait_time = this_time;
+                                }
+                                futures.pop_front();
+                            }
+
+                            if(max_wait_time < chunk_timeout/100) {
+                                std::cerr << "Increasing chunk size as the wait time is very small: " << max_wait_time << std::endl;
+                                // Because we are so much smaller, we can grow a lot in here.
+                                chunk_size *= 10.0;
+                            } else if(second_wait_time < max_wait_time/5) {
+                                // Note: /5 because we don't want to get too greedy.
+                                std::cerr << "Increasing chunk size as the wait times are very noisy" << std::endl;
+                                std::cerr << "max_wait_time: " << max_wait_time << std::endl;
+                                std::cerr << "second_wait_time: " << second_wait_time << std::endl;
+                                // Although this is not much, it grows fast.
+                                chunk_size *= 1.5;
+                            } else {
+                                std::cerr << "Leaving chunk size as is because the ratio is " << second_wait_time / max_wait_time << std::endl;
+                            }
+                        }
+                    }
+
+                    cur_start += this_chunk_size;
+                }
+            }
+
+            // Wait on remaining futures
+            for(auto & it : futures) {
+                do_wait(it);
+            }
+
+            // Note: the do_wait sets last_activity on the main task, so there's
+            // nothing special to do at the end.
+
+            // Update estimated transfer speed
+            auto transfer_duration = now() - start_time;
+            estimated_transfer_speed_accum_bytes += transfer_total_size;
+            estimated_transfer_speed_accum_time += transfer_duration.value;
+            double ratio = estimated_transfer_speed_accum_time / limit_estimated_transfer_speed_accum_time;
+            if(ratio > 1) {
+                estimated_transfer_speed_accum_time /= ratio;
+                estimated_transfer_speed_accum_bytes /= ratio;
+            }
+
+            if(chunked_transfer_auto_adjust) {
+                double speed = estimated_transfer_speed_accum_bytes / estimated_transfer_speed_accum_time;
+                double goal_time = chunk_timeout / 5;
+                double est_chunk_size = goal_time * speed;
+                // if(est_chunk_size > chunk_size)
+                std::cerr << "est_chunk_size: " << est_chunk_size << std::endl;
+                std::cerr << "est_speed: " << speed << std::endl;
+                std::cerr << "previous chunk_size: " << chunked_transfer_size << std::endl;
+                if(est_chunk_size < chunked_transfer_size)
+                    chunked_transfer_size = est_chunk_size;
+                else
+                    chunked_transfer_size = (chunked_transfer_size + est_chunk_size) / 2;
+                std::cerr << "Adjusting chunk size to " << chunked_transfer_size << std::endl;
+            }
+        }
+
 
         GenericResponse generic_from_json(json j) {
             GenericResponse generic;
@@ -833,6 +1034,8 @@ namespace zefDB {
 
 
         void Butler::send_update(Butler::GraphTrackingData & me) {
+            if(me.gd->error_state != GraphData::ErrorState::OK)
+                throw std::runtime_error("Can't send_update with a graph in an invalid state");
             if(!me.gd->is_primary_instance)
                 throw std::runtime_error("We don't have primary role, how did we send an update??");
 
@@ -877,7 +1080,7 @@ namespace zefDB {
             // c) wait for the next transaction. We could lose data that way though.
             // A mix between a) and b) seems good.
 
-            const int max_attempts = 10;
+            const int max_attempts = 3;
             int attempts_left = max_attempts;
             for(; attempts_left > 0; attempts_left--) {
                 // TODO: Check if websocket is down, and quit in that case.
@@ -895,7 +1098,7 @@ namespace zefDB {
                 try {
                     if(zwitch.developer_output())
                         std::cerr << "Trying to send update for graph " << me.uid << " of range " << update_heads.blobs.from << " to " << update_heads.blobs.to << std::endl;
-                    response = wait_on_zefhub_message(payload.j, payload.rest);
+                    response = wait_on_zefhub_message(payload.j, payload.rest, zefhub_generic_timeout, true, true);
 
                     if(!response.generic.success) {
                         // There's generally only one reason for a failure. But
@@ -908,15 +1111,23 @@ namespace zefDB {
                             apply_sync_heads(*me.gd, parsed_heads);
                         } else {
                             // Unknown error - wait a bit
-                            std::cerr << "Unknown error receiving from our graph update ('" << response.generic.reason << "'). Going to try again in 1 sec" << std::endl;
-                            std::this_thread::sleep_for(std::chrono::seconds(1));
+                            std::cerr << "Unknown error received from ZH from our graph update ('" << response.generic.reason << "'). Setting graph to invalid state." << std::endl;
+                            me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                            // std::this_thread::sleep_for(std::chrono::seconds(1));
                         }
 
                         return;
                     }
-                } catch(const std::exception & e) {
-                    std::cerr << "%(*#@&$%@&@$)(#*&$)(@#*& Some kind of exception (" << e.what() << "), going to ignore and try again: " << me.uid << std::endl;
+                } catch(const timeout_exception & e) {
+                    std::cerr << "Got timeout during send_update. Going to retry" << std::endl;
                     continue;
+                } catch(const disconnected_exception & e) {
+                    std::cerr << "Disconnected during send_update. Going to retry" << std::endl;
+                    continue;
+                } catch(const std::exception & e) {
+                    std::cerr << "An exception occurred during a send_update ('" << e.what() << "'). Setting graph to invalid state." << std::endl;
+                    me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                    return;
                 }
 
                 // if(response.j["blob_index_hi"].get<blob_index>() != me.gd->read_head)
@@ -936,6 +1147,11 @@ namespace zefDB {
             std::cerr << "Failed to send out graph update! Graph " << me.uid << " is likely out of sync." << std::endl;
             std::cerr << "Failed to send out graph update! Graph " << me.uid << " is likely out of sync." << std::endl;
             std::cerr << "Failed to send out graph update! Graph " << me.uid << " is likely out of sync." << std::endl;
+            // We don't want to set this after all as it is better to enter a
+            // never-ending cycle of resend attempts, than potentially lose
+            // data.
+
+            // me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
             // throw std::runtime_error("Gave up after " + to_str(max_attempts) + " attempts of sending out graph update!");
             // It's always better to just return and let this try again rather than crashing.
             return;
@@ -1020,26 +1236,10 @@ namespace zefDB {
         }
 
         // void Butler::manage_graph_sync_worker(Butler::GraphTrackingData & me, std::unique_lock<std::shared_mutex> && key_lock) {
-        void Butler::manage_graph_sync_worker(Butler::GraphTrackingData & me, std::promise<bool> && promise) {
+        void Butler::manage_graph_sync_worker(Butler::GraphTrackingData & me) {
             try {
                 me.gd->sync_thread_id = std::this_thread::get_id();
 
-                // First thing to do is sort out the key_dict
-                {
-                    // TODO: Redo this lock on the key_dict - or some way to signal that the key_dict is ready.
-                    // std::unique_lock key_lock(me.gd->key_dict.m);
-                    LockGraphData gd_lock(me.gd);
-                    // std::cerr << "Sync thread has got lock on graph." << std::endl;
-                    promise.set_value(true);
-                    // internals::apply_actions_to_blob_range_only_key_dict(
-                    // *me.gd,
-                    // constants::ROOT_NODE_blob_index,
-                    // me.gd->read_head);
-                    // update(me.gd->heads_locker, me.gd->key_dict_initialized, true);
-                    // if(zwitch.developer_output())
-                    //     std::cerr << "Sync thread has filled in keys for guid (" << me.uid << ")." << std::endl;
-                }
-            
                 while(true) {
                     wait_pred(me.gd->heads_locker,
                               [&]() {
@@ -1084,6 +1284,8 @@ namespace zefDB {
                         internals::execute_queued_fcts(*me.gd);
                     }
 
+                    if(me.gd->error_state != GraphData::ErrorState::OK)
+                        throw std::runtime_error("Sync worker for graph detected invalid state and is aborting");
                     // After doing everything, now is a good time to send out updates.
                     // TODO: Maybe this is better left to the main thread, and we just trigger it from here by placing a message on the queue.
                     if(me.gd->should_sync
@@ -1096,12 +1298,15 @@ namespace zefDB {
                 // This is the last hail mary before we shut down. Required for the logic of remove_graph_manager.
                 if(me.gd->should_sync && me.gd->is_primary_instance)
                     send_update(me);
+
+                me.sync_return_value.set_value(true);
             } catch(const std::exception & e) {
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 std::cerr << "Some kind of exception occurred in the sync thread at the highest level: " << e.what() << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
+                me.sync_return_value.set_exception(std::current_exception());
             }
         }
 
@@ -1146,9 +1351,7 @@ namespace zefDB {
             // access the graph, which won't be allowed until the sync-thread is
             // done with the key-dict.
 
-            std::promise<bool> promise;
-            auto future = promise.get_future();
-            me.sync_thread = std::make_unique<std::thread>(&Butler::manage_graph_sync_worker, this, std::ref(me), std::move(promise));
+            me.sync_thread = std::make_unique<std::thread>(&Butler::manage_graph_sync_worker, this, std::ref(me));
             // Need to make sure we give up the graph lock to the sync thread -
             // only if we already have the lock.
             if(me.gd->open_tx_thread == std::this_thread::get_id())
@@ -1156,7 +1359,6 @@ namespace zefDB {
                                   me.gd->open_tx_thread,
                                   std::this_thread::get_id(),
                                   me.sync_thread->get_id());
-            future.get();
 #if __linux__
             auto native = me.sync_thread->native_handle();
             std::string temp = "GS" + str(me.uid).substr(0,8);
@@ -1215,6 +1417,7 @@ namespace zefDB {
                 // if(gtd->gd->should_sync && gtd->gd->is_primary_instance)
                 //     send_update(*gtd);
                 // And send out the unsubscribe of course
+                gtd->debug_last_action = "Going to send out unsubscribe";
                 if(gtd->gd->sync_head > 0) {
                     send_ZH_message({
                             {"msg_type", "unsubscribe_from_graph"},
@@ -1312,9 +1515,12 @@ namespace zefDB {
             if(!network.managing_thread) {
                 // throw std::runtime_error("Network is not trying to connect, can't wait for auth.");
                 debug_time_print("before start connection");
+                if(should_stop) {
+                    return false;
+                }
                 start_connection();
             }
-            auto done_auth = [this]() { return connection_authed || fatal_connection_error; };
+            auto done_auth = [this]() { return should_stop || connection_authed || fatal_connection_error; };
             if(timeout < std::chrono::duration<double>(0)) {
                 // wait_pred(auth_locker, done_auth);
                 // We have a special spam message in here to let users know what's going on. 
@@ -1337,14 +1543,15 @@ namespace zefDB {
             return true;
         }
 
-        void Butler::determine_auth_token() {
+        void Butler::determine_refresh_token() {
             std::optional<std::string> key_string = load_forced_zefhub_key();
             if(key_string) {
                 if(*key_string == constants::zefhub_guest_key) {
                     std::cerr << "Connecting as guest user" << std::endl;
-                    auth_token = "";
+                    refresh_token = "";
                 } else 
-                    auth_token = get_firebase_token_email(*key_string);
+                    throw std::runtime_error("Need to reimplement getting token from email:password combination");
+                    // auth_token = get_firebase_token_email(*key_string);
                 return;
             } else if(!have_auth_credentials()) {
                 no_credentials_warning = true;
@@ -1352,25 +1559,31 @@ namespace zefDB {
             } else {
                 ensure_auth_credentials();
                 if(have_logged_in_as_guest) {
-                    auth_token = "";
+                    refresh_token = "";
                 } else {
                     auto credentials_file = zefdb_config_path() / "credentials";
                     std::ifstream file(credentials_file);
                     json j = json::parse(file);
-                    auth_token = get_firebase_token_refresh_token(j["refresh_token"].get<std::string>());
+                    refresh_token = j["refresh_token"].get<std::string>();
                 }
             }
         }
 
         Butler::header_list_t Butler::prepare_send_headers(void) {
-            determine_auth_token();
+            determine_refresh_token();
             decltype(network)::header_list_t headers;
+            std::string auth_token = get_firebase_token_refresh_token(refresh_token);
             headers.emplace_back("X-Auth-Token", auth_token);
             headers.emplace_back("X-Requested-Version", to_str(zefdb_protocol_version_max));
             return headers;
         }
 
         void Butler::start_connection() {
+            if(should_stop) {
+                print_backtrace();
+                std::cerr << "What the hell is getting here all the time?" << std::endl;
+                return;
+            }
             // This is to prevent multiple threads attacking this function at
             // the same time.
             static std::atomic<bool> _starting = false;

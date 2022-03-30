@@ -55,6 +55,7 @@ namespace zefDB {
         // Apply action blob now uses a blob_index to refer to "from where should I update double-linking".
         // But we keep the bool version for backwards compatibility.
 
+        void apply_action_blob(GraphData& gd, EZefRef uzr_to_blob, bool fill_caches);
         void apply_action_lookup(GraphData& gd, EZefRef uzr, bool fill_key_dict);
 
         void apply_action_ROOT_NODE(GraphData& gd, EZefRef uzr_to_blob, bool fill_key_dict);
@@ -64,7 +65,7 @@ namespace zefDB {
         void apply_action_RELATION_EDGE(GraphData & gd, EZefRef uzr_to_blob, bool fill_key_dict) ;								 
         void apply_action_TX_EVENT_NODE(GraphData & gd, EZefRef uzr_to_blob, bool fill_key_dict);
         // void apply_action_DEFERRED_EDGE_LIST_NODE(GraphData & gd, EZefRef uzr_to_blob, bool fill_key_dict, blob_index latest_blob_to_double_link, std::unordered_map<blob_index,blob_index> & latest_deferred);
-        void apply_action_DEFERRED_EDGE_LIST_NODE(GraphData & gd, EZefRef uzr_to_blob, bool fill_key_dict, blob_index latest_blob_to_double_link);
+        void apply_action_DEFERRED_EDGE_LIST_NODE(GraphData & gd, EZefRef uzr_to_blob, bool fill_key_dict);
         void apply_action_ASSIGN_TAG_NAME_EDGE(GraphData & gd, EZefRef uzr_to_blob, bool fill_key_dict);
         void apply_action_FOREIGN_GRAPH_NODE(GraphData & gd, EZefRef uzr_to_blob, bool fill_key_dict);
         void apply_action_FOREIGN_ENTITY_NODE(GraphData & gd, EZefRef uzr_to_blob, bool fill_key_dict);
@@ -75,14 +76,7 @@ namespace zefDB {
 
 
 
-		// apply action of all blobs_ns (that actually trigger one) on the given interval. Moves forward automatically.
-		// the specified blob range should not go beyond what is set in the mem pool
-        LIBZEF_DLL_EXPORTED void apply_actions_to_blob_range(GraphData& gd, blob_index blob_index_lo, blob_index blob_index_hi, bool ensure_idempotency = false, bool double_link_edges_to_previous_blobs = true, bool fill_key_dict = true);
-        inline void apply_actions_to_blob_range(Graph& g, blob_index blob_index_lo, blob_index blob_index_hi, bool ensure_idempotency, bool double_link_edges_to_previous_blobs, bool fill_key_dict) {
-            GraphData& gd = g.my_graph_data();
-            apply_actions_to_blob_range(gd, blob_index_lo, blob_index_hi, ensure_idempotency, double_link_edges_to_previous_blobs, fill_key_dict);
-        }
-
+        LIBZEF_DLL_EXPORTED void apply_double_linking(GraphData& gd, blob_index start_index, blob_index end_index);
         LIBZEF_DLL_EXPORTED void apply_actions_to_blob_range_only_key_dict(GraphData& gd, blob_index blob_index_lo, blob_index blob_index_hi);
 
 

@@ -183,7 +183,9 @@ namespace zefDB {
 
 		// e.g. when determining the EZefRefs out_edges(my_uzr), we need to know how much space to allocate for the EZefRefs object.
 		blob_index total_edge_index_list_size_upper_limit(EZefRef uzr){
-			blob_index next_edge_list_indx = *subsequent_deferred_edge_list_index(uzr);			
+			blob_index * ptr = subsequent_deferred_edge_list_index(uzr);			
+            Butler::ensure_or_get_range(ptr, sizeof(blob_index));
+			blob_index next_edge_list_indx = *ptr;
             assert(next_edge_list_indx != 0);
 			return next_edge_list_indx == blobs_ns::sentinel_subsequent_index
 				? local_edge_indexes_capacity(uzr)
@@ -265,7 +267,7 @@ namespace zefDB {
 
 
 
-    AllEdgeIndexes::Iterator AllEdgeIndexes::begin(bool force_to_write_head) const {
+    AllEdgeIndexes::Iterator AllEdgeIndexes::begin() const {
         blob_index* ptr_to_first_el_in_array = internals::edge_indexes(uzr_with_edges);
         GraphData & gd = Graph(uzr_with_edges).my_graph_data();
 

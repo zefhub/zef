@@ -99,9 +99,9 @@ namespace zefDB {
 		// constexpr float zefhub_graph_update_timeout_default = 30;
 		// constexpr float zefhub_merge_request_timeout_default = 60;
 
-		constexpr auto butler_generic_timeout = std::chrono::seconds(15);
+		// constexpr auto butler_generic_timeout = std::chrono::seconds(15);
 		// constexpr auto butler_generic_timeout = std::chrono::seconds(0);
-		constexpr auto zefhub_generic_timeout = std::chrono::seconds(60);
+		// constexpr auto zefhub_generic_timeout = std::chrono::seconds(60);
 		constexpr auto zefhub_reconnect_timeout = std::chrono::seconds(10);
 
         constexpr char zefhub_guest_key[] = "GUEST";

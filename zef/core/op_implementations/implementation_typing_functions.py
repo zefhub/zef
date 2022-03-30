@@ -228,7 +228,7 @@ def match_apply_imp(item, patterns):
     """
     for pred, applied_func in patterns:
         if pred(item):
-            assert isinstance(applied_func, callable)
+            assert callable(applied_func)
             return applied_func(item)
     raise RuntimeError(f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
     
@@ -980,7 +980,7 @@ def all_imp(*args):
         g = args[0]
         if len(args) == 1:
             # return g | pyzefops.instances_eternal
-            return pymain.blobs(g)           # show all low level nodes and edges, not only RAEs. We can still add ability  g | all[RAE] later
+            return blobs(g)           # show all low level nodes and edges, not only RAEs. We can still add ability  g | all[RAE] later
 
         if len(args) >= 3:
             raise Exception(f"all can only take a maximum of 2 arguments, got {len(args)} instead")
@@ -996,7 +996,7 @@ def all_imp(*args):
         #     return g | pyzefops.instances_eternal[fil]
 
         # The remaining options will just use the generic filter and is_a
-        return filter(pymain.blobs(g), lambda x: is_a(x, fil))
+        return filter(blobs(g), lambda x: is_a(x, fil))
 
     if isinstance(args[0], ZefRef):
         assert len(args) == 1
@@ -2370,7 +2370,7 @@ def split_imp(collection, val):
     ---- Signature ----
     (List[T], T) -> List[List[T]]
     """
-    if isinstance(collection, str) or isinstance(collection, bytes):
+    if isinstance(collection, str):
         return collection.split(val)
     def wrapper():
         it = iter(collection)

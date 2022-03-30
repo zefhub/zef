@@ -295,7 +295,7 @@ namespace zefDB {
 		// different memory area of the struct. If the list is full, create a 
 		// new DEFERRED_EDGE_LIST_NODE: enable this recursively.
 
-		void append_edge_index(EZefRef uzr, blob_index edge_index_to_append, bool prevent_new_edgelist_creation) {
+		bool append_edge_index(EZefRef uzr, blob_index edge_index_to_append, bool prevent_new_edgelist_creation) {
             // Note: this assumes the edge index to be added is definitely new.
             // That is, it will always add the index provided to the end of the
             // list known by this blob. To maybe add if no present, then use the
@@ -364,21 +364,8 @@ namespace zefDB {
                         // Need to update the original source of last_blob
                         *last_edge_holding_blob(uzr) = blob_index_from_ptr(last_blob);
                     } else {
-                        // throw std::runtime_error("Wanted to create a new edgelist when we aren't allowing it... this shouldn't happen in a normal situation!!!");
-
-                        // The exception above was put there by Danny, who
-                        // didn't think about how the order of a new blob
-                        // sequence will cause old blobs to get updated.
-                        // When a new deferred edge list is created, it will
-                        // be append beyond the blob that actually causes
-                        // the deferred edge list to be created. This means
-                        // that the "has deferred edge list" property is not
-                        // updated on the original blob *yet*, but it will
-                        // be in one or two more blobs.
-
-                        // Would be nice to validate this - and that will be
-                        // possible later with the graph deltas I think.
-                        return;
+                        // False means we wanted to create a deferred edge list but got rejected.
+                        return false;
                     }
                 }
             }
@@ -389,6 +376,7 @@ namespace zefDB {
             last_blob[subindex] = edge_index_to_append;
             if(subindex == 3)
                 (*last_edge_holding_blob(uzr))++;
+            return true;
         }
 
 		blob_index idempotent_append_edge_index(EZefRef uzr, blob_index edge_index_to_append) {
@@ -423,8 +411,8 @@ namespace zefDB {
             // Use std::find_if, but avoid allocating and copying to std::vector or similar. Use span to reference existing array and wrap for stl
             // don't include the last element. This would not point to an edge, but the next deferred_edge_list
             // ranges::span<blob_index> my_span(s.edges.indices, edge_indexes_capacity(s)-1);  // use std::span once compilers fully support C++20
-            AllEdgeIndexes iterable{uzr};
-            auto itr = iterable.begin(true);
+            AllEdgeIndexes iterable{uzr, true};
+            auto itr = iterable.begin();
             while(itr != iterable.end() && !(*itr == 0 || *itr == edge_index_to_append))
                 itr++;
             // auto maybe_found = std::find_if(itr.begin(), itr.end(),   

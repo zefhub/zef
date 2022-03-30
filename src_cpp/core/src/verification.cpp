@@ -91,16 +91,70 @@ namespace zefDB {
 		}
 
 
+        bool verify_source_target_in_edge_lists(GraphData & gd) {
+            // To make this fast enough, we build up the edge lists first and
+            // then do a list-list compare. This makes it jump around less in
+            // memory.
+
+            std::unordered_map<blob_index,std::vector<blob_index>> new_map;
+            std::unordered_map<blob_index,std::vector<blob_index>> edge_lists;
+
+            // Walk through graph once to create the empty vectors
+            blob_index cur_index = internals::root_node_blob_index();
+			while (cur_index < gd.write_head) {
+                EZefRef uzr{cur_index,gd};
+				if (internals::has_edge_list(uzr)) {
+                    std::vector<blob_index> vec;
+                    for(auto indx : AllEdgeIndexes(uzr))
+                        vec.push_back(indx);
+                    edge_lists.emplace(cur_index, vec);
+                    new_map.emplace(cur_index, std::vector<blob_index>());
+                }
+                cur_index += blob_index_size(uzr);
+            }
+
+            // Now populate lists
+            cur_index = internals::root_node_blob_index();
+			while (cur_index < gd.write_head) {
+                EZefRef uzr{cur_index,gd};
+				if (internals::has_source_target_node(uzr)) {
+                    new_map[source_node_index(uzr)].push_back(cur_index);
+                    new_map[target_node_index(uzr)].push_back(-cur_index);
+                }
+                cur_index += blob_index_size(uzr);
+            }
+
+            // Now compare contents of lists
+            for(auto & it : new_map) {
+                auto indx = it.first;
+                auto & new_list = it.second;
+                auto & old_list = edge_lists.at(indx);
+
+                std::unordered_set<blob_index> old_set(old_list.begin(), old_list.end());
+                std::unordered_set<blob_index> new_set(old_list.begin(), old_list.end());
+                if(old_set != new_set)
+                    throw std::runtime_error("Edge lists do not agree with source/target");
+            }
+
+            // Now make sure there were no keys missing from the new_map
+            for(auto & it : edge_lists)
+                new_map.at(it.first);
+
+            return true;
+        }
+
+
 		// check low level graph that double linking of node / edges with indexes is consistent
 		bool verify_graph_double_linking(Graph& g){
 			GraphData& gd = g.my_graph_data();
+
+            if(!verify_source_target_in_edge_lists(gd))
+                return false;
+            
             // Need to use indices to avoid running off the edge of memory.
             blob_index cur_index = internals::root_node_blob_index();
 			while (cur_index < gd.write_head) {
                 EZefRef uzr{cur_index,gd};
-				if (internals::has_source_target_node(uzr)) {
-					verify_that_my_index_is_in_source_target_node_edge_list(uzr);
-				}
 				// deferred edge lists are the exception here: blobs in indexes appearing here will point to the true source blob and not the deferred_edge_list
 				if (internals::has_edge_list(uzr) && get<BlobType>(uzr) != BlobType::DEFERRED_EDGE_LIST_NODE) {
 					verify_that_all_uzrs_in_my_edgelist_refer_to_me(uzr);
@@ -109,6 +163,25 @@ namespace zefDB {
 			}
 			return true;
 		}
+
+        void break_graph(Graph&g, blob_index index, int style) {
+            EZefRef ezr = g[index];
+            if(style == 1) {
+                visit_blob_with_source_target([](auto & x) {
+                    x.source_node_index++;
+                }, ezr);
+            } else if(style == 2) {
+                visit_blob_with_source_target([](auto & x) {
+                    x.target_node_index *= -1;
+                }, ezr);
+            } else if(style == 3) {
+                visit_blob_with_edges([](auto & x) {
+                    x.edges.indices[0] = 42;
+                }, ezr);
+            } else {
+                throw std::runtime_error("Don't know style");
+            }
+        }
 
 	}
 }

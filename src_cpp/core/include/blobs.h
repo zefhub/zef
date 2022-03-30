@@ -678,12 +678,17 @@ struct LIBZEF_DLL_EXPORTED AllEdgeIndexes {
 	struct Iterator;
 	struct Sentinel;
 	EZefRef uzr_with_edges;
+    bool force_to_write_head;
 
 	AllEdgeIndexes() = delete;
-	AllEdgeIndexes(EZefRef uzr) : uzr_with_edges(uzr) {};
-	AllEdgeIndexes(ZefRef zr) : uzr_with_edges(zr.blob_uzr) {};
+    AllEdgeIndexes(EZefRef uzr, bool force_to_write_head=false)
+    : uzr_with_edges(uzr),
+    force_to_write_head(force_to_write_head) {};
+    AllEdgeIndexes(ZefRef zr, bool force_to_write_head=false)
+    : uzr_with_edges(zr.blob_uzr),
+    force_to_write_head(force_to_write_head) {};
 
-	Iterator begin(bool force_to_write_head=false) const;
+	Iterator begin() const;
 	Sentinel end() const;
 };
 

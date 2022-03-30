@@ -1,50 +1,92 @@
-import os
-backend = os.environ.get("SQL_UI_BACKEND", None)
-if backend is None:
-    try:
-        import sdl2
-        backend = "sdl2"
-    except ImportError:
-        pass
-# The pygame backend seems broken
-# if backend is None:
-#     try:
-#         import pygame
-#         backend = "pygame"
-#     except ImportError:
-#         pass
-if backend is None:
-    try:
-        import glfw
-        backend = "glfw"
-    except ImportError:
-        pass
-
-if backend is None:
-    raise ImportError("""Can't import either sdl2 or glfw for imgui backend support in sql_ui wizard.
-
-Please install either of these backends using
-`pip install 'imgui[sdl2]'`
-or
-`pip install 'imgui[glfw]'`
-
-You may have to install the corresponding libraries on your system as well, e.g.
-`brew install SDL2`.
-""")
+from sdl2 import *
+import ctypes
+import OpenGL.GL as gl
 
 import imgui
+from imgui.integrations.sdl2 import SDL2Renderer
 from . import ui 
+
+
+def main(filepath):
+    window, gl_context = impl_pysdl2_init()
+    imgui.create_context()
+    impl = SDL2Renderer(window)
+
+    running = True
+    event = SDL_Event()
+
+    state = ui.init_state(filepath)
+    while running:
+        while SDL_PollEvent(ctypes.byref(event)) != 0:
+            if event.type == SDL_QUIT:
+                running = False
+                break
+            impl.process_event(event)
+        impl.process_inputs()
+
+        imgui.new_frame()
+
+        ui.render(state)
+
+        gl.glClearColor(1., 1., 1., 1)
+        gl.glClear(gl.GL_COLOR_BUFFER_BIT)
+
+        imgui.render()
+        impl.render(imgui.get_draw_data())
+        SDL_GL_SwapWindow(window)
+
+    impl.shutdown()
+    SDL_GL_DeleteContext(gl_context)
+    SDL_DestroyWindow(window)
+    SDL_Quit()
+
+
+def impl_pysdl2_init():
+    width, height = 1280, 720
+    window_name = "minimal ImGui/SDL2 example"
+
+    if SDL_Init(SDL_INIT_EVERYTHING) < 0:
+        print("Error: SDL could not initialize! SDL Error: " + SDL_GetError().decode("utf-8"))
+        exit(1)
+
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1)
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24)
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8)
+    SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1)
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1)
+    SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 16)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, SDL_GL_CONTEXT_FORWARD_COMPATIBLE_FLAG)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 1)
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE)
+
+    SDL_SetHint(SDL_HINT_MAC_CTRL_CLICK_EMULATE_RIGHT_CLICK, b"1")
+    SDL_SetHint(SDL_HINT_VIDEO_HIGHDPI_DISABLED, b"1")
+
+    window = SDL_CreateWindow(window_name.encode('utf-8'),
+                              SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+                              width, height,
+                              SDL_WINDOW_OPENGL|SDL_WINDOW_RESIZABLE)
+
+    if window is None:
+        print("Error: Window could not be created! SDL Error: " + SDL_GetError().decode("utf-8"))
+        exit(1)
+
+    gl_context = SDL_GL_CreateContext(window)
+    if gl_context is None:
+        print("Error: Cannot create OpenGL Context! SDL Error: " + SDL_GetError().decode("utf-8"))
+        exit(1)
+
+    SDL_GL_MakeCurrent(window, gl_context)
+    if SDL_GL_SetSwapInterval(1) < 0:
+        print("Warning: Unable to set VSync! SDL Error: " + SDL_GetError().decode("utf-8"))
+        exit(1)
+
+    return window, gl_context
+
 
 if __name__ == "__main__":
     import sys
     assert len(sys.argv) == 2, "Need one argument of the yaml file to edit."
     filepath = sys.argv[1]
-
-
-    if backend == "sdl2":
-        from .wizard_sdl2 import main
-    elif backend == "pygame":
-        from .wizard_pygame import main
-    elif backend == "glfw":
-        from .wizard_glfw import main
-    main("SQL Import Wizard", ui.init_state, ui.render, filepath)
+    main(filepath)

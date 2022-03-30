@@ -80,11 +80,6 @@ class AtomicEntity:
     def __eq__(self, other):
         if not isinstance(other, AtomicEntity): return False
         return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid']
-
-    def __le__(self, value):
-        from ._ops import assign_value
-        return self | assign_value[value]
-        
     
 
 class Relation:

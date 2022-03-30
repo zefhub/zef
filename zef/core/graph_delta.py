@@ -122,7 +122,8 @@ def perform_transaction_gdelta(g_delta, g: Graph):
             # TODO: Have to change the behavior of Transaction(g) later I suspect
             frame_now = GraphSlice(tx_now)
             d_raes['tx'] = tx_now
-            for cmd in g_delta.commands:
+            for i,cmd in enumerate(g_delta.commands):
+                # print(f"{i}/{len(g_delta.commands)}: {g.graph_data.write_head * 16 / 1024 / 1024} MB")
                 if cmd['cmd'] == 'instantiate' and type(cmd['rae_type']) in {EntityType, AtomicEntityType}:
                     if 'internal_id' in cmd:
                         d_raes[cmd['internal_id']] = instantiate(cmd['rae_type'], g) #| to_ezefref
@@ -143,6 +144,7 @@ def perform_transaction_gdelta(g_delta, g: Graph):
                     assert z is not None
                     if cmd['value'] is not  None:
                         if z | value | collect != cmd['value']:
+                            # print("Assigning value of ", cmd['value'], "to a", AET(z))
                             internals.assign_value_imp(z, cmd['value'])
                     if 'internal_id' in cmd:
                         d_raes[cmd['internal_id']] = now(z)                            
@@ -798,10 +800,12 @@ def verify_and_compact_commands(cmds: tuple):
         | iterate[resolve_dag_ordering_step] 
         # | tap[make_debug_output()]
         | take_until[lambda s: s["num_changed"] == 0]
+        # | tap[lambda x: print("After take_until")]
         | last
         | get["state"]
         | collect
     )
+    # print("Done state_final", now())
     if len(state_final['input']) > 0:
         import json
         print(json.dumps(state_final, indent=4, default=repr))
@@ -878,6 +882,8 @@ class GraphDelta:
         a) Why can't I specify an internal id for a merge operation?
                 If you know the RAE that you want to merge, then you can just use that or its uid.
         """
+
+        # print("Start GraphDelta init", now())
         from .internals import is_any_UID 
         id_definitions = {}   # key: str (internal id), value: type of RAE it defines
         

@@ -121,7 +121,7 @@ namespace zefDB {
 		// Depending on the ZefRef-type, the list of edges may be in a locally
 		// different memory area of the struct. If the list is full, create a 
 		// new DEFERRED_EDGE_LIST_NODE: enable this recursively.
-		LIBZEF_DLL_EXPORTED void append_edge_index(EZefRef uzr, blob_index edge_index_to_append, bool prevent_new_edgelist_creation);
+		LIBZEF_DLL_EXPORTED bool append_edge_index(EZefRef uzr, blob_index edge_index_to_append, bool prevent_new_edgelist_creation=false);
 		LIBZEF_DLL_EXPORTED blob_index idempotent_append_edge_index(EZefRef uzr, blob_index edge_index_to_append);
 
 

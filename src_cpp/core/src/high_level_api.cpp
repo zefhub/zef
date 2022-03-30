@@ -2522,7 +2522,7 @@ namespace zefDB {
        auto response =
            butler->msg_push_timeout<Messages::MergeRequestResponse>(
                std::move(msg),
-               constants::zefhub_generic_timeout
+               Butler::zefhub_generic_timeout
            );
 
        if(!response.generic.success)
@@ -2537,7 +2537,7 @@ namespace zefDB {
        auto & gd = target_graph.my_graph_data();
        bool reached_sync = wait_pred(gd.heads_locker,
                                      [&]() { return gd.read_head >= r.read_head; },
-                                     constants::butler_generic_timeout);
+                                     std::chrono::duration<double>(Butler::butler_generic_timeout.value));
        if(!reached_sync)
            throw std::runtime_error("Did not sync in time to handle merge receipt.");
        
