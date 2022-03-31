@@ -3,8 +3,7 @@ name: Validate Push
 on:
   push:
     branches-ignore:
-      - master
-      - lazy-zefops
+      - main
 
 jobs:
   run-tests:

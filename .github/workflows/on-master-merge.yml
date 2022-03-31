@@ -3,8 +3,7 @@ name: Validate Master Push/Merge
 on:
   push:
     branches:
-      - master
-      - hamster
+      - main
 
 jobs:
   test-code:
