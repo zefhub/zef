@@ -156,7 +156,7 @@ runs:
       shell: bash
       run: |
         pip3 install wheel
-        bash setup_tools_wrapper.sh
+        bash scripts/setup_tools_wrapper.sh
 
     - name: Ensure no early token creation
       if: inputs.build-wheel == 'true'
@@ -165,5 +165,5 @@ runs:
         ORIG_DIR=$(pwd)
         cd /
         pip3 install ${ORIG_DIR}/dist/*.whl
-        cd ${ORIG_DIR}/update_tokens
+        cd ${ORIG_DIR}/scripts
         bash assert_no_created_tokens.sh
