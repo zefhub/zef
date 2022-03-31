@@ -5084,7 +5084,7 @@ def transact_imp(data, g, **kwargs):
         def flatgraph_to_gd(fg):
             return_elements = []
             idx_key = {idx:key for key,idx in fg.key_dict.items()}
-
+            # TODO Merge abstract RAEs
             def dispatch_on_blob(b, for_rt=False):
                 if isinstance(b[1], EntityType):
                     if b[0] in idx_key:
@@ -5126,7 +5126,12 @@ def transact_imp(data, g, **kwargs):
                     return (src_blb, base, trgt_blb)
 
                 elif isinstance(b[1], str) and b[1][:2] == "BT":
-                    return AET.Serialized <= (to_json(b[-1]))
+                    if for_rt:
+                        return Z[blake3(b[-1])]
+                    else:
+                        from ..graph_delta import map_scalar_to_aet_type
+                        aet = map_scalar_to_aet_type[type(b[-1])](b[-1])
+                        return aet[blake3(b[-1])] <= (b[-1])
                 
                 raise NotImplementedError(f"Unhandled type in dispatching {b}")
 
