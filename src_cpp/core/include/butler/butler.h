@@ -220,9 +220,10 @@ namespace zefDB {
             // chunk.
             const double chunk_timeout = 10.0;
 
-            // This estimation is meant to include the effects of ping. This
-            // makes it non-linear but as long as we queue up a ton of messages
-            // then it shouldn't be noticeable.
+            // This estimation is meant to include the effects of ping (i.e. how
+            // much can be transfer in a short time span). This makes it
+            // non-linear but as long as we queue up a ton of messages then it
+            // shouldn't be noticeable.
             double estimated_transfer_speed_accum_bytes = 0;
             double estimated_transfer_speed_accum_time = 0;
             // We limit the accumulation to create a simple "running average"

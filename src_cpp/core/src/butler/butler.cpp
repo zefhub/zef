@@ -416,10 +416,18 @@ namespace zefDB {
             return result;
         }
 
-        void Butler::fill_out_ZH_message(json & j) {
+        void Butler::fill_out_ZH_message(json & j) { //, bool add_hints) {
             j["protocol_type"] = "ZEFDB";
             j["protocol_version"] = zefdb_protocol_version.load();
             j["who"] = get_firebase_token_refresh_token(refresh_token);
+            // if(add_hints) {
+                if(estimated_transfer_speed_accum_time > 0) {
+                    double speed = estimated_transfer_speed_accum_bytes / estimated_transfer_speed_accum_time;
+                    double goal_time = chunk_timeout / 5;
+                    double est_chunk_size = goal_time * speed;
+                    j["hint_chunk_size"] = est_chunk_size;
+                }
+            // }
         }
 
         void Butler::send_ZH_message(json & j, const std::vector<std::string> & rest) {
