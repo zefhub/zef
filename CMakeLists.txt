@@ -133,44 +133,50 @@ if(NOT MSVC)
 
   # Do the cogging itself
   add_custom_command(
-    DEPENDS zeftypes_EN.json zeftypes_ET.json zeftypes_RT.json 
+    DEPENDS zeftypes_EN.json zeftypes_ET.json zeftypes_RT.json zeftypes_KW.json
     OUTPUT ${COG_DUMMY}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Running cog"
-    COMMAND ${Python3_EXECUTABLE} run_cog_gen.py
+    COMMAND ${Python3_EXECUTABLE} scripts/run_cog_gen.py
     # COMMAND python3 run_cog_inplace.py
     COMMAND date > ${COG_DUMMY})
 
   if(LOCAL_ZEFTYPES)
     # Copy over the bootstrap files if the non-bootstrap versions don't exist
     add_custom_command(
-      DEPENDS zeftypes_bootstrap_ET.json
+      DEPENDS templates/zeftypes_bootstrap_ET.json
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_ET.json
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMENT "Copying ET bootstrap"
-      COMMAND cp zeftypes_bootstrap_ET.json zeftypes_ET.json)
+      COMMAND cp templates/zeftypes_bootstrap_ET.json zeftypes_ET.json)
     add_custom_command(
-      DEPENDS zeftypes_bootstrap_RT.json
+      DEPENDS templates/zeftypes_bootstrap_RT.json
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_RT.json
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMENT "Copying RT bootstrap"
-      COMMAND cp zeftypes_bootstrap_RT.json zeftypes_RT.json)
+      COMMAND cp templates/zeftypes_bootstrap_RT.json zeftypes_RT.json)
     add_custom_command(
-      DEPENDS zeftypes_bootstrap_EN.json
+      DEPENDS templates/zeftypes_bootstrap_EN.json
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_EN.json
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMENT "Copying EN bootstrap"
-      COMMAND cp zeftypes_bootstrap_EN.json zeftypes_EN.json)
+      COMMAND cp templates/zeftypes_bootstrap_EN.json zeftypes_EN.json)
+    add_custom_command(
+      DEPENDS templates/zeftypes_bootstrap_KW.json
+      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_KW.json
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMENT "Copying KW bootstrap"
+      COMMAND cp templates/zeftypes_bootstrap_KW.json zeftypes_KW.json)
   else()
     add_custom_command(
-      DEPENDS zeftypes_bootstrap_ET.json
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_ET.json
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_RT.json
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_EN.json
+      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_KW.json
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMENT "Grabbing latest zeftypes from zefhub user the guest account."
       COMMAND pip3 install zstd
-      COMMAND python3 get_zeftypes.py)
+      COMMAND python3 scripts/get_zeftypes.py)
   endif()
 
 endif()
@@ -191,7 +197,7 @@ enable_testing ()
 # ** Token tests
 add_test (NAME token_test
   COMMAND bash assert_no_created_tokens.sh
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/update_tokens
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/scripts
   )
 set_tests_properties(token_test PROPERTIES
   ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}:$ENV{PYTHONPATH};ZEFDB_QUIET=YES;ZEFHUB_AUTH_KEY=GUEST"
