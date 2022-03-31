@@ -33,7 +33,7 @@ bash make_everything.sh
 (cd cmake_build && make install)
 
 # Need to make sure that the zeftypes are in the zefdb folder for fallbacks.
-cp zeftypes_bootstrap_??.json zef/
+cp templates/zeftypes_bootstrap_??.json zef/
 cp zeftypes_??.json zef/
 cp cmake_install/lib/libzef* zef
 cp cmake_install/lib/pyzef* zef
