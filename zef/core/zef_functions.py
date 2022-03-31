@@ -454,6 +454,23 @@ def _overloaded_zefref_call(self, *args, **kwargs):
 from ..pyzef import main 
 main.ZefRef.__call__ = _overloaded_zefref_call
 
+def abstract_entity_call(entity, *args, **kwargs):
+    from .abstract_raes import Entity
+    if not isinstance(entity, Entity): 
+        raise TypeError(f'Trying to call using abstract entity but {entity} was given instead')
+    try:    # it's cheaper to ask for forgiveness
+        fct = _local_compiled_zef_functions[entity.d['uid']]
+    except KeyError:
+        raise Exception("The abstract entity didn't have any cached compiled function.")
+        # TODO: Here gather the ZefFunction and compile it!
+        # fct = compile_zef_function(self)
+    try:
+        return_val = fct(*args, **kwargs)
+    except Exception as exc:
+        print(f"Error in executing zef function: {exc}. Reraising...")
+        raise exc
+    return return_val
+
 # Monkey patching ZefRef to support the currying syntax
 # def _overloaded_zefref_getitem(self, arg):
 #     """

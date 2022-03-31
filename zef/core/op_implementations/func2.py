@@ -1,7 +1,7 @@
 from .._ops import *
 from .._core import *
 from ... import core
-
+from ..abstract_raes import *
 class FunctionZefOp:
     @staticmethod
     def __call__(*args, **kwds):
@@ -9,13 +9,13 @@ class FunctionZefOp:
         if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], FunctionType):
             return ZefOp(((RT.Function, ((2, args[0]), )), ))
         else:
-            from zef.core.zef_functions import zef_function_decorator
+            from zef.core.zef_functions import zef_function_decorator, _local_compiled_zef_functions, time_resolved_hashable
             promote_to_zefref_func = zef_function_decorator(*args, **kwds)
             def inner(func):
                 zefref = promote_to_zefref_func(func)
-                # abstract_entity = Entity(zefref)
-                # TODO return here the abstract Entity! instead of ZefRef
-                return ZefOp(((RT.Function, ((0, zefref), )), ))
+                abstract_entity = Entity(zefref)
+                _local_compiled_zef_functions[abstract_entity.d['uid']] = _local_compiled_zef_functions[time_resolved_hashable(zefref)]
+                return ZefOp(((RT.Function, ((0, abstract_entity), )), ))
             return inner
 
     @staticmethod
@@ -38,12 +38,8 @@ def function_imp(x0, func_info, *args, **kwargs):
     """
     repr_indx, fct = func_info
     if repr_indx == 0:
-        # TODO: Convert Abstract Entity to ZefRef? Or implement Abstract Entity specfic caching and compilation!
-
-        # extract the atomic entity and look in the compiled function cache.
-        # apply that function to the args, similar to the case below
-        from zef.core.zef_functions import _overloaded_zefref_call
-        return _overloaded_zefref_call(fct, x0, *args, **kwargs)
+        from zef.core.zef_functions import abstract_entity_call
+        return abstract_entity_call(fct, x0, *args, **kwargs)
     if repr_indx == 2:
         return fct(x0, *args, **kwargs)
     else:
