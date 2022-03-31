@@ -415,7 +415,14 @@ class ZefOp:
         return (ZefOp((op,)) for op in self.el_ops)
 
 
-    def __call__(self, *args):
+    def __call__(self, *args, **kwargs):
+
+        if len(kwargs) > 0 and self.el_ops[0][0] == RT.Function:
+            from .op_implementations.dispatch_dictionary import _op_to_functions
+            if len(args) > 1: extra = args[1:]
+            else: extra = []
+            return _op_to_functions[self.el_ops[0][0]][0](args[0], *self.el_ops[0][1], *extra, **kwargs)
+
         # now()
         if len(self.el_ops) == 1 and len(args) == 0:
             if self.el_ops[0][0] in  _call_0_args_translation: 
