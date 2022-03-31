@@ -190,6 +190,8 @@ namespace zefDB {
             void handle_incoming_merge_request(json & j);
             void handle_incoming_chunked(json & j, std::vector<std::string> & rest);
 
+            void ack_failure(std::string task_uid, std::string reason);
+            void ack_success(std::string task_uid, std::string reason = "success");
 
 
             // Every thread should be listening to this bool.
@@ -225,6 +227,18 @@ namespace zefDB {
             double estimated_transfer_speed_accum_time = 0;
             // We limit the accumulation to create a simple "running average"
             const double limit_estimated_transfer_speed_accum_time = 300;
+
+            struct ReceivingTransfer {
+                BaseUID uid;
+                std::vector<int> rest_sizes;
+                std::vector<std::string> rest;
+                json msg;
+
+                Time last_activity;
+            };
+            // Note: making an assumption that the WS handler thread is the only
+            // thread to ever touch this map.
+            std::unordered_map<BaseUID,ReceivingTransfer> receiving_transfers;
 
 
             using header_list_t = Communication::PersistentConnection::header_list_t;

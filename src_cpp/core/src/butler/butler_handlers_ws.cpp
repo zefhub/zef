@@ -474,5 +474,94 @@ void Butler::handle_incoming_merge_request(json & j) {
     }
 }
 
+bool is_allowed_chunk_msg(std::string msg_type) {
+    if(msg_type == "graph_update")
+        return true;
+    if(msg_type == "full_graph")
+        return true;
+    return false;
+}
+
+void Butler::ack_failure(std::string task_uid, std::string reason) {
+    std::cerr << "Problem in chunked transfer: " << reason << std::endl;
+    send_ZH_message({
+            {"msg_type", "ACK"},
+            {"task_uid", task_uid},
+            {"success", false},
+            {"reason", reason},
+        });
+}
+
+void Butler::ack_success(std::string task_uid, std::string reason) {
+    send_ZH_message({
+            {"msg_type", "ACK"},
+            {"task_uid", task_uid},
+            {"success", true},
+            {"reason", reason},
+        });
+}
+
 void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) {
+    // Note: making an assumption that the WS handler thread is the only thread
+    // to ever touch this map.
+    std::cerr << "In handle chunked: " << j << std::endl;
+    std::string chunk_type = j["chunk_type"];
+    if(chunk_type == "new") {
+        json msg = j["msg"];
+        if(!is_allowed_chunk_msg(msg["msg_type"])) {
+            ack_failure(j["task_uid"], "msg_type not allowed for chunked transfer");
+            return;
+        }
+
+        BaseUID chunk_uid = BaseUID::from_hex(j["chunk_uid"]);
+        std::vector<std::string> empty_rest(j["rest_sizes"].size());
+        receiving_transfers.emplace(chunk_uid, ReceivingTransfer{chunk_uid, j["rest_sizes"], empty_rest, msg, now()});
+
+        ack_success(j["task_uid"], "Started new chunk");
+    } else if(chunk_type == "payload") {
+        BaseUID chunk_uid = BaseUID::from_hex(j["chunk_uid"]);
+        auto it = receiving_transfers.find(chunk_uid);
+        if(it == receiving_transfers.end()) {
+            ack_failure(j["task_uid"], "Don't know about chunk");
+            return;
+        }
+
+        auto & chunk = it->second;
+        int rest_index = j["rest_index"];
+        if(rest_index < 0 || rest_index > chunk.rest_sizes.size()) {
+            ack_failure(j["task_uid"], "Invalid rest_index");
+            return;
+        }
+
+        if(chunk.rest[rest_index].size() != j["bytes_start"]) {
+            ack_failure(j["task_uid"], "New chunk doesn't fit");
+            return;
+        }
+
+        chunk.rest[rest_index] += rest[0];
+        std::cerr << "Accepted a chunk" << std::endl;
+
+        chunk.last_activity = now();
+
+        ack_success(j["task_uid"], "Accepted chunk");
+
+        // Check to see if we're finished.
+        bool done = true;
+        for(int index = 0; index < chunk.rest_sizes.size() ; index++) {
+            if(chunk.rest[index].size() != chunk.rest_sizes[index])
+                done = false;
+        }
+
+        if(done) {
+            std::cerr << "Handlind finished chunked transfer" << std::endl;
+            // As we are erasing, we need to copy it out first
+            auto chunk_msg = chunk.msg;
+            auto chunk_rest = chunk.rest;
+            receiving_transfers.erase(chunk_uid);
+            handle_incoming_message(chunk_msg, chunk_rest);
+        }
+    } else {
+        ack_failure(j["task_uid"], "Don't know how to handle chunk type");
+        return;
+    }
 }

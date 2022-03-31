@@ -527,7 +527,7 @@ namespace zefDB {
                         }, {this_bytes});
                     futures.emplace_back(task);
 
-                    if(futures.size() > this->chunked_transfer_queued) {
+                    if(futures.size() >= this->chunked_transfer_queued) {
                         // Wait on first future
                         auto & it = futures.front();
                         double first_wait_time = do_wait(it);
