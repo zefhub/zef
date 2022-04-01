@@ -133,6 +133,7 @@ class Relation:
 
 
 def abstract_rae_from_rae_type_and_uid(rae_type, uid):
+    from ._ops import is_a
     if is_a(rae_type, ET):
         return Entity({"type": rae_type, "uid": uid})
     elif is_a(rae_type, AET):
