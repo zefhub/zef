@@ -726,11 +726,12 @@ def resolve_dag_ordering_step(arg: dict)->dict:
         
 def verify_and_compact_commands(cmds: tuple):                
     # print("Start of verify", now())
-    def has_unique_assignment(pr: tuple):
-        idd, cmds = pr        
-        if len(cmds)!=1:
-            values = cmds | map[get["value"]] | collect
-            raise ValueError(f'There may be at most one assignment commands for each AE. There were multiple for assignment to {idd!r} with values {values}')
+    @func
+    def validate_and_compress_unique_assignment(cmds: list[dict]):
+        values = cmds | map[get["value"]] | func[set] | collect
+        if length(values) == 1:
+            return cmds[0]
+        raise ValueError(f'There may be at most one assignment commands for each AE. There were multiple for assignment to {get_id(cmds[0])!r} with values {values}')
 
     aes_with_explicit_assigns = (cmds
                                  | filter[lambda d: d["cmd"] == "assign_value"]
@@ -750,11 +751,18 @@ def verify_and_compact_commands(cmds: tuple):
                         )
     # print("Did sort", now())
 
-    (   # make sure if multiple assignment commands exist for the same AE, that their values agree
+    sorted_cmds = (   # make sure if multiple assignment commands exist for the same AE, that their values agree
         sorted_cmds 
-        | filter[lambda d_raes: d_raes['cmd']=='assign_value']
-        | group_by[get_id][None]
-        | for_each[has_unique_assignment]                            # will throw if assignments are ambiguous
+        | group_by[get['cmd']]
+        | map[match_apply[
+            # Do special things for assign_value
+            (first | equals["assign_value"], second | group_by[get_id]
+             | map[second | validate_and_compress_unique_assignment]),
+            # Just pack things back in for other cmds
+            (always[True], second)
+            ]]
+        | concat
+        | collect
     )
     
     # print("Check multiple assign", now())

@@ -117,7 +117,8 @@ _op_to_functions = {
         RT.ApplyIn:         (apply_in_imp, apply_in_tp),
         RT.ApplyAt:         (apply_at_imp, apply_at_tp),
         RT.RemoveIn:        (remove_in_imp, remove_in_tp),
-        RT.MergeWith:        (merge_with_imp, merge_with_tp),
+        RT.Merge:           (merge_imp, merge_tp),
+        RT.MergeWith:       (merge_with_imp, merge_with_tp),
                 
         RT.Cycle:           (cycle_imp, cycle_tp),
         RT.Repeat:          (repeat_imp, repeat_tp),
@@ -148,6 +149,7 @@ _op_to_functions = {
         
         
         
+        RT.Always:              (always_imp, always_tp),
         
         RT.CartesianProduct:    (cartesian_product_imp, cartesian_product_tp),
         RT.Permutations:        (permutations_imp, permutations_tp),

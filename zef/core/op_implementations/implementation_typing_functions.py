@@ -1110,17 +1110,9 @@ def trim_tp(v_tp, el_to_trim_tp):
         
 
 #---------------------------------------- tap -----------------------------------------------
-def tap_imp(v, fct):
-    it = iter(v)
-    def gen():
-        try:
-            while True:
-                el = next(it)
-                fct(el)
-                yield el                
-        except StopIteration:
-            return        
-    return gen()
+def tap_imp(x, fct):
+    fct(x)
+    return x
         
 
 def tap_tp(v_tp, f):
@@ -1240,6 +1232,27 @@ def combinations_tp(v, n):
     return VT.List
 
 
+#---------------------------------------- always -----------------------------------------------
+def always_imp(x, value):
+    """
+    Regardless of the input, always return the curried in value.
+
+    ---- Examples ----
+    [1,2,3] | map[always[True]]      # => [True, True, True]
+
+    match[
+        (equals[5], "special case"),
+        (always[True], "default")
+    ]
+
+    ---- Signature ----
+    (T, T2) -> T2
+    """
+    
+    return value
+
+def always_tp(x):
+    return VT.Any
 
 
 #---------------------------------------- add -----------------------------------------------
