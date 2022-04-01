@@ -236,14 +236,14 @@ def op_chain_pretty_print(el_ops):
     if not isinstance(el_ops, list) and not isinstance(el_ops, tuple):
         return repr(el_ops)
 
-    from ._ops import map, collect
+    from ._ops import map, collect, to_snake_case
     def param_to_str(pp):
         return f"[{repr(pp)}]"
 
     def el_op_to_str(p):
         # if p[0] == RT.OutOut:
         #     return f"\n>> todo!!!!"            
-        return str(p[0]).lower() + ''.join([param_to_str(pp) for pp in p[1]])
+        return to_snake_case(str(p[0])) + ''.join([param_to_str(pp) for pp in p[1]])
     return ' | '.join(el_ops | map[el_op_to_str] | collect)
 
 #   _                          ___                  ___                    _                                _           _    _               
