@@ -152,6 +152,7 @@ _op_to_functions = {
         
         RT.CartesianProduct:    (cartesian_product_imp, cartesian_product_tp),
         RT.Permutations:        (permutations_imp, permutations_tp),
+        RT.Combinations:        (combinations_imp, combinations_tp),
         RT.Add:                 (add_imp, add_tp),
         RT.Subtract:            (subtract_imp, subtract_tp),
         RT.Multiply:            (multiply_imp, multiply_tp),
