@@ -50,6 +50,10 @@ class Entity:
         if not isinstance(other, Entity): return False
         return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid']
 
+    def __getitem__(self, internal_id):
+        from ._ops import merged
+        return merged[self][internal_id]
+
     
 
 class AtomicEntity:
@@ -80,6 +84,14 @@ class AtomicEntity:
     def __eq__(self, other):
         if not isinstance(other, AtomicEntity): return False
         return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid']
+
+    def __le__(self, value):
+        from ._ops import assign_value
+        return self | assign_value[value]
+
+    def __getitem__(self, internal_id):
+        from ._ops import merged
+        return merged[self][internal_id]
     
 
 class Relation:
@@ -114,4 +126,18 @@ class Relation:
         if not isinstance(other, Relation): return False
         return self.d['type'] == other.d['type'] and self.d['uids'] == other.d['uids']
 
+    def __getitem__(self, internal_id):
+        from ._ops import merged
+        return merged[self][internal_id]
 
+
+def abstract_rae_from_rae_type_and_uid(rae_type, uid):
+    from ._ops import is_a
+    if is_a(rae_type, ET):
+        return Entity({"type": rae_type, "uid": uid})
+    elif is_a(rae_type, AET):
+        return AtomicEntity({"type": rae_type, "uid": uid})
+    else:
+        assert is_a(rae_type, RT)
+        raise Exception("Unable to create an abstract Relation without knowing its source and target")
+        

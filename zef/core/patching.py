@@ -170,3 +170,45 @@ def add_internal_id(self, internal_id):
     return merged[self][internal_id]
 ZefRef.__getitem__ = add_internal_id
 EZefRef.__getitem__ = add_internal_id
+
+original_Graph__contains__ = main.Graph.__contains__
+def Graph__contains__(self, x):
+    from .abstract_raes import Entity, AtomicEntity, Relation
+    from ._ops import origin_uid
+    if type(x) in [Entity, AtomicEntity, Relation]:
+        return origin_uid(x) in self
+
+    if type(x) in [ZefRef, EZefRef]:
+        if Graph(x) == self:
+            return True
+        return origin_uid(x) in self
+
+    return original_Graph__contains__(self, x)
+main.Graph.__contains__ = Graph__contains__
+    
+original_Graph__getitem__ = main.Graph.__getitem__
+def Graph__getitem__(self, x):
+    from .abstract_raes import Entity, AtomicEntity, Relation
+    from ._ops import uid, target
+    from .internals import BT
+    if type(x) in [Entity, AtomicEntity, Relation]:
+        return self[uid(x)]
+
+    res = original_Graph__getitem__(self, x)
+    # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
+    # Accessing the low-level BTs can only be done through traversals
+    if BT(res) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
+        # return target(res << BT.ORIGIN_RAE_EDGE)
+        # TODO: We need a consistent way of accessing this.
+        #
+        # Is this even possible for a EZefRef? User can terminate and recreate
+        # RAEs that have the same identity, so there's nothing sensible that
+        # could be returned here?
+        #
+        # Hence, going to disable this. It will be that you can only get the RAE
+        # corresponding to a foreign RAE in the context of a graph slice. Doing
+        # it here will just return the low level blob.
+        pass
+    return res
+
+main.Graph.__getitem__ = Graph__getitem__

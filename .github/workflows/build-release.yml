@@ -33,7 +33,7 @@ jobs:
       # Git things
       - uses: actions/checkout@v2
         with:
-          token: ${{ secrets.GIT_ACCESS_KEY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v1
@@ -66,6 +66,13 @@ jobs:
         with:
           files: dist/*
 
+      - name: save artifact for docs upload
+        uses: actions/upload-artifact@v3
+        with:
+          name: wheels
+          path: |
+            dist
+
       - name: upload to s3 bucket
         run: |
           cd dist
@@ -95,7 +102,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
         with:
-          token: ${{ secrets.GIT_ACCESS_KEY }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
 
       - name: Configure AWS credentials
@@ -143,61 +150,24 @@ jobs:
     strategy:
       matrix:
         python-version: [3.8]
-    #env:
-    #ZEFHUB_AUTH_KEY: "ci@synchronous.ai:iwantanewamp"
-    #PYTHONPATH: "${GITHUB_WORKSPACE}:$PYTHONPATH"
     steps:
-      ########
-      # Git things
       - uses: actions/checkout@v2
         with:
-          # repository: synchronoustechnologies/zef-docs
           path: /home/runner/work/zefDB/zefDB/zefDB
-          token: ${{ secrets.GIT_ACCESS_KEY }}
-          persist-credentials: true
-      - uses: fusion-engineering/setup-git-credentials@v2
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Grab built wheel
+        uses: actions/download-artifact@v3
         with:
-          credentials: https://synchronous:${{secrets.GIT_ACCESS_KEY}}@github.com/
-      ########
-      # Python
-      - run: cd zefDB
+          name: wheels
+
       - name: Setup python
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: ${{ inputs.python-version }}
 
-      - name: identify pip cache directory
-        id: pipdir
-        run: |
-          python3 -m pip install --upgrade pip
-          echo ::set-output name=pipdir::$(pip3 cache dir)
-
-      - name: pip cache
-        uses: actions/cache@v2
-        with:
-          path: ${{ steps.pipdir.outputs.pipdir }}
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
-
-      - name: Install python dependencies for build
-        run: |
-          python3 -m pip install --upgrade pip
-          pip3 install absl-py protobuf
-          if [ -f requirements.txt ]; then pip3 install -r requirements.txt; fi
-
-        ########
-      # Making
-      - name: Grab ubuntu packages
-        run: |
-          sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev
-
-      - name: Make without julia
-        env:
-          WITH_JULIA: 0
-        run: |
-          cd zefDB
-          bash make_everything.sh
+      - name: Install wheel
+        run: pip3 install dist/*.whl
 
       ########
       # Generate docs
