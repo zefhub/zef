@@ -149,6 +149,7 @@ _op_to_functions = {
         
         
         
+        RT.Always:              (always_imp, always_tp),
         
         RT.CartesianProduct:    (cartesian_product_imp, cartesian_product_tp),
         RT.Permutations:        (permutations_imp, permutations_tp),
