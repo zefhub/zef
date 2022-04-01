@@ -1110,17 +1110,9 @@ def trim_tp(v_tp, el_to_trim_tp):
         
 
 #---------------------------------------- tap -----------------------------------------------
-def tap_imp(v, fct):
-    it = iter(v)
-    def gen():
-        try:
-            while True:
-                el = next(it)
-                fct(el)
-                yield el                
-        except StopIteration:
-            return        
-    return gen()
+def tap_imp(x, fct):
+    fct(x)
+    return x
         
 
 def tap_tp(v_tp, f):
