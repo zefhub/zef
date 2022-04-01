@@ -229,7 +229,7 @@ def match_apply_imp(item, patterns):
     """
     for pred, applied_func in patterns:
         if pred(item):
-            assert isinstance(applied_func, callable)
+            assert callable(applied_func)
             return applied_func(item)
     raise RuntimeError(f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
     
@@ -1240,6 +1240,27 @@ def combinations_tp(v, n):
     return VT.List
 
 
+#---------------------------------------- always -----------------------------------------------
+def always_imp(x, value):
+    """
+    Regardless of the input, always return the curried in value.
+
+    ---- Examples ----
+    [1,2,3] | map[always[True]]      # => [True, True, True]
+
+    match[
+        (equals[5], "special case"),
+        (always[True], "default")
+    ]
+
+    ---- Signature ----
+    (T, T2) -> T2
+    """
+    
+    return value
+
+def always_tp(x):
+    return VT.Any
 
 
 #---------------------------------------- add -----------------------------------------------
