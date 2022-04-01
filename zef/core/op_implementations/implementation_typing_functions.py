@@ -9,6 +9,7 @@ from ..VT.value_type import ValueType
 from .. import *
 from ..op_structs import _call_0_args_translation, type_spec
 from .._ops import *
+from ..abstract_raes import abstract_rae_from_rae_type_and_uid
 
 from ...pyzef import zefops as pyzefops, main as pymain
 from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
@@ -2578,7 +2579,7 @@ def next_tx_imp(z_tx):
         return next_tx_ezr(z_tx)
     if isinstance(z_tx, ZefRef):
         z_frame_ezr = (z_tx | frame | collect).tx
-        z_moved = next_tx_ezr(zo.to_ezefref(z_tx))
+        z_moved = next_tx_ezr(pyzefops.to_ezefref(z_tx))
         ts = pyzefops.time_slice
         if z_moved is None or ts(z_moved)>ts(z_frame_ezr):
             return None 
@@ -2616,7 +2617,7 @@ def previous_tx_imp(z_tx):
         return previous_tx_ezr(z_tx)
     if isinstance(z_tx, ZefRef):
         z_frame_ezr = (z_tx | frame | collect).tx
-        z_moved = previous_tx_ezr(zo.to_ezefref(z_tx))
+        z_moved = previous_tx_ezr(pyzefops.to_ezefref(z_tx))
         ts = pyzefops.time_slice
         if z_moved is None or ts(z_moved)>ts(z_frame_ezr):
             return None 
@@ -2846,9 +2847,9 @@ def in_frame_imp(z, *args):
             frame = args[1]
             tombstone_allowed = True
         else:
-            raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone[my_gs] ")
+            raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone][my_gs] ")
     else:
-        raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone[my_gs] ")    
+        raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone][my_gs] ")    
     z_tx = frame.tx
     if not (isinstance(z, ZefRef) or isinstance(z, EZefRef)):
         raise NotImplementedError(f"No in_frame yet for type {type(z)}")
@@ -3033,7 +3034,7 @@ def time_travel_imp(x, *args):
     try:
         if isinstance(x, ZefRef):
             if isinstance(p, int):
-                return (x | zo.time_travel[allow_tombstone][p]) if tombstone_allowed else (x | zo.time_travel[p])
+                return (x | pyzefops.time_travel[allow_tombstone][p]) if tombstone_allowed else (x | pyzefops.time_travel[p])
             elif isinstance(p, Time):
                 new_frame = Graph(x) | to_tx[p] | to_graph_slice | c
                 if new_frame is None:
@@ -3050,7 +3051,7 @@ def time_travel_imp(x, *args):
             if isinstance(p, int):
                 tx_zr = ZefRef(Graph(x.tx)[42], x.tx)       # hacky: we want some ZefRef that we can time travel with. Use root for now
                 # some gymnastics using the old ops to get to the frame that we want
-                return GraphSlice(tx_zr | zo.time_travel[p] | zo.tx | zo.to_ezefref)
+                return GraphSlice(tx_zr | pyzefops.time_travel[p] | pyzefops.tx | pyzefops.to_ezefref)
             elif isinstance(p, Time):
                 return Graph(x.tx) | to_tx[p] | to_graph_slice | c
             elif is_duration(p):
@@ -3082,8 +3083,10 @@ def time_travel_tp(x, p):
 
 
 
-def origin_uid_imp(z) -> str:
+def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
+    if type(z) in [Entity, AtomicEntity, Relation]:
+        return uid(z)
     assert BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}
     if internals.is_delegate(z):
         return uid(to_ezefref(z))
@@ -3110,6 +3113,8 @@ def origin_uid_tp(x):
 
 def origin_rae_imp(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
+    if type(x) in [Entity, AtomicEntity, Relation]:
+        return x
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         if internals.is_delegate(x):
             raise Exception("TODO: Implement origin_rae(ZefRef) when ZefRef is a delegate")
@@ -3479,14 +3484,18 @@ def ins_and_outs_implementation(first_arg, *curried_args):
     if isinstance(first_arg, FlatRef): return fr_ins_and_outs_imp(first_arg)
     return (pyzefops.ins_and_outs)(first_arg, *curried_args)
 
-def source_implementation(first_arg, *curried_args):
-    if isinstance(first_arg, FlatRef):
-        return fr_source_imp(first_arg)
-    return (pyzefops.source)(first_arg, *curried_args)
+def source_implementation(zr, *curried_args):
+    if isinstance(zr, FlatRef):
+        return fr_source_imp(zr)
+    if isinstance(zr, Relation):
+        return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
+    return (pyzefops.source)(zr, *curried_args)
 
 def target_implementation(zr):
     if isinstance(zr, FlatRef):
         return fr_target_imp(zr)
+    if isinstance(zr, Relation):
+        return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
     return pyzefops.target(zr)
 
 def value_implementation(zr, maybe_tx=None):

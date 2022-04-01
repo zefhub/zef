@@ -1,5 +1,7 @@
 from ._core import *
 from ._ops import *
+from .abstract_raes import *
+from .internals import EternalUID
 
 class GraphSlice:
     def __init__(self, *args):
@@ -64,6 +66,60 @@ class GraphSlice:
 
     def __getitem__(self, thing):
         g = Graph(self.tx)
-        zr = g[thing]
-        return zr | in_frame[GraphSlice(self.tx)] | collect
+        ezr = g[thing]
+        # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
+        # Accessing the low-level BTs can only be done through traversals
+        if BT(ezr) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
+            res = get_instance_rae(uid(ezr), self)
+            if res is None:
+                raise KeyError("RAE doesn't have an alive instance in this timeslice")
+            return res
 
+        else:
+            return ezr | in_frame[GraphSlice(self.tx)] | collect
+
+    def __contains__(self, thing):
+        if type(thing) in [Entity, AtomicEntity, Relation]:
+            return get_instance_rae(uid(thing), self) is not None
+
+        g = Graph(self.tx)
+        if thing not in g:
+            return False
+        z = g[thing]
+
+        return z | exists_at[GraphSlice(self.tx)] | collect
+
+
+def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
+    """
+    Returns the instance of a foreign rae in the given slice. It could be that
+    the node asked for has its origin on this graph (the original rae may still
+    be alive or it may be terminated)
+
+    Args:
+        origin_uid (EternalUID): the uid of the origin rae we are looking for
+        g (Graph): on which graph are we looking?
+
+    Returns:
+        ZefRef: this graph knows about this: found instance
+        None: this graph knows nothing about this RAE
+    """
+    g = Graph(gs.tx)
+    if origin_uid not in g:
+        return None
+
+    zz = g[origin_uid]
+    if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
+        z_candidates = zz << L[BT.ORIGIN_RAE_EDGE] | target | filter[exists_at[gs]] | collect
+        if len(z_candidates) > 1:
+            raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {origin_uid}")
+        elif len(z_candidates) == 1:
+            return z_candidates | only | in_frame[gs] | collect
+        else:
+            return None     # no instance alive at the moment
+        
+    elif BT(zz) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}:
+        raise Exception("Shouldn't be calling this internal function with instance RAEs.")
+    else:
+        raise RuntimeError("Unexpected option in get_instance_rae")
+        

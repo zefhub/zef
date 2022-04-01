@@ -939,7 +939,7 @@ class LazyValue:
             try:
                 curr_value = _op_to_functions[op[0]][0](curr_value,  *op[1])
             except Exception as e:
-                raise RuntimeError(f"An Exception occured while evaluating '{self.initial_val} | {ZefOp(self.el_ops.el_ops)}'.\nThe exception occured while calling {op[0]} with ({curr_value,  *op[1]}). The exception was {e}")
+                raise RuntimeError(f"An Exception occured while evaluating '{self.initial_val} | {ZefOp(self.el_ops.el_ops)}'.\nThe exception occured while calling {op[0]} with ({curr_value,  *op[1]}). The exception was {e}") from e
             
             from .error import _ErrorType
             if isinstance(curr_value, _ErrorType): raise RuntimeError(f"The evaluation engine returned an Error from '{ZefOp((op,))}'.\nThe error was {curr_value}")
