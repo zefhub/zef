@@ -142,6 +142,8 @@ _op_to_functions = {
         RT.Replace:         (replace_imp, replace_tp),
         RT.Distinct:        (distinct_imp, distinct_tp),
         RT.DistinctBy:      (distinct_by_imp, distinct_by_tp),
+        RT.IsDistinct:      (is_distinct_imp, is_distinct_tp),
+        RT.IsDistinctBy:    (is_distinct_by_imp, is_distinct_by_tp),
         RT.Shuffle:         (shuffle_imp, shuffle_tp),
         RT.Slice:           (slice_imp, slice_tp),
         RT.Split:           (split_imp, split_tp),
