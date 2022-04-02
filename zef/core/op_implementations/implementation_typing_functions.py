@@ -870,8 +870,11 @@ def keys_tp(input_arg0_tp):
 
 #---------------------------------------- reverse -----------------------------------------------
 def reverse_imp(v):
-    if isinstance(v, str): return v[::-1]
-    return reversed(v)
+    from typing import Generator
+    if isinstance(v, Generator): return (tuple(v))[::-1]
+    # if isinstance(v, str): return v[::-1]
+    # return reversed(v)
+    return list(v)[::-1]
     
 
 def reverse_tp(op, curr_type):
