@@ -51,6 +51,11 @@ void Butler::ws_message_handler(std::string msg) {
         std::cerr << j << std::endl;
 
     handle_incoming_message(j, rest);
+
+    // The WS thread is the only one that is allowed to touch the incoming
+    // chunked transfers, so we do the checks here - this should be quick and
+    // kept that way.
+    check_overdue_receiving_transfers();
 }
 
 void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) {
@@ -483,7 +488,8 @@ bool is_allowed_chunk_msg(std::string msg_type) {
 }
 
 void Butler::ack_failure(std::string task_uid, std::string reason) {
-    std::cerr << "Problem in chunked transfer: " << reason << std::endl;
+    if(zwitch.debug_zefhub_json_output())
+        std::cerr << "Problem in chunked transfer: " << reason << std::endl;
     send_ZH_message({
             {"msg_type", "ACK"},
             {"task_uid", task_uid},
@@ -504,7 +510,6 @@ void Butler::ack_success(std::string task_uid, std::string reason) {
 void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) {
     // Note: making an assumption that the WS handler thread is the only thread
     // to ever touch this map.
-    std::cerr << "In handle chunked: " << j << std::endl;
     std::string chunk_type = j["chunk_type"];
     if(chunk_type == "new") {
         json msg = j["msg"];
@@ -539,7 +544,8 @@ void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) 
         }
 
         chunk.rest[rest_index] += rest[0];
-        std::cerr << "Accepted a chunk" << std::endl;
+        if(zwitch.debug_zefhub_json_output())
+            std::cerr << "Accepted a chunk" << std::endl;
 
         chunk.last_activity = now();
 
@@ -553,15 +559,42 @@ void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) 
         }
 
         if(done) {
-            std::cerr << "Handlind finished chunked transfer" << std::endl;
             // As we are erasing, we need to copy it out first
             auto chunk_msg = chunk.msg;
             auto chunk_rest = chunk.rest;
             receiving_transfers.erase(chunk_uid);
             handle_incoming_message(chunk_msg, chunk_rest);
         }
+    } else if(chunk_type == "cancel") {
+        BaseUID chunk_uid = BaseUID::from_hex(j["chunk_uid"]);
+        std::cerr << "Ignoring cancel chunk transfer request because this is not implemented yet." << std::endl;
     } else {
         ack_failure(j["task_uid"], "Don't know how to handle chunk type");
         return;
+    }
+}
+
+void Butler::check_overdue_receiving_transfers() {
+    // As this is called during the WS thread it needs to be handled quckly.
+
+    std::vector<BaseUID> to_remove;
+    for(auto & it : receiving_transfers) {
+        auto & trans = it.second;
+
+        if(trans.last_activity + chunk_timeout*seconds < now())
+            to_remove.push_back(trans.uid);
+    }
+
+    // std::cerr << "Incoming chunks: " << receiving_transfers.size() << ". Overdue: " << to_remove.size() << std::endl;
+
+    for(auto & chunk_uid : to_remove) {
+        std::cerr << "Removing a chunked transfer because it has passed its inactivity threashold" << std::endl;
+        receiving_transfers.erase(chunk_uid);
+
+        send_ZH_message({
+                {"msg_type", "chunked"},
+                {"chunk_uid", str(chunk_uid)},
+                {"chunk_type", "cancel"}
+            });
     }
 }

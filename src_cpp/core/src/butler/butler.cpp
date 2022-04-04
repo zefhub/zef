@@ -1135,6 +1135,7 @@ namespace zefDB {
                 } catch(const std::exception & e) {
                     std::cerr << "An exception occurred during a send_update ('" << e.what() << "'). Setting graph to invalid state." << std::endl;
                     me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                    wake(me.gd->heads_locker);
                     return;
                 }
 

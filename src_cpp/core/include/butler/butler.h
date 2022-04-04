@@ -212,7 +212,7 @@ namespace zefDB {
             AtomicLockWrapper auth_locker;
 
             int chunked_transfer_size_user = -1;
-            int chunked_transfer_size = 1024;
+            int chunked_transfer_size = 10*1024;
             int chunked_transfer_queued = 10;
             bool chunked_transfer_auto_adjust = true;
             // The timeout expected for an ACK. As the websocketpp library
@@ -240,6 +240,7 @@ namespace zefDB {
             // Note: making an assumption that the WS handler thread is the only
             // thread to ever touch this map.
             std::unordered_map<BaseUID,ReceivingTransfer> receiving_transfers;
+            void check_overdue_receiving_transfers();
 
 
             using header_list_t = Communication::PersistentConnection::header_list_t;
