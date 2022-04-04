@@ -32,6 +32,10 @@ def graphviz_imp(zz, *flags):
     List[ZefRef] -> Image
     (List[ZefRef], ZefOp) -> Image
     """
+    if isinstance(zz, FlatGraph): 
+        g = Graph()
+        zz | transact[g] | run 
+        zz = all(g, RAE)
     from functools import lru_cache
     try:
         import graphviz
