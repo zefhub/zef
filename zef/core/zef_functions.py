@@ -77,42 +77,8 @@ from ._ops import *
 # - z | func[lambda x: x] | run
 
 
+
 # This is not a zefop, it only becomes one when [] is applied to it.
-
-
-
-class FuncZefOp:
-    @staticmethod
-    def __call__(*args, **kwds):
-        # If we are invoked with only one argument of a function, this is a
-        # "shortcut" decorator, i.e.
-        # @func
-        # def f(x)...
-        from types import FunctionType
-        if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], FunctionType):
-            return FuncZefOp.__call__()(args[0])
-        else:
-            return zef_function_decorator(*args, **kwds)
-
-    @staticmethod
-    def __getitem__(arg):
-        # Defer all handling to the evaluation engine
-        return call[arg]
-
-func = FuncZefOp()
-
-
-
-# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
-# TODO: clean up old imp once all runs smoothly
-
-
 class FunctionConstructor:
     """
     1. -------------------------------------------------------
@@ -166,7 +132,7 @@ class FunctionConstructor:
         return ZefOp(((RT.Function, ((1, arg), )), ))
 
 
-func2 = FunctionConstructor()
+func = FunctionConstructor()
 
 ##################################
 # * Implementation
