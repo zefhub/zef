@@ -1,8 +1,6 @@
 from ..core import *
 from ..ops import *
 
-from .utils import *
-
 import graphql
 def parse_partial_graphql(schema):
     """Goes through the schema line by line and creates a json file that represents
@@ -165,7 +163,7 @@ def json_to_minimal_nodes(json):
         actions += [(Z["root"], RT.GQL_Type, Z[type_name])]
 
         et_name = fields.get("_ET", type_name)
-        actions += [(Z[type_name], RT.GQL_Delegate, delegate[ET(et_name)])]
+        actions += [(Z[type_name], RT.GQL_Delegate, delegate_of(ET(et_name)))]
 
         for field_name,field in fields.items():
             assert field_name != "id", "id is an automatically generated field, do not explicitly include"
@@ -188,7 +186,7 @@ def json_to_minimal_nodes(json):
                 ]
                 for bool_key in ["search", "unique", "incoming", "list", "required"]:
                     if bool_key in field:
-                        actions += [(Z[qual_name], RT(to_PascalCase(bool_key)), field[bool_key])]
+                        actions += [(Z[qual_name], RT(to_pascal_case(bool_key)), field[bool_key])]
                         del field[bool_key]
 
                 if "resolver" in field:
@@ -196,16 +194,16 @@ def json_to_minimal_nodes(json):
                     del field["resolver"]
                 else:
                     if "relation" in field:
-                        resolve_with = delegate[field["relation"]]
+                        resolve_with = delegate_of(field["relation"])
                         del field["relation"]
                     else:
                         this = ET(type_name)
-                        rt = RT(to_PascalCase(field_name))
+                        rt = RT(to_pascal_case(field_name))
                         other = name_to_raet(field["type"])
                         if field.get("incoming", False):
-                            resolve_with = delegate[(other, rt, this)]
+                            resolve_with = delegate_of((other, rt, this))
                         else:
-                            resolve_with = delegate[(this, rt, other)]
+                            resolve_with = delegate_of((this, rt, other))
 
                     actions += [(Z[qual_name], RT.GQL_Resolve_With, resolve_with)]
 
