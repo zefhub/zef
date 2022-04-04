@@ -50,6 +50,9 @@ class Entity:
         if not isinstance(other, Entity): return False
         return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid']
 
+    def __hash__(self):
+        return hash(self.d['uid'])
+
     
 
 class AtomicEntity:
@@ -84,7 +87,9 @@ class AtomicEntity:
     def __le__(self, value):
         from ._ops import assign_value
         return self | assign_value[value]
-        
+    
+    def __hash__(self):
+        return hash(self.d['uid'])
     
 
 class Relation:
@@ -119,4 +124,5 @@ class Relation:
         if not isinstance(other, Relation): return False
         return self.d['type'] == other.d['type'] and self.d['uids'] == other.d['uids']
 
-
+    def __hash__(self):
+            return hash(''.join([str(x) for x in self.d['uids']]))
