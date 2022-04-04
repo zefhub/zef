@@ -1892,8 +1892,6 @@ namespace zefDB {
                 // gd, just in case there is something funky
                 // (destruction/etc...) going on with the managing thread.
                 // Instead, put everything on the main msg queue.
-                std::cerr << "In ensure_or_get_range: trying to load a page" << std::endl;
-                print_backtrace_force();
                 auto response = butler->msg_push<GenericResponse>(LoadPage{ptr,size});
                 // Note: we don't set a timeout here, as we will rely on the
                 // butler to throw an exception if it thinks things are taking
