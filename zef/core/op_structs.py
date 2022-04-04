@@ -481,6 +481,8 @@ class CollectingOp:
             res.func = other.func
             other.func = None
             return res
+        elif isinstance(other, ZefOp):
+            return ZefOp((*base, *other.el_ops))
 
         return NotImplemented
 
