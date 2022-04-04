@@ -85,24 +85,14 @@ def most_recent_rae_on_graph(origin_uid: str, g: Graph)->ZefRef:
 
     zz = g[origin_uid]
     if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
-        z_candidates = zz << L[BT.ORIGIN_RAE_EDGE] | target | filter[exists_at[now(g)]] | collect
-        if len(z_candidates) > 1:
-            raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {origin_uid}")
-        elif len(z_candidates) == 1:
-            return z_candidates | only | in_frame[now(g)] | collect
-        else:
-            return None     # no instance alive at the moment
+        from .graph_slice import get_instance_rae
+        return get_instance_rae(origin_uid, now(g))
         
     elif BT(zz) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}:
-        latest_frame = g | now | collect
-        if zz | exists_at[latest_frame] | collect:
-            return zz | in_frame[latest_frame] | collect          # there can't be another one alive
-        candidates = (zz < BT.RAE_INSTANCE_EDGE) << L[BT.ORIGIN_RAE_EDGE] | target | filter[exists_at[latest_frame]] | collect
-        if len(candidates) == 0:
+        if zz | exists_at[now(g)] | collect:
+            return zz | in_frame[now(g)] | collect
+        else:
             return None
-        if len(candidates) > 1:
-            raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {origin_uid}")
-        return candidates | only | now | collect
     else:
         raise RuntimeError("Unexpected option in most_recent_rae_on_graph")
         
@@ -122,7 +112,8 @@ def perform_transaction_gdelta(g_delta, g: Graph):
             # TODO: Have to change the behavior of Transaction(g) later I suspect
             frame_now = GraphSlice(tx_now)
             d_raes['tx'] = tx_now
-            for cmd in g_delta.commands:
+            for i,cmd in enumerate(g_delta.commands):
+                # print(f"{i}/{len(g_delta.commands)}: {g.graph_data.write_head * 16 / 1024 / 1024} MB")
                 if cmd['cmd'] == 'instantiate' and type(cmd['rae_type']) in {EntityType, AtomicEntityType}:
                     if 'internal_id' in cmd:
                         d_raes[cmd['internal_id']] = instantiate(cmd['rae_type'], g) #| to_ezefref
@@ -143,6 +134,7 @@ def perform_transaction_gdelta(g_delta, g: Graph):
                     assert z is not None
                     if cmd['value'] is not  None:
                         if z | value | collect != cmd['value']:
+                            # print("Assigning value of ", cmd['value'], "to a", AET(z))
                             internals.assign_value_imp(z, cmd['value'])
                     if 'internal_id' in cmd:
                         d_raes[cmd['internal_id']] = now(z)                            
@@ -339,16 +331,7 @@ def verify_assign_values(assign_v, id_definitions):
 
 
 
-
-def _on_entity_type(x, merged_ids: set):
-    return (), [{'cmd': 'instantiate', 'rae_type': x}], ()
-
-
-
-def _on_atomic_entity_type(x, merged_ids: set):
-    return (), [{'cmd': 'instantiate', 'rae_type': x}], ()         
-
-def _on_zefref(x, merged_ids: set, gen_id):
+def _on_single_node(x, merged_ids: set, gen_id):
     iid,actions = realise_single_node(x, gen_id)
     return actions, [], ()
 
@@ -591,8 +574,6 @@ def make_iteration_step(generate_id: Callable)->Callable:
         expr = exprs.pop()
         
         def get_handler(exprr):
-            # Note: we put this up front and early as an `isinstance` so that we
-            # don't accidentally evaluate a LazyValue
             if isinstance(exprr, LazyValue):
                 return _on_assign_value
 
@@ -612,15 +593,16 @@ def make_iteration_step(generate_id: Callable)->Callable:
             if is_a(exprr, Delegate):
                 return _on_delegate                
         
+            _on_single_node_P = P(_on_single_node, gen_id=generate_id)
             d_dispatch = {
-                EntityType: _on_entity_type,
-                AtomicEntityType: _on_atomic_entity_type,
-                ZefRef: P(_on_zefref, gen_id=generate_id),
-                EZefRef: P(_on_zefref, gen_id=generate_id),
-                # dict: _on_dict,
-                # AssignValue_: _on_assign_value,
-                # Terminate_: _on_terminate,
-                tuple: _make_on_tuple(generate_id),         # curry the id generating function in here
+                EntityType: _on_single_node_P,
+                AtomicEntityType: _on_single_node_P,
+                ZefRef: _on_single_node_P,
+                EZefRef: _on_single_node_P,
+                Entity: _on_single_node_P,
+                AtomicEntity: _on_single_node_P,
+                Relation: _on_single_node_P,
+                tuple: _make_on_tuple(generate_id),
                 list: _make_on_tuple(generate_id),
             }
             if type(exprr) not in d_dispatch:
@@ -744,11 +726,12 @@ def resolve_dag_ordering_step(arg: dict)->dict:
         
 def verify_and_compact_commands(cmds: tuple):                
     # print("Start of verify", now())
-    def has_unique_assignment(pr: tuple):
-        idd, cmds = pr        
-        if len(cmds)!=1:
-            values = cmds | map[get["value"]] | collect
-            raise ValueError(f'There may be at most one assignment commands for each AE. There were multiple for assignment to {idd!r} with values {values}')
+    @func
+    def validate_and_compress_unique_assignment(cmds):
+        values = cmds | map[get["value"]] | func[set] | collect
+        if length(values) == 1:
+            return cmds[0]
+        raise ValueError(f'There may be at most one assignment commands for each AE. There were multiple for assignment to {get_id(cmds[0])!r} with values {values}')
 
     aes_with_explicit_assigns = (cmds
                                  | filter[lambda d: d["cmd"] == "assign_value"]
@@ -768,11 +751,18 @@ def verify_and_compact_commands(cmds: tuple):
                         )
     # print("Did sort", now())
 
-    (   # make sure if multiple assignment commands exist for the same AE, that their values agree
+    sorted_cmds = (   # make sure if multiple assignment commands exist for the same AE, that their values agree
         sorted_cmds 
-        | filter[lambda d_raes: d_raes['cmd']=='assign_value']
-        | group_by[get_id][None]
-        | for_each[has_unique_assignment]                            # will throw if assignments are ambiguous
+        | group_by[get['cmd']]
+        | map[match_apply[
+            # Do special things for assign_value
+            (first | equals["assign_value"], second | group_by[get_id]
+             | map[second | validate_and_compress_unique_assignment]),
+            # Just pack things back in for other cmds
+            (always[True], second)
+            ]]
+        | concat
+        | collect
     )
     
     # print("Check multiple assign", now())
@@ -798,10 +788,12 @@ def verify_and_compact_commands(cmds: tuple):
         | iterate[resolve_dag_ordering_step] 
         # | tap[make_debug_output()]
         | take_until[lambda s: s["num_changed"] == 0]
+        # | tap[lambda x: print("After take_until")]
         | last
         | get["state"]
         | collect
     )
+    # print("Done state_final", now())
     if len(state_final['input']) > 0:
         import json
         print(json.dumps(state_final, indent=4, default=repr))
@@ -878,6 +870,8 @@ class GraphDelta:
         a) Why can't I specify an internal id for a merge operation?
                 If you know the RAE that you want to merge, then you can just use that or its uid.
         """
+
+        # print("Start GraphDelta init", now())
         from .internals import is_any_UID 
         id_definitions = {}   # key: str (internal id), value: type of RAE it defines
         
@@ -1126,6 +1120,9 @@ def realise_single_node(x, gen_id):
         else:
             actions = [merged[x]]
             iid = origin_uid(x)
+    elif type(x) in [Entity, AtomicEntity, Relation]:
+        actions = [merged[x]]
+        iid = origin_uid(x)
     elif type(x) in scalar_types:
         iid = gen_id()
         aet = map_scalar_to_aet_type[type(x)](x)
@@ -1251,7 +1248,7 @@ def dispatch_ror_graph(g, x):
                 "target_graph": g,
                 "graph_delta": x
             })
-    elif any(isinstance(x, T) for T in {list, tuple, EntityType, AtomicEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue}):
+    elif any(isinstance(x, T) for T in {list, tuple, EntityType, AtomicEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AtomicEntity, Relation}):
         unpacking_template, graph_delta = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):

@@ -3,7 +3,7 @@
 #include <unistd.h>
 
 void handle_token_response(Butler & butler, json & j);
-void handle_token_response(Butler & butler, json & j, Butler::Task && task);
+void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr & task);
 
 
 void Butler::ws_open_handler(void) {
@@ -13,8 +13,7 @@ void Butler::ws_open_handler(void) {
     fatal_connection_error = false;
 
     json j({
-            {"username", auth_username},
-            {"token", auth_token},
+            {"token", get_firebase_token_refresh_token(refresh_token)},
             {"desired_protocol_version", zefdb_protocol_version_max},
         });
 
@@ -51,6 +50,15 @@ void Butler::ws_message_handler(std::string msg) {
     if(zwitch.debug_zefhub_json_output())
         std::cerr << j << std::endl;
 
+    handle_incoming_message(j, rest);
+
+    // The WS thread is the only one that is allowed to touch the incoming
+    // chunked transfers, so we do the checks here - this should be quick and
+    // kept that way.
+    check_overdue_receiving_transfers();
+}
+
+void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) {
     if(!j.contains("protocol_type") || !j.contains("protocol_version") || !j.contains("msg_type")) {
         std::cerr << "Invalid message from upstream, doesn't contain protocol_type, protocol_version and msg_type. Ignoring" << std::endl;
         return;
@@ -132,129 +140,19 @@ void Butler::ws_message_handler(std::string msg) {
                     std::cerr << "Warning: msg_version for " << msg_type << " is not appropriately matched with the negotiated client version." << std::endl;
 
             if(msg_type == "terminate") {
-                std::cerr << "Server is terminating our connection: " << j["reason"].get<std::string>() << std::endl;
+                handle_incoming_terminate(j);
                 return;
             } else if(msg_type == "graph_update") {
-                GraphUpdate content;
-                content.graph_uid = j["graph_uid"].get<std::string>();
-                // content.blob_index_lo = j["blob_index_lo"].get<blob_index>();
-                // content.blob_index_hi = j["blob_index_hi"].get<blob_index>();
-                // content.last_tx = j["index_of_latest_complete_tx_node"].get<blob_index>();
-
-                // content.blob_bytes = rest[0];
-
-                content.payload = UpdatePayload{j, rest};
-
-                auto data = find_graph_manager(BaseUID::from_hex(content.graph_uid));
-                if(!data) {
-                    std::cerr << "Received graph update for unmanaged graph." << std::endl;
-                } else {
-                    auto msg = std::make_shared<RequestWrapper>(content);
-                    data->queue.push(std::move(msg), true);
-                }
+                handle_incoming_graph_update(j, rest);
                 return;
             } else if(msg_type == "update_tag_list") {
-                OLD_STYLE_UpdateTagList content;
-                content.graph_uid = j["graph_uid"].get<std::string>();
-                content.tag_list = j["tag_list"].get<std::vector<std::string>>();
-
-                auto data = find_graph_manager(BaseUID::from_hex(content.graph_uid));
-                if(!data) {
-                    std::cerr << "Received updated tag list for unmanaged graph." << std::endl;
-                } else {
-                    auto msg = std::make_shared<RequestWrapper>(content);
-                    data->queue.push(std::move(msg), true);
-                }
+                handle_incoming_update_tag_list(j);
                 return;
             } else if(msg_type == "merge_request") {
-                std::optional<MergeRequest> content;
-
-                std::string task_uid = j["task_uid"].get<std::string>();
-                std::string target_guid = j["target_guid"].get<std::string>();
-                int msg_version = 0;
-                if(j.contains("msg_version"))
-                    msg_version = j["msg_version"].get<int>();
-
-                if(msg_version <= 0) {
-                    blob_index merge_tx_index = std::stoi(j["merge_tx_index"].get<std::string>());
-                    std::vector<blob_index> merge_indices;
-
-                    std::string p_string = j["merge_indices"].get<std::string>();
-                    // Dodgy parsing - this will go away in the future!
-                    p_string[p_string.length()-1] = ',';
-                    int pos = 0;
-                    while(true) {
-                        int start_pos = pos+1;
-                        pos = p_string.find(',', start_pos);
-                        if(pos == std::string::npos)
-                            break;
-                        int end_pos = pos;
-
-                        merge_indices.push_back(std::stoi(p_string.substr(start_pos, end_pos-start_pos)));
-                    }
-                    MergeRequest::PayloadIndices payload{
-                        j["source_guid"].get<std::string>(),
-                        merge_tx_index,
-                        merge_indices
-                    };
-
-                    content = MergeRequest{
-                        task_uid,
-                        target_guid,
-                        payload,
-                        msg_version
-                    };
-                } else {
-                    std::string payload_type = j["payload"]["type"].get<std::string>();
-                    if(payload_type == "indices") {
-                        content = MergeRequest{
-                            task_uid,
-                            target_guid,
-                            MergeRequest::PayloadIndices{
-                                j["payload"]["source_guid"].get<std::string>(),
-                                j["payload"]["source_tx_index"].get<blob_index>(),
-                                j["payload"]["source_indices"].get<std::vector<blob_index>>()
-                            },
-                            msg_version
-                        };
-                    } else if(payload_type == "delta") {
-                        content = MergeRequest{
-                            task_uid,
-                            target_guid,
-                            MergeRequest::PayloadGraphDelta{
-                                j["payload"]["delta"].get<json>(),
-                            },
-                            msg_version
-                        };
-                    }
-                }
-
-                auto data = find_graph_manager(BaseUID::from_hex(content->target_guid));
-                if(!data) {
-                    std::cerr << "Received merge request for unmanaged graph." << std::endl;
-                    if(msg_version == 0) {
-                        send_ZH_message({
-                                {"msg_type", "merge_request_response"},
-                                {"task_uid", task_uid},
-                                {"success", "0"},
-                                {"reason", "Don't have target graph loaded"},
-                                // {"indices", std::vector<blob_index>()},
-                                {"indices", "[]"},
-                                {"merged_tx_index", -1}
-                            });
-                    } else {
-                        send_ZH_message({
-                                {"msg_type", "merge_request_response"},
-                                {"msg_version", 1},
-                                {"task_uid", task_uid},
-                                {"success", false},
-                                {"reason", "Don't have target graph loaded"},
-                            });
-                    }
-                } else {
-                    auto msg = std::make_shared<RequestWrapper>(*content);
-                    data->queue.push(std::move(msg), true);
-                }
+                handle_incoming_merge_request(j);
+                return;
+            } else if(msg_type == "chunked") {
+                handle_incoming_chunked(j, rest);
                 return;
             }
 
@@ -283,28 +181,40 @@ void Butler::ws_message_handler(std::string msg) {
 
             // All of these messages must be passed down the line
             std::string task_uid = j["task_uid"].get<std::string>();
-            Task task;
-            if(!find_task(task_uid, &task))
+            task_promise_ptr task_promise = find_task(task_uid);
+            if(!task_promise)
                 throw std::runtime_error("Task uid isn't in the waiting list!");
             try {
+                if(msg_type == "poke") {
+                    if(zwitch.developer_output())
+                        std::cerr << "Got a poke for task " << task_uid << std::endl;
+                    task_promise->task->last_activity = now();
+                    return;
+                }
+
+                // If we're here, then we definitely are going to be finished
+                // with the task
+                forget_task(task_uid);
+
                 if(zwitch.developer_output())
-                    std::cerr << "Task response time was: " << now() - task.started_time << std::endl;
+                    std::cerr << "Task response time was: " << now() - task_promise->task->started_time << std::endl;
                 if(msg_type == "merge_request_response") {
                     auto msg = parse_ws_response<MergeRequestResponse>(j);
-                    task.promise.set_value(msg);
+                    task_promise->promise.set_value(msg);
                 } else if(msg_type == "token_response") {
-                    handle_token_response(*this, j, std::move(task));
+                    handle_token_response(*this, j, task_promise);
                 } else {
                     // The fallback
                     GenericZefHubResponse msg;
                     msg.generic = generic_from_json(j);
                     msg.j = j;
                     msg.rest = rest;
-                    task.promise.set_value(msg);
+                    task_promise->promise.set_value(msg);
                 }
                 return;
             } catch(...) {
-                task.promise.set_exception(std::current_exception());
+                task_promise->promise.set_exception(std::current_exception());
+                forget_task(task_uid);
                 throw;
             }
 
@@ -405,7 +315,7 @@ void handle_token_response(Butler & butler, json & j) {
     }
 }
 
-void handle_token_response(Butler & butler, json & j, Butler::Task && task) {
+void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr & task_promise) {
     TokenQueryResponse response;
     response.generic = generic_from_json(j);
     
@@ -432,5 +342,259 @@ void handle_token_response(Butler & butler, json & j, Butler::Task && task) {
         }
     }
 
-    task.promise.set_value(response);
+    task_promise->promise.set_value(response);
+}
+
+
+
+
+void Butler::handle_incoming_terminate(json & j) {
+    std::cerr << "Server is terminating our connection: " << j["reason"].get<std::string>() << std::endl;
+}
+
+void Butler::handle_incoming_graph_update(json & j, std::vector<std::string> & rest) {
+    GraphUpdate content;
+    content.graph_uid = j["graph_uid"].get<std::string>();
+    // content.blob_index_lo = j["blob_index_lo"].get<blob_index>();
+    // content.blob_index_hi = j["blob_index_hi"].get<blob_index>();
+    // content.last_tx = j["index_of_latest_complete_tx_node"].get<blob_index>();
+
+    // content.blob_bytes = rest[0];
+
+    content.payload = UpdatePayload{j, rest};
+
+    auto data = find_graph_manager(BaseUID::from_hex(content.graph_uid));
+    if(!data) {
+        std::cerr << "Received graph update for unmanaged graph." << std::endl;
+    } else {
+        auto msg = std::make_shared<RequestWrapper>(content);
+        data->queue.push(std::move(msg), true);
+    }
+}
+
+void Butler::handle_incoming_update_tag_list(json & j) {
+    OLD_STYLE_UpdateTagList content;
+    content.graph_uid = j["graph_uid"].get<std::string>();
+    content.tag_list = j["tag_list"].get<std::vector<std::string>>();
+
+    auto data = find_graph_manager(BaseUID::from_hex(content.graph_uid));
+    if(!data) {
+        std::cerr << "Received updated tag list for unmanaged graph." << std::endl;
+    } else {
+        auto msg = std::make_shared<RequestWrapper>(content);
+        data->queue.push(std::move(msg), true);
+    }
+}
+
+void Butler::handle_incoming_merge_request(json & j) {
+    // TODO: This should be spun off into a separate thread.
+
+    std::optional<MergeRequest> content;
+
+    std::string task_uid = j["task_uid"].get<std::string>();
+    std::string target_guid = j["target_guid"].get<std::string>();
+    int msg_version = 0;
+    if(j.contains("msg_version"))
+        msg_version = j["msg_version"].get<int>();
+
+    if(msg_version <= 0) {
+        blob_index merge_tx_index = std::stoi(j["merge_tx_index"].get<std::string>());
+        std::vector<blob_index> merge_indices;
+
+        std::string p_string = j["merge_indices"].get<std::string>();
+        // Dodgy parsing - this will go away in the future!
+        p_string[p_string.length()-1] = ',';
+        int pos = 0;
+        while(true) {
+            int start_pos = pos+1;
+            pos = p_string.find(',', start_pos);
+            if(pos == std::string::npos)
+                break;
+            int end_pos = pos;
+
+            merge_indices.push_back(std::stoi(p_string.substr(start_pos, end_pos-start_pos)));
+        }
+        MergeRequest::PayloadIndices payload{
+            j["source_guid"].get<std::string>(),
+            merge_tx_index,
+            merge_indices
+        };
+
+        content = MergeRequest{
+            task_uid,
+            target_guid,
+            payload,
+            msg_version
+        };
+    } else {
+        std::string payload_type = j["payload"]["type"].get<std::string>();
+        if(payload_type == "indices") {
+            content = MergeRequest{
+                task_uid,
+                target_guid,
+                MergeRequest::PayloadIndices{
+                    j["payload"]["source_guid"].get<std::string>(),
+                    j["payload"]["source_tx_index"].get<blob_index>(),
+                    j["payload"]["source_indices"].get<std::vector<blob_index>>()
+                },
+                msg_version
+            };
+        } else if(payload_type == "delta") {
+            content = MergeRequest{
+                task_uid,
+                target_guid,
+                MergeRequest::PayloadGraphDelta{
+                    j["payload"]["delta"].get<json>(),
+                },
+                msg_version
+            };
+        }
+    }
+
+    auto data = find_graph_manager(BaseUID::from_hex(content->target_guid));
+    if(!data) {
+        std::cerr << "Received merge request for unmanaged graph." << std::endl;
+        if(msg_version == 0) {
+            send_ZH_message({
+                    {"msg_type", "merge_request_response"},
+                    {"task_uid", task_uid},
+                    {"success", "0"},
+                    {"reason", "Don't have target graph loaded"},
+                    // {"indices", std::vector<blob_index>()},
+                    {"indices", "[]"},
+                    {"merged_tx_index", -1}
+                });
+        } else {
+            send_ZH_message({
+                    {"msg_type", "merge_request_response"},
+                    {"msg_version", 1},
+                    {"task_uid", task_uid},
+                    {"success", false},
+                    {"reason", "Don't have target graph loaded"},
+                });
+        }
+    } else {
+        auto msg = std::make_shared<RequestWrapper>(*content);
+        data->queue.push(std::move(msg), true);
+    }
+}
+
+bool is_allowed_chunk_msg(std::string msg_type) {
+    if(msg_type == "graph_update")
+        return true;
+    if(msg_type == "full_graph")
+        return true;
+    return false;
+}
+
+void Butler::ack_failure(std::string task_uid, std::string reason) {
+    if(zwitch.debug_zefhub_json_output())
+        std::cerr << "Problem in chunked transfer: " << reason << std::endl;
+    send_ZH_message({
+            {"msg_type", "ACK"},
+            {"task_uid", task_uid},
+            {"success", false},
+            {"reason", reason},
+        });
+}
+
+void Butler::ack_success(std::string task_uid, std::string reason) {
+    send_ZH_message({
+            {"msg_type", "ACK"},
+            {"task_uid", task_uid},
+            {"success", true},
+            {"reason", reason},
+        });
+}
+
+void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) {
+    // Note: making an assumption that the WS handler thread is the only thread
+    // to ever touch this map.
+    std::string chunk_type = j["chunk_type"];
+    if(chunk_type == "new") {
+        json msg = j["msg"];
+        if(!is_allowed_chunk_msg(msg["msg_type"])) {
+            ack_failure(j["task_uid"], "msg_type not allowed for chunked transfer");
+            return;
+        }
+
+        BaseUID chunk_uid = BaseUID::from_hex(j["chunk_uid"]);
+        std::vector<std::string> empty_rest(j["rest_sizes"].size());
+        receiving_transfers.emplace(chunk_uid, ReceivingTransfer{chunk_uid, j["rest_sizes"], empty_rest, msg, now()});
+
+        ack_success(j["task_uid"], "Started new chunk");
+    } else if(chunk_type == "payload") {
+        BaseUID chunk_uid = BaseUID::from_hex(j["chunk_uid"]);
+        auto it = receiving_transfers.find(chunk_uid);
+        if(it == receiving_transfers.end()) {
+            ack_failure(j["task_uid"], "Don't know about chunk");
+            return;
+        }
+
+        auto & chunk = it->second;
+        int rest_index = j["rest_index"];
+        if(rest_index < 0 || rest_index > chunk.rest_sizes.size()) {
+            ack_failure(j["task_uid"], "Invalid rest_index");
+            return;
+        }
+
+        if(chunk.rest[rest_index].size() != j["bytes_start"]) {
+            ack_failure(j["task_uid"], "New chunk doesn't fit");
+            return;
+        }
+
+        chunk.rest[rest_index] += rest[0];
+        if(zwitch.debug_zefhub_json_output())
+            std::cerr << "Accepted a chunk" << std::endl;
+
+        chunk.last_activity = now();
+
+        ack_success(j["task_uid"], "Accepted chunk");
+
+        // Check to see if we're finished.
+        bool done = true;
+        for(int index = 0; index < chunk.rest_sizes.size() ; index++) {
+            if(chunk.rest[index].size() != chunk.rest_sizes[index])
+                done = false;
+        }
+
+        if(done) {
+            // As we are erasing, we need to copy it out first
+            auto chunk_msg = chunk.msg;
+            auto chunk_rest = chunk.rest;
+            receiving_transfers.erase(chunk_uid);
+            handle_incoming_message(chunk_msg, chunk_rest);
+        }
+    } else if(chunk_type == "cancel") {
+        BaseUID chunk_uid = BaseUID::from_hex(j["chunk_uid"]);
+        std::cerr << "Ignoring cancel chunk transfer request because this is not implemented yet." << std::endl;
+    } else {
+        ack_failure(j["task_uid"], "Don't know how to handle chunk type");
+        return;
+    }
+}
+
+void Butler::check_overdue_receiving_transfers() {
+    // As this is called during the WS thread it needs to be handled quckly.
+
+    std::vector<BaseUID> to_remove;
+    for(auto & it : receiving_transfers) {
+        auto & trans = it.second;
+
+        if(trans.last_activity + chunk_timeout*seconds < now())
+            to_remove.push_back(trans.uid);
+    }
+
+    // std::cerr << "Incoming chunks: " << receiving_transfers.size() << ". Overdue: " << to_remove.size() << std::endl;
+
+    for(auto & chunk_uid : to_remove) {
+        std::cerr << "Removing a chunked transfer because it has passed its inactivity threashold" << std::endl;
+        receiving_transfers.erase(chunk_uid);
+
+        send_ZH_message({
+                {"msg_type", "chunked"},
+                {"chunk_uid", str(chunk_uid)},
+                {"chunk_type", "cancel"}
+            });
+    }
 }

@@ -236,14 +236,14 @@ def op_chain_pretty_print(el_ops):
     if not isinstance(el_ops, list) and not isinstance(el_ops, tuple):
         return repr(el_ops)
 
-    from ._ops import map, collect
+    from ._ops import map, collect, to_snake_case
     def param_to_str(pp):
         return f"[{repr(pp)}]"
 
     def el_op_to_str(p):
         # if p[0] == RT.OutOut:
         #     return f"\n>> todo!!!!"            
-        return str(p[0]).lower() + ''.join([param_to_str(pp) for pp in p[1]])
+        return to_snake_case(str(p[0])) + ''.join([param_to_str(pp) for pp in p[1]])
     return ' | '.join(el_ops | map[el_op_to_str] | collect)
 
 #   _                          ___                  ___                    _                                _           _    _               
@@ -946,7 +946,7 @@ class LazyValue:
             try:
                 curr_value = _op_to_functions[op[0]][0](curr_value,  *op[1])
             except Exception as e:
-                raise RuntimeError(f"An Exception occured while evaluating '{self.initial_val} | {ZefOp(self.el_ops.el_ops)}'.\nThe exception occured while calling {op[0]} with ({curr_value,  *op[1]}). The exception was {e}")
+                raise RuntimeError(f"An Exception occured while evaluating '{self.initial_val} | {ZefOp(self.el_ops.el_ops)}'.\nThe exception occured while calling {op[0]} with ({curr_value,  *op[1]}). The exception was {e}") from e
             
             from .error import _ErrorType
             if isinstance(curr_value, _ErrorType): raise RuntimeError(f"The evaluation engine returned an Error from '{ZefOp((op,))}'.\nThe error was {curr_value}")

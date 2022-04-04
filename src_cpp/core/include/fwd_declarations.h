@@ -73,7 +73,6 @@ namespace zefDB {
 		EZefRef instantiate(EZefRef src, BlobType bt, EZefRef trg, GraphData& gd);
 
 		EZefRef get_or_create_and_get_tx(GraphData& gd);
-		void append_edge_index(EZefRef my_blob, blob_index edge_index_to_append, bool prevent_new_edgelist_creation = false);
 
 		template <typename T> T& get_next_free_writable_blob(GraphData& gd);
 		void move_head_forward(GraphData& gd);		

@@ -2,7 +2,6 @@
 from .. import *
 from ..ops import *
 from functools import partial as P
-from .utils import *
 
 from ariadne import ObjectType, QueryType, MutationType, EnumType, ScalarType
 
@@ -25,6 +24,7 @@ assert_field = Assert[is_a[RT.GQL_Field]][lambda z: f"{z} is not a GQL field"]
 op_is_scalar = assert_type | Or[is_a[AET]][is_a[ET.GQL_Enum]]
 op_is_orderable = assert_type | Or[is_a[AET.Float]][is_a[AET.Int]][is_a[AET.Time]]
 op_is_summable = assert_type | Or[is_a[AET.Float]][is_a[AET.Int]]
+op_is_stringlike = assert_type | is_a[AET.String]
 op_is_list = assert_field >> O[RT.List] | value_or[False] | collect
 op_is_required = assert_field >> O[RT.Required] | value_or[False] | collect
 op_is_unique = assert_field >> O[RT.Unique] | value_or[False] | collect
@@ -261,6 +261,7 @@ def schema_generate_list_params(z_type, extra_filters):
 def schema_generate_type_filter(z_type, extra_filters):
     name = value(z_type >> RT.Name)
     fil_name = f"{name}Filter"
+    list_fil_name = f"{name}FilterList"
     order_name = f"{name}Order"
     orderable_name = f"{name}Orderable"
 
@@ -283,12 +284,20 @@ def schema_generate_type_filter(z_type, extra_filters):
         field_type = target(field)
         field_type_name = value(field_type >> RT.Name)
         if is_a(field_type, AET.Bool):
-            fields += [f"{field_name}: Boolean"]
+            filter_name = Boolean
         else:
-            fields += [f"{field_name}: {field_type_name}Filter"]
+            filter_name = f"{field_type_name}Filter"
             if field_type not in extra_filters:
                 extra_filters[field_type] = None
-                extra_filters[field_type] = schema_generate_scalar_filter(field_type)
+                if op_is_scalar(field_type):
+                    extra_filters[field_type] = schema_generate_scalar_filter(field_type)
+                else:
+                    extra_filters[field_type] = schema_generate_type_filter(field_type, extra_filters)
+
+        if op_is_list(field):
+            fields += [f"{field_name}: {filter_name}List"]
+        else:
+            fields += [f"{field_name}: {filter_name}"]
 
     for field in z_type > L[RT.GQL_Field] | filter[target | op_is_orderable]:
         orderable_fields += [value(field >> RT.Name)]
@@ -307,6 +316,12 @@ input {order_name} {{
         desc: {orderable_name}
         then: {order_name}
 }}
+        
+input {list_fil_name} {{
+\tany: {fil_name}
+\tall: {fil_name}
+\tsize: IntFilter
+}}
     
 enum {orderable_name} {{
 \t{orderable_fields}
@@ -319,6 +334,7 @@ enum {orderable_name} {{
 def schema_generate_scalar_filter(z_node):
     type_name = z_node >> RT.Name | value | collect
     fil_name = f"{type_name}Filter"
+    list_fil_name = f"{type_name}FilterList"
 
     if is_a(z_node, AET.Bool):
         # Shoudln't need to do anything here, as it is true/false.
@@ -337,7 +353,18 @@ def schema_generate_scalar_filter(z_node):
 \tbetween: {type_name}Range
 """
 
-    schema += "}"
+    if op_is_stringlike(z_node):
+        schema += f"""\tcontains: String
+"""
+
+    schema += f"""}}
+
+input {list_fil_name} {{
+\tany: {fil_name}
+\tall: {fil_name}
+\tsize: IntFilter
+}}
+"""
     
     if op_is_orderable(z_node):
         schema += f"""\ninput {type_name}Range {{
@@ -520,7 +547,7 @@ def handle_list_params(opts, z_node, params, info):
     opts = maybe_paginate_result(opts, params.get("first", None), params.get("offset", None))
     return opts
 
-@func
+@func(label="resolver")
 def field_resolver_by_name(z, type_node, info, name):
     # Note name goes last because it is curried last... this is weird
     if name == "id":
@@ -535,57 +562,94 @@ def maybe_filter_result(opts, z_node, info, fil=None):
     if fil is None:
         return opts
 
-    return opts | filter[build_filter_zefop(fil, field_resolver_by_name[z_node][info])]
+    temp_fil = build_filter_zefop(fil, z_node, info)
+    print("Filter for query is")
+    print(temp_fil)
+    return opts | filter[build_filter_zefop(fil, z_node, info)]
 
-def build_filter_zefop(fil, field_resolver):
+def build_filter_zefop(fil, z_node, info):
+    field_resolver = field_resolver_by_name[z_node][info]
     # top level is ands
     top = And
     for key,sub in fil.items():
         if key == "and":
             this = And
             for part in sub:
-                this = this[build_filter_zefop(part, field_resolver)]
+                this = this[build_filter_zefop(part, z_node, info)]
         elif key == "or":
             this = Or
             for part in sub:
-                this = this[build_filter_zefop(part, field_resolver)]
+                this = this[build_filter_zefop(part, z_node, info)]
         elif key == "not":
-            this = Not[build_filter_zefop(sub, field_resolver)]
+            this = Not[build_filter_zefop(sub, z_node, info)]
         elif key == "id":
             # This is handled specially - functions like an "in".
             val = field_resolver["id"]
             this = val | contained_in[sub]
         else:
             # This must be a field
+            print(f"Asking for {key}")
+            z_field = get_field_rel_by_name(z_node, key)
+            z_field_node = target(z_field)
+
             val = field_resolver[key]
-
-            if isinstance(sub, bool):
-                this = val | equals[sub]
-            else:
-                this = And[Not[equals[None]]]
-                for key,sub in sub.items():
-                    if key == "eq":
-                        this = this[equals[sub]]
-                    elif key == "in":
-                        this = this[contained_in[sub]]
-                    elif key == "le":
-                        this = this[less_than_or_equal[sub]]
-                    elif key == "lt":
-                        this = this[less_than[sub]]
-                    elif key == "ge":
-                        this = this[greater_than_or_equal[sub]]
-                    elif key == "gt":
-                        this = this[greater_than[sub]]
-                    elif key == "between":
-                        this = this[greater_than_or_equal[sub["min"]]]
-                        this = this[less_than_or_equal[sub["max"]]]
+            if op_is_list(z_field):
+                print("Special logic for list")
+                list_top = And
+                for list_key,list_sub in sub.items():
+                    if list_key == "any":
+                        sub_fil = build_filter_zefop(list_sub, z_field_node, info)
+                        list_top = list_top[val | map[sub_fil] | any]
+                    elif list_key == "all":
+                        sub_fil = build_filter_zefop(list_sub, z_field_node, info)
+                        list_top = list_top[val | map[sub_fil] | all]
+                    elif list_key == "size":
+                        temp = val | length | scalar_comparison_op(list_sub)
+                        print(temp)
+                        list_top = list_top[temp]
                     else:
-                        raise Exception(f"Unknown comparison operator: {key}")
-                this = val | this
+                        raise Exception(f"Unknown list filter keyword: {list_key}")
+                print("Passing back to this")
+                this = list_top
+            elif op_is_scalar(z_field_node):
+                if isinstance(sub, bool):
+                    this = val | equals[sub]
+                else:
+                    this = val | scalar_comparison_op(sub)
+            else:
+                sub_fil = build_filter_zefop(sub, z_field_node, info)
+                this = val | And[Not[equals[None]]][sub_fil]
 
+
+        print("At final top")
         top = top[this]
 
     return top
+
+def scalar_comparison_op(sub):
+    print("In scalar_comp_op")
+    this = And[Not[equals[None]]]
+    for scalar_key,scalar_sub in sub.items():
+        if scalar_key == "eq":
+            this = this[equals[scalar_sub]]
+        elif scalar_key == "in":
+            this = this[contained_in[scalar_sub]]
+        elif scalar_key == "contains":
+            this = this[contains[scalar_sub]]
+        elif scalar_key == "le":
+            this = this[less_than_or_equal[scalar_sub]]
+        elif scalar_key == "lt":
+            this = this[less_than[scalar_sub]]
+        elif scalar_key == "ge":
+            this = this[greater_than_or_equal[scalar_sub]]
+        elif scalar_key == "gt":
+            this = this[greater_than[scalar_sub]]
+        elif scalar_key == "between":
+            this = this[greater_than_or_equal[scalar_sub["min"]]]
+            this = this[less_than_or_equal[scalar_sub["max"]]]
+        else:
+            raise Exception(f"Unknown comparison operator: {key}")
+    return this
                 
 def get_field_rel_by_name(z_type, name):
     return (z_type > L[RT.GQL_Field]

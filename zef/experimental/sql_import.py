@@ -2,7 +2,17 @@ from ..core import *
 from ..ops import *
 
 import pandas
+import math
 from caseconverter import pascalcase
+
+def is_nan(val):
+    import pandas.core.dtypes.common as p_dtypes
+    if p_dtypes.is_integer(val):
+        return math.isnan(val)
+    elif p_dtypes.is_float(val):
+        return math.isnan(val)
+    else:
+        return False
 
 def get_col_ind(cols, name):
     for i,col in enumerate(cols):
@@ -126,13 +136,13 @@ def default_outer():
 def et_id(et, val, decl):
     ID_col = get_ent_ID_col(et, decl)
     val = coerce_val(val, aet_str_to_aet(ID_col['data_type']))
-    assert val is not None
-    return f"ET_{et} {val}"
+    assert val is not None and not is_nan(val)
+    return f"<ET_{et} {val}>"
 
 def rt_id(src, trg, rt, val, data_type):
     val = coerce_val(val, aet_str_to_aet(data_type))
-    assert val is not None
-    return f"RT_{src}_{trg}_{rt} {val}"
+    assert val is not None and not is_nan(val)
+    return f"<RT_{src}_{trg}_{rt} {val}>"
 
 def aet_str_to_aet(aet_s):
     parts = aet_s.split('.')
@@ -167,6 +177,10 @@ def coerce_val(val, aet):
             return Time(val)
         else:
             raise Exception("Don't know how to convert to AET.Time")
+    # elif is_a(aet, str):
+    #     pass
+    # else:
+    #     assert not math.isnan(val)
     return val
 
 def get_ent_ID_col(et, decl):
@@ -244,28 +258,37 @@ def import_actions_definition(definition, decl):
 
     # As this can be slow - let's warn about it
     next_print_time = now() + 5*seconds
-    for i_row,row in df.iterrows():
+    # Note: iterrows does implicit conversion of types. Use itertuples to maintain the dtypes
+    # Also, itertuples can't allow python identifiers like "class".
+    #
+    # So they are both useless! Of course this is not recommended to do things
+    # this way... but it doesn't help when I need to do things this way.
+    #
+    # Indices is the only way for now.
+    for i_row in df.index:
         if now() > next_print_time:
             print(f"SQL import is taking some time. Currently up to row {i_row} of table tagged {definition['tag']}")
             next_print_time = now() + 5*seconds
             
         # First do everything that is not a relation
         for col_ent in col_ents:
-            val = row[col_ent["name"]]
-            temp = make_ent(col_ent, val, decl)
-            actions += temp
+            val = df[col_ent["name"]][i_row]
+            val = coerce_val(val, aet_str_to_aet(col_ent["data_type"]))
+            if val is not None and not is_nan(val):
+                temp = make_ent(col_ent, val, decl)
+                actions += temp
 
         # Next get the object which corresponds to this row
         if definition["kind"] == "entity":
-            val = row[col_ID["name"]]
+            val = df[col_ID["name"]][i_row]
             this_id = et_id(definition["ET"], val, decl)
             actions += [ET(definition["ET"])[this_id]]
             z_this = Z[this_id]
         elif definition["kind"] == "relation":
             col_source = only(groups["source"])
             col_target = only(groups["target"])
-            val_source = row[col_source["name"]]
-            val_target = row[col_target["name"]]
+            val_source = df[col_source["name"]][i_row]
+            val_target = df[col_target["name"]][i_row]
             source_id = et_id(col_source["ET"], val_source, decl)
             target_id = et_id(col_target["ET"], val_target, decl)
 
@@ -273,39 +296,45 @@ def import_actions_definition(definition, decl):
             actions += [ET(col_target["ET"])[target_id]]
 
             if col_ID is None:
-                val = i_row
+                val = row.Index
                 this_id = rt_id(source_id, target_id, definition["RT"], val, "Int")
             else:
-                val = row[col_ID["name"]]
+                val = df[col_ID["name"]][i_row]
                 this_id = rt_id(source_id, target_id, definition["RT"], val, col_ID["data_type"])
             actions += [(Z[source_id], RT(definition["RT"])[this_id], Z[target_id])]
             z_this = Z[this_id]
         else:
             raise NotImplementedError()
 
+        if col_ID is not None:
+            val = df[col_ID["name"]][i_row]
+            actions += attach_field(z_this, col_ID, val)
+
         # All fields for this object
         for col_field in col_fields:
-            val = row[col_field["name"]]
+            val = df[col_field["name"]][i_row]
             actions += attach_field(z_this, col_field, val)
 
         # All connections to the other entities
         for col_ent in col_ents:
             if col_ent["name"] == definition["ID_col"]:
                 continue
-            val = row[col_ent["name"]]
+            val = df[col_ent["name"]][i_row]
+            val = coerce_val(val, aet_str_to_aet(col_ent["data_type"]))
 
-            target_id = et_id(col_ent["ET"], val, decl)
-            rel_id = f"{name_from_Z(z_this)} {col_ent['RT']} {target_id}"
-            actions += [(z_this, RT(col_ent["RT"])[rel_id], Z[target_id])]
+            if val is not None and not is_nan(val):
+                target_id = et_id(col_ent["ET"], val, decl)
+                rel_id = f"{name_from_Z(z_this)} {col_ent['RT']} {target_id}"
+                actions += [(z_this, RT(col_ent["RT"])[rel_id], Z[target_id])]
 
         # All fields on connections
         for col_fieldon in col_fieldons:
             col_target = get_col(col_ents, col_fieldon["target"])
-            target_val = row[col_target["name"]]
+            target_val = df[col_target["name"]][i_row]
             target_id = et_id(col_target["ET"], target_val, decl)
             rel_id = f"{name_from_Z(z_this)} {col_target['RT']} {target_id}"
             z_conn = Z[rel_id]
-            val = row[col_fieldon["name"]]
+            val = df[col_fieldon["name"]][i_row]
             temp += attach_field(z_conn, col_fieldon, val)
             actions += temp
 

@@ -91,6 +91,8 @@ namespace zefDB {
 		//                                                            
 		// use as my_tx_zr | time
 
+        struct Now;
+
 		struct LIBZEF_DLL_EXPORTED TimeZefopStruct {
 			Time operator() (EZefRef uzr) const;   // acts on a tx
 			Time operator() (ZefRef zr) const;

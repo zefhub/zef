@@ -9,6 +9,7 @@ from ..VT.value_type import ValueType
 from .. import *
 from ..op_structs import _call_0_args_translation, type_spec
 from .._ops import *
+from ..abstract_raes import abstract_rae_from_rae_type_and_uid
 
 from ...pyzef import zefops as pyzefops, main as pymain
 from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
@@ -256,7 +257,7 @@ def match_apply_imp(item, patterns):
     """
     for pred, applied_func in patterns:
         if pred(item):
-            assert isinstance(applied_func, callable)
+            assert callable(applied_func)
             return applied_func(item)
     raise RuntimeError(f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
     
@@ -897,8 +898,13 @@ def keys_tp(input_arg0_tp):
 
 #---------------------------------------- reverse -----------------------------------------------
 def reverse_imp(v):
+    from typing import Generator
+    if isinstance(v, Generator): return (tuple(v))[::-1]
     if isinstance(v, str): return v[::-1]
-    return reversed(v)
+    if isinstance(v, list): return v[::-1]
+    if isinstance(v, tuple): return v[::-1]
+    # return reversed(v)
+    return list(v)[::-1]
     
 
 def reverse_tp(op, curr_type):
@@ -1008,7 +1014,7 @@ def all_imp(*args):
         g = args[0]
         if len(args) == 1:
             # return g | pyzefops.instances_eternal
-            return pymain.blobs(g)           # show all low level nodes and edges, not only RAEs. We can still add ability  g | all[RAE] later
+            return blobs(g)           # show all low level nodes and edges, not only RAEs. We can still add ability  g | all[RAE] later
 
         if len(args) >= 3:
             raise Exception(f"all can only take a maximum of 2 arguments, got {len(args)} instead")
@@ -1024,7 +1030,7 @@ def all_imp(*args):
         #     return g | pyzefops.instances_eternal[fil]
 
         # The remaining options will just use the generic filter and is_a
-        return filter(pymain.blobs(g), lambda x: is_a(x, fil))
+        return filter(blobs(g), lambda x: is_a(x, fil))
 
     if isinstance(args[0], ZefRef):
         assert len(args) == 1
@@ -1137,17 +1143,9 @@ def trim_tp(v_tp, el_to_trim_tp):
         
 
 #---------------------------------------- tap -----------------------------------------------
-def tap_imp(v, fct):
-    it = iter(v)
-    def gen():
-        try:
-            while True:
-                el = next(it)
-                fct(el)
-                yield el                
-        except StopIteration:
-            return        
-    return gen()
+def tap_imp(x, fct):
+    fct(x)
+    return x
         
 
 def tap_tp(v_tp, f):
@@ -1267,6 +1265,27 @@ def combinations_tp(v, n):
     return VT.List
 
 
+#---------------------------------------- always -----------------------------------------------
+def always_imp(x, value):
+    """
+    Regardless of the input, always return the curried in value.
+
+    ---- Examples ----
+    [1,2,3] | map[always[True]]      # => [True, True, True]
+
+    match[
+        (equals[5], "special case"),
+        (always[True], "default")
+    ]
+
+    ---- Signature ----
+    (T, T2) -> T2
+    """
+    
+    return value
+
+def always_tp(x):
+    return VT.Any
 
 
 #---------------------------------------- add -----------------------------------------------
@@ -2296,6 +2315,69 @@ def distinct_by_tp(x):
     return x
 
 
+# ---------------------------------------- distinct -----------------------------------------------
+
+def is_distinct_imp(v):
+    """
+    Used on an iterable / stream of values and
+    returns a boolean indicating whether all
+    values are distinct. i.e. as soon as any value
+    appears more than once, False is returned.
+
+    ---- Examples ----
+    >>> [1,2,3] | is_distinct        # => True
+    >>> [1,2,3,2] | is_distinct      # => False
+
+    ---- Arguments ----
+    v: an iterable with elements that can be compared
+
+    ---- Signature ----
+    List[T] -> Bool
+    Stream[T] -> Bool
+    LazyValue[List[T]] -> Bool
+    """
+    return len(v) == len(set(v))
+
+
+
+def is_distinct_tp(x):
+    return VT.Bool
+
+
+# ---------------------------------------- distinct -----------------------------------------------
+
+def is_distinct_by_imp(v, fn):
+    """
+    Used on an iterable / stream of values and
+    returns a boolean indicating whether all
+    values are distinct after tranformation with 
+    a given function. i.e. as soon as any value
+    appears more than once, False is returned.
+
+    ---- Examples ----
+    >>> [1,2] | is_distinct_by[lambda x: x%2]      # => True
+    >>> [1,2,3] | is_distinct_by[lambda x: x%2]    # => False
+
+    ---- Arguments ----
+    v: an iterable with elements that can be compared
+    fn: the function to be applied elementwise
+
+    ---- Signature ----
+    List[T], Callable -> Bool
+    Stream[T], Callable -> Bool
+    """
+    w = [fn(x) for x in v]
+    return len(w) == len(set(w))        # TODO: this can clearly be made more efficient by exiting early.
+
+
+
+def is_distinct_by_tp(x):
+    return VT.Bool
+
+
+
+
+
 # ---------------------------------------- replace -----------------------------------------------
 def replace_imp(collection, old_new_pair):
     from collections.abc import Iterable
@@ -2398,7 +2480,7 @@ def split_imp(collection, val):
     ---- Signature ----
     (List[T], T) -> List[List[T]]
     """
-    if isinstance(collection, str) or isinstance(collection, bytes):
+    if isinstance(collection, str):
         return collection.split(val)
     def wrapper():
         it = iter(collection)
@@ -2606,7 +2688,7 @@ def next_tx_imp(z_tx):
         return next_tx_ezr(z_tx)
     if isinstance(z_tx, ZefRef):
         z_frame_ezr = (z_tx | frame | collect).tx
-        z_moved = next_tx_ezr(zo.to_ezefref(z_tx))
+        z_moved = next_tx_ezr(pyzefops.to_ezefref(z_tx))
         ts = pyzefops.time_slice
         if z_moved is None or ts(z_moved)>ts(z_frame_ezr):
             return None 
@@ -2644,7 +2726,7 @@ def previous_tx_imp(z_tx):
         return previous_tx_ezr(z_tx)
     if isinstance(z_tx, ZefRef):
         z_frame_ezr = (z_tx | frame | collect).tx
-        z_moved = previous_tx_ezr(zo.to_ezefref(z_tx))
+        z_moved = previous_tx_ezr(pyzefops.to_ezefref(z_tx))
         ts = pyzefops.time_slice
         if z_moved is None or ts(z_moved)>ts(z_frame_ezr):
             return None 
@@ -2874,9 +2956,9 @@ def in_frame_imp(z, *args):
             frame = args[1]
             tombstone_allowed = True
         else:
-            raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone[my_gs] ")
+            raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone][my_gs] ")
     else:
-        raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone[my_gs] ")    
+        raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone][my_gs] ")    
     z_tx = frame.tx
     if not (isinstance(z, ZefRef) or isinstance(z, EZefRef)):
         raise NotImplementedError(f"No in_frame yet for type {type(z)}")
@@ -3061,7 +3143,7 @@ def time_travel_imp(x, *args):
     try:
         if isinstance(x, ZefRef):
             if isinstance(p, int):
-                return (x | zo.time_travel[allow_tombstone][p]) if tombstone_allowed else (x | zo.time_travel[p])
+                return (x | pyzefops.time_travel[allow_tombstone][p]) if tombstone_allowed else (x | pyzefops.time_travel[p])
             elif isinstance(p, Time):
                 new_frame = Graph(x) | to_tx[p] | to_graph_slice | c
                 if new_frame is None:
@@ -3078,7 +3160,7 @@ def time_travel_imp(x, *args):
             if isinstance(p, int):
                 tx_zr = ZefRef(Graph(x.tx)[42], x.tx)       # hacky: we want some ZefRef that we can time travel with. Use root for now
                 # some gymnastics using the old ops to get to the frame that we want
-                return GraphSlice(tx_zr | zo.time_travel[p] | zo.tx | zo.to_ezefref)
+                return GraphSlice(tx_zr | pyzefops.time_travel[p] | pyzefops.tx | pyzefops.to_ezefref)
             elif isinstance(p, Time):
                 return Graph(x.tx) | to_tx[p] | to_graph_slice | c
             elif is_duration(p):
@@ -3110,8 +3192,10 @@ def time_travel_tp(x, p):
 
 
 
-def origin_uid_imp(z) -> str:
+def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
+    if type(z) in [Entity, AtomicEntity, Relation]:
+        return uid(z)
     assert BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}
     if internals.is_delegate(z):
         return uid(to_ezefref(z))
@@ -3138,6 +3222,8 @@ def origin_uid_tp(x):
 
 def origin_rae_imp(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
+    if type(x) in [Entity, AtomicEntity, Relation]:
+        return x
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         if internals.is_delegate(x):
             raise Exception("TODO: Implement origin_rae(ZefRef) when ZefRef is a delegate")
@@ -3507,14 +3593,18 @@ def ins_and_outs_implementation(first_arg, *curried_args):
     if isinstance(first_arg, FlatRef): return fr_ins_and_outs_imp(first_arg)
     return (pyzefops.ins_and_outs)(first_arg, *curried_args)
 
-def source_implementation(first_arg, *curried_args):
-    if isinstance(first_arg, FlatRef):
-        return fr_source_imp(first_arg)
-    return (pyzefops.source)(first_arg, *curried_args)
+def source_implementation(zr, *curried_args):
+    if isinstance(zr, FlatRef):
+        return fr_source_imp(zr)
+    if isinstance(zr, Relation):
+        return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
+    return (pyzefops.source)(zr, *curried_args)
 
 def target_implementation(zr):
     if isinstance(zr, FlatRef):
         return fr_target_imp(zr)
+    if isinstance(zr, Relation):
+        return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
     return pyzefops.target(zr)
 
 def value_implementation(zr, maybe_tx=None):

@@ -145,6 +145,9 @@ namespace zefDB {
 
         time start = clock::now();
 
+        if(refresh_token == "")
+            return "";
+
         if(last_refresh_token == refresh_token && last_token != "") {
             if(zwitch.developer_output())
                 std::cerr << "Auth token expire - now is " << (token_expire_time - clock::now()) / std::chrono::seconds(1) << " secs" <<  std::endl;

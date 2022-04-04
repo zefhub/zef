@@ -183,7 +183,9 @@ namespace zefDB {
 
 		// e.g. when determining the EZefRefs out_edges(my_uzr), we need to know how much space to allocate for the EZefRefs object.
 		blob_index total_edge_index_list_size_upper_limit(EZefRef uzr){
-			blob_index next_edge_list_indx = *subsequent_deferred_edge_list_index(uzr);			
+			blob_index * ptr = subsequent_deferred_edge_list_index(uzr);			
+            Butler::ensure_or_get_range(ptr, sizeof(blob_index));
+			blob_index next_edge_list_indx = *ptr;
             assert(next_edge_list_indx != 0);
 			return next_edge_list_indx == blobs_ns::sentinel_subsequent_index
 				? local_edge_indexes_capacity(uzr)
@@ -265,9 +267,12 @@ namespace zefDB {
 
 
 
-    AllEdgeIndexes::Iterator AllEdgeIndexes::begin(bool force_to_write_head) const {
+    AllEdgeIndexes::Iterator AllEdgeIndexes::begin() const {
         blob_index* ptr_to_first_el_in_array = internals::edge_indexes(uzr_with_edges);
         GraphData & gd = Graph(uzr_with_edges).my_graph_data();
+        // Need to ensure here for the entire edge list, as normally
+        // EZefRef{...} just does the minimum blob amount.
+        Butler::ensure_or_get_range(uzr_with_edges.blob_ptr, size_of_blob(uzr_with_edges));
 
         blob_index last_blob;
         if(force_to_write_head || (gd.is_primary_instance && gd.open_tx_thread == std::this_thread::get_id()))
@@ -311,6 +316,9 @@ namespace zefDB {
                 // This is for debugging a potential issue with zefhub, but will likely stay long-term in some kind of form anyway.
 
                 current_blob_pointed_to = EZefRef{ subsequent_edge_list, *gd };
+                // Need to ensure here for the entire edge list, as normally
+                // EZefRef{...} just does the minimum blob amount.
+                Butler::ensure_or_get_range(current_blob_pointed_to.blob_ptr, size_of_blob(current_blob_pointed_to));
                 ptr_to_current_edge_element = internals::edge_indexes(current_blob_pointed_to);
                 ptr_to_last_edge_element_in_current_blob = ptr_to_current_edge_element + internals::local_edge_indexes_capacity(current_blob_pointed_to);
             }

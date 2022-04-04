@@ -691,7 +691,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
     //                         py::call_guard<py::gil_scoped_release>(),
     //                         "Directly include bytes into graph at designated interval, handling the consequences on other blobs at the same time.");
 
-	internals_submodule.def("apply_update", &Butler::apply_update);
+	internals_submodule.def("apply_update", &Butler::apply_update_with_caches, py::call_guard<py::gil_scoped_release>());
 
     // TODO: In the future, these should be compiled into a version of pyzef
     // only available to zefhub/tokoloshes

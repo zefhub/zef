@@ -2,7 +2,6 @@
 #=============================================================================== GraphQL handlers =========================================================================================================
 from .fx_types import Effect, FX
 from .._ops import *
-from ..error import Error
 from .http import send_response, permit_cors, middleware, middleware_worker, fallback_not_found
 from ariadne import graphql_sync
 import os
@@ -66,10 +65,6 @@ def graphql_start_server_handler(eff: Effect):
         'pipe_into': map[middleware_worker[permit_cors, resolve_gql_query, fallback_not_found, send_response]] | subscribe[run],
         'logging': logging,
     }) | run
-
-    if is_a(http_r, Error):
-        log.error("Couldn't start HTTP server", error=http_r)
-        return http_r
 
     log.info(f"Started GQL server at http://localhost:{port}{gql_path}")
     if playground_path is not None:

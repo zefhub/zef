@@ -136,45 +136,45 @@ void apply_action_TX_EVENT_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
     }
 }
 
-void apply_action_DEFERRED_EDGE_LIST_NODE(GraphData & gd, EZefRef uzr, bool fill_caches, blob_index latest_blob_to_double_link) {
+void apply_action_DEFERRED_EDGE_LIST_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
     assert(get<BlobType>(uzr) == BlobType::DEFERRED_EDGE_LIST_NODE);
     blobs_ns::DEFERRED_EDGE_LIST_NODE & deferred = get<blobs_ns::DEFERRED_EDGE_LIST_NODE>(uzr);
 
-    // Start at the first blob and walk forwards until we find the one that was just before, or we run into ourselves.
-    blob_index prev_index = deferred.first_blob;
-    while(prev_index != index(uzr)) {
-        EZefRef prev_blob{prev_index, *graph_data(uzr)};
-        blob_index * subsequent = internals::subsequent_deferred_edge_list_index(prev_blob);
-        if(*subsequent != blobs_ns::sentinel_subsequent_index) {
-            prev_index = *subsequent;
-            continue;
-        }
+    // // Start at the first blob and walk forwards until we find the one that was just before, or we run into ourselves.
+    // blob_index prev_index = deferred.first_blob;
+    // while(prev_index != index(uzr)) {
+    //     EZefRef prev_blob{prev_index, *graph_data(uzr)};
+    //     blob_index * subsequent = internals::subsequent_deferred_edge_list_index(prev_blob);
+    //     if(*subsequent != blobs_ns::sentinel_subsequent_index) {
+    //         prev_index = *subsequent;
+    //         continue;
+    //     }
 
-        // If we get here, going to update
-        *subsequent = index(uzr);
+    //     // If we get here, going to update
+    //     *subsequent = index(uzr);
 
-        // Sanity check
-        visit_blob_with_edges([](auto & s) {
-            if(s.edges.indices[s.edges.local_capacity-1] == 0) {
-                std::cerr << "Blob edge list being updated to point to new list, when it isn't even full yet!" << std::endl;
-                throw std::runtime_error("Blob edge list being updated to point to new list, when it isn't even full yet!");
-            }
-        }, prev_blob);
+    //     // Sanity check
+    //     visit_blob_with_edges([](auto & s) {
+    //         if(s.edges.indices[s.edges.local_capacity-1] == 0) {
+    //             std::cerr << "Blob edge list being updated to point to new list, when it isn't even full yet!" << std::endl;
+    //             throw std::runtime_error("Blob edge list being updated to point to new list, when it isn't even full yet!");
+    //         }
+    //     }, prev_blob);
 
-        // Also update the direct lookup for the original blob - first find what we have as the final used index.
-        int i = 0;
-        for(; i < deferred.edges.local_capacity ; i++)
-            if(deferred.edges.indices[i] == 0)
-                break;
-        // If we hit the end, then that is okay as the final index should be the
-        // subsequent index. If it is empty then that's fine, but if it's
-        // occupied then we'll overwrite this value later on anyway.
-        uintptr_t ptr = (uintptr_t)&deferred.edges.indices[i];
-        void * last_blob = (void*)(ptr - (ptr % constants::blob_indx_step_in_bytes));
+    //     // Also update the direct lookup for the original blob - first find what we have as the final used index.
+    //     int i = 0;
+    //     for(; i < deferred.edges.local_capacity ; i++)
+    //         if(deferred.edges.indices[i] == 0)
+    //             break;
+    //     // If we hit the end, then that is okay as the final index should be the
+    //     // subsequent index. If it is empty then that's fine, but if it's
+    //     // occupied then we'll overwrite this value later on anyway.
+    //     uintptr_t ptr = (uintptr_t)&deferred.edges.indices[i];
+    //     void * last_blob = (void*)(ptr - (ptr % constants::blob_indx_step_in_bytes));
 
-        EZefRef src_blob{deferred.first_blob, gd};
-        *last_edge_holding_blob(src_blob) = index(EZefRef{last_blob});
-    }
+    //     EZefRef src_blob{deferred.first_blob, gd};
+    //     *last_edge_holding_blob(src_blob) = index(EZefRef{last_blob});
+    // }
 }
 
 void apply_action_ASSIGN_TAG_NAME_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches) {

@@ -24,6 +24,7 @@ namespace zefDB {
 
 		// check low level graph that double linking of node / edges with indexes is consistent
       LIBZEF_DLL_EXPORTED bool verify_graph_double_linking(Graph& g);
+        LIBZEF_DLL_EXPORTED void break_graph(Graph&g, blob_index index, int style);
 
 	}
 

@@ -94,6 +94,9 @@ namespace zefDB {
             std::chrono::duration<double> ping_interval = std::chrono::seconds(15);
             int allowed_silent_failures = 0;
 
+            int ping_counts = 0;
+            double ping_accum = 0;
+            const int max_pings = 5;
 
             // TODO change to atomic wait struct
             AtomicLockWrapper locker;
@@ -122,6 +125,8 @@ namespace zefDB {
 
             void close(bool failure=false);
             void restart();
+
+            void send_ping();
 
             //////////////////////////////////////////
             // * Utility extensions

@@ -143,12 +143,22 @@ namespace zefDB {
             // fail_handler(hdl);
         };
         void PersistentConnection::pong_handler(websocketpp::connection_hdl hdl, std::string s) {
-            // std::cerr << "Got pong" << std::endl;
+            long long ping_start = std::stoll(s);
+            auto duration = std::chrono::steady_clock::now().time_since_epoch();
+            long long now = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+            auto ping_time = now - ping_start;
+            ping_counts++;
+            ping_accum += ping_time;
+            if(ping_counts > max_pings) {
+                ping_accum *= max_pings / ping_counts;
+                ping_counts = max_pings;
+            }
         };
         void PersistentConnection::open_handler(websocketpp::connection_hdl hdl) {
             debug_time_print("start of open_handler");
             update(locker, connected, true);
             last_connect_time = std::chrono::steady_clock::now();
+            send_ping();
 
             if (outside_open_handler) {
                 outside_open_handler();
@@ -382,6 +392,24 @@ namespace zefDB {
                 }
             }
 
+
+        void PersistentConnection::send_ping() {
+#if ZEFDB_ALLOW_NO_TLS
+            std::visit([this](auto & con) {
+#endif
+                auto duration = std::chrono::steady_clock::now().time_since_epoch();
+                long long now = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
+                std::error_code ec;
+                con->ping(to_str(now), ec);
+                if (ec) {
+                    std::cerr << "Error sending ping: " << ec.message() << std::endl;
+                    throw std::runtime_error("Error sending ping: " + ec.message());
+                }
+#if ZEFDB_ALLOW_NO_TLS
+            }, con);
+#endif
+        }
+
         void PersistentConnection::manager_runner() {
             try {
                 while(true) {
@@ -397,13 +425,7 @@ namespace zefDB {
                         std::visit([this](auto & con) {
 #endif
                             if(con) {
-                                std::error_code ec;
-                                con->ping("", ec);
-                                // std::cerr << "Sent ping" << std::endl;
-                                if (ec) {
-                                    std::cerr << "Error sending ping: " << ec.message() << std::endl;
-                                    throw std::runtime_error("Error sending ping: " + ec.message());
-                                }
+                                send_ping();
                             }
 #if ZEFDB_ALLOW_NO_TLS
                         }, con);

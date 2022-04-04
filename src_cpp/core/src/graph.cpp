@@ -1,6 +1,7 @@
 #include "graph.h"
 #include "high_level_api.h"
 #include "synchronization.h"
+#include "verification.h"
 
 #include <doctest/doctest.h>
 
@@ -914,13 +915,27 @@ namespace zefDB {
             if(gd.write_head < end_index)
                 gd.write_head = end_index;
 
-            apply_actions_to_blob_range(
-                gd,
-                start_index,
-                end_index,
-                true,
-                double_link,
-                fill_caches);
+            // Note: we can't use EZefRefs here as we will eventually run off
+            // the end and try to ensure memory which is not alloced. Need to
+            // work with indices first.
+
+			blob_index cur_index = start_index;
+			while (cur_index < end_index) {
+                EZefRef uzr(cur_index, gd);
+				apply_action_blob(gd, uzr, fill_caches);
+				cur_index += blob_index_size(uzr);
+			}
+
+            if(double_link) {
+                apply_double_linking(gd, start_index, end_index);
+            } else {
+                Graph g(gd);
+                // TODO: Change this to partial check only
+                verification::verify_graph_double_linking(g);
+            }
+
+            auto & info = MMap::info_from_blobs(&gd);
+            MMap::flush_mmap(info, gd.write_head);
 
             if(gd.read_head < end_index) {
                 gd.read_head = end_index;

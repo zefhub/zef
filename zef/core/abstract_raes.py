@@ -53,6 +53,10 @@ class Entity:
     def __hash__(self):
         return hash(self.d['uid'])
 
+    def __getitem__(self, internal_id):
+        from ._ops import merged
+        return merged[self][internal_id]
+
     
 
 class AtomicEntity:
@@ -90,6 +94,10 @@ class AtomicEntity:
     
     def __hash__(self):
         return hash(self.d['uid'])
+
+    def __getitem__(self, internal_id):
+        from ._ops import merged
+        return merged[self][internal_id]
     
 
 class Relation:
@@ -126,3 +134,19 @@ class Relation:
 
     def __hash__(self):
             return hash(''.join([str(x) for x in self.d['uids']]))
+            
+    def __getitem__(self, internal_id):
+        from ._ops import merged
+        return merged[self][internal_id]
+
+
+def abstract_rae_from_rae_type_and_uid(rae_type, uid):
+    from ._ops import is_a
+    if is_a(rae_type, ET):
+        return Entity({"type": rae_type, "uid": uid})
+    elif is_a(rae_type, AET):
+        return AtomicEntity({"type": rae_type, "uid": uid})
+    else:
+        assert is_a(rae_type, RT)
+        raise Exception("Unable to create an abstract Relation without knowing its source and target")
+        

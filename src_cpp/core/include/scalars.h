@@ -201,9 +201,6 @@ namespace zefDB {
 //   |_____|_____|_____|  / /  __/  _|    | |_| | | | | | |  __/  |_____|_____|_____|
 //                       /___\___|_|       \__|_|_| |_| |_|\___|                     
 //                                                                                   
-    namespace zefOps {
-        struct Now;
-    }
 
     struct LIBZEF_DLL_EXPORTED Time {
 

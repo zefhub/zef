@@ -6,8 +6,8 @@ namespace zefDB {
 
 
         template<class T>
-        T Butler::wait_on_zefhub_message(json & j, const std::vector<std::string> & rest, std::chrono::duration<double> timeout, bool throw_on_failure) {
-            auto response = wait_on_zefhub_message_any(j, rest, timeout, throw_on_failure);
+        T Butler::wait_on_zefhub_message(json & j, const std::vector<std::string> & rest, QuantityFloat timeout, bool throw_on_failure, bool chunked) {
+            auto response = wait_on_zefhub_message_any(j, rest, timeout, throw_on_failure, chunked);
 
             return std::visit(overloaded {
                     [](const T & response) { return response; },
@@ -40,14 +40,15 @@ namespace zefDB {
         }
 
         template <class T>
-        T Butler::msg_push_timeout(Request && content, std::chrono::duration<double> timeout, bool ignore_closed) {
+        T Butler::msg_push_timeout(Request && content, QuantityFloat timeout, bool ignore_closed) {
             std::string msg_type = std::visit([](auto & content) {return msgqueue_to_str(content);}, content);
             auto future = msg_push_internal(std::move(content), ignore_closed);
             std::future_status status;
-            if(timeout.count() == 0)
+            assert(timeout.unit == EN.Unit.seconds);
+            if(timeout.value == 0)
                 status = std::future_status::ready;
             else
-                status = future.wait_for(timeout);
+                status = future.wait_for(std::chrono::duration<double>(timeout.value));
             if(status != std::future_status::ready) {
                 throw std::runtime_error("Butler did not return with response in time.");
             } else {

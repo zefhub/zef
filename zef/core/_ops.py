@@ -63,6 +63,8 @@ And             = make_zefop(RT.And)
 Or              = make_zefop(RT.Or)
 xor             = make_zefop(RT.Xor)
 
+always          = make_zefop(RT.Always)
+
 
 
 get_in          = make_zefop(RT.GetIn)
@@ -176,6 +178,8 @@ pattern         = make_zefop(RT.Pattern)
 replace         = make_zefop(RT.Replace)
 distinct        = make_zefop(RT.Distinct)
 distinct_by     = make_zefop(RT.DistinctBy)
+is_distinct     = make_zefop(RT.IsDistinct)
+is_distinct_by  = make_zefop(RT.IsDistinctBy)
 shuffle         = make_zefop(RT.Shuffle)
 split           = make_zefop(RT.Split)
 graphviz        = make_zefop(RT.Graphviz)

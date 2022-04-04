@@ -190,7 +190,7 @@ void Butler::handle_guest_message(TokenQuery & content, Butler::msg_ptr & msg) {
         }
     }
 
-    task_ptr task = add_task(true, std::move(msg->promise));
+    task_ptr task = add_task(true, 0, std::move(msg->promise));
     j["task_uid"] = task->task_uid;
     send_ZH_message(j);
 
@@ -269,7 +269,7 @@ void Butler::handle_guest_message(NewGraph & content, Butler::msg_ptr & msg) {
 
 template <>
 void Butler::handle_guest_message(ZearchQuery & content, Butler::msg_ptr & msg) {
-    task_ptr task = add_task(true, std::move(msg->promise));
+    task_ptr task = add_task(true, 0, std::move(msg->promise));
     try {
         send_ZH_message({
                 {"msg_type", "zearch"},
@@ -277,14 +277,14 @@ void Butler::handle_guest_message(ZearchQuery & content, Butler::msg_ptr & msg) 
                 {"zearch_term", content.query}
             });
     } catch(...) {
-        task->promise.set_exception(std::current_exception());
-        forget_task(task->task_uid);
+        auto task_promise = find_task(task->task_uid, true);
+        task_promise->promise.set_exception(std::current_exception());
     }
 }
 
 template <>
 void Butler::handle_guest_message(UIDQuery & content, Butler::msg_ptr & msg) {
-    task_ptr task = add_task(true, std::move(msg->promise));
+    task_ptr task = add_task(true, 0, std::move(msg->promise));
     try {
         send_ZH_message({
                 {"msg_type", "lookup_uid"},
@@ -292,14 +292,14 @@ void Butler::handle_guest_message(UIDQuery & content, Butler::msg_ptr & msg) {
                 {"tag", content.query}
             });
     } catch(...) {
-        task->promise.set_exception(std::current_exception());
-        forget_task(task->task_uid);
+        auto task_promise = find_task(task->task_uid, true);
+        task_promise->promise.set_exception(std::current_exception());
     }
 }
 
 template <>
 void Butler::handle_guest_message(OLD_STYLE_MergeRequestForExternal & content, Butler::msg_ptr & msg) {
-    task_ptr task = add_task(true, std::move(msg->promise));
+    task_ptr task = add_task(true, 0, std::move(msg->promise));
     try {
         if(zefdb_protocol_version <= 1) {
             // Convert merge_indices to string...
@@ -320,8 +320,8 @@ void Butler::handle_guest_message(OLD_STYLE_MergeRequestForExternal & content, B
             throw std::runtime_error("Not implemented old style merge request");
         }
     } catch(...) {
-        task->promise.set_exception(std::current_exception());
-        forget_task(task->task_uid);
+        auto task_promise = find_task(task->task_uid, true);
+        task_promise->promise.set_exception(std::current_exception());
     }
 }
 template <>
@@ -344,13 +344,13 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
         if(butler_is_master)
             throw std::runtime_error("Butler as master does not allow for upstream delegation of merges.");
 
-        task = add_task(true, std::move(msg->promise));
+        task = add_task(true, 0, std::move(msg->promise));
         // Need to delegate to zefhub
         std::visit(overloaded {
                 [&](MergeRequest::PayloadGraphDelta & payload) {
                     if(zefdb_protocol_version <= 1) {
-                        task->promise.set_value(MergeRequestResponse{"ZefHub is too old to handle graph deltas."});
-                        forget_task(task->task_uid);
+                        auto task_promise = find_task(task->task_uid, true);
+                        task_promise->promise.set_value(MergeRequestResponse{"ZefHub is too old to handle graph deltas."});
                         return;
                     } else {
                         send_ZH_message({
@@ -408,8 +408,8 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
             }, content.payload);
     } catch(...) {
         if(task) {
-            task->promise.set_exception(std::current_exception());
-            forget_task(task->task_uid);
+            auto task_promise = find_task(task->task_uid, true);
+            task_promise->promise.set_exception(std::current_exception());
         } else {
             msg->promise.set_exception(std::current_exception());
         }
@@ -418,7 +418,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
 
 template <>
 void Butler::handle_guest_message(OLD_STYLE_UserManagement & content, Butler::msg_ptr & msg) {
-    task_ptr task = add_task(true, std::move(msg->promise));
+    task_ptr task = add_task(true, 0, std::move(msg->promise));
     try {
         json j{
                 {"msg_type", "user_management"},
@@ -436,14 +436,14 @@ void Butler::handle_guest_message(OLD_STYLE_UserManagement & content, Butler::ms
         }
         send_ZH_message(j);
     } catch(...) {
-        task->promise.set_exception(std::current_exception());
-        forget_task(task->task_uid);
+        auto task_promise = find_task(task->task_uid, true);
+        task_promise->promise.set_exception(std::current_exception());
     }
 }
 
 template <>
 void Butler::handle_guest_message(TokenManagement & content, Butler::msg_ptr & msg) {
-    task_ptr task = add_task(true, std::move(msg->promise));
+    task_ptr task = add_task(true, 0, std::move(msg->promise));
     try {
         send_ZH_message({
                 {"msg_type", "token_management"},
@@ -454,7 +454,7 @@ void Butler::handle_guest_message(TokenManagement & content, Butler::msg_ptr & m
                 {"target", content.target},
             });
     } catch(...) {
-        task->promise.set_exception(std::current_exception());
-        forget_task(task->task_uid);
+        auto task_promise = find_task(task->task_uid, true);
+        task_promise->promise.set_exception(std::current_exception());
     }
 }
