@@ -391,11 +391,17 @@ def _on_merged(x: dict, merged_ids: set):
     elif is_a(obj, Entity) or is_a(obj, AtomicEntity):
         return (), [base_cmd], (uid(origin), )
     elif is_a(obj, Relation):
-                return (
-                    (obj | source | collect, obj | target | collect),
-                    [base_cmd],
-                    (uid(origin), )
-                )
+        maybe_src_trg = []
+        if not is_a(obj.d["type"][0], RT):
+            maybe_src_trg.append(source(obj))
+        if not is_a(obj.d["type"][2], RT):
+            maybe_src_trg.append(target(obj))
+
+        return (
+            tuple(maybe_src_trg),
+            [base_cmd],
+            (uid(origin), )
+        )
     else:
         raise NotImplementedError(f"Unknown type for merged[]: {type(obj)}")
         
@@ -936,6 +942,19 @@ class GraphDelta:
                 x | for_each[verify_internal_id[id_definitions]]
                 return
 
+            if type(x) in [Entity, AtomicEntity, Relation]:
+                id_definitions[uid(x)] = x
+                if type(x) == Relation:
+                    if not is_a(x.d["type"][0], RT):
+                        verify_internal_id(source(x), id_definitions)
+                    if not is_a(x.d["type"][2], RT):
+                        verify_internal_id(target(x), id_definitions)
+                return
+
+            if type(x) in [ZefRef, EZefRef]:
+                id_definitions[uid(to_ezefref(x))] = x
+                return
+
 
         @func    
         def verify_input_el(x, allow_rt, allow_scalar, id_definitions):
@@ -1012,6 +1031,10 @@ class GraphDelta:
             else:
                 raise ValueError(f"Unexpected type passed to init list of GraphDelta: {x} of type {type(x)}")
             
+        @func    
+        def verify_relation_source_target(x, id_definitions):
+            if type(x) == Relation:
+                assert all(u in id_definitions for u in x.d["uids"]), "A Relation doesn't have its corresponding source or target included in the GraphDelta. This is likely because you have an abstract Relation with another Relation as its source/target. These must be included explicitly into the GraphDelta."
         
         generate_id = make_generate_id()    # keeps an internal counter        
         iteration_step = make_iteration_step(generate_id)
@@ -1049,6 +1072,7 @@ class GraphDelta:
         elements | for_each[verify_internal_id[id_definitions]]     # all the ids are added to id_definitions. These are used in next step
         # print("Before verify_input_el", now())
         elements | for_each[verify_input_el[False][False][id_definitions]]
+        elements | for_each[verify_relation_source_target[id_definitions]]
         
         state_initial = {
             'user_expressions': tuple(elements),
@@ -1070,7 +1094,7 @@ class GraphDelta:
         # iterate until all user expressions and generated expressions have become commands
         state_final = (state_initial
                        | iterate[iteration_step]
-                       # | tap[make_debug_output()]
+                       # | map[tap[make_debug_output()]]
                        | take_until[lambda s: len(s['user_expressions'])==0]
                        | last
                        | collect
