@@ -28,7 +28,7 @@ How is this obtained in Python?
 What is the form of "runtime_state1"?
 
 runtime_state1 = {
-    'process_graph': ...,
+    'dataflow_graph': ...,
 	'push_fct': ...,
 	'op_states': {...},
 	'effect_states': {effect_ezr: ...},	

@@ -31,7 +31,7 @@ def stream_create_pushable_stream_handler(eff: Effect):
     from zef.core.reactivez import get_runtime_state
     
 
-    pg = get_runtime_state()['process_graph']
+    pg = get_runtime_state()['dataflow_graph']
     s = GraphDelta([
         ET.ZEF_PushableStream['s']
     ]) | pg | run[execute] | get['s'] | collect          # But: we want to return a stream, not a raw ZefRef

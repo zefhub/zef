@@ -264,7 +264,7 @@ def start_zef_runtime():
 
 
     _rz_state[this_thread_id] = {
-        'process_graph': g_process,
+        'dataflow_graph': g_process,
 	    'push_fct': _push,
     	# 'op_states': {...},
     	# 'effect_states': {effect_ezr: ...},		
