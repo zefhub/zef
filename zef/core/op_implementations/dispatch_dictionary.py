@@ -6,6 +6,7 @@ from .func import call_implementation, call_type_info
 from .func import unpack_implementation, unpack_type_info
 
 _op_to_functions = {
+        RT.Function:       (function_imp, function_tp),
         RT.Map:            (map_implementation, map_type_info),
         RT.Reduce:         (reduce_implementation, reduce_type_info),
         RT.Scan:           (scan_implementation, scan_type_info),

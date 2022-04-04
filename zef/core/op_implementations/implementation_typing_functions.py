@@ -52,6 +52,34 @@ def verify_zef_list(z_list: ZefRef):
     return True
 
 
+
+
+#---------------------------- function ------------------------------------
+
+def function_imp(x0, func_repr, *args, **kwargs):
+    """
+    func_repr is of form (int, any)
+    where the first integer encodes how the function is
+    represented in the ZefOp:
+    -------- representation types -------
+    0) Abstract Entity
+    1) captured python lambda or local function
+    """
+    repr_indx, fct = func_repr
+    if repr_indx == 0:
+        from zef.core.zef_functions import abstract_entity_call
+        return abstract_entity_call(fct, x0, *args, **kwargs)
+    if repr_indx == 1:
+        return fct(x0, *args, **kwargs)
+    else:
+        raise NotImplementedError('Zef Lambda expressions is not implemented yet.')
+
+
+
+def function_tp(op):
+    return VT.Any
+
+
 #---------------------------- on ------------------------------------
 def on_implementation(g, op):
     from ...pyzef import zefops as internal

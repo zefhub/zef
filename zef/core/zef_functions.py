@@ -78,26 +78,68 @@ from ._ops import *
 
 
 # This is not a zefop, it only becomes one when [] is applied to it.
-class FuncZefOp:
+
+
+
+# class FuncZefOp:
+#     @staticmethod
+#     def __call__(*args, **kwds):
+#         # If we are invoked with only one argument of a function, this is a
+#         # "shortcut" decorator, i.e.
+#         # @func
+#         # def f(x)...
+#         from types import FunctionType
+#         if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], FunctionType):
+#             return FuncZefOp.__call__()(args[0])
+#         else:
+#             return zef_function_decorator(*args, **kwds)
+
+#     @staticmethod
+#     def __getitem__(arg):
+#         # Defer all handling to the evaluation engine
+#         return call[arg]
+
+# func = FuncZefOp()
+
+
+
+# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+# TODO: clean up old imp once all runs smoothly
+
+class FunctionConstructor:
+    """
+    -------- representation types -------
+    0) Abstract Entity
+    1) captured python lambda or local function
+    """
     @staticmethod
     def __call__(*args, **kwds):
-        # If we are invoked with only one argument of a function, this is a
-        # "shortcut" decorator, i.e.
-        # @func
-        # def f(x)...
         from types import FunctionType
         if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], FunctionType):
-            return FuncZefOp.__call__()(args[0])
+            return ZefOp(((RT.Function, ((1, args[0]), )), ))
         else:
-            return zef_function_decorator(*args, **kwds)
+            from zef.core.zef_functions import zef_function_decorator, _local_compiled_zef_functions, time_resolved_hashable
+            promote_to_zefref_func = zef_function_decorator(*args, **kwds)
+            def inner(func):
+                zefref = promote_to_zefref_func(func)
+                abstract_entity = Entity(zefref)
+                _local_compiled_zef_functions[abstract_entity.d['uid']] = _local_compiled_zef_functions[time_resolved_hashable(zefref)]
+                return ZefOp(((RT.Function, ((0, abstract_entity), )), ))
+            return inner
 
     @staticmethod
     def __getitem__(arg):
-        # Defer all handling to the evaluation engine
-        return call[arg]
+        # TODO we gotta check if arg is of type Zef Lambda once we implement it
+        # return ZefOp(((RT.Function, ((1, arg), )), ))
+        return ZefOp(((RT.Function, ((2, arg), )), ))
 
-func = FuncZefOp()
-
+func2 = FunctionConstructor()
 
 
 ##################################
@@ -206,17 +248,17 @@ def zef_function_decorator(g: Graph=None, label: str=None, is_pure=False, **kwar
 
 
 
-                                        RT.UseTimeSlice
-                                    ┌──────────────────►AET.String    # hack for now until we can point at txs
-                                    │
-                                    │  RT.Name
-                                    ├──────────────────►AET.String
-                                    │
-                    RT.Binding[*]   │
+                                           RT.UseTimeSlice
+                                       ┌──────────────────►AET.String    # hack for now until we can point at txs
+                                       │
+                                       │  RT.Name
+                                       ├──────────────────►AET.String
+                                       │
+                       RT.Binding[*]   │
                     ┌──────────────────┴────────────────────────────────►ET.ZEF_Function
                     │
                     │
-ET.ZEF_Function──┤
+   ET.ZEF_Function──┤
                     │  RT.OriginalName
                     ├────────────────────►AET.String
                     │
