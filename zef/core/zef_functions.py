@@ -81,25 +81,25 @@ from ._ops import *
 
 
 
-# class FuncZefOp:
-#     @staticmethod
-#     def __call__(*args, **kwds):
-#         # If we are invoked with only one argument of a function, this is a
-#         # "shortcut" decorator, i.e.
-#         # @func
-#         # def f(x)...
-#         from types import FunctionType
-#         if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], FunctionType):
-#             return FuncZefOp.__call__()(args[0])
-#         else:
-#             return zef_function_decorator(*args, **kwds)
+class FuncZefOp:
+    @staticmethod
+    def __call__(*args, **kwds):
+        # If we are invoked with only one argument of a function, this is a
+        # "shortcut" decorator, i.e.
+        # @func
+        # def f(x)...
+        from types import FunctionType
+        if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], FunctionType):
+            return FuncZefOp.__call__()(args[0])
+        else:
+            return zef_function_decorator(*args, **kwds)
 
-#     @staticmethod
-#     def __getitem__(arg):
-#         # Defer all handling to the evaluation engine
-#         return call[arg]
+    @staticmethod
+    def __getitem__(arg):
+        # Defer all handling to the evaluation engine
+        return call[arg]
 
-# func = FuncZefOp()
+func = FuncZefOp()
 
 
 
@@ -112,15 +112,41 @@ from ._ops import *
 # TODO: new implementation @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
 # TODO: clean up old imp once all runs smoothly
 
+
 class FunctionConstructor:
     """
-    -------- representation types -------
-    0) Abstract Entity
-    1) captured python lambda or local function
+    1. -------------------------------------------------------
+     func[lambda x: 2*x]     # close over Python function
+    
+    2. -------------------------------------------------------
+    func[z_my_function_zefref]      # why may we want this rather than func(z_my_function_zefref)? Possibly useful if this appears in zefop chain. (?) Unsure 
+    
+    3. -------------------------------------------------------
+    func[z_my_function_ezefref]    # Zef Functions are values, any time slice defines the same one
+
+    4. -------------------------------------------------------
+    def ff(x, y):
+        return x+2*y
+
+    func(ff)            # close over Python function
+    
+    
+    5. -------------------------------------------------------
+    @func
+    def ff(x, y):
+        return x+2*y
+
+        
+    6. -------------------------------------------------------
+    @func(g)
+    def ff(x, y):
+        return x+2*y
+
     """
     @staticmethod
     def __call__(*args, **kwds):
         from types import FunctionType
+        from .abstract_raes import Entity
         if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], FunctionType):
             return ZefOp(((RT.Function, ((1, args[0]), )), ))
         else:
@@ -137,10 +163,10 @@ class FunctionConstructor:
     def __getitem__(arg):
         # TODO we gotta check if arg is of type Zef Lambda once we implement it
         # return ZefOp(((RT.Function, ((1, arg), )), ))
-        return ZefOp(((RT.Function, ((2, arg), )), ))
+        return ZefOp(((RT.Function, ((1, arg), )), ))
+
 
 func2 = FunctionConstructor()
-
 
 ##################################
 # * Implementation
