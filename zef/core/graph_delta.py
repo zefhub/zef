@@ -1006,6 +1006,9 @@ class GraphDelta:
             elif is_a(x, Delegate):
                 return
 
+            elif type(x) in [Entity, AtomicEntity, Relation]:
+                return
+
             else:
                 raise ValueError(f"Unexpected type passed to init list of GraphDelta: {x} of type {type(x)}")
             
