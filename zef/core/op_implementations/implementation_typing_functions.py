@@ -4884,14 +4884,19 @@ def make_request_tp(op, curr_type):
 
 
 def blake3_imp(obj) -> VT.String:
-    from blake3 import blake3 as b3
     # Hash some input all at once. The input can be bytes, a bytearray, or a memoryview.
+    from blake3 import blake3 as b3
     if isinstance(obj, bytes):
         return b3(obj).hexdigest()
     elif isinstance(obj, str):
         return b3(obj.encode()).hexdigest()
     else:
-        raise TypeError(f"blake3 only implemented to hash values of type 'bytes' (and strings, which are utf8 encoded)")
+        try:
+            from ..op_structs import type_spec
+            type_str = str(type_spec(obj))
+        except:
+            type_str = str(type(obj))
+        return blake3_imp(type_str + str(obj))
 
 def blake3_tp(op, curr_type):
     return VT.String
