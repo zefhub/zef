@@ -453,6 +453,11 @@ namespace zefDB {
         }
 
         void Butler::send_chunked_ZH_message(std::string main_task_uid, json & j, const std::vector<std::string> & rest) {
+            if(zefdb_protocol_version <= 4) {
+                send_ZH_message(j, rest);
+                return;
+            }
+
             Butler::task_promise_ptr main_task = find_task(main_task_uid);
 
             // Currently hardcoded but we need a way to extract this from config.
