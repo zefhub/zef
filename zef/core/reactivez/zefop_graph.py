@@ -37,7 +37,7 @@ def set_up_zefop_graph():
     print(f">>>>> setting up zefop graph...!")
     g_zo = Graph()
     _rz_state['builtin_zefop_graph'] = g_zo     
-    _rz_state['rz_zefop_dispatch_dict'] = add_zefop_imps_as_zef_funcs(g_zo)
+    _rz_state['rz_zefop_dispatch_dict'] = add_zefop_imps_as_zef_funcs(g_zo)  #TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
     
 
@@ -48,7 +48,7 @@ def set_up_zefop_graph():
 def add_zefop_imps_as_zef_funcs(g_zo):
     
     from zef import ZefRef, ET, RT, GraphDelta, func
-    from zef.ops import collect, run, execute, get, Z
+    from zef.ops import collect, run, execute, get, origin_rae, Z
 
 
 
@@ -64,8 +64,8 @@ def add_zefop_imps_as_zef_funcs(g_zo):
         return [
             (ET.ZEF_ElementaryOp['op'], RT.ZEF_StreamImplementation, ET.ZEF_DispatchPoint['d']),
             (Z['op'], RT.Name, name),
-            (Z['d'], RT.ZEF_Dispatch, rz_imp),
-            *([(Z['d'], RT.ZEF_HelperFunction, helper_function)] if helper_function is not None else []),
+            (Z['d'], RT.ZEF_Dispatch, origin_rae(rz_imp)),
+            *([(Z['d'], RT.ZEF_HelperFunction, origin_rae(helper_function))] if helper_function is not None else []),
             ] | func[GraphDelta] | collect | g_zo | run[execute] | get['op'] | collect
         
 
@@ -108,6 +108,9 @@ def add_zefop_imps_as_zef_funcs(g_zo):
 
     @func(g_zo)
     def delay_imp_rz(items, duration, zefop_state, z_self):
+        """
+        Forwards all items with a fixed temporal delay.
+        """
         return (
             [],                              # output items
             [(duration, (items,) )],         # future jobs

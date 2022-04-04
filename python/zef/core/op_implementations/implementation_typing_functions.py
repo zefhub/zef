@@ -3789,7 +3789,15 @@ def origin_uid_tp(x):
 
 def origin_rae_imp(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
-    if type(x) in [Entity, AtomicEntity, Relation]:
+    if is_a(x, ZefOp):
+        if x.el_ops[0][0] != RT.Function:
+            return Error('Only Zef Function zefops can return a RAE')
+        fct_rep_index, z = x.el_ops[0][1][0]
+        if fct_rep_index != 0:
+            return Error('A RAE can only be returned in the referenced\
+                 function is on a graph, which was not the case.')
+        return z
+    if type(x) in (Entity, AtomicEntity, Relation):
         return x
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         if internals.is_delegate(x):
