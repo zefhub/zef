@@ -3760,7 +3760,7 @@ InIn_implementation = partial(traverse_implementation,
                               func_only=pyzefops.traverse_in_node,
                               func_multi=pyzefops.traverse_in_node_multi,
                               func_optional=pyzefops.traverse_in_node_optional,
-                              func_RT=lambda zz: pyzefops.target(in_rts),
+                              func_RT=lambda zz: pyzefops.target(in_rts(zz)),
                               func_BT=lambda zz: pyzefops.target(pyzefops.ins(pyzefops.to_ezefref(zz))),
                               traverse_direction="inin",
                               )
