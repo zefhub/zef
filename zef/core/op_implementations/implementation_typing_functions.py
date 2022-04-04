@@ -5208,8 +5208,7 @@ def transact_imp(data, g, **kwargs):
                     if b[0] in idx_key:
                         key = idx_key[b[0]]
                         if is_a(key, uid):
-                            # return Entity({"type": b[1], "uid": key})
-                            return None
+                            return Entity({"type": b[1], "uid": key})
                         else:
                             if for_rt: return Z[key]
                             return b[1][key]
@@ -5220,8 +5219,8 @@ def transact_imp(data, g, **kwargs):
                     if b[0] in idx_key:
                         key = idx_key[b[0]]
                         if is_a(key, uid):
-                            # return AtomicEntity({"type": b[1], "uid": key})
-                            return None
+                            if b[-1]: return AtomicEntity({"type": b[1], "uid": key}) <= b[-1]
+                            else:     return AtomicEntity({"type": b[1], "uid": key})
                         else:
                             if for_rt: return Z[key]
                             if b[-1]: return b[1][key] <= b[-1]
@@ -5235,8 +5234,7 @@ def transact_imp(data, g, **kwargs):
                         key = idx_key[b[0]]
                         if for_rt: return Z[key]
                         if is_a(key, uid):
-                            # return Relation({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
-                            return None
+                            return Relation({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
                     src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)
                     trgt_blb = dispatch_on_blob(fg.blobs[b[5]], True)
                     if b[0] in idx_key: base = b[1][idx_key[b[0]]]
