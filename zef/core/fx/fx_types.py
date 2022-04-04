@@ -17,7 +17,22 @@ class FXElement():
         assert self.d[1] == name
 
 
+    def __call__(self, **kwargs):
+        """
+        Allow using this type as a constructor function,
+        which automatically injects its own type. Other
+        key-value pairs are passed in as keyword arguments.
+        e.g.
+        >>> FX.HTTP.Request(url='zefhub.io')     # returns an Effect
 
+        TODO: if the effect module provides validation functions that
+        can be run, execute this before returning. If it fails, return an
+        error.
+        """
+        return Effect({
+            **kwargs,
+            'type': self,
+        })
 
 
 

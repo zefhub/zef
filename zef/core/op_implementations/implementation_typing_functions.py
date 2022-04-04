@@ -870,8 +870,13 @@ def keys_tp(input_arg0_tp):
 
 #---------------------------------------- reverse -----------------------------------------------
 def reverse_imp(v):
+    from typing import Generator
+    if isinstance(v, Generator): return (tuple(v))[::-1]
     if isinstance(v, str): return v[::-1]
-    return reversed(v)
+    if isinstance(v, list): return v[::-1]
+    if isinstance(v, tuple): return v[::-1]
+    # return reversed(v)
+    return list(v)[::-1]
     
 
 def reverse_tp(op, curr_type):
@@ -2280,6 +2285,69 @@ def distinct_by_imp(v, fct):
 
 def distinct_by_tp(x):
     return x
+
+
+# ---------------------------------------- distinct -----------------------------------------------
+
+def is_distinct_imp(v):
+    """
+    Used on an iterable / stream of values and
+    returns a boolean indicating whether all
+    values are distinct. i.e. as soon as any value
+    appears more than once, False is returned.
+
+    ---- Examples ----
+    >>> [1,2,3] | is_distinct        # => True
+    >>> [1,2,3,2] | is_distinct      # => False
+
+    ---- Arguments ----
+    v: an iterable with elements that can be compared
+
+    ---- Signature ----
+    List[T] -> Bool
+    Stream[T] -> Bool
+    LazyValue[List[T]] -> Bool
+    """
+    return len(v) == len(set(v))
+
+
+
+def is_distinct_tp(x):
+    return VT.Bool
+
+
+# ---------------------------------------- distinct -----------------------------------------------
+
+def is_distinct_by_imp(v, fn):
+    """
+    Used on an iterable / stream of values and
+    returns a boolean indicating whether all
+    values are distinct after tranformation with 
+    a given function. i.e. as soon as any value
+    appears more than once, False is returned.
+
+    ---- Examples ----
+    >>> [1,2] | is_distinct_by[lambda x: x%2]      # => True
+    >>> [1,2,3] | is_distinct_by[lambda x: x%2]    # => False
+
+    ---- Arguments ----
+    v: an iterable with elements that can be compared
+    fn: the function to be applied elementwise
+
+    ---- Signature ----
+    List[T], Callable -> Bool
+    Stream[T], Callable -> Bool
+    """
+    w = [fn(x) for x in v]
+    return len(w) == len(set(w))        # TODO: this can clearly be made more efficient by exiting early.
+
+
+
+def is_distinct_by_tp(x):
+    return VT.Bool
+
+
+
 
 
 # ---------------------------------------- replace -----------------------------------------------

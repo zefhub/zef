@@ -727,7 +727,7 @@ def resolve_dag_ordering_step(arg: dict)->dict:
 def verify_and_compact_commands(cmds: tuple):                
     # print("Start of verify", now())
     @func
-    def validate_and_compress_unique_assignment(cmds: list[dict]):
+    def validate_and_compress_unique_assignment(cmds):
         values = cmds | map[get["value"]] | func[set] | collect
         if length(values) == 1:
             return cmds[0]
