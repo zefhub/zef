@@ -632,14 +632,17 @@ namespace zefDB {
                 double goal_time = chunk_timeout / 5;
                 double est_chunk_size = goal_time * speed;
                 // if(est_chunk_size > chunk_size)
-                std::cerr << "est_chunk_size: " << est_chunk_size << std::endl;
-                std::cerr << "est_speed: " << speed << std::endl;
-                std::cerr << "previous chunk_size: " << chunked_transfer_size << std::endl;
+                if(zwitch.developer_output()) {
+                    std::cerr << "est_chunk_size: " << est_chunk_size << std::endl;
+                    std::cerr << "est_speed: " << speed << std::endl;
+                    std::cerr << "previous chunk_size: " << chunked_transfer_size << std::endl;
+                }
                 if(est_chunk_size < chunked_transfer_size)
                     chunked_transfer_size = est_chunk_size;
                 else
-                    chunked_transfer_size = (chunked_transfer_size + est_chunk_size) / 2;
-                std::cerr << "Adjusting chunk size to " << chunked_transfer_size << std::endl;
+                    chunked_transfer_size = (chunked_transfer_size + est_chunk_size) / chunked_safety_factor / chunked_transfer_queued;
+                if(zwitch.developer_output())
+                    std::cerr << "Adjusting chunk size to " << chunked_transfer_size << std::endl;
             }
         }
 
