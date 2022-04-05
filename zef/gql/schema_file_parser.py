@@ -147,7 +147,8 @@ def json_to_minimal_nodes(json):
         actions += [
             getattr(AET, typ)[gql_name],
             # Helpful hack to make the resolvers easier
-            (Z[gql_name], RT.Name, gql_name)
+            (Z[gql_name], RT.Name, gql_name),
+            (Z["root"], RT.GQL_CoreScalarType, Z[gql_name])
         ]
 
     def name_to_raet(name):
