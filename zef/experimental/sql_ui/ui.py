@@ -15,11 +15,26 @@ purpose_keys["source"] = purpose_common_keys + ["ET"]
 purpose_keys["target"] = purpose_common_keys + ["ET"]
 purpose_keys["id"] = purpose_common_keys + ["RT"]
 
-kind_opts = ["entity", "relation"]
+# TODO - allow ignoring of tables.
+kind_opts = ["entity", "relation", "ignore"]
 kind_common_keys = ["tag", "data_source", "cols", "kind"]
 kind_keys = {}
 kind_keys["entity"] = kind_common_keys + ["ID_col", "ET"]
 kind_keys["relation"] = kind_common_keys + ["ID_col", "RT"]
+
+##############################
+# * Theming
+#----------------------------
+
+entity_background = (4/255, 32/255, 194/255)
+relation_background = (4/255, 125/255, 91/255)
+
+entity_foreground = (157/255, 137/255, 204/255)
+special_foreground = (174/255, 79/255, 214/255)
+
+active_step_color = (0.8, 0.1, 0.1)
+done_step_color = (0.0, 0.0, 0.0)
+done_step_text_color = (0.2, 0.2, 0.2)
 
 ##################################
 # * Data wranglers
@@ -74,6 +89,13 @@ def get_col(cols, name):
 
     return None
 
+def get_col_name_from_purpose(cols, purpose):
+    col = [x.name for x in cols if x.purpose == purpose]
+    if col:
+        return col[0]
+    else:
+        return None
+
 ##############################
 # * Init
 #----------------------------
@@ -87,6 +109,7 @@ def init_state(filepath):
     S = Empty()
     S.decl = dict_as_obj(decl)
     S.save_filename = filepath
+    S.cur_step = 0
     return S
 
 ##############################
@@ -134,36 +157,64 @@ def render(S):
         return
         # sys.exit(1)
 
+    steps = ["0. Introduction",
+             "1. Choose Table Types",
+             "2. Allocate Columns",
+             "3. Finalise Data Types"]
+
+    imgui.text("Steps: ")
+    width = calc_widths(len(steps))
+    for step_i,step in enumerate(steps):
+        imgui.same_line()
+
+        if step_i != 0:
+            imgui.text(">>>>")
+            imgui.same_line()
+
+        old_step = S.cur_step
+        pop_amount = 0
+        if step_i < old_step:
+            imgui.push_style_color(imgui.COLOR_BUTTON, *done_step_color)
+            imgui.push_style_color(imgui.COLOR_TEXT, *done_step_text_color)
+            pop_amount = 2
+        if step_i == old_step:
+            imgui.push_style_color(imgui.COLOR_BUTTON, *active_step_color)
+            pop_amount = 1
+        if imgui.button(step):
+            S.cur_step = step_i
+        imgui.pop_style_color(pop_amount)
+
+    imgui.spacing()
+    imgui.separator()
+    imgui.separator()
+    imgui.spacing()
+
+    if S.cur_step == 0:
+        imgui.text_wrapped("""
+Please walk through the steps of this import one at a time by clicking the buttons at the top of the window. Each step is a "mode" of editing, and presents more detailed choices.
+
+You can always go back to a previous step at any time. Hit save when are finished.
+""")
+    elif S.cur_step == 1:
+        col_selecting(S, True)
+    elif S.cur_step == 2:
+        col_selecting(S, False)
+    elif S.cur_step == 3:
+        full_col_edit(S)
+    else:
+        raise Exception("Shouldn't get here")
+
+    imgui.end()
+
+
+def full_col_edit(S):
     ent_opts = []
     for d in S.decl.definitions:
         if d.kind == "entity":
             ent_opts += [d.ET]
 
     for d in S.decl.definitions:
-        if d.kind == "entity":
-            color = (0.4, 0.1, 0.0)
-            name_def = f"ENTITY: ET.{d.ET}"
-        elif d.kind == "relation":
-            color = (0.0, 0.3, 0.3)
-            source_cols = [x for x in d.cols if x.purpose == "source"]
-            if len(source_cols) != 1:
-                source_name = "UNKNONW"
-            else:
-                source_name = "ET." + source_cols[0].ET
-            target_cols = [x for x in d.cols if x.purpose == "target"]
-            if len(target_cols) != 1:
-                target_name = "UNKNONW"
-            else:
-                target_name = "ET." + target_cols[0].ET
-            name_def = f"RELATION: {source_name}--RT.{d.RT}->{target_name}"
-        else:
-            color = (1.0, 1.0, 1.0)
-            name_def = "UNKNOWN"
-        name = f"Table {d.tag}, {d.data_source.filename}: {name_def}"
-        # imgui.push_style_color(imgui.COLOR_TEXT, *color)
-        imgui.push_style_color(imgui.COLOR_HEADER, *color)
-        show,_ = imgui.collapsing_header(name + "###" + d.tag)#, flags=imgui.TREE_NODE_DEFAULT_OPEN)
-        imgui.pop_style_color()
+        show = table_header(d, True)
 
         imgui.push_id(d.tag)
         if show:
@@ -242,9 +293,9 @@ def render(S):
                     same_line(5)
 
                 if item.purpose == "entity":
-                    color = (1.0, 0.5, 0.4)
-                elif item.purpose in ["source", "target"]:
-                    color = (0.5, 1.0, 1.0)
+                    color = entity_foreground
+                elif item.purpose in ["source", "target", "id"]:
+                    color = special_foreground
                 else:
                     color = (1.0, 1.0, 1.0)
                 imgui.push_style_color(imgui.COLOR_TEXT, *color)
@@ -326,8 +377,164 @@ def render(S):
 
         imgui.pop_id()
 
-    imgui.end()
 
+
+def col_selecting(S, just_tables):
+    for d in S.decl.definitions:
+        show = table_header(d, False)
+
+        if show:
+            imgui.push_id(d.tag)
+            changed = False
+            if imgui.radio_button("Entity (?)", d.kind == "entity"):
+                d.kind = "entity"
+                changed = True
+            simple_tooltip("Each row in the table will be turned into a Zef entity.")
+            same_line()
+            if imgui.radio_button("Relation (?)", d.kind == "relation"):
+                d.kind = "relation"
+                changed = True
+            simple_tooltip("Each row in the table represents the relation that connects two entities. These two entities should be described in other tables.")
+            if changed:
+                d.ID_col = get(d, "ID_col", None)
+                if d.ID_col is None:
+                    # Guess
+                    for item in d.cols:
+                        if item.purpose == "id":
+                            d.ID_col = item.name
+                            break
+                if d.ID_col is None:
+                    for item in d.cols:
+                        if item.purpose == "entity":
+                            d.ID_col = item.name
+                            break
+                if d.kind == "entity":
+                    d.ET = get(d, "ET", get(d, "RT", pascalcase(d.tag)))
+                if d.kind == "relation":
+                    d.RT = get(d, "RT", get(d, "ET", pascalcase(d.tag)))
+                for key in set(keys(d)).difference(kind_keys[d.kind]):
+                    delattr(d, key)
+
+            all_col_names = [x.name for x in d.cols]
+            if d.kind == "entity":
+                special_cols = ["id"]
+                width = calc_widths(1) - default_label_width
+                changed,d.ET = raet_input("ET", d.ET, width, "Zef name")
+                simple_tooltip("Each row will generate entities of this ET in the Zef graph.")
+
+            if d.kind == "relation":
+                special_cols = ["id", "source", "target"]
+                width = calc_widths(1) - default_label_width
+                changed,d.RT = raet_input("RT", d.RT, width, "Zef name")
+                simple_tooltip("Each row will generate relations of this RT in the Zef graph.")
+
+            if not just_tables:
+                imgui.separator()
+                imgui.text("Column designations")
+                imgui.separator()
+                categories = [("field", "Simple data to attach to this entity/relation"),
+                            ("entity", "Indicate this column is an ID for a different entity and will create a relation between that entity and this row."),
+                            ("field_on", "Only for advanced use. This attaches data to a relation created from a \"entity\" column of this table."),
+                            ("ignore", "Columns to ignore")]
+                width = calc_widths(len(categories) + 1)
+                with ItemWidth(width, True):
+                    height = 200
+                    # First the special columns
+                    imgui.begin_child(f"{d.tag}special", width, height, flags=imgui.WINDOW_NO_SCROLL_WITH_MOUSE)
+                    imgui.text("Special columns")
+                    imgui.separator()
+                    for col_s in special_cols:
+                        imgui.text(col_s)
+                        imgui.same_line()
+                        item = get_col_name_from_purpose(d.cols, col_s)
+                        item_s = "<none>" if item is None else item
+                        imgui.selectable(item_s + f"###{col_s}selectable", True)
+                        if item is not None:
+                            if imgui.begin_drag_drop_source():
+                                imgui.set_drag_drop_payload(f"{d.tag} drag", item.encode("ascii"))
+                                imgui.text(item)
+                                imgui.end_drag_drop_source()
+                        if imgui.begin_drag_drop_target():
+                            payload = imgui.accept_drag_drop_payload(f"{d.tag} drag")
+                            if payload is not None:
+                                new_item = payload.decode("ascii")
+                                col = get_col(d.cols, new_item)
+                                col.purpose = col_s
+                                # Reset the old one's purpose to be a generic field
+                                if item is not None:
+                                    col = get_col(d.cols, item)
+                                    col.purpose = "field"
+                            imgui.end_drag_drop_target()
+
+                        if col_s == "id":
+                            tool_s = "This sets the column to be how other tables can link to this row. An entity must have an ID but it is optional for a relation."
+                        elif col_s == "source":
+                            tool_s = "The column from which the source entity will be drawn."
+                        elif col_s == "target":
+                            tool_s = "The column from which the target entity will be drawn."
+                        simple_tooltip(tool_s)
+
+                        imgui.spacing()
+                        imgui.spacing()
+                        imgui.spacing()
+                    imgui.end_child()
+                    imgui.same_line()
+
+                    for cat_i,(cat,title) in enumerate(categories):
+                        if cat_i > 0:
+                            imgui.same_line()
+                        imgui.begin_child(f"{d.tag}{cat}", width, height, border=True, flags=imgui.WINDOW_NO_SCROLL_WITH_MOUSE)
+                        imgui.text(f'"{cat}"')
+                        simple_tooltip(title)
+                        imgui.separator()
+                        items = [x.name for x in d.cols if x.purpose == cat]
+                        for item in items:
+                            imgui.selectable(item, False)
+                            if imgui.begin_drag_drop_source():
+                                imgui.set_drag_drop_payload(f"{d.tag} drag", item.encode("ascii"))
+                                imgui.text(item)
+                                imgui.end_drag_drop_source()
+                        imgui.end_child()
+                        if imgui.begin_drag_drop_target():
+                            payload = imgui.accept_drag_drop_payload(f"{d.tag} drag")
+                            if payload is not None:
+                                item = payload.decode("ascii")
+                                col = get_col(d.cols, item)
+                                col.purpose = cat
+                            imgui.end_drag_drop_target()
+
+            imgui.dummy(0, 20)
+            imgui.pop_id()
+
+def table_header(d, show_details):
+    if d.kind == "entity":
+        color = entity_background
+        name_def = f"ENTITY: ET.{d.ET}"
+    elif d.kind == "relation":
+        color = relation_background
+        if show_details:
+            source_cols = [x for x in d.cols if x.purpose == "source"]
+            if len(source_cols) != 1:
+                source_name = "UNKNOWN"
+            else:
+                source_name = "ET." + source_cols[0].ET
+            target_cols = [x for x in d.cols if x.purpose == "target"]
+            if len(target_cols) != 1:
+                target_name = "UNKNOWN"
+            else:
+                target_name = "ET." + target_cols[0].ET
+            name_def = f"RELATION: {source_name}--RT.{d.RT}->{target_name}"
+        else:
+            name_def = f"RELATION: RT.{d.RT}"
+    else:
+        color = (1.0, 1.0, 1.0)
+        name_def = "UNKNOWN"
+    name = f"Table {d.tag}, {d.data_source.filename}: {name_def}"
+    # imgui.push_style_color(imgui.COLOR_TEXT, *color)
+    imgui.push_style_color(imgui.COLOR_HEADER, *color)
+    show,_ = imgui.collapsing_header(name + "###" + d.tag, flags=imgui.TREE_NODE_DEFAULT_OPEN)
+    imgui.pop_style_color()
+    return show
 
 
 ##############################
@@ -350,7 +557,7 @@ def todo():
 
 
 default_spacing = 20
-default_label_width = 50
+default_label_width = 100
 
 def calc_widths(N, spacing=default_spacing, full_width=None):
     if full_width is None:
@@ -372,7 +579,7 @@ def ItemWidth(w, label_w=0):
     
 
 
-def combo_autoindex(label, current, items):
+def combo_autoindex(label, current, items, **kwds):
     if current in items:
         index = items.index(current)
     else:
@@ -381,7 +588,8 @@ def combo_autoindex(label, current, items):
     changed, new_val = imgui.combo(
         label=label,
         current=index,
-        items=items
+        items=items,
+        **kwds
     )
     return changed, items[new_val]
 
@@ -440,13 +648,13 @@ def data_type_selector(val, full_width):
         return f"{new_opt}.{new_subtyp}"
 
 
-def raet_input(label, value, width):
-    start_x = imgui.get_cursor_pos_x()
+def raet_input(token, value, width, label=""):
     imgui.begin_group()
-    imgui.text(label + ".")
+    imgui.text(token + ".")
+    used_width = imgui.get_item_rect_size()[0]
     same_line(0)
-    with ItemWidth(width - (imgui.get_cursor_pos_x() - start_x)):
-        changed, value = imgui.input_text(label="###" + label, value=value, buffer_length=50)
+    with ItemWidth(width - used_width):
+        changed, value = imgui.input_text(label=f"{label}###{token}{label}", value=value, buffer_length=50)
     imgui.end_group()
     return changed, value
 
@@ -468,7 +676,6 @@ def entity_selector(id, value, width, ent_opts):
     if input_active or last_was_popup_active.setdefault(id, False):
         imgui.set_next_window_position(imgui.get_item_rect_min().x, imgui.get_item_rect_max().y)
         flags = imgui.WINDOW_NO_TITLE_BAR | imgui.WINDOW_NO_RESIZE | imgui.WINDOW_NO_MOVE | imgui.WINDOW_ALWAYS_AUTO_RESIZE | imgui.WINDOW_ALWAYS_VERTICAL_SCROLLBAR
-        # imgui.begin_tooltip()
         imgui.begin("popup###" + str(id), flags=flags)
         last_was_popup_active[id] = imgui.is_window_focused()
         if input_active:
@@ -488,3 +695,11 @@ def entity_selector(id, value, width, ent_opts):
         last_was_popup_active[id] = False
 
     return changed,value
+
+def simple_tooltip(x):
+    if imgui.is_item_hovered():
+        imgui.begin_tooltip()
+        imgui.push_text_wrap_position(400)
+        imgui.text_wrapped(x)
+        imgui.end_tooltip()
+        # imgui.set_tooltip(x)
