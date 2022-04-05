@@ -214,6 +214,7 @@ namespace zefDB {
             int chunked_transfer_size_user = -1;
             int chunked_transfer_size = 10*1024;
             int chunked_transfer_queued = 10;
+            double chunked_safety_factor = 5;
             bool chunked_transfer_auto_adjust = true;
             // The timeout expected for an ACK. As the websocketpp library
             // returns immediately, this is the timeout from BEFORE sending the

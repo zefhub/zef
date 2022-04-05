@@ -479,8 +479,8 @@ namespace zefDB {
                     {"rest_sizes", rest_sizes},
                     {"msg", j}
                 });
-            std::deque<task_ptr> futures;
-            futures.emplace_back(task);
+            std::deque<std::tuple<task_ptr,Time,int>> futures;
+            futures.emplace_back(task, now(), 1);
 
             auto do_wait = [&](task_ptr & task) -> double {
                 try {
@@ -497,7 +497,7 @@ namespace zefDB {
                     if(!resp.generic.success)
                         throw std::runtime_error("Failure in chunked send: " + resp.generic.reason);
                     main_task->task->last_activity = now();
-                    std::cerr << "Got back one response to a chunk after waiting: " << this_waited_time << std::endl;
+                    // std::cerr << "Got back one response to a chunk after waiting: " << this_waited_time << std::endl;
                     return this_waited_time;
                 } catch(const timeout_exception & exc) {
                     // Reduce the chunk size. Unfortunately we can't restart the
@@ -511,7 +511,7 @@ namespace zefDB {
                     // reacting to variables.
                     if(chunked_transfer_auto_adjust)
                         // Big adjustment down, smaller adjustments up.
-                        chunked_transfer_size /= 10;
+                        chunked_transfer_size /= 100;
                     std::rethrow_exception(std::current_exception());
                 }
             };
@@ -528,7 +528,7 @@ namespace zefDB {
                 while(cur_start < rest_size) {
                     int this_chunk_size = std::min(chunk_size, rest_size - cur_start);
                     std::string this_bytes = rest[rest_index].substr(cur_start, this_chunk_size);
-                    std::cerr << "Sending a chunk, size: " << this_bytes.size() << ", start: " << cur_start << "/" << rest_size << ", rest_index: " << rest_index << std::endl;
+                    // std::cerr << "Sending a chunk, size: " << this_bytes.size() << ", start: " << cur_start << "/" << rest_size << ", rest_index: " << rest_index << std::endl;
                     task = add_task(true, chunk_timeout*seconds);
                     send_ZH_message(json{
                             {"task_uid", task->task_uid},
@@ -538,12 +538,25 @@ namespace zefDB {
                             {"rest_index", rest_index},
                             {"bytes_start", cur_start}
                         }, {this_bytes});
-                    futures.emplace_back(task);
+                    futures.emplace_back(task, now(), this_chunk_size);
 
                     if(futures.size() >= this->chunked_transfer_queued) {
                         // Wait on first future
                         auto & it = futures.front();
-                        double first_wait_time = do_wait(it);
+                        // Wait time = time spent in waiting here
+                        // Delta time = time since first starting the task
+                        // Size = is used to put the time in context - a super
+                        //        fast send of 10 bytes should not up later sends of
+                        //        1MB without caution.
+                        //
+                        // Note that sizes are a bit misleading too - zstd is
+                        // compressing the chunks so the calculated speed is not
+                        // exactly the same. This is open to huge problems so
+                        // need to revisit this I think.
+
+                        double first_wait_time = do_wait(std::get<0>(it));
+                        double first_delta_time = (now() - std::get<1>(it)).value;
+                        double first_size = std::get<2>(it);
                         futures.pop_front();
 
                         if(chunked_transfer_auto_adjust) {
@@ -554,31 +567,40 @@ namespace zefDB {
                             // rest nearly instant afterwards).
                             double max_wait_time = first_wait_time;
                             double second_wait_time = 0;
+                            double min_delta_time = first_delta_time;
+                            int min_size = first_size;
                             while(futures.size() > this->chunked_transfer_queued / 2) {
                                 auto & it = futures.front();
-                                double this_time = do_wait(it);
-                                if(this_time > max_wait_time) {
+                                double this_wait_time = do_wait(std::get<0>(it));
+                                if(this_wait_time > max_wait_time) {
                                     second_wait_time = max_wait_time;
-                                    max_wait_time = this_time;
-                                } else if (this_time > second_wait_time) {
-                                    second_wait_time = this_time;
+                                    max_wait_time = this_wait_time;
+                                } else if (this_wait_time > second_wait_time) {
+                                    second_wait_time = this_wait_time;
                                 }
+
+                                double this_delta_time = (now() - std::get<1>(it)).value;
+                                min_delta_time = std::min(this_delta_time, min_delta_time);
+
+                                int this_size = std::get<2>(it);
+                                min_size = std::min(min_size, this_size);
                                 futures.pop_front();
                             }
 
-                            if(max_wait_time < chunk_timeout/100) {
-                                std::cerr << "Increasing chunk size as the wait time is very small: " << max_wait_time << std::endl;
+                            if(min_delta_time < chunk_timeout/ chunked_safety_factor / chunked_transfer_queued) {
                                 // Because we are so much smaller, we can grow a lot in here.
-                                chunk_size *= 10.0;
-                            } else if(second_wait_time < max_wait_time/5) {
-                                // Note: /5 because we don't want to get too greedy.
-                                std::cerr << "Increasing chunk size as the wait times are very noisy" << std::endl;
-                                std::cerr << "max_wait_time: " << max_wait_time << std::endl;
-                                std::cerr << "second_wait_time: " << second_wait_time << std::endl;
+                                int new_chunk_size = min_size * chunked_safety_factor/2;
+                                chunk_size = std::max(new_chunk_size, chunk_size);
+                                if(zwitch.developer_output())
+                                    std::cerr << "Increased chunk size (" << chunk_size << ") as the time to return (" << min_delta_time << ") is very small from a set of packets with min size (" << min_size << ")" << std::endl;
+                            } else if(second_wait_time < max_wait_time/chunked_safety_factor) {
+                                if(zwitch.developer_output())
+                                    std::cerr << "Increasing chunk size as the wait times are very noisy" << std::endl;
                                 // Although this is not much, it grows fast.
-                                chunk_size *= 1.5;
+                                int new_chunk_size = min_size * 1.5;
+                                chunk_size = std::max(new_chunk_size, chunk_size);
                             } else {
-                                std::cerr << "Leaving chunk size as is because the ratio is " << second_wait_time / max_wait_time << std::endl;
+                                // std::cerr << "Leaving chunk size as is because the ratio is " << second_wait_time / max_wait_time << std::endl;
                             }
                         }
                     }
@@ -589,7 +611,7 @@ namespace zefDB {
 
             // Wait on remaining futures
             for(auto & it : futures) {
-                do_wait(it);
+                do_wait(std::get<0>(it));
             }
 
             // Note: the do_wait sets last_activity on the main task, so there's
