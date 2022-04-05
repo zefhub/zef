@@ -29,7 +29,7 @@ kind_keys["relation"] = kind_common_keys + ["ID_col", "RT"]
 entity_background = (4/255, 32/255, 194/255)
 relation_background = (4/255, 125/255, 91/255)
 
-entity_foreground = (157/255, 137/255, 204/255)
+entity_foreground = (120/255, 133/255, 254/255)
 special_foreground = (174/255, 79/255, 214/255)
 
 active_step_color = (0.8, 0.1, 0.1)
@@ -124,7 +124,7 @@ def render(S):
             "Save", "", False, True
         )
         clicked_quit, _ = imgui.menu_item(
-            "Quit", "", False, True
+            "Quit without saving", "", False, True
         )
 
         if clicked_save:
@@ -160,7 +160,8 @@ def render(S):
     steps = ["0. Introduction",
              "1. Choose Table Types",
              "2. Allocate Columns",
-             "3. Finalise Data Types"]
+             "3. Finalise Data Types",
+             "4. End"]
 
     imgui.text("Steps: ")
     width = calc_widths(len(steps))
@@ -190,17 +191,48 @@ def render(S):
     imgui.spacing()
 
     if S.cur_step == 0:
-        imgui.text_wrapped("""
-Please walk through the steps of this import one at a time by clicking the buttons at the top of the window. Each step is a "mode" of editing, and presents more detailed choices.
+        imgui.text_wrapped("""Please walk through the steps of this import one at a time by clicking the buttons at the top of the window. Each step is a "mode" of editing, and presents more detailed choices.
 
-You can always go back to a previous step at any time. Hit save when are finished.
+You can always go back to a previous step at any time. Hit save when you are finished.
+
 """)
     elif S.cur_step == 1:
+        imgui.text_wrapped("""For each table, select whether each of its rows represents
+        a) single entity with attached fields
+        b) relation connecting entities from other tables
+
+""")
         col_selecting(S, True)
     elif S.cur_step == 2:
+        imgui.text_wrapped("""For each table, choose what the purpose of each column is:
+        id:       The unique identifier for this row's entity/relation
+        entity:   This column is the unique identifier of an entity from different table
+        field:    An attached piece of scalar data (e.g. int, float, string)
+        field_on: Advanced only: a piece of scalar data to attach to the connection between two entities.
+        ignore:   Don't include this column
+
+""")
         col_selecting(S, False)
     elif S.cur_step == 3:
+        imgui.text_wrapped("""You can customize the details from the previous steps, including specific Zef entity/relation names for each column and the data type to use for each column.
+        
+The checkbox in front of each field should be set to the ID column. This will be removed in future versions and automatically track the "id" column.
+
+""")
         full_col_edit(S)
+    elif S.cur_step == 4:
+        imgui.text_wrapped(f"""If you are satisfied with the layout, you should now hit "Save" above and then load this into Zef using something like: 
+        
+
+from zef import *
+from zef.ops import *
+from zef.experimental import sql_import
+
+decl = "{S.save_filename}" | load_file | run | get["content"] | collect
+g = Graph()
+actions = sql_import.import_actions(decl)
+GraphDelta(actions) | g | run
+""")
     else:
         raise Exception("Shouldn't get here")
 
