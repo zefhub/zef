@@ -1597,8 +1597,7 @@ namespace zefDB {
                     std::cerr << "Connecting as guest user" << std::endl;
                     refresh_token = "";
                 } else 
-                    throw std::runtime_error("Need to reimplement getting token from email:password combination");
-                    // auth_token = get_firebase_token_email(*key_string);
+                    refresh_token = get_firebase_refresh_token_email(*key_string);
                 return;
             } else if(!have_auth_credentials()) {
                 no_credentials_warning = true;
@@ -1819,7 +1818,7 @@ namespace zefDB {
             std::optional<std::string> forced_zefhub_key = load_forced_zefhub_key(); 
             if(forced_zefhub_key) {
                 if(*forced_zefhub_key != constants::zefhub_guest_key)
-                    get_firebase_token_email(*forced_zefhub_key);
+                    get_firebase_refresh_token_email(*forced_zefhub_key);
             } else {
                 auto credentials_file = zefdb_config_path() / "credentials";
                 if(is_credentials_file_valid())

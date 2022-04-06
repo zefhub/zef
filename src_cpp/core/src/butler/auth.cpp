@@ -75,28 +75,29 @@ namespace zefDB {
     }
 
 
+    using clock = std::chrono::steady_clock;
+    using time = std::chrono::time_point<clock>;
 
-    std::string get_firebase_token_email(std::string key_string) {
+    std::string last_refresh_token = "";
+    std::string last_email = "";
+    std::string last_token = "";
+    time token_expire_time = clock::now();
+
+
+    std::string get_firebase_refresh_token_email(std::string key_string) {
         int colon = key_string.find(':');
         std::string auth_username = key_string.substr(0,colon);
         std::string key = key_string.substr(colon+1);
-        return get_firebase_token_email(auth_username, key);
+        return get_firebase_refresh_token_email(auth_username, key);
     }
-    std::string get_firebase_token_email(std::string email, std::string password) {
-        using clock = std::chrono::steady_clock;
-        using time = std::chrono::time_point<clock>;
-
-        static std::string last_email = "";
-        static std::string last_token = "";
-        static time token_expire_time = clock::now();
-
+    std::string get_firebase_refresh_token_email(std::string email, std::string password) {
         time start = clock::now();
 
-        if(last_email == email && last_token != "") {
+        if(last_email == email && last_refresh_token != "") {
             if(zwitch.developer_output())
                 std::cerr << "Auth token expire - now is " << (token_expire_time - clock::now()) / std::chrono::seconds(1) << " secs" <<  std::endl;
             if(token_expire_time > clock::now())
-                return last_token;
+                return last_refresh_token;
         }
 
         debug_time_print("start auth");
@@ -125,23 +126,21 @@ namespace zefDB {
 
         if(!response.contains("idToken"))
             throw std::runtime_error("No token in response to auth request using email/password");
+        if(!response.contains("refreshToken"))
+            throw std::runtime_error("No token in response to auth request using email/password");
 
+        last_refresh_token = response["refreshToken"].get<std::string>();
         last_token = response["idToken"].get<std::string>();
         last_email = email;
 
         debug_time_print("finished auth");
         if(zwitch.developer_output())
             std::cerr << "Time to receive auth token: " << double(std::chrono::duration_cast<std::chrono::milliseconds>(clock::now() - start).count())/1000 <<  " s" << std::endl;
-        return last_token;
+
+        return last_refresh_token;
     }
 
     std::string get_firebase_token_refresh_token(std::string refresh_token) {
-        using clock = std::chrono::steady_clock;
-        using time = std::chrono::time_point<clock>;
-
-        static std::string last_refresh_token = "";
-        static std::string last_token = "";
-        static time token_expire_time = clock::now();
 
         time start = clock::now();
 
