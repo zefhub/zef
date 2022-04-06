@@ -539,6 +539,9 @@ void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) 
         }
 
         if(chunk.rest[rest_index].size() != j["bytes_start"]) {
+            if(zwitch.developer_output()) {
+                std::cerr << "Chunk received which doesn't fit. rest_index=" << rest_index << ", existing_size=" << chunk.rest[rest_index].size() << ", bytes_start=" << j["bytes_start"].get<int>() << std::endl;
+            }
             ack_failure(j["task_uid"], "New chunk doesn't fit");
             return;
         }

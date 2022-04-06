@@ -435,6 +435,15 @@ namespace zefDB {
                 throw std::runtime_error("Not connecting to ZefHub, can't send messages.");
             }
 
+            // We do our own wait here, so that this is a proper timeout.
+            // network.wait_for_connected(constants::zefhub_reconnect_timeout);
+            // wait_for_auth(constants::zefhub_reconnect_timeout);
+            wait_for_auth();
+            if(!network.connected)
+                throw std::runtime_error("Network did not connect in time to send message.");
+
+            // Note that "fill out" has to happen after the auth wait, as we
+            // won't know the protocol versions etc before then.
             fill_out_ZH_message(j);
 
             if(zwitch.debug_zefhub_json_output())
@@ -442,13 +451,6 @@ namespace zefDB {
 
             auto zh_msg = Communication::prepare_ZH_message(j, rest);
 
-            // We do our own wait here, so that this is a proper timeout.
-            // network.wait_for_connected(constants::zefhub_reconnect_timeout);
-            // wait_for_auth(constants::zefhub_reconnect_timeout);
-            wait_for_auth();
-
-            if(!network.connected)
-                throw std::runtime_error("Network did not connect in time to send message.");
             network.send(zh_msg);
         }
 
@@ -585,20 +587,26 @@ namespace zefDB {
                                 int this_size = std::get<2>(it);
                                 min_size = std::min(min_size, this_size);
                                 futures.pop_front();
+
+                                if(this_delta_time < chunk_timeout/ chunked_safety_factor) {
+                                    // Because we are so much smaller, we can grow a lot in here.
+                                    int new_chunk_size = min_size * chunked_safety_factor/2;
+                                    if(new_chunk_size > chunk_size) {
+                                        chunk_size = new_chunk_size;
+                                        if(zwitch.developer_output())
+                                            std::cerr << "Increased chunk size (" << chunk_size << ") as the time to return (" << min_delta_time << ") is very small from a set of packets with min size (" << min_size << ")" << std::endl;
+                                    }
+                                }
                             }
 
-                            if(min_delta_time < chunk_timeout/ chunked_safety_factor / chunked_transfer_queued) {
-                                // Because we are so much smaller, we can grow a lot in here.
-                                int new_chunk_size = min_size * chunked_safety_factor/2;
-                                chunk_size = std::max(new_chunk_size, chunk_size);
-                                if(zwitch.developer_output())
-                                    std::cerr << "Increased chunk size (" << chunk_size << ") as the time to return (" << min_delta_time << ") is very small from a set of packets with min size (" << min_size << ")" << std::endl;
-                            } else if(second_wait_time < max_wait_time/chunked_safety_factor) {
-                                if(zwitch.developer_output())
-                                    std::cerr << "Increasing chunk size as the wait times are very noisy" << std::endl;
+                            if(min_delta_time < chunk_timeout / chunked_safety_factor && second_wait_time < max_wait_time/chunked_safety_factor) {
                                 // Although this is not much, it grows fast.
                                 int new_chunk_size = min_size * 1.5;
-                                chunk_size = std::max(new_chunk_size, chunk_size);
+                                if(new_chunk_size > chunk_size) {
+                                    chunk_size = new_chunk_size;
+                                    if(zwitch.developer_output())
+                                        std::cerr << "Increasing chunk size as the wait times are very noisy" << std::endl;
+                                }
                             } else {
                                 // std::cerr << "Leaving chunk size as is because the ratio is " << second_wait_time / max_wait_time << std::endl;
                             }
