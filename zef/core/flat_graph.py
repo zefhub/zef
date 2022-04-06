@@ -1,4 +1,12 @@
 from ._ops import *
+from dataclasses import dataclass
+from . import VT
+
+
+@dataclass
+class Val:
+    arg: VT.Any
+
 class FlatGraph:
     def __init__(self, *args):
         if args == ():

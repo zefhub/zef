@@ -57,7 +57,7 @@ from .units import unit
 from .graph_slice import GraphSlice
 
 
-from .flat_graph import FlatGraph, FlatRef, FlatRefs
+from .flat_graph import FlatGraph, FlatRef, FlatRefs, Val
 
 from .VT import TX
 from .abstract_raes import Entity, AtomicEntity, Relation
