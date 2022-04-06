@@ -4930,9 +4930,9 @@ def to_zef_list_tp(op, curr_type):
 
 #-----------------------------FlatGraph Implementations-----------------------------------
 def fg_insert_imp(fg, new_el):
+    from ..graph_delta import map_scalar_to_aet_type
     assert isinstance(fg, FlatGraph)
     new_fg = FlatGraph()
-    value_types = {int, float, bool, str}
     new_blobs, new_key_dict = [*fg.blobs], {**fg.key_dict}
 
     def idx_generator(n):
@@ -5021,13 +5021,19 @@ def fg_insert_imp(fg, new_el):
             else:
                 raise ValueError(f"Was expecting a z <= 42 ; AET.String <= 42 got {new_el} instead!")
 
-        elif type(new_el) in value_types: 
+        elif isinstance(new_el, Val):
+            new_el = new_el.arg
             hash_vn = blake3(str(new_el))
             if hash_vn not in new_key_dict:
                 idx = next_idx()
                 new_key_dict[hash_vn] = idx
                 new_blobs.append((idx, "BT.ValueNode", [], new_el))  # TODO Don't treat as str once added to Zef types
             idx = new_key_dict[hash_vn]
+
+        elif type(new_el) in list(map_scalar_to_aet_type.keys()): 
+            aet = map_scalar_to_aet_type[type(new_el)](new_el)
+            idx = next_idx()
+            new_blobs.append((idx, aet, [], None, new_el))
 
         elif type(new_el) in {ZefRef, EZefRef}:
             idx = common_logic(origin_rae(new_el))
@@ -5037,7 +5043,7 @@ def fg_insert_imp(fg, new_el):
             idx = None
         return idx
 
-    if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *value_types}:
+    if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val}:
         common_logic(new_el)
     elif isinstance(new_el, tuple) and len(new_el) == 3:
         src, rt, trgt = new_el
@@ -5251,8 +5257,11 @@ def transact_imp(data, g, **kwargs):
                         return Z[blake3(b[-1])]
                     else:
                         from ..graph_delta import map_scalar_to_aet_type
-                        aet = map_scalar_to_aet_type[type(b[-1])](b[-1])
-                        return aet[blake3(b[-1])] <= (b[-1])
+                        if type(b[-1]) in map_scalar_to_aet_type:
+                            aet = map_scalar_to_aet_type[type(b[-1])](b[-1])
+                            return aet[blake3(b[-1])] <= (b[-1])
+                        else:
+                            return AET.Serialized[blake3(b[-1])] <= to_json(b[-1])
                 
                 raise NotImplementedError(f"Unhandled type in dispatching {b}")
 
