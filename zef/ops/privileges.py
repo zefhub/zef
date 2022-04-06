@@ -42,7 +42,7 @@ def privileges_type_info(op, curr_type):
 from ..core.op_implementations.dispatch_dictionary import _op_to_functions
 _op_to_functions[RT.Privileges] = (privileges_implementation, privileges_type_info)
 
-privileges = ZefOp(((RT.Privileges, ()), ))
+privileges = make_zefop(RT.Privileges)
 
 grant = privileges[KW.grant]
 revoke = privileges[KW.revoke]

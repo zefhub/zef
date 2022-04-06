@@ -100,6 +100,8 @@ class _Graph_Class():
     _name = "Graph"
     Tag = FXElement(('Graph', 'Tag'))
     Sync = FXElement(('Graph', 'Sync'))
+    TakeTransactorRole = FXElement(('Graph', 'TakeTransactorRole'))
+    ReleaseTransactorRole = FXElement(('Graph', 'ReleaseTransactorRole'))
     # Or does it make more sense to write FX.Tag.Graph? Tagging of RAEs definitely belongs into a GraphDelta / graph tx though
 
 class _Stream_Class():
