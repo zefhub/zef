@@ -5087,8 +5087,8 @@ def fg_get_imp(fg, key):
     if type(key) in {ZefRef, EZefRef} and origin_uid(key) in kdict: return FlatRef(fg, kdict[origin_uid(key)])
     elif type(key) in {Entity, AtomicEntity} and key.d['uid'] in kdict: return FlatRef(fg, kdict[key.d['uid']])
     elif isinstance(key, Relation) and key.d['uids'][1] in kdict:return FlatRef(fg, kdict[key.d['uids'][1]])
+    elif isinstance(key, Val) and  blake3(key.arg) in kdict: return FlatRef(fg, kdict[blake3(key.arg)])
     elif key in kdict: return FlatRef(fg, kdict[key])
-    elif blake3(str(key)) in kdict: return FlatRef(fg, kdict[blake3(str(key))])
     else: raise KeyError(f"{key} isn't found in this FlatGraph!")
 
 
