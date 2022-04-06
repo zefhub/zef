@@ -1,5 +1,5 @@
-from ..core import *
-from ..ops import *
+from ... import *
+from ...ops import *
 
 import graphql
 def parse_partial_graphql(schema):

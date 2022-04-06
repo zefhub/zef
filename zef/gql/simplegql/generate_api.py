@@ -1,6 +1,6 @@
 # Assuming this file is not imported during zefdb init.
-from .. import *
-from ..ops import *
+from ... import *
+from ...ops import *
 from functools import partial as P
 
 from ariadne import ObjectType, QueryType, MutationType, EnumType, ScalarType
