@@ -5107,12 +5107,13 @@ def fg_remove_imp(fg, key):
         if key.d['uids'][1] not in kdict: raise error
         idx = kdict[key.d['uids'][1]]
         key = key.d['uids'][1]
+    elif isinstance(key, Val):
+        if blake3(key.arg) not in kdict: raise error
+        idx = kdict[blake3(key.arg)]
+        key = blake3(key.arg)
     elif key in kdict:  
         idx = kdict[key]
-    elif blake3(str(key)) in kdict: 
-        idx = kdict[blake3(str(key))]
-        key = blake3(str(key))
-    else: raise KeyError(f"{key} isn't found in this FlatGraph!")
+    else: raise error
 
     idx_key = {idx:key for key,idx in kdict.items()}
     kdict   = {**fg.key_dict}
