@@ -518,9 +518,9 @@ def col_selecting(S, just_tables):
                     if col_s == "id":
                         tool_s = "This sets the column to be how other tables can link to this row. An entity must have an ID but it is optional for a relation."
                     elif col_s == "source":
-                        tool_s = "The column from which the source entity will be drawn."
+                        tool_s = "The column from which the source entity will be drawn. This column should match another table's ID column. This is like a SQL foreign key."
                     elif col_s == "target":
-                        tool_s = "The column from which the target entity will be drawn."
+                        tool_s = "The column from which the target entity will be drawn. This column should match another table's ID column. This is like a SQL foreign key."
                     simple_tooltip(tool_s)
 
                     imgui.spacing()
