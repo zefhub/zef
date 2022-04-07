@@ -3,6 +3,9 @@ import sys
 import yaml
 from caseconverter import pascalcase
 
+from ... import *
+from ...ops import *
+
 purpose_opts = ["entity", "field", "field_on", "ignore", "source", "target", "id"]
 purpose_keys = {}
 purpose_common_keys = ["name", "purpose", "data_type"]
@@ -95,6 +98,37 @@ def get_col_name_from_purpose(cols, purpose):
         return col[0]
     else:
         return None
+
+
+def change_col_to_purpose(item, new_purpose):
+    if new_purpose == "entity":
+        item.ET = get(item, "ET", get(item, "RT", item.name))
+        item.RT = get(item, "RT", get(item, "ET", item.name))
+    elif new_purpose == "field":
+        item.RT = get(item, "RT", get(item, "ET", item.name))
+    elif new_purpose == "field_on":
+        item.RT = get(item, "RT", get(item, "ET", item.name))
+        item.target = get(item, "target", get(item, "ET", ""))
+    elif new_purpose == "ignore":
+        pass
+    elif new_purpose == "source":
+        item.ET = get(item, "ET", get(item, "ET", item.name))
+    elif new_purpose == "target":
+        item.ET = get(item, "ET", get(item, "ET", item.name))
+    elif new_purpose == "id":
+        item.RT = get(item, "RT", get(item, "RT", "ID"))
+    else:
+        raise Exception(f"Don't understand purpose: '{purpose}'")
+    item.purpose = new_purpose
+
+    if "data_type" in purpose_keys[new_purpose]:
+        item.data_type = get(item, "data_type", "String")
+
+    for key in set(keys(item)).difference(purpose_keys[new_purpose]):
+        delattr(item, key)
+
+    return item
+
 
 ##############################
 # * Init
@@ -334,37 +368,15 @@ def full_col_edit(S):
                 opened = imgui.tree_node(f"{tree_name} -- {tree_rest}" + "###" + item.name)
                 imgui.pop_style_color()
                 if opened:
-                    # imgui.text(item.name)
-                    imgui.push_item_width(100)
-                    changed, item.purpose = combo_autoindex(
-                        label="###Purpose",
-                        current=item.purpose,
-                        items=purpose_opts
-                    )
+                    with ItemWidth(100):
+                        changed, new_purpose = combo_autoindex(
+                            label="###Purpose",
+                            current=item.purpose,
+                            items=purpose_opts
+                        )
                     if changed:
                         # We need to update the layout of the struct
-                        if item.purpose == "entity":
-                            item.ET = get(item, "ET", get(item, "RT", item.name))
-                            item.RT = get(item, "RT", get(item, "ET", item.name))
-                        if item.purpose == "field":
-                            item.RT = get(item, "RT", get(item, "ET", item.name))
-                        if item.purpose == "field_on":
-                            item.RT = get(item, "RT", get(item, "ET", item.name))
-                            item.target = get(item, "target", get(item, "ET", ""))
-                        if item.purpose == "ignore":
-                            pass
-                        if item.purpose == "source":
-                            item.ET = get(item, "ET", get(item, "ET", item.name))
-                        if item.purpose == "target":
-                            item.ET = get(item, "ET", get(item, "ET", item.name))
-                        if item.purpose == "id":
-                            item.RT = get(item, "RT", get(item, "RT", "ID"))
-
-                        if "data_type" in purpose_keys[item.purpose]:
-                            item.data_type = get(item, "data_type", "String")
-
-                        for key in set(keys(item)).difference(purpose_keys[item.purpose]):
-                            delattr(item, key)
+                        change_col_to_purpose(item, new_purpose)
 
                     if item.purpose == "entity":
                         imgui.same_line()
@@ -468,72 +480,77 @@ def col_selecting(S, just_tables):
                             ("entity", "Indicate this column is an ID for a different entity and will create a relation between that entity and this row."),
                             ("field_on", "Only for advanced use. This attaches data to a relation created from a \"entity\" column of this table."),
                             ("ignore", "Columns to ignore")]
-                width = calc_widths(len(categories) + 1)
-                with ItemWidth(width, True):
-                    height = 200
-                    # First the special columns
-                    imgui.begin_child(f"{d.tag}special", width, height, flags=imgui.WINDOW_NO_SCROLL_WITH_MOUSE)
-                    imgui.text("Special columns")
-                    imgui.separator()
-                    for col_s in special_cols:
-                        imgui.text(col_s)
-                        imgui.same_line()
-                        item = get_col_name_from_purpose(d.cols, col_s)
-                        item_s = "<none>" if item is None else item
-                        imgui.selectable(item_s + f"###{col_s}selectable", True)
-                        if item is not None:
-                            if imgui.begin_drag_drop_source():
-                                imgui.set_drag_drop_payload(f"{d.tag} drag", item.encode("ascii"))
-                                imgui.text(item)
-                                imgui.end_drag_drop_source()
-                        if imgui.begin_drag_drop_target():
-                            payload = imgui.accept_drag_drop_payload(f"{d.tag} drag")
-                            if payload is not None:
-                                new_item = payload.decode("ascii")
-                                col = get_col(d.cols, new_item)
-                                col.purpose = col_s
-                                # Reset the old one's purpose to be a generic field
-                                if item is not None:
-                                    col = get_col(d.cols, item)
-                                    col.purpose = "field"
-                            imgui.end_drag_drop_target()
+                col_width = calc_widths(len(categories) + 1)
 
-                        if col_s == "id":
-                            tool_s = "This sets the column to be how other tables can link to this row. An entity must have an ID but it is optional for a relation."
-                        elif col_s == "source":
-                            tool_s = "The column from which the source entity will be drawn."
-                        elif col_s == "target":
-                            tool_s = "The column from which the target entity will be drawn."
-                        simple_tooltip(tool_s)
-
-                        imgui.spacing()
-                        imgui.spacing()
-                        imgui.spacing()
-                    imgui.end_child()
+                def get_category_length(cat):
+                    purpose,title = cat
+                    return d.cols | filter[lambda x: x.purpose == purpose] | length | collect
+                max_length = categories | map[get_category_length] | max | collect
+                height = max(100, (max_length+2) * imgui.get_text_line_height_with_spacing())
+                # First the special columns
+                imgui.begin_child(f"{d.tag}special", col_width, height, flags=imgui.WINDOW_NO_SCROLL_WITH_MOUSE)
+                imgui.text("Special columns")
+                imgui.separator()
+                for col_s in special_cols:
+                    imgui.text(col_s)
                     imgui.same_line()
-
-                    for cat_i,(cat,title) in enumerate(categories):
-                        if cat_i > 0:
-                            imgui.same_line()
-                        imgui.begin_child(f"{d.tag}{cat}", width, height, border=True, flags=imgui.WINDOW_NO_SCROLL_WITH_MOUSE)
-                        imgui.text(f'"{cat}"')
-                        simple_tooltip(title)
-                        imgui.separator()
-                        items = [x.name for x in d.cols if x.purpose == cat]
-                        for item in items:
-                            imgui.selectable(item, False)
-                            if imgui.begin_drag_drop_source():
-                                imgui.set_drag_drop_payload(f"{d.tag} drag", item.encode("ascii"))
-                                imgui.text(item)
-                                imgui.end_drag_drop_source()
-                        imgui.end_child()
-                        if imgui.begin_drag_drop_target():
-                            payload = imgui.accept_drag_drop_payload(f"{d.tag} drag")
-                            if payload is not None:
-                                item = payload.decode("ascii")
+                    item = get_col_name_from_purpose(d.cols, col_s)
+                    item_s = "<none>" if item is None else item
+                    width = calc_widths(1)
+                    imgui.selectable(item_s + f"###{col_s}selectable", True, width=width)
+                    if item is not None:
+                        if imgui.begin_drag_drop_source():
+                            imgui.set_drag_drop_payload(f"{d.tag} drag", item.encode("ascii"))
+                            imgui.text(item)
+                            imgui.end_drag_drop_source()
+                    if imgui.begin_drag_drop_target():
+                        payload = imgui.accept_drag_drop_payload(f"{d.tag} drag")
+                        if payload is not None:
+                            new_item = payload.decode("ascii")
+                            col = get_col(d.cols, new_item)
+                            change_col_to_purpose(col, col_s)
+                            # Reset the old one's purpose to be a generic field
+                            if item is not None:
                                 col = get_col(d.cols, item)
-                                col.purpose = cat
-                            imgui.end_drag_drop_target()
+                                change_col_to_purpose(col, "field")
+                        imgui.end_drag_drop_target()
+
+                    if col_s == "id":
+                        tool_s = "This sets the column to be how other tables can link to this row. An entity must have an ID but it is optional for a relation."
+                    elif col_s == "source":
+                        tool_s = "The column from which the source entity will be drawn."
+                    elif col_s == "target":
+                        tool_s = "The column from which the target entity will be drawn."
+                    simple_tooltip(tool_s)
+
+                    imgui.spacing()
+                    imgui.spacing()
+                    imgui.spacing()
+                imgui.end_child()
+                imgui.same_line()
+
+                for cat_i,(cat,title) in enumerate(categories):
+                    if cat_i > 0:
+                        imgui.same_line()
+                    imgui.begin_child(f"{d.tag}{cat}", col_width, height, border=True, flags=imgui.WINDOW_NO_SCROLL_WITH_MOUSE)
+                    imgui.text(f'"{cat}"')
+                    simple_tooltip(title)
+                    imgui.separator()
+                    items = [x.name for x in d.cols if x.purpose == cat]
+                    for item in items:
+                        imgui.selectable(item, False)
+                        if imgui.begin_drag_drop_source():
+                            imgui.set_drag_drop_payload(f"{d.tag} drag", item.encode("ascii"))
+                            imgui.text(item)
+                            imgui.end_drag_drop_source()
+                    imgui.end_child()
+                    if imgui.begin_drag_drop_target():
+                        payload = imgui.accept_drag_drop_payload(f"{d.tag} drag")
+                        if payload is not None:
+                            item = payload.decode("ascii")
+                            col = get_col(d.cols, item)
+                            change_col_to_purpose(col, cat)
+                        imgui.end_drag_drop_target()
 
             imgui.dummy(0, 20)
             imgui.pop_id()
@@ -643,9 +660,8 @@ def data_type_selector(val, full_width):
     start_x = imgui.get_cursor_pos_x()
     spacing = 5
 
-    imgui.push_item_width(0)
-    imgui.text("AET.")
-    imgui.pop_item_width()
+    with ItemWidth(0):
+        imgui.text("AET.")
     same_line(0)
 
     with ItemWidth(150):
@@ -656,9 +672,8 @@ def data_type_selector(val, full_width):
         )
     if subtyp is not None:
         same_line(0)
-        imgui.push_item_width(0)
-        imgui.text(".")
-        imgui.pop_item_width()
+        with ItemWidth(0):
+            imgui.text(".")
         same_line(0)
         leftover = full_width - (imgui.get_cursor_pos_x() - start_x)
         with ItemWidth(leftover):
