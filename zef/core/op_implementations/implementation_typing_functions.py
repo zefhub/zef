@@ -4263,6 +4263,8 @@ def merge_imp(a, second=None, *args):
     * similar: merge_with
     ...
     """
+    if isinstance(a, FlatGraph) and isinstance(second, FlatGraph):
+        return fg_merge_imp(a, second)
     if second is None:
         assert isinstance(a, tuple) or isinstance(a, list)
         return {k: v for d in a for k, v in d.items()}
@@ -5278,3 +5280,64 @@ def transact_imp(data, g, **kwargs):
 
 def transact_tp(op, curr_type):
     return VT.Effect
+
+def fg_merge_imp(fg1, fg2):
+    def idx_generator(n):
+        def next_idx():
+            nonlocal n
+            n = n + 1
+            return n
+        return next_idx
+
+    blobs, k_dict = [*fg1.blobs], {**fg1.key_dict}
+    next_idx = idx_generator(length(blobs) - 1)
+
+    idx_key_2 = {i:k for k,i in fg2.key_dict.items()}
+    old_to_new = {}
+
+
+    def retrieve_or_insert_blob(new_b):
+        old_idx = new_b[0]
+        key = idx_key_2.get(new_b[0], None)
+        if key and key in k_dict:
+            # TODO more checks here? On the blob type level may be? i.e if AET then check values
+            assert blobs[k_dict[key]][1] == new_b[1], f"Key for this blob exists in Fg1 but blob types don't match {blobs[k_dict[key]][1]} != {new_b[1]}"
+            new_b = blobs[k_dict[key]]
+            idx = new_b[0]
+        else:
+            idx = next_idx()
+            if key: k_dict[key] = idx
+            new_b = (idx, new_b[1], [], *new_b[3:])
+            blobs.append(new_b)
+        old_to_new[old_idx] = idx
+        return new_b
+
+    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RelationType)] | sort[lambda b: len(b[2])]:
+        rt_key = idx_key_2.get(b[0], None)
+        if rt_key and rt_key in k_dict:
+            assert blobs[k_dict[rt_key]][1] == b[1], f"Key for this rt exists in Fg1 but blob types don't match {blobs[k_dict[rt_key]][1]} != {b[1]}"
+            # TODO: For now don't try to merge an RT with the same key in both dicts
+            continue
+
+
+        src_b, trgt_b = fg2.blobs[b[4]], fg2.blobs[b[5]]
+        src_b  = retrieve_or_insert_blob(src_b)
+        trgt_b = retrieve_or_insert_blob(trgt_b)
+        
+        idx = next_idx()
+        rt_b = (idx, b[1], [], None, src_b[0], trgt_b[0])
+        src_b[2].append(idx)
+        trgt_b[2].append(-idx)
+        if rt_key: k_dict[rt_key] = idx
+        blobs.append(rt_b)
+
+
+            
+    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RelationType)]:
+        if b[0] in old_to_new: continue 
+        retrieve_or_insert_blob(b)
+
+    new_fg = FlatGraph()
+    new_fg.blobs = blobs
+    new_fg.key_dict = k_dict
+    return new_fg
