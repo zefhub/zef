@@ -139,13 +139,13 @@ runs:
         restore-keys: |
           build-cache-${{ inputs.python-version }}-${{ inputs.os }}-
 
-          # Note: we don't want anymore fallbacks here, as having different
-          # versions of python might not trigger rebuilds without clearing the
-          # cmake cache.
+    # Note: we don't want anymore fallbacks in restore-keys above, as having
+    # different versions of python might not trigger rebuilds without clearing
+    # the cmake cache.
 
-    # Note: if we do have to rebuild, then the zeftypes that were obtained above
-    # will force a re-cog of the files and only if they change should cmake then
-    # rebuild.
+    # From here, if we do have to rebuild, then the zeftypes that were obtained
+    # above will force a re-cog of the files and only if they change should
+    # cmake then rebuild.
 
     - name: Make
       if: steps.build-cache.outputs.cache-hit != 'true'
