@@ -11,6 +11,7 @@ def yo_implementation(x, display=True):
     import inspect
     from ..fx.fx_types import FXElement, _group_types
     from ..fx import _effect_handlers
+    from ..graph_slice import GraphSlice
     
     if display:
         import sys
@@ -36,6 +37,9 @@ def yo_implementation(x, display=True):
     elif "pyzef.Graph" in str(type(x)):
         # This is because of monkeypatching
         print(graph_info(x), file=file)
+
+    elif isinstance(x, GraphSlice):
+        return yo_implementation(x | to_tx | collect, display)
 
     elif type(x) == ZefOp:
         if len(x.el_ops) == 1:
