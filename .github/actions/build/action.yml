@@ -118,7 +118,36 @@ runs:
         brew install openssl
         brew install zstd
 
+    # Only do the make if the C++ files and their deps have changed. These deps
+    # are everything inside of src_cpp, but also things like the tokens files
+    # from get_zeftypes.py, so we need to call that manually first.
+
+    - name: Get zeftypes early for cache check
+      shell: bash
+      run: |
+        python3 scripts/get_zeftypes.py
+
+    - name: Check cache for build
+      id: build-cache
+      uses: actions/cache@v3
+      with:
+        key: build-cache-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('src_cpp/**', 'make_everything.sh', 'CMakeLists.txt', 'zeftypes_??.json') }}
+        path: |
+          cmake_build
+          cmake_install
+          _cmake_deps
+        restore-keys: |
+          build-cache-${{ inputs.python-version }}-${{ inputs.os }}-
+          # Note: we don't want anymore fallbacks here, as having different
+          # versions of python might not trigger rebuilds without clearing the
+          # cmake cache.
+
+    # Note: if we do have to rebuild, then the zeftypes that were obtained above
+    # will force a re-cog of the files and only if they change should cmake then
+    # rebuild.
+
     - name: Make
+      if: steps.build-cache.outputs.cache-hit != 'true'
       env:
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
       shell: bash
