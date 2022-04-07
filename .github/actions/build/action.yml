@@ -131,11 +131,12 @@ runs:
       id: build-cache
       uses: actions/cache@v3
       with:
-        key: build-cache-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('src_cpp/**', 'make_everything.sh', 'CMakeLists.txt', 'zeftypes_??.json') }}
+        key: build-cache-v2-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('src_cpp/**', 'make_everything.sh', 'CMakeLists.txt', 'zeftypes_??.json') }}
         path: |
           cmake_build
           cmake_install
           _cmake_deps
+          zef/pyzef.*
         restore-keys: |
           build-cache-${{ inputs.python-version }}-${{ inputs.os }}-
 
