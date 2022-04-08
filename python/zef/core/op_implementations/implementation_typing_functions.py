@@ -5783,8 +5783,13 @@ def gather_imp(z_initial, rules=None):
     >>> 'from_source': [
     >>>     (ET.A, RT.R1, ET.B),
     >>>     (_any, RT.R2, AET.String),
+    >>>     (_any, RT.R2, AET),
     >>> ],
     >>> 'from_target': [],
+    >>> 'functions': [
+    >>>   (ET.X, my_func),             # if we are on z of type ET.X, add my_func(z). This returns a ZefRefs
+    >>>   (ET.ZEF_Function, gather),            
+    >>> ]
     >>> }
     then 
     >>> z1 | gather[rules]
@@ -5802,6 +5807,10 @@ def gather_imp(z_initial, rules=None):
     >>> z_my_zef_fct | gather      # gathers everything up, e.g. to merge over to another graph
     
     """
+    # TODO: remove this once we have type checking
+    if not is_a(z_initial, ZefRef): 
+        return Error(f'gather ZefOp only operates on ZefRef, it was given {z_initial} of type {type(z_initial)}')
+
     # ------------------------------ catch all cases for implicit rules ----------------------------------
     if rules is None:
 
@@ -5817,6 +5826,7 @@ def gather_imp(z_initial, rules=None):
                         (RT.Binding, RT.UseTimeSlice, AET.String),
                     ],
                     'from_target': [],
+                    'functions': [],
                     }
             return gather_imp(z_initial, zef_fct_rules)
         
@@ -5836,7 +5846,25 @@ def gather_imp(z_initial, rules=None):
                     (RT.Binding, RT.Name, AET.String),
                     (RT.Binding, RT.UseTimeSlice, AET.String),
                 ],
-                'from_target':[]
+                'from_target':[],
+                'functions':[],
+            }
+            return gather_imp(z_initial, zef_elop_rules)           
+
+        # --------------------------------- ET.ZEF_Op --------------------------------
+        elif z_initial | is_a[ET.ZEF_Op] | collect:
+            zef_elop_rules = {
+                'from_source': [
+                    (ET.ZEF_Op, RT.ZEF_ElementaryOp, AET),
+
+                    (RT.ZEF_ElementaryOp, RT.ZEF_Args, ET.ZEF_List),
+                    (ET.ZEF_List, RT.ZEF_ListElement, AET),
+                    (ET.ZEF_List, RT.ZEF_ListElement, ET.ZEF_Function),
+                    (ET.ZEF_List, RT.ZEF_ListElement, ET.ZEF_Op),
+                    (RT.ZEF_ListElement, RT.ZEF_NextElement, RT.ZEF_ListElement),
+                ],
+                'from_target':[],
+                'functions':[],
             }
             return gather_imp(z_initial, zef_elop_rules)           
         else:
@@ -5861,6 +5889,7 @@ def gather_imp(z_initial, rules=None):
         return (
             rules | get['from_source'] | map[from_single_rule_from_source] | concat | collect,
             rules | get['from_target'] | map[from_single_rule_from_target]  | concat | collect,
+            rules | get['functions'] | map[from_single_rule_from_target]  | concat | collect,
             ) | concat | collect
 
     def step(d: dict) -> dict:
@@ -5876,6 +5905,7 @@ def gather_imp(z_initial, rules=None):
         'gathered': set(),
         'frontier': {z_initial, },
     } | iterate[step] | take_until[frontier_is_empty] | last | get['gathered'] | collect
+
 
 
 
