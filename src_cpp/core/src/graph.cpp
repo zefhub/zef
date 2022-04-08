@@ -426,6 +426,103 @@ namespace zefDB {
 			return hash_from_blobs;
 		}
 
+    Graph create_partial_graph(Graph old_g, blob_index index_hi) {
+        blob_index index_lo = constants::ROOT_NODE_blob_index;
+        {
+            GraphData & old_gd = old_g.my_graph_data();
+            LockGraphData old_lock(&old_gd);
+            // // Optimised common case
+            // if(index_hi == old_gd.write_head)
+            //     return old_gd.hash(index_lo, index_hi);
+            if(index_hi > old_gd.write_head)
+                throw std::runtime_error("index_hi is larger than old graph");
+        }
+
+        // We create a proper graph here so that we can access it like normal.
+        // The only potential issue is that the graph uid will no longer match
+        // what's inside the root blob after we copy it over.
+        Graph g;
+        GraphData & gd = g.my_graph_data();
+        LockGraphData lock(&gd);
+        
+        char * lo_ptr = (char*)&gd + index_lo * constants::blob_indx_step_in_bytes;
+        size_t len = (index_hi - index_lo)*constants::blob_indx_step_in_bytes;
+        MMap::ensure_or_alloc_range(lo_ptr, len);
+
+        {
+            GraphData & old_gd = old_g.my_graph_data();
+            LockGraphData old_lock(&old_gd);
+
+            char * old_lo_ptr = (char*)&old_gd + index_lo * constants::blob_indx_step_in_bytes;
+            Butler::ensure_or_get_range(old_lo_ptr, len);
+            std::memcpy(lo_ptr, old_lo_ptr, len);
+            gd.write_head = index_hi;
+            gd.read_head = gd.write_head.load();
+        }
+
+        std::unordered_set<blob_index> updated_last_blobs;
+
+        blob_index cur_index = constants::ROOT_NODE_blob_index;
+        while(cur_index < index_hi) {
+            EZefRef ezr{cur_index, gd};
+            int this_size = size_of_blob(ezr);
+            int new_last_blob = -1;
+            bool is_start_of_edges = false;
+            if(internals::has_edge_list(ezr)) {
+                visit_blob_with_edges([&](auto & x) {
+                    int this_last_blob_offset = -1;
+                    for(int i = 0; i < x.edges.local_capacity ; i++) {
+                        if(x.edges.indices[i] >= index_hi) {
+                            x.edges.indices[i] = 0;
+                            if(this_last_blob_offset == -1)
+                                this_last_blob_offset = i;
+                        }
+                    }
+
+                    if(x.edges.indices[x.edges.local_capacity] >= index_hi) {
+                        x.edges.indices[x.edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
+                        if(this_last_blob_offset == -1)
+                            this_last_blob_offset = x.edges.local_capacity;
+                    }
+
+                    if(this_last_blob_offset != -1) {
+                        if(this_last_blob_offset == 0)
+                            new_last_blob = 0;
+                        else {
+                            blob_index * ptr = &x.edges.indices[this_last_blob_offset];
+                            new_last_blob = blob_index_from_ptr(ptr);
+                        }
+                    }
+                }, ezr);
+
+                if(new_last_blob != -1) {
+                    if(get<BlobType>(ezr) == BlobType::DEFERRED_EDGE_LIST_NODE) {
+                        auto def = (blobs_ns::DEFERRED_EDGE_LIST_NODE*)ezr.blob_ptr;
+                        // We only update if the source blob wasn't previously updated.
+                        if(updated_last_blobs.count(def->first_blob) == 0) {
+                            EZefRef orig_ezr{def->first_blob, gd};
+                            *internals::last_edge_holding_blob(orig_ezr) = new_last_blob;
+                            updated_last_blobs.insert(def->first_blob);
+                        } else {
+                            // If we get here something is weird - we are
+                            // removing items from a deferred edge list that
+                            // *must* be beyond the end of the index_hi.
+                            throw std::runtime_error("We should never get here!");
+                        }
+                    } else {
+                        *internals::last_edge_holding_blob(ezr) = new_last_blob;
+                    }
+
+                    updated_last_blobs.insert(cur_index);
+                }
+            }
+
+            cur_index += blob_index_size(ezr);
+        }
+
+        return g;
+    }
+
 	// // thread_safe_unordered_map<std::string, blob_index>& Graph::key_dict() {
     // GraphData::key_map& Graph::key_dict() {
     //     return *my_graph_data().key_dict;
@@ -845,17 +942,17 @@ namespace zefDB {
 
 	namespace internals {
 		// // exposed to python to get access to the serialized form
-		// std::string_view get_blobs_as_bytes(GraphData& gd, blob_index start_index, blob_index end_index) {
-        //     // Need to ensure we have the range in order to allow a view on it.
-        //     void * blob_ptr = EZefRef{start_index, gd}.blob_ptr;
-        //     Butler::ensure_or_get_range(blob_ptr, (end_index - start_index)*constants::blob_indx_step_in_bytes);
+		std::string get_blobs_as_bytes(GraphData& gd, blob_index start_index, blob_index end_index) {
+            // Need to ensure we have the range in order to allow a view on it.
+            void * blob_ptr = EZefRef{start_index, gd}.blob_ptr;
+            Butler::ensure_or_get_range(blob_ptr, (end_index - start_index)*constants::blob_indx_step_in_bytes);
 
-		// 	// memory range returned does not(!) contain the blob at the actual end index.
-		// 	return std::string_view(
-		// 		(char*)(&gd) + start_index * constants::blob_indx_step_in_bytes,
-		// 		(end_index - start_index) * constants::blob_indx_step_in_bytes
-		// 	);
-		// }	
+			// memory range returned does not(!) contain the blob at the actual end index.
+			return std::string(
+				(char*)(&gd) + start_index * constants::blob_indx_step_in_bytes,
+				(end_index - start_index) * constants::blob_indx_step_in_bytes
+			);
+		}	
 
         Butler::UpdateHeads full_graph_heads(const GraphData & gd) {
             Butler::UpdateHeads heads{

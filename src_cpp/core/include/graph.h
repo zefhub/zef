@@ -337,6 +337,7 @@ namespace zefDB {
 		EZefRef get_ROOT_node() { return EZefRef(constants::ROOT_NODE_blob_index ,*this); }
 		std::uintptr_t ptr_to_write_head_location() { return (std::uintptr_t(this) + constants::blob_indx_step_in_bytes * write_head); }
 		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed=0) const;
+		uint64_t hash_partial(blob_index blob_index_hi, uint64_t seed=0) const;
 
 
 		// GraphData() { get_all_active_graph_data_tracker().register_graph_data(this); }
@@ -434,6 +435,8 @@ namespace zefDB {
 		bool operator== (const Graph& g2) const;
 	};
 
+    LIBZEF_DLL_EXPORTED Graph create_partial_graph(Graph old_g, blob_index index_hi);
+
 
 
 //                              _                                  _   _                       _                                         
@@ -511,6 +514,7 @@ namespace zefDB {
         }
 	
 		// exposed to python to get access to the serialized form
+        LIBZEF_DLL_EXPORTED std::string get_blobs_as_bytes(GraphData& gd, blob_index start_index, blob_index end_index);
         LIBZEF_DLL_EXPORTED Butler::UpdateHeads full_graph_heads(const GraphData & gd);
 		LIBZEF_DLL_EXPORTED Messages::UpdatePayload graph_as_UpdatePayload(const GraphData& gd);
 

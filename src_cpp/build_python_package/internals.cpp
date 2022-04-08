@@ -452,6 +452,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
         return new Graph((GraphData*)value, false);
     });
 
+    internals_submodule.def("create_partial_graph", &create_partial_graph, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");
+    internals_submodule.def("create_partial_graph", &create_partial_graph, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");
+
     internals_submodule.def("list_graph_manager_uids", []() { auto butler = Butler::get_butler(); return butler->list_graph_manager_uids(); }, "This is a low-level function. Do not use if you don't know what you are doing.");
     internals_submodule.def("gtd_info_str", [](BaseUID uid)->std::string {
         auto butler = Butler::get_butler();
@@ -668,9 +671,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("early_token_list", &Butler::early_token_list);
 	internals_submodule.def("created_token_list", &Butler::created_token_list);
 
-	// internals_submodule.def("get_blobs_as_bytes", [](Graph& g, blob_index start_index, blob_index end_index)->py::bytes {
-    //     return py::bytes(std::string(internals::get_blobs_as_bytes(g.my_graph_data(), start_index, end_index))); 
-	// 	}, "read the content of the memory pool filled with blobs_ns for a given graph");
+	internals_submodule.def("get_blobs_as_bytes", [](Graph& g, blob_index start_index, blob_index end_index)->py::bytes {
+        return py::bytes(internals::get_blobs_as_bytes(g.my_graph_data(), start_index, end_index)); 
+		}, "read the content of the memory pool filled with blobs_ns for a given graph");
 	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload);
 	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads);
 		
