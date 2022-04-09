@@ -50,7 +50,7 @@ namespace zefDB {
             else
                 status = future.wait_for(std::chrono::duration<double>(timeout.value));
             if(status != std::future_status::ready) {
-                throw std::runtime_error("Butler did not return with response in time.");
+                throw std::runtime_error("Butler did not return with response in time after waiting for: " + to_str(timeout.value) + ".");
             } else {
                 Messages::Response response;
                 try {
