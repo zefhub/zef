@@ -159,7 +159,8 @@ def transpose_imp(iterable):
     This operator is essentially the operation of transposition on a matrix
     that is infinite along one direction (vertical (m) for the 
     input matrix in normal A_(m,n) nomenclature).
-    It could also be thought of as 'interleave' or 'interleave_concat'?
+    It is different from "interleave" in that it produces a List of Lists,
+    whereas "interleave" flattens it out into one List.
 
     ---- Examples ----
     >>> [ [2,3,4], [5,6,7] ]                    # => [ [2, 5], [3,6], [4,7] ]
@@ -633,8 +634,8 @@ def interleave_imp(v, first_curried_list_maybe=None, *args):
     >>> ] | interleave          # =>  [1, 'a', 2, 'b', 3, 'c']
     >>> 
     >>> # or with other lists to interleave with being curried in
-    >>> [1,2,3] | interleave[repeat[42]]        # => [1, 42, 2, 42, 3, 42]
-    >>> [1,2,3] | interleave[repeat[42]][('a','b')]      # => [1, 42, 'a', 2, 42, 'b']    
+    >>> [1,2,3] | interleave[42 | repeat]       # => [1, 42, 2, 42, 3, 42]
+    >>> [1,2,3] | interleave[42 | repeat][('a','b')]      # => [1, 42, 'a', 2, 42, 'b']    
     """
     import more_itertools as mi    
     if first_curried_list_maybe is None:
