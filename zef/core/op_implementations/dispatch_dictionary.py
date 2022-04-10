@@ -231,12 +231,8 @@ _op_to_functions = {
         RT.Call:                (call_implementation, call_type_info),
         RT.Unpack:              (unpack_implementation, unpack_type_info),
 
-        RT.MakeRequest:         (make_request_imp, make_request_tp),
-        RT.Blake3:              (blake3_imp, blake3_tp),
-        RT.ToZefList:           (to_zef_list_imp, to_zef_list_tp),
-        RT.Transact:            (transact_imp, transact_tp),
-
-        RT.Execute:             (run_effect_implementation, None),
-        RT.Lazy:                (lazy_imp, lazy_tp),
-        RT.ApplyFunctions:      (apply_functions_imp, None)
+        RT.MakeRequest:        (make_request_imp, make_request_tp),
+        RT.Blake3:             (blake3_imp, blake3_tp),
+        RT.ToZefList:          (to_zef_list_imp, to_zef_list_tp),
+        RT.Transact:           (transact_imp, transact_tp),
 }

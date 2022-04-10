@@ -275,10 +275,6 @@ merge           = make_zefop(RT.Merge)                 # We need this for observ
 blake3          = make_zefop(RT.Blake3)
 to_zef_list     = make_zefop(RT.ToZefList)
 transact        = make_zefop(RT.Transact)
-execute         = ZefOp(((RT.Execute, ()),))
-lazy            = ZefOp(((RT.Lazy, ()), ))
-
-apply_functions = make_zefop(RT.ApplyFunctions)
 # transact
 
 # subscribe
