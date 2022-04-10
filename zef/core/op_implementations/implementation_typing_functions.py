@@ -4737,14 +4737,45 @@ def is_alpha_tp(op, curr_type):
     return VT.Bool
 
 
-def to_upper_imp(s: VT.String) -> VT.Bool:
+
+
+#---------------------------------------- to_upper_case -----------------------------------------------
+def to_upper_case_imp(s: VT.String) -> VT.Bool:
     """ 
-    Given a string return if it is only composed of uppercase characters
+    Given a string, capitalize each character.
+
+    ---- Examples ----
+    >>> 'aBc' | to_upper_case          # => 'ABC'
+
+    ---- Signature ----
+    VT.String -> VT.String
     """
     return s.upper()
 
-def to_upper_tp(op, curr_type):
+def to_upper_case_tp(op, curr_type):
     return VT.Bool
+
+
+
+
+#---------------------------------------- to_lower_case -----------------------------------------------
+def to_lower_case_imp(s: VT.String) -> VT.Bool:
+    """ 
+    Given a string, convert each character to lower case.
+
+    ---- Examples ----
+    >>> 'aBc' | to_upper_case          # => 'abc'
+
+    ---- Signature ----
+    VT.String -> VT.String
+    """
+    return s.lower()
+
+def to_lower_case_tp(op, curr_type):
+    return VT.Bool
+
+
+
 
 def to_pascal_case_imp(s: VT.String) -> VT.String:
     """Convert a string to PascalCase style. Uses the caseconverter module.

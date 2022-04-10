@@ -153,7 +153,6 @@ time_travel     = make_zefop(RT.TimeTravel)
 next_tx         = make_zefop(RT.NextTX)             
 previous_tx     = make_zefop(RT.PreviousTX)     
 to_ezefref      = make_zefop(RT.ToEZefRef)
-to_lower_case   = make_zefop(RT.ToLowerCase)
 root            = make_zefop(RT.Root)
 terminate       = make_zefop(RT.Terminate) 
 assign_value    = make_zefop(RT.AssignValue) 
@@ -242,7 +241,8 @@ inject_list    = make_zefop(RT.InjectList)
 
 
 is_alpha        = make_zefop(RT.IsAlpha)
-to_upper        = make_zefop(RT.ToUpper)
+to_upper_case   = make_zefop(RT.ToUpperCase)
+to_lower_case   = make_zefop(RT.ToLowerCase)
 
 to_pascal_case  = make_zefop(RT.ToPascalCase)
 to_camel_case   = make_zefop(RT.ToCamelCase)
