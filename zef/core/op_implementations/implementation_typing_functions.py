@@ -3293,6 +3293,36 @@ def hasout_implementation(zr, rt):
 def hasin_implementation(zr, rt):
     return curry_args_in_zefop(pyzefops.has_in, zr, (rt,))
 
+
+
+# -------------------------------- apply_functions -------------------------------------------------
+def apply_functions_imp(x, *fns):
+    """ 
+    Apply different functions to different elements in a list.
+    The use case is similar to using Zef's map[f1,f2,f3] with multiple
+    functions, but fills in the gap when the input is not a list / stream.
+    In this sense, it is closer to func.
+    The input list and list of functions must be of the same length.
+
+    ---- Examples ----
+    ['Hello', 'World'] | apply_functions[to_upper_case][to_lower_case]    # => ['HELLO', 'world']
+
+    ---- Signature ----
+    VT.List -> VT.List
+    """
+    import builtins
+    if not (isinstance(x, tuple) or isinstance(x, list)):
+        raise TypeError(f"The dataflow argument for apply_functions must be a list/tuple: Got a {type(x)=} Value: {x=}")
+    if not len(fns) == len(x):
+        raise TypeError(f"the length of the dataflow argument for apply_functions must be the same length as the list of functions provided. Got {x=} and {fns=}" )
+    return tuple(
+        (f(el) for f, el in builtins.zip(fns, x))
+    )
+
+
+
+
+# -------------------------------- map -------------------------------------------------
 def map_implementation(v, f):
     """
     Apply a pure function elementwise to each item of a collection.
