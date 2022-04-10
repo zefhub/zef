@@ -92,6 +92,7 @@ def on_implementation(g, op):
 
     ---- Signature ----
     (Graph, ZefOp[ValueAssigned]) -> Stream[ZefOp[ValueAssigned[ZefRef][Any]]]
+    (Graph, ZefOp[Instantiated]) -> Stream[ZefOp[Instantiated[ZefRef]]]
     (Graph, ZefOp[Terminated]) -> Stream[ZefOp[Terminated[ZefRef]]]
     
     ...
@@ -155,10 +156,10 @@ def on_implementation(g, op):
 
 def transpose_imp(iterable):
     """
-    or should we call this 'interleave' or 'interleave_concat'?
-    It's essentially the operation of transposition on a matrix
+    This operator is essentially the operation of transposition on a matrix
     that is infinite along one direction (vertical (m) for the 
     input matrix in normal A_(m,n) nomenclature).
+    It could also be thought of as 'interleave' or 'interleave_concat'?
 
     ---- Examples ----
     >>> [ [2,3,4], [5,6,7] ]                    # => [ [2, 5], [3,6], [4,7] ]
@@ -4757,6 +4758,8 @@ def random_pick_tp(op, curr_type):
     return VT.Any
 
 
+
+#---------------------------------------- is_alpha -----------------------------------------------
 def is_alpha_imp(s: VT.String) -> VT.Bool:
     """ 
     Given a string return if it is only composed of Alphabet characters
@@ -4805,7 +4808,7 @@ def to_lower_case_tp(op, curr_type):
     return VT.Bool
 
 
-
+#---------------------------------------- to_pascal_case -----------------------------------------------
 
 def to_pascal_case_imp(s: VT.String) -> VT.String:
     """Convert a string to PascalCase style. Uses the caseconverter module.
@@ -4827,6 +4830,8 @@ def to_pascal_case_imp(s: VT.String) -> VT.String:
 def to_pascal_case_tp(op, curr_type):
     return VT.String
 
+
+#---------------------------------------- to_camel_case -----------------------------------------------
 def to_camel_case_imp(s: VT.String) -> VT.String:
     """Convert a string to camelCase style. Uses the caseconverter module.
     
@@ -4846,6 +4851,8 @@ def to_camel_case_imp(s: VT.String) -> VT.String:
 def to_camel_case_tp(op, curr_type):
     return VT.String
 
+
+#---------------------------------------- to_kebab_case -----------------------------------------------
 def to_kebab_case_imp(s: VT.String) -> VT.String:
     """Convert a string to kebab-case style. Uses the caseconverter module.
     
@@ -4865,6 +4872,8 @@ def to_kebab_case_imp(s: VT.String) -> VT.String:
 def to_kebab_case_tp(op, curr_type):
     return VT.String
 
+
+#---------------------------------------- to_snake_case -----------------------------------------------
 def to_snake_case_imp(s: VT.String) -> VT.String:
     """Convert a string to snake_case style. Uses the caseconverter module.
     
@@ -4884,6 +4893,8 @@ def to_snake_case_imp(s: VT.String) -> VT.String:
 def to_snake_case_tp(op, curr_type):
     return VT.String
 
+
+#---------------------------------------- to_screaming_snake_case -----------------------------------------------
 def to_screaming_snake_case_imp(s: VT.String) -> VT.String:
     """Convert a string to SCREAMING_SNAKE_CASE style. Uses the caseconverter module.
     
@@ -4916,6 +4927,7 @@ def make_request_tp(op, curr_type):
     return VT.Effect
 
 
+#---------------------------------------- blake3 -----------------------------------------------
 def blake3_imp(obj) -> VT.String:
     from blake3 import blake3 as b3
     # Hash some input all at once. The input can be bytes, a bytearray, or a memoryview.
