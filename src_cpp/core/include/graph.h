@@ -436,6 +436,7 @@ namespace zefDB {
 	};
 
     LIBZEF_DLL_EXPORTED Graph create_partial_graph(Graph old_g, blob_index index_hi);
+    LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed=0);
 
 
 

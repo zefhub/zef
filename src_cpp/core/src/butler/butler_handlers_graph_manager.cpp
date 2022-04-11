@@ -22,18 +22,29 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     // from upstream.
     //
     // Going with sync_head for now. Can change the logic upstream.
+    blob_index hash_to;
+    uint64_t hash;
     UpdateHeads update_heads;
     {
         LockGraphData lock{me.gd};
         update_heads = client_create_update_heads(*me.gd);
+        blob_index hash_to;
+        if(me.gd->sync_head == 0)
+            hash_to = me.gd->write_head.load();
+        else
+            hash_to = me.gd->sync_head.load();
+        hash = partial_hash(Graph(me.gd, false), hash_to);
     }
     json j = create_heads_json_from_sync_head(*me.gd, update_heads);
     j["msg_type"] = "subscribe_to_graph";
-    j["msg_version"] = 2;
+    j["msg_version"] = 3;
     j["graph_uid"] = str(me.uid);
+    j["hash"] = hash;
+    j["hash_index"] = hash_to;
 
     auto response = butler.wait_on_zefhub_message<GenericZefHubResponse>(j);
-    std::cerr << "Got response: " << response.j << std::endl;
+    if(zwitch.graph_event_output())
+        std::cerr << "Got response: " << response.j << std::endl;
     int msg_version = response.j["msg_version"].get<int>();
 
     if(!response.generic.success) {
@@ -45,6 +56,30 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         std::cerr << "UNKNOWN ERROR WHEN RESUBSCRIBING FOR GRAPH (" << me.uid << "): " << response.generic.reason << std::endl;
         throw std::runtime_error("Couldn't resubscribe");
         return;
+    }
+
+    if(!response.j["hash_agreed"].get<bool>()) {
+        bool bad = true;
+        if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
+            // We were ahead of upstream, see if we agree with what they had.
+            auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>());
+            if(our_hash == response.j["hash"].get<uint64_t>()) {
+                if(zwitch.graph_event_output())
+                    std::cerr << "We were ahead of upstream but our hashes agree." << std::endl;
+                bad = false;
+            }
+        }
+
+        if(bad) {
+            // TODO: Make sure we unsubscribe to the graph
+            me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+            std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
+            std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
+            std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
+            std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
+            throw std::runtime_error("Couldn't resubscribe");
+            return;
+        }
     }
 
     // Update heads from received message
@@ -64,6 +99,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
                 // ourselves.
                 std::cerr << "We were unable to get back the primary role for (" << me.uid << ")! Downgrading our rights." << std::endl;
                 me.gd->is_primary_instance = false;
+                // TODO: Do a check to see whether we were ahead of upstream, in which case we should issue a bigger failure message.
             } else {
                 std::cerr << "NEW DATA ON THE GRAPH WILL NOT MAKE IT TO ZEFHUB!!!!" << std::endl;
                 std::cerr << "NEW DATA ON THE GRAPH WILL NOT MAKE IT TO ZEFHUB!!!!" << std::endl;
@@ -82,8 +118,6 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
     if(zwitch.graph_event_output())
         std::cerr << "Upstream head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
-
-    me.debug_last_action = "Notified sync thread about resubscribing";
 }
 
 
@@ -307,12 +341,20 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
             // this out for a call to do_reconnect, but there is some custom
             // logic to handle in here, with regards to safety checks on the
             // graph.
+            me.gd->read_head = fg->get_latest_blob_index();
+            me.gd->write_head = fg->get_latest_blob_index();
+            me.gd->latest_complete_tx = index(internals::get_latest_complete_tx_node(*me.gd));
+            me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
+
             json j{
-                    {"msg_type", "resubscribe"},
-                    {"msg_version", 1},
+                    {"msg_type", "subscribe_to_graph"},
+                    {"msg_version", 3},
                     {"graph_uid", str(me.uid)},
             };
             parse_filegraph_update_heads(*fg, j);
+            
+            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"]);
+            j["hash_index"] = j["blobs_head"];
             auto response = wait_on_zefhub_message(j);
 
             if(!response.generic.success) {
@@ -320,18 +362,45 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                 me.please_stop = true;
                 return;
             } else {
+                if(!response.j["hash_agreed"].get<bool>()) {
+                    bool bad = true;
+                    if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
+                        // We were ahead of upstream, see if we agree with what they had.
+                        auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>());
+                        if(our_hash == response.j["hash"].get<uint64_t>()) {
+                            if(zwitch.developer_output())
+                                std::cerr << "We were ahead of upstream but our hashes agree." << std::endl;
+                            bad = false;
+                        }
+                    }
+
+                    if(bad) {
+                        // TODO: This could lose data if we had stuff that
+                        // upstream didn't have. Handle this carefully.
+                        std::cerr << "Warning hashes disagreed with upstream when loading graph. Going to wipe graph and try again from fresh." << std::endl;
+                        std::filesystem::path path_prefix = fg->path_prefix;
+                        // This is a little annoying - it's the only place that the
+                        // GraphData killing code is reused. I hope I can get around
+                        // this some other time.
+                        MMap::destroy_mmap((void*)me.gd);
+                        MMap::delete_filegraph_files(path_prefix);
+                        // Note: the fg pointer was stolen by the mmap alloc info,
+                        // so no `delete fg` here.
+                        fg = new MMap::FileGraph(path_prefix, me.uid, true, false);
+                        me.gd = create_GraphData(mem_style, fg, me.uid, false);
+                        _g = Graph{me.gd, false};
+                        me.gd->is_primary_instance = false;
+
+                        if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
+                            // TODO: We need to inform upstream that we had to reset.
+                        }
+                    }
+                }
+
                 int msg_version = 0;
                 if(response.j.contains("msg_version"))
                     msg_version = response.j["msg_version"].get<int>();
-            
-                // We want to know what upstream knows about. Do we have
-                // some updates to receive? Do we have some updates that we need
-                // to send out?
 
-                me.gd->read_head = fg->get_latest_blob_index();
-                me.gd->write_head = fg->get_latest_blob_index();
-                me.gd->latest_complete_tx = index(internals::get_latest_complete_tx_node(*me.gd));
-                me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
                 me.gd->should_sync = true;
                 me.gd->currently_subscribed = true;
 
@@ -346,7 +415,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                 if(me.gd->sync_head < me.gd->read_head.load()) {
                     std::cerr << "WARNING:" << std::endl;
                     std::cerr << "WARNING:" << std::endl;
-                    std::cerr << "WARNING: loaded graph is ahead of upstream. You should take the primary role to update upstream as soon as possible." << std::endl;
+                    std::cerr << "WARNING: loaded graph is ahead of upstream. You should take the transactor role to update upstream as soon as possible." << std::endl;
                     std::cerr << "WARNING:" << std::endl;
                     std::cerr << "WARNING:" << std::endl;
                 }

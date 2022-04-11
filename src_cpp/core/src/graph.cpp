@@ -426,6 +426,16 @@ namespace zefDB {
 			return hash_from_blobs;
 		}
 
+    uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed) {
+        // // Optimised common case
+        GraphData & gd = g.my_graph_data();
+        if(index_hi == gd.write_head)
+            return gd.hash(constants::ROOT_NODE_blob_index, index_hi);
+
+        Graph old_g = create_partial_graph(g, index_hi);
+        return old_g.hash(constants::ROOT_NODE_blob_index, index_hi, seed);
+    }
+
     Graph create_partial_graph(Graph old_g, blob_index index_hi) {
         blob_index index_lo = constants::ROOT_NODE_blob_index;
         {

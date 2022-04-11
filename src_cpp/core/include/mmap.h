@@ -269,6 +269,8 @@ namespace zefDB {
             return std::filesystem::exists(filename_with_index(prefix, 0));
         }
 
+        LIBZEF_DLL_EXPORTED void delete_filegraph_files(std::filesystem::path path_prefix);
+
         constexpr int filegraph_v3_version_num = 4;
         // constexpr int filegraph_default_version = 3;
         constexpr int filegraph_default_version = 4;

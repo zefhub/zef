@@ -453,7 +453,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
     });
 
     internals_submodule.def("create_partial_graph", &create_partial_graph, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");
-    internals_submodule.def("create_partial_graph", &create_partial_graph, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");
+    internals_submodule.def("partial_hash", &partial_hash, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.", py::arg("g"), py::arg("index_hi"), py::arg("seed") = 0);
 
     internals_submodule.def("list_graph_manager_uids", []() { auto butler = Butler::get_butler(); return butler->list_graph_manager_uids(); }, "This is a low-level function. Do not use if you don't know what you are doing.");
     internals_submodule.def("gtd_info_str", [](BaseUID uid)->std::string {
