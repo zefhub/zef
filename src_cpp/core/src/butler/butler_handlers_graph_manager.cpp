@@ -58,7 +58,16 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         return;
     }
 
-    if(!response.j["hash_agreed"].get<bool>()) {
+    bool hash_agreed;
+    if(msg_version <= 2)
+        hash_agreed = true;
+    // ZefHub was incorrectly just replying with the same version in response,
+    // so we have to use other details in the response to validate this.
+    else if(!response.j.contains("hash_agreed"))
+        hash_agreed = true;
+    else
+        hash_agreed = !response.j["hash_agreed"].get<bool>();
+    if(!hash_agreed) {
         bool bad = true;
         if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
             // We were ahead of upstream, see if we agree with what they had.
@@ -356,13 +365,25 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
             j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"]);
             j["hash_index"] = j["blobs_head"];
             auto response = wait_on_zefhub_message(j);
+            int msg_version = 0;
+            if(response.j.contains("msg_version"))
+                msg_version = response.j["msg_version"].get<int>();
 
             if(!response.generic.success) {
                 msg->promise.set_value(GraphLoaded(response.generic.reason));
                 me.please_stop = true;
                 return;
             } else {
-                if(!response.j["hash_agreed"].get<bool>()) {
+                bool hash_agreed;
+                if(msg_version <= 2)
+                    hash_agreed = true;
+                // ZefHub was incorrectly just replying with the same version in response,
+                // so we have to use other details in the response to validate this.
+                else if(!response.j.contains("hash_agreed"))
+                    hash_agreed = true;
+                else
+                    hash_agreed = !response.j["hash_agreed"].get<bool>();
+                if(!hash_agreed) {
                     bool bad = true;
                     if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
                         // We were ahead of upstream, see if we agree with what they had.
@@ -397,9 +418,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                     }
                 }
 
-                int msg_version = 0;
-                if(response.j.contains("msg_version"))
-                    msg_version = response.j["msg_version"].get<int>();
 
                 me.gd->should_sync = true;
                 me.gd->currently_subscribed = true;
