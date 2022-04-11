@@ -277,13 +277,15 @@ namespace zefDB {
 //   |_____|_____|_____|_____|_____|_____|_____|_____|_____|    | |_| | | | (_| | |_) | | | |    |_____|_____|_____|_____|_____|_____|_____|_____|_____|
 //                                                               \____|_|  \__,_| .__/|_| |_|                                                           
     // This version is for creating a new local graph.
-	Graph::Graph(bool sync, int mem_style) {
+	Graph::Graph(bool sync, int mem_style, bool internal_use_only) {
         auto butler = Butler::get_butler();
         butler_weak = butler;
-        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::NewGraph{mem_style});
+        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::NewGraph{mem_style, internal_use_only});
         if(!response.generic.success)
             throw std::runtime_error("Unable to create new graph: " + response.generic.reason);
         *this = std::move(*response.g);
+        if(internal_use_only)
+            return;
         // std::cerr << "New graph Graph(), ref_count = " << my_graph_data().reference_count.load() << std::endl;
         
         // After here, we should always destruct
@@ -303,9 +305,9 @@ namespace zefDB {
         }
 	}
 
-	Graph Graph::create_from_bytes(Messages::UpdatePayload && payload, int mem_style) {
+	Graph Graph::create_from_bytes(Messages::UpdatePayload && payload, int mem_style, bool internal_use_only) {
         auto butler = Butler::get_butler();
-        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::NewGraph{mem_style, std::move(payload)});
+        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::NewGraph{mem_style, std::move(payload), internal_use_only});
         if(!response.generic.success)
             throw std::runtime_error("Unable to create new graph: " + response.generic.reason);
 
@@ -426,6 +428,16 @@ namespace zefDB {
 			return hash_from_blobs;
 		}
 
+    uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed) {
+        // // Optimised common case
+        GraphData & gd = g.my_graph_data();
+        if(index_hi == gd.write_head)
+            return gd.hash(constants::ROOT_NODE_blob_index, index_hi);
+
+        Graph old_g = create_partial_graph(g, index_hi);
+        return old_g.hash(constants::ROOT_NODE_blob_index, index_hi, seed);
+    }
+
     Graph create_partial_graph(Graph old_g, blob_index index_hi) {
         blob_index index_lo = constants::ROOT_NODE_blob_index;
         {
@@ -457,7 +469,6 @@ namespace zefDB {
             Butler::ensure_or_get_range(old_lo_ptr, len);
             std::memcpy(lo_ptr, old_lo_ptr, len);
             gd.write_head = index_hi;
-            gd.read_head = gd.write_head.load();
         }
 
         std::unordered_set<blob_index> updated_last_blobs;
@@ -489,7 +500,8 @@ namespace zefDB {
                         if(this_last_blob_offset == 0)
                             new_last_blob = 0;
                         else {
-                            blob_index * ptr = &x.edges.indices[this_last_blob_offset];
+                            uintptr_t direct_ptr = (uintptr_t)&x.edges.indices[this_last_blob_offset];
+                            blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
                             new_last_blob = blob_index_from_ptr(ptr);
                         }
                     }
@@ -519,6 +531,8 @@ namespace zefDB {
 
             cur_index += blob_index_size(ezr);
         }
+
+        gd.read_head = gd.write_head.load();
 
         return g;
     }

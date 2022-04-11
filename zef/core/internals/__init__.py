@@ -76,6 +76,7 @@ from ...pyzef.internals import (
     num_blob_indexes_to_move,
     pageout,
     parse_payload_update_heads,
+    partial_hash,
     root_node_blob_index,
     set_data_layout_version_info,
     set_graph_revision_info,

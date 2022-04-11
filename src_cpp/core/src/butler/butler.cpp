@@ -1312,9 +1312,21 @@ namespace zefDB {
 
                             // First check for subscriptions
                             EZefRef last_tx{me.gd->manager_tx_head, *me.gd};
+                            if(!(last_tx | has_out[BT.NEXT_TX_EDGE])) {
+                                std::cerr << "write_head: " << me.gd->write_head.load();
+                                std::cerr << "read_head: " << me.gd->read_head.load();
+                                std::cerr << "latest_complete_tx: " << me.gd->latest_complete_tx.load();
+                                std::cerr << "manager_tx_head: " << me.gd->manager_tx_head.load();
+                                throw std::runtime_error("Big problem in sync thread, could not find BT.NEXT_TX_EDGE from last_tx");
+                            }
                             EZefRef this_tx = last_tx >> BT.NEXT_TX_EDGE;
 
-                            run_subscriptions(*me.gd, this_tx);
+                            try {
+                                run_subscriptions(*me.gd, this_tx);
+                            } catch(...) {
+                                std::cerr << "There was a failure in the run_subscriptions part of the sync thread." << std::endl;
+                                throw;
+                            }
 
                             // TODO:
                             // TODO:
@@ -1351,6 +1363,10 @@ namespace zefDB {
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 std::cerr << "Some kind of exception occurred in the sync thread at the highest level: " << e.what() << std::endl;
+                std::cerr << "Setting graph into error state" << std::endl;
+                update(me.gd->heads_locker, [&me]() {
+                        me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                    });
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 me.sync_return_value.set_exception(std::current_exception());

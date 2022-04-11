@@ -92,6 +92,7 @@ namespace zefDB {
             size += get<ASSIGN_TAG_NAME_EDGE>(b).buffer_size_in_bytes;
             break;
         }
+        default: {}
 		}		
 		return size;
 	}
