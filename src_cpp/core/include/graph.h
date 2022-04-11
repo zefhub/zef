@@ -375,7 +375,7 @@ namespace zefDB {
 		operator GraphData& () const { return *(GraphData*)mem_pool; }
 
         // This version is for creating a new local graph.
-        explicit Graph(bool sync=false, int mem_style=MMap::MMAP_STYLE_AUTO);
+        explicit Graph(bool sync=false, int mem_style=MMap::MMAP_STYLE_AUTO, bool internal_use_only=false);
         // This version is about preparing a graph for other jobs.
 		explicit Graph(int mem_style, MMap::FileGraph * fg = nullptr, std::optional<BaseUID> uid = {}) ;
         explicit Graph(const std::filesystem::path & directory);
@@ -391,7 +391,7 @@ namespace zefDB {
         explicit Graph(const char * graph_uid_or_tag, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(std::string(graph_uid_or_tag), mem_style) {}
 		explicit Graph(const BaseUID& graph_uid, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(str(graph_uid), mem_style) {};
 
-        static Graph create_from_bytes(Messages::UpdatePayload && payload, int mem_style=MMap::MMAP_STYLE_AUTO);
+        static Graph create_from_bytes(Messages::UpdatePayload && payload, int mem_style=MMap::MMAP_STYLE_AUTO, bool internal_use_only = false);
 
         // copy ctor
         Graph(const Graph& g);

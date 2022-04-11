@@ -74,18 +74,24 @@ namespace zefDB {
             // std::string blob_bytes = "";
             std::optional<UpdatePayload> payload;
 
+            // This flag is for creating internal graphs without a sync thread.
+            bool internal_use_only = false;
+
             // For some reason, we need to manually do the move semantics here.
             // Maybe the default values are messing with the generated
             // constructors? Whatever it is, this cost a lot of time identifying
             // the source.
-            NewGraph(int mem_style) : mem_style(mem_style) {}
-            NewGraph(int mem_style, UpdatePayload && payload) :
+            NewGraph(int mem_style, bool internal_use_only) :
                 mem_style(mem_style),
-                payload(std::move(payload)) {}
+                internal_use_only(internal_use_only) {}
+            NewGraph(int mem_style, UpdatePayload && payload, bool internal_use_only) :
+                mem_style(mem_style),
+                payload(std::move(payload)),
+                internal_use_only(internal_use_only) {}
             NewGraph(NewGraph && other) :
                 mem_style(other.mem_style),
-                payload(std::move(other.payload))
-                {}
+                payload(std::move(other.payload)),
+                internal_use_only(other.internal_use_only) {}
 
         };
 

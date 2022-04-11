@@ -277,13 +277,15 @@ namespace zefDB {
 //   |_____|_____|_____|_____|_____|_____|_____|_____|_____|    | |_| | | | (_| | |_) | | | |    |_____|_____|_____|_____|_____|_____|_____|_____|_____|
 //                                                               \____|_|  \__,_| .__/|_| |_|                                                           
     // This version is for creating a new local graph.
-	Graph::Graph(bool sync, int mem_style) {
+	Graph::Graph(bool sync, int mem_style, bool internal_use_only) {
         auto butler = Butler::get_butler();
         butler_weak = butler;
-        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::NewGraph{mem_style});
+        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::NewGraph{mem_style, internal_use_only});
         if(!response.generic.success)
             throw std::runtime_error("Unable to create new graph: " + response.generic.reason);
         *this = std::move(*response.g);
+        if(internal_use_only)
+            return;
         // std::cerr << "New graph Graph(), ref_count = " << my_graph_data().reference_count.load() << std::endl;
         
         // After here, we should always destruct
@@ -303,9 +305,9 @@ namespace zefDB {
         }
 	}
 
-	Graph Graph::create_from_bytes(Messages::UpdatePayload && payload, int mem_style) {
+	Graph Graph::create_from_bytes(Messages::UpdatePayload && payload, int mem_style, bool internal_use_only) {
         auto butler = Butler::get_butler();
-        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::NewGraph{mem_style, std::move(payload)});
+        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::NewGraph{mem_style, std::move(payload), internal_use_only});
         if(!response.generic.success)
             throw std::runtime_error("Unable to create new graph: " + response.generic.reason);
 

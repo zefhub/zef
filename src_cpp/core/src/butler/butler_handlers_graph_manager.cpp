@@ -280,8 +280,10 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
             // Note: don't set sync_head here, it should remain at 0.
         }
 
-        // Now we can kick off the sync thread, even if we aren't syncing just at the moment.
-        spawn_graph_sync_thread(me);
+        if(!content.internal_use_only) {
+            // Now we can kick off the sync thread, even if we aren't syncing just at the moment.
+            spawn_graph_sync_thread(me);
+        }
 
         msg->promise.set_value(GraphLoaded(_g));
     } catch (const std::runtime_error & e) {
