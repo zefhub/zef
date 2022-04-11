@@ -57,9 +57,9 @@ runs:
       uses: actions/cache@v2
       with:
         path: ${{ steps.pipdir.outputs.pipdir }}
-        key: ${{ inputs.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        key: pip-${{ inputs.os }}-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
-          ${{ runner.os }}-pip-
+          pip-${{ inputs.os }}-${{ inputs.python-version }}-
 
     - name: Install python dependencies for build
       shell: bash
