@@ -1312,8 +1312,13 @@ namespace zefDB {
 
                             // First check for subscriptions
                             EZefRef last_tx{me.gd->manager_tx_head, *me.gd};
-                            if(!(last_tx | has_out[BT.NEXT_TX_EDGE]))
+                            if(!(last_tx | has_out[BT.NEXT_TX_EDGE])) {
+                                std::cerr << "write_head: " << me.gd->write_head.load();
+                                std::cerr << "read_head: " << me.gd->read_head.load();
+                                std::cerr << "latest_complete_tx: " << me.gd->latest_complete_tx.load();
+                                std::cerr << "manager_tx_head: " << me.gd->manager_tx_head.load();
                                 throw std::runtime_error("Big problem in sync thread, could not find BT.NEXT_TX_EDGE from last_tx");
+                            }
                             EZefRef this_tx = last_tx >> BT.NEXT_TX_EDGE;
 
                             try {
