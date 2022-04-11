@@ -137,7 +137,7 @@ runs:
           cmake_install
           _cmake_deps
           zef/pyzef.*
-          src_cpp/**/*.cog
+          src_cpp/**/*.gen
         restore-keys: |
           build-cache-${{ inputs.python-version }}-${{ inputs.os }}-
 

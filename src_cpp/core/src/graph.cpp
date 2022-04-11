@@ -453,9 +453,13 @@ namespace zefDB {
         // We create a proper graph here so that we can access it like normal.
         // The only potential issue is that the graph uid will no longer match
         // what's inside the root blob after we copy it over.
-        Graph g;
+
+        // Create a graph with "internal_use" turned on.
+        Graph g{false, MMap::MMAP_STYLE_ANONYMOUS, true};
         GraphData & gd = g.my_graph_data();
         LockGraphData lock(&gd);
+        // std::cerr << "Created temporary internal graph with uid: " << uid(g) << std::endl;
+        
         
         char * lo_ptr = (char*)&gd + index_lo * constants::blob_indx_step_in_bytes;
         size_t len = (index_hi - index_lo)*constants::blob_indx_step_in_bytes;
