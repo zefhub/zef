@@ -958,7 +958,7 @@ class LazyValue:
             #     back_up_type_info.append(curr_type)
         # self.type_info = type_info if primary_type_info else back_up_type_info
         
-        if unpack_generator and isinstance(curr_value, Iterator) or isinstance(curr_value, Generator):
+        if unpack_generator and (isinstance(curr_value, Iterator) or isinstance(curr_value, Generator)):
             return [i for i in curr_value]
         return curr_value      
 
