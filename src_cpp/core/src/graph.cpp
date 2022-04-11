@@ -458,7 +458,7 @@ namespace zefDB {
         Graph g{false, MMap::MMAP_STYLE_ANONYMOUS, true};
         GraphData & gd = g.my_graph_data();
         LockGraphData lock(&gd);
-        std::cerr << "Created temporary internal graph with uid: " << uid(g) << std::endl;
+        // std::cerr << "Created temporary internal graph with uid: " << uid(g) << std::endl;
         
         
         char * lo_ptr = (char*)&gd + index_lo * constants::blob_indx_step_in_bytes;
