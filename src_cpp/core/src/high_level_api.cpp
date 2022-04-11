@@ -2537,7 +2537,8 @@ namespace zefDB {
        auto & gd = target_graph.my_graph_data();
        bool reached_sync = wait_pred(gd.heads_locker,
                                      [&]() { return gd.read_head >= r.read_head; },
-                                     std::chrono::duration<double>(Butler::butler_generic_timeout.value));
+                                     // std::chrono::duration<double>(Butler::butler_generic_timeout.value));
+                                     std::chrono::duration<double>(60.0));
        if(!reached_sync)
            throw std::runtime_error("Did not sync in time to handle merge receipt.");
        

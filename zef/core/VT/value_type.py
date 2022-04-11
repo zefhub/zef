@@ -29,8 +29,17 @@ class ValueType:
 
         raise NotImplementedError(f"Nesting level {self.d[1]} isn't handled in __getitem__")
         
-    def __call__(self, *args, **kwargs):
 
+    def __call__(self, *args, **kwargs):
+        """
+        Make the ValueType behave like constructors.
+        e.g. 
+
+        >>> y = Float(2.3)                    # makes this an int. Returns a Python int for now.
+        >>> g = Graph('4986cbe323762e99')     # loads the graph with this uid
+        """
+        from ..error import Error
+        from ...pyzef.main import Graph
         if self.d == ('String', 0, ()):
             assert len(args)==1
             return str(args[0])
@@ -50,8 +59,11 @@ class ValueType:
             if args[0] == 1: return True
             raise TypeError(f"Bool({args[0]}) called. Only 0 and 1 are automatically converted to Bool in Zef. Please be more specific.")
 
-        print(f">>> ValueType call triggered with {args=} {kwargs=}")
-        print(f"{self.d=}")
-        raise Exception(f"Cannot call ValueType().")
+        if self.d[0] == 'Graph':
+            return Graph(*args, **kwargs)
+
+
+        return Error(f'The ValueType "{self.d[0]}" cannot be called as a constructor. Arguments given: {args=}, {kwargs=}')
+        
         
 

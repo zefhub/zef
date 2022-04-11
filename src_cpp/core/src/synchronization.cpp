@@ -4,6 +4,8 @@
 #include "high_level_api.h"
 #include "blobs.h"
 
+#include <algorithm>
+
 namespace zefDB {
 	namespace internals {
 #include "synchronization_applies.cpp"
@@ -78,7 +80,7 @@ namespace zefDB {
                 // Note: this is a sorted set, which is kind of necessary for
                 // the existing hash-checking procedure. In the future, the
                 // hashes shouldn't care about the ordering of edges.
-                std::set<blob_index> edges_to_add(this_new_edges.begin(), this_new_edges.end());
+                std::unordered_set<blob_index> edges_to_add(this_new_edges.begin(), this_new_edges.end());
 
                 auto subseq = new_deferred.find(this_index);
                 if(subseq == new_deferred.end()) {
@@ -107,7 +109,19 @@ namespace zefDB {
                 // last_blob = (blob_index*)ptr_from_blob_index(last_blob_index, gd);
                 // Butler::ensure_or_get_range(last_blob, constants::blob_indx_step_in_bytes);
                 // static_assert(constants::blob_indx_step_in_bytes == 4*sizeof(blob_index));
-                for(blob_index edge : edges_to_add) {
+
+                std::vector<blob_index> sorted_edges(edges_to_add.begin(), edges_to_add.end());
+                auto custom_sort = [](blob_index a, blob_index b) {
+                    if(std::abs(a) < std::abs(b))
+                        return true;
+                    if(std::abs(a) > std::abs(b))
+                        return false;
+                    // Put outgoing edges before incoming
+                    return a > 0;
+                };
+                std::sort(sorted_edges.begin(), sorted_edges.end(),
+                          custom_sort);
+                for(blob_index edge : sorted_edges) {
                     if(!append_edge_index(uzr, edge, true)) {
                         // This logic path means that append_edge_index wanted
                         // to create a deferred list but was not allowed. This

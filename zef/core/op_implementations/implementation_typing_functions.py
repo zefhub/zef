@@ -120,6 +120,7 @@ def on_implementation(g, op):
 
     ---- Signature ----
     (Graph, ZefOp[ValueAssigned]) -> Stream[ZefOp[ValueAssigned[ZefRef][Any]]]
+    (Graph, ZefOp[Instantiated]) -> Stream[ZefOp[Instantiated[ZefRef]]]
     (Graph, ZefOp[Terminated]) -> Stream[ZefOp[Terminated[ZefRef]]]
     
     ...
@@ -183,10 +184,11 @@ def on_implementation(g, op):
 
 def transpose_imp(iterable):
     """
-    or should we call this 'interleave' or 'interleave_concat'?
-    It's essentially the operation of transposition on a matrix
+    This operator is essentially the operation of transposition on a matrix
     that is infinite along one direction (vertical (m) for the 
     input matrix in normal A_(m,n) nomenclature).
+    It is different from "interleave" in that it produces a List of Lists,
+    whereas "interleave" flattens it out into one List.
 
     ---- Examples ----
     >>> [ [2,3,4], [5,6,7] ]                    # => [ [2, 5], [3,6], [4,7] ]
@@ -660,8 +662,8 @@ def interleave_imp(v, first_curried_list_maybe=None, *args):
     >>> ] | interleave          # =>  [1, 'a', 2, 'b', 3, 'c']
     >>> 
     >>> # or with other lists to interleave with being curried in
-    >>> [1,2,3] | interleave[repeat[42]]        # => [1, 42, 2, 42, 3, 42]
-    >>> [1,2,3] | interleave[repeat[42]][('a','b')]      # => [1, 42, 'a', 2, 42, 'b']    
+    >>> [1,2,3] | interleave[42 | repeat]       # => [1, 42, 2, 42, 3, 42]
+    >>> [1,2,3] | interleave[42 | repeat][('a','b')]      # => [1, 42, 'a', 2, 42, 'b']    
     """
     import more_itertools as mi    
     if first_curried_list_maybe is None:
@@ -1571,7 +1573,6 @@ def xor_imp(x, *args):
     res1, res2 = (f1(x), f2(x))
     assert isinstance(res1, bool)
     assert isinstance(res2, bool)
-    print(res1, res2)
     return res1 ^ res2   # xor for boolean values
     
 
@@ -3321,6 +3322,36 @@ def hasout_implementation(zr, rt):
 def hasin_implementation(zr, rt):
     return curry_args_in_zefop(pyzefops.has_in, zr, (rt,))
 
+
+
+# -------------------------------- apply_functions -------------------------------------------------
+def apply_functions_imp(x, *fns):
+    """ 
+    Apply different functions to different elements in a list.
+    The use case is similar to using Zef's map[f1,f2,f3] with multiple
+    functions, but fills in the gap when the input is not a list / stream.
+    In this sense, it is closer to func.
+    The input list and list of functions must be of the same length.
+
+    ---- Examples ----
+    ['Hello', 'World'] | apply_functions[to_upper_case][to_lower_case]    # => ['HELLO', 'world']
+
+    ---- Signature ----
+    VT.List -> VT.List
+    """
+    import builtins
+    if not (isinstance(x, tuple) or isinstance(x, list)):
+        raise TypeError(f"The dataflow argument for apply_functions must be a list/tuple: Got a {type(x)=} Value: {x=}")
+    if not len(fns) == len(x):
+        raise TypeError(f"the length of the dataflow argument for apply_functions must be the same length as the list of functions provided. Got {x=} and {fns=}" )
+    return tuple(
+        (f(el) for f, el in builtins.zip(fns, x))
+    )
+
+
+
+
+# -------------------------------- map -------------------------------------------------
 def map_implementation(v, f):
     """
     Apply a pure function elementwise to each item of a collection.
@@ -4307,13 +4338,12 @@ def merge_with_imp(dict_or_list, merge_func, more_dict_or_list=None):
     (Dict[T1, T2], ((T2,T2)->T2), Dict[T1, T2]) -> Dict[T1, T2]
     (List[Dict[T1, T2]], ((T2,T2)->T2)) -> Dict[T1, T2]
     """
-    v = [dict_or_list] if isinstance(dict_or_list, dict) else dict_or_list
+    v = [dict_or_list] if isinstance(dict_or_list, dict) else tuple(dict_or_list)
     if more_dict_or_list is not None:
         if isinstance(more_dict_or_list, dict):
             v.append(more_dict_or_list)
         elif isinstance(more_dict_or_list, list) or isinstance(more_dict_or_list, tuple):
             v = (*v, *more_dict_or_list)
-    print(v)
     if len(v) == 0: return dict()   # this is the only reasonable answer for an empty list? Or should it be an Error?    
     d_out = {**v[0]}
     for dd in v[1:]:
@@ -4757,6 +4787,8 @@ def random_pick_tp(op, curr_type):
     return VT.Any
 
 
+
+#---------------------------------------- is_alpha -----------------------------------------------
 def is_alpha_imp(s: VT.String) -> VT.Bool:
     """ 
     Given a string return if it is only composed of Alphabet characters
@@ -4767,14 +4799,45 @@ def is_alpha_tp(op, curr_type):
     return VT.Bool
 
 
-def to_upper_imp(s: VT.String) -> VT.Bool:
+
+
+#---------------------------------------- to_upper_case -----------------------------------------------
+def to_upper_case_imp(s: VT.String) -> VT.Bool:
     """ 
-    Given a string return if it is only composed of uppercase characters
+    Given a string, capitalize each character.
+
+    ---- Examples ----
+    >>> 'aBc' | to_upper_case          # => 'ABC'
+
+    ---- Signature ----
+    VT.String -> VT.String
     """
     return s.upper()
 
-def to_upper_tp(op, curr_type):
+def to_upper_case_tp(op, curr_type):
     return VT.Bool
+
+
+
+
+#---------------------------------------- to_lower_case -----------------------------------------------
+def to_lower_case_imp(s: VT.String) -> VT.Bool:
+    """ 
+    Given a string, convert each character to lower case.
+
+    ---- Examples ----
+    >>> 'aBc' | to_upper_case          # => 'abc'
+
+    ---- Signature ----
+    VT.String -> VT.String
+    """
+    return s.lower()
+
+def to_lower_case_tp(op, curr_type):
+    return VT.Bool
+
+
+#---------------------------------------- to_pascal_case -----------------------------------------------
 
 def to_pascal_case_imp(s: VT.String) -> VT.String:
     """Convert a string to PascalCase style. Uses the caseconverter module.
@@ -4796,6 +4859,8 @@ def to_pascal_case_imp(s: VT.String) -> VT.String:
 def to_pascal_case_tp(op, curr_type):
     return VT.String
 
+
+#---------------------------------------- to_camel_case -----------------------------------------------
 def to_camel_case_imp(s: VT.String) -> VT.String:
     """Convert a string to camelCase style. Uses the caseconverter module.
     
@@ -4815,6 +4880,8 @@ def to_camel_case_imp(s: VT.String) -> VT.String:
 def to_camel_case_tp(op, curr_type):
     return VT.String
 
+
+#---------------------------------------- to_kebab_case -----------------------------------------------
 def to_kebab_case_imp(s: VT.String) -> VT.String:
     """Convert a string to kebab-case style. Uses the caseconverter module.
     
@@ -4834,6 +4901,8 @@ def to_kebab_case_imp(s: VT.String) -> VT.String:
 def to_kebab_case_tp(op, curr_type):
     return VT.String
 
+
+#---------------------------------------- to_snake_case -----------------------------------------------
 def to_snake_case_imp(s: VT.String) -> VT.String:
     """Convert a string to snake_case style. Uses the caseconverter module.
     
@@ -4853,6 +4922,8 @@ def to_snake_case_imp(s: VT.String) -> VT.String:
 def to_snake_case_tp(op, curr_type):
     return VT.String
 
+
+#---------------------------------------- to_screaming_snake_case -----------------------------------------------
 def to_screaming_snake_case_imp(s: VT.String) -> VT.String:
     """Convert a string to SCREAMING_SNAKE_CASE style. Uses the caseconverter module.
     
@@ -4885,6 +4956,7 @@ def make_request_tp(op, curr_type):
     return VT.Effect
 
 
+#---------------------------------------- blake3 -----------------------------------------------
 def blake3_imp(obj) -> VT.String:
     # Hash some input all at once. The input can be bytes, a bytearray, or a memoryview.
     from blake3 import blake3 as b3

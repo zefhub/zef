@@ -337,6 +337,7 @@ namespace zefDB {
 		EZefRef get_ROOT_node() { return EZefRef(constants::ROOT_NODE_blob_index ,*this); }
 		std::uintptr_t ptr_to_write_head_location() { return (std::uintptr_t(this) + constants::blob_indx_step_in_bytes * write_head); }
 		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed=0) const;
+		uint64_t hash_partial(blob_index blob_index_hi, uint64_t seed=0) const;
 
 
 		// GraphData() { get_all_active_graph_data_tracker().register_graph_data(this); }
@@ -374,7 +375,7 @@ namespace zefDB {
 		operator GraphData& () const { return *(GraphData*)mem_pool; }
 
         // This version is for creating a new local graph.
-        explicit Graph(bool sync=false, int mem_style=MMap::MMAP_STYLE_AUTO);
+        explicit Graph(bool sync=false, int mem_style=MMap::MMAP_STYLE_AUTO, bool internal_use_only=false);
         // This version is about preparing a graph for other jobs.
 		explicit Graph(int mem_style, MMap::FileGraph * fg = nullptr, std::optional<BaseUID> uid = {}) ;
         explicit Graph(const std::filesystem::path & directory);
@@ -390,7 +391,7 @@ namespace zefDB {
         explicit Graph(const char * graph_uid_or_tag, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(std::string(graph_uid_or_tag), mem_style) {}
 		explicit Graph(const BaseUID& graph_uid, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(str(graph_uid), mem_style) {};
 
-        static Graph create_from_bytes(Messages::UpdatePayload && payload, int mem_style=MMap::MMAP_STYLE_AUTO);
+        static Graph create_from_bytes(Messages::UpdatePayload && payload, int mem_style=MMap::MMAP_STYLE_AUTO, bool internal_use_only = false);
 
         // copy ctor
         Graph(const Graph& g);
@@ -433,6 +434,9 @@ namespace zefDB {
 
 		bool operator== (const Graph& g2) const;
 	};
+
+    LIBZEF_DLL_EXPORTED Graph create_partial_graph(Graph old_g, blob_index index_hi);
+    LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed=0);
 
 
 
@@ -511,6 +515,7 @@ namespace zefDB {
         }
 	
 		// exposed to python to get access to the serialized form
+        LIBZEF_DLL_EXPORTED std::string get_blobs_as_bytes(GraphData& gd, blob_index start_index, blob_index end_index);
         LIBZEF_DLL_EXPORTED Butler::UpdateHeads full_graph_heads(const GraphData & gd);
 		LIBZEF_DLL_EXPORTED Messages::UpdatePayload graph_as_UpdatePayload(const GraphData& gd);
 

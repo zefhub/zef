@@ -10,7 +10,7 @@ else:
     
 try:
     response = urlopen(f"{server}/REST",
-                    data=b'{"msg_type": "token", "msg_version": 1, "action": "list"}')
+                    data=b'{"msg_type": "token", "msg_version": 1, "action": "list", "protocol_type": "ZEFDB", "protocol_version": 5}')
 
     b = response.read()
     import json

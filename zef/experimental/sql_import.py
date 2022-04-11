@@ -296,7 +296,7 @@ def import_actions_definition(definition, decl):
             actions += [ET(col_target["ET"])[target_id]]
 
             if col_ID is None:
-                val = row.Index
+                val = i_row
                 this_id = rt_id(source_id, target_id, definition["RT"], val, "Int")
             else:
                 val = df[col_ID["name"]][i_row]

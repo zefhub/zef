@@ -22,7 +22,7 @@ func main() {
 	msg := Message{
 		Channel: os.Getenv("CHANNEL"),
 		Text: fmt.Sprintf(
-			"**New ZefDB release available: %s.**\n**%s**\nChangelog: %s\n\nDownload: %s",
+			"**New ZefDB release available: %s.**\n**%s**\n%s\n\nDownload: %s",
 			os.Getenv("NAME"),
 			strings.Split(os.Getenv("GITHUB_REF"), "/")[2],
 			os.Getenv("DESCRIPTION"),

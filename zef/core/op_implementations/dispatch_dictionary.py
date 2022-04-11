@@ -6,7 +6,7 @@ from .func import call_implementation, call_type_info
 from .func import unpack_implementation, unpack_type_info
 
 _op_to_functions = {
-        RT.Function:       (function_imp, function_tp),
+        RT.ApplyFunctions: (apply_functions_imp, None),
         RT.Map:            (map_implementation, map_type_info),
         RT.Reduce:         (reduce_implementation, reduce_type_info),
         RT.Scan:           (scan_implementation, scan_type_info),
@@ -220,7 +220,8 @@ _op_to_functions = {
         RT.RandomPick:          (random_pick_imp, random_pick_tp),
         RT.PadToLength:         (pad_to_length_imp, pad_to_length_tp),
         RT.IsAlpha:             (is_alpha_imp, is_alpha_tp),
-        RT.ToUpper:             (to_upper_imp, to_upper_tp),
+        RT.ToUpperCase:         (to_upper_case_imp, to_upper_case_tp),
+        RT.ToLowerCase:         (to_lower_case_imp, to_lower_case_tp),
         RT.ToPascalCase:        (to_pascal_case_imp, to_pascal_case_tp),
         RT.ToCamelCase:         (to_camel_case_imp, to_camel_case_tp),
         RT.ToKebabCase:         (to_kebab_case_imp, to_kebab_case_tp),

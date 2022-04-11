@@ -11,6 +11,8 @@ from ._config import config
 from ._values import value_or, maybe_value
 # from ..tools.ops import _ 
 
+from .transactor_role import *
+
 __all__ = [
     # "_",
     "_any",
@@ -20,4 +22,4 @@ __all__ = [
     "logout",
     "value_or",
     "maybe_value",
-] + lazy_all
+] + lazy_all + transactor_role.__all__

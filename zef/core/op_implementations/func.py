@@ -23,7 +23,7 @@ def call_type_info(op, curr_type):
 #----------------------------
 
 def unpack_implementation(inputs, f):
-    if isinstance(inputs, tuple):
+    if isinstance(inputs, tuple) or isinstance(inputs, list):
         return f(*inputs)
     elif isinstance(inputs, dict):
         # if this has wrapped a call[...] then we need to unpack the function

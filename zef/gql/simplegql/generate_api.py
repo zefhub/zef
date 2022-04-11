@@ -1,6 +1,6 @@
 # Assuming this file is not imported during zefdb init.
-from .. import *
-from ..ops import *
+from ... import *
+from ...ops import *
 from functools import partial as P
 
 from ariadne import ObjectType, QueryType, MutationType, EnumType, ScalarType
@@ -209,6 +209,10 @@ type Aggregate{name}Response {{
 
         all_objects += [Enum]
 
+    # Always generate the Int scalar type 
+    int_type = schema_root >> L[RT.GQL_CoreScalarType] | filter[is_a[AET.Int]] | single | collect
+    if int_type not in [rae_type(x) for x in extra_filters.keys()]:
+        extra_filters[int_type] = schema_generate_scalar_filter(int_type)
 
     query_fields = '\n\t'.join(query_fields)
     mutation_fields = '\n\t'.join(mutation_fields)

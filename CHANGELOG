@@ -3,6 +3,10 @@ v0.15.2
 * Abstract RAEs permitted in GraphDeltas.
 * always zefop
 * to_snake_case, to_pascal_case, ... zefops
+* take_transactor_role, release_transactor_role, have_transactor_role
+* SQL imports and UI
+* SimpleGQL for GraphQL-spec-driven interface to Zef graphs.
+* NetworkX proxies.
 
 v0.14.11
 * Different blob structure

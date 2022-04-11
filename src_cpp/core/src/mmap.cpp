@@ -282,6 +282,16 @@ namespace zefDB {
         //////////////////////////////
         // * FileGraph
 
+        void delete_filegraph_files(std::filesystem::path path_prefix) {
+            for(auto const& dir_entry : std::filesystem::directory_iterator{path_prefix.parent_path()}) {
+                std::string dir_str = dir_entry.path().filename().string();
+                std::string prefix_str = path_prefix.filename().string() + "_";
+                if(starts_with(dir_str, prefix_str)) {
+                    std::filesystem::remove(dir_entry.path());
+                }
+            }
+        }
+
         FileGraph::FileGraph(std::filesystem::path path_prefix, BaseUID uid, bool fallback_to_fresh, bool force_fresh)
             : path_prefix(path_prefix) {
             auto path = get_filename(0);
@@ -366,13 +376,7 @@ namespace zefDB {
 
             // We get here if the file doesn't exist, or we fallback from a corrupted file.
             // Remove all files which match the path prefix
-            for(auto const& dir_entry : std::filesystem::directory_iterator{path_prefix.parent_path()}) {
-                std::string dir_str = dir_entry.path().filename().string();
-                std::string prefix_str = path_prefix.filename().string() + "_";
-                if(starts_with(dir_str, prefix_str)) {
-                    std::filesystem::remove(dir_entry.path());
-                }
-            }
+            delete_filegraph_files(path_prefix);
 
             // Create the file
             int version = filegraph_default_version;

@@ -202,7 +202,7 @@ add_test (NAME token_test
 set_tests_properties(token_test PROPERTIES
   ENVIRONMENT "PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}:$ENV{PYTHONPATH};ZEFDB_QUIET=YES;ZEFHUB_AUTH_KEY=GUEST"
   DEPENDS pyzef
-  TIMEOUT 10)
+  TIMEOUT 30)
 
 ######################
 # ** Python tests

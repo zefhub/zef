@@ -19,8 +19,6 @@ jobs:
         os: [ubuntu-18.04, macos-latest]
         # Note: need "3.10" as yaml will truncate floating point number
         python-version: [3.8, 3.9, "3.10"]
-        # julia-option: [false, true]
-        julia-option: [false]
         exclude:
           - os: macos-latest
             python-version: 3.8
@@ -52,7 +50,6 @@ jobs:
       - name: Build wheel
         uses: ./.github/actions/build
         with:
-          with-julia: ${{ matrix.julia-option }}
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
 
