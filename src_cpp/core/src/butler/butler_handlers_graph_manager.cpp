@@ -66,7 +66,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     else if(!response.j.contains("hash_agreed"))
         hash_agreed = true;
     else
-        hash_agreed = !response.j["hash_agreed"].get<bool>();
+        hash_agreed = response.j["hash_agreed"].get<bool>();
     if(!hash_agreed) {
         bool bad = true;
         if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
@@ -385,7 +385,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                 else if(!response.j.contains("hash_agreed"))
                     hash_agreed = true;
                 else
-                    hash_agreed = !response.j["hash_agreed"].get<bool>();
+                    hash_agreed = response.j["hash_agreed"].get<bool>();
                 if(!hash_agreed) {
                     bool bad = true;
                     if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
