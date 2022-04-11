@@ -282,6 +282,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
 
         if(!content.internal_use_only) {
             // Now we can kick off the sync thread, even if we aren't syncing just at the moment.
+            std::cerr << "Spawning sync thread because internal_use_only was not set on guid: " << me.uid << std::endl;
             spawn_graph_sync_thread(me);
         }
 
@@ -571,7 +572,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, DoneWit
     if(me.gd->reference_count == 0) {
         me.please_stop = true;
         if(zwitch.graph_event_output())
-            std::cerr << "Closing graph " << uid(*me.gd) << std::endl;
+            std::cerr << "Closing graph " << me.uid << std::endl;
     }
 }
 
