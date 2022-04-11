@@ -467,7 +467,6 @@ namespace zefDB {
             Butler::ensure_or_get_range(old_lo_ptr, len);
             std::memcpy(lo_ptr, old_lo_ptr, len);
             gd.write_head = index_hi;
-            gd.read_head = gd.write_head.load();
         }
 
         std::unordered_set<blob_index> updated_last_blobs;
@@ -499,7 +498,8 @@ namespace zefDB {
                         if(this_last_blob_offset == 0)
                             new_last_blob = 0;
                         else {
-                            blob_index * ptr = &x.edges.indices[this_last_blob_offset];
+                            uintptr_t direct_ptr = (uintptr_t)&x.edges.indices[this_last_blob_offset];
+                            blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
                             new_last_blob = blob_index_from_ptr(ptr);
                         }
                     }
@@ -529,6 +529,8 @@ namespace zefDB {
 
             cur_index += blob_index_size(ezr);
         }
+
+        gd.read_head = gd.write_head.load();
 
         return g;
     }
