@@ -236,4 +236,6 @@ _op_to_functions = {
         RT.Blake3:             (blake3_imp, blake3_tp),
         RT.ToZefList:          (to_zef_list_imp, to_zef_list_tp),
         RT.Transact:           (transact_imp, transact_tp),
+
+        RT.Function:           (function_imp, function_tp),
 }
