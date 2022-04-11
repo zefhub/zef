@@ -1545,7 +1545,6 @@ def xor_imp(x, *args):
     res1, res2 = (f1(x), f2(x))
     assert isinstance(res1, bool)
     assert isinstance(res2, bool)
-    print(res1, res2)
     return res1 ^ res2   # xor for boolean values
     
 
@@ -4309,13 +4308,12 @@ def merge_with_imp(dict_or_list, merge_func, more_dict_or_list=None):
     (Dict[T1, T2], ((T2,T2)->T2), Dict[T1, T2]) -> Dict[T1, T2]
     (List[Dict[T1, T2]], ((T2,T2)->T2)) -> Dict[T1, T2]
     """
-    v = [dict_or_list] if isinstance(dict_or_list, dict) else dict_or_list
+    v = [dict_or_list] if isinstance(dict_or_list, dict) else tuple(dict_or_list)
     if more_dict_or_list is not None:
         if isinstance(more_dict_or_list, dict):
             v.append(more_dict_or_list)
         elif isinstance(more_dict_or_list, list) or isinstance(more_dict_or_list, tuple):
             v = (*v, *more_dict_or_list)
-    print(v)
     if len(v) == 0: return dict()   # this is the only reasonable answer for an empty list? Or should it be an Error?    
     d_out = {**v[0]}
     for dd in v[1:]:
