@@ -109,7 +109,7 @@ runs:
       if: ${{ startsWith(inputs.os, 'ubuntu') }}
       shell: bash
       run: |
-        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev
+        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev git-restore-mtime
 
     - name: Grab homebrew packages
       if: ${{ startsWith(inputs.os, 'macos') }}
@@ -117,6 +117,9 @@ runs:
       run: |
         brew install openssl
         brew install zstd
+        brew install git-restore-mtime
+        git clone https://github.com/MestreLion/git-tools
+        echo $(pwd)/git-tools >> $GITHUB_PATH
 
     # Only do the make if the C++ files and their deps have changed. These deps
     # are everything inside of src_cpp, but also things like the tokens files
@@ -160,8 +163,7 @@ runs:
       if: steps.build-cache.outputs.cache-hit == 'true'
       shell: bash
       run: |
-        apt install git-restore-mtime
-        git-restore-mtime
+        git-restore-mtime --force
 
     #########
     # Testing
