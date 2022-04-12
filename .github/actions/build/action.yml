@@ -138,12 +138,10 @@ runs:
           _cmake_deps
           zef/pyzef.*
           src_cpp/**/*.gen
-        restore-keys: |
-          build-cache-${{ inputs.python-version }}-${{ inputs.os }}-
 
-    # Note: we don't want anymore fallbacks in restore-keys above, as having
-    # different versions of python might not trigger rebuilds without clearing
-    # the cmake cache.
+    # Note: we can't use restore-keys above as cmake only uses timestamps to
+    # identify different files. If this were to be done properly, we would need
+    # to compare the hash for each file individually.
 
     # From here, if we do have to rebuild, then the zeftypes that were obtained
     # above will force a re-cog of the files and only if they change should
@@ -156,6 +154,13 @@ runs:
       shell: bash
       run: |
         bash make_everything.sh
+
+    # Update the timestamps so that cmake things the source files are in the past
+    - name: Apply timestamp for file cache
+      if: steps.build-cache.outputs.cache-hit == 'true'
+      run: |
+        apt install git-restore-mtime
+        git-restore-mtime
 
     #########
     # Testing
