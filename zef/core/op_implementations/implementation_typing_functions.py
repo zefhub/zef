@@ -5095,6 +5095,10 @@ def fg_insert_imp(fg, new_el):
                 new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
             else:
                 raise ValueError(f"Was expecting a z <= 42 ; AET.String <= 42 got {new_el} instead!")
+                
+        elif isinstance(new_el, FlatRef):
+            assert new_el.fg == fg, "The FlatRef's origin FlatGraph doesn't match current FlatGraph."
+            idx = new_el.idx
 
         elif isinstance(new_el, Val):
             new_el = new_el.arg
