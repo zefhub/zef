@@ -120,6 +120,7 @@ def graphviz_imp(zz, *flags):
 
     G = graphviz.Digraph('G', **graph_ctor_kwargs)
     if isinstance(zz, Graph): zz = all(zz)
+    zz = list(zz)
     if len(zz) == 0:
         return G            # exit early if there is nothing to plot
     if isinstance(zz, ZefRefs) or (isinstance(zz, list) and isinstance(zz[0], ZefRef)):

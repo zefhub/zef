@@ -2199,6 +2199,7 @@ def pattern_imp(x, p):
     (List[T], List[Union[T, _Any]]) -> Bool
     (Dict[T1, T2], Dict[Union[T1, _Any], Union[T2, _Any]]) -> Bool
     """
+    from zef.ops import _any
     class Sentinel:
         pass
     sentinel = Sentinel()      # make sure this doesn't match any value provided by the user
