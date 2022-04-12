@@ -154,25 +154,19 @@ runs:
       if: steps.build-cache.outputs.cache-hit != 'true'
       env:
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
-      shell: bash
-      run: |
-        bash make_everything.sh
-
-    # Update the timestamps so that cmake things the source files are in the past
-    - name: Apply timestamp for file cache
-      if: steps.build-cache.outputs.cache-hit == 'true'
-      shell: bash
-      run: |
-        git clone -b v2020.09 https://github.com/MestreLion/git-tools 
-        git-tools/git-restore-mtime --force
-
-    - name: install everything
-      env:
-        WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
         FORCE_PYTHON_VERSION: ${{ inputs.python-version }}
       shell: bash
       run: |
+        bash make_everything.sh
         bash scripts/setup_tools_prep.sh
+
+    # # Update the timestamps so that cmake things the source files are in the past
+    # - name: Apply timestamp for file cache
+    #   if: steps.build-cache.outputs.cache-hit == 'true'
+    #   shell: bash
+    #   run: |
+    #     git clone -b v2020.09 https://github.com/MestreLion/git-tools 
+    #     git-tools/git-restore-mtime --force
 
     #########
     # Testing
