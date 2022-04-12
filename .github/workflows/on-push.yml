@@ -27,4 +27,6 @@ jobs:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
 
+          build-wheel: true
+
 
