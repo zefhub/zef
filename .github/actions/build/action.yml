@@ -158,6 +158,7 @@ runs:
     # Update the timestamps so that cmake things the source files are in the past
     - name: Apply timestamp for file cache
       if: steps.build-cache.outputs.cache-hit == 'true'
+      shell: bash
       run: |
         apt install git-restore-mtime
         git-restore-mtime
