@@ -188,7 +188,7 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                 if(msg_type == "poke") {
                     if(zwitch.developer_output())
                         std::cerr << "Got a poke for task " << task_uid << std::endl;
-                    task_promise->task->last_activity = now();
+                    task_promise->task->last_activity = now().seconds_since_1970;
                     return;
                 }
 
@@ -527,7 +527,7 @@ void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) 
         BaseUID chunk_uid = BaseUID::from_hex(j["chunk_uid"]);
         auto it = receiving_transfers.find(chunk_uid);
         if(it == receiving_transfers.end()) {
-            ack_failure(j["task_uid"], "Don't know about chunk");
+            ack_failure(j["task_uid"], "Don't know about chunk: " + to_str(chunk_uid));
             return;
         }
 
@@ -538,21 +538,37 @@ void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) 
             return;
         }
 
-        if(chunk.rest[rest_index].size() != j["bytes_start"]) {
-            if(zwitch.developer_output()) {
-                std::cerr << "Chunk received which doesn't fit. rest_index=" << rest_index << ", existing_size=" << chunk.rest[rest_index].size() << ", bytes_start=" << j["bytes_start"].get<int>() << std::endl;
-            }
-            ack_failure(j["task_uid"], "New chunk doesn't fit");
-            return;
-        }
+        chunk.last_activity = now();
+        ack_success(j["task_uid"], "Accepted chunk");
 
-        chunk.rest[rest_index] += rest[0];
-        if(zwitch.debug_zefhub_json_output())
+        chunk.buffer.emplace_back(j["bytes_start"].get<int>(), rest_index, rest[0]);
+
+        // chunk.rest[rest_index] += rest[0];
+        if(zwitch.developer_output())
             std::cerr << "Accepted a chunk" << std::endl;
 
-        chunk.last_activity = now();
+        // Apply any buffered updates if we can
+        while(true) {
+            bool applied_one = false;
+            for(auto it = chunk.buffer.begin(); it < chunk.buffer.end(); it++) {
+                if(chunk.rest[it->rest_index].size() == it->bytes_start) {
+                    chunk.rest[it->rest_index] += it->data;
+                    if(zwitch.developer_output())
+                        std::cerr << "Applied a buffered chunk start: " << it->bytes_start << " rest_index: " << it->rest_index << " size: " << it->data.size() << std::endl;
+                    chunk.buffer.erase(it);
+                    applied_one = true;
+                    break;
+                }
 
-        ack_success(j["task_uid"], "Accepted chunk");
+                if(chunk.rest[it->rest_index].size() > it->bytes_start) {
+                    std::cerr << "MAJOR FAILURE OF CHUNKED TRANFSER: got chunk earlier than what we already know about." << std::endl;
+                    std::cerr << "rest_index: " << it->rest_index << " cur_size: " << chunk.rest[it->rest_index].size() << " bytes_start: " << it->bytes_start << std::endl;
+                    receiving_transfers.erase(chunk_uid);
+                }
+            }
+            if(!applied_one)
+                break;
+        }
 
         // Check to see if we're finished.
         bool done = true;
@@ -584,14 +600,23 @@ void Butler::check_overdue_receiving_transfers() {
     for(auto & it : receiving_transfers) {
         auto & trans = it.second;
 
-        if(trans.last_activity + chunk_timeout*seconds < now())
+        if(trans.last_activity + chunk_timeout*seconds < now()) {
             to_remove.push_back(trans.uid);
+            if(zwitch.developer_output()) {
+                std::cerr << "Going to remove chunked transfer which has:" << std::endl;
+                for(int ind = 0; ind < trans.rest_sizes.size(); ind++)
+                    std::cerr << "rest_index: " << ind << " rest_size: " << trans.rest_sizes[ind] << " received up to " << trans.rest[ind].size() << std::endl;
+                for(auto & it : trans.buffer)
+                    std::cerr << "leftover accepted buffered chunk: rest_index: " << it.rest_index << " start: " << it.bytes_start << " size: " << it.data.size() << std::endl;
+            }
+        }
     }
 
     // std::cerr << "Incoming chunks: " << receiving_transfers.size() << ". Overdue: " << to_remove.size() << std::endl;
 
     for(auto & chunk_uid : to_remove) {
-        std::cerr << "Removing a chunked transfer because it has passed its inactivity threashold" << std::endl;
+        if(zwitch.developer_output())
+            std::cerr << "Removing a chunked transfer because it has passed its inactivity threshold" << std::endl;
         receiving_transfers.erase(chunk_uid);
 
         send_ZH_message({

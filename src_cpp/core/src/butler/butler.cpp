@@ -365,7 +365,7 @@ namespace zefDB {
                 while(true) {
                     assert(task->timeout.unit == EN.Unit.seconds);
                     // TODO: We might have to make last_activity an atomic to make sure updates come through.
-                    auto wait_time = task->last_activity + task->timeout - now();
+                    auto wait_time = Time(task->last_activity.load()) + task->timeout - now();
                     auto status = task->future.wait_for(std::chrono::duration<double>(wait_time.value));
                     if(status == std::future_status::ready) {
                         if(zwitch.developer_output())
@@ -373,7 +373,7 @@ namespace zefDB {
                         break;
                     }
 
-                    if(now() > task->last_activity + task->timeout) {
+                    if(now() > Time(task->last_activity.load()) + task->timeout) {
                         std::cerr << "Throwing timeout exception because last_activity was " << task->last_activity << " and now is " << now() << std::endl;
                         throw Butler::timeout_exception();
                     }
@@ -393,7 +393,7 @@ namespace zefDB {
                 // Note: send returns before the data is actually sent.
                 send_ZH_message(j, rest);
 
-            task->last_activity = now();
+            task->last_activity = now().seconds_since_1970;
 
             // Make sure we clean up the task from the task_list in all cases
             RAII_CallAtEnd call_at_end([this,&task]() {
@@ -498,7 +498,7 @@ namespace zefDB {
                             }, result);
                     if(!resp.generic.success)
                         throw std::runtime_error("Failure in chunked send: " + resp.generic.reason);
-                    main_task->task->last_activity = now();
+                    main_task->task->last_activity = now().seconds_since_1970;
                     // std::cerr << "Got back one response to a chunk after waiting: " << this_waited_time << std::endl;
                     return this_waited_time;
                 } catch(const timeout_exception & exc) {
@@ -1494,7 +1494,7 @@ namespace zefDB {
                 // in case we are using a filegraph and we'd end up with two
                 // threads doing things to the prefix.
                 if(zwitch.developer_output()) {
-                    std::cerr << "Unloading graph: " << uid(*gtd->gd) << std::endl;
+                    std::cerr << "Unloading graph: " << gtd->uid << std::endl;
                     // std::cerr << "Heads: sync: " << gtd->gd->sync_head.load() << ", read: " << gtd->gd->read_head.load() << ", write: " << gtd->gd->write_head.load() << std::endl;
                 }
                 gtd->gd->~GraphData();

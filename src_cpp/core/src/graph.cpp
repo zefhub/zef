@@ -448,6 +448,8 @@ namespace zefDB {
             //     return old_gd.hash(index_lo, index_hi);
             if(index_hi > old_gd.write_head)
                 throw std::runtime_error("index_hi is larger than old graph");
+            if(index_hi < index_lo)
+                throw std::runtime_error("index_hi (" + to_str(index_hi) + ") is before the root node!");
         }
 
         // We create a proper graph here so that we can access it like normal.
@@ -487,7 +489,7 @@ namespace zefDB {
                 visit_blob_with_edges([&](auto & x) {
                     int this_last_blob_offset = -1;
                     for(int i = 0; i < x.edges.local_capacity ; i++) {
-                        if(x.edges.indices[i] >= index_hi) {
+                        if(abs(x.edges.indices[i]) >= index_hi) {
                             x.edges.indices[i] = 0;
                             if(this_last_blob_offset == -1)
                                 this_last_blob_offset = i;

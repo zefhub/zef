@@ -95,7 +95,8 @@ namespace zefDB {
                 // In the future, this might become a std::optional<...> with the responsible connection inside.
                 // For now, this just indicates tasks that should be cancelled when the online connection goes down.
                 bool is_online;
-                Time last_activity;
+                // Time last_activity;
+                std::atomic<double> last_activity;
                 QuantityFloat timeout;
                 // The nothing constructor is for receiving a looked-up task
                 // only.
@@ -115,7 +116,7 @@ namespace zefDB {
                 Task(Time time, bool is_online, QuantityFloat timeout, std::promise<Response> & promise, bool acquire_future)
                     : started_time(time),
                       is_online(is_online),
-                      last_activity(time),
+                      last_activity(time.seconds_since_1970),
                       timeout(timeout) {
                     if(acquire_future)
                         future = promise.get_future();
@@ -236,8 +237,22 @@ namespace zefDB {
                 std::vector<std::string> rest;
                 json msg;
 
+                // No atomic here as we are only accessing this in the WS thread.
                 Time last_activity;
+
+                struct BufferedMessage {
+                    int bytes_start;
+                    int rest_index;
+                    std::string data;
+
+                    BufferedMessage(int bytes_start, int rest_index, std::string data) :
+                        bytes_start(bytes_start),
+                        rest_index(rest_index),
+                        data(data) {}
+                };
+                std::vector<BufferedMessage> buffer;
             };
+
             // Note: making an assumption that the WS handler thread is the only
             // thread to ever touch this map.
             std::unordered_map<BaseUID,ReceivingTransfer> receiving_transfers;

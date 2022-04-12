@@ -206,7 +206,8 @@ namespace zefDB {
 
         // TODO: implement various ctors 
 
-        //Time(double t_unix_time);  // construct from unix time
+        Time() = default;
+        Time(double t_unix_time) : seconds_since_1970(t_unix_time) {}
         //Time(ZefRef);  // Constructor from a ZefRef using the time from its reference frame tx
         //Time(EZefRef);  // Constructor from a tx EZefRef
 
