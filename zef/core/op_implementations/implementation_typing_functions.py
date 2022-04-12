@@ -83,8 +83,6 @@ def function_tp(op):
 
 #---------------------------- on ------------------------------------
 def on_implementation(g, op):
-    from ...pyzef import zefops as internal
-    from ..fx import FX, Effect
     """
     Caution: impure
 
@@ -129,6 +127,8 @@ def on_implementation(g, op):
     """
     assert isinstance(op, ZefOp)
     assert len(op.el_ops) == 1
+    from ...pyzef import zefops as internal
+    from ..fx import FX, Effect
 
     stream =  Effect({'type': FX.Stream.CreatePushableStream}) | run
     sub_decl = internal.subscribe[internal.keep_alive[True]]

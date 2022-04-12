@@ -238,4 +238,5 @@ _op_to_functions = {
         RT.Transact:           (transact_imp, transact_tp),
 
         RT.Function:           (function_imp, function_tp),
+        RT.On:                 (on_implementation, None),
 }
