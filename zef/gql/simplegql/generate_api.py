@@ -947,7 +947,7 @@ def pass_delete_auth(z, schema_node, info):
 
 
 def temporary__call_string_as_func(s, **kwds):
-    from .. import core, ops
+    from ... import core, ops
     try:
         out = eval(
             s, {
@@ -957,7 +957,7 @@ def temporary__call_string_as_func(s, **kwds):
             kwds
         )
     except Exception as exc:
-        from ..core.logger import log
+        from ...core.logger import log
         log.error("Problem calling auth expression", expr=s, exc_info=exc, kwds=kwds)
         return False
 
