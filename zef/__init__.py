@@ -9,8 +9,8 @@ if os.environ.get("ZEFDB_DEVELOPER_CIRCULAR_IMPORTS", "FALSE") == "TRUE":
 
 # This set of imports is to define the order. Later imports are the ones to
 # actually provide useful exports.
-from . import pyzef
 from . import core
+from . import pyzef
 from . import ops
 
 from .core import *
