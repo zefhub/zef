@@ -383,7 +383,7 @@ namespace zefDB {
 				case BlobType::FOREIGN_ATOMIC_ENTITY_NODE:	{return get<FOREIGN_ATOMIC_ENTITY_NODE>(uzr.blob_ptr).uid; }
 				case BlobType::FOREIGN_RELATION_EDGE: 		{return get<FOREIGN_RELATION_EDGE>(uzr.blob_ptr).uid; }
 
-				default: {throw std::runtime_error("blob_uid_ref called for ZefRef without a uid"); }
+            default: {print_backtrace_force(); throw std::runtime_error("blob_uid_ref called for ZefRef without a uid"); }
 			}
 		}
 		inline bool has_uid(EZefRef uzr){

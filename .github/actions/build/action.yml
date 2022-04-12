@@ -131,19 +131,19 @@ runs:
       id: build-cache
       uses: actions/cache@v3
       with:
-        key: build-cache-v2-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('src_cpp/**', 'make_everything.sh', 'CMakeLists.txt', 'zeftypes_??.json') }}
+        key: build-cache-v5-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('src_cpp/**', 'make_everything.sh', 'CMakeLists.txt', 'zeftypes_??.json') }}
         path: |
           cmake_build
           cmake_install
           _cmake_deps
           zef/pyzef.*
+          zef/libzef.*
           src_cpp/**/*.gen
-        restore-keys: |
-          build-cache-${{ inputs.python-version }}-${{ inputs.os }}-
+          zef/core/internals/rel_ent_classes.pyi
 
-    # Note: we don't want anymore fallbacks in restore-keys above, as having
-    # different versions of python might not trigger rebuilds without clearing
-    # the cmake cache.
+    # Note: we can't use restore-keys above as cmake only uses timestamps to
+    # identify different files. If this were to be done properly, we would need
+    # to compare the hash for each file individually.
 
     # From here, if we do have to rebuild, then the zeftypes that were obtained
     # above will force a re-cog of the files and only if they change should
@@ -153,9 +153,12 @@ runs:
       if: steps.build-cache.outputs.cache-hit != 'true'
       env:
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
+        FORCE_PYTHON_VERSION: ${{ inputs.python-version }}
       shell: bash
       run: |
         bash make_everything.sh
+        bash scripts/setup_tools_prep.sh
+
 
     #########
     # Testing
@@ -184,11 +187,10 @@ runs:
       env:
         VERSION_STRING: ${{ steps.vars.outputs.tag }}
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
-        FORCE_PYTHON_VERSION: ${{ inputs.python-version }}
       shell: bash
       run: |
         pip3 install wheel
-        bash scripts/setup_tools_wrapper.sh
+        python3 setup.py bdist_wheel
 
     - name: Ensure no early token creation
       if: inputs.build-wheel == 'true'
