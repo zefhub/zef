@@ -132,7 +132,7 @@ runs:
       id: build-cache
       uses: actions/cache@v3
       with:
-        key: build-cache-v3-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('src_cpp/**', 'make_everything.sh', 'CMakeLists.txt', 'zeftypes_??.json') }}
+        key: build-cache-v4-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('src_cpp/**', 'make_everything.sh', 'CMakeLists.txt', 'zeftypes_??.json') }}
         path: |
           cmake_build
           cmake_install
@@ -165,6 +165,14 @@ runs:
         git clone -b v2020.09 https://github.com/MestreLion/git-tools 
         git-tools/git-restore-mtime --force
 
+    - name: install everything
+      env:
+        WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
+        FORCE_PYTHON_VERSION: ${{ inputs.python-version }}
+      shell: bash
+      run: |
+        bash scripts/setup_tools_prep.sh
+
     #########
     # Testing
     - name: Run tests
@@ -192,11 +200,10 @@ runs:
       env:
         VERSION_STRING: ${{ steps.vars.outputs.tag }}
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
-        FORCE_PYTHON_VERSION: ${{ inputs.python-version }}
       shell: bash
       run: |
         pip3 install wheel
-        bash scripts/setup_tools_wrapper.sh
+        python3 setup.py bdist_wheel
 
     - name: Ensure no early token creation
       if: inputs.build-wheel == 'true'
