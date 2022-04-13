@@ -343,11 +343,6 @@ class ZefOp:
     def __hash__(self):
         return hash(self.el_ops)
 
-    # def __bool__(self):
-    #     if getattr(self, "_allow_bool", False):
-    #         return True
-    #     raise Exception("Shouldn't cast ZefOps to bool")
-
     def lt_gt_behavior(self, other, rt):
         # other could be one of 3 cases
         # 1) It is another ZefOp
@@ -674,21 +669,12 @@ class Awaitable:
                 concrete_awaitable = ConcreteAwaitable(observable_chain, curr_type, concrete_awaitable.chain)
 
             if kind == "Subscribe":
-                # Seriously stupid workaround because someone couldn't be
-                # bothered to type "is not None". Alternatively, could remove
-                # the __bool__ from our classes but that just makes me angry...
-                old_allow_bool = getattr(other.func, "_allow_bool", False)
-                try:
-                    other.func._allow_bool = True
-
-                    from .logger import log
-                    observable_chain.pipe(
-                        rxops.do_action(on_next=other.func),
-                        rxops.do_action(on_error=lambda e: log.error(f"Error caught in rx stream", exc_info=e)),
-                        rxops.retry(),
-                    ).subscribe()
-                finally:
-                    other.func._allow_bool = old_allow_bool
+                from .logger import log
+                observable_chain.pipe(
+                    rxops.do_action(on_next=other.func),
+                    rxops.do_action(on_error=lambda e: log.error(f"Error caught in rx stream", exc_info=e)),
+                    rxops.retry(),
+                ).subscribe()
             else:
                 observable_chain = observable_chain.pipe(rxops.to_list())
                 def type_assertion_wrapper(el):
