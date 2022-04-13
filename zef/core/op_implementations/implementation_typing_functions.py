@@ -144,12 +144,12 @@ def on_implementation(g, op):
                 # Type 1: a specific entity i.e on[terminated[zr]]  !! Cannot be on[instantiated[zr]] because doesnt logically make sense !!
                 if isinstance(rae_or_zr, ZefRef): 
                     assert op_kind == RT.Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
-                    def filter_func(root_node): root_node | frame  | terminated | filter[lambda x: to_ezefref(x) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(terminated[x]) | push[stream] | run ] 
+                    def filter_func(root_node): root_node | frame | to_tx  | terminated | filter[lambda x: to_ezefref(x) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(terminated[x]) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl                
                 # Type 2: any RAE  i.e on[terminated[ET.Dog]] or on[instantiated[RT.owns]] 
                 elif type(rae_or_zr) in {AtomicEntityType, EntityType, RelationType}: 
-                    def filter_func(root_node): root_node | frame | selected_types[1] | filter[lambda x: rae_type(x) == rae_or_zr] |  for_each[lambda x: LazyValue(selected_types[1][x]) | push[stream] | run ] 
+                    def filter_func(root_node): root_node | frame | to_tx | selected_types[1] | filter[lambda x: rae_type(x) == rae_or_zr] |  for_each[lambda x: LazyValue(selected_types[1][x]) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl
                 else:
@@ -171,7 +171,7 @@ def on_implementation(g, op):
                 sub = aet_or_zr | sub_decl
             # Type 2: any AET.* i.e on[value_assigned[AET.String]]
             elif isinstance(aet_or_zr, AtomicEntityType): 
-                def filter_func(root_node): root_node | frame | value_assigned | filter[aet_or_zr] | map[lambda x: value_assigned[x][x|value|collect]] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): root_node | frame | to_tx | value_assigned | filter[aet_or_zr] | map[lambda x: value_assigned[x][x|value|collect]] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl        
         else:
