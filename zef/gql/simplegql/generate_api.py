@@ -567,8 +567,6 @@ def maybe_filter_result(opts, z_node, info, fil=None):
         return opts
 
     temp_fil = build_filter_zefop(fil, z_node, info)
-    print("Filter for query is")
-    print(temp_fil)
     return opts | filter[build_filter_zefop(fil, z_node, info)]
 
 def build_filter_zefop(fil, z_node, info):
@@ -592,13 +590,11 @@ def build_filter_zefop(fil, z_node, info):
             this = val | contained_in[sub]
         else:
             # This must be a field
-            print(f"Asking for {key}")
             z_field = get_field_rel_by_name(z_node, key)
             z_field_node = target(z_field)
 
             val = field_resolver[key]
             if op_is_list(z_field):
-                print("Special logic for list")
                 list_top = And
                 for list_key,list_sub in sub.items():
                     if list_key == "any":
@@ -609,11 +605,9 @@ def build_filter_zefop(fil, z_node, info):
                         list_top = list_top[val | map[sub_fil] | all]
                     elif list_key == "size":
                         temp = val | length | scalar_comparison_op(list_sub)
-                        print(temp)
                         list_top = list_top[temp]
                     else:
                         raise Exception(f"Unknown list filter keyword: {list_key}")
-                print("Passing back to this")
                 this = list_top
             elif op_is_scalar(z_field_node):
                 if isinstance(sub, bool):
@@ -625,13 +619,11 @@ def build_filter_zefop(fil, z_node, info):
                 this = val | And[Not[equals[None]]][sub_fil]
 
 
-        print("At final top")
         top = top[this]
 
     return top
 
 def scalar_comparison_op(sub):
-    print("In scalar_comp_op")
     this = And[Not[equals[None]]]
     for scalar_key,scalar_sub in sub.items():
         if scalar_key == "eq":
