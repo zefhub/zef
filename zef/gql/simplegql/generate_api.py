@@ -551,7 +551,7 @@ def handle_list_params(opts, z_node, params, info):
     opts = maybe_paginate_result(opts, params.get("first", None), params.get("offset", None))
     return opts
 
-@func(label="resolver")
+@func
 def field_resolver_by_name(z, type_node, info, name):
     # Note name goes last because it is curried last... this is weird
     if name == "id":

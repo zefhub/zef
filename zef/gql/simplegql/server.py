@@ -11,41 +11,46 @@ import json
 
 from zef.core.logger import log
 
+def resolve_token(request, header, aud, namespace):
+    from authlib.jose import jwt
+    import base64
+    headers_as_lower = {k.lower(): v for k,v in request["request_headers"].items()}
+    if header.lower() not in headers_as_lower:
+        return None
+    token_header = headers_as_lower[header.lower()].strip()
+    if token_header is '':
+        return None
+
+    parts = token_header.split()
+    if len(parts) != 2 or parts[0] != "Bearer":
+        # raise Exception(f"x-auth-header is of the wrong format ({token_header})")
+        log.error("x-auth-header is of the wrong format", token_header=token_header)
+        return {
+            **request,
+            "response_body": "Invalid auth header",
+            "response_status": 400
+        }
+    token = parts[1]
+
+    auth_result = jwt.decode(token, context["jwk"])
+    auth_result.validate()
+
+    if auth_result["aud"] != aud:
+        raise Exception("Invalid token for wrong audience")
+
+    if namespace is None:
+        return auth_result
+    else:
+        return auth_result[namespace]
+            
 def query(request, context):
     if context["z_gql_root"] | has_out[RT.AuthHeader] | collect:
         header = context["z_gql_root"] >> RT.AuthHeader | value | collect
-        jwkurl = context["z_gql_root"] >> RT.AuthJWKURL | value | collect
         aud = context["z_gql_root"] >> RT.AuthAudience | value | collect
         namespace = context["z_gql_root"] >> O[RT.AuthNamespace] | value_or[None] | collect
-        from authlib.jose import jwt
-        import base64
-        # token_header = request["request_headers"][header.lower]
-        headers_as_lower = {k.lower(): v for k,v in request["request_headers"].items()}
-        token_header = headers_as_lower[header.lower()]
-        parts = token_header.split()
-        if len(parts) != 2 or parts[0] != "Bearer":
-            # raise Exception(f"x-auth-header is of the wrong format ({token_header})")
-            log.error("x-auth-header is of the wrong format", token_header=token_header)
-            return {
-                **request,
-                "response_body": "Invalid auth header",
-                "response_status": 400
-            }
-        token = parts[1]
 
-        auth_result = jwt.decode(token, context["jwk"])
-        auth_result.validate()
-
-        if auth_result["aud"] != aud:
-            raise Exception("Invalid token for wrong audience")
-
-        if namespace is None:
-            auth_context = auth_result
-        else:
-            auth_context = auth_result[namespace]
-            
+        auth_context = resolve_token(request, header, aud, namespace)
     else:
-        auth_result = None
         auth_context = None
 
     q = json.loads(request["request_body"])
