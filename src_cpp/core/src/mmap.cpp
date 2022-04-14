@@ -670,14 +670,14 @@ namespace zefDB {
 #endif
         }
 
-        void* _WholeFileMapping::Pointer::ensure_head(size_t new_head) {
+        void* _WholeFileMapping::Pointer::ensure_head(size_t new_head, bool allow_shrink) {
             // std::cerr << "Ensure head with " << new_head << std::endl;
             if(!writer_lock)
                 throw std::runtime_error("Can't ensure_space without writer_lock");
 
             if(parent->head != nullptr) {
                 // std::cerr  << "New head: " << new_head << " vs " << *parent->head << std::endl;
-                if(*parent->head > new_head)
+                if(*parent->head > new_head && !allow_shrink)
                     throw std::runtime_error("A WholeFileMapping is meant to be append-only.");
                 *parent->head = new_head;
             }

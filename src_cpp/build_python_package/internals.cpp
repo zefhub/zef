@@ -605,6 +605,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("StartTransactionReturnTx", [](Graph& g)->ZefRef { return StartTransactionReturnTx(g); }, py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("FinishTransaction", py::overload_cast<Graph&,bool>(&FinishTransaction), py::arg("g"), py::arg("wait"), py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("FinishTransaction", py::overload_cast<Graph&>(&FinishTransaction), py::arg("g"), py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("AbortTransaction", py::overload_cast<Graph&>(&AbortTransaction), py::call_guard<py::gil_scoped_release>());
 
 	// internals_submodule.def("get_global_entity_type_from_string", &internals::get_global_entity_type_from_string, py::call_guard<py::gil_scoped_release>(),  
 	// 	"Function to help interface Python ET singleton and create a EntityType object");	

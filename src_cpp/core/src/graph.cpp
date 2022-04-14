@@ -477,9 +477,152 @@ namespace zefDB {
             gd.write_head = index_hi;
         }
 
+        roll_back_using_only_existing(gd);
+
+        gd.read_head = gd.write_head.load();
+
+        return g;
+    }
+
+    void roll_back_using_only_existing(GraphData & gd) {
+        // This assumes we have been given (up to write_head) a set of blobs
+        // which may refer to things beyond the write_head. We update these
+        // existing blobs so as to forget anything that lies outside their
+        // range.
+
+        LockGraphData lock(&gd);
+
+        blob_index index_hi = gd.write_head;
+
         std::unordered_set<blob_index> updated_last_blobs;
 
+        TimeSlice latest_time_slice;
+        blob_index latest_complete_tx = 0;
+
         blob_index cur_index = constants::ROOT_NODE_blob_index;
+        while(cur_index < index_hi) {
+            EZefRef ezr{cur_index, gd};
+            int this_size = size_of_blob(ezr);
+            int new_last_blob = -1;
+            bool is_start_of_edges = false;
+            if(internals::has_edge_list(ezr)) {
+                visit_blob_with_edges([&](auto & x) {
+                    int this_last_blob_offset = -1;
+                    for(int i = 0; i < x.edges.local_capacity ; i++) {
+                        if(abs(x.edges.indices[i]) >= index_hi) {
+                            x.edges.indices[i] = 0;
+                            if(this_last_blob_offset == -1)
+                                this_last_blob_offset = i;
+                        }
+                    }
+
+                    if(x.edges.indices[x.edges.local_capacity] >= index_hi) {
+                        x.edges.indices[x.edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
+                        if(this_last_blob_offset == -1)
+                            this_last_blob_offset = x.edges.local_capacity;
+                    }
+
+                    if(this_last_blob_offset != -1) {
+                        if(this_last_blob_offset == 0)
+                            new_last_blob = 0;
+                        else {
+                            uintptr_t direct_ptr = (uintptr_t)&x.edges.indices[this_last_blob_offset];
+                            blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
+                            new_last_blob = blob_index_from_ptr(ptr);
+                        }
+                    }
+                }, ezr);
+
+                if(new_last_blob != -1) {
+                    if(get<BlobType>(ezr) == BlobType::DEFERRED_EDGE_LIST_NODE) {
+                        auto def = (blobs_ns::DEFERRED_EDGE_LIST_NODE*)ezr.blob_ptr;
+                        // We only update if the source blob wasn't previously updated.
+                        if(updated_last_blobs.count(def->first_blob) == 0) {
+                            EZefRef orig_ezr{def->first_blob, gd};
+                            *internals::last_edge_holding_blob(orig_ezr) = new_last_blob;
+                            updated_last_blobs.insert(def->first_blob);
+                        } else {
+                            // If we get here something is weird - we are
+                            // removing items from a deferred edge list that
+                            // *must* be beyond the end of the index_hi.
+                            throw std::runtime_error("We should never get here!");
+                        }
+                    } else {
+                        *internals::last_edge_holding_blob(ezr) = new_last_blob;
+                    }
+
+                    updated_last_blobs.insert(cur_index);
+                }
+            }
+
+            if(get<BlobType>(ezr) == BlobType::TX_EVENT_NODE) {
+                auto tx = (blobs_ns::TX_EVENT_NODE*)ezr.blob_ptr;
+                if(tx->time_slice > latest_time_slice) {
+                    latest_time_slice = tx->time_slice;
+                    latest_complete_tx = cur_index;
+                }
+            }
+
+            cur_index += blob_index_size(ezr);
+        }
+
+        // We also need to update terminated time slices. Unfortunately we can't
+        // do this until we know what the latest time slice was.
+        
+        cur_index = constants::ROOT_NODE_blob_index;
+        while(cur_index < index_hi) {
+            EZefRef ezr{cur_index, gd};
+            if(get<BlobType>(ezr) == BlobType::ENTITY_NODE) {
+                auto rae = (blobs_ns::ENTITY_NODE*)ezr.blob_ptr;
+                if(rae->termination_time_slice > latest_time_slice)
+                    rae->termination_time_slice = TimeSlice();
+            } else if(get<BlobType>(ezr) == BlobType::ATOMIC_ENTITY_NODE) {
+                auto rae = (blobs_ns::ATOMIC_ENTITY_NODE*)ezr.blob_ptr;
+                if(rae->termination_time_slice > latest_time_slice)
+                    rae->termination_time_slice = TimeSlice();
+            } else if(get<BlobType>(ezr) == BlobType::RELATION_EDGE) {
+                auto rae = (blobs_ns::RELATION_EDGE*)ezr.blob_ptr;
+                if(rae->termination_time_slice > latest_time_slice)
+                    rae->termination_time_slice = TimeSlice();
+            }
+            cur_index += blob_index_size(ezr);
+        }
+        gd.latest_complete_tx = latest_complete_tx;
+    }
+
+    void roll_back_to(GraphData & gd, blob_index index_hi, bool roll_back_caches) {
+        LockGraphData lock(&gd);
+
+        if(index_hi > gd.write_head)
+            throw std::runtime_error("index_hi is larger than old graph");
+        if(index_hi < gd.read_head)
+            throw std::runtime_error("index_hi (" + to_str(index_hi) + ") is before the read_head!");
+
+        // First run all unapplies. Since we can only traverse forwards in
+        // indices, build a list and reverse it to unapply things in FILO order
+        // we need.
+        std::vector<blob_index> all_indices;
+        blob_index cur_index = index_hi;
+        while(cur_index < gd.write_head) {
+            all_indices.push_back(cur_index);
+            EZefRef ezr{cur_index, gd};
+            cur_index += blob_index_size(ezr);
+        }
+
+        for(auto it = all_indices.rbegin(); it != all_indices.rend(); it++) {
+            EZefRef ezr{*it, gd};
+            internals::unapply_action_blob(gd, ezr, roll_back_caches);
+        }
+
+        // Note: we could immediately move the write_head to index_hi in order
+        // to avoid any complication with other threads accessing edges.
+        // However, the contract is that other threads should only read and use
+        // blobs/edges up to read_head anyway so this would be redundant.
+
+        // TODO: Change this to be the inverse of apply_double_linking
+        std::unordered_set<blob_index> updated_last_blobs;
+
+        cur_index = constants::ROOT_NODE_blob_index;
         while(cur_index < index_hi) {
             EZefRef ezr{cur_index, gd};
             int this_size = size_of_blob(ezr);
@@ -538,9 +681,9 @@ namespace zefDB {
             cur_index += blob_index_size(ezr);
         }
 
-        gd.read_head = gd.write_head.load();
-
-        return g;
+        // Now blank out the memory above
+        memset(ptr_from_blob_index(index_hi, gd), 0, (gd.write_head.load() - index_hi)*constants::blob_indx_step_in_bytes);
+        gd.write_head = index_hi;
     }
 
 	// // thread_safe_unordered_map<std::string, blob_index>& Graph::key_dict() {
@@ -703,7 +846,11 @@ namespace zefDB {
                           
 		if (gd.number_of_open_tx_sessions == 0) // make sure a tx has been instantiated, e.g. for the case that someone does my_ent | now and expects a ZR within this very time slice
 			internals::get_or_create_and_get_tx(gd);  // do not open a separate tx inside, this would lead to an endless loop
+        else if(gd.index_of_open_tx_node == 0)
+            throw std::runtime_error("Trying to open a new transaction when it was already aborted. Don't do this!");
         gd.number_of_open_tx_sessions++;
+
+        // This is a check for someone trying to open a nested tx after aborting the tx.
     }
 
     ZefRef StartTransactionReturnTx(GraphData& gd) {
@@ -789,7 +936,12 @@ namespace zefDB {
         gd.number_of_open_tx_sessions--;
         // in case this was the last transaction that is closed, we want to mark the 
         // transcation node as complete: any write mod to the graph will trigger a new tx hereafter
-        if (gd.number_of_open_tx_sessions == 0 && gd.index_of_open_tx_node != 0) {		// if the last nested transaction closed AND a transaction is currently open
+        if (gd.number_of_open_tx_sessions == 0) {
+            if(gd.index_of_open_tx_node == 0) {
+                // If we get here, then the tx has been aborted, but we still need to unlock the GraphData for new transactions to start.
+                update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
+                return;
+            }
             bool can_run_subs = gd.latest_complete_tx == gd.last_run_subscriptions.load();
             gd.latest_complete_tx = gd.index_of_open_tx_node;
             gd.index_of_open_tx_node = 0;
@@ -829,6 +981,21 @@ namespace zefDB {
                 }
             }
         }
+    }
+
+    void AbortTransaction(GraphData& gd) {
+        // This breaks the chain of StartTransaction/FinishTransaction and rolls
+        // back any changes to the read_head.
+        
+        if(gd.number_of_open_tx_sessions == 0)
+            throw std::runtime_error("Can't abort a transaction when there are no open sessions.");
+        if(gd.index_of_open_tx_node == 0)
+            throw std::runtime_error("Don't know which tx node is open - have you already aborted this transaction?");
+
+        gd.index_of_open_tx_node = 0;
+
+        // Move back to the read head
+        roll_back_to(gd, gd.read_head, true);
     }
 
 

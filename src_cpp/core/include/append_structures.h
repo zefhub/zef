@@ -492,25 +492,31 @@ namespace zefDB {
         }
 
 
-        Element * find_element(const KEY & needle) {
+        Element * find_element(const KEY & needle, bool return_last=false) {
             if(_size == 0)
                 return nullptr;
 
             Element * cur = index_to_element(0);
+            Element * last = cur;
 
             while(true) {
                 if(cur->key == needle)
-                    return cur;
+                    break;
                 else if(needle < cur->key) {
                     if(cur->left == 0)
-                        return cur;
+                        break;
+                    last = cur;
                     cur = index_to_element(cur->left);
                 } else { //if(needle > cur->key) {
                     if(cur->right == 0)
-                        return cur;
+                        break;
+                    last = cur;
                     cur = index_to_element(cur->right);
                 }
             }
+            if(return_last)
+                return last;
+            return cur;
         }
 
         std::optional<VAL> maybe_at(const KEY & needle) {
@@ -567,6 +573,32 @@ namespace zefDB {
 
         AppendOnlyBinaryTree* append(KEY && key, VAL && val, const ensure_func_t & ensure_func, bool already_ensured=false) {
             return _append(std::move(key), std::move(val), ensure_func, already_ensured);
+        }
+
+        void _pop(const KEY &key, const VAL & val, const ensure_func_t &ensure_func) {
+            // This is a low level function that should only be called when
+            // absolutely sure it makes sense to pop the final element from the
+            // tree. The key and val must be passed in to validate that the
+            // caller is popping the right thing.
+            int to_pop_ind = this->_size - 1;
+            auto to_pop = this->index_to_element(to_pop_ind);
+            if(to_pop->key != key || to_pop->val != val) {
+                std::cerr << to_pop->key << ":" << to_pop->val << std::endl;
+                std::cerr << key << ":" << val << std::endl;
+                throw std::runtime_error("Pop called with something that doesn't match the final element in the tree");
+            }
+            auto before_el = find_element(key, true);
+            if(before_el->left == to_pop_ind) {
+                before_el->left = 0;
+            } else if(before_el->right == to_pop_ind) {
+                before_el->right = 0;
+            } else {
+                throw std::runtime_error("Couldn't find parent of element that is being popped.");
+            }
+
+            _size--;
+            AppendOnlyBinaryTree * new_this = &ensure_func(sizeof(AppendOnlyBinaryTree) + sizeof(Element)*(_size));
+            assert(new_this == this);
         }
 
         std::string create_diff(size_t from, size_t to) {
@@ -657,6 +689,7 @@ namespace zefDB {
         struct Iterator {
             uintptr_t ptr;
 
+            Iterator() : ptr(0) {}
             Iterator(uintptr_t ptr) : ptr(ptr) {}
             bool operator ==(const Iterator & other) {return ptr == other.ptr;}
             bool operator !=(const Iterator & other) {return !(*this == other);}
@@ -704,6 +737,22 @@ namespace zefDB {
             ELEMENT& old_end = new_this.end()._direct();
             explicit_copy(old_end, el);
             new_this._size = new_size;
+        }
+
+        void _pop(const SAFE & el, const ensure_func_t & ensure_func) {
+            // This item should be the last one. But we have to traverse through the entire list to find it.
+            Iterator last;
+            for(auto itr = this->begin() ; itr != this->end() ; ++itr) {
+                last = itr;
+            }
+            // TODO: Handle when set is empty
+            if(last->safe_copy() != el)
+                throw std::runtime_error("Can't pop item from set as it is not the same as what was there.");
+            // Checking, can calculate new_size in two different ways
+            auto new_size = _size - last->true_sizeof();
+            _size = new_size;
+            auto new_this = &ensure_func(sizeof(AppendOnlySetVariable) + new_size);
+            assert(new_this == this);
         }
 
         void _construct(bool uninitialized, const ensure_func_t & ensure_func) {
@@ -785,14 +834,20 @@ namespace zefDB {
         typename set_t::Iterator begin() const {return set.begin();}
         typename set_t::Iterator end() const {return set.end();}
 
-        element_t* maybe_at_internal(const KEY_Safe & needle) {
+        element_t* maybe_at_internal(const KEY_Safe & needle, bool last_seen=false) {
             // for(const auto & item : *this) {
+
+            std::optional<typename set_t::Iterator> last_deleted;
             for(auto itr = this->begin() ; itr != this->end() ; ++itr) {
-                if(itr->deleted)
+                if(itr->deleted) {
+                    last_deleted = itr;
                     continue;
+                }
                 if(itr->first.safe_copy() == needle) 
                     return &itr._direct();
             }
+            if(last_seen && last_deleted)
+                return &last_deleted->_direct();
             return nullptr;
         }
         std::optional<VAL_Safe> maybe_at(const KEY_Safe & needle) {
@@ -833,6 +888,15 @@ namespace zefDB {
                 maybe->deleted = true;
             }
             set.append(element_Safe{key,val}, map_ensure_func(ensure_func));
+        }
+
+        void _pop(const KEY_Safe & key, const VAL_Safe & val, const ensure_func_t & ensure_func) {
+            set._pop(element_Safe{key,val}, map_ensure_func(ensure_func));
+            // In the event that we deleted a previous key, look it up
+            auto maybe_last_seen = maybe_at_internal(key, true);
+            if(maybe_last_seen != nullptr) {
+                maybe_last_seen->deleted = false;
+            }
         }
 
         std::string create_diff(size_t from, size_t to) {

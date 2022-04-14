@@ -449,7 +449,7 @@ namespace zefDB {
                     return *this;
                 }
 
-                void* ensure_head(size_t new_head);
+                void* ensure_head(size_t new_head, bool allow_shrink=false);
             };
 
             Pointer get() {
@@ -490,11 +490,11 @@ namespace zefDB {
                     return (T*)p.ptr();
                 }
 
-                T& ensure_head(size_t new_head) {
-                    return *(T*)p.ensure_head(new_head);
+                T& ensure_head(size_t new_head, bool allow_shrink=false) {
+                    return *(T*)p.ensure_head(new_head, allow_shrink);
                 }
-                constexpr auto ensure_func() {
-                    return std::bind(&WholeFileMapping::Pointer::ensure_head, this, std::placeholders::_1);
+                constexpr auto ensure_func(bool allow_shrink=false) {
+                    return std::bind(&WholeFileMapping::Pointer::ensure_head, this, std::placeholders::_1, allow_shrink);
                 };
 
                 Pointer(_WholeFileMapping::Pointer && p)

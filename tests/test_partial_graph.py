@@ -8,9 +8,18 @@ class MyTestCase(unittest.TestCase):
         g = Graph()
 
         g_clones = []
-        for i in range(100):
+        for i in range(10):
             g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
             [ET.Machine]*10 | g | run
+
+        # Add in a couple of manual edge cases
+        g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+        z = ET.Machine | g | run
+        g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+        [(z, RT.Something, z), (z, RT.Something2, z)] | g | run
+        g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+        z | terminate | g | run
+        g_clones += [g]
 
         for i,tx in enumerate(g | all[TX] | drop[1] | collect):
             g_clone_before_tx = g_clones[i]

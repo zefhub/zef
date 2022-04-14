@@ -172,9 +172,8 @@ namespace zefDB {
         void verify_double_linking_partial() {
         }
 
-        void apply_action_blob(GraphData& gd, EZefRef uzr_to_blob, bool fill_caches) { //, std::unordered_map<blob_index,blob_index> & latest_deferred) {
+        void apply_action_blob(GraphData& gd, EZefRef uzr_to_blob, bool fill_caches) {
             switch (get<BlobType>(uzr_to_blob)) {
-                // For an entity, relation, atomic entity, root_node, add the uid to the dict
             case BlobType::ROOT_NODE: {
                 apply_action_ROOT_NODE(gd, uzr_to_blob, fill_caches);
                 break;
@@ -228,6 +227,64 @@ namespace zefDB {
 				break;
 			}
 			default: return;
+			};
+		}
+
+        void unapply_action_blob(GraphData& gd, EZefRef uzr_to_blob, bool fill_caches) {
+            switch (get<BlobType>(uzr_to_blob)) {
+            case BlobType::ROOT_NODE: {
+                unapply_action_ROOT_NODE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            case BlobType::ATOMIC_ENTITY_NODE: {
+                unapply_action_ATOMIC_ENTITY_NODE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            case BlobType::ENTITY_NODE: {
+                unapply_action_ENTITY_NODE(gd, uzr_to_blob, fill_caches);
+                break;
+            }											 
+            case BlobType::RELATION_EDGE: {
+                unapply_action_RELATION_EDGE(gd, uzr_to_blob, fill_caches);
+                break;
+            }									 
+            case BlobType::TX_EVENT_NODE: {
+                unapply_action_TX_EVENT_NODE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            case BlobType::DEFERRED_EDGE_LIST_NODE: {
+                unapply_action_DEFERRED_EDGE_LIST_NODE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            case BlobType::ASSIGN_TAG_NAME_EDGE: {
+                unapply_action_ASSIGN_TAG_NAME_EDGE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            case BlobType::FOREIGN_GRAPH_NODE: {
+                unapply_action_FOREIGN_GRAPH_NODE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            case BlobType::FOREIGN_ENTITY_NODE: {
+                unapply_action_FOREIGN_ENTITY_NODE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: {
+                unapply_action_FOREIGN_ATOMIC_ENTITY_NODE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            case BlobType::FOREIGN_RELATION_EDGE: {
+                unapply_action_FOREIGN_RELATION_EDGE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            case BlobType::TERMINATION_EDGE: {
+                unapply_action_TERMINATION_EDGE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: {
+                unapply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(gd, uzr_to_blob, fill_caches);
+                break;
+            }
+            default: return;
 			};
 		}
 

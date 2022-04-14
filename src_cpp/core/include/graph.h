@@ -437,6 +437,8 @@ namespace zefDB {
 
     LIBZEF_DLL_EXPORTED Graph create_partial_graph(Graph old_g, blob_index index_hi);
     LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed=0);
+    LIBZEF_DLL_EXPORTED void roll_back_using_only_existing(GraphData& gd);
+    LIBZEF_DLL_EXPORTED void roll_back_to(GraphData& gd, blob_index index_hi, bool fill_caches);
 
 
 
@@ -457,6 +459,9 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED void FinishTransaction(GraphData& gd) ;
     inline void FinishTransaction(Graph & g, bool wait) { FinishTransaction(g.my_graph_data(), wait); }
     inline void FinishTransaction(Graph & g) { FinishTransaction(g.my_graph_data()); }
+
+    LIBZEF_DLL_EXPORTED void AbortTransaction(GraphData& gd);
+    inline void AbortTransaction(Graph& g) { AbortTransaction(g.my_graph_data()); }
 
 	// lightweight object with no data. Only role is to give a zefDB graph access to the number of open transactions
 	// at any time. If >0 transactions are open, any changes / appending to the graph are grouped under one tx_node.
@@ -492,15 +497,22 @@ namespace zefDB {
     struct LockGraphData {
         GraphData * gd;
         // TODO: I was thinking about making this reset to open_tx_thread... might revist later.
-        // previous_thread_id
+        bool was_already_set;
 
         LockGraphData(GraphData * gd) : gd(gd) {
-            update_when_ready(gd->open_tx_thread_locker,
-                              gd->open_tx_thread,
-                              std::thread::id(),
-                              std::this_thread::get_id());
+            if(gd->open_tx_thread == std::this_thread::get_id())
+                was_already_set = true;
+            else {
+                was_already_set = false;
+                update_when_ready(gd->open_tx_thread_locker,
+                                  gd->open_tx_thread,
+                                  std::thread::id(),
+                                  std::this_thread::get_id());
+            }
         }
         ~LockGraphData() {
+            if(was_already_set)
+                return;
             // If is for safety - someone lower down may have unlocked already.
             if(gd->open_tx_thread == std::this_thread::get_id())
                 update(gd->open_tx_thread_locker, gd->open_tx_thread, std::thread::id());
