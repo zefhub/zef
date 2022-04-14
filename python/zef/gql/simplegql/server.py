@@ -25,7 +25,7 @@ import json
 
 from zef.core.logger import log
 
-def resolve_token(request, header, aud, namespace):
+def resolve_token(request, header, aud, namespace, jwk):
     from authlib.jose import jwt
     import base64
     headers_as_lower = {k.lower(): v for k,v in request["request_headers"].items()}
@@ -46,7 +46,7 @@ def resolve_token(request, header, aud, namespace):
         }
     token = parts[1]
 
-    auth_result = jwt.decode(token, context["jwk"])
+    auth_result = jwt.decode(token, jwk)
     auth_result.validate()
 
     if auth_result["aud"] != aud:
@@ -63,7 +63,7 @@ def query(request, context):
         aud = context["z_gql_root"] >> RT.AuthAudience | value | collect
         namespace = context["z_gql_root"] >> O[RT.AuthNamespace] | value_or[None] | collect
 
-        auth_context = resolve_token(request, header, aud, namespace)
+        auth_context = resolve_token(request, header, aud, namespace, context["jwk"])
     else:
         auth_context = None
 
