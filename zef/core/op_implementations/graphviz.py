@@ -35,7 +35,7 @@ def graphviz_imp(zz, *flags):
     if isinstance(zz, FlatGraph): 
         g = Graph()
         zz | transact[g] | run 
-        zz = all(g, RAE)
+        zz = g | now | all[RAE] | collect
     from functools import lru_cache
     try:
         import graphviz
