@@ -16,6 +16,7 @@
 from ... import *
 from ...ops import *
 from functools import partial as P
+from ...core.logger import log
 
 from ariadne import ObjectType, QueryType, MutationType, EnumType, ScalarType
 
@@ -478,6 +479,7 @@ def resolve_id(z, info):
 def resolve_add(_, info, *, type_node, **params):
     name_gen = NameGen()
     actions = []
+    post_checks = []
     new_obj_names = []
     updated_objs = []
     
@@ -493,15 +495,30 @@ def resolve_add(_, info, *, type_node, **params):
                 raise Exception("Item doesn't exist")
             set_d = {**item}
             set_d.pop("id")
-            actions += update_entity(obj, info, type_node, set_d, {}, name_gen)
+            new_actions,new_post_checks = update_entity(obj, info, type_node, set_d, {}, name_gen)
+            actions += new_actions
+            post_checks += new_post_checks
             updated_objs += [obj]
         else:
-            obj_name,more_actions = add_new_entity(info, type_node, item, name_gen)
+            obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen)
             actions += more_actions
+            post_checks += more_post_checks
             new_obj_names += [obj_name]
 
     g = info.context["g"]
-    r = actions | transact[g] | run
+    with Transaction(g):
+        try:
+            r = actions | transact[g] | run
+            # TODO: Test all post checks
+            for (name,type_node) in post_checks:
+                if not pass_add_auth(r[name], type_node, info):
+                    raise Exception("Failure in add auth.")
+        except:
+            log.error("Aborted transaction")
+            from ...pyzef.internals import AbortTransaction
+            AbortTransaction(g)
+            raise
+
 
     ents = updated_objs + [r[name] for name in new_obj_names]
     count = len(ents)
@@ -517,10 +534,14 @@ def resolve_update(_, info, *, type_node, **params):
     actions = []
     name_gen = NameGen()
     for ent in ents:
-        actions += update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen)
+        new_actions,new_post_checks = update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen)
+        actions += new_actions
+        post_checks += new_post_checks
 
     g = info.context["g"]
-    r = actions | transact[g] | run
+    with Transaction(g):
+        r = actions | transact[g] | run
+        # TODO: Test all post checks
 
     count = len(ents)
 
@@ -774,12 +795,13 @@ def find_existing_entity(info, type_node, id):
     return ent
 
 def add_new_entity(info, type_node, params, name_gen):
-    if not pass_add_auth(type_node, info, params):
-        raise Exception("Not allowed to add.")
 
     actions = []
+    post_checks = []
 
     this = str(next(name_gen))
+
+    post_checks += [(this, type_node)]
 
     et = ET(type_node >> RT.GQL_Delegate | collect)
     actions += [et[this]]
@@ -819,27 +841,31 @@ def add_new_entity(info, type_node, params, name_gen):
                 l = [val]
 
             for item in l:
-                obj,obj_actions = find_or_add_entity(item, info, target(z_field), params, name_gen)
+                obj,obj_actions,obj_post_checks = find_or_add_entity(item, info, target(z_field), params, name_gen)
                 actions += obj_actions
+                post_checks += obj_post_checks
                 if z_field | op_is_incoming | collect:
                     actions += [(obj, rt, Z[this])]
                 else:
                     actions += [(Z[this], rt, obj)]
 
-    return this, actions
+    return this, actions, post_checks
 
 def find_or_add_entity(val, info, target_node, params, name_gen):
     if isinstance(val, dict) and val.get("id", None) is not None:
         obj = find_existing_entity(info, target_node, val["id"])
-        return obj,[]
+        return obj,[],[]
     else:
-        obj_name,actions = add_new_entity(info, target_node, val, name_gen)
-        return Z[obj_name], actions
+        obj_name,actions,post_checks = add_new_entity(info, target_node, val, name_gen)
+        return Z[obj_name], actions, post_checks
     
 
 def update_entity(z, info, type_node, set_d, remove_d, name_gen):
     # Refuse to set and remove the same thing. Just too confusing to deal with
-    if not pass_update_auth(z, type_node, info, set_d, remove_d):
+
+    # This is the pre-update auth only
+    # TODO: Post-update auth
+    if not pass_update_auth(z, type_node, info):
         raise Exception("Not allowed to add.")
 
     assert(len(set(set_d.keys()).intersection(remove_d.keys())) == 0), "Can't have the same set/remove keys"
@@ -913,27 +939,31 @@ def pass_query_auth(z, schema_node, info):
     )
 
 @func
-def pass_add_auth(schema_node, info, params):
+def pass_add_auth(z, schema_node, info):
     # TODO: Later on these will be zef functions so easier to call
-    if not schema_node | has_out[RT.AllowAdd]| collect:
+    to_call = schema_node >> O[RT.AllowAdd] | collect
+    if to_call is None:
+        to_call = schema_node >> O[RT.AllowQuery] | collect
+    if to_call is None:
         return True
     return temporary__call_string_as_func(
-        schema_node >> RT.AllowAdd | value | collect,
+        to_call | value | collect,
+        z=z,
         info=info,
         type_node=schema_node,
-        params=params
     )
 
 @func
-def pass_update_auth(z, schema_node, info, set_d, remove_d):
+def pass_update_auth(z, schema_node, info):
     # TODO: Later on these will be zef functions so easier to call
-    if not schema_node | has_out[RT.AllowUpdate] | collect:
-        return (pass_query_auth(z, schema_node, info)
-                # TODO: This second part has to be handled properly through a PostCondition
-                #and pass_add_auth(schema_node, info))
-                )
+    to_call = schema_node >> O[RT.AllowUpdate] | collect
+    if to_call is None:
+        to_call = schema_node >> O[RT.AllowQuery] | collect
+    if to_call is None:
+        return True
+    # Need to introduce the post-update auth too 
     return temporary__call_string_as_func(
-        schema_node >> RT.AllowUpdate | value | collect,
+        to_call | value | collect,
         z=z,
         info=info,
         type_node=schema_node
@@ -942,10 +972,15 @@ def pass_update_auth(z, schema_node, info, set_d, remove_d):
 @func
 def pass_delete_auth(z, schema_node, info):
     # TODO: Later on these will be zef functions so easier to call
-    if not schema_node | has_out[RT.AllowDelete]| collect:
-        return pass_query_auth(z, schema_node, info)
+    to_call = schema_node >> O[RT.AllowDelete] | collect
+    if to_call is None:
+        to_call = schema_node >> O[RT.AllowUpdate] | collect
+    if to_call is None:
+        to_call = schema_node >> O[RT.AllowQuery] | collect
+    if to_call is None:
+        return True
     return temporary__call_string_as_func(
-        root >> RT.AllowDelete | value | collect,
+        to_call | value | collect,
         z=z,
         info=info,
         type_node=schema_node
@@ -963,7 +998,6 @@ def temporary__call_string_as_func(s, **kwds):
             kwds
         )
     except Exception as exc:
-        from ...core.logger import log
         log.error("Problem calling auth expression", expr=s, exc_info=exc, kwds=kwds)
         return False
 
