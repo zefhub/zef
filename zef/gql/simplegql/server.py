@@ -18,7 +18,7 @@ def resolve_token(request, header, aud, namespace):
     if header.lower() not in headers_as_lower:
         return None
     token_header = headers_as_lower[header.lower()].strip()
-    if token_header is '':
+    if token_header == '':
         return None
 
     parts = token_header.split()
