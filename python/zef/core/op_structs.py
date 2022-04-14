@@ -180,6 +180,8 @@ from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
 from abc import ABC
+from .reactivez.modify_dfg import instantiate_op_on_dfg
+
 
 class TraversableABC(ABC):
     pass
@@ -580,12 +582,6 @@ OpLike.register(CollectingOp)
 #                                 /_/   \_\  \_/\_/   \__,_||_| \__| \__,_||_.__/ |_| \___|                               
 #     
 
-def instantiate_on_process_graph(awaitable, run_or_sub):
-    # Doing things on the graph and return ezefref to the concrete stream
-    print(f"instantiate_on_process_graph called! {awaitable=}    {run_or_sub=}")
-    concrete_stream = None
-    return Awaitable(concrete_stream)
-
 
 class Awaitable():
     """ 
@@ -613,6 +609,7 @@ class Awaitable():
         elif isinstance(x, Entity):
             raise NotImplementedError()
         elif isinstance(x, Awaitable):
+            breakpoint()
             self.initial_stream = x.initial_stream
             self.el_ops = x.el_ops
         else:
@@ -620,10 +617,10 @@ class Awaitable():
 
     def __or__(self, other):
         if isinstance(other, ZefOp) and is_evaluating_run(other):
-            return instantiate_on_process_graph(self, other)
+            return instantiate_op_on_dfg(self, other)
 
         if isinstance(other, SubscribingOp):
-            return instantiate_on_process_graph(self, other)
+            return instantiate_op_on_dfg(self, other)
 
         if isinstance(other, ZefOp):
             new_awaitable = Awaitable(self.initial_stream)

@@ -68,7 +68,7 @@ class Handler(BaseHTTPRequestHandler):
                 "request_body":   body,
                 "request_headers": dict(self.headers),      # use a plain data type
             }
-            d | push[self.server.zef["stream"]] | run[execute]
+            d | push[self.server.zef["stream"]] | run
             try:
                 result = future.result(timeout=15.0)
             except TimeoutError:
@@ -127,8 +127,8 @@ def http_start_server_handler(eff: Effect):
 
     try:
         open_requests = {}
-        pushable_stream = Effect({'type': FX.Stream.CreatePushableStream}) | run[execute]
-        server_uuid = str(uid(pushable_stream.stream_ezefref))
+        pushable_stream = Effect({'type': FX.Stream.CreatePushableStream}) | run
+        server_uuid = str(uid(pushable_stream.initial_stream))
         if eff.d['pipe_into'] is not None: pushable_stream | eff.d['pipe_into']
         port = eff.d.get('port', 5000)
         bind_address = eff.d.get('bind_address', "localhost")
@@ -302,7 +302,7 @@ returned, then immediately return the None or Effect. Otherwise, continue
 applying the functions.
     
 Intended to be used in the following manner:
-source | map[middleware_worker[seq_of_funcs]] | run[execute]
+source | map[middleware_worker[seq_of_funcs]] | run
     """
 
     cur = req

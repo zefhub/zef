@@ -30,6 +30,7 @@ def stream_create_pushable_stream_handler(eff: Effect):
     from zef import GraphDelta
     from zef.core.reactivez import get_runtime_state
     
+    print('!!!!!!!!!!!!!>>')
 
     pg = get_runtime_state()['dataflow_graph']
     s = GraphDelta([
@@ -43,7 +44,7 @@ def stream_create_pushable_stream_handler(eff: Effect):
 def stream_push_handler(eff: Effect):   # -> Union[Nil, Error]
     assert 'stream' in eff.d
     s = eff.d['stream']
-    z_stream = s.stream_ezefref
+    z_stream = s.initial_stream
     assert isinstance(s, Awaitable)
     streams = _state['streams']
     if not z_stream in streams:

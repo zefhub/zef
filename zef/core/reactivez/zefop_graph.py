@@ -37,7 +37,7 @@ def set_up_zefop_graph():
     print(f">>>>> setting up zefop graph...!")
     g_zo = Graph()
     _rz_state['builtin_zefop_graph'] = g_zo     
-    _rz_state['rz_zefop_dispatch_dict'] = add_zefop_imps_as_zef_funcs(g_zo)  #TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+    _rz_state['rz_zefop_dispatch_dict'] = add_zefop_imps_as_zef_funcs(g_zo)
 
     
 
