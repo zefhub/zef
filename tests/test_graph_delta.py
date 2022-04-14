@@ -75,7 +75,6 @@ class MyTestCase(unittest.TestCase):
         ]) | g2 | run
 
         self.assertTrue(uid(z_joe|to_ezefref) in g2)
-        self.assertTrue(base_uid(z_joe|to_ezefref) in g2)
         self.assertEqual(length(g | now | all[ET.Person]), 1)
 
         # TODO: Replace with proper lookup later

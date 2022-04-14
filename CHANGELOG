@@ -7,6 +7,7 @@ v0.15.2
 * SQL imports and UI
 * SimpleGQL for GraphQL-spec-driven interface to Zef graphs.
 * NetworkX proxies.
+* Experimental rollback of transactions.
 
 v0.14.11
 * Different blob structure
