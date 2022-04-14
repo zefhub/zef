@@ -1,5 +1,8 @@
 
-from zefdb import instantiate, AET, RT, ET, Graph, ZefRef
+from ... import *
+from ...ops import *
+
+import builtins
 
 import networkx
 from networkx.classes.digraph import DiGraph
@@ -16,13 +19,13 @@ def split_by_func(s: str, func):
         s = s[ind+1:]
 
     import itertools
-    return list(filter(len, all_lists))
+    return list(builtins.filter(len, all_lists))
             
 def default_ET_translation(name, data):
     # By default, split by anything that is punctuation or a number and turn that into words.
     words = split_by_func(name, lambda c: not c.isalpha())
 
-    return ''.join(map(lambda w: w.capitalize(), words))
+    return ''.join(builtins.map(lambda w: w.capitalize(), words))
 
 def default_RT_translation(conn, data):
     # Use the target as the RT name
@@ -32,7 +35,7 @@ def default_fieldname_translation(name):
     # Numbers can be important in fields, so don't lose them.
     words = split_by_func(name, lambda c: not c.isalnum())
 
-    return ''.join(map(lambda w: w.capitalize(), words))
+    return ''.join(builtins.map(lambda w: w.capitalize(), words))
 
 def default_aet_translation(name, val):
     if type(val) == bool:
@@ -72,26 +75,35 @@ def inject_networkx_into_zef(nxg: DiGraph,
             raise Exception(f"After converting the edge names, there were still {len(theset)} types left out of {len(nxg.edges)} edges.")
 
 
-    entity_mapping = {}
-    relation_mapping = {}
-    for key,data in nxg.nodes.items():
-        et = ET(ET_translation(key,data))
+    with Transaction(zg):
+        entity_mapping = {}
+        relation_mapping = {}
+        for key,data in nxg.nodes.items():
+            try:
+                name = ET_translation(key,data)
+                et = ET(name)
+            except Exception as exc:
+                raise Exception(f"Unable to make ET from '{name}'") from exc
 
-        ent = instantiate(et, zg)
-        entity_mapping[key] = ent
+            ent = et | zg | run
+            entity_mapping[key] = ent
 
-        realise_fields(zg, ent, data, fieldname_translation, aet_translation)
+            realise_fields(zg, ent, data, fieldname_translation, aet_translation)
 
-    for conn,data in nxg.edges.items():
-        rt = RT(RT_translation(conn, data))
+        for conn,data in nxg.edges.items():
+            try:
+                name = RT_translation(conn, data)
+                rt = RT(name)
+            except Exception as exc:
+                raise Exception(f"Unable to make RT from '{name}'") from exc
 
-        source = entity_mapping[conn[0]]
-        target = entity_mapping[conn[1]]
-        rel = instantiate(source, rt, target, zg)
+            source = entity_mapping[conn[0]]
+            target = entity_mapping[conn[1]]
+            rel = (source, rt, target) | zg | run
 
-        relation_mapping[conn] = rel
+            relation_mapping[conn] = rel
 
-        realise_fields(zg, rel, data, fieldname_translation, aet_translation)
+            realise_fields(zg, rel, data, fieldname_translation, aet_translation)
 
     return entity_mapping, relation_mapping
        
@@ -107,11 +119,12 @@ def realise_fields(zg: Graph,
     # A check - don't want accidental duplicates in the field translation, unless specifically allowed.
     # I don't think this is even possible in networkx as the fields are represented with dictionaries.
     if not ignore_duplicate_fields:
-        assert(len(set(map(fieldname_translation, data.keys()))) == len(data.keys()))
+        assert(len(set(builtins.map(fieldname_translation, data.keys()))) == len(data.keys()))
 
     for name,val in data.items():
         rt = RT(fieldname_translation(name))
         aet = aet_translation(name, val)
         if aet is None:
             raise Exception(f"Unknown type for field with name {name} and value {val}")
-        instantiate(obj, rt, instantiate(aet,zg) <= val, zg)
+        z_val = (aet <= val) | zg | run
+        (obj, rt, z_val) | zg | run
