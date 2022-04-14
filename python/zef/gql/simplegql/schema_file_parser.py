@@ -129,6 +129,12 @@ def parse_arguments_as_dict(args):
     return d
     
         
+def simple_capitalize(s):
+    # This is here to make things like firebaseID go to FirebaseID rather than
+    # FirebaseId. This is more predicatable for users.
+    assert len(s) > 0
+    return s[0].upper() + s[1:]
+    
 
 def json_to_minimal_nodes(json):
     """This takes a json schema, such as one produced by the `parse_schema`
@@ -201,7 +207,7 @@ def json_to_minimal_nodes(json):
                 ]
                 for bool_key in ["search", "unique", "incoming", "list", "required"]:
                     if bool_key in field:
-                        actions += [(Z[qual_name], RT(to_pascal_case(bool_key)), field[bool_key])]
+                        actions += [(Z[qual_name], RT(simple_capitalize(bool_key)), field[bool_key])]
                         del field[bool_key]
 
                 if "resolver" in field:
@@ -213,7 +219,7 @@ def json_to_minimal_nodes(json):
                         del field["relation"]
                     else:
                         this = ET(type_name)
-                        rt = RT(to_pascal_case(field_name))
+                        rt = RT(simple_capitalize(field_name))
                         other = name_to_raet(field["type"])
                         if field.get("incoming", False):
                             resolve_with = delegate_of((other, rt, this))
