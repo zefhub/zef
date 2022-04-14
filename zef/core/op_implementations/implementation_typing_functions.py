@@ -1216,10 +1216,12 @@ def cartesian_product_tp(a, second, *args):
 
 
 #---------------------------------------- permutations -----------------------------------------------
-def permutations_imp(v):
+def permutations_imp(v, n=None):
     """ 
     Given a list of items, return a list of lists with all 
     permutations lazily.
+
+    If given, the second argument is the length of each output.
 
     ---- Examples ----
     >>> ['a', 'b', 'c'] | permutations 
@@ -1235,9 +1237,10 @@ def permutations_imp(v):
 
     ---- Signature ----
     List[T] -> List[List[T]]
+    (List[T], Int) -> List[List[T]]
     """
     from itertools import permutations
-    return permutations(v)
+    return permutations(v, r=n)
 
 
 def permutations_tp(x):
@@ -1268,7 +1271,7 @@ def combinations_tp(v, n):
 
 
 #---------------------------------------- always -----------------------------------------------
-def always_imp(x, value):
+def always_imp(x, value, *args):
     """
     Regardless of the input, always return the curried in value.
 
