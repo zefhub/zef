@@ -25,7 +25,9 @@ target_link_libraries(pyzef PUBLIC zef)
 
 add_custom_command(TARGET pyzef
   POST_BUILD
-  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:pyzef> ${ZEFDB_DIR}/zef/`basename $<TARGET_FILE:pyzef>`)
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:pyzef> ${ZEFDB_DIR}/zef/`basename $<TARGET_FILE:pyzef>`
+  COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:zef> ${ZEFDB_DIR}/zef/`basename $<TARGET_FILE:zef>`
+)
   
 install ( TARGETS pyzef
   LIBRARY DESTINATION "${CMAKE_INSTALL_LIBDIR}"
