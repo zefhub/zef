@@ -1825,7 +1825,8 @@ def mean_imp(v):
     List[Float] -> Float
     Set[Float] -> Float
     """
-    return sum(v) / length(v)
+    vv = tuple(v)
+    return sum(vv) / length(vv)
 
 
 def mean_tp(op, curr_type):
@@ -1843,8 +1844,9 @@ def variance_imp(v):
     List[Float] -> Float
     Set[Float] -> Float
     """
-    le = length(v)
-    return sum( (x*x for x in v) )/le - (sum(v)/le)**2
+    vv = tuple(v)
+    le = length(vv)
+    return sum( (x*x for x in vv) )/le - (sum(vv)/le)**2
 
 
 def variance_tp(v):

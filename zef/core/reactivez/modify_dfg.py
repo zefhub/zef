@@ -59,6 +59,8 @@ def find_existing_result_aw(z_stream, op):
     """
     return None             # TODO!!!!!!!!!!!!
 
+
+
 def pipeline_construction_step(txcontent__latest_awaitable, op):
     """
     latest_awaitable: either a ZefRef or a Z["s4"].
@@ -119,10 +121,6 @@ def pipeline_construction_step(txcontent__latest_awaitable, op):
         (Z[f"transform{next_awaitable_indx}"], RT.ZEF_Operator[f"op_rel{next_awaitable_indx}"], z_op),        # TODO: this is a placeholder for a linked_op
         (Z[f"op_rel{next_awaitable_indx}"], RT.ZEF_Args, ET.ZEF_List)
     )
-    # print(f"{prev_tx_content=}")
-    # print(f"{new_tx_content=}")
-    # print(f"{GraphDelta(new_tx_content)=}")
-    # print('\n')
     return new_tx_content, next_awaitable_indx     # the result streams internal names count up by 1
         
 
@@ -130,7 +128,17 @@ def pipeline_construction_step(txcontent__latest_awaitable, op):
 
 
 
-def reify_operator_pipeline_on_process_graph(a_left, a_right):
+def reify_operator_pipeline_on_dfg(a_left, a_right):
+    """ 
+    This function is called by the evaluation engine once
+    an awaitable is fused with a subscribe / run.
+    In contrast to lazy values, this changes the program state
+    by instantiating the relevant data pipelines on the dataflow
+    graph.
+
+    It is also worth noting that this function is only Called when
+
+    """
 
     from zef.ops import reduce, first, collect, run, execute
     from zef import func, EZefRef, GraphDelta
@@ -144,49 +152,16 @@ def reify_operator_pipeline_on_process_graph(a_left, a_right):
     print(all_el_ops)
     print(terminating_op)
 
+    print('^^^^^^^^')
+
 
     assert isinstance(concrete_awaitable, EZefRef)
     s_ini = concrete_awaitable | pg | run[execute]                  # make sure that this is merged into the local graph
 
 
     # iterate over states of form ([], last_awaitable)
-    return all_el_ops | reduce[pipeline_construction_step][( (), s_ini )] | first | func[GraphDelta] | collect | pg | run[execute]
-    
-    return all_el_ops
-
-    
-    tx_content, final_aw_index = all_el_ops | reduce[pipeline_construction_step][s_ini] | collect
-    return GraphDelta(tx_content) | pg | run[execute] | get[f"aw{final_aw_index}"] | collect            # TODO: wrap this as an awaitable / stream
-
-    return all_el_ops | map[first] | c
-
-    # get the state for the thread currently executing this
-
-    return pg | now | all | graphviz | c
+    all_el_ops | reduce[pipeline_construction_step][((), s_ini)] | first | func[GraphDelta] | collect | pg | run[execute]
+    return "TODO: return the resulting stream here"
 
 
-
-
-
-
-
-def instantiate_op_on_dfg(awaitable, run_or_sub):
-    """ 
-    This function is called by the evaluation engine once
-    an awaitable is fused with a subscribe / run.
-    In contrast to lazy values, this changes the program state
-    by instantiating the relevant data pipelines on the dataflow
-    graph.
-
-    It is also worth noting that this function is only Called when
-
-    """
-    # Doing things on the graph and return ezefref to the concrete stream
-    print(f"instantiate_op_on_dfg called! {awaitable=}    {run_or_sub=}")
-    
-    reify_operator_pipeline_on_process_graph(awaitable, run_or_sub)
-    
-    output_stream = None
-    return "NMot implemented!"
-    return Awaitable(output_stream)
 

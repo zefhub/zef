@@ -180,7 +180,7 @@ from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
 from abc import ABC
-from .reactivez.modify_dfg import instantiate_op_on_dfg
+from .reactivez.modify_dfg import reify_operator_pipeline_on_dfg
 
 
 class TraversableABC(ABC):
@@ -617,10 +617,10 @@ class Awaitable():
 
     def __or__(self, other):
         if isinstance(other, ZefOp) and is_evaluating_run(other):
-            return instantiate_op_on_dfg(self, other)
+            return reify_operator_pipeline_on_dfg(self, other)
 
         if isinstance(other, SubscribingOp):
-            return instantiate_op_on_dfg(self, other)
+            return reify_operator_pipeline_on_dfg(self, other)
 
         if isinstance(other, ZefOp):
             new_awaitable = Awaitable(self.initial_stream)
