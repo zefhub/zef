@@ -67,6 +67,14 @@ def query(request, context):
     else:
         auth_context = None
 
+    if request["method"] == "GET" or request["request_body"].strip() == "":
+        # This is to give some kind of response instead of a failure. Helps with
+        # health checks.
+        return {
+            "response_body": "Server waiting for GraphQL requests",
+            **request,
+        }
+
     q = json.loads(request["request_body"])
 
     success,data = graphql_sync(
