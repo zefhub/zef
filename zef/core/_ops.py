@@ -78,6 +78,8 @@ update          = make_zefop(RT.Update)
 remove_at       = make_zefop(RT.RemoveAt)
 merge           = make_zefop(RT.Merge)
 merge_with      = make_zefop(RT.MergeWith)
+int_to_alpha    = make_zefop(RT.IntToAlpha)
+permute_to      = make_zefop(RT.PermuteTo)
 
 
 # Implemented Lazy ZefOps

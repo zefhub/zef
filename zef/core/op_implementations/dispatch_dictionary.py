@@ -134,6 +134,8 @@ _op_to_functions = {
         RT.RemoveAt:        (remove_at_imp, None),
         RT.Merge:           (merge_imp, merge_tp),
         RT.MergeWith:       (merge_with_imp, merge_with_tp),
+        RT.IntToAlpha:      (int_to_alpha_imp, None),
+        RT.PermuteTo:       (permute_to_imp, None),
                 
         RT.Cycle:           (cycle_imp, cycle_tp),
         RT.Repeat:          (repeat_imp, repeat_tp),
