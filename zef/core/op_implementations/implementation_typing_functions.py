@@ -1293,6 +1293,64 @@ def always_tp(x):
     return VT.Any
 
 
+#---------------------------------------- absorbed -----------------------------------------------
+def absorbed_imp(x):
+    if isinstance(x, EntityType) or isinstance(x, RelationType) or isinstance(x, AtomicEntityType)  or isinstance(x, Keyword):
+        if '_absorbed' not in x.__dict__:
+            return ()
+        else:
+            return x._absorbed
+    
+    elif isinstance(x, ZefOp):
+        if len(x.el_ops) != 1: 
+            return Error(f'"absorbed" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
+        return x.el_ops[0][1]
+    else:
+        return Error(f'absorbed called on {type(x)=}   {x=}')
+
+
+
+
+
+
+#---------------------------------------- without_absorbed -----------------------------------------------
+def without_absorbed_imp(x):
+    """
+    Or "without_absorbed"?
+
+    Return the bare Type as if nothing had ever been absorbed.
+    """
+    if isinstance(x, EntityType):
+        if '_absorbed' not in x.__dict__:
+            return x
+        else:
+            new_et = EntityType(x.value)
+            return new_et
+    
+    elif isinstance(x, RelationType):
+        if '_absorbed' not in x.__dict__:
+            return x
+        else:
+            new_rt = RelationType(x.value)
+            return new_rt
+        
+    elif isinstance(x, AtomicEntityType):
+        return AtomicEntityType(x.value)
+                
+    elif isinstance(x, Keyword):
+        if '_absorbed' not in x.__dict__:
+            return x
+        else:
+            new_kw = Keyword(x.value)
+            return new_kw
+
+    return Error('Not Implemented')
+
+
+
+
+
+
 #---------------------------------------- add -----------------------------------------------
 def add_imp(a, second=None, *args):
     from functools import reduce
