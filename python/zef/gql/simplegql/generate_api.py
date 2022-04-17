@@ -397,6 +397,9 @@ input {list_fil_name} {{
 # * Query resolvers
 #----------------------------------
 
+class ExternalError(Exception):
+    pass
+
 def resolve_get(_, info, *, type_node, **params):
     # Look for something that fits exactly what has been given in the params, assuming
     # that ariadne has done its work and validated the query.
@@ -477,96 +480,115 @@ def resolve_id(z, info):
 # * Mutations
 #----------------------------
 def resolve_add(_, info, *, type_node, **params):
-    name_gen = NameGen()
-    actions = []
-    post_checks = []
-    new_obj_names = []
-    updated_objs = []
-    
-    # This is not optimal but simplest to understand for now.
-    upsert = params.get("upsert", False)
-    for item in params["input"]:
-        # Check id fields to see if we already have this.
-        if "id" in item:
-            if not upsert:
-                raise Exception("Can't update item with id without setting upsert")
-            obj = find_existing_entity(info, type_node, item["id"])
-            if obj is None:
-                raise Exception("Item doesn't exist")
-            set_d = {**item}
-            set_d.pop("id")
-            new_actions,new_post_checks = update_entity(obj, info, type_node, set_d, {}, name_gen)
-            actions += new_actions
-            post_checks += new_post_checks
-            updated_objs += [obj]
-        else:
-            obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen)
-            actions += more_actions
-            post_checks += more_post_checks
-            new_obj_names += [obj_name]
+    try:
+        name_gen = NameGen()
+        actions = []
+        post_checks = []
+        new_obj_names = []
+        updated_objs = []
 
-    g = info.context["g"]
-    with Transaction(g):
-        try:
-            r = actions | transact[g] | run
-            # TODO: Test all post checks
-            for (name,type_node) in post_checks:
-                if not pass_add_auth(r[name], type_node, info):
-                    raise Exception(f"Failure in add auth for type_node of: {type_node >> O[RT.Name] | value_or[''] | collect}")
-        except:
-            log.error("Aborted transaction",
-                      type_node=(type_node>>O[RT.Name]|value_or[""]|collect),
-                      params=params)
-            from ...pyzef.internals import AbortTransaction
-            AbortTransaction(g)
-            raise
+        # This is not optimal but simplest to understand for now.
+        upsert = params.get("upsert", False)
+        for item in params["input"]:
+            # Check id fields to see if we already have this.
+            if "id" in item:
+                if not upsert:
+                    raise Exception("Can't update item with id without setting upsert")
+                obj = find_existing_entity(info, type_node, item["id"])
+                if obj is None:
+                    raise Exception("Item doesn't exist")
+                set_d = {**item}
+                set_d.pop("id")
+                new_actions,new_post_checks = update_entity(obj, info, type_node, set_d, {}, name_gen)
+                actions += new_actions
+                post_checks += new_post_checks
+                updated_objs += [obj]
+            else:
+                obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen)
+                actions += more_actions
+                post_checks += more_post_checks
+                new_obj_names += [obj_name]
+
+        g = info.context["g"]
+        with Transaction(g):
+            try:
+                r = actions | transact[g] | run
+                # TODO: Test all post checks
+                for (name,type_node) in post_checks:
+                    if not pass_add_auth(r[name], type_node, info):
+                        type_name = {type_node >> O[RT.Name] | value_or[''] | collect}
+                        raise Exception(f"Add auth check for type_node of '{type_name}' returned False")
+            except Exception as exc:
+                log.error("Aborted transaction",
+                        type_node=(type_node>>O[RT.Name]|value_or[""]|collect),
+                          params=params, exc_info=exc)
+                from ...pyzef.internals import AbortTransaction
+                AbortTransaction(g)
+                raise ExternalError("Mutation did not pass add auth.")
 
 
-    ents = updated_objs + [r[name] for name in new_obj_names]
-    count = len(ents)
+        ents = updated_objs + [r[name] for name in new_obj_names]
+        count = len(ents)
 
-    return {"count": count, "ents": ents}
+        return {"count": count, "ents": ents}
+    except ExternalError:
+        raise
+    except Exception as exc:
+        log.error("There was an error in resolve_add", exc_info=exc)
+        raise Exception("Unexpected error")
             
         
 def resolve_update(_, info, *, type_node, **params):
-    if "input" not in params or "filter" not in params["input"]:
-        raise Exception("Not allowed to update everything!")
-    ents = resolve_query(_, info, type_node=type_node, filter=params["input"]["filter"])
+    try:
+        if "input" not in params or "filter" not in params["input"]:
+            raise Exception("Not allowed to update everything!")
+        ents = resolve_query(_, info, type_node=type_node, filter=params["input"]["filter"])
 
-    actions = []
-    name_gen = NameGen()
-    for ent in ents:
-        new_actions,new_post_checks = update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen)
-        actions += new_actions
-        post_checks += new_post_checks
+        actions = []
+        name_gen = NameGen()
+        for ent in ents:
+            new_actions,new_post_checks = update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen)
+            actions += new_actions
+            post_checks += new_post_checks
 
-    g = info.context["g"]
-    with Transaction(g):
-        r = actions | transact[g] | run
-        # TODO: Test all post checks
+        g = info.context["g"]
+        with Transaction(g):
+            r = actions | transact[g] | run
+            # TODO: Test all post checks
 
-    count = len(ents)
+        count = len(ents)
 
-    # Note: we return the details after the update
-    ents = ents | map[now] | collect
+        # Note: we return the details after the update
+        ents = ents | map[now] | collect
 
-    return {"count": count, "ents": ents}
+        return {"count": count, "ents": ents}
+    except ExternalError:
+        raise
+    except Exception as exc:
+        log.error("There was an error in resolve_update", exc_info=exc)
+        raise Exception("Unexpected error")
 
 def resolve_delete(_, info, *, type_node, **params):
-    g = info.context["g"]
-    # Do the same thing as a resolve_query but delete the entities instead.
-    if "filter" not in params:
-        raise Exception("Not allowed to delete everything!")
-    ents = resolve_query(_, info, type_node=type_node, **params)
+    try:
+        g = info.context["g"]
+        # Do the same thing as a resolve_query but delete the entities instead.
+        if "filter" not in params:
+            raise ExtenalError("Not allowed to delete everything!")
+        ents = resolve_query(_, info, type_node=type_node, **params)
 
-    if not ents | map[pass_delete_auth[type_node][info]] | all | collect:
-        raise Exception("Not allowed to delete")
+        if not ents | map[pass_delete_auth[type_node][info]] | all | collect:
+            raise ExtenalError("Auth check returned False")
 
-    [terminate[ent] for ent in ents] | transact[g] | run
+        [terminate[ent] for ent in ents] | transact[g] | run
 
-    count = len(ents)
+        count = len(ents)
 
-    return {"count": count, "ents": ents}
+        return {"count": count, "ents": ents}
+    except ExternalError:
+        raise
+    except Exception as exc:
+        log.error("There was an error in resolve_delete", exc_info=exc)
+        raise Exception("Unexpected error")
 
 def resolve_filter_response(obj, info, *, type_node, **params):
     ents = obj["ents"]
