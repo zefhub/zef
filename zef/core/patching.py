@@ -119,10 +119,35 @@ def _rae_get_item(self, n):
 
 
 main.RelationType.__getitem__ = _rae_get_item
-main.EntityType.__getitem__ = _rae_get_item
 internals.AtomicEntityType.__getitem__ = _rae_get_item
 main.QuantityFloat.__getitem__ = _rae_get_item
 main.QuantityInt.__getitem__ = _rae_get_item
+
+
+
+# ---------------------------- special treatment for EntityType ------------------------------------
+
+def entity_type_get_item(self, x):
+    # don't mutate, create a new instance
+    new_et = main.EntityType(self.value)
+    if '_absorbed' not in self.__dict__:
+        new_et._absorbed = (x, )
+    else:
+        new_et._absorbed = (*self._absorbed, x)
+    return new_et
+
+
+def entity_type_repr(self):
+    original = self.__repr_without_absorbed__()
+    if '_absorbed' not in self.__dict__:
+        return original
+    else:
+        return original + ''.join(('[' + repr(el) + ']' for el in self._absorbed))
+
+
+main.EntityType.__getitem__ = entity_type_get_item
+main.EntityType.__repr__ = entity_type_repr
+
 
 
 
