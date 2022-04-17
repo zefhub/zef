@@ -514,7 +514,9 @@ def resolve_add(_, info, *, type_node, **params):
                 if not pass_add_auth(r[name], type_node, info):
                     raise Exception(f"Failure in add auth for type_node of: {type_node >> O[RT.Name] | value_or[''] | collect}")
         except:
-            log.error("Aborted transaction")
+            log.error("Aborted transaction",
+                      type_node=(type_node>>O[RT.Name]|value_or[""]|collect),
+                      params=params)
             from ...pyzef.internals import AbortTransaction
             AbortTransaction(g)
             raise

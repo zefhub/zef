@@ -90,6 +90,9 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             if status == 200:
                 self.wfile.write(msg)
+        except BrokenPipeError:
+            log.error("Connection aborted unexpectedly")
+            pass
         except Exception as exc:
             # TODO: Place this error into a stream available to the user
             log.error("Some problem in handling HTTP request", exc_info=exc)

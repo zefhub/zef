@@ -83,6 +83,8 @@ def query(request, context):
         context_value={"g": context["g_data"],
                        "auth": auth_context},
     )
+    if not success or "errors" in data:
+        log.error("Failure in GQL query.", data=data, q=q, auth_context=auth_context)
     return {
         "response_body": json.dumps(data),
         **request
@@ -96,6 +98,11 @@ def start_server(z_gql_root,
 
     schema,objects = generate_resolvers_fcts(z_gql_root)
     ari_schema = make_executable_schema(schema, objects)
+
+    import logging
+    logger = logging.getLogger("ariadne").disabled = True
+    log.debug("Disabled ariadne logging")
+    
 
     if z_gql_root | has_out[RT.AuthHeader] | collect:
         url = z_gql_root >> RT.AuthJWKURL | value | collect
