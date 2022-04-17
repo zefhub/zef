@@ -2399,7 +2399,8 @@ def is_distinct_imp(v):
     Stream[T] -> Bool
     LazyValue[List[T]] -> Bool
     """
-    return len(v) == len(set(v))
+    vv = tuple(v)
+    return len(vv) == len(set(vv))
 
 
 
