@@ -119,7 +119,7 @@ def _rae_get_item(self, n):
 
 
 
-internals.AtomicEntityType.__getitem__ = _rae_get_item
+
 main.QuantityFloat.__getitem__ = _rae_get_item
 main.QuantityInt.__getitem__ = _rae_get_item
 
@@ -145,6 +145,16 @@ def relation_type_get_item(self, x):
     else:
         new_rt._absorbed = (*self._absorbed, x)
     return new_rt
+
+
+def atomic_entity_type_get_item(self, x):
+    # don't mutate, create a new instance
+    new_aet = internals.AtomicEntityType(self.value)
+    if '_absorbed' not in self.__dict__:
+        new_aet._absorbed = (x, )
+    else:
+        new_aet._absorbed = (*self._absorbed, x)
+    return new_aet
 
 
 def keyword_get_item(self, x):
@@ -174,6 +184,13 @@ main.RelationType.__repr__ = entity_type_repr
 
 main.Keyword.__getitem__ = keyword_get_item
 main.Keyword.__repr__ = entity_type_repr
+
+internals.AtomicEntityType.__getitem__ = atomic_entity_type_get_item
+internals.AtomicEntityType.__repr__ = entity_type_repr
+
+
+
+
 
 
 
