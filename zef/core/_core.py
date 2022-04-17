@@ -1,6 +1,7 @@
 from ..pyzef.main import (
     EntityType,
     Graph,
+    Keyword,
     QuantityFloat,
     QuantityInt,
     RelationType,

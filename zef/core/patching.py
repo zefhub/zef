@@ -118,7 +118,7 @@ def _rae_get_item(self, n):
     return instantiated[self][n]
 
 
-main.RelationType.__getitem__ = _rae_get_item
+
 internals.AtomicEntityType.__getitem__ = _rae_get_item
 main.QuantityFloat.__getitem__ = _rae_get_item
 main.QuantityInt.__getitem__ = _rae_get_item
@@ -137,6 +137,27 @@ def entity_type_get_item(self, x):
     return new_et
 
 
+def relation_type_get_item(self, x):
+    # don't mutate, create a new instance
+    new_rt = main.RelationType(self.value)
+    if '_absorbed' not in self.__dict__:
+        new_rt._absorbed = (x, )
+    else:
+        new_rt._absorbed = (*self._absorbed, x)
+    return new_rt
+
+
+def keyword_get_item(self, x):
+    # don't mutate, create a new instance
+    new_kw = main.Keyword(self.value)
+    if '_absorbed' not in self.__dict__:
+        new_kw._absorbed = (x, )
+    else:
+        new_kw._absorbed = (*self._absorbed, x)
+    return new_kw
+
+
+
 def entity_type_repr(self):
     original = self.__repr_without_absorbed__()
     if '_absorbed' not in self.__dict__:
@@ -148,6 +169,11 @@ def entity_type_repr(self):
 main.EntityType.__getitem__ = entity_type_get_item
 main.EntityType.__repr__ = entity_type_repr
 
+main.RelationType.__getitem__ = relation_type_get_item
+main.RelationType.__repr__ = entity_type_repr
+
+main.Keyword.__getitem__ = keyword_get_item
+main.Keyword.__repr__ = entity_type_repr
 
 
 
