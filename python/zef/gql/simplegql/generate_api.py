@@ -92,6 +92,10 @@ def generate_resolvers_fcts(schema_root):
             is_summable = z_field | target | op_is_orderable | collect
             is_aggregable = z_field | op_is_aggregable | collect
 
+            if op_is_unique(z_field):
+                assert is_scalar, "Unique fields must be scalars"
+                assert not is_list, "Unique fields can't be lists"
+
             base_field_type = z_field | target >> RT.Name | value | collect
             if is_scalar:
                 base_ref_field_type = base_field_type
@@ -105,12 +109,14 @@ def generate_resolvers_fcts(schema_root):
             if is_list:
                 maybe_params = "(" + schema_generate_list_params(target(z_field), extra_filters) + ")"
                 ref_field_type = "[" + base_ref_field_type + "]"
-                add_field_type = "[" + base_ref_field_type + maybe_required + "]"
+                # add_field_type = "[" + base_ref_field_type + maybe_required + "]"
+                add_field_type = ref_field_type
                 field_type = "[" + base_field_type + maybe_required + "]"
             else:
                 maybe_params = ""
                 ref_field_type = base_ref_field_type
-                add_field_type = base_ref_field_type + maybe_required
+                # add_field_type = base_ref_field_type + maybe_required
+                add_field_type = ref_field_type
                 field_type = base_field_type + maybe_required
             field_schemas += [f"{field_name}{maybe_params}: {field_type}"]
             add_field_schemas += [f"{field_name}: {add_field_type}"]
@@ -493,7 +499,7 @@ def resolve_add(_, info, *, type_node, **params):
             # Check id fields to see if we already have this.
             if "id" in item:
                 if not upsert:
-                    raise Exception("Can't update item with id without setting upsert")
+                    raise ExternalError("Can't update item with id without setting upsert")
                 obj = find_existing_entity(info, type_node, item["id"])
                 if obj is None:
                     raise Exception("Item doesn't exist")
@@ -509,25 +515,12 @@ def resolve_add(_, info, *, type_node, **params):
                 post_checks += more_post_checks
                 new_obj_names += [obj_name]
 
-        g = info.context["g"]
-        with Transaction(g):
-            try:
-                r = actions | transact[g] | run
-                # TODO: Test all post checks
-                for (name,type_node) in post_checks:
-                    if not pass_add_auth(r[name], type_node, info):
-                        type_name = {type_node >> O[RT.Name] | value_or[''] | collect}
-                        raise Exception(f"Add auth check for type_node of '{type_name}' returned False")
-            except Exception as exc:
-                log.error("Aborted transaction",
-                        type_node=(type_node>>O[RT.Name]|value_or[""]|collect),
-                          params=params, exc_info=exc)
-                from ...pyzef.internals import AbortTransaction
-                AbortTransaction(g)
-                raise ExternalError("Mutation did not pass add auth.")
-
+        r = commit_with_post_checks(actions, post_checks, info)
 
         ents = updated_objs + [r[name] for name in new_obj_names]
+        # Note: we return the details after any updates
+        ents = ents | map[now] | collect
+
         count = len(ents)
 
         return {"count": count, "ents": ents}
@@ -545,16 +538,15 @@ def resolve_update(_, info, *, type_node, **params):
         ents = resolve_query(_, info, type_node=type_node, filter=params["input"]["filter"])
 
         actions = []
+        post_checks = []
+
         name_gen = NameGen()
         for ent in ents:
             new_actions,new_post_checks = update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen)
             actions += new_actions
             post_checks += new_post_checks
 
-        g = info.context["g"]
-        with Transaction(g):
-            r = actions | transact[g] | run
-            # TODO: Test all post checks
+        commit_with_post_checks(actions, post_checks, info)
 
         count = len(ents)
 
@@ -824,8 +816,9 @@ def add_new_entity(info, type_node, params, name_gen):
     post_checks = []
 
     this = str(next(name_gen))
+    type_name = type_node >> RT.Name | value | collect
 
-    post_checks += [(this, type_node)]
+    post_checks += [("add", this, type_node)]
 
     et = ET(type_node >> RT.GQL_Delegate | collect)
     actions += [et[this]]
@@ -833,18 +826,29 @@ def add_new_entity(info, type_node, params, name_gen):
     # This should probably be cached
     field_mapping = {}
     for z_field in type_node > L[RT.GQL_Field]:
-        field_mapping[value(z_field >> RT.Name)] = z_field
+        field_name = value(z_field >> RT.Name)
+        field_mapping[field_name] = z_field
+        # Convenient spot to validate that required fields have been specified.
+        if op_is_required(z_field):
+            if field_name not in params:
+                raise ExternalError(f"Required field '{field_name}' not given when creating new entity of type '{type_name}'")
 
-    # TODO: Validate that all required fields are present
+
     for key,val in params.items():
         # TODO: Validate that any unique field is not duplicated
         z_field = field_mapping[key]
+        field_name = value(z_field >> RT.Name)
         rt = RT(z_field >> RT.GQL_Resolve_With | collect)
         if z_field | op_is_list | collect:
             if not isinstance(val, list):
                 raise Exception(f"Value should have been list but was {type(val)}")
 
         if z_field | target | op_is_scalar | collect:
+            if op_is_unique(z_field):
+                others = info.context["g"] | now | all[et] | filter[Z >> O[rt] | value_or[None] | equals[val]] | func[set] | collect
+                if len(others) > 0:
+                    log.error("Trying to add a new entity with unique field that conflicts with others", et=et, field=field_name, others=others)
+                    raise ExternalError(f"Unique field '{field_name}' conflicts with existing items.")
             if z_field | op_is_list | collect:
                 l = val
             else:
@@ -885,18 +889,21 @@ def find_or_add_entity(val, info, target_node, params, name_gen):
     
 
 def update_entity(z, info, type_node, set_d, remove_d, name_gen):
+    type_name = type_node >> RT.Name | value | collect
+
     # Refuse to set and remove the same thing. Just too confusing to deal with
+    assert(len(set(set_d.keys()).intersection(remove_d.keys())) == 0), "Can't have the same set/remove keys"
+    if len(set_d) + len(remove_d) == 0:
+        raise ExternalError("No set or remove in update_entity!")
 
     # This is the pre-update auth only
     # TODO: Post-update auth
-    if not pass_update_auth(z, type_node, info):
-        raise Exception("Not allowed to add.")
-
-    assert(len(set(set_d.keys()).intersection(remove_d.keys())) == 0), "Can't have the same set/remove keys"
-    if len(set_d) + len(remove_d) == 0:
-        raise Exception("No set or remove in update_entity!")
+    if not pass_pre_update_auth(z, type_node, info):
+        raise ExternalError("Not allowed to update")
 
     actions = []
+    post_checks = []
+    post_checks += [("update", z, type_node)]
 
     # This should probably be cached
     field_mapping = {}
@@ -906,12 +913,21 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
     for key,val in set_d.items():
         # TODO: Validate that any unique field is not duplicated
         z_field = field_mapping[key]
+        field_name = value(z_field >> RT.Name)
         # TODO: This should be able to distinguish based on the triple, not just the RT
         rt = RT(z_field >> RT.GQL_Resolve_With | collect)
 
         if op_is_list(z_field):
             raise Exception(f"Updating list things is a todo (for {z_field=})")
         else:
+            if op_is_unique(z_field):
+                et = ET(type_node >> RT.GQL_Delegate | collect)
+                others = info.context["g"] | now | all[et] | filter[Z >> O[rt] | value_or[None] | equals[val]] | collect
+                others = set(others) - {z}
+                if len(others) > 0:
+                    log.error("Trying to modify entity with unique field that conflicts with others", z=z, et=et, field=field_name, others=others)
+                    raise ExternalError(f"Unique field '{field_name}' conflicts with existing items.")
+
             if op_is_incoming(z_field):
                 maybe_prior_rel = z < O[rt] | collect
             else:
@@ -928,9 +944,12 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
                 raise Exception("Updating non-scalars is TODO")
     
     for key,val in remove_d.items():
-        # TODO: Validate that required fields are not removed
-        assert val is None, "Remove vals need to be nil"
+        if val is not None:
+            raise ExternalError("Remove vals need to be nil")
         z_field = field_mapping[key]
+        field_name = value(z_field >> RT.Name)
+        if op_is_required(z_field):
+            raise ExternalError(f"Not allowed to remove required field '{field_name}' on type '{type_name}'")
         # TODO: This should be able to distinguish based on the triple, not just the RT
         rt = RT(z_field >> RT.GQL_Resolve_With | collect)
         if op_is_incoming(z_field):
@@ -943,73 +962,51 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
         if z_field | target | op_is_scalar | collect:
             actions += [terminate[target(rel)] for rel in rels]
 
-    return actions
+    return actions, post_checks
 
 
 ##############################
 # * Auth things
 #----------------------------
 
-@func
-def pass_query_auth(z, schema_node, info):
-    # TODO: Later on these will be zef functions so easier to call
-    if not schema_node | has_out[RT.AllowQuery] | collect:
+def pass_auth_generic(z, schema_node, info, rt_list):
+    to_call = None
+    for rt in rt_list:
+        to_call = schema_node >> O[rt] | collect
+        if to_call is not None:
+            break
+    else:
         return True
+
+    print("Calling a func in pass_auth_generic")
+
+    # TODO: Later on these will be zef functions so easier to call
     return temporary__call_string_as_func(
-        schema_node >> RT.AllowQuery | value | collect,
+        to_call | value | collect,
         z=z,
         info=info,
         type_node=schema_node
     )
+
+@func
+def pass_query_auth(z, schema_node, info):
+    return pass_auth_generic(z, schema_node, info, [RT.AllowQuery])
 
 @func
 def pass_add_auth(z, schema_node, info):
-    # TODO: Later on these will be zef functions so easier to call
-    to_call = schema_node >> O[RT.AllowAdd] | collect
-    if to_call is None:
-        to_call = schema_node >> O[RT.AllowQuery] | collect
-    if to_call is None:
-        return True
-    return temporary__call_string_as_func(
-        to_call | value | collect,
-        z=z,
-        info=info,
-        type_node=schema_node,
-    )
+    return pass_auth_generic(z, schema_node, info, [RT.AllowAdd, RT.AllowQuery])
 
 @func
-def pass_update_auth(z, schema_node, info):
-    # TODO: Later on these will be zef functions so easier to call
-    to_call = schema_node >> O[RT.AllowUpdate] | collect
-    if to_call is None:
-        to_call = schema_node >> O[RT.AllowQuery] | collect
-    if to_call is None:
-        return True
-    # Need to introduce the post-update auth too 
-    return temporary__call_string_as_func(
-        to_call | value | collect,
-        z=z,
-        info=info,
-        type_node=schema_node
-    )
+def pass_pre_update_auth(z, schema_node, info):
+    return pass_auth_generic(z, schema_node, info, [RT.AllowUpdate, RT.AllowQuery])
+
+@func
+def pass_post_update_auth(z, schema_node, info):
+    return pass_auth_generic(z, schema_node, info, [RT.AllowUpdatePost, RT.AllowUpdate, RT.AllowQuery])
 
 @func
 def pass_delete_auth(z, schema_node, info):
-    # TODO: Later on these will be zef functions so easier to call
-    to_call = schema_node >> O[RT.AllowDelete] | collect
-    if to_call is None:
-        to_call = schema_node >> O[RT.AllowUpdate] | collect
-    if to_call is None:
-        to_call = schema_node >> O[RT.AllowQuery] | collect
-    if to_call is None:
-        return True
-    return temporary__call_string_as_func(
-        to_call | value | collect,
-        z=z,
-        info=info,
-        type_node=schema_node
-    )
-
+    return pass_auth_generic(z, schema_node, info, [RT.AllowDelete, RT.AllowUpdate, RT.AllowQuery])
 
 def temporary__call_string_as_func(s, **kwds):
     from ... import core, ops
@@ -1031,3 +1028,34 @@ def temporary__call_string_as_func(s, **kwds):
         out = out(kwds.get("z", None))
 
     return out
+
+
+
+def commit_with_post_checks(actions, post_checks, info):
+    g = info.context["g"]
+    with Transaction(g):
+        try:
+            r = actions | transact[g] | run
+            # Test all post checks
+            for (kind,obj,type_node) in post_checks:
+                if type(obj) == str:
+                    obj = r[obj]
+                assert type(obj) == ZefRef
+                obj = now(obj)
+                type_name = {type_node >> O[RT.Name] | value_or[''] | collect}
+
+                if kind == "add":
+                    if not pass_add_auth(obj, type_node, info):
+                        raise Exception(f"Add auth check for type_node of '{type_name}' returned False")
+                elif kind == "update":
+                    if not pass_post_update_auth(obj, type_node, info):
+                        raise Exception(f"Post-update auth check for type_node of '{type_name}' returned False")
+        except Exception as exc:
+            log.error("Aborting transaction",
+                      type_node=type_name,
+                      exc_info=exc)
+            from ...pyzef.internals import AbortTransaction
+            AbortTransaction(g)
+            raise ExternalError("Mutation did not pass auth checks")
+
+    return r

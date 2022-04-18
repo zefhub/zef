@@ -54,6 +54,8 @@ def parse_partial_graphql(schema):
                             t_def["_AllowAdd"] = arg.value.value
                         elif arg.name.value == "update":
                             t_def["_AllowUpdate"] = arg.value.value
+                        elif arg.name.value == "updatePost":
+                            t_def["_AllowUpdatePost"] = arg.value.value
                         elif arg.name.value == "delete":
                             t_def["_AllowDelete"] = arg.value.value
                         else:
@@ -194,7 +196,7 @@ def json_to_minimal_nodes(json):
                 if field_name == "_ET":
                     continue
                 
-                assert field_name in ["_AllowQuery", "_AllowAdd", "_AllowUpdate", "_AllowDelete"]
+                assert field_name in ["_AllowQuery", "_AllowAdd", "_AllowUpdate", "_AllowUpdatePost", "_AllowDelete"]
                 # TODO: Turn into a zef function later on
                 actions += [(Z[type_name], RT(field_name[1:]), field),]
             else:
