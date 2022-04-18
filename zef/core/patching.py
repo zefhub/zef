@@ -168,7 +168,7 @@ def keyword_get_item(self, x):
 
 
 
-def entity_type_repr(self):
+def repr_with_absorbed(self):
     original = self.__repr_without_absorbed__()
     if '_absorbed' not in self.__dict__:
         return original
@@ -177,16 +177,16 @@ def entity_type_repr(self):
 
 
 main.EntityType.__getitem__ = entity_type_get_item
-main.EntityType.__repr__ = entity_type_repr
+main.EntityType.__repr__ = repr_with_absorbed
 
 main.RelationType.__getitem__ = relation_type_get_item
-main.RelationType.__repr__ = entity_type_repr
+main.RelationType.__repr__ = repr_with_absorbed
 
 main.Keyword.__getitem__ = keyword_get_item
-main.Keyword.__repr__ = entity_type_repr
+main.Keyword.__repr__ = repr_with_absorbed
 
 internals.AtomicEntityType.__getitem__ = atomic_entity_type_get_item
-internals.AtomicEntityType.__repr__ = entity_type_repr
+internals.AtomicEntityType.__repr__ = repr_with_absorbed
 
 
 
