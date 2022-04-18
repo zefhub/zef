@@ -201,7 +201,7 @@ internals.AtomicEntityType.__repr__ = repr_with_absorbed
 # For consistency, we use Lazy ZefOps as intermediate containers
 def leq_monkey_patching_ae(self, other):
     from ._ops import assign_value, instantiated, LazyValue
-    return LazyValue(instantiated[self]) | assign_value[other]
+    return LazyValue(self) | assign_value[other]
     
 AtomicEntityType.__le__ = leq_monkey_patching_ae
 
