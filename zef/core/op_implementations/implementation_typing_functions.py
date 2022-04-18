@@ -839,7 +839,7 @@ def remove_tp(input_arg0_tp, input_arg1_tp):
 
 
 #---------------------------------------- get -----------------------------------------------
-def get_imp(d, key):
+def get_imp(d, key, default=None):
     """
     Typically used for key lookups, equivalent to '[]' operator.
     External function equivalent to Python's '__get__' method.
@@ -849,7 +849,8 @@ def get_imp(d, key):
     """
     if isinstance(d, FlatGraph):
         return fg_get_imp(d, key)
-    return d[key]
+    if key not in d and not default: return Error(f"{key} doesn't exist in passed dict and a default wasn't provided!")
+    return d.get(key, default)
 
 
 def get_tp(d_tp, key_tp):
@@ -5343,7 +5344,7 @@ def transact_imp(data, g, **kwargs):
                     if b[0] in idx_key: base = b[1][idx_key[b[0]]]
                     else: base = b[1][idx]
                     return (src_blb, base, trgt_blb)
-    
+
                 elif isinstance(b[1], str) and b[1][:2] == "BT":
                     if for_rt:
                         return Z[blake3(b[-1])]
@@ -5354,9 +5355,9 @@ def transact_imp(data, g, **kwargs):
                             return aet[blake3(b[-1])] <= (b[-1])
                         else:
                             return AET.Serialized[blake3(b[-1])] <= to_json(b[-1])
-                
+
                 raise NotImplementedError(f"Unhandled type in dispatching {b}")
-    
+
             for b in fg.blobs | filter[lambda b: b != None] | collect:
                 el = dispatch_on_blob(b)
                 if el != None: return_elements.append(el)
