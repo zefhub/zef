@@ -92,6 +92,7 @@ class ProxyGraph:
                  undirected=False,
                  multigraph=False,
                  reversed=False,
+                 include_type_as_field=True,
                  **kwds
                  ):
         if isinstance(gs, Graph):
@@ -105,6 +106,7 @@ class ProxyGraph:
         self.undirected = undirected
         self.multigraph = multigraph
         self.reversed = reversed
+        self.include_type_as_field = include_type_as_field
         assert not multigraph, "Currently no multigraph support"
 
         # On creation, we make a consistent mapping of indices, just so we can
@@ -250,7 +252,9 @@ class ProxyGraph:
                            self.rts,
                            undirected=self.undirected,
                            multigraph=self.multigraph,
-                           reversed=self.reversed)
+                           reversed=self.reversed,
+                           include_type_as_field=self.include_type_as_field,
+                          )
                            
     def reverse(self):
         return ProxyGraph(self.gs,
@@ -258,7 +262,9 @@ class ProxyGraph:
                            self.rts,
                            undirected=self.undirected,
                            multigraph=self.multigraph,
-                           reversed=not self.reversed)
+                           reversed=not self.reversed,
+                           include_type_as_field=self.include_type_as_field,
+                          )
 
     def to_undirected(self):
         return ProxyGraph(self.gs,
@@ -266,7 +272,9 @@ class ProxyGraph:
                            self.rts,
                            undirected=True,
                            multigraph=self.multigraph,
-                           reversed=self.reversed)
+                           reversed=self.reversed,
+                           include_type_as_field=self.include_type_as_field,
+                          )
 
     def to_directed(self):
         return ProxyGraph(self.gs,
@@ -274,9 +282,11 @@ class ProxyGraph:
                            self.rts,
                            undirected=False,
                            multigraph=self.multigraph,
-                           reversed=self.reversed)
+                           reversed=self.reversed,
+                           include_type_as_field=self.include_type_as_field,
+                          )
 
-    def to_native(self):
+    def to_native(self, include_fields=False):
         import networkx as nx
         assert not self.multigraph
         if self.undirected:
@@ -284,11 +294,12 @@ class ProxyGraph:
         else:
             nxg = nx.DiGraph()
 
-        for n in self.nodes:
-            nxg.add_node(n)
-
-        for e in self.edges:
-            nxg.add_edge(*e)
+        if include_fields:
+            nxg.add_nodes_from(self.nodes.items())
+            nxg.add_edges_from(self.edges.data())
+        else:
+            nxg.add_nodes_from(self.nodes)
+            nxg.add_edges_from(self.edges)
 
         return nxg
             
@@ -307,7 +318,7 @@ class ProxyNodeView:
 
     def __getitem__(self, node):
         z = self.dg[node].z
-        return get_props_on(z)
+        return get_props_on(z, include_type=self.dg.include_type_as_field)
     
     # def __setitem__(self, item, val):
     #     # Set props
@@ -318,9 +329,18 @@ class ProxyNodeView:
     def __len__(self):
         return len(self.dg.node_mapping)
 
+    def items(self):
+        for n in self:
+            yield n,self[n]
+
+    def data(self):
+        for n in self:
+            yield n,self[n]
+
     def __call__(self, data=False, default=None):
         assert data is False
         return self
+        
 
 class ProxyEdgeView:
     def __init__(self, dg, dataview=False):
@@ -343,7 +363,7 @@ class ProxyEdgeView:
                 | map[first]
                 | single
                 | collect)
-            return get_props_on(rel)
+            return get_props_on(rel, include_type=self.dg.include_type_as_field)
         else:
             # This is a Zef-specific extension.
 
@@ -355,7 +375,7 @@ class ProxyEdgeView:
             # Throw exceptions if the src/trg is not in the valid node list
             self.dg[src]
             self.dg[trg]
-            return get_props_on(rel)
+            return get_props_on(rel, include_type=self.dg.include_type_as_field)
     
     # def __setitem__(self, item, val):
     #     # Set props
@@ -398,15 +418,25 @@ class ProxyEdgeView:
             # TODO: This might change in the future with zef, so will have to update this
             return False
 
+    def items(self):
+        for e in self:
+            yield n,self[n]
+
+    def data(self):
+        for e in self:
+            yield e[0],e[1],self[e]
+
     def __call__(self, data=False, default=None):
         assert default is None
         return ProxyEdgeView(self.dg, data)
             
 
-def get_props_on(z):
+def get_props_on(z, include_type):
     props = {}
     for rel in z > L[RT] | filter[target | is_a[AET]]:
         props[str(RT(rel))] = rel|target|value|collect
+    if include_type:
+        props["type"] = rae_type(z)
     return props
 
 # This is the view of a node in the context of a ProxyGraph, that allows for
@@ -445,7 +475,7 @@ class ProxyAtlasView:
 
         rel = single(opts)
 
-        return get_props_on(rel)
+        return get_props_on(rel, include_type=self.dg.include_type_as_field)
 
 # I am a little confused how repetitive this implementation seems...
 class ProxyAdjacencyView:
