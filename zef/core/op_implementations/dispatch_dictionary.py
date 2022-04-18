@@ -239,4 +239,5 @@ _op_to_functions = {
 
         RT.Function:           (function_imp, function_tp),
         RT.On:                 (on_implementation, None),
+        RT.Range:              (range_imp, range_tp),
 }

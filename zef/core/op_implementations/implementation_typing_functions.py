@@ -5425,3 +5425,16 @@ def fg_merge_imp(fg1, fg2):
     new_fg.blobs = blobs
     new_fg.key_dict = k_dict
     return new_fg
+
+
+
+
+#-----------------------------Range----------------------------------------
+def range_imp(*args):
+    def generator_wrapper(r):
+        yield from iter(r)
+    
+    return generator_wrapper(range(*args))
+
+def range_tp(op, curr_type):
+    return None
