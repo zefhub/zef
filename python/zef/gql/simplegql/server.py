@@ -39,11 +39,7 @@ def resolve_token(request, header, aud, namespace, jwk):
     if len(parts) != 2 or parts[0] != "Bearer":
         # raise Exception(f"x-auth-header is of the wrong format ({token_header})")
         log.error("x-auth-header is of the wrong format", token_header=token_header)
-        return {
-            **request,
-            "response_body": "Invalid auth header",
-            "response_status": 400
-        }
+        raise Exception("Invalid auth header")
     token = parts[1]
 
     auth_result = jwt.decode(token, jwk)
@@ -63,7 +59,15 @@ def query(request, context):
         aud = context["z_gql_root"] >> RT.AuthAudience | value | collect
         namespace = context["z_gql_root"] >> O[RT.AuthNamespace] | value_or[None] | collect
 
-        auth_context = resolve_token(request, header, aud, namespace, context["jwk"])
+        try:
+            auth_context = resolve_token(request, header, aud, namespace, context["jwk"])
+        except Exception as exc:
+            log.error("Auth failed", exc_info=exc)
+            return {
+                "response_body": "Auth failed",
+                "response_status": 400,
+                **request
+            }
     else:
         auth_context = None
 

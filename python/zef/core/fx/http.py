@@ -80,8 +80,8 @@ class Handler(BaseHTTPRequestHandler):
                 pass
 
             status,headers,msg = result
-
             if status != 200:
+                msg = msg.decode('utf-8')
                 self.send_response(status, msg)
             else:
                 self.send_response(status)
@@ -218,7 +218,7 @@ def http_send_response_handler(eff: Effect):
     headers = copy.deepcopy(headers)
 
     header_names = set(k.lower() for k in headers)
-    if msg is not None:
+    if msg is not None and status == 200:
         if "content-length" not in header_names:
             headers["Content-Length"] = str(len(msg))
         if "content-type" not in header_names:
