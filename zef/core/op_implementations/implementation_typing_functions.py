@@ -5095,10 +5095,18 @@ def fg_insert_imp(fg, new_el):
     def common_logic(new_el):
         if isinstance(new_el, EntityType):
             idx = next_idx()
+            internal_id = new_el | absorbed | attempt[single][None] | collect
+            new_el = new_el | without_absorbed | collect
+            if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None))
+
         elif isinstance(new_el, AtomicEntityType):
             idx = next_idx()
+            internal_id = new_el | absorbed | attempt[single][None] | collect
+            new_el = new_el | without_absorbed | collect
+            if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None, None))
+
         elif isinstance(new_el, Entity):
             node_type, node_uid = new_el.d['type'], new_el.d['uid']
             if node_uid not in new_key_dict:
@@ -5106,6 +5114,7 @@ def fg_insert_imp(fg, new_el):
                 new_blobs.append((idx, node_type, [], node_uid))
                 new_key_dict[node_uid] = idx
             idx = new_key_dict[node_uid]
+
         elif isinstance(new_el, AtomicEntity):
             node_type, node_uid = new_el.d['type'], new_el.d['uid']
             if node_uid not in new_key_dict:
@@ -5113,54 +5122,43 @@ def fg_insert_imp(fg, new_el):
                 new_blobs.append((idx, node_type, [], node_uid, None))
                 new_key_dict[node_uid] = idx
             idx = new_key_dict[node_uid]
+
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Instantiated):
-            tup = peel(new_el) | first | second | collect
-            idx = next_idx()
-            if isinstance(tup[0], EntityType):
-                new_blobs.append((idx, tup[0], [], None))
-                new_key_dict[tup[1]] = idx
-            elif isinstance(tup[0], AtomicEntityType):
-                internal_uid = tup | attempt[second][None] | collect
-                new_blobs.append((idx, tup[0], [], None, None))
-                if internal_uid: new_key_dict[internal_uid] = idx
-            else:
-                raise ValueError("")
+            raise ValueError("!!!!SHOULD NO LONGER ARRIVE HERE!!!!")
+
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
             key = peel(new_el)| first | second | first | collect
             if key not in new_key_dict: raise KeyError(f"{key} doesn't exist in internally known ids!")
             idx = new_key_dict[key]
+
         # i.e: z4 <= 42 ; AET.String <= "42" ; AET.String['z1'] <= 42 ; Z['n1'] <= 42
-        # Becomes LazyValue(zr_or_op, assign_value[X])
         elif isinstance(new_el, LazyValue) and length(peel(new_el)) == 2:
-            if isinstance(peel(new_el)[0], ZefOp):
-                first_op = peel(new_el)[0]
-                if inner_zefop_type(first_op, RT.Instantiated):
-                    aet_maybe = peel(peel(new_el)[0])[0][1][0]
+            first_op = peel(new_el)[0]
+            if isinstance(first_op, AtomicEntityType):
+                    internal_id = first_op | absorbed | attempt[single][None] | collect
+                    aet_maybe = first_op | without_absorbed | collect
                     assert isinstance(aet_maybe, AtomicEntityType), f"{new_el} should be of type AET"
                     aet_value = peel(peel(new_el)[1])[0][1][0]
                     idx = next_idx()
                     new_blobs.append((idx, aet_maybe, [], None, aet_value))
-                    if len(peel(peel(new_el)[0])[0][1]) > 1: new_key_dict[peel(peel(new_el)[0])[0][1][1]] = idx
-                elif inner_zefop_type(first_op, RT.Z):
-                    key = peel(peel(new_el)[0])[0][1][0]
+                    if internal_id: new_key_dict[internal_id] = idx
+            elif isinstance(first_op, ZefOp):
+                if inner_zefop_type(first_op, RT.Z):
+                    key = peel(first_op)[0][1][0]
                     aet_value = peel(peel(new_el)[1])[0][1][0]
                     if key not in new_key_dict: raise KeyError(f"{key} doesn't exist in internally known ids!")
                     idx = new_key_dict[key]
                     assert isinstance(new_blobs[idx][1], AtomicEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
                     new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
                 else:
-                    raise ValueError(f"Was expecting a AET.String['z1'] <= 42 or Z['n1'] <= 42 got {new_el} instead!")
-            elif isinstance(peel(new_el)[0], ZefRef) or isinstance(peel(new_el)[0], EZefRef):
-                idx = common_logic(peel(new_el)[0])
+                    raise ValueError(f"Expected a Z['n1'] <= 42 got {new_el} instead!")
+            elif isinstance(first_op, ZefRef) or isinstance(first_op, EZefRef):
+                idx = common_logic(first_op)
                 assert isinstance(new_blobs[idx][1], AtomicEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
                 aet_value = peel(peel(new_el)[1])[0][1][0]
                 new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
             else:
-                raise ValueError(f"Was expecting a z <= 42 ; AET.String <= 42 got {new_el} instead!")
-                
-        elif isinstance(new_el, FlatRef):
-            assert new_el.fg == fg, "The FlatRef's origin FlatGraph doesn't match current FlatGraph."
-            idx = new_el.idx
+                raise ValueError(f"Expected a z <= 42 or AET.String <= 42 got {new_el} instead!")
 
         elif isinstance(new_el, Val):
             new_el = new_el.arg
@@ -5171,6 +5169,10 @@ def fg_insert_imp(fg, new_el):
                 new_blobs.append((idx, "BT.ValueNode", [], new_el))  # TODO Don't treat as str once added to Zef types
             idx = new_key_dict[hash_vn]
 
+        elif isinstance(new_el, FlatRef):
+            assert new_el.fg == fg, "The FlatRef's origin FlatGraph doesn't match current FlatGraph."
+            idx = new_el.idx
+
         elif type(new_el) in list(map_scalar_to_aet_type.keys()): 
             aet = map_scalar_to_aet_type[type(new_el)](new_el)
             idx = next_idx()
@@ -5180,6 +5182,7 @@ def fg_insert_imp(fg, new_el):
             idx = common_logic(origin_rae(new_el))
             if isinstance(new_blobs[idx][1], AtomicEntityType) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))
+                
         else:
             idx = None
         return idx
@@ -5193,13 +5196,16 @@ def fg_insert_imp(fg, new_el):
         assert isinstance(src_idx, int) and isinstance(trgt_idx, int), "Couldn't find/create src or target!"
         assert type(rt) in {RelationType, ZefOp}, "Tuples must have Relation as second item."
         idx = next_idx()
-        # Case of RT.A['a'] or Z['a']
-        if isinstance(rt, ZefOp): 
-            if inner_zefop_type(rt, RT.Instantiated):
-                rt, internal_id = peel(rt) | first | second | collect
-                new_key_dict[internal_id] = idx
-            elif inner_zefop_type(rt, RT.Z):
-                raise ValueError(f"Cannot reference an internal element to be used as a Relation. {rt}")
+
+        # Case of RT.A['a']
+        if isinstance(rt, RelationType):
+            internal_id = LazyValue(rt) | absorbed | attempt[single][None] | collect
+            rt = LazyValue(rt) | without_absorbed | collect
+            if internal_id: new_key_dict[internal_id] = idx
+        # Case of Z['a']
+        elif isinstance(rt, ZefOp) and inner_zefop_type(rt, RT.Z): 
+            raise ValueError(f"Cannot reference an internal element to be used as a Relation. {rt}")
+
         new_blobs.append((idx, rt, [], None, src_idx, trgt_idx))
         if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
         if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
