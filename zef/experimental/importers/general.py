@@ -57,7 +57,12 @@ def inject_networkx_into_zef(nxg: DiGraph,
                              fieldname_translation = default_fieldname_translation,
                              aet_translation = default_aet_translation,
                              ignore_excess_ET_RT_types: bool = False,
-                             ignore_duplicate_fields: bool = False
+                             ignore_duplicate_fields: bool = False,
+                             # ET to use when the translation returns an empty string
+                             default_et = ET.Node,
+                             # RT to use when the translation returns an empty string
+                             default_rt = RT.Edge,
+                             store_id = RT.ID,
                              ):
     # First check that we don't end up with a large number of ET and RT types.
     # This would be likely due to a bad conversion of the names
@@ -65,13 +70,13 @@ def inject_networkx_into_zef(nxg: DiGraph,
         theset = set()
         for pair in nxg.nodes.items():
             theset.add(ET_translation(*pair))
-        if len(theset) > len(nxg.nodes) / 3:
+        if len(nxg.nodes) > 12 and len(theset) > len(nxg.nodes) / 3:
             raise Exception(f"After converting the node names, there were still {len(theset)} types left out of {len(nxg.nodes)} nodes.")
 
         theset = set()
         for pair in nxg.edges.items():
             theset.add(RT_translation(*pair))
-        if len(theset) > len(nxg.edges) / 3:
+        if len(nxg.edges) > 12 and len(theset) > len(nxg.edges) / 3:
             raise Exception(f"After converting the edge names, there were still {len(theset)} types left out of {len(nxg.edges)} edges.")
 
 
@@ -81,7 +86,10 @@ def inject_networkx_into_zef(nxg: DiGraph,
         for key,data in nxg.nodes.items():
             try:
                 name = ET_translation(key,data)
-                et = ET(name)
+                if name == "":
+                    et = default_et
+                else:
+                    et = ET(name)
             except Exception as exc:
                 raise Exception(f"Unable to make ET from '{name}'") from exc
 
@@ -93,13 +101,16 @@ def inject_networkx_into_zef(nxg: DiGraph,
         for conn,data in nxg.edges.items():
             try:
                 name = RT_translation(conn, data)
-                rt = RT(name)
+                if name == "":
+                    rt = default_rt
+                else:
+                    rt = RT(name)
             except Exception as exc:
                 raise Exception(f"Unable to make RT from '{name}'") from exc
 
             source = entity_mapping[conn[0]]
             target = entity_mapping[conn[1]]
-            rel = (source, rt, target) | zg | run
+            _,rel,_ = (source, rt, target) | zg | run
 
             relation_mapping[conn] = rel
 
