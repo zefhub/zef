@@ -1301,6 +1301,9 @@ def absorbed_imp(x):
         else:
             return x._absorbed
     
+    elif type(x) in {Entity, Relation, AtomicEntity}:
+        return x.d['absorbed']
+
     elif isinstance(x, ZefOp):
         if len(x.el_ops) != 1: 
             return Error(f'"absorbed" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
