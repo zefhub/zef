@@ -55,6 +55,60 @@ def verify_zef_list(z_list: ZefRef):
 
 
 
+####################################################
+# * TEMPLATE FOR DOCSTRINGS
+#--------------------------------------------------
+#
+    """ 
+    <General description>
+ 
+    ---- Examples ----
+    >>> <example one-liner 1>       # => <result of the one-liner (a value)>
+    >>> <example one-liner 2>       # <comment on the behaviour (not a value)>
+ 
+    <description of following example>
+    >>> <example one-liner with multiline result>
+    ... <result line 1>
+    ... <result line 2>
+ 
+    <description of following example>
+    >>> <multiline example line 1>
+    >>> <multiline example line 2>
+    >>> <multiline example line 3>  # => <result of multiline example>
+ 
+    ---- Signature ----
+    <method 1: input types as tuple> -> <output type>
+    <method 2: input types as tuple> -> <output type>
+ 
+    ---- Related ----
+    - <keyword 1>
+    - <keyword 2>
+    """
+_dummy = None
+#
+# Notes:
+#  - Always include a newline after the opening """.
+#
+#  - Always put the closing """ on a separate line.
+#
+#  - General description can be as long as needed and include multiple paragraphs.
+#
+#  - Include newlines between examples to allow automatic parsing.
+#
+#  - The examples should not include an explicit "collect", they instead
+#  - document what the output value would be at this point in the op chain.
+#
+#  - If a zefop can be called with a single argument, then its input types in the
+#  - signature should be written as just that type, e.g. "T".
+#
+#  - If a zefop can be called without arguments, then its input types in the
+#  - signature should be written as "()".
+#
+#  - The related section is for related types/concepts which can be grouped in
+#    automatic documentation.
+
+
+
 #---------------------------- function ------------------------------------
 
 def function_imp(x0, func_repr, *args, **kwargs):
@@ -982,6 +1036,45 @@ def contained_in_tp(x_tp, el_tp):
 
 #---------------------------------------- all -----------------------------------------------
 def all_imp(*args):
+    """
+    The all op has two different behaviours:
+
+    A) The first is to "find all of" for a graph-like or graph-slice-like
+    object. Of a GraphSlice/FlatGraph, this will return a ZefRef list of every RAE, and of a
+    Graph this will return a EZefRef list of every blob.
+
+    An optional argument can be a type that provides a filter on the kind of
+    items returned. It should always be true that: `g | all[Type]` is equivalent
+    to `g | all | filter[is_a[Type]]` however providing the Type to `all` can be
+    much more efficient.
+    
+    B) The second behaviour is to test the truth of every element in a list. It
+    is similar to the builtin `all` function of python. If the list is empty,
+    returns True.
+ 
+    ---- Examples ----
+    >>> g | now | all[ET]       # all entities in the latest timeslice of the graph
+
+    >>> g | all[TX]             # all transaction blobs in the graph
+
+    >>> [True,True] | all   # => True
+    >>> [False,True] | all  # => False
+    >>> [] | all            # => True
+
+    Test whether all ZefRefs have an RT.Name relation.
+    >>> zrs | map[has_out[RT.Name] | all
+ 
+    ---- Signature ----
+    List[T] -> Bool
+    GraphSliceLike -> List[ZefRef]
+    GraphLike -> List[EZefRef]
+    (GraphSliceLike, Type) -> List[ZefRef]
+    (GraphLike, Type) -> List[EZefRef]
+ 
+    ---- Related ----
+    - predicates
+    """
+
     import builtins
     from typing import Generator, Iterator   
     if isinstance(args[0], FlatGraph):
@@ -1060,10 +1153,15 @@ def any_imp(v):
     Equivalent to the logical 'or' in propositional logic.
     Also equivalent to Python's builtin 'any', but pipeable and
     applicable to Streams.
+    
+    An empty list will return False.
 
     ---- Examples ----
     >>> [False, True, False] | any                 # => True
+
     >>> [False, False, False] | any                # => False
+
+    >>> [] | any                                   # => False
     """
     import builtins
     return builtins.any(v)
@@ -1535,6 +1633,29 @@ def not_tp(a, b):
 
 #---------------------------------------- And -----------------------------------------------
 def and_imp(x, *args):
+    """Takes the input and tests it against the predicates given in the other
+    arguments one at a time, returning True only if all predicates return True.
+    Similarly to `all` will return True if the list of predicates is empty.
+
+    `and` performs shortcircuiting, stopping evaluation as soon as the first
+    predicate returns False. All arguments to and should be functions which
+    return a Bool. As a convenience, bools passed instead of a predicate are
+    used directly.
+
+    ---- Examples ----
+    >>> 5 | and[greater_than[2]][less_than[10]] # => True
+    
+    >>> x | and[False][test_func][another_pred] # => False
+
+    >>> False | and # => True
+
+    ---- Signature ----
+    (T, Callable[[T], Bool]...) -> Bool
+ 
+    ---- Related ----
+    - predicates
+
+    """
     # include short circuiting
     for fct in args:
         if fct is False: return False
