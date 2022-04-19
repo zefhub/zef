@@ -60,6 +60,18 @@ def parse_partial_graphql(schema):
                             t_def["_AllowDelete"] = arg.value.value
                         else:
                             raise Exception(f"Don't know how to handle auth kind of {arg.name.value}")
+                elif directive.name.value == "upfetch":
+                    assert len(directive.arguments) == 1, "upfetch directive needs exactly one argument, 'field'"
+                    arg = directive.arguments[0]
+                    if arg.name.value != "field":
+                        raise Exception("upfetch directive needs exactly one argument, 'field'")
+                    t_def["_Upfetch"] = arg.value.value
+                elif directive.name.value == "ET":
+                    assert len(directive.arguments) == 1, "ET directive needs exactly one argument, 'et'"
+                    arg = directive.arguments[0]
+                    if arg.name.value != "et":
+                        raise Exception("ET directive needs exactly one argument, 'et'")
+                    t_def["_ET"] = arg.value.value
                 else:
                     raise Exception(f"Don't know how to handle type directive @{directive.name.value}")
 
@@ -195,10 +207,16 @@ def json_to_minimal_nodes(json):
                 # Special handling here
                 if field_name == "_ET":
                     continue
-                
-                assert field_name in ["_AllowQuery", "_AllowAdd", "_AllowUpdate", "_AllowUpdatePost", "_AllowDelete"]
-                # TODO: Turn into a zef function later on
-                actions += [(Z[type_name], RT(field_name[1:]), field),]
+                elif field_name in ["_AllowQuery", "_AllowAdd", "_AllowUpdate", "_AllowUpdatePost", "_AllowDelete"]:
+                    # TODO: Turn into a zef function later on
+                    actions += [(Z[type_name], RT(field_name[1:]), field),]
+                elif field_name == "_Upfetch":
+                    assert field in fields and "unique" in fields[field] and "required" in fields[field], f"Upfetch field '{field}' must exist, be unique and be required."
+                    # We can figure out which relation we can attach the upfetch bool to.
+                    qual_name = type_name + "__" + field
+                    actions += [(Z[qual_name], RT.Upfetch, True),]
+                else:
+                    raise Exception(f"Don't understand special field name '{field_name}'")
             else:
                 field = {**field}
 
@@ -239,7 +257,5 @@ def json_to_minimal_nodes(json):
 
         for opt in opts:
             actions += [(Z[enum_name], RT.GQL_Field, EN(enum_name, opt))]
-
-    # TODO: I want to validate that no inverse relation has not matched up correctly.
 
     return actions

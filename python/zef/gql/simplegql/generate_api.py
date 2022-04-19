@@ -36,6 +36,19 @@ def is_core_scalar(z):
 assert_type = Assert[Or[is_a[ET.GQL_Type]][is_a[ET.GQL_Enum]][is_a[AET]]][lambda z: f"{z} is not a GQL type"]
 assert_field = Assert[is_a[RT.GQL_Field]][lambda z: f"{z} is not a GQL field"]
 
+@func
+def single_or(itr, default):
+    itr = iter(itr)
+    try:
+        ret = next(itr)
+        try:
+            next(itr)
+            raise Exception("single_or detected more than one item in iterator")
+        except StopIteration:
+            return ret
+    except StopIteration:
+        return default
+        
 op_is_scalar = assert_type | Or[is_a[AET]][is_a[ET.GQL_Enum]]
 op_is_orderable = assert_type | Or[is_a[AET.Float]][is_a[AET.Int]][is_a[AET.Time]]
 op_is_summable = assert_type | Or[is_a[AET.Float]][is_a[AET.Int]]
@@ -46,6 +59,13 @@ op_is_unique = assert_field >> O[RT.Unique] | value_or[False] | collect
 op_is_searchable = assert_field >> O[RT.Search] | value_or[False] | collect
 op_is_aggregable = assert_field | And[Not[op_is_list]][target | Or[op_is_orderable][op_is_summable]]
 op_is_incoming = assert_field >> O[RT.Incoming] | value_or[False] | collect
+
+op_is_upfetch = assert_field >> O[RT.Upfetch] | value_or[False] | collect
+op_upfetch_field = (assert_type > L[RT.GQL_Field]
+                    | filter[op_is_upfetch]
+                    | single_or[None]
+                    | collect)
+op_has_upfetch = op_upfetch_field | Not[equals[None]] | collect
 
 ########################################
 # * Generating it all
@@ -78,6 +98,7 @@ def generate_resolvers_fcts(schema_root):
         field_schemas = []
         ref_field_schemas = []
         add_field_schemas = []
+        upfetch_field_schemas = []
         aggregate_outs = []
 
         for z_field in z_type > L[RT.GQL_Field]:
@@ -96,6 +117,10 @@ def generate_resolvers_fcts(schema_root):
                 assert is_scalar, "Unique fields must be scalars"
                 assert not is_list, "Unique fields can't be lists"
 
+            if op_is_upfetch(z_field):
+                assert op_is_unique(z_field), "Upfetch field must be unique"
+                assert is_required, "Upfetch field must be required"
+
             base_field_type = z_field | target >> RT.Name | value | collect
             if is_scalar:
                 base_ref_field_type = base_field_type
@@ -111,16 +136,19 @@ def generate_resolvers_fcts(schema_root):
                 ref_field_type = "[" + base_ref_field_type + "]"
                 # add_field_type = "[" + base_ref_field_type + maybe_required + "]"
                 add_field_type = ref_field_type
+                upfetch_field_type = "[" + base_ref_field_type + maybe_required + "]"
                 field_type = "[" + base_field_type + maybe_required + "]"
             else:
                 maybe_params = ""
                 ref_field_type = base_ref_field_type
                 # add_field_type = base_ref_field_type + maybe_required
                 add_field_type = ref_field_type
+                upfetch_field_type = base_ref_field_type + maybe_required
                 field_type = base_field_type + maybe_required
             field_schemas += [f"{field_name}{maybe_params}: {field_type}"]
             add_field_schemas += [f"{field_name}: {add_field_type}"]
             ref_field_schemas += [f"{field_name}: {ref_field_type}"]
+            upfetch_field_schemas += [f"{field_name}: {upfetch_field_type}"]
 
             if is_aggregable:
                 if is_orderable:
@@ -135,6 +163,7 @@ def generate_resolvers_fcts(schema_root):
         field_schemas += ["id: ID!"]
         add_field_schemas += ["id: ID"]
         ref_field_schemas += ["id: ID"]
+        # Note: upfetch does not get an id field
         Type.set_field("id", resolve_id)
 
         # Add the 3 top-level queries
@@ -151,6 +180,10 @@ def generate_resolvers_fcts(schema_root):
                             P(resolve_update, type_node=z_type))
         Mutation.set_field(f"delete{name}",
                             P(resolve_delete, type_node=z_type))
+        has_upfetch = op_has_upfetch(z_type)
+        if has_upfetch:
+            Mutation.set_field(f"upfetch{name}",
+                               P(resolve_upfetch, type_node=z_type))
 
         MutateResponse = ObjectType(f"Mutate{name}Response")
         all_objects += [MutateResponse]
@@ -162,6 +195,7 @@ def generate_resolvers_fcts(schema_root):
         field_schemas = '\n\t'.join(field_schemas)
         ref_field_schemas = '\n\t'.join(ref_field_schemas)
         add_field_schemas = '\n\t'.join(add_field_schemas)
+        upfetch_field_schemas = '\n\t'.join(upfetch_field_schemas)
         aggregate_outs = '\n\t'.join(aggregate_outs)
 
         type_schemas += [f"""type {name} {{
@@ -193,6 +227,12 @@ type Aggregate{name}Response {{
 }}
 
 """]
+        if has_upfetch:
+            type_schemas += [f"""
+input Upfetch{name}Input {{
+        {upfetch_field_schemas}
+}}
+"""]
 
         # id_fields = z_type > L[RT.GQL_Field] | filter[Z >> O[RT.IsID] | value_or[False]]
 
@@ -209,7 +249,10 @@ type Aggregate{name}Response {{
             f"update{name}(input: Update{name}Input!): Mutate{name}Response",
             f"delete{name}(filter: {name}Filter!): Mutate{name}Response",
         ]
-
+        if has_upfetch:
+            mutation_fields += [
+                f"upfetch{name}(input: [Upfetch{name}Input!]!): Mutate{name}Response",
+            ]
 
     for z_enum in schema_root >> L[RT.GQL_Enum]:
         name = value(z_enum >> RT.Name)
@@ -409,7 +452,7 @@ class ExternalError(Exception):
 def resolve_get(_, info, *, type_node, **params):
     # Look for something that fits exactly what has been given in the params, assuming
     # that ariadne has done its work and validated the query.
-    return find_existing_entity(info, type_node, params["id"])
+    return find_existing_entity_by_id(info, type_node, params["id"])
 
 def resolve_query(_, info, *, type_node, **params):
     g = info.context["g"]
@@ -486,6 +529,8 @@ def resolve_id(z, info):
 # * Mutations
 #----------------------------
 def resolve_add(_, info, *, type_node, **params):
+    # TODO: @unique checks should probably be done post change as multiple adds
+    # could try changing the same thing, including nested types.
     try:
         name_gen = NameGen()
         actions = []
@@ -500,7 +545,7 @@ def resolve_add(_, info, *, type_node, **params):
             if "id" in item:
                 if not upsert:
                     raise ExternalError("Can't update item with id without setting upsert")
-                obj = find_existing_entity(info, type_node, item["id"])
+                obj = find_existing_entity_by_id(info, type_node, item["id"])
                 if obj is None:
                     raise Exception("Item doesn't exist")
                 set_d = {**item}
@@ -521,7 +566,7 @@ def resolve_add(_, info, *, type_node, **params):
         # Note: we return the details after any updates
         ents = ents | map[now] | collect
 
-        count = len(ents)
+        count = len(new_obj_names)
 
         return {"count": count, "ents": ents}
     except ExternalError:
@@ -530,8 +575,56 @@ def resolve_add(_, info, *, type_node, **params):
         log.error("There was an error in resolve_add", exc_info=exc)
         raise Exception("Unexpected error")
             
+def resolve_upfetch(_, info, *, type_node, **params):
+    # TODO: @unique checks should probably be done post change as multiple adds
+    # could try changing the same thing, including nested types.
+    try:
+        # Upfetch is a lot like add with upsert, except it uses the specially
+        # indicated upfetch field to work on, rather than id.
+        name_gen = NameGen()
+        actions = []
+        post_checks = []
+        new_obj_names = []
+        updated_objs = []
+
+        upfetch_field = op_upfetch_field(type_node)
+        field_name = upfetch_field >> RT.Name | value | collect
+
+        for item in params["input"]:
+            # Check the upfetch field to see if we already have this.
+            if field_name not in item:
+                raise Exception("Should never get here, because the upfetch field should be marked as required")
+
+            obj = find_existing_entity_by_field(info, type_node, upfetch_field, item[field_name])
+            if obj is None:
+                obj_name,more_actions,more_post_checks  = add_new_entity(info, type_node, item, name_gen)
+                actions += more_actions
+                post_checks += more_post_checks
+                new_obj_names += [obj_name]
+            else:
+                new_actions,new_post_checks = update_entity(obj, info, type_node, item, {}, name_gen)
+                actions += new_actions
+                post_checks += new_post_checks
+                updated_objs += [obj]
+
+        r = commit_with_post_checks(actions, post_checks, info)
+
+        ents = updated_objs + [r[name] for name in new_obj_names]
+        # Note: we return the details after any updates
+        ents = ents | map[now] | collect
+        count = len(new_obj_names)
+
+        return {"count": count, "ents": ents}
+    except ExternalError:
+        raise
+    except Exception as exc:
+        log.error("There was an error in resolve_upfetch", exc_info=exc)
+        raise Exception("Unexpected error")
+            
         
 def resolve_update(_, info, *, type_node, **params):
+    # TODO: @unique checks should probably be done post change as multiple adds
+    # could try changing the same thing, including nested types.
     try:
         if "input" not in params or "filter" not in params["input"]:
             raise Exception("Not allowed to update everything!")
@@ -793,7 +886,7 @@ def NameGen():
         n += 1
         yield n
 
-def find_existing_entity(info, type_node, id):
+def find_existing_entity_by_id(info, type_node, id):
     if id is None:
         return None
     the_uid = uid(id)
@@ -802,11 +895,32 @@ def find_existing_entity(info, type_node, id):
     
     g = info.context["g"]
 
+    et = ET(type_node >> RT.GQL_Delegate | collect)
     ent = g[uid(id)] | now | collect
-    if not is_a(ent, ET(type_node >> RT.GQL_Delegate | collect)):
+    if not is_a(ent, et):
         return None
     if not ent | pass_query_auth[type_node][info] | collect:
         return None
+
+    return ent
+
+def find_existing_entity_by_field(info, type_node, z_field, val):
+    if val is None:
+        raise Exception("Can't find an entity by a None field value")
+
+    g = info.context["g"]
+    et = ET(type_node >> RT.GQL_Delegate | collect)
+
+    # Note: we filter out with query auth even though this may mean we return
+    # None instead of the actual entity. The follow-up logic with an upfetch
+    # might seem wrong, as it would try to create the same item again. However,
+    # because the field is also @unique then this will fail. Better to keep the
+    # failure point at the same location so we can determine what kind of error
+    # to return and whether this will leak sensitive information.
+    ent = (g | now | all[et] | filter[pass_query_auth[type_node][info]]
+           | filter[internal_resolve_field[info][z_field] | single_or[None] | equals[val]]
+           | single_or[None]
+           | collect)
 
     return ent
 
@@ -881,7 +995,7 @@ def add_new_entity(info, type_node, params, name_gen):
 
 def find_or_add_entity(val, info, target_node, params, name_gen):
     if isinstance(val, dict) and val.get("id", None) is not None:
-        obj = find_existing_entity(info, target_node, val["id"])
+        obj = find_existing_entity_by_id(info, target_node, val["id"])
         return obj,[],[]
     else:
         obj_name,actions,post_checks = add_new_entity(info, target_node, val, name_gen)
@@ -977,8 +1091,6 @@ def pass_auth_generic(z, schema_node, info, rt_list):
             break
     else:
         return True
-
-    print("Calling a func in pass_auth_generic")
 
     # TODO: Later on these will be zef functions so easier to call
     return temporary__call_string_as_func(
