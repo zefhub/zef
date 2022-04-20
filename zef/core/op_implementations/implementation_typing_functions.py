@@ -5365,22 +5365,22 @@ def transact_imp(data, g, **kwargs):
         def flatgraph_to_gd(fg):
             return_elements = []
             idx_key = {idx:key for key,idx in fg.key_dict.items()}
-            # TODO Merge abstract RAEs
             def dispatch_on_blob(b, for_rt=False):
+                idx = b[0]
                 if isinstance(b[1], EntityType):
-                    if b[0] in idx_key:
-                        key = idx_key[b[0]]
+                    if idx in idx_key:
+                        key = idx_key[idx]
                         if is_a(key, uid):
                             return Entity({"type": b[1], "uid": key})
                         else:
                             if for_rt: return Z[key]
                             return b[1][key]
                     elif for_rt or len(b[2]) == 0:
-                        return b[1]
+                        return b[1][idx]
                     else: return None
                 elif isinstance(b[1], AtomicEntityType):
-                    if b[0] in idx_key:
-                        key = idx_key[b[0]]
+                    if idx in idx_key:
+                        key = idx_key[idx]
                         if is_a(key, uid):
                             if b[-1]: return AtomicEntity({"type": b[1], "uid": key}) <= b[-1]
                             else:     return AtomicEntity({"type": b[1], "uid": key})
@@ -5389,19 +5389,20 @@ def transact_imp(data, g, **kwargs):
                             if b[-1]: return b[1][key] <= b[-1]
                             else:     return b[1][key]
                     elif for_rt or len(b[2]) == 0:
-                        if b[-1]: return b[1] <= b[-1]
-                        else:     return b[1]
+                        if b[-1]: return b[1][idx] <= b[-1]
+                        else:     return b[1][idx]
                     else: return None
                 elif isinstance(b[1], RelationType):
-                    if b[0] in idx_key: 
-                        key = idx_key[b[0]]
+                    if idx in idx_key: 
+                        key = idx_key[idx]
                         if for_rt: return Z[key]
                         if is_a(key, uid):
                             return Relation({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
+                    if for_rt: return Z[idx]
                     src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)
                     trgt_blb = dispatch_on_blob(fg.blobs[b[5]], True)
                     if b[0] in idx_key: base = b[1][idx_key[b[0]]]
-                    else: base = b[1]
+                    else: base = b[1][idx]
                     return (src_blb, base, trgt_blb)
 
                 elif isinstance(b[1], str) and b[1][:2] == "BT":
@@ -5414,13 +5415,12 @@ def transact_imp(data, g, **kwargs):
                             return aet[blake3(b[-1])] <= (b[-1])
                         else:
                             return AET.Serialized[blake3(b[-1])] <= to_json(b[-1])
-                
+
                 raise NotImplementedError(f"Unhandled type in dispatching {b}")
 
             for b in fg.blobs | filter[lambda b: b != None] | collect:
                 el = dispatch_on_blob(b)
                 if el != None: return_elements.append(el)
-
             return GraphDelta(return_elements)
         
         return dispatch_ror_graph(g, flatgraph_to_gd(data))
