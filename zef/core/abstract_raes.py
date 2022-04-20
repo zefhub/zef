@@ -40,6 +40,7 @@ class Entity:
         elif isinstance(x, dict):
             assert 'type' in x and 'uid' in x
             assert type(x['type']) == EntityType
+            x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
             raise TypeError(f"can't construct an abstract entity from a {type(x)=}.  Value passed in: {x=}")
@@ -81,6 +82,7 @@ class AtomicEntity:
         elif isinstance(x, dict):
             assert 'type' in x and 'uid' in x
             assert type(x['type']) == AtomicEntityType
+            x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
             raise TypeError(f"can't construct an abstract atomic entity from a {type(x)=}.  Value passed in: {x=}")
@@ -127,6 +129,7 @@ class Relation:
             assert 'type' in x and 'uids' in x
             assert type(x['type']) == tuple and len(x['type']) == 3 and type(x['type'][1]) == RelationType
             assert type(x['uids']) == tuple and len(x['uids']) == 3 
+            x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
             raise TypeError(f"can't construct an abstract relation from a {type(x)=}.  Value passed in: {x=}")
