@@ -1308,6 +1308,8 @@ def absorbed_imp(x):
         if len(x.el_ops) != 1: 
             return Error(f'"absorbed" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
         return x.el_ops[0][1]
+    elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
+        return ()
     else:
         return Error(f'absorbed called on {type(x)=}   {x=}')
 
@@ -3363,22 +3365,13 @@ def run_effect_implementation(eff):
     # we want to directly unpack the instances in the same structure as the types that went in
     # To decouple the layers, we need to return based on whether 'unpacking_template' is present
     # as a key in the receipt
-    def unpack_receipt(unpacking_template, receipt: dict):
-        def step(x):
-            if isinstance(x, tuple):
-                return tuple((step(el) for el in x))
-            if isinstance(x, list):
-                return [step(el) for el in x]
-            return receipt[x] if isinstance(x, str) or is_a(x, uid) else x
-        return step(unpacking_template)
 
     
     if not isinstance(eff, _Effect_Class):
         raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run an Effect.")
     handler = _effect_handlers[eff.d['type'].d]
     eff._been_run = True
-    res = handler(eff)    
-    return unpack_receipt(res['unpacking_template'], res) if (isinstance(res, dict) and 'unpacking_template' in res) else res
+    return handler(eff)
 
 
 
@@ -3556,7 +3549,8 @@ def filter_implementation(itr, pred):
     """
     input_type = parse_input_type(type_spec(itr))
     if input_type == "tools":
-        return builtins.filter(pred, itr)
+        # As this is an intermediate, we return an explicit generator
+        return (x for x in builtins.filter(pred, itr))
     elif input_type == "zef":
         return pyzefops.filter(itr, pred)
     elif input_type == "awaitable":
@@ -4159,15 +4153,14 @@ def InIn_type_info(op, curr_type):
         curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
     return curr_type
 
-def terminate_implementation(z):
-    if isinstance(z, ZefRef) or isinstance(z, EZefRef):
-        return GraphDelta([terminate[z]])
-    elif isinstance(z, ZefRefs) or isinstance(z, EZefRefs):
-        if len(z) == 0:
-            return None
-        return GraphDelta([terminate[item] for item in z])
-
-    raise Exception("Incompatible type for z ({type(z)})")
+def terminate_implementation(z, *args):
+    # We need to keep terminate as something that works in the GraphDelta code.
+    # So we simply wrap everything up as a LazyValue and return that.
+    if len(args) == 1:
+        return LazyValue(z) | terminate[args[0]]
+    else:
+        assert len(args) == 0
+        return LazyValue(z) | terminate
 
 def terminate_type_info(op, curr_type):
     return curr_type

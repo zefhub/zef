@@ -38,7 +38,7 @@ class MyTestCase(unittest.TestCase):
 
         g2 = Graph()
         r2 = GraphDelta([
-            terminate[r["rel"]]["rel from g2"],
+            r["rel"] | terminate["rel from g2"],
         ]) | g2 | run
         self.assertEqual(1, g | now | all[ET.Person] | length | collect)
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)

@@ -1,8 +1,4 @@
 import unittest  # pytest takes ages to run anything as soon as anything from zef is imported
-import os
-os.environ["ZEF_DEVELOPER_LOCAL_TOKENS"] = "1"
-os.environ["ZEFHUB_URL"] = "MASTER"
-os.environ["ZEF_QUIET"] = "1"
 from zef import *
 from zef.ops import *
 import zef
@@ -46,7 +42,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(z2_joe >> L[RT.NickName] | length | collect, 3)
 
         r3 = GraphDelta([
-            *[terminate[x] for x in z2_joe >> L[RT.NickName] | collect],
+            *[x | terminate for x in z2_joe >> L[RT.NickName] | collect],
         ]) | g | run
 
         z3_joe = now(z2_joe)
