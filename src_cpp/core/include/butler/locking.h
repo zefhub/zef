@@ -107,6 +107,12 @@ inline bool wait_pred(AtomicLockWrapper & locker, std::function<bool()> func, st
     return locker.cv.wait_for(lock, timeout, func);
 }
 
+inline void wait_pred_poll(AtomicLockWrapper & locker, std::function<bool()> func, std::chrono::duration<double> timeout) {
+    while(!func()) {
+        wait_pred(locker, func, timeout);
+    }
+}
+
 inline void update(AtomicLockWrapper & locker, std::function<void()> update_func) {
     std::lock_guard lock(locker.mutex);
     update_func();
