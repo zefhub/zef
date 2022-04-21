@@ -12,8 +12,8 @@ def merge(obj, g : Graph, fire_and_forget : bool = False):
     # TODO Make sure this doesn't break something else!
     # The check below was done on GraphDelta. But for now the serialized behavior is spoofed.
     # My worry is the else statement. When is it hit because how can we be sure that obj is serialized.
-    if type(obj) == list:
-        serialized =  {"_zeftype": "GraphDelta", "value": serialize(list(obj))}
+    if type(obj) in {list, tuple}:
+        serialized =  serialize({"value": list(obj)})
         rs =  orig_merge(serialized, g, fire_and_forget)
         receipt = deserialize(rs)
         return receipt

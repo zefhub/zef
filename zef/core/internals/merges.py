@@ -11,7 +11,7 @@ def _graphdelta_merge(g, serialized_delta):
     # TODO The reason we are constructing an effect is that serialized 
     # data contains the commands and not the actions.
     # Can we somehow fix that?
-    commands = deserialize(serialized_delta)
+    commands = deserialize(serialized_delta)['value']
     # receipt = delta | transact[g] | run
     receipt = Effect({
             "type": FX.TX.Transact,
