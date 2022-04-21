@@ -24,8 +24,8 @@ from .schema_file_parser import parse_partial_graphql, json_to_minimal_nodes
 g_schema = Graph()
 schema_gql = args.schema_file | read_file | run | get["content"] | collect
 parsed_dict = parse_partial_graphql(schema_gql)
-gd = json_to_minimal_nodes(parsed_dict)
-r = gd | g_schema | run
+commands = json_to_minimal_nodes(parsed_dict)
+r = commands | transact[g_schema] | run
 root = r["root"]
 log.info(f"Created schema graph from '{args.schema_file}'")
 

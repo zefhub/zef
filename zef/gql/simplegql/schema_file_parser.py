@@ -220,4 +220,4 @@ def json_to_minimal_nodes(json):
 
     # TODO: I want to validate that no inverse relation has not matched up correctly.
 
-    return GraphDelta(actions)
+    return actions

@@ -487,7 +487,7 @@ def resolve_add(_, info, *, type_node, **params):
             new_obj_names += [obj_name]
 
     g = info.context["g"]
-    r = GraphDelta(actions) | g | run
+    r = actions | transact[g] | run
 
     ents = updated_objs + [r[name] for name in new_obj_names]
     count = len(ents)
@@ -506,7 +506,7 @@ def resolve_update(_, info, *, type_node, **params):
         actions += update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen)
 
     g = info.context["g"]
-    r = GraphDelta(actions) | g | run
+    r = actions | transact[g] | run
 
     count = len(ents)
 
@@ -525,7 +525,7 @@ def resolve_delete(_, info, *, type_node, **params):
     if not ents | map[pass_delete_auth[type_node][info]] | all | collect:
         raise Exception("Not allowed to delete")
 
-    GraphDelta([terminate[ent] for ent in ents]) | g | run
+    [terminate[ent] for ent in ents] | transact[g] | run
 
     count = len(ents)
 

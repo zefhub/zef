@@ -265,7 +265,7 @@ from zef.experimental import sql_import
 decl = "{S.save_filename}" | load_file | run | get["content"] | collect
 g = Graph()
 actions = sql_import.import_actions(decl)
-GraphDelta(actions) | g | run
+actions | transact[g] | run
 """)
     else:
         raise Exception("Shouldn't get here")

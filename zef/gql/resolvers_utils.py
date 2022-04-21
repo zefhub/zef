@@ -39,7 +39,7 @@ def connect_delegate_resolvers(g, gql_type, field_resolving_dict):
     for field_name, delegate_details in field_resolving_dict.items():
         delegate_triple, is_out = delegate_details["triple"], delegate_details.get("is_out", True)
         field_zr = find_field_with_name(gql_type, field_name) | to_ezefref | collect
-        data_delegate = GraphDelta([delegate_of(delegate_triple)]) | g | run | get[delegate_of(delegate_triple)] | collect
+        data_delegate = [delegate_of(delegate_triple)] | transact[g] | run | get[delegate_of(delegate_triple)] | collect
         create_resolver_to_field(g, field_zr, data_delegate, is_out)
 
 # Resolve With Connectors#
