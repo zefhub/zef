@@ -12,7 +12,7 @@ def graph_transaction_handler(eff: Effect):
         })
     """
 
-    from ..graph_delta_new import perform_transaction_commands, filter_temporary_ids, unpack_receipt
+    from ..graph_delta import perform_transaction_commands, filter_temporary_ids, unpack_receipt
 
     if eff.d["target_graph"].graph_data.is_primary_instance:
         receipt = perform_transaction_commands(eff.d['commands'], eff.d['target_graph'])
