@@ -19,14 +19,15 @@ type Message struct {
 
 func main() {
 	// Create mattermost message
+	version := strings.Split(os.Getenv("GITHUB_REF"), "/")[2]
 	msg := Message{
 		Channel: os.Getenv("CHANNEL"),
 		Text: fmt.Sprintf(
 			"**New ZefDB release available: %s.**\n**%s**\n%s\n\nDownload: %s",
 			os.Getenv("NAME"),
-			strings.Split(os.Getenv("GITHUB_REF"), "/")[2],
+			os.Getenv("VERSION_STRING"),
 			os.Getenv("DESCRIPTION"),
-			fmt.Sprintf("http://%s", os.Getenv("S3_PATH")),
+			os.Getenv("DOWNLOAD_STRING"),
 		),
 	}
 
