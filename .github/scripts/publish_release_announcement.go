@@ -19,7 +19,6 @@ type Message struct {
 
 func main() {
 	// Create mattermost message
-	version := strings.Split(os.Getenv("GITHUB_REF"), "/")[2]
 	msg := Message{
 		Channel: os.Getenv("CHANNEL"),
 		Text: fmt.Sprintf(

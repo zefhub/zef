@@ -79,7 +79,7 @@ jobs:
 
   upload-to-pypi:
     name: Upload wheels to PyPI
-    if: ${{ (!contains(github.ref, 'dev') && github.event.release.prerelease == false) }}
+    # if: ${{ (!contains(github.ref, 'dev') && github.event.release.prerelease == false) }}
     runs-on: ubuntu-18.04
     needs: [build-wheels]
     steps:
