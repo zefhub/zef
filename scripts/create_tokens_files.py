@@ -10,16 +10,15 @@ import zef.core.internals
 g = Graph()
 g2 = Graph()
 
-d = GraphDelta([ET.User["z"]])
-r = d | g | run
+d =[ET.User["z"]]
+r = d | transact[g] | run
 
 z = r["z"]
-d2 = GraphDelta([
+d2 =[
     z,
     (ET.Token, RT.Index, AET.Int["aet"]),
-    
-])
-d2 | g2 | run
+]
+d2 | transact[g2] | run
 
 # g | subscribe[lambda x: None]
 # r2["aet"] | subscribe[on_value_assignment][lambda x: None]

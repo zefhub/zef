@@ -13,10 +13,10 @@ class MyTestCase(unittest.TestCase):
     def test_terminate_relation(self):
         g = Graph()
 
-        r = GraphDelta([
+        r = [
             ET.Person["joe"],
             (Z["joe"], RT.FirstName["rel"], "name"),
-        ]) | g | run
+        ] | transact[g] | run
 
         self.assertEqual(1, g | now | all[ET.Person] | length | collect)
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)
@@ -28,18 +28,18 @@ class MyTestCase(unittest.TestCase):
     def test_terminate_relation_merge(self):
         g = Graph()
 
-        r = GraphDelta([
+        r = [
             ET.Person["joe"],
             (Z["joe"], RT.FirstName["rel"], "name"),
-        ]) | g | run
+        ] | transact[g] | run
 
         self.assertEqual(1, g | now | all[ET.Person] | length | collect)
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)
 
         g2 = Graph()
-        r2 = GraphDelta([
+        r2 = [
             r["rel"] | terminate["rel from g2"],
-        ]) | g2 | run
+        ] | transact[g2] | run
         self.assertEqual(1, g | now | all[ET.Person] | length | collect)
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)
         self.assertEqual(0, g2 | now | all[ET.Person] | length | collect)
@@ -49,11 +49,11 @@ class MyTestCase(unittest.TestCase):
     def test_no_duplicate_internal_name(self):
         g = Graph()
         with self.assertRaises(Exception):
-            r = GraphDelta([
+            r = [
                 ET.Danny["a"],
                 ET.Machine["a"],
                 (Z["a"], RT.Something, "name")
-            ]) | g | run
+            ] | transact[g] | run
         
 
 if __name__ == '__main__':
