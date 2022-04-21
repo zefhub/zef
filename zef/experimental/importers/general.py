@@ -71,13 +71,13 @@ def inject_networkx_into_zef(nxg: DiGraph,
         for pair in nxg.nodes.items():
             theset.add(ET_translation(*pair))
         if len(nxg.nodes) > 12 and len(theset) > len(nxg.nodes) / 3:
-            raise Exception(f"After converting the node names, there were still {len(theset)} types left out of {len(nxg.nodes)} nodes.")
+            raise Exception(f"After converting the node names, there were still {len(theset)} types left out of {len(nxg.nodes)} nodes. If this is expected, then you can disable this check by passing `ignore_excess_ET_RT_types=True` as a keyword to `inject_networkx_into_zef`.")
 
         theset = set()
         for pair in nxg.edges.items():
             theset.add(RT_translation(*pair))
         if len(nxg.edges) > 12 and len(theset) > len(nxg.edges) / 3:
-            raise Exception(f"After converting the edge names, there were still {len(theset)} types left out of {len(nxg.edges)} edges.")
+            raise Exception(f"After converting the edge names, there were still {len(theset)} types left out of {len(nxg.edges)} edges. If this is expected, then you can disable this check by passing `ignore_excess_ET_RT_types=True` as a keyword to `inject_networkx_into_zef`.")
 
 
     with Transaction(zg):
