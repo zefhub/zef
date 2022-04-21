@@ -261,9 +261,6 @@ def deserialize_zeftypes(z) -> dict:
     elif z['_zeftype'] == "Time":
         return Time(z['value']) 
 
-    elif z['_zeftype'] == "GraphDelta":
-        return deserialize_list(z['value'])
-
     elif z['_zeftype'] in {"ZefOp", "CollectingOp", "SubscribingOp", "ForEachingOp"}:
         types = {"ZefOp": ZefOp,  "CollectingOp":CollectingOp,  "SubscribingOp":SubscribingOp, "ForEachingOp": ForEachingOp}
         if z['_zeftype'] != "ZefOp": return types[z['_zeftype']](ZefOp(deserialize_zefops(z['el_ops'])))
@@ -392,7 +389,6 @@ deserialization_mapping["Enum"] = deserialize_zeftypes
 deserialization_mapping["QuantityFloat"] = deserialize_zeftypes
 deserialization_mapping["QuantityInt"] = deserialize_zeftypes
 deserialization_mapping["Time"] = deserialize_zeftypes
-deserialization_mapping["GraphDelta"] = deserialize_zeftypes
 deserialization_mapping["ZefOp"] = deserialize_zeftypes
 deserialization_mapping["CollectingOp"] = deserialize_zeftypes
 deserialization_mapping["SubscribingOp"] = deserialize_zeftypes
