@@ -15,6 +15,7 @@
 from ... import *
 from ...ops import *
 
+import json
 import graphql
 def parse_partial_graphql(schema):
     """Goes through the schema line by line and creates a json file that represents
@@ -23,30 +24,57 @@ def parse_partial_graphql(schema):
     """
     doc = graphql.parse(schema)
 
-    json = {
+    output = {
         "types": {},
         "enums": {}
     }
 
+    
+    # Find all Zef directives first, which are single-line comments that begin with # Zef.<name>:
+    lines = (schema 
+             | split["\n"] 
+             | filter[lambda x: x.startswith("# Zef.")]
+             | map[lambda x: x[len("# Zef."):]]
+             | collect)
+
+    for line in lines:
+        parts = line.split(':', 1)
+        assert len(parts) == 2, "Zef directive line contains no ':'."
+        name,details = parts
+        name = name.strip()
+
+        if name == "SchemaVersion":
+            assert "schema_version" not in output, "Not allowed to have multiple Zef.SchemaVersion directives."
+            output["schema_version"] = details.strip()
+            continue
+
+
+        # Anything else requires json parsing
+        try:
+            details = json.loads(details)
+        except Exception as exc:
+            raise Exception(f"JSON parsing of Zef directive '{name}' failed") from exc
+
+        if name == "Authentication":
+            assert "auth" not in output, "Not allowed to have multiple Zef.Authentication directives."
+            for key in details:
+                assert key in ["Algo", "JWKURL", "Audience", "Header", "Namespace", "VerificationKey", "VerificationKeyEnv", "Public"], f"Unknown auth key '{key}'"
+            output["auth"] = details
+        else:
+            raise Exception(f"Unsupported Zef.{name} directive")
+
+
+    if output.get("schema_version", None) != "v1":
+        raise Exception("Only support schemas with an explicit version of 'v1'. Please include:\n# Zef.SchemaVersion: v1\ninto your schema file.")
+
     for definition in doc.definitions:
         if definition.kind == "object_type_definition":
-            if definition.name.value == "_Auth":
-                # This is the special node to grab the auth details
-                assert len(definition.directives) == 1, "The _Auth type should have only a @details directive."
-                assert definition.directives[0].name.value == "details", "The _Auth type should have only a @details directive."
-                args = parse_arguments_as_dict(definition.directives[0].arguments)
-                json["auth"] = {}
-                for key,val in args.items():
-                    if key not in ["JWKURL", "Audience", "Header", "Namespace"]:
-                        raise Exception("Don't understand key of {key} in auth details.")
-                    json["auth"][key] = val
-                continue
-
-            # Otherwise this is a normal type
-            t_def = json["types"][definition.name.value] = {}
+            t_def = output["types"][definition.name.value] = {}
 
             for directive in definition.directives:
                 if directive.name.value == "auth":
+                    if "auth" not in output:
+                        raise Exception("Disallowing @auth directives when no # Zef.Authentication... line is present to prevent accidentally security holes.")
                     for arg in directive.arguments:
                         if arg.name.value == "query":
                             t_def["_AllowQuery"] = arg.value.value
@@ -112,7 +140,7 @@ def parse_partial_graphql(schema):
                         else:
                             raise Exception(f"Don't know how to handle directive @{v}")
         elif definition.kind == "enum_type_definition":
-            e_def = json["enums"][definition.name.value] = []
+            e_def = output["enums"][definition.name.value] = []
             assert len(definition.directives) == 0, "Don't accept directives on enums"
 
             for value in definition.values:
@@ -122,7 +150,9 @@ def parse_partial_graphql(schema):
         else:
             raise Exception(f"Don't know how to handle a top-level graphql schema object of kind {definition.kind}")
 
-    return json
+
+
+    return output
 
 def string_to_RAET(s):
     if s.startswith("ET."):
@@ -171,11 +201,37 @@ def json_to_minimal_nodes(json):
     # The root node meta data
     actions += [ET.GQL_Root["root"]]
     if "auth" in json:
+        # A bit of sanity checking here - we should have one algo, which selects
+        # symmetric/asymmetric keys, which allows only particular details to be
+        # given.
+        for key in ["Algo", "Header", "Audience"]:
+            assert key in json["auth"], f"Auth requires key '{key}'"
+        algo = json["auth"]["Algo"]
+        assert algo in ["RS256", "HS256"], f"Auth algo is '{algo}', must be one of 'RS256' or 'HS256'"
+
+        actions += [(Z["root"], RT.AuthAlgo, algo)]
         actions += [(Z["root"], RT.AuthHeader, json["auth"]["Header"])]
-        actions += [(Z["root"], RT.AuthJWKURL, json["auth"]["JWKURL"])]
         actions += [(Z["root"], RT.AuthAudience, json["auth"]["Audience"])]
+        actions += [(Z["root"], RT.AuthPublic, json["auth"].get("Public", True))]
         if "Namespace" in json["auth"]:
             actions += [(Z["root"], RT.AuthNamespace, json["auth"]["Namespace"])]
+
+        assert sum(x in json["auth"] for x in ["JWKURL", "VerificationKey", "VerificationKeyEnv"]) == 1, "Need exactly one of ['JWKURL', 'VerificationKey', 'VerificationKeyEnv'] in auth"
+        if algo == "RS256":
+            assert "JWKURL" in json["auth"], "RS256 needs JWKURL specified."
+            actions += [(Z["root"], RT.AuthJWKURL, json["auth"]["JWKURL"])]
+        if algo == "HS256":
+            vkey = json["auth"].get("VerificationKey", None)
+            if vkey is None:
+                env = json["auth"].get("VerificationKeyEnv", None)
+                if env is None:
+                    raise Exception("HS256 needs either VerificationKey or VerificationKeyEnv specified.")
+                import os
+                if env not in os.environ:
+                    raise Exception(f"VerificationKeyEnv asked for environment variable '{env}' which was not present.")
+                vkey = os.environ[env]
+            vkey = vkey.replace("\\n", '\n')
+            actions += [(Z["root"], RT.AuthPresharedKey, vkey)]
 
     for gql_name,typ in core_types.items():
         actions += [

@@ -25,8 +25,15 @@ import json
 
 from zef.core.logger import log
 
-def resolve_token(request, header, aud, namespace, jwk):
-    from authlib.jose import jwt
+def resolve_token(context, request):
+    root = context["z_gql_root"]
+
+    header = root >> RT.AuthHeader | value | collect
+    aud = root >> RT.AuthAudience | value | collect
+    namespace = root >> O[RT.AuthNamespace] | value_or[None] | collect
+    algo = root >> RT.AuthAlgo | value | collect
+
+    import jwt
     import base64
     headers_as_lower = {k.lower(): v for k,v in request["request_headers"].items()}
     if header.lower() not in headers_as_lower:
@@ -42,8 +49,18 @@ def resolve_token(request, header, aud, namespace, jwk):
         raise Exception("Invalid auth header")
     token = parts[1]
 
-    auth_result = jwt.decode(token, jwk)
-    auth_result.validate()
+    if algo == "RS256":
+        signing_key = context["jwk_client"].get_signing_key_from_jwt(token)
+        auth_result = jwt.decode(token,
+                                 signing_key.key,
+                                 algorithms=[algo],
+                                 audience=aud)
+    elif algo == "HS256":
+        psk = root >> RT.AuthPresharedKey | value | collect
+        auth_result = jwt.decode(token, psk, algorithms=[algo],
+                                 audience=aud)
+    else:
+        raise Exception("Shouldn't get here")
 
     if auth_result["aud"] != aud:
         raise Exception("Invalid token for wrong audience")
@@ -54,13 +71,12 @@ def resolve_token(request, header, aud, namespace, jwk):
         return auth_result[namespace]
             
 def query(request, context):
-    if context["z_gql_root"] | has_out[RT.AuthHeader] | collect:
-        header = context["z_gql_root"] >> RT.AuthHeader | value | collect
-        aud = context["z_gql_root"] >> RT.AuthAudience | value | collect
-        namespace = context["z_gql_root"] >> O[RT.AuthNamespace] | value_or[None] | collect
-
+    root = context["z_gql_root"]
+    if root | has_out[RT.AuthHeader] | collect:
         try:
-            auth_context = resolve_token(request, header, aud, namespace, context["jwk"])
+            auth_context = resolve_token(context, request)
+            if auth_context is None and not (root >> O[RT.AuthPublic] | value_or[True] | collect):
+                raise Exception("No auth and public is False.")
         except Exception as exc:
             log.error("Auth failed", exc_info=exc)
             return {
@@ -107,30 +123,18 @@ def start_server(z_gql_root,
     logger = logging.getLogger("ariadne").disabled = True
     log.debug("Disabled ariadne logging")
     
-
-    if z_gql_root | has_out[RT.AuthHeader] | collect:
-        url = z_gql_root >> RT.AuthJWKURL | value | collect
-        # import urllib
-        # with urllib.request.urlopen(url) as response:
-        #     raw = response.read()
-        #     # max_age = parse_max_age(response.headers)
-        #     # authority_refresh.on_next(max_age)
-        # import json
-        # app.jwk = json.loads(raw)
-
-        import requests
-        r = requests.get(url)
-        jwk = r.json()
-    else:
-        jwk = None
-
-
     context = {
         "z_gql_root": z_gql_root,
         "g_data": g_data,
         "ari_schema": ari_schema,
-        "jwk": jwk,
     }
+
+    if z_gql_root | has_out[RT.AuthJWKURL] | collect:
+        url = z_gql_root >> RT.AuthJWKURL | value | collect
+
+        from jwt import PyJWKClient
+        context["jwk_client"] = PyJWKClient(url)
+
 
     http_r = Effect({
         'type': FX.HTTP.StartServer,
