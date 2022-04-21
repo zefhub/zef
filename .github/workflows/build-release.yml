@@ -92,6 +92,7 @@ jobs:
         env:
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
         run: |
+          pip3 install --upgrade pip setuptools
           pip3 install --upgrade twine
           python3 -m twine upload --repository testpypi -u __token__ -p "${PYPI_TOKEN}" --skip-existing dist/*
           
