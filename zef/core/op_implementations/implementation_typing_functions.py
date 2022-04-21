@@ -273,8 +273,6 @@ def peel_imp(el, *args):
         return el.nested()
     elif isinstance(el, _Effect_Class):
         return el.d
-    elif isinstance(el, GraphDelta):
-        return el.commands
     elif isinstance(el, ZefOp):
         # TODO !!!!!!!!!!!!! Change this to always return elementary ZefOps and to use list(el) to get current behavior
         if len(el.el_ops) > 1:
@@ -289,8 +287,6 @@ def peel_imp(el, *args):
 def peel_tp(op, curr_type):
     if curr_type == VT.Effect:
         return VT.Dict[VT.String, VT.Any]
-    elif curr_type == VT.GraphDelta:
-        return VT.Record[VT.Dict]
     elif curr_type in {VT.ZefOp, VT.LazyValue}:
         return VT.Record
     else:
@@ -431,12 +427,12 @@ def prepend_imp(v, item, *additional_items):
                 ][[]] 
             | collect)
 
-        g_delta = ( 
+        actions = ( 
                 rels1,                              # the RT.ZEF_ListElement between the ET.ZEF_List and the RAEs
                 next_rels,                          # the RT.ZEF_NextElement between each pair of new RT.ZEF_ListElement 
                 first_existing_el_rel,              # list with single connecting last existing rel to newly created one or Empty
-            ) | concat | func[GraphDelta] | collect
-        return  g_delta     
+            ) | concat | collect
+        return  actions     
     elif isinstance(v, tuple):
         return (item, *v)
     elif isinstance(v, EZefRefs):
@@ -514,12 +510,13 @@ def append_imp(v, item, *additional_items):
                 ][[]] 
             | collect)
 
-        g_delta = ( 
+        actions = ( 
                 rels1,                              # the RT.ZEF_ListElement between the ET.ZEF_List and the RAEs
                 next_rels,                          # the RT.ZEF_NextElement between each pair of new RT.ZEF_ListElement 
                 last_existing_ZEF_ListElement_rel,  # list with single connecting rel to previous list or empty
-            ) | concat | func[GraphDelta] | collect
-        return  g_delta 
+            ) | concat | collect
+        return  actions     
+ 
 
     elif isinstance(v, EZefRefs):
         return EZefRefs([*v, item])
@@ -4686,12 +4683,12 @@ def write_file_tp(op, curr_type):
     return VT.Effect
 
 #---------------------------------------- dataframe to graph delta -----------------------------------------------
-def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.GraphDelta:
+def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.List:
     """ 
-    Takes a pandas dataframe and a mapping Dict and returns a GraphDelta.
+    Takes a pandas dataframe and a mapping Dict and returns a list of commands.
 
     ---- Signature ----
-    (VT.DataFrame,  VT.Dict) -> VT.GraphDelta
+    (VT.DataFrame,  VT.Dict) -> VT.List
     """
     # step 1: column mapping
     cols = df.columns.to_list()
@@ -4702,7 +4699,7 @@ def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.GraphDelta:
 
     # step 2: create GraphDelta changes
     entity = mapping.get('row', "Row")
-    changes = (
+    actions = (
             df.values.tolist()
             | enumerate
             | map[lambda idx_row: idx_row[1] | enumerate | map[lambda i_v: (Z[f'_{idx_row[0]}'], RT(cols[i_v[0]]), i_v[1])] | collect]
@@ -4710,10 +4707,10 @@ def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.GraphDelta:
             | concat
             | collect
     )
-    return GraphDelta(changes)
+    return actions
 
 def pandas_to_gd_tp(op, curr_type):
-    return VT.GraphDelta
+    return VT.List
 
 
 
@@ -5055,10 +5052,10 @@ def to_zef_list_imp(elements: list):
         [ET.ZEF_List['zef_list']],
         next_rels,
         rels_to_els
-    ] | concat |  func[GraphDelta] | collect
+    ] | concat | collect
 
 def to_zef_list_tp(op, curr_type):
-    return VT.GraphDelta
+    return VT.List
 
 
 #-----------------------------FlatGraph Implementations-----------------------------------
@@ -5345,7 +5342,7 @@ def flatgraph_to_commands(fg):
         el = dispatch_on_blob(b)
         if el != None: return_elements.append(el)
 
-    from ..graph_delta_new import construct_commands
+    from ..graph_delta import construct_commands
     return construct_commands(return_elements)
 
 
@@ -5424,7 +5421,7 @@ def fg_all_imp(fg, selector=None):
 
 # -------------------------------- transact -------------------------------------------------
 def transact_imp(data, g, **kwargs):
-    from ..graph_delta_new import construct_commands
+    from ..graph_delta import construct_commands
     if isinstance(data, FlatGraph):
         commands = flatgraph_to_commands(data)
 
