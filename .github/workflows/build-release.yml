@@ -129,7 +129,7 @@ jobs:
           NAME: "${{ github.event.release.name }}"
           DESCRIPTION: "${{ github.event.release.body }}"
           VERSION_STRING: ${{ steps.vars.outputs.tag }}
-          DOWNLOAD_STRING: "https://github.com/zefhub/zef/releases/"${{ steps.vars.outputs.tag }}
+          DOWNLOAD_STRING: "https://github.com/zefhub/zef/releases/${{ steps.vars.outputs.tag }}"
         run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
 
   upload-zefops:
