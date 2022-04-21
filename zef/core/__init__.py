@@ -43,9 +43,6 @@ from . import graph_slice
 from . import flat_graph
 from . import fx
 from . import serialization
-from . import graph_delta_new
-
-from .graph_delta import GraphDelta
 
 from .error import Error
 

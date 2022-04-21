@@ -99,22 +99,14 @@ for t in [list, tuple]:
 ########################################################
 # * Entrypoint from user code
 #------------------------------------------------------
-
 def dispatch_ror_graph(g, x):
     from . import Effect, FX
     if isinstance(x, LazyValue):
         x = collect(x)
         # Note that this could produce a new LazyValue if the input was an
         # assign_value. This is fine.
-
-    if isinstance(x, GraphDelta):
-        return Effect({
-                "type": FX.TX.Transact,
-                "target_graph": g,
-                "graph_delta": x
-            })
-    elif any(isinstance(x, T) for T in {list, tuple, EntityType, AtomicEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AtomicEntity, Relation}):
-        unpacking_template, graph_delta = encode(x)
+    if any(isinstance(x, T) for T in {list, tuple, EntityType, AtomicEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AtomicEntity, Relation}):
+        unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
             if 'origin_rae' in cmd:
@@ -125,12 +117,11 @@ def dispatch_ror_graph(g, x):
                 return {**cmd, 'internal_id': internal_id}
             return cmd
 
-        graph_delta_with_ids = GraphDelta([])
-        graph_delta_with_ids.commands = [insert_id_maybe(c) for  c in graph_delta.commands]
+        commands_with_ids = [insert_id_maybe(c) for  c in commands]
         return Effect({
                 "type": FX.TX.Transact,
                 "target_graph": g,
-                "graph_delta": graph_delta_with_ids,
+                "commands": commands_with_ids,
                 "unpacking_template": unpacking_template,
             })
     raise NotImplementedError(f"'x | g' for x of type {type(x)}")
@@ -145,73 +136,66 @@ main.Graph.__ror__ = dispatch_ror_graph
 ##############################
 # * GraphDelta construction
 #----------------------------
+def construct_commands(elements) -> list:
+    generate_id = make_generate_id()    # keeps an internal counter        
 
-class GraphDelta:
-    def __repr__(self):
-        return ("GraphDelta([\n    "
-            +',\n    '.join(self.commands | map[lambda d_raes: str(d_raes)])
-            +"\n])")
+    # First extract any nested GraphDeltas commands out
+    # Note: using native python filtering as the evaluation engine is too slow
+
+    # nested_cmds = elements | filter[is_a[GraphDelta]] | map[lambda x: x.commands] | concat | collect
+    # nested_cmds = [x for x in elements if type(x) == GraphDelta] | map[lambda x: x.commands] | concat | collect
+    # elements = elements | filter[Not[is_a[GraphDelta]]] | collect
+    # elements = [x for x in elements if not type(x) == GraphDelta]
+
+    # The nested cmds need to be readjusted for their auto-generated ids 
+    # I want to redo this as pure functional style but will do it with side effects for now
+    mapping_dict = {}
+    def update_ids(cmd, mapping_dict):
+        new_cmd = dict(**cmd)
+        if "internal_id" in cmd:
+            if is_generated_id(cmd["internal_id"]):
+                if cmd["internal_id"] not in mapping_dict:
+                    mapping_dict[cmd["internal_id"]] = generate_id()
+                new_cmd["internal_id"] = mapping_dict[cmd["internal_id"]]
+        for key in ["source", "target"]:
+            if key in cmd:
+                if cmd[key] in mapping_dict:
+                    new_cmd[key] = mapping_dict[cmd[key]]
+        return new_cmd
+                
+    # nested_cmds = nested_cmds | map[P(update_ids, mapping_dict=mapping_dict)] | collect
+    
+    # Obtain all user IDs
+    id_definitions = elements | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
+    # Check that nothing needs a user ID that wasn't provided
+    elements | for_each[verify_input_el[id_definitions]]
+    elements | for_each[verify_relation_source_target[id_definitions]]
+
+    state_initial = {
+        'user_expressions': tuple(elements),
+        'commands': [],
+    }
+
+    def make_debug_output():
+        num_done = 0
+        next_print = now()+5*seconds
+        def debug_output(x):
+            nonlocal num_done, next_print
+            num_done += 1
+            if now() > next_print:
+                print(f"Up to iteration {num_done} - {len(x['user_expressions'])}, {len(x['commands'])}", now())
+                next_print = now() + 5*seconds
+        return debug_output
         
-    def __init__(self, elements: tuple):
-        generate_id = make_generate_id()    # keeps an internal counter        
-
-        # First extract any nested GraphDeltas commands out
-        # Note: using native python filtering as the evaluation engine is too slow
-
-        # nested_cmds = elements | filter[is_a[GraphDelta]] | map[lambda x: x.commands] | concat | collect
-        nested_cmds = [x for x in elements if type(x) == GraphDelta] | map[lambda x: x.commands] | concat | collect
-        # elements = elements | filter[Not[is_a[GraphDelta]]] | collect
-        elements = [x for x in elements if not type(x) == GraphDelta]
-
-        # The nested cmds need to be readjusted for their auto-generated ids 
-        # I want to redo this as pure functional style but will do it with side effects for now
-        mapping_dict = {}
-        def update_ids(cmd, mapping_dict):
-            new_cmd = dict(**cmd)
-            if "internal_id" in cmd:
-                if is_generated_id(cmd["internal_id"]):
-                    if cmd["internal_id"] not in mapping_dict:
-                        mapping_dict[cmd["internal_id"]] = generate_id()
-                    new_cmd["internal_id"] = mapping_dict[cmd["internal_id"]]
-            for key in ["source", "target"]:
-                if key in cmd:
-                    if cmd[key] in mapping_dict:
-                        new_cmd[key] = mapping_dict[cmd[key]]
-            return new_cmd
-                    
-        nested_cmds = nested_cmds | map[P(update_ids, mapping_dict=mapping_dict)] | collect
-        
-        # Obtain all user IDs
-        id_definitions = elements | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
-        # Check that nothing needs a user ID that wasn't provided
-        elements | for_each[verify_input_el[id_definitions]]
-        elements | for_each[verify_relation_source_target[id_definitions]]
-
-        state_initial = {
-            'user_expressions': tuple(elements),
-            'commands': nested_cmds,
-        }
-
-        def make_debug_output():
-            num_done = 0
-            next_print = now()+5*seconds
-            def debug_output(x):
-                nonlocal num_done, next_print
-                num_done += 1
-                if now() > next_print:
-                    print(f"Up to iteration {num_done} - {len(x['user_expressions'])}, {len(x['commands'])}", now())
-                    next_print = now() + 5*seconds
-            return debug_output
-            
-        # iterate until all user expressions and generated expressions have become commands
-        state_final = (state_initial
-                       | iterate[iteration_step[generate_id]]
-                       # | map[tap[make_debug_output()]]
-                       | take_until[lambda s: len(s['user_expressions'])==0]
-                       | last
-                       | collect
-                       )
-        self.commands = verify_and_compact_commands(state_final['commands'])
+    # iterate until all user expressions and generated expressions have become commands
+    state_final = (state_initial
+                   | iterate[iteration_step[generate_id]]
+                   # | map[tap[make_debug_output()]]
+                   | take_until[lambda s: len(s['user_expressions'])==0]
+                   | last
+                   | collect
+                   )
+    return verify_and_compact_commands(state_final['commands'])
 
 
 
@@ -1142,7 +1126,7 @@ def encode(xx):
         return iid
 
     step_res = step(xx, False)
-    return step_res, GraphDelta(gd_exprs)
+    return step_res, construct_commands(gd_exprs)
 
 
 def unpack_receipt(unpacking_template, receipt: dict):
@@ -1160,14 +1144,14 @@ def unpack_receipt(unpacking_template, receipt: dict):
 # * Performing transaction
 #------------------------------------------------
 
-def perform_transaction_gdelta(g_delta, g: Graph):
+def perform_transaction_commands(commands: list, g: Graph):
     d_raes = {}  # keep track of instantiated RAEs with temp ids            
     try:
         with Transaction(g) as tx_now:
             # TODO: Have to change the behavior of Transaction(g) later I suspect
             frame_now = GraphSlice(tx_now)
             d_raes['tx'] = tx_now
-            for i,cmd in enumerate(g_delta.commands):
+            for i,cmd in enumerate(commands):
 
                 zz = None
                 
