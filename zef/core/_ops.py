@@ -64,7 +64,7 @@ Or              = make_zefop(RT.Or)
 xor             = make_zefop(RT.Xor)
 
 always          = make_zefop(RT.Always)
-
+docstring       = make_zefop(RT.Docstring)
 
 
 get_in          = make_zefop(RT.GetIn)

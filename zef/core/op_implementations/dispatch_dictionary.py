@@ -111,6 +111,7 @@ _op_to_functions = {
         RT.Root:            (root_imp, root_tp),
         RT.Blobs:           (blobs_imp, blobs_tp),
         RT.Z:               (Z_imp, Z_tp),
+        RT.Docstring:       (docstring_imp, None),
         
         
         RT.GetIn:           (get_in_imp, get_in_tp),

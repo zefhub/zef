@@ -3843,6 +3843,15 @@ def l_implementation(first_arg, curried_args):
     return (pyzefops.L)(first_arg, *curried_args)
 
 def o_implementation(first_arg, curried_args):
+    """
+    O[...]  is "optional", meaning it will return either 0,1 results.
+    If the RT.Edge  exists it'll traverse that and return a ZefRef
+    If the RT.Edge  doesn't exist, it'll return None or nothing .
+    If there are multiple RT.Edge  it'll throw an error
+
+    ---- Examples ----
+    >>> z1 >> O[RT.Foo]        # of type {ZefRef, None, Error}
+    """
     return (pyzefops.O)(first_arg, *curried_args)
 
 
@@ -4072,6 +4081,44 @@ def rae_type_implementation(z):
     if isinstance(z, AtomicEntity):
         return z.d["type"]
     return pymain.rae_type(z)
+
+
+
+
+
+#----------------------docstring------------------------- 
+
+def docstring_imp(a) -> str:
+    """
+    Return the docstring for a given ZefOp or Zef Function.
+        
+    ---- Examples ----
+    >>> docstring(nth)
+    """
+    from zef.core.op_implementations.dispatch_dictionary import _op_to_functions
+    import inspect
+    if not isinstance(a, ZefOp):
+        return Error('"docstring" can only be called on ZefOps')
+
+    # is this a bare zef function? We want to implement that separately
+    if len(a.el_ops) == 1 and a.el_ops[0][0]==RT.Function:
+        return Error('"docstring" not implemented for Zef functions yet')
+
+
+    if len(a.el_ops) == 1:
+        if len(a.el_ops) == 1:
+            f = _op_to_functions[a.el_ops[0][0]][0]
+            doc = inspect.getdoc(f)
+            doc = doc if doc else f"No docstring found for given {a}!"
+            return doc
+    else:
+        from zef.core.op_implementations.yo_ascii import make_op_chain_ascii_output
+        return make_op_chain_ascii_output(a)
+
+
+
+
+
 
 
 #----------------------Type Functions------------------------- 
