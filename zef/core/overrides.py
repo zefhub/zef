@@ -8,6 +8,8 @@ from ..pyzef.main import Graph
 def merge(obj, g : Graph, fire_and_forget : bool = False):
     from ..pyzef.main import merge as orig_merge
     from .serialization import serialize, deserialize
+
+    raise NotImplementedError(f"THIS NEEDS TO BE FIXED!")
     # TODO Fix this to not depend on deprecated GraphDelta
     # if type(obj) == GraphDelta:
     #     ds = serialize(obj)

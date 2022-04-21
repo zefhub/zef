@@ -141,7 +141,8 @@ def construct_commands(elements) -> list:
 
     # First extract any nested GraphDeltas commands out
     # Note: using native python filtering as the evaluation engine is too slow
-
+    
+    # TODO: These were commented out from old GraphDelta behavior. Do we still need to account for it?
     # nested_cmds = elements | filter[is_a[GraphDelta]] | map[lambda x: x.commands] | concat | collect
     # nested_cmds = [x for x in elements if type(x) == GraphDelta] | map[lambda x: x.commands] | concat | collect
     # elements = elements | filter[Not[is_a[GraphDelta]]] | collect
