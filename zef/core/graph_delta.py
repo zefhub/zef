@@ -1258,30 +1258,6 @@ def perform_transaction_commands(commands: list, g: Graph):
         
     return d_raes    # the transaction receipt
 
-
-
-
-
-
-def perform_transaction(x, g: Graph):
-    """
-    x can be 
-        1) a GraphDelta
-        2) a list/tuple of GraphDeltas
-        3) s horthand type for txs: single ET/AET/triple/ list thereof
-        
-    if a tuple of GraphDelta is piped in, perform all of them within the same transaction."""
-    if isinstance(x, GraphDelta):
-        return perform_transaction_gdelta(x, g)
-    elif isinstance(x, list) or isinstance(x, tuple):
-        with Transaction(g):
-            res = tuple((perform_transaction_gdelta(el, g) for el in x))
-        return res
-    else:
-        raise TypeError(f'Did not know how to perform tx for {type(x)}')
-
-
-
 ################################
 # * General utils
 #------------------------------
