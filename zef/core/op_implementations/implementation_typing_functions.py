@@ -5285,6 +5285,70 @@ def fg_remove_imp(fg, key):
     return new_fg
 
 
+def flatgraph_to_commands(fg):
+    return_elements = []
+    idx_key = {idx:key for key,idx in fg.key_dict.items()}
+    def dispatch_on_blob(b, for_rt=False):
+        idx = b[0]
+        if isinstance(b[1], EntityType):
+            if idx in idx_key:
+                key = idx_key[idx]
+                if is_a(key, uid):
+                    return Entity({"type": b[1], "uid": key})
+                else:
+                    if for_rt: return Z[key]
+                    return b[1][key]
+            elif for_rt or len(b[2]) == 0:
+                return b[1][idx]
+            else: return None
+        elif isinstance(b[1], AtomicEntityType):
+            if idx in idx_key:
+                key = idx_key[idx]
+                if is_a(key, uid):
+                    if b[-1]: return AtomicEntity({"type": b[1], "uid": key}) <= b[-1]
+                    else:     return AtomicEntity({"type": b[1], "uid": key})
+                else:
+                    if for_rt: return Z[key]
+                    if b[-1]: return b[1][key] <= b[-1]
+                    else:     return b[1][key]
+            elif for_rt or len(b[2]) == 0:
+                if b[-1]: return b[1][idx] <= b[-1]
+                else:     return b[1][idx]
+            else: return None
+        elif isinstance(b[1], RelationType):
+            if idx in idx_key: 
+                key = idx_key[idx]
+                if for_rt: return Z[key]
+                if is_a(key, uid):
+                    return Relation({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
+            if for_rt: return Z[idx]
+            src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)
+            trgt_blb = dispatch_on_blob(fg.blobs[b[5]], True)
+            if b[0] in idx_key: base = b[1][idx_key[b[0]]]
+            else: base = b[1][idx]
+            return (src_blb, base, trgt_blb)
+
+        elif isinstance(b[1], str) and b[1][:2] == "BT":
+            if for_rt:
+                return Z[blake3(b[-1])]
+            else:
+                from ..graph_delta import map_scalar_to_aet_type
+                if type(b[-1]) in map_scalar_to_aet_type:
+                    aet = map_scalar_to_aet_type[type(b[-1])](b[-1])
+                    return aet[blake3(b[-1])] <= (b[-1])
+                else:
+                    return AET.Serialized[blake3(b[-1])] <= to_json(b[-1])
+
+        raise NotImplementedError(f"Unhandled type in dispatching {b}")
+
+    for b in fg.blobs | filter[lambda b: b != None] | collect:
+        el = dispatch_on_blob(b)
+        if el != None: return_elements.append(el)
+
+    from ..graph_delta_new import construct_commands
+    return construct_commands(return_elements)
+
+
 # ------------------------------FlatRef----------------------------------
 def fr_source_imp(fr):
     assert isinstance(fr, FlatRef)
@@ -5360,72 +5424,21 @@ def fg_all_imp(fg, selector=None):
 
 # -------------------------------- transact -------------------------------------------------
 def transact_imp(data, g, **kwargs):
-    from ..graph_delta import dispatch_ror_graph
+    from ..graph_delta_new import construct_commands
     if isinstance(data, FlatGraph):
-        def flatgraph_to_gd(fg):
-            return_elements = []
-            idx_key = {idx:key for key,idx in fg.key_dict.items()}
-            def dispatch_on_blob(b, for_rt=False):
-                idx = b[0]
-                if isinstance(b[1], EntityType):
-                    if idx in idx_key:
-                        key = idx_key[idx]
-                        if is_a(key, uid):
-                            return Entity({"type": b[1], "uid": key})
-                        else:
-                            if for_rt: return Z[key]
-                            return b[1][key]
-                    elif for_rt or len(b[2]) == 0:
-                        return b[1][idx]
-                    else: return None
-                elif isinstance(b[1], AtomicEntityType):
-                    if idx in idx_key:
-                        key = idx_key[idx]
-                        if is_a(key, uid):
-                            if b[-1]: return AtomicEntity({"type": b[1], "uid": key}) <= b[-1]
-                            else:     return AtomicEntity({"type": b[1], "uid": key})
-                        else:
-                            if for_rt: return Z[key]
-                            if b[-1]: return b[1][key] <= b[-1]
-                            else:     return b[1][key]
-                    elif for_rt or len(b[2]) == 0:
-                        if b[-1]: return b[1][idx] <= b[-1]
-                        else:     return b[1][idx]
-                    else: return None
-                elif isinstance(b[1], RelationType):
-                    if idx in idx_key: 
-                        key = idx_key[idx]
-                        if for_rt: return Z[key]
-                        if is_a(key, uid):
-                            return Relation({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
-                    if for_rt: return Z[idx]
-                    src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)
-                    trgt_blb = dispatch_on_blob(fg.blobs[b[5]], True)
-                    if b[0] in idx_key: base = b[1][idx_key[b[0]]]
-                    else: base = b[1][idx]
-                    return (src_blb, base, trgt_blb)
+        commands = flatgraph_to_commands(data)
 
-                elif isinstance(b[1], str) and b[1][:2] == "BT":
-                    if for_rt:
-                        return Z[blake3(b[-1])]
-                    else:
-                        from ..graph_delta import map_scalar_to_aet_type
-                        if type(b[-1]) in map_scalar_to_aet_type:
-                            aet = map_scalar_to_aet_type[type(b[-1])](b[-1])
-                            return aet[blake3(b[-1])] <= (b[-1])
-                        else:
-                            return AET.Serialized[blake3(b[-1])] <= to_json(b[-1])
+    elif type(data)  in {list, tuple}:
+        commands = construct_commands(data)
+    
+    else:
+        raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
 
-                raise NotImplementedError(f"Unhandled type in dispatching {b}")
-
-            for b in fg.blobs | filter[lambda b: b != None] | collect:
-                el = dispatch_on_blob(b)
-                if el != None: return_elements.append(el)
-            return GraphDelta(return_elements)
-        
-        return dispatch_ror_graph(g, flatgraph_to_gd(data))
-        
-    return dispatch_ror_graph(g, data)
+    return Effect({
+            "type": FX.TX.Transact,
+            "target_graph": g,
+            "commands":commands
+    })    
 
 def transact_tp(op, curr_type):
     return VT.Effect
