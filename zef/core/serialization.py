@@ -6,7 +6,6 @@ __all__ = [
 from ._core import *
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ._ops import *
-from .graph_delta import *
 from .op_structs import ZefOp, CollectingOp, SubscribingOp, ForEachingOp, LazyValue, Awaitable, is_python_scalar_type
 from .abstract_raes import Entity, Relation, AtomicEntity
 from .error import _ErrorType, Error
@@ -121,9 +120,6 @@ def serialize_zeftypes(z) -> dict:
 
     elif isinstance(z, Time):
         return {"_zeftype": "Time", "value": z.seconds_since_1970} 
-
-    elif isinstance(z, GraphDelta):
-        return {"_zeftype": "GraphDelta", "value": serialize_list(list(z.commands))}
 
     elif type(z) in [ZefOp, CollectingOp, SubscribingOp, ForEachingOp]:
         z_type = type(z).__name__
@@ -265,11 +261,6 @@ def deserialize_zeftypes(z) -> dict:
     elif z['_zeftype'] == "Time":
         return Time(z['value']) 
 
-    elif z['_zeftype'] == "GraphDelta":
-        new_gd = GraphDelta([])
-        new_gd.commands = tuple(deserialize_list(z['value']))
-        return new_gd
-
     elif z['_zeftype'] in {"ZefOp", "CollectingOp", "SubscribingOp", "ForEachingOp"}:
         types = {"ZefOp": ZefOp,  "CollectingOp":CollectingOp,  "SubscribingOp":SubscribingOp, "ForEachingOp": ForEachingOp}
         if z['_zeftype'] != "ZefOp": return types[z['_zeftype']](ZefOp(deserialize_zefops(z['el_ops'])))
@@ -360,7 +351,6 @@ serialization_mapping[ZefEnumValue] = serialize_zeftypes
 serialization_mapping[QuantityFloat] = serialize_zeftypes
 serialization_mapping[QuantityInt] = serialize_zeftypes
 serialization_mapping[Time] = serialize_zeftypes
-serialization_mapping[GraphDelta] = serialize_zeftypes
 serialization_mapping[ZefOp] = serialize_zeftypes
 serialization_mapping[CollectingOp] = serialize_zeftypes
 serialization_mapping[SubscribingOp] = serialize_zeftypes
@@ -399,7 +389,6 @@ deserialization_mapping["Enum"] = deserialize_zeftypes
 deserialization_mapping["QuantityFloat"] = deserialize_zeftypes
 deserialization_mapping["QuantityInt"] = deserialize_zeftypes
 deserialization_mapping["Time"] = deserialize_zeftypes
-deserialization_mapping["GraphDelta"] = deserialize_zeftypes
 deserialization_mapping["ZefOp"] = deserialize_zeftypes
 deserialization_mapping["CollectingOp"] = deserialize_zeftypes
 deserialization_mapping["SubscribingOp"] = deserialize_zeftypes
