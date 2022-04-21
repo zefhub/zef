@@ -1,105 +1,143 @@
-# zefDB
+<p align="center">
+<img width="400px" src="https://github.com/zefhub/zefhub-web-assets/blob/master/zef_logo_white.png">
+</p>
 
-![Master Branch](https://github.com/synchronoustechnologies/zefDB/workflows/Validate%20Master%20Push/Merge/badge.svg)
-![Latest Release](https://github.com/synchronoustechnologies/zefDB/workflows/Build%20Release/badge.svg)
+<p align="center">
+A toolkit for data-oriented pipelines and backends
+</p>
 
-Nie jou ma se databasis nie.  
+<p align="center">
+<em>versioned graphs + streams + query using Python + GraphQL</em>
+</p>
 
-<img src = "readme-images/zef.jpg" width="549">
+## Description
 
-<!-- TOC -->
+Zef is an open source toolkit of modules for building data-oriented pipelines and backends. Zef consists of an immutable, in-memory data structure, versioned graphs, data streams, composable lazy operators, effects handling, and GraphQL support. You can pick and choose the modules you need for your project.
 
-- [zefDB](#zefdb)
-  - [Goal](#goal)
-- [Requirements and Specifications](#requirements-and-specifications)
-- [General Principles & Guidelines](#general-principles--guidelines)
+If any of these apply to you, Zef might help:
 
-<!-- /TOC -->
+- I use NetworkX but need better performance and persistence (but want something easier than Neo4j)
+- I need a GraphQL API that's easy to spin up and close to my data model
+- I like Datomic but prefer something open source that feels like working with local data structures
+- I need to "time travel" and access past states
+- I don't want to learn a new query language like Cypher or GSQL (I just want to use Python)
+- I want an easy way to work with data streams and subscribe to them
 
+## Features
 
-What is it? A database? Another Python data structure library? A language-independent platform for distributed computing? A fundamental data model? An approach to enable true multithreading on Python? A generalization of the uni-directional Elm-dataflow model to arbitrary data?
-To be seen. It's about taking shit to the next level.
+- in-memory, immutable data structure
+- fully versioned graphs
+- work with your data like local data structures
+- no separate query language
+- no ORM
+- query and transform data using Python with composable lazy operators
+- data streams and subscriptions
+- GraphQL API with low impedance mismatch to data model
+- automatically store, sync, distribute graphs with ZefHub
 
+## Status
 
-## Goal
-<img src = "readme-images/just-generate-me-a-schedule-meme.jpg" width="400">
+Zef can currently handle up to ~100 million nodes.
 
-zefDB is Synchronous' core data library to represent highly connected, time-dependent, live data. It is designed to address and solve some of the core problems we were facing previously. It's central goal is to prove a consistent, global framework to help us build a generalizable and scalable scheduling solution. Many problems must be overcome to achieve this goal.
+## Installation
 
-<img src = "readme-images/backend-resolvers.jpg" width="400">
+Check out our [installation doc](https://zef.zefhub.io/introduction/installation) for more details.
 
-<img src = "readme-images/delegate-structure.png" width="800">
+```bash
+pip install zef
+```
 
+## Using Zef
 
-# Requirements and Specifications
+Here's some quick points to get going. Check out our [Quick Start](https://zef.zefhub.io/introduction/quick-start) and docs for more details.
 
-* Cross-Platform  / programming language communication
-* the database is a value and can be treated like a local data structure for querying.
-* Performance counts in the long run and is large determined by the data memory layout. This is hard/impossible to put in afterwards. Two areas where performance is critical: 1) read speeds for the simulations  2) write speed, given the strong consistency / single write head architecture
+### Get started
 
-<img src = "readme-images/one-percent-meme.jpg" width="400">
+```python
+from zef import *          # you'll see with our functional operators why we violate PEP in the first line
+from zef.ops import *
 
-* Lazy loading for spawned sessions
-* Graph structured data
-* Fully versioned, transaction-based graph
-* Inherently supports graph composition with strong owenership model of ZefRefs
+g = Graph()                # create an empty graph
+```
 
-<img src = "readme-images/graph-composition-monad.jpg" width="400">
+### Add some data
 
-* Git model for management between sessions and managing distributed data. But more granular than text files: Exploit graph structure and atomic information mode
-* Granular information model that interfaces well with object picture, JSON, GraphQL & Relay
+```python
+p1 = ET.Person | g | run                  # add an entity to the graph
 
-<img src = "readme-images/atomic-subscription-meme.jpg" width="400">
+(p1, RT.FirstName, "Yolandi") | g | run   # add "fields" via relations triples: (source, relation, target)
+```
 
-* Graph model: double linking for all high level information: Avoid large class of synchronization issues
-* Architecture that facilitates simple CQRS and inherently scalable read system. Apply this approach to multi-core processing
-* Single write head. For distributed information different policies possible. Default: single master node with write head.
+### Traverse the graph
 
-<img src = "readme-images/consistency-meme.jpg" width="400">
+```python
+p1 | Out[RT.FirstName]         # one hop: step onto the relation
 
-* Granular information model with inherent strong distinction between entities and values.
+p1 | out_rel[RT.FirstName]     # two hops: step onto the target
+```
 
-<img src = "readme-images/state-object-meme.png" width="300">
+### Time travel
 
-* Observer nodes model for merging of graphs & systematic ownership
-* Composable language for terse expressions of common query / traversal patterns
-* Functional approach for composition and local definitions of DSL
-* Strong extensibility:  allow overloading on any level / local namespace without affecting other parts.  This prohibits the common object-oriented approach
-* Subscriptions inherently implemented on low level graph API with ability to include foreign graphs as local graph views
+```python
+p1 | time_travel[-2]                                           # move reference frame back two time slices
 
-<img src = "readme-images/graph-views.jpg" width="300">
+p1 | time_travel[Time('2021 December 4 15:31:00 (+0100)')]     # move to a specific date and time
+```
 
-* Data Driven Design: put effort into finding the correct / most useful abstractions for a given real world problem. Fully expose data to the outside. The local user gets to decide which computations to perform.
-* APIs are defined by data only → adaptable schema and API generated at runtime
-* ZefSpec: declarative specifications of requirements for data to be fulfilled after each and every transaction
-* No more migrations: embrace API schema and data structure changes at runtime. Build a system to deal with this correctly and perform the boring work. Unless no other way is found, keep this append only (preserving the old data)
+### Share with other users (via ZefHub)
 
-<img src = "readme-images/graphQL-schema-migrations.png" width="400">
+```python
+g | sync[True] | run                            # save and sync all future changes on ZefHub
 
-* Schemas are data. Just saved in a special place of the graph away from the 'regular data'
-* Lazy evaluation of queries: internal use of C++20 ranges
-* For us the line blurs between traditional query languages (SQL, Gremlin, SparQL, ...) and compiled code expressions (we have unusual performance requirements in the simulation, but need to perform 'queries') → 
-  domain-specific common query language (between Python, C++ and Julia) that compiles into machine code
-* data with physical units accounted for at atomic level to avoid unit mismatches, esp. for non-CRUD operations / calculations
+# ---------------- Python Session A (You) -----------------
+g | uid | to_clipboard | run                    # uid is used to retrieve a graph uid
 
-<img src = "readme-images/fuzzy-date-meme.jpg" width="400">
+# ---------------- Python Session B (Friend) -----------------
+graph_uid: str = '...'                          # uid copied from Slack/WhatsApp/email/etc
+g = Graph(graph_uid)
+g | now | all[ET] | collect                     # see all entities in the latest graph slice
+```
 
-* transactional with context managers
-* append only
-* every attribute is a separate entity
-* collector nodes
-* Different primitives: the time-dependent character of lowest level data model is accounted for from first principiles: allows for a different model of collaboration 
+### Intro to Zef
 
-<img src = "readme-images/do-it-live.gif" width="400">
+Give our [basic tutorial](https://zef.zefhub.io/tutorials/basic/employee-database) a go to get a broad overview of Zef.
 
-# General Principles & Guidelines
+### Choose your own adventure
 
-* Don't communicate by sharing memory. Share memory by communicating
-* PubSub / observer pattern for any critical / live data
+- [Import data from CSV](https://zef.zefhub.io/how-to/import-csv)
+- [Import data from NetworkX](https://zef.zefhub.io/how-to/import-graph-formats)
+- [Set up a GraphQL API](https://zef.zefhub.io/how-to/graphql-basic)
+- [Use Zef graphs in NetworkX](https://zef.zefhub.io/how-to/use-zef-networkx)
+- [Add Zef to a project and use the functional operators](https://zef.zefhub.io/zef-ops) (doc not yet complete)
 
-<img src = "readme-images/polling-meme.jpg" width="400">
+### A note on ZefHub
 
-* Value-based communication on all levels (including blobs for cross-function communication)
-* Favor composition over inheritance
+Zef is designed so you can use it locally and drop it into any existing project. You have the option of syncing your graphs with ZefHub, a service that stores, syncs, and distributes graphs automatically (and the company behind Zef). ZefHub makes it possible to [share graphs with other users and see changes live](https://zef.zefhub.io/how-to/share-graphs), by memory mapping across machines in real-time!
 
+You can create a ZefHub account for free and you'll automatically be on the free tier (we will let you know far in advance if you ever need to pay). We will always have a free ZefHub tier available. For full transparency, our long-term hope is that many users will get value from Zef or Zef + ZefHub for free, while ZefHub power users can pay a fee for added features and services.
 
+## Roadmap
+
+We want to make it incredibly easy for developers to build fully distributed, reactive systems with consistent data and cross-language (Python, C++, Julia) support. If there's sufficient interest, we'd be happy to share a public board of items we're working on.
+
+## Contributing
+
+Thank you for considering contributing to Zef! We know your time is valuable and your input makes Zef better for all current and future users.
+
+[Raise bugs or issues](https://github.com/zefhub/zef/issues)
+
+[Suggest features or ideas](https://github.com/zefhub/zef/discussions)
+
+Please refer to our [CONTRIBUTING file](https://github.com/zefhub/zef/blob/master/CONTRIBUTING.md) for more details.
+
+## Community
+
+No question, issue, or feedback is too small or insignificant, so please reach out!
+
+Join our community chat: [https://zef.chat](https://zef.chat)
+
+Follow us on Twitter: [@zefhub](https://twitter.com/zefhub)
+
+Please refer to our [CODE_OF_CONDUCT file](https://github.com/zefhub/zef/blob/master/CODE_OF_CONDUCT.md) for more details.
+
+## License
