@@ -1,5 +1,5 @@
 <p align="center">
-<img width="400px" src="https://github.com/zefhub/zefhub-web-assets/blob/master/zef_logo_white.png">
+<img width="400px" src="https://github.com/zefhub/zefhub-web-assets/blob/main/zef_logo_white.png">
 </p>
 
 <p align="center">
