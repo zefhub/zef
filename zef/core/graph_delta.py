@@ -105,7 +105,7 @@ def dispatch_ror_graph(g, x):
         x = collect(x)
         # Note that this could produce a new LazyValue if the input was an
         # assign_value. This is fine.
-    if any(isinstance(x, T) for T in {list, tuple, EntityType, AtomicEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AtomicEntity, Relation}):
+    if any(isinstance(x, T) for T in {list, tuple, dict, EntityType, AtomicEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AtomicEntity, Relation}):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -1113,6 +1113,15 @@ def encode(xx):
                 # recurse: return isomorphic structure with IDs
                 return tuple((step(el, False) for el in x))
         
+        if isinstance(x, dict):
+            # TODO review and extend checks for this!
+            # Should contain a single key to another dict with k,v pairs where k is an RT
+            ent, sub_d = list(x.items()) | single | collect
+            ent = step(ent, True)
+            triples = [step((Z[ent], k, v), False) for k,v in sub_d.items()]
+            doubles = [x[1:] for x in triples]
+            return (ent, doubles)
+            
         # These next few ifs are for checks on syntax only
         if type(x) in scalar_types:
             if not allow_scalar:
