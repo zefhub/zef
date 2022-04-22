@@ -243,6 +243,7 @@ def deserialize_zeftypes(z) -> dict:
                 "QuantityFloat":    AET.QuantityFloat, 
                 "QuantityInt":      AET.QuantityInt, 
                 "Time":             AET.Time,
+                "Serialized":       AET.Serialized,
         }
         first_part,*rest = z['value'].split('.')
         out = type_map[first_part]
