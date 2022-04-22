@@ -763,11 +763,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, OLD_STY
 }
 
 template<>
-void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, OLD_STYLE_MergeRequest & content, Butler::msg_ptr & msg) {
-    throw std::runtime_error("Too old");
-}
-
-template<>
 void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRequest & content, Butler::msg_ptr & msg) {
     if(me.gd->error_state != GraphData::ErrorState::OK) {
         msg->promise.set_value(GenericResponse{false, "Graph is in error state"});
@@ -817,15 +812,13 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
     if(zwitch.graph_event_output())
         std::cerr << "Handling merge request for graph: " << me.uid << std::endl;
 
+    if(content.msg_version == 1) {
+        err_reply("Disallowing older versions to merge into us.");
+
     Graph target_g(*me.gd);
 
     // Do different things based on the payload.
     std::visit(overload {
-            [&](MergeRequest::PayloadIndices & payload) {
-                err_reply("UpdatePayload of indices not longer supported");
-                return;
-            },
-
             [&](MergeRequest::PayloadGraphDelta & payload) {
                 try {
                     py::gil_scoped_acquire acquire;

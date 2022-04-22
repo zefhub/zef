@@ -298,33 +298,6 @@ void Butler::handle_guest_message(UIDQuery & content, Butler::msg_ptr & msg) {
 }
 
 template <>
-void Butler::handle_guest_message(OLD_STYLE_MergeRequestForExternal & content, Butler::msg_ptr & msg) {
-    task_ptr task = add_task(true, 0, std::move(msg->promise));
-    try {
-        if(zefdb_protocol_version <= 1) {
-            // Convert merge_indices to string...
-            std::string merge_indices_s = "[";
-            for(auto it : content.merge_indices)
-                merge_indices_s += std::to_string(it) + ",";
-            merge_indices_s[merge_indices_s.length()-1] = ']';
-                    
-            send_ZH_message({
-                    {"msg_type", "merge_request"},
-                    {"task_uid", task->task_uid},
-                    {"source_guid", content.source_guid},
-                    {"target_guid", content.target_guid},
-                    {"merge_tx_index", std::to_string(content.merge_tx_index)},
-                    {"merge_indices", merge_indices_s}
-                });
-        } else {
-            throw std::runtime_error("Not implemented old style merge request");
-        }
-    } catch(...) {
-        auto task_promise = find_task(task->task_uid, true);
-        task_promise->promise.set_exception(std::current_exception());
-    }
-}
-template <>
 void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg) {
     // Even if we don't use the task, it's easier to create it now with try/catch.
     task_ptr task = {};
@@ -344,6 +317,11 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
         if(butler_is_master)
             throw std::runtime_error("Butler as master does not allow for upstream delegation of merges.");
 
+        if(content.task_uid) {
+            // This is a remote request, so we should abort.
+            throw std::runtime_error("Can't handle remote request anymore. Presumably we lost transactor role in between the request being sent out.");
+        }
+
         task = add_task(true, 0, std::move(msg->promise));
         // Need to delegate to zefhub
         std::visit(overloaded {
@@ -355,7 +333,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
                     } else {
                         send_ZH_message({
                                 {"msg_type", "merge_request"},
-                                {"msg_version", 1},
+                                {"msg_version", 2},
                                 {"task_uid", task->task_uid},
                                 {"target_guid", str(content.target_guid)},
                                 {"payload", {
@@ -365,48 +343,22 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
                             });
                     }
                 },
-                [&](MergeRequest::PayloadIndices & payload) {
-                    if(zefdb_protocol_version <= 1) {
-                        // Convert merge_indices to string...
-                        std::string merge_indices_s = "[";
-                        for(auto it : payload.merge_indices)
-                            merge_indices_s += std::to_string(it) + ",";
-                        merge_indices_s[merge_indices_s.length()-1] = ']';
-                    
-                        send_ZH_message({
-                                {"msg_type", "merge_request"},
-                                {"task_uid", task->task_uid},
-                                {"source_guid", payload.source_guid},
-                                {"target_guid", content.target_guid},
-                                {"merge_tx_index", std::to_string(payload.merge_tx_index)},
-                                {"merge_indices", merge_indices_s}
-                            });
-                    } else {
-                        // Convert merge_indices to string...
-                        std::string merge_indices_s = "[";
-                        for(auto it : payload.merge_indices)
-                            merge_indices_s += std::to_string(it) + ",";
-                        merge_indices_s[merge_indices_s.length()-1] = ']';
-                    
-                        send_ZH_message({
-                                {"msg_type", "merge_request"},
-                                {"msg_version", 1},
-                                {"task_uid", task->task_uid},
-                                {"target_guid", content.target_guid},
-                                {"payload", {
-                                        {"type", "indices"},
-                                        {"source_guid", payload.source_guid},
-                                        {"source_tx_index", std::to_string(payload.merge_tx_index)},
-                                        {"source_indices", merge_indices_s}
-                                    }},
-                            });
-                    }
-                },
                 [](auto & other) {
                     throw std::runtime_error("Not implemented payload type");
                 }
             }, content.payload);
     } catch(...) {
+        if(content.task_uid) {
+            // This is a remote request, so we should let upstream know of the problem.
+            send_ZH_message({
+                    {"msg_type", "merge_request_response"},
+                    {"msg_version", 2},
+                    {"task_uid", task->task_uid},
+                    {"target_guid", str(content.target_guid)},
+                    {"success", false},
+                    {"reason", "Unknown exception"},
+                });
+        }
         if(task) {
             auto task_promise = find_task(task->task_uid, true);
             task_promise->promise.set_exception(std::current_exception());
