@@ -2504,7 +2504,7 @@ namespace zefDB {
 	}
 
 
-    nlohmann::json merge(nlohmann::json j, Graph& target_graph, bool fire_and_forget) {
+    nlohmann::json merge(const nlohmann::json & j, Graph target_graph, bool fire_and_forget) {
        auto butler = Butler::get_butler();
 
        Messages::MergeRequest msg {

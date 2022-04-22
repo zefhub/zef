@@ -35,10 +35,20 @@ def serialize(v):
     """
 
     # Serializes a list and recursively calls itself if one of the list elements is of type List
+    if type(v) == bytes:
+        # Our target is for a JSON-compatible format, so need to convert this to
+        # a string smoehow. We choose base64 encoding.
+        import base64
+        return {
+            "_zeftype": "bytes",
+            "data": base64.b64encode(v).decode("utf-8")
+        }
     if is_python_scalar_type(v):
         return v
     elif isinstance(v, list):
         return serialize_list(v)
+    elif isinstance(v, tuple):
+        return serialize_tuple(v)
     elif isinstance(v, dict):
         return serialize_dict(v)
     elif type(v) in serialization_mapping:
@@ -55,10 +65,12 @@ def deserialize(v):
     """
     if isinstance(v, dict) and "_zeftype" in v:
         v = deserialization_mapping[v["_zeftype"]](v)
-    # elif isinstance(v, dict):
-    #     v = deserialize_dict(v)
+    elif isinstance(v, dict):
+        v = deserialize_dict(v)
     elif isinstance(v, list):
         v = deserialize_list(v)
+    elif isinstance(v, tuple):
+        v = deserialize_tuple(v)
 
     return v
 
@@ -66,6 +78,12 @@ def deserialize(v):
 ####################################
 # * Implementations
 #----------------------------------
+
+def serialize_tuple(l: tuple) -> dict:
+    return {
+        "_zeftype": "tuple",
+        "items": [serialize(el) for el in l]
+    }
 
 def serialize_list(l: list) -> list:
     return [serialize(el) for el in l]
@@ -200,6 +218,9 @@ def serialize_zefops(k_type, ops):
 
     return {"_zeftype": k_type, "el_ops": serialized_ops}
 
+
+def deserialize_tuple(json_d: dict) -> tuple:
+    return tuple(deserialize(el) for el in json_d["items"])
 
 def deserialize_list(l: list) -> list:
     return [deserialize(el) for el in l]
