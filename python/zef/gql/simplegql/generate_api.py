@@ -1127,6 +1127,7 @@ def temporary__call_string_as_func(s, **kwds):
             s, {
                 **{name: getattr(core,name) for name in dir(core) if not name.startswith("_")},
                 **{name: getattr(ops,name) for name in dir(ops) if not name.startswith("_")},
+                "auth_field": P(auth_helper_auth_field, **kwds),
             },
             kwds
         )
@@ -1140,6 +1141,35 @@ def temporary__call_string_as_func(s, **kwds):
         out = out(kwds.get("z", None))
 
     return out
+
+def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
+    # A helper function for graphql schema, that requests an auth check of the
+    # given kind on one of its fields.
+
+    # Only makes sense for fields that are required, such as a user field.
+    try:
+        z_field = get_field_rel_by_name(type_node, field_name)
+        z_field_node = target(z_field)
+        val = field_resolver_by_name(z, type_node, info, field_name)
+    except:
+        # Going to assume this is because traversal failed auth along the way somewhere.
+        log.error("auth_field helper got an exception, assuming failure of auth")
+        return False
+
+    if auth == "query":
+        func = pass_query_auth
+    elif auth == "add":
+        func = pass_add_auth
+    elif auth == "update":
+        func = pass_pre_update_auth
+    elif auth == "updatePost":
+        func = pass_post_update_auth
+    elif auth == "delete":
+        func = pass_delete_auth
+    else:
+        raise Exception(f"Don't understand auth type '{auth}' in auth_helper_auth_field")
+
+    return func(val, z_field_node, info)
 
 
 
@@ -1164,7 +1194,6 @@ def commit_with_post_checks(actions, post_checks, info):
                         raise Exception(f"Post-update auth check for type_node of '{type_name}' returned False")
         except Exception as exc:
             log.error("Aborting transaction",
-                      type_node=type_name,
                       exc_info=exc)
             from ...pyzef.internals import AbortTransaction
             AbortTransaction(g)
