@@ -826,7 +826,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
     if(zwitch.graph_event_output())
         std::cerr << "Handling merge request for graph: " << me.uid << std::endl;
 
-    if(content.msg_version == 1) {
+    if(content.msg_version == 1)
         err_reply("Disallowing older versions to merge into us.");
 
     Graph target_g(*me.gd);
