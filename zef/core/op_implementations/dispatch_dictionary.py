@@ -151,9 +151,10 @@ _op_to_functions = {
         RT.Split:           (split_imp, split_tp),
         RT.Graphviz:        (graphviz_imp, graphviz_tp),
         
-        
-        
         RT.Always:              (always_imp, always_tp),
+        
+        RT.WithoutAbsorbed:     (without_absorbed_imp, None),
+        RT.Absorbed:            (absorbed_imp, None),
         
         RT.CartesianProduct:    (cartesian_product_imp, cartesian_product_tp),
         RT.Permutations:        (permutations_imp, permutations_tp),

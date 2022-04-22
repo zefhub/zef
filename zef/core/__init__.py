@@ -44,8 +44,6 @@ from . import flat_graph
 from . import fx
 from . import serialization
 
-from .graph_delta import GraphDelta
-
 from .error import Error
 
 from .image import Image

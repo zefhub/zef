@@ -145,21 +145,8 @@ namespace zefDB {
 
             UpdatePayload payload;
         };
-        struct OLD_STYLE_MergeRequest {
-            std::string task_uid;
-            std::string source_guid;
-            std::string target_guid;
-            blob_index merge_tx_index;
-
-            std::vector<blob_index> merge_indices;
-        };
 
         struct MergeRequest {
-            struct PayloadIndices {
-                std::string source_guid;
-                blob_index merge_tx_index;
-                std::vector<blob_index> merge_indices;
-            };
             struct PayloadGraphDelta {
                 // TODO: Currently this is got from python as a python object, but will later be a native C object.
                 json delta;
@@ -167,8 +154,8 @@ namespace zefDB {
             // If task_uid is not set, then this has been generated locally
             std::optional<std::string> task_uid;
             std::string target_guid;
-            std::variant<PayloadIndices, PayloadGraphDelta> payload;
-            int msg_version = 1;
+            std::variant<PayloadGraphDelta> payload;
+            int msg_version = 2;
         };
 
 
@@ -196,13 +183,6 @@ namespace zefDB {
                 : generic(generic) {}
         };
 
-        struct OLD_STYLE_MergeRequestForExternal {
-            std::string source_guid;
-            std::string target_guid;
-            blob_index merge_tx_index;
-
-            std::vector<blob_index> merge_indices;
-        };
         struct OLD_STYLE_UserManagement {
             std::string action;
             std::string subject;
@@ -259,8 +239,6 @@ namespace zefDB {
             SetKeepAlive,
             GraphUpdate,
             MergeRequest,
-            OLD_STYLE_MergeRequest,
-            OLD_STYLE_MergeRequestForExternal,
             OLD_STYLE_UserManagement,
             TokenManagement,
             OLD_STYLE_UpdateTagList,
@@ -313,8 +291,6 @@ namespace zefDB {
         CREATE_NAME_STRING(GraphUpdate)
         CREATE_NAME_STRING(MergeRequest)
         CREATE_NAME_STRING(MergeRequestResponse)
-        CREATE_NAME_STRING(OLD_STYLE_MergeRequest)
-        CREATE_NAME_STRING(OLD_STYLE_MergeRequestForExternal)
         CREATE_NAME_STRING(OLD_STYLE_UserManagement)
         CREATE_NAME_STRING(TokenManagement)
         CREATE_NAME_STRING(OLD_STYLE_UpdateTagList)

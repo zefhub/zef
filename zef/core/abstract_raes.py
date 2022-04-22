@@ -31,6 +31,7 @@ class Entity:
             self.d = {
                 'type': ET(x),
                 'uid': origin_uid(x),
+                'absorbed': (),
             }
         
         elif isinstance(x, Entity):
@@ -39,12 +40,13 @@ class Entity:
         elif isinstance(x, dict):
             assert 'type' in x and 'uid' in x
             assert type(x['type']) == EntityType
+            x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
             raise TypeError(f"can't construct an abstract entity from a {type(x)=}.  Value passed in: {x=}")
 
     def __repr__(self):
-        return f'Entity({repr(self.d["type"])}, {repr(self.d["uid"])})'
+        return f'Entity({repr(self.d["type"])}, {repr(self.d["uid"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
         if not isinstance(other, Entity): return False
@@ -53,9 +55,11 @@ class Entity:
     def __hash__(self):
         return hash(self.d['uid'])
 
-    def __getitem__(self, internal_id):
-        from ._ops import merged
-        return merged[self][internal_id]
+    def __getitem__(self, x):
+        # append x to absorbed (a tuple). Return a new object
+        return Entity({**self.d, 'absorbed': (*self.d['absorbed'], x)})
+        
+
 
     
 
@@ -71,18 +75,20 @@ class AtomicEntity:
             self.d = {
                 'type': AET(x),
                 'uid': origin_uid(x),
+                'absorbed': (),
             }        
         elif isinstance(x, AtomicEntity):
             return x
         elif isinstance(x, dict):
             assert 'type' in x and 'uid' in x
             assert type(x['type']) == AtomicEntityType
+            x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
             raise TypeError(f"can't construct an abstract atomic entity from a {type(x)=}.  Value passed in: {x=}")
 
     def __repr__(self):
-        return f'AtomicEntity({repr(self.d["type"])}, {repr(self.d["uid"])})'
+        return f'AtomicEntity({repr(self.d["type"])}, {repr(self.d["uid"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
         if not isinstance(other, AtomicEntity): return False
@@ -95,9 +101,10 @@ class AtomicEntity:
     def __hash__(self):
         return hash(self.d['uid'])
 
-    def __getitem__(self, internal_id):
-        from ._ops import merged
-        return merged[self][internal_id]
+    def __getitem__(self, x):
+        # from ._ops import merged
+        # return merged[self][internal_id]
+        return AtomicEntity({**self.d, 'absorbed': (*self.d['absorbed'], x)})
     
 
 class Relation:
@@ -114,6 +121,7 @@ class Relation:
             self.d = {
                 'type': (rae_type(source(x)), RT(x), rae_type(target(x))),
                 'uids': (origin_uid(source(x)), origin_uid(x), origin_uid(target(x))),
+                'absorbed': (),
             }        
         elif isinstance(x, Relation):
             return x
@@ -121,12 +129,13 @@ class Relation:
             assert 'type' in x and 'uids' in x
             assert type(x['type']) == tuple and len(x['type']) == 3 and type(x['type'][1]) == RelationType
             assert type(x['uids']) == tuple and len(x['uids']) == 3 
+            x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
             raise TypeError(f"can't construct an abstract relation from a {type(x)=}.  Value passed in: {x=}")
 
     def __repr__(self):
-        return f'Relation({repr(self.d["type"])}, {repr(self.d["uids"])})'
+        return f'Relation({repr(self.d["type"])}, {repr(self.d["uids"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
         if not isinstance(other, Relation): return False
@@ -135,9 +144,11 @@ class Relation:
     def __hash__(self):
             return hash(''.join([str(x) for x in self.d['uids']]))
             
-    def __getitem__(self, internal_id):
-        from ._ops import merged
-        return merged[self][internal_id]
+    def __getitem__(self, x):
+        # from ._ops import merged
+        # return merged[self][internal_id]
+        return Relation({**self.d, 'absorbed': (*self.d['absorbed'], x)})
+
 
 
 def abstract_rae_from_rae_type_and_uid(rae_type, uid):

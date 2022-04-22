@@ -214,10 +214,10 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.attr("BT") = BT;
 
 
-	py::class_<AtomicEntityType>(internals_submodule, "AtomicEntityType")
+	py::class_<AtomicEntityType>(internals_submodule, "AtomicEntityType", py::dynamic_attr())
 		.def(py::init<enum_indx>())	
 		.def_readonly("value", &AtomicEntityType::value)
-		.def("__repr__", [](const AtomicEntityType& self)->std::string { return to_str(self); })
+		.def("__repr_without_absorbed__", [](const AtomicEntityType& self)->std::string { return to_str(self); })
 		.def("__str__", [](const AtomicEntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const AtomicEntityType& self, const AtomicEntityType& other)->bool { return self == other; }, py::is_operator())
 		.def("__ne__", [](const AtomicEntityType& self, const AtomicEntityType& other)->bool { return self != other; }, py::is_operator())

@@ -17,7 +17,7 @@ class MyTestCase(unittest.TestCase):
                     (5,6), (6,7), (7,8), (8,6)]:
             (zs[i], RT.UsedBy, zs[j]) | g | run
 
-        r = GraphDelta([
+        r = [
             (ET.Person["alex"], [(RT.FirstName, "Alex"),
                                 (RT.Status, EN.Status.Developer),
                                 (RT.ZefAge, 1)]),
@@ -32,7 +32,7 @@ class MyTestCase(unittest.TestCase):
 
             (Z["alex"], RT.Knows["d-z"], Z["zach"]),
             (Z["d-z"], RT.From, "Nowhere"),
-        ]) | g | run
+        ] | transact[g] | run
 
 
         dg = ProxyGraph(now(g), ET.Person, RT.Knows)

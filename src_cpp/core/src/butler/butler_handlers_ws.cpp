@@ -396,50 +396,20 @@ void Butler::handle_incoming_merge_request(json & j) {
     int msg_version = 0;
     if(j.contains("msg_version"))
         msg_version = j["msg_version"].get<int>();
+    int preferred_msg_version = 2;
 
     if(msg_version <= 0) {
-        blob_index merge_tx_index = std::stoi(j["merge_tx_index"].get<std::string>());
-        std::vector<blob_index> merge_indices;
-
-        std::string p_string = j["merge_indices"].get<std::string>();
-        // Dodgy parsing - this will go away in the future!
-        p_string[p_string.length()-1] = ',';
-        int pos = 0;
-        while(true) {
-            int start_pos = pos+1;
-            pos = p_string.find(',', start_pos);
-            if(pos == std::string::npos)
-                break;
-            int end_pos = pos;
-
-            merge_indices.push_back(std::stoi(p_string.substr(start_pos, end_pos-start_pos)));
-        }
-        MergeRequest::PayloadIndices payload{
-            j["source_guid"].get<std::string>(),
-            merge_tx_index,
-            merge_indices
-        };
-
-        content = MergeRequest{
-            task_uid,
-            target_guid,
-            payload,
-            msg_version
-        };
-    } else {
+            send_ZH_message({
+                    {"msg_type", "merge_request_response"},
+                    {"msg_version", 2},
+                    {"task_uid", task_uid},
+                    {"success", false},
+                    {"reason", "Version too old"},
+                });
+            return;
+    } else if(msg_version >= 1 && msg_version <= preferred_msg_version) {
         std::string payload_type = j["payload"]["type"].get<std::string>();
-        if(payload_type == "indices") {
-            content = MergeRequest{
-                task_uid,
-                target_guid,
-                MergeRequest::PayloadIndices{
-                    j["payload"]["source_guid"].get<std::string>(),
-                    j["payload"]["source_tx_index"].get<blob_index>(),
-                    j["payload"]["source_indices"].get<std::vector<blob_index>>()
-                },
-                msg_version
-            };
-        } else if(payload_type == "delta") {
+        if(payload_type == "delta") {
             content = MergeRequest{
                 task_uid,
                 target_guid,
@@ -448,7 +418,25 @@ void Butler::handle_incoming_merge_request(json & j) {
                 },
                 msg_version
             };
+        } else {
+            send_ZH_message({
+                    {"msg_type", "merge_request_response"},
+                    {"msg_version", 2},
+                    {"task_uid", task_uid},
+                    {"success", false},
+                    {"reason", "Don't understand payload type: '" + payload_type + "'"},
+                });
+            return;
         }
+    } else {
+        send_ZH_message({
+                {"msg_type", "merge_request_response"},
+                {"msg_version", preferred_msg_version},
+                {"task_uid", task_uid},
+                {"success", false},
+                {"reason", "msg_version is too new for us"},
+            });
+        return;
     }
 
     auto data = find_graph_manager(BaseUID::from_hex(content->target_guid));

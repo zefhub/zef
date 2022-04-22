@@ -108,7 +108,7 @@ class MyTestCase(unittest.TestCase):
             z = instantiate(ET.Machine, g)
             rel = instantiate(z, RT.TypeOf, z, g)
 
-        terminate(ZefRefs([z,rel,z,z,z,rel,rel])) | g | run
+        ZefRefs([z,rel,z,z,z,rel,rel]) | map[terminate] | g | run
 
         self.assertEqual(length(g | now | all), 0)
 

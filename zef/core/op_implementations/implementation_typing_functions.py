@@ -327,8 +327,6 @@ def peel_imp(el, *args):
         return el.nested()
     elif isinstance(el, _Effect_Class):
         return el.d
-    elif isinstance(el, GraphDelta):
-        return el.commands
     elif isinstance(el, ZefOp):
         # TODO !!!!!!!!!!!!! Change this to always return elementary ZefOps and to use list(el) to get current behavior
         if len(el.el_ops) > 1:
@@ -343,8 +341,6 @@ def peel_imp(el, *args):
 def peel_tp(op, curr_type):
     if curr_type == VT.Effect:
         return VT.Dict[VT.String, VT.Any]
-    elif curr_type == VT.GraphDelta:
-        return VT.Record[VT.Dict]
     elif curr_type in {VT.ZefOp, VT.LazyValue}:
         return VT.Record
     else:
@@ -485,12 +481,12 @@ def prepend_imp(v, item, *additional_items):
                 ][[]] 
             | collect)
 
-        g_delta = ( 
+        actions = ( 
                 rels1,                              # the RT.ZEF_ListElement between the ET.ZEF_List and the RAEs
                 next_rels,                          # the RT.ZEF_NextElement between each pair of new RT.ZEF_ListElement 
                 first_existing_el_rel,              # list with single connecting last existing rel to newly created one or Empty
-            ) | concat | func[GraphDelta] | collect
-        return  g_delta     
+            ) | concat | collect
+        return  actions     
     elif isinstance(v, tuple):
         return (item, *v)
     elif isinstance(v, EZefRefs):
@@ -568,12 +564,13 @@ def append_imp(v, item, *additional_items):
                 ][[]] 
             | collect)
 
-        g_delta = ( 
+        actions = ( 
                 rels1,                              # the RT.ZEF_ListElement between the ET.ZEF_List and the RAEs
                 next_rels,                          # the RT.ZEF_NextElement between each pair of new RT.ZEF_ListElement 
                 last_existing_ZEF_ListElement_rel,  # list with single connecting rel to previous list or empty
-            ) | concat | func[GraphDelta] | collect
-        return  g_delta 
+            ) | concat | collect
+        return  actions     
+ 
 
     elif isinstance(v, EZefRefs):
         return EZefRefs([*v, item])
@@ -1390,6 +1387,69 @@ def always_imp(x, value, *args):
 
 def always_tp(x):
     return VT.Any
+
+
+#---------------------------------------- absorbed -----------------------------------------------
+def absorbed_imp(x):
+    if isinstance(x, EntityType) or isinstance(x, RelationType) or isinstance(x, AtomicEntityType)  or isinstance(x, Keyword):
+        if '_absorbed' not in x.__dict__:
+            return ()
+        else:
+            return x._absorbed
+    
+    elif type(x) in {Entity, Relation, AtomicEntity}:
+        return x.d['absorbed']
+
+    elif isinstance(x, ZefOp):
+        if len(x.el_ops) != 1: 
+            return Error(f'"absorbed" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
+        return x.el_ops[0][1]
+    elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
+        return ()
+    else:
+        return Error(f'absorbed called on {type(x)=}   {x=}')
+
+
+
+
+
+
+#---------------------------------------- without_absorbed -----------------------------------------------
+def without_absorbed_imp(x):
+    """
+    Or "without_absorbed"?
+
+    Return the bare Type as if nothing had ever been absorbed.
+    """
+    if isinstance(x, EntityType):
+        if '_absorbed' not in x.__dict__:
+            return x
+        else:
+            new_et = EntityType(x.value)
+            return new_et
+    
+    elif isinstance(x, RelationType):
+        if '_absorbed' not in x.__dict__:
+            return x
+        else:
+            new_rt = RelationType(x.value)
+            return new_rt
+        
+    elif isinstance(x, AtomicEntityType):
+        return AtomicEntityType(x.value)
+                
+    elif isinstance(x, Keyword):
+        if '_absorbed' not in x.__dict__:
+            return x
+        else:
+            new_kw = Keyword(x.value)
+            return new_kw
+
+    return Error('Not Implemented')
+
+
+
+
 
 
 #---------------------------------------- add -----------------------------------------------
@@ -2463,7 +2523,8 @@ def is_distinct_imp(v):
     Stream[T] -> Bool
     LazyValue[List[T]] -> Bool
     """
-    return len(v) == len(set(v))
+    vv = tuple(v)
+    return len(vv) == len(set(vv))
 
 
 
@@ -3423,22 +3484,13 @@ def run_effect_implementation(eff):
     # we want to directly unpack the instances in the same structure as the types that went in
     # To decouple the layers, we need to return based on whether 'unpacking_template' is present
     # as a key in the receipt
-    def unpack_receipt(unpacking_template, receipt: dict):
-        def step(x):
-            if isinstance(x, tuple):
-                return tuple((step(el) for el in x))
-            if isinstance(x, list):
-                return [step(el) for el in x]
-            return receipt[x] if isinstance(x, str) or is_a(x, uid) else x
-        return step(unpacking_template)
 
     
     if not isinstance(eff, _Effect_Class):
         raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run an Effect.")
     handler = _effect_handlers[eff.d['type'].d]
     eff._been_run = True
-    res = handler(eff)    
-    return unpack_receipt(res['unpacking_template'], res) if (isinstance(res, dict) and 'unpacking_template' in res) else res
+    return handler(eff)
 
 
 
@@ -3616,7 +3668,8 @@ def filter_implementation(itr, pred):
     """
     input_type = parse_input_type(type_spec(itr))
     if input_type == "tools":
-        return builtins.filter(pred, itr)
+        # As this is an intermediate, we return an explicit generator
+        return (x for x in builtins.filter(pred, itr))
     elif input_type == "zef":
         return pyzefops.filter(itr, pred)
     elif input_type == "awaitable":
@@ -4266,15 +4319,14 @@ def InIn_type_info(op, curr_type):
         curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
     return curr_type
 
-def terminate_implementation(z):
-    if isinstance(z, ZefRef) or isinstance(z, EZefRef):
-        return GraphDelta([terminate[z]])
-    elif isinstance(z, ZefRefs) or isinstance(z, EZefRefs):
-        if len(z) == 0:
-            return None
-        return GraphDelta([terminate[item] for item in z])
-
-    raise Exception("Incompatible type for z ({type(z)})")
+def terminate_implementation(z, *args):
+    # We need to keep terminate as something that works in the GraphDelta code.
+    # So we simply wrap everything up as a LazyValue and return that.
+    if len(args) == 1:
+        return LazyValue(z) | terminate[args[0]]
+    else:
+        assert len(args) == 0
+        return LazyValue(z) | terminate
 
 def terminate_type_info(op, curr_type):
     return curr_type
@@ -4800,12 +4852,12 @@ def write_file_tp(op, curr_type):
     return VT.Effect
 
 #---------------------------------------- dataframe to graph delta -----------------------------------------------
-def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.GraphDelta:
+def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.List:
     """ 
-    Takes a pandas dataframe and a mapping Dict and returns a GraphDelta.
+    Takes a pandas dataframe and a mapping Dict and returns a list of commands.
 
     ---- Signature ----
-    (VT.DataFrame,  VT.Dict) -> VT.GraphDelta
+    (VT.DataFrame,  VT.Dict) -> VT.List
     """
     # step 1: column mapping
     cols = df.columns.to_list()
@@ -4816,7 +4868,7 @@ def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.GraphDelta:
 
     # step 2: create GraphDelta changes
     entity = mapping.get('row', "Row")
-    changes = (
+    actions = (
             df.values.tolist()
             | enumerate
             | map[lambda idx_row: idx_row[1] | enumerate | map[lambda i_v: (Z[f'_{idx_row[0]}'], RT(cols[i_v[0]]), i_v[1])] | collect]
@@ -4824,10 +4876,10 @@ def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.GraphDelta:
             | concat
             | collect
     )
-    return GraphDelta(changes)
+    return actions
 
 def pandas_to_gd_tp(op, curr_type):
-    return VT.GraphDelta
+    return VT.List
 
 
 
@@ -5169,10 +5221,10 @@ def to_zef_list_imp(elements: list):
         [ET.ZEF_List['zef_list']],
         next_rels,
         rels_to_els
-    ] | concat |  func[GraphDelta] | collect
+    ] | concat | collect
 
 def to_zef_list_tp(op, curr_type):
-    return VT.GraphDelta
+    return VT.List
 
 
 #-----------------------------FlatGraph Implementations-----------------------------------
@@ -5205,10 +5257,18 @@ def fg_insert_imp(fg, new_el):
     def common_logic(new_el):
         if isinstance(new_el, EntityType):
             idx = next_idx()
+            internal_id = new_el | absorbed | attempt[single][None] | collect
+            new_el = new_el | without_absorbed | collect
+            if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None))
+
         elif isinstance(new_el, AtomicEntityType):
             idx = next_idx()
+            internal_id = new_el | absorbed | attempt[single][None] | collect
+            new_el = new_el | without_absorbed | collect
+            if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None, None))
+
         elif isinstance(new_el, Entity):
             node_type, node_uid = new_el.d['type'], new_el.d['uid']
             if node_uid not in new_key_dict:
@@ -5216,6 +5276,7 @@ def fg_insert_imp(fg, new_el):
                 new_blobs.append((idx, node_type, [], node_uid))
                 new_key_dict[node_uid] = idx
             idx = new_key_dict[node_uid]
+
         elif isinstance(new_el, AtomicEntity):
             node_type, node_uid = new_el.d['type'], new_el.d['uid']
             if node_uid not in new_key_dict:
@@ -5223,54 +5284,43 @@ def fg_insert_imp(fg, new_el):
                 new_blobs.append((idx, node_type, [], node_uid, None))
                 new_key_dict[node_uid] = idx
             idx = new_key_dict[node_uid]
+
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Instantiated):
-            tup = peel(new_el) | first | second | collect
-            idx = next_idx()
-            if isinstance(tup[0], EntityType):
-                new_blobs.append((idx, tup[0], [], None))
-                new_key_dict[tup[1]] = idx
-            elif isinstance(tup[0], AtomicEntityType):
-                internal_uid = tup | attempt[second][None] | collect
-                new_blobs.append((idx, tup[0], [], None, None))
-                if internal_uid: new_key_dict[internal_uid] = idx
-            else:
-                raise ValueError("")
+            raise ValueError("!!!!SHOULD NO LONGER ARRIVE HERE!!!!")
+
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
             key = peel(new_el)| first | second | first | collect
             if key not in new_key_dict: raise KeyError(f"{key} doesn't exist in internally known ids!")
             idx = new_key_dict[key]
+
         # i.e: z4 <= 42 ; AET.String <= "42" ; AET.String['z1'] <= 42 ; Z['n1'] <= 42
-        # Becomes LazyValue(zr_or_op, assign_value[X])
         elif isinstance(new_el, LazyValue) and length(peel(new_el)) == 2:
-            if isinstance(peel(new_el)[0], ZefOp):
-                first_op = peel(new_el)[0]
-                if inner_zefop_type(first_op, RT.Instantiated):
-                    aet_maybe = peel(peel(new_el)[0])[0][1][0]
+            first_op = peel(new_el)[0]
+            if isinstance(first_op, AtomicEntityType):
+                    internal_id = first_op | absorbed | attempt[single][None] | collect
+                    aet_maybe = first_op | without_absorbed | collect
                     assert isinstance(aet_maybe, AtomicEntityType), f"{new_el} should be of type AET"
                     aet_value = peel(peel(new_el)[1])[0][1][0]
                     idx = next_idx()
                     new_blobs.append((idx, aet_maybe, [], None, aet_value))
-                    if len(peel(peel(new_el)[0])[0][1]) > 1: new_key_dict[peel(peel(new_el)[0])[0][1][1]] = idx
-                elif inner_zefop_type(first_op, RT.Z):
-                    key = peel(peel(new_el)[0])[0][1][0]
+                    if internal_id: new_key_dict[internal_id] = idx
+            elif isinstance(first_op, ZefOp):
+                if inner_zefop_type(first_op, RT.Z):
+                    key = peel(first_op)[0][1][0]
                     aet_value = peel(peel(new_el)[1])[0][1][0]
                     if key not in new_key_dict: raise KeyError(f"{key} doesn't exist in internally known ids!")
                     idx = new_key_dict[key]
                     assert isinstance(new_blobs[idx][1], AtomicEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
                     new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
                 else:
-                    raise ValueError(f"Was expecting a AET.String['z1'] <= 42 or Z['n1'] <= 42 got {new_el} instead!")
-            elif isinstance(peel(new_el)[0], ZefRef) or isinstance(peel(new_el)[0], EZefRef):
-                idx = common_logic(peel(new_el)[0])
+                    raise ValueError(f"Expected a Z['n1'] <= 42 got {new_el} instead!")
+            elif isinstance(first_op, ZefRef) or isinstance(first_op, EZefRef):
+                idx = common_logic(first_op)
                 assert isinstance(new_blobs[idx][1], AtomicEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
                 aet_value = peel(peel(new_el)[1])[0][1][0]
                 new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
             else:
-                raise ValueError(f"Was expecting a z <= 42 ; AET.String <= 42 got {new_el} instead!")
-                
-        elif isinstance(new_el, FlatRef):
-            assert new_el.fg == fg, "The FlatRef's origin FlatGraph doesn't match current FlatGraph."
-            idx = new_el.idx
+                raise ValueError(f"Expected a z <= 42 or AET.String <= 42 got {new_el} instead!")
 
         elif isinstance(new_el, Val):
             new_el = new_el.arg
@@ -5281,6 +5331,10 @@ def fg_insert_imp(fg, new_el):
                 new_blobs.append((idx, "BT.ValueNode", [], new_el))  # TODO Don't treat as str once added to Zef types
             idx = new_key_dict[hash_vn]
 
+        elif isinstance(new_el, FlatRef):
+            assert new_el.fg == fg, "The FlatRef's origin FlatGraph doesn't match current FlatGraph."
+            idx = new_el.idx
+
         elif type(new_el) in list(map_scalar_to_aet_type.keys()): 
             aet = map_scalar_to_aet_type[type(new_el)](new_el)
             idx = next_idx()
@@ -5290,6 +5344,7 @@ def fg_insert_imp(fg, new_el):
             idx = common_logic(origin_rae(new_el))
             if isinstance(new_blobs[idx][1], AtomicEntityType) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))
+                
         else:
             idx = None
         return idx
@@ -5303,13 +5358,16 @@ def fg_insert_imp(fg, new_el):
         assert isinstance(src_idx, int) and isinstance(trgt_idx, int), "Couldn't find/create src or target!"
         assert type(rt) in {RelationType, ZefOp}, "Tuples must have Relation as second item."
         idx = next_idx()
-        # Case of RT.A['a'] or Z['a']
-        if isinstance(rt, ZefOp): 
-            if inner_zefop_type(rt, RT.Instantiated):
-                rt, internal_id = peel(rt) | first | second | collect
-                new_key_dict[internal_id] = idx
-            elif inner_zefop_type(rt, RT.Z):
-                raise ValueError(f"Cannot reference an internal element to be used as a Relation. {rt}")
+
+        # Case of RT.A['a']
+        if isinstance(rt, RelationType):
+            internal_id = LazyValue(rt) | absorbed | attempt[single][None] | collect
+            rt = LazyValue(rt) | without_absorbed | collect
+            if internal_id: new_key_dict[internal_id] = idx
+        # Case of Z['a']
+        elif isinstance(rt, ZefOp) and inner_zefop_type(rt, RT.Z): 
+            raise ValueError(f"Cannot reference an internal element to be used as a Relation. {rt}")
+
         new_blobs.append((idx, rt, [], None, src_idx, trgt_idx))
         if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
         if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
@@ -5393,6 +5451,70 @@ def fg_remove_imp(fg, key):
     return new_fg
 
 
+def flatgraph_to_commands(fg):
+    return_elements = []
+    idx_key = {idx:key for key,idx in fg.key_dict.items()}
+    def dispatch_on_blob(b, for_rt=False):
+        idx = b[0]
+        if isinstance(b[1], EntityType):
+            if idx in idx_key:
+                key = idx_key[idx]
+                if is_a(key, uid):
+                    return Entity({"type": b[1], "uid": key})
+                else:
+                    if for_rt: return Z[key]
+                    return b[1][key]
+            elif for_rt or len(b[2]) == 0:
+                return b[1][idx]
+            else: return None
+        elif isinstance(b[1], AtomicEntityType):
+            if idx in idx_key:
+                key = idx_key[idx]
+                if is_a(key, uid):
+                    if b[-1]: return AtomicEntity({"type": b[1], "uid": key}) <= b[-1]
+                    else:     return AtomicEntity({"type": b[1], "uid": key})
+                else:
+                    if for_rt: return Z[key]
+                    if b[-1]: return b[1][key] <= b[-1]
+                    else:     return b[1][key]
+            elif for_rt or len(b[2]) == 0:
+                if b[-1]: return b[1][idx] <= b[-1]
+                else:     return b[1][idx]
+            else: return None
+        elif isinstance(b[1], RelationType):
+            if idx in idx_key: 
+                key = idx_key[idx]
+                if for_rt: return Z[key]
+                if is_a(key, uid):
+                    return Relation({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
+            if for_rt: return Z[idx]
+            src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)
+            trgt_blb = dispatch_on_blob(fg.blobs[b[5]], True)
+            if b[0] in idx_key: base = b[1][idx_key[b[0]]]
+            else: base = b[1][idx]
+            return (src_blb, base, trgt_blb)
+
+        elif isinstance(b[1], str) and b[1][:2] == "BT":
+            if for_rt:
+                return Z[blake3(b[-1])]
+            else:
+                from ..graph_delta import map_scalar_to_aet_type
+                if type(b[-1]) in map_scalar_to_aet_type:
+                    aet = map_scalar_to_aet_type[type(b[-1])](b[-1])
+                    return aet[blake3(b[-1])] <= (b[-1])
+                else:
+                    return AET.Serialized[blake3(b[-1])] <= to_json(b[-1])
+
+        raise NotImplementedError(f"Unhandled type in dispatching {b}")
+
+    for b in fg.blobs | filter[lambda b: b != None] | collect:
+        el = dispatch_on_blob(b)
+        if el != None: return_elements.append(el)
+
+    from ..graph_delta import construct_commands
+    return construct_commands(return_elements)
+
+
 # ------------------------------FlatRef----------------------------------
 def fr_source_imp(fr):
     assert isinstance(fr, FlatRef)
@@ -5468,72 +5590,21 @@ def fg_all_imp(fg, selector=None):
 
 # -------------------------------- transact -------------------------------------------------
 def transact_imp(data, g, **kwargs):
-    from ..graph_delta import dispatch_ror_graph
+    from ..graph_delta import construct_commands
     if isinstance(data, FlatGraph):
-        def flatgraph_to_gd(fg):
-            return_elements = []
-            idx_key = {idx:key for key,idx in fg.key_dict.items()}
-            def dispatch_on_blob(b, for_rt=False):
-                idx = b[0]
-                if isinstance(b[1], EntityType):
-                    if idx in idx_key:
-                        key = idx_key[idx]
-                        if is_a(key, uid):
-                            return Entity({"type": b[1], "uid": key})
-                        else:
-                            if for_rt: return Z[key]
-                            return b[1][key]
-                    elif for_rt or len(b[2]) == 0:
-                        return b[1][idx]
-                    else: return None
-                elif isinstance(b[1], AtomicEntityType):
-                    if idx in idx_key:
-                        key = idx_key[idx]
-                        if is_a(key, uid):
-                            if b[-1]: return AtomicEntity({"type": b[1], "uid": key}) <= b[-1]
-                            else:     return AtomicEntity({"type": b[1], "uid": key})
-                        else:
-                            if for_rt: return Z[key]
-                            if b[-1]: return b[1][key] <= b[-1]
-                            else:     return b[1][key]
-                    elif for_rt or len(b[2]) == 0:
-                        if b[-1]: return b[1][idx] <= b[-1]
-                        else:     return b[1][idx]
-                    else: return None
-                elif isinstance(b[1], RelationType):
-                    if idx in idx_key: 
-                        key = idx_key[idx]
-                        if for_rt: return Z[key]
-                        if is_a(key, uid):
-                            return Relation({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
-                    if for_rt: return Z[idx]
-                    src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)
-                    trgt_blb = dispatch_on_blob(fg.blobs[b[5]], True)
-                    if b[0] in idx_key: base = b[1][idx_key[b[0]]]
-                    else: base = b[1][idx]
-                    return (src_blb, base, trgt_blb)
+        commands = flatgraph_to_commands(data)
 
-                elif isinstance(b[1], str) and b[1][:2] == "BT":
-                    if for_rt:
-                        return Z[blake3(b[-1])]
-                    else:
-                        from zef.core.graph_delta import map_scalar_to_aet_type
-                        if type(b[-1]) in map_scalar_to_aet_type:
-                            aet = map_scalar_to_aet_type[type(b[-1])](b[-1])
-                            return aet[blake3(b[-1])] <= (b[-1])
-                        else:
-                            return AET.Serialized[blake3(b[-1])] <= to_json(b[-1])
+    elif type(data)  in {list, tuple}:
+        commands = construct_commands(data)
+    
+    else:
+        raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
 
-                raise NotImplementedError(f"Unhandled type in dispatching {b}")
-
-            for b in fg.blobs | filter[lambda b: b != None] | collect:
-                el = dispatch_on_blob(b)
-                if el != None: return_elements.append(el)
-            return GraphDelta(return_elements)
-        
-        return dispatch_ror_graph(g, flatgraph_to_gd(data))
-        
-    return dispatch_ror_graph(g, data)
+    return Effect({
+            "type": FX.TX.Transact,
+            "target_graph": g,
+            "commands":commands
+    })    
 
 def transact_tp(op, curr_type):
     return VT.Effect

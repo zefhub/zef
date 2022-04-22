@@ -136,10 +136,22 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		});
 		
 
-	py::class_<zefDB::EntityType>(main_module, "EntityType", py::buffer_protocol())		
+	/*
+	Allow dynamic attributes on this class: each instance has the regular __dict__ attached 
+	into which key values can be added on the fly. See
+	https://pybind11.readthedocs.io/en/stable/classes.html#dynamic-attributes
+
+	Why are we doing this? We want to be able to absorb Zef Values in entity types, e.g.
+	ET.Foo['a'] should be self-contained. Using dynamic attributes is not ideal
+	when designing this from the ground up, but at the point of writing this struct is used all
+	over the place and when writing `ET.Foo['a']` returns a ZefOp 
+	`instantiated[ET.Foo]['a']`, which grew out of the very first use case and is causing confusion
+	all over the place.
+	*/
+	py::class_<zefDB::EntityType>(main_module, "EntityType", py::buffer_protocol(), py::dynamic_attr())		
         .def(py::init<token_value_t>())
         .def_readonly("value", &EntityType::entity_type_indx)
-		.def("__repr__", [](const EntityType& self)->std::string { return to_str(self); })
+		.def("__repr_without_absorbed__", [](const EntityType& self)->std::string { return to_str(self); })
 		.def("__str__", [](const EntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const EntityType& self, const EntityType& other)->bool {return self==other; }, py::is_operator())
 		.def("__ne__", [](const EntityType& self, const EntityType& other)->bool {return self!=other; }, py::is_operator())
@@ -147,20 +159,20 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def("__int__", [](const EntityType& self)->int {return self.entity_type_indx; })  // similar to the python hash for a python int: just use the int itself as the hash
 		;
 			
-	py::class_<zefDB::RelationType>(main_module, "RelationType", py::buffer_protocol())
+	py::class_<zefDB::RelationType>(main_module, "RelationType", py::buffer_protocol(), py::dynamic_attr())
         .def(py::init<token_value_t>())
         .def_readonly("value", &RelationType::relation_type_indx)
-		.def("__repr__", [](const RelationType& self)->std::string { return to_str(self); })
+		.def("__repr_without_absorbed__", [](const RelationType& self)->std::string { return to_str(self); })
 		.def("__str__", [](const RelationType& self)->std::string {return str(self); })
 		.def("__eq__", [](const RelationType& self, const RelationType& other)->bool {return self.relation_type_indx == other.relation_type_indx; }, py::is_operator())
 		.def("__ne__", [](const RelationType& self, const RelationType& other)->bool {return self.relation_type_indx != other.relation_type_indx; }, py::is_operator())
 		.def("__hash__", [](const RelationType& self) {return get_hash(self); })
 		;
 
-	py::class_<zefDB::Keyword>(main_module, "Keyword", py::buffer_protocol())
+	py::class_<zefDB::Keyword>(main_module, "Keyword", py::buffer_protocol(), py::dynamic_attr())
         .def(py::init<token_value_t>())
         .def_readonly("value", &Keyword::indx)
-		.def("__repr__", [](const Keyword& self)->std::string { return to_str(self); })
+		.def("__repr_without_absorbed__", [](const Keyword& self)->std::string { return to_str(self); })
 		.def("__str__", [](const Keyword& self)->std::string {return str(self); })
 		.def("__eq__", [](const Keyword& self, const Keyword& other)->bool {return self.indx == other.indx; }, py::is_operator())
 		.def("__ne__", [](const Keyword& self, const Keyword& other)->bool {return self.indx != other.indx; }, py::is_operator())
@@ -529,19 +541,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 
 
 
- 	main_module.def("merge", [](const py::dict& delta, Graph& g, bool fire_and_forget) {
-         json j;
-         {
-             py::gil_scoped_acquire acquire;
-             j = delta;
-         }
-         json out = merge(j, g, fire_and_forget);
-         {
-             py::gil_scoped_acquire acquire;
-             py::dict temp = out;
-             return temp;
-         }
-     }, py::call_guard<py::gil_scoped_release>(), "graph_delta"_a, "target_graph"_a, "fire_and_forget"_a = false);
+ 	main_module.def("merge", py::overload_cast<const json&,Graph,bool>(&merge), py::call_guard<py::gil_scoped_release>(), "graph_delta"_a, "target_graph"_a, "fire_and_forget"_a = false);
 
 
 	main_module.def("instantiate", py::overload_cast<EntityType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an entity", "entity_type"_a, "g"_a, "uid"_a=py::none());

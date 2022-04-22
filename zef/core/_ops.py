@@ -66,6 +66,8 @@ xor             = make_zefop(RT.Xor)
 always          = make_zefop(RT.Always)
 docstring       = make_zefop(RT.Docstring)
 
+absorbed        = make_zefop(RT.Absorbed)
+without_absorbed= make_zefop(RT.WithoutAbsorbed)
 
 get_in          = make_zefop(RT.GetIn)
 insert_in       = make_zefop(RT.InsertIn)

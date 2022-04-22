@@ -6,7 +6,6 @@ __all__ = [
 from ._core import *
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ._ops import *
-from .graph_delta import *
 from .op_structs import ZefOp, CollectingOp, SubscribingOp, ForEachingOp, LazyValue, Awaitable, is_python_scalar_type
 from .abstract_raes import Entity, Relation, AtomicEntity
 from .error import _ErrorType, Error
@@ -36,10 +35,20 @@ def serialize(v):
     """
 
     # Serializes a list and recursively calls itself if one of the list elements is of type List
+    if type(v) == bytes:
+        # Our target is for a JSON-compatible format, so need to convert this to
+        # a string smoehow. We choose base64 encoding.
+        import base64
+        return {
+            "_zeftype": "bytes",
+            "data": base64.b64encode(v).decode("utf-8")
+        }
     if is_python_scalar_type(v):
         return v
     elif isinstance(v, list):
         return serialize_list(v)
+    elif isinstance(v, tuple):
+        return serialize_tuple(v)
     elif isinstance(v, dict):
         return serialize_dict(v)
     elif type(v) in serialization_mapping:
@@ -56,10 +65,12 @@ def deserialize(v):
     """
     if isinstance(v, dict) and "_zeftype" in v:
         v = deserialization_mapping[v["_zeftype"]](v)
-    # elif isinstance(v, dict):
-    #     v = deserialize_dict(v)
+    elif isinstance(v, dict):
+        v = deserialize_dict(v)
     elif isinstance(v, list):
         v = deserialize_list(v)
+    elif isinstance(v, tuple):
+        v = deserialize_tuple(v)
 
     return v
 
@@ -67,6 +78,12 @@ def deserialize(v):
 ####################################
 # * Implementations
 #----------------------------------
+
+def serialize_tuple(l: tuple) -> dict:
+    return {
+        "_zeftype": "tuple",
+        "items": [serialize(el) for el in l]
+    }
 
 def serialize_list(l: list) -> list:
     return [serialize(el) for el in l]
@@ -121,9 +138,6 @@ def serialize_zeftypes(z) -> dict:
 
     elif isinstance(z, Time):
         return {"_zeftype": "Time", "value": z.seconds_since_1970} 
-
-    elif isinstance(z, GraphDelta):
-        return {"_zeftype": "GraphDelta", "value": serialize_list(list(z.commands))}
 
     elif type(z) in [ZefOp, CollectingOp, SubscribingOp, ForEachingOp]:
         z_type = type(z).__name__
@@ -205,6 +219,9 @@ def serialize_zefops(k_type, ops):
     return {"_zeftype": k_type, "el_ops": serialized_ops}
 
 
+def deserialize_tuple(json_d: dict) -> tuple:
+    return tuple(deserialize(el) for el in json_d["items"])
+
 def deserialize_list(l: list) -> list:
     return [deserialize(el) for el in l]
 
@@ -243,6 +260,7 @@ def deserialize_zeftypes(z) -> dict:
                 "QuantityFloat":    AET.QuantityFloat, 
                 "QuantityInt":      AET.QuantityInt, 
                 "Time":             AET.Time,
+                "Serialized":       AET.Serialized,
         }
         first_part,*rest = z['value'].split('.')
         out = type_map[first_part]
@@ -264,11 +282,6 @@ def deserialize_zeftypes(z) -> dict:
 
     elif z['_zeftype'] == "Time":
         return Time(z['value']) 
-
-    elif z['_zeftype'] == "GraphDelta":
-        new_gd = GraphDelta([])
-        new_gd.commands = tuple(deserialize_list(z['value']))
-        return new_gd
 
     elif z['_zeftype'] in {"ZefOp", "CollectingOp", "SubscribingOp", "ForEachingOp"}:
         types = {"ZefOp": ZefOp,  "CollectingOp":CollectingOp,  "SubscribingOp":SubscribingOp, "ForEachingOp": ForEachingOp}
@@ -360,7 +373,6 @@ serialization_mapping[ZefEnumValue] = serialize_zeftypes
 serialization_mapping[QuantityFloat] = serialize_zeftypes
 serialization_mapping[QuantityInt] = serialize_zeftypes
 serialization_mapping[Time] = serialize_zeftypes
-serialization_mapping[GraphDelta] = serialize_zeftypes
 serialization_mapping[ZefOp] = serialize_zeftypes
 serialization_mapping[CollectingOp] = serialize_zeftypes
 serialization_mapping[SubscribingOp] = serialize_zeftypes
@@ -387,6 +399,7 @@ serialization_mapping[pyinternals.DelegateRelationTriple] = serialize_delegate
 
 
 deserialization_mapping["dict"] = deserialize_dict
+deserialization_mapping["tuple"] = deserialize_tuple
 deserialization_mapping["ZefRef"] = deserialize_zeftypes
 deserialization_mapping["ZefRefs"] = deserialize_zeftypes
 deserialization_mapping["EZefRef"] = deserialize_zeftypes
@@ -399,7 +412,6 @@ deserialization_mapping["Enum"] = deserialize_zeftypes
 deserialization_mapping["QuantityFloat"] = deserialize_zeftypes
 deserialization_mapping["QuantityInt"] = deserialize_zeftypes
 deserialization_mapping["Time"] = deserialize_zeftypes
-deserialization_mapping["GraphDelta"] = deserialize_zeftypes
 deserialization_mapping["ZefOp"] = deserialize_zeftypes
 deserialization_mapping["CollectingOp"] = deserialize_zeftypes
 deserialization_mapping["SubscribingOp"] = deserialize_zeftypes

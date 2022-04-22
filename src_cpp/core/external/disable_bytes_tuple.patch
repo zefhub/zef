@@ -1,0 +1,28 @@
+diff --git a/include/pybind11_json/pybind11_json.hpp b/include/pybind11_json/pybind11_json.hpp
+index 773a30c..df2267f 100644
+--- a/include/pybind11_json/pybind11_json.hpp
++++ b/include/pybind11_json/pybind11_json.hpp
+@@ -109,14 +109,20 @@ namespace pyjson
+         }
+         if (py::isinstance<py::bytes>(obj))
+         {
+-            py::module base64 = py::module::import("base64");
+-            return base64.attr("b64encode")(obj).attr("decode")("utf-8").cast<std::string>();
++            // Need the cerr as pybind type casting will not print the exception but just try other methods.
++            std::cerr << "Deliberately refusing to automatically convert a python bytes to json. This should be serialized first." << std::endl;
++            throw std::runtime_error("Deliberately refusing to automatically convert a python bytes to json. This should be serialized first.");
+         }
+         if (py::isinstance<py::str>(obj))
+         {
+             return obj.cast<std::string>();
+         }
+-        if (py::isinstance<py::tuple>(obj) || py::isinstance<py::list>(obj))
++        if (py::isinstance<py::tuple>(obj)) {
++            // Need the cerr as pybind type casting will not print the exception but just try other methods.
++            std::cerr << "Deliberately refusing to automatically convert a python tuple to json. This should be serialized first." << std::endl;
++            throw std::runtime_error("Deliberately refusing to automatically convert a python tuple to json. This should be serialized first.");
++        }
++        if (py::isinstance<py::list>(obj))
+         {
+             auto out = nl::json::array();
+             for (const py::handle value : obj)

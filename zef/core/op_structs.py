@@ -216,13 +216,13 @@ def is_python_scalar_type(o):
 def is_supported_value(o):
     from .fx.fx_types import _Effect_Class
     from .VT import ValueType
-    from . import GraphDelta, GraphSlice
+    from . import  GraphSlice
     from types import GeneratorType
     from .. import Image
     from .error import _ErrorType
     from ..pyzef.main import Keyword
     if is_python_scalar_type(o): return True
-    if type(o) in {set, range, GeneratorType, list, tuple, dict, _Effect_Class, ValueType, GraphDelta, GraphSlice, Time, Image, _ErrorType, Keyword}: return True
+    if type(o) in {set, range, GeneratorType, list, tuple, dict, _Effect_Class, ValueType, GraphSlice, Time, Image, _ErrorType, Keyword}: return True
     return False
 
 def is_supported_zef_value(o):
@@ -924,9 +924,6 @@ class LazyValue:
                 elif len(op[1]) > 1: # i.e run[impure_func]
                     curr_value = op[1][1](curr_value)
                 else:
-                    from .graph_delta import GraphDelta
-                    if isinstance(curr_value, GraphDelta):
-                        raise Exception(f"It is not possible to 'run' a GraphDelta. Please pass it to a specific graph first, e.g. GraphDelta(...) | g | run. Note that terminate and assign_value create GraphDeltas, e.g. z | terminate | g | run.")
                     raise NotImplementedError(f"only effects or nullary functions can be passed to 'run' to be executed in the imperative shell. Received {curr_value}")
                 break
             
@@ -1080,7 +1077,7 @@ def type_spec_tuple(obj):
 def type_spec(obj, no_type_casting = False):
     from .VT import ValueType
     from .fx.fx_types import _Effect_Class
-    from . import GraphDelta, GraphSlice
+    from . import GraphSlice
     from rx.subject import Subject
     from rx.core import Observable
     if isinstance(obj, ValueType):               return obj
@@ -1107,7 +1104,6 @@ def type_spec(obj, no_type_casting = False):
         Subject:                    VT.Awaitable,
         Observable:                 VT.Awaitable,
         _Effect_Class:              VT.Effect,
-        GraphDelta:                 VT.GraphDelta,
         GraphSlice:                 VT.GraphSlice,
     }.get(t, lambda o: ValueType(type(o).__name__, 0))
     try:

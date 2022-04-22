@@ -2313,7 +2313,7 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED EZefRef local_entity(EZefRef uzr);
 	}
 
-    LIBZEF_DLL_EXPORTED nlohmann::json merge(nlohmann::json j, Graph& target_graph, bool fire_and_forget=false);
+    LIBZEF_DLL_EXPORTED nlohmann::json merge(const nlohmann::json & j, Graph target_graph, bool fire_and_forget=false);
 
     struct SerializedValue {
         std::string type;

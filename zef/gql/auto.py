@@ -129,4 +129,4 @@ def auto_generate_gql(g):
             (Z[q_name_rel], RT.GQL_Resolve_with_body, f"return g | now | all[{ET(ent)!r}] | collect"),
         ]
 
-    return GraphDelta(actions)
+    return actions
