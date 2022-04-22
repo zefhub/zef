@@ -1,5 +1,6 @@
 <p align="center">
-<img width="350px" src="https://github.com/zefhub/zefhub-web-assets/blob/main/zef_logo_white_alt.png">
+<img width="300px" src="https://github.com/zefhub/zefhub-web-assets/blob/main/zef_logo_white.png#gh-dark-mode-only">
+<img width="300px" src="https://github.com/zefhub/zefhub-web-assets/blob/main/zef_logo_black.png#gh-light-mode-only">
 </p>
 
 <p align="center">
