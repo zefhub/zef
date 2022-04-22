@@ -300,7 +300,8 @@ on              = make_zefop(RT.On)
 
 peel            = make_zefop(RT.Peel)                
 match           = make_zefop(RT.Match)                
-match_apply           = make_zefop(RT.MatchApply,)                
+match_apply     = make_zefop(RT.MatchApply,)                
+Range           = make_zefop(RT.Range,)                
 # match
 # split_before
 # split_after

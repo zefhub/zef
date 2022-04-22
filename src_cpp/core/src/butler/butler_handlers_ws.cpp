@@ -88,7 +88,7 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                 network.uri = target;
                 // Not sure if this is asking WSPP to pull the rug out from
                 // under itself.
-                network.restart();
+                network.restart(false);
                 return;
             } else if(msg_type == "auth_success") {
                 // TODO: in the future, we need to handle the msg type better

@@ -29,6 +29,10 @@
 
 namespace zefDB {
     namespace Communication {
+        struct disconnected_exception : public std::runtime_error {
+            disconnected_exception() : std::runtime_error("Disconnected from upstream") {}
+        };
+
         using json = nlohmann::json;
 
         LIBZEF_DLL_EXPORTED std::string decompress_zstd(std::string input);
@@ -124,7 +128,7 @@ namespace zefDB {
             void start_connection();
 
             void close(bool failure=false);
-            void restart();
+            void restart(bool failure);
 
             void send_ping();
 

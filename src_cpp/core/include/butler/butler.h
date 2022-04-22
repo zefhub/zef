@@ -163,9 +163,6 @@ namespace zefDB {
             struct timeout_exception : public std::runtime_error {
                 timeout_exception() : std::runtime_error("Timeout exception") {}
             };
-            struct disconnected_exception : public std::runtime_error {
-                disconnected_exception() : std::runtime_error("Disconnected from upstream") {}
-            };
 
             Response wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest = {}, QuantityFloat timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false);
 

@@ -220,8 +220,9 @@ def is_supported_value(o):
     from types import GeneratorType
     from .. import Image
     from .error import _ErrorType
+    from ..pyzef.main import Keyword
     if is_python_scalar_type(o): return True
-    if type(o) in {set, range, GeneratorType, list, tuple, dict, _Effect_Class, ValueType, GraphSlice, Time, Image, _ErrorType}: return True
+    if type(o) in {set, range, GeneratorType, list, tuple, dict, _Effect_Class, ValueType, GraphSlice, Time, Image, _ErrorType, Keyword}: return True
     return False
 
 def is_supported_zef_value(o):

@@ -141,6 +141,7 @@ namespace zefDB {
             // Probably need to assert or forcibly close here.
             // While zefhub doesn't support it yet, we will not fail just yet.
             // fail_handler(hdl);
+            restart(true);
         };
         void PersistentConnection::pong_handler(websocketpp::connection_hdl hdl, std::string s) {
             long long ping_start = std::stoll(s);
@@ -328,15 +329,20 @@ namespace zefDB {
             }, con);
 #endif
             }
-        void PersistentConnection::restart() {
+        void PersistentConnection::restart(bool failure) {
 #if ZEFDB_ALLOW_NO_TLS
-            std::visit([this](auto & con) {
+            std::visit([&](auto & con) {
 #endif
                 if(!con)
                     return;
 
                 std::error_code ec;
                 con->close(websocketpp::close::status::going_away, "", ec);
+                update(locker, [&]() {
+                    connected = false;
+                    wspp_in_control = false;
+                    last_was_failure = failure;
+                });
 #if ZEFDB_ALLOW_NO_TLS
             }, con);
 #endif
@@ -367,9 +373,13 @@ namespace zefDB {
                 if(con) {
                             std::error_code ec = con->send(msg, opcode);
                             if (ec) {
-                                std::cerr << "Error sending message: " << ec.message() << std::endl;
-                                // return;
-                                throw std::runtime_error("Error sending message: " + ec.message());
+                                if(ec == websocketpp::error::invalid_state) {
+                                    throw disconnected_exception();
+                                } else {
+                                    std::cerr << "Error sending message: " << ec.message() << std::endl;
+                                    // return;
+                                    throw std::runtime_error("Error sending message: " + ec.message());
+                                }
                             }
                 }
 #if ZEFDB_ALLOW_NO_TLS

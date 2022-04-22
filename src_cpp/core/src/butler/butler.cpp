@@ -351,7 +351,7 @@ namespace zefDB {
                                waiting_tasks.end(),
                                [](task_promise_ptr & task_promise) {
                                    if(task_promise->task->is_online) {
-                                       task_promise->promise.set_exception(std::make_exception_ptr(disconnected_exception()));
+                                       task_promise->promise.set_exception(std::make_exception_ptr(Communication::disconnected_exception()));
                                        return true;
                                    }
                                    return false;
@@ -432,7 +432,7 @@ namespace zefDB {
 
         void Butler::send_ZH_message(json & j, const std::vector<std::string> & rest) {
             if(!want_upstream_connection()) {
-                throw std::runtime_error("Not connecting to ZefHub, can't send messages.");
+                throw Communication::disconnected_exception();
             }
 
             // We do our own wait here, so that this is a proper timeout.
@@ -440,7 +440,7 @@ namespace zefDB {
             // wait_for_auth(constants::zefhub_reconnect_timeout);
             wait_for_auth();
             if(!network.connected)
-                throw std::runtime_error("Network did not connect in time to send message.");
+                throw Communication::disconnected_exception();
 
             // Note that "fill out" has to happen after the auth wait, as we
             // won't know the protocol versions etc before then.
@@ -1167,7 +1167,7 @@ namespace zefDB {
                 } catch(const timeout_exception & e) {
                     std::cerr << "Got timeout during send_update. Going to retry" << std::endl;
                     continue;
-                } catch(const disconnected_exception & e) {
+                } catch(const Communication::disconnected_exception & e) {
                     std::cerr << "Disconnected during send_update. Going to retry" << std::endl;
                     continue;
                 } catch(const std::exception & e) {

@@ -124,6 +124,10 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     me.debug_last_action = "Resubscribed to zefhub";
     me.gd->currently_subscribed = true;
 
+    // If we get here, then everything has gone well, but the sync thread may
+    // not automatically wake up. So we trigger the heads_locker just in case.
+    wake(me.gd->heads_locker);
+
     if(zwitch.graph_event_output())
         std::cerr << "Upstream head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
 }
@@ -691,8 +695,8 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
             // network, as the user calling sync() will expect us to
             // make more of an effort to get any updates to upstream.
             // network.wait_for_connected(constants::zefhub_reconnect_timeout);
-            // wait_for_auth(constants::zefhub_reconnect_timeout);
-            wait_for_auth();
+            wait_for_auth(constants::zefhub_reconnect_timeout);
+            // wait_for_auth();
             if(!network.connected) {
                 msg->promise.set_value(GenericResponse{false, "Network did not reconnect in time."});
                 return;
@@ -710,11 +714,21 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
             //     msg->promise.set_value(GenericResponse{false, "Timed out waiting for sync."});
             //     return;
             // }
-            wait_pred(me.gd->heads_locker,
-                      [&]() { return me.gd->sync_head >= sync_to || !network.connected || me.gd->error_state != GraphData::ErrorState::OK; });
+            std::cerr << "Sync is goign to wait_pred for sync_head to come up to date." << std::endl;
+            // We use poll here to bail out when network disconnection happens.
+            // It would be preferable to listen to two CVs simultaneously, but
+            // that is not natively supported. Maybe a rewrite of the locks
+            // structure would help here.
+            wait_pred_poll(me.gd->heads_locker,
+                      [&]() {
+                          std::cerr << "Wait_pred test has sync_head: " << me.gd->sync_head.load() << " and sync_to: " << sync_to << std::endl;
+                          return me.gd->sync_head >= sync_to || !network.connected || me.gd->error_state != GraphData::ErrorState::OK; }, std::chrono::seconds(1));
+            std::cerr << "Sync after wait_pred for sync_head to come up to date." << std::endl;
 
-            if(!network.connected)
+            if(!network.connected) {
                 msg->promise.set_value(GenericResponse{false, "Lost network connection while trying to sync."});
+                return;
+            }
                 
             if(!me.gd->in_sync()) {
                 // The only reason we get here should be because another
