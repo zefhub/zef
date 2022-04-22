@@ -398,6 +398,7 @@ serialization_mapping[pyinternals.DelegateRelationTriple] = serialize_delegate
 
 
 deserialization_mapping["dict"] = deserialize_dict
+deserialization_mapping["tuple"] = deserialize_tuple
 deserialization_mapping["ZefRef"] = deserialize_zeftypes
 deserialization_mapping["ZefRefs"] = deserialize_zeftypes
 deserialization_mapping["EZefRef"] = deserialize_zeftypes
