@@ -92,7 +92,7 @@ def serialize_dict(json_d: dict) -> dict:
     # return {k: serialize(v) for k,v in json_d.items()}
     return {
         "_zeftype": "dict",
-        "items": [(serialize(k), serialize(v)) for k,v in json_d.items()]
+        "items": [[serialize(k), serialize(v)] for k,v in json_d.items()]
     }
 
 def serialize_zeftypes(z) -> dict:
