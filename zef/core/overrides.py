@@ -9,7 +9,7 @@ def merge(obj, g : Graph, fire_and_forget : bool = False):
     from ..pyzef.main import merge as orig_merge
     from .serialization import serialize, deserialize
 
-    serialized = serialize(obj)
+    serialized = serialize(tuple(obj))
     rs =  orig_merge(serialized, g, fire_and_forget)
     receipt = deserialize(rs)
     return receipt
