@@ -1,5 +1,5 @@
 <p align="center">
-<img width="400px" src="https://github.com/zefhub/zefhub-web-assets/blob/main/zef_logo_white.png">
+<img width="350px" src="https://github.com/zefhub/zefhub-web-assets/blob/main/zef_logo_white_alt.png">
 </p>
 
 <p align="center">
@@ -16,12 +16,12 @@ Zef is an open source toolkit of modules for building data-oriented pipelines an
 
 If any of these apply to you, Zef might help:
 
-- I use NetworkX but need better performance and persistence (but want something easier than Neo4j)
+- I need a graph data model that's more powerful than NetworkX but easier than Neo4j
 - I need a GraphQL API that's easy to spin up and close to my data model
 - I like Datomic but prefer something open source that feels like working with local data structures
-- I need to "time travel" and access past states
+- I need to "time travel" and access past states easily
 - I don't want to learn a new query language like Cypher or GSQL (I just want to use Python)
-- I want an easy way to work with data streams and subscribe to them
+- I want an easy way to build data pipelines and subscribe to data streams
 
 ## Features
 
