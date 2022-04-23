@@ -199,10 +199,20 @@ has_in          = make_zefop(RT.HasIn)                 # z1 | has_in[RT.Foo]  us
 All             = make_zefop(RT.All)               # TODO: retire
 Any             = make_zefop(RT.Any)               # TODO: retire
 
+In              = make_zefop(RT.In)
+Ins             = make_zefop(RT.Ins)
+Out             = make_zefop(RT.Out)
+Outs            = make_zefop(RT.Outs)
+in_rel          = make_zefop(RT.InRel)
+in_rels         = make_zefop(RT.InRels)
+out_rel         = make_zefop(RT.OutRel)
+out_rels        = make_zefop(RT.OutRels)
+
+
 is_zefref_promotable= make_zefop(RT.IsZefRefPromotable)  # Retire this. this is a old love level operator. We can use is_a[RAE] or an extended concept new.
-ins             = make_zefop(RT.Ins)                   # z < L[RT]
-outs            = make_zefop(RT.Outs)                  # z > L[RT]
-ins_and_outs    = make_zefop(RT.InsAndOuts)            # we don't seem to use this very much (looking at existing code base).
+ins             = make_zefop(RT.InsOld)                   # z < L[RT]
+outs            = make_zefop(RT.OutsOld)                  # z > L[RT]
+ins_and_outs    = make_zefop(RT.InsAndOutsOld)            # we don't seem to use this very much (looking at existing code base).
 time_slice      = make_zefop(RT.TimeSlice)             # with the GraphSlice syntax it seems that we have been using time slices / txs mostly as a proxy for that. Given the data oriented approach, it seems a more consistent design to just use Int instead of time slices when we actually want a number?
     
 instantiation_tx= make_zefop(RT.InstantiationTx)       # use tx[instantiated]
