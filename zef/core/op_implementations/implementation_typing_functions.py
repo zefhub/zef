@@ -871,6 +871,46 @@ def insert_tp(input_arg0_tp, input_arg1_tp):
 
 
 
+#---------------------------------------- insert_into -----------------------------------------------
+
+def insert_into_imp(key_val_pair, x):
+    """
+    Unclear whether we need this. To insert a key value
+    pair into a dictionary, one could cast to a dict and use merge.
+    But this may be shorter.
+
+    This function could also be used on Lists. 
+    
+    ---- Examples ----
+    >>> (2, 'a') | insert_into[ range(4) ]    # [0,1,'a',2,3]
+
+    ---- Signature ----
+    ((T1, T2), Dict[T3][T4]) -> Dict[T1|T3][T2|T4]
+
+    # TODO: make this work: (10, 'a') | insert_into[range(10) | map[add[100]]] | take[5] | c
+
+    """
+    if not isinstance(key_val_pair, (list, tuple)):
+        return Error(f'in "insert_into": key_val_pair must be a list or tuple. It was {type(x)=}     {x=}')
+    
+    k, v = key_val_pair
+    if isinstance(x, dict):
+        return {**x, k:v}
+    if type(x) in {list, tuple, range}:
+        assert isinstance(k, int)
+        # So much laziness!
+        it = iter(x)
+        def tmp():
+            for c in range(k):
+                yield next(it)
+            yield v
+            yield from it
+        return tmp()
+
+
+
+
+
 #---------------------------------------- remove -----------------------------------------------
 def remove_imp(d: dict, key_to_remove: tuple):
     """
@@ -3947,7 +3987,6 @@ def Ins_imp(z, rt):
     return traverse_in_node_multi(z, rt)
 
 
-
 #---------------------------------------- out_rel -----------------------------------------------
 def out_rel_imp(z, rt=None):
     """
@@ -4175,6 +4214,60 @@ def o_implementation(first_arg, curried_args):
 
 
 
+
+#---------------------------------------- zef_type -----------------------------------------------
+# @register_zefop(RT.ZefType)
+def zef_type_imp(x):
+    """
+    Warning: this function is not complete and its behavior may change!!!!!!!!!!!
+
+    Returns a Zef ValueType (a value itself),
+    also when used with the python builtin supported
+    types, as well as with instances of Zef Values.
+
+    Open questions: what should zef_type(ET) return?
+    BT
+    RT    
+    Should the various uid types be exposed to userland?
+
+    """
+    tp = type(x)    
+    try:
+        return {
+            bool: VT.Bool,
+            int: VT.Int,
+            float: VT.Float,
+            str: VT.String,
+            list: VT.List,    # TODO: we may want to specialize this, e.g. VT.List[VT.Int]. At least if the list is finite, or saved as metadata
+            tuple: VT.List,
+            dict: VT.Dict,
+            set: VT.Set,
+            Time: VT.Time,
+            # QuantityFloat: VT.QuantityFloat,
+            # QuantityInt: VT.QuantityInt,
+            # EntityType: VT.EntityType,
+            # AtomicEntityType: VT.AtomicEntityType,
+            # RelationType: VT.RelationType,
+            ZefRef: VT.ZefRef,
+            EZefRef: VT.EZefRef,
+            # TX: VT.TX
+            # Entity: VT.Entity,
+            # AtomicEntity: VT.AtomicEntity,
+            # Relation: VT.Relation,
+            ZefOp: VT.ZefOp,
+            Graph: VT.Graph,
+            # FlatGraph: VT.FlatGraph,
+            # Keyword: VT.Keyword,
+            # ValueType: VT.ValueType,
+            # SymbolicExpression: VT.SymbolicExpression,
+            # Stream: VT.Stream,
+            # Error: VT.Error,
+            # Nil: VT.Nil,
+            # Effect !!!!! not required, just a dict
+            # GraphDelta !!!!! not required, just a dict
+        }[tp]
+    except KeyError:
+        return Error(f'"zef_type" function received a value of type {type(x)} which is not implemented yet.')
 
 
 
