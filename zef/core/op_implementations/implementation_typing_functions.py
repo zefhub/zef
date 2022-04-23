@@ -871,6 +871,33 @@ def insert_tp(input_arg0_tp, input_arg1_tp):
 
 
 
+#---------------------------------------- reverse_args -----------------------------------------------
+def reverse_args_imp(flow_arg, op, *args):
+    """    
+    Useful to transform one zefop into a new operator where
+    the only difference is that the arguments are reversed.
+    This applies when we want an operator where the dataflow 
+    is determined by a different argument than the usual one.
+
+    Suppose we want to have the op 'insert_into', which is a
+    slight variation of "insert":
+    ('my_key': 42) | insert_into[{'a':1}]
+
+    With this operator, we can construct "insert_into" on the fly:
+    >>> insert_into = reverse_args[insert]
+    
+    ---- Examples ----
+    >>> ('my_key': 42) | reverse_args[insert][{'a':1}]
+    >>> 'x' |  reverse_args[get][{'a':1, 'x': 42}]
+
+    ---- Tags ----
+    - level: advanced
+    - operates on: ZefOps, Functions
+    """
+    return op(*(*args[::-1], flow_arg))
+
+
+
 #---------------------------------------- insert_into -----------------------------------------------
 
 def insert_into_imp(key_val_pair, x):

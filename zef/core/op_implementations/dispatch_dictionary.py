@@ -108,6 +108,7 @@ _op_to_functions = {
         RT.Stride:          (stride_imp, stride_tp),
         RT.Insert:          (insert_imp, insert_tp),
         RT.InsertInto:      (insert_into_imp, None),
+        RT.ReverseArgs:     (reverse_args_imp, None),
         RT.Remove:          (remove_imp, remove_tp),
         RT.Get:             (get_imp, get_tp),
         RT.Enumerate:       (enumerate_imp, enumerate_tp),
