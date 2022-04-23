@@ -3387,14 +3387,14 @@ def origin_uid_imp(z) -> EternalUID:
     assert BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}
     if internals.is_delegate(z):
         return uid(to_ezefref(z))
-    origin_candidates = z | to_ezefref < BT.RAE_INSTANCE_EDGE >> L[BT.ORIGIN_RAE_EDGE] | collect
+    origin_candidates = z | to_ezefref | in_rel[BT.RAE_INSTANCE_EDGE] | Outs[BT.ORIGIN_RAE_EDGE] | collect    
     if len(origin_candidates) == 0:
         # z itself is the origin
         return uid(to_ezefref(z))
     z_or = origin_candidates | only | collect
     if BT(z_or) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
         # the origin was from a different graph
-        g_origin_uid = z_or >> BT.ORIGIN_GRAPH_EDGE | base_uid | collect
+        g_origin_uid = z_or | Out[BT.ORIGIN_GRAPH_EDGE] | base_uid | collect
         return EternalUID(z_or | base_uid | collect, g_origin_uid)
     else:
         # z itself is not the origin, but the origin came from this graph.
