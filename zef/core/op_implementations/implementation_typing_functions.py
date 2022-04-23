@@ -661,23 +661,33 @@ def remove_in_tp(d_tp, path_tp):
 
 
 
-#---------------------------------------- apply_in -----------------------------------------------
-def apply_in_imp(d: dict, path, func_to_update):
+#---------------------------------------- update_in -----------------------------------------------
+def update_in_imp(d: dict, path, func_to_update):
     """
     ---- Examples ----
-    >>> {'a': 1, 'b': {'c': 1}} | apply_in[('b', 'c')][add[1]]   # => {'a': 1, 'b': {'c': 2}} 
+    >>> {'a': 1, 'b': {'c': 1}} | update_in[('b', 'c')][add[1]]   # => {'a': 1, 'b': {'c': 2}} 
+
+    ---- Signature ----
+    (Dict, List, T1->T2) -> Dict
+
+    ---- Tags ----
+    - related zefop: update_at
+    - related zefop: insert_in
+    - related zefop: remove_in
+    - related zefop: get_in
+    - operates on: Dict
     """
     assert isinstance(path, list) or isinstance(path, tuple)
     assert callable(func_to_update)
     is_last_step = len(path)==1
     def change(k, v):
         if is_last_step: return func_to_update(v) if k==path[0] else v
-        else: return apply_in(v, path[1:], func_to_update) if k==path[0] else v
+        else: return update_in(v, path[1:], func_to_update) if k==path[0] else v
     return {k: change(k, v) for (k, v) in d.items()}
 
 
 
-def apply_in_tp(d_tp, path_tp, func_to_update_tp):
+def update_in_tp(d_tp, path_tp, func_to_update_tp):
     return VT.Dict
 
 
@@ -916,12 +926,16 @@ def insert_imp(d: dict, key, val=None):
     """ 
     ---- Examples ----
     >>> {'a': 1} | insert['b'][2]   ->  {'a': 1, 'b': 2} 
+    >>> FlatGraph() | insert[ET.God, RT.Favorite, Val(1/137)] | insert[ET.BigBang]
     """
     if isinstance(d, FlatGraph):
         fg = d
         new_el = key
         return fg_insert_imp(fg, new_el)
-    return {**d, key: val}
+    elif isinstance(d, dict):
+        return {**d, key: val}
+    else:
+        return Error(f'"insert" zefop called with unhandled type {d=} {key=} {val=}')
 
 
 def insert_tp(input_arg0_tp, input_arg1_tp):
