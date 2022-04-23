@@ -679,20 +679,29 @@ def apply_in_tp(d_tp, path_tp, func_to_update_tp):
 
 
 
-#---------------------------------------- apply_at -----------------------------------------------
-def apply_at_imp(lst: list, index, func_to_apply):
+#---------------------------------------- update_at -----------------------------------------------
+def update_at_imp(lst: list, index, f):
     """
+    Apply a specified function "f" to a specified position of 
+    a list using the existing element "el" as function input.
+    A new list is returned which differs only in that element
+    which is replaced with "f(el)".
+
     ---- Examples ----
-    >>> [5,6,7] | apply_at[2][add[10]]   # => [5,6,17]
+    >>> [5,6,7] | update_at[2][add[10]]   # => [5,6,17]
+
+    ---- Signature ----
+    (List[T1], T1->T2) -> List[T1|T2]
+
     """
     assert isinstance(index, int)
-    assert callable(func_to_apply)
+    assert callable(f)
     if index >= len(lst) or (index < 0 and abs(index) > length(lst)): return lst
-    lst[index] = func_to_apply(lst[index])
+    lst[index] = f(lst[index])
     return lst
 
 
-def apply_at_tp(op, curr_type):
+def update_at_tp(op, curr_type):
     return curr_type
 
     

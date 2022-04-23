@@ -73,7 +73,7 @@ get_in          = make_zefop(RT.GetIn)
 insert_in       = make_zefop(RT.InsertIn)
 remove_in       = make_zefop(RT.RemoveIn)
 apply_in        = make_zefop(RT.ApplyIn)
-apply_at        = make_zefop(RT.ApplyAt)
+update_at        = make_zefop(RT.UpdateAt)
 merge           = make_zefop(RT.Merge)
 merge_with      = make_zefop(RT.MergeWith)
 
