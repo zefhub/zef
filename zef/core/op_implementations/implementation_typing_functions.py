@@ -138,8 +138,6 @@ def function_tp(op):
 #---------------------------- on ------------------------------------
 def on_implementation(g, op):
     """
-    Caution: impure
-
     Create an event stream based on the event type declared 
     in the parameters. This function itself is impure! It sets 
     up a concrete stream and a callback listening for events 
@@ -154,6 +152,11 @@ def on_implementation(g, op):
     that the entity referenced by z1 occurred. The reference
     frame of z1 contains the time at which the logical thread
     of that frame learned about that fact.
+
+    This function is pure, it returns an abstract stream. The
+    program state is only changed and all is hooked up on the
+    dataflow graph once an impure functions subscribes at 
+    the very end.
 
     ---- Examples ----
     >>> g | on[value_assigned[AET.String]]              # value_assigned[z3]['hello!']      c.f. with action: assign_value[z3]['hello!']
