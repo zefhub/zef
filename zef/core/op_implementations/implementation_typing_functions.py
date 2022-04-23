@@ -714,7 +714,17 @@ def interleave_imp(v, first_curried_list_maybe=None, *args):
     >>> 
     >>> # or with other lists to interleave with being curried in
     >>> [1,2,3] | interleave[42 | repeat]       # => [1, 42, 2, 42, 3, 42]
-    >>> [1,2,3] | interleave[42 | repeat][('a','b')]      # => [1, 42, 'a', 2, 42, 'b']    
+    >>> [1,2,3] | interleave[42 | repeat][('a','b')]      # => [1, 42, 'a', 2, 42, 'b']
+
+    ---- Signature ----
+    List[List[T]] -> List[T]
+
+    ---- Tags ----
+    - related zefop: interleave_longest
+    - related zefop: concat
+    - related zefop: merge
+    - operates on: List
+
     """
     import more_itertools as mi    
     if first_curried_list_maybe is None:
@@ -745,6 +755,14 @@ def interleave_longest_imp(v, first_curried_list_maybe=None, *args):
     >>> [1,2,3] | interleave_longest[[42]*5]        # => [1, 42, 2, 42, 3, 42, 42, 42]
     >>> [1,2,3] | interleave_longest[[42]*5][('a','b')]      # => [1, 42, 'a', 2, 42, 'b', 3, 42, 42, 42]
     
+    ---- Signature ----
+    List[List[T]] -> List[T]
+
+    ---- Tags ----
+    - related zefop: interleave_longest
+    - related zefop: concat
+    - related zefop: merge
+    - operates on: List
     """
     import more_itertools as mi    
     if first_curried_list_maybe is None:
@@ -775,7 +793,7 @@ def chunk_imp(iterable, chunk_size: int):
     elements in each chunk, as the chunks are being asked for. The 
     chunks are returned as a generator.
 
-    If the input is an iteraterable (could be infinite generator or not), 
+    If the input is an iterable (could be infinite generator or not), 
     this returns a generator of generators. An operator downstream could 
     choose to evaluate the terms of a later iterator before those of an 
     earlier one emitted here. If we can't access via ...[], we have to
@@ -787,7 +805,18 @@ def chunk_imp(iterable, chunk_size: int):
 
     Perform caching and store the evaluated values in case these are 
     to be accessed by the earlier iterable. Keep them up to the point
-    until the earlier iteratable has consumed them, then discard them.
+    until the earlier iterable has consumed them, then discard them.
+
+    ---- Examples ----
+    >>> range(8) | chunk[3]     #  [[0, 1, 2], [3, 4, 5], [6, 7]]
+    
+    ---- Signature ----
+    (List[T], Int) -> List[List[T]]
+
+    ---- Tags ----
+    related zefop: stride
+    related zefop: sliding
+    related zefop: slice
     """
     it = iter(iterable)
     while True:
@@ -818,7 +847,24 @@ def chunk_tp(v_tp, step_tp):
 #---------------------------------------- insert -----------------------------------------------
 def sliding_imp(iterable, window_size: int, stride_step: int=1):
     """ 
+    Given a list, return a list of internal lists of length "window_size".
+    "stride_step" may be specified (optional) and determines how
+    many elements are taken forward in each step.
+    Default stride_step if not specified otherwise: 1.
+
+    ---- Examples ----
+    >>> range(5) | sliding[3]       # [(0, 1, 2), (1, 2, 3), (2, 3, 4)]
+    >>> range(5) | sliding[3][2]    # [(0, 1, 2), (2, 3, 4)]
     
+    ---- Signature ----
+    (List[T], Int, Int) -> List[List[T]]
+
+    ---- Tags ----
+    - related zefop: stride
+    - related zefop: chunk
+    - related zefop: slice
+    - operates on: List
+
     implementation follows Scala's, see https://stackoverflow.com/questions/32874419/scala-slidingn-n-vs-groupedn
     """
     it = iter(iterable)
@@ -887,8 +933,8 @@ def reverse_args_imp(flow_arg, op, *args):
     >>> insert_into = reverse_args[insert]
     
     ---- Examples ----
-    >>> ('my_key': 42) | reverse_args[insert][{'a':1}]
-    >>> 'x' |  reverse_args[get][{'a':1, 'x': 42}]
+    >>> ('my_key': 42) | reverse_args[insert][{'a':1}]      # {'my_key': 42, 'a': 1}
+    >>> 'x' |  reverse_args[get][{'a':1, 'x': 42}]          # 42
 
     ---- Tags ----
     - level: advanced
