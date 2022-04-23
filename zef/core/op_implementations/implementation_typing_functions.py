@@ -2697,6 +2697,7 @@ def tx_imp(*args):
     """
     let zr: ZefRef  ezr: EZefRef
     zr | tx[instantiated]       # keeps ref. frame of zr, returns a ZefRef: 
+    zr | tx[terminated]
     """
     import traceback
     traceback.print_stack()
@@ -3046,9 +3047,32 @@ def merged_tp(x):
 
 # ----------------------------------------- affected --------------------------------------------
 def affected_imp(x):    
-    """ 
+    """
+    Given a transaction, return a list of all ZefRef
+    that were in some way affected by the changes in
+    that tx.
+
+    When the tx is passed in as a ZefRef, the reference
+    frame is kept by this operator.
+    When traversing the eternal graph, this behavior is 
+    also propagated by returning the EZefRef.
+
+    Related function: use "events" if a list events,
+    e.g. [instantiated[z1], terminated[z2], ...] is wanted.
+
+    TODO
+    syntax proposal, since "instantiated" et al. will become entities:
+    adjust the syntax and use types?
+    here: z_tx | raes[Instantiated]                 # returns a List[ZefRef]
+          z_tx | raes[Instantiated | Assigned]
+          z_tx | events[Instantiated | Assigned]    # returns a List[Instantiated | Terminated] 
+    which would be analogous to
+    z1 | txs[Assigned] 
+    
+
     ---- Signature ----
-    GraphSlice  -> List[ZefRef]
+    ZefRef[TX]   -> List[ZefRef]
+    EZefRef[TX]  -> List[EZefRef]
     """
     # assert isinstance(x, GraphSlice)
 
@@ -4153,78 +4177,6 @@ def o_implementation(first_arg, curried_args):
 
 
 
-
-
-
-
-# def traverse_implementation(first_arg, *curried_args, func_only, func_multi, func_optional, func_RT, func_BT, traverse_direction):
-#     if isinstance(first_arg, FlatRef):
-#         return traverse_flatref_imp(first_arg, curried_args, traverse_direction)
-#     elif isinstance(first_arg, FlatRefs):
-#         return [traverse_flatref_imp(FlatRef(first_arg.fg, idx), curried_args, traverse_direction) for idx in first_arg.idxs]
-    
-
-#     spec = type_spec(first_arg)         # TODO: why is this called "spec"? Not sure which specification it refers to.
-#     if len(curried_args) == 1:
-#         # "only" traverse
-#         if spec not in zef_types:
-#             raise Exception(f"Can only traverse ref types, not {spec}")
-#         return func_only(first_arg, curried_args[0])
-#     traverse_type,(rel,) = curried_args
-#     if traverse_type == RT.L:
-#         if spec not in zef_types:
-#             raise Exception(f"Can only traverse ref types, not {spec}")
-#         if rel==RT:
-#             return func_RT(first_arg)       # if only z1 > L[RT]   is passed: don't filter
-#         if rel==BT:
-#             return func_BT(first_arg)       # if only z1 > L[BT]   is passed: don't filter
-#         return func_multi(first_arg, rel)
-#     if traverse_type == RT.O:
-#         if spec == VT.Nil:
-#             return None
-#         elif spec in zef_types:
-#             return func_optional(first_arg, rel)
-#         else:
-#             raise Exception(f"Can only traverse ref types or None, not {spec}")
-#     raise Exception(f"Unknown traverse type {traverse_type}")
-        
-# def out_rts(obj):
-#     return pyzefops.filter(obj | pyzefops.outs, BT.RELATION_EDGE)
-# def in_rts(obj):
-#     return pyzefops.filter(obj | pyzefops.ins, BT.RELATION_EDGE)
-# from functools import partial
-# Out_implementation = partial(traverse_implementation,
-#                              func_only=pyzefops.traverse_out_edge,
-#                              func_multi=pyzefops.traverse_out_edge_multi,
-#                              func_optional=pyzefops.traverse_out_edge_optional,
-#                              func_RT=out_rts,
-#                              func_BT=lambda zz: pyzefops.outs(pyzefops.to_ezefref(zz)),
-#                              traverse_direction="out",
-#                              )
-# In_implementation = partial(traverse_implementation,
-#                             func_only=pyzefops.traverse_in_edge,
-#                             func_multi=pyzefops.traverse_in_edge_multi,
-#                             func_optional=pyzefops.traverse_in_edge_optional,
-#                             func_RT=in_rts,
-#                             func_BT=lambda zz: pyzefops.ins(pyzefops.to_ezefref(zz)),
-#                             traverse_direction="in",
-#                             )
-# OutOut_implementation = partial(traverse_implementation,
-#                                 func_only=pyzefops.traverse_out_node,
-#                                 func_multi=pyzefops.traverse_out_node_multi,
-#                                 func_optional=pyzefops.traverse_out_node_optional,
-#                                 func_RT=lambda zz: pyzefops.target(out_rts(zz)),
-#                                 func_BT=lambda zz: pyzefops.target(pyzefops.outs(pyzefops.to_ezefref(zz))),
-#                                 traverse_direction="outout",
-#                                 )
-# InIn_implementation = partial(traverse_implementation,
-#                               func_only=pyzefops.traverse_in_node,
-#                               func_multi=pyzefops.traverse_in_node_multi,
-#                               func_optional=pyzefops.traverse_in_node_optional,
-#                               func_RT=lambda zz: pyzefops.target(in_rts(zz)),
-#                               func_BT=lambda zz: pyzefops.target(pyzefops.ins(pyzefops.to_ezefref(zz))),
-#                               traverse_direction="inin",
-#                               )
 
 
 
