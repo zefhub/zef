@@ -127,9 +127,11 @@ _op_to_functions = {
         
         RT.GetIn:           (get_in_imp, get_in_tp),
         RT.InsertIn:        (insert_in_imp, insert_in_tp),
-        RT.UpdateIn:         (update_in_imp, update_in_tp),
-        RT.UpdateAt:         (update_at_imp, update_at_tp),
+        RT.Update:          (update_imp, None),
+        RT.UpdateIn:        (update_in_imp, update_in_tp),
+        RT.UpdateAt:        (update_at_imp, update_at_tp),
         RT.RemoveIn:        (remove_in_imp, remove_in_tp),
+        RT.RemoveAt:        (remove_at_imp, None),
         RT.Merge:           (merge_imp, merge_tp),
         RT.MergeWith:       (merge_with_imp, merge_with_tp),
                 

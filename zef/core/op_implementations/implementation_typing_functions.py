@@ -719,6 +719,41 @@ def update_at_tp(op, curr_type):
 
     
 
+#---------------------------------------- update -----------------------------------------------
+def update_imp(d: dict, k, fn):
+    """
+    Change the value for a given key / index by applying a
+    user provided function to the old value at that location.
+
+    Note: the equivalent ZefOp to use on Lists is "update_at"
+    (to be consistent with "remove_at" for Lists and 
+    disambiguate acting on the value)
+
+    {'a': 5, 'b': 6} | update['a'][add[10]]   # => {'a': 15, 'b': 6}    
+    """
+    if not isinstance(d, dict): raise TypeError('"update" only acts on dictionaries. Use "update_at" for Lists or "update_in" for nested access.')
+    r = {**d}
+    r[k] = fn(d[k])
+    return r
+
+
+
+#---------------------------------------- remove_at -----------------------------------------------
+def remove_at_imp(v, *nn):
+    """
+    Using "remove" based on indexes would be confusing,
+    as Python's list remove, searches for the first 
+    occurrence of that value and removes it.
+
+    ['a', 'b', 'c'] | remove_at[1]       # => ['a', 'c']
+    ['a', 'b', 'c'] | remove_at[1][0]    # => ['c']
+    """
+    if isinstance(v, dict): raise TypeError('"remove_at" only acts on iterables. Use "remove" for dictionaries. For nested access, use "remove_in".')
+    return (el for m, el in enumerate(v) if m not in nn)
+
+
+
+
 #---------------------------------------- interleave -----------------------------------------------
 
 def interleave_imp(v, first_curried_list_maybe=None, *args):
