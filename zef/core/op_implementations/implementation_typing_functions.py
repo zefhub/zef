@@ -964,7 +964,10 @@ def reverse_args_imp(flow_arg, op, *args):
 
     ---- Tags ----
     - level: advanced
+    - used for: control flow
     - operates on: ZefOps, Functions
+    - related zefop: func
+    - related zefop: apply_functions
     """
     return op(*(*args[::-1], flow_arg))
 
@@ -1044,22 +1047,31 @@ def remove_tp(input_arg0_tp, input_arg1_tp):
 
 
 #---------------------------------------- get -----------------------------------------------
-def get_imp(d, key, default=None):
+def get_imp(d, key, default=Error('Key not found in "get"')):
     """
     Typically used for key lookups, equivalent to '[]' operator.
     External function equivalent to Python's '__get__' method.
+    Default values can be provided
 
     ---- Examples ----
-    >>> {'a': 42} | get['a']                    # => 42
+    >>> {'a': 42, 'b': 'hello'} | get['a']                    # => 42
+    >>> {'a': 42, 'b': 'hello'} | get['a']                    # => 42
 
+    ----- Signature ----
+    (Dict[T1, T2], T1) -> T2
+    
     ---- Tags ----
     - operates on: Dict
+    - related zefop: get_in
+    - related zefop: insert
+    - related zefop: remove
+    - related zefop: select_in
     """
     if isinstance(d, FlatGraph):
         return fg_get_imp(d, key)
-    if key not in d and not default: return Error(f"{key} doesn't exist in passed dict and a default wasn't provided!")
-    return d.get(key, default)
-
+    elif isinstance(d, dict):
+        return d.get(key, default)
+    return Error(f"get called with unsupported type {type(d)}")
 
 def get_tp(d_tp, key_tp):
     return VT.Any
@@ -1548,6 +1560,20 @@ def always_tp(x):
 
 #---------------------------------------- absorbed -----------------------------------------------
 def absorbed_imp(x):
+    """
+    Extract the absorbed values from any absorbing type.
+
+    ---- Examples ----
+    >>> reduce[add[1]][42] | absorbed    # => (add[1], 42)
+    
+    ---- Tags ----
+    - used for: control flow
+    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - related zefop: without_absorbed
+    - related zefop: inject
+    - related zefop: inject_list
+    - related zefop: reverse_args
+    """
     if isinstance(x, EntityType) or isinstance(x, RelationType) or isinstance(x, AtomicEntityType)  or isinstance(x, Keyword):
         if '_absorbed' not in x.__dict__:
             return ()
@@ -1574,9 +1600,18 @@ def absorbed_imp(x):
 #---------------------------------------- without_absorbed -----------------------------------------------
 def without_absorbed_imp(x):
     """
-    Or "without_absorbed"?
-
     Return the bare Type as if nothing had ever been absorbed.
+
+    ---- Examples ----
+    >>> reduce[add[1]][42] | without_absorbed    # => reduce
+    
+    ---- Tags ----
+    - used for: control flow
+    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - related zefop: absorbed
+    - related zefop: inject
+    - related zefop: inject_list
+    - related zefop: reverse_args
     """
     if isinstance(x, EntityType):
         if '_absorbed' not in x.__dict__:
@@ -2432,6 +2467,15 @@ def if_then_else_apply_imp(x, pred, true_case_func, false_case_func):
 
     ---- Signature ----
     ((T->Bool), (T->T1), (T->T2)) -> Union[T1, T2]
+
+    ---- Tags ----
+    - used for: control flow
+    - used for: logic
+    - related zefop: if_then_else
+    - related zefop: group_by
+    - related zefop: match
+    - related zefop: match_apply
+    - related zefop: filter
     """
     return true_case_func(x) if pred(x) else false_case_func(x)
 
@@ -2450,6 +2494,15 @@ def if_then_else_imp(x, pred, value1, value2):
 
     ---- Signature ----
     (Any, (T->Bool), (Any), (Any)) -> Any
+
+    ---- Tags ----
+    - used for: control flow
+    - used for: logic
+    - related zefop: if_then_else_apply
+    - related zefop: group_by
+    - related zefop: match
+    - related zefop: match_apply
+    - related zefop: filter
     """
     return value1 if pred(x) else value2
 
@@ -2478,6 +2531,13 @@ def attempt_imp(x, op, alternative_value):
     
     ---- Signature ----
     (T, (T-> Union[T1, Error]), T2) -> Union[T1, T2]
+
+    ---- Tags ----
+    - used for: control flow
+    - related zefop: if_then_else
+    - related zefop: expect
+    - related zefop: ensure
+    - related zefop: bypass
     """
     try:
         res = op(x)
@@ -3697,6 +3757,12 @@ def apply_functions_imp(x, *fns):
 
     ---- Signature ----
     VT.List -> VT.List
+
+    ---- Tags ----
+    - used for: control flow
+    - operates on: ZefOps, Functions
+    - related zefop: func
+    - related zefop: reverse_args
     """
     import builtins
     if not (isinstance(x, tuple) or isinstance(x, list)):
@@ -3731,6 +3797,8 @@ def map_implementation(v, f):
     ---- Signature ----
     (List[T1], (T1 -> T2))  -> List[T2]
 
+    ---- Tags ----
+    - used for: control flow
     """
     import builtins
     input_type = parse_input_type(type_spec(v))
@@ -3767,8 +3835,15 @@ def reduce_implementation(iterable, fct, init):
 #     return (ops.group_by)(first_arg, *curried_args)
 
 def group_by_implementation(iterable, key_fct, categories=None):
-    """categories is optional and specifies additional keys/categories to create, even if there are no occurrences.
-     Passed as a list [True, False]"""        
+    """
+    categories is optional and specifies additional keys/categories 
+    to create, even if there are no occurrences. Passed as a list 
+    [True, False]
+    
+    ---- Tags ----
+    - used for: control flow
+    - operates on: List    
+    """        
     # map to list first in case the generator state changes
     from collections import defaultdict
     my_list = list(iterable)
@@ -3804,16 +3879,16 @@ def nth_implementation(iterable, n):
     An Error value is returned if the index is out of bounds.
     Note: this uses a zero-indexed convention.
 
-    ---- Examples: ----
+    ---- Examples ----
     >>>['a', 'b', 'c', 'd'] | nth[1]       # => 'b'
     >>>['a', 'b', 'c', 'd'] | nth[-2]      # => 'c'
     >>>['a', 'b', 'c', 'd'] | nth[10]      # => Error['nth: index out of range using']
     
-    ---- Arguments: ----
+    ---- Arguments ----
     iterable: a List[T] / LazyValue[List[T]] / Awaitable[List[T]]
     n (Int): a non-negative integer specifying the index of the element to return.
 
-    ----- Signature: ----
+    ----- Signature ----
     (List[T], Int) -> Union[T, Error]
     (LazyValue[List[T]], Int) -> LazyValue[Union[T, Error]]
     (Awaitable[List[T]], Int) -> Awaitable[Union[T, Error]]    
@@ -3843,7 +3918,18 @@ def select_keys_imp(d: dict, *keys: list):
     Based on Clojure's select-keys 
     https://clojuredocs.org/clojure.core/select-keys
 
-    {'a': 3, 'b': 2, 'c': 1} | select_keys['a']['f']
+    ---- Examples ----
+    >>> {'a': 3, 'b': 2, 'c': 1} | select_keys['a']['f']      # => {'a': 3}
+
+    ----- Signature ----
+    (Dict[T1, T2], T1, ...) -> Dict[T1, T2]
+    
+    ---- Tags ----
+    - operates on: Dict
+    - related zefop: filter
+    - related zefop: get
+    - related zefop: get_in
+    - related zefop: merge
     """
     return {k: v for k, v in d.items() if k in keys}
 
@@ -3855,10 +3941,10 @@ def modulo_imp(m: int, n: int):
     """
     The modulo function.
 
-    ---- Examples: ----
+    ---- Examples ----
     >>> 12 | mod[10]       # => 2
 
-    ----- Signature: ----
+    ----- Signature ----
     (Int, Int) -> Int
     
     ---- Tags ----
@@ -3875,16 +3961,20 @@ def filter_implementation(itr, pred):
     """
     Filters an iterable or stream lazily.
 
-    ---- Examples: ----
+    ---- Examples ----
     >>> [1,2,3,4,5] | filter[lambda x: x%2 == 0]       # => [2, 4]
     >>> [1,2,3,4,5] | filter[greater_than[2]]          # => [3, 4, 5]
     
-    ---- Arguments: ----
+    ---- Arguments ----
     itr: a List[T] / LazyValue[List[T]] / Awaitable[List[T]]
     pred (Func[(T,), Bool]): a predicate function
 
-    ----- Signature: ----
+    ----- Signature ----
     (List[T], (T->Bool)) -> List[T]
+
+    ---- Tags ----
+    - used for: control flow
+    - operates on: List
     """
     input_type = parse_input_type(type_spec(itr))
     if input_type == "tools":
@@ -4859,7 +4949,7 @@ def tag_imp(x, tag: str, force: bool = False):
     >>> g2 | tag["my_graph"][True] | run
     >>> z | tag["settings_node"] | run
 
-    ---- Arguments: ----
+    ---- Arguments ----
     x Graph / ZefRef: object to tag
     tag str: the name of the tag to apply
     force bool (=False): whether to allow stealing the tag from another graph or ZefRef.
@@ -5349,6 +5439,16 @@ def as_pipeline_imp(ops: list):
 
     ---- Examples ----
     >>> (nth[42], repeat, enumerate) | as_pipeline      # => nth[42] | repeat | enumerate
+
+    ---- Tags ----
+    - used for: control flow
+    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - related zefop: inject
+    - related zefop: inject_list
+    - related zefop: absorbed
+    - related zefop: without_absorbed
+    - related zefop: reverse_args
+    - related zefop: bypass
     """
     from typing import Generator, Iterable, Iterator
     if isinstance(ops, Generator) or isinstance(ops, Iterator): ops = [op for op in ops]
@@ -5367,6 +5467,15 @@ def inject_imp(x, injectee):
 
     ---- Examples ----
     >>> 42 | inject[equals]         # => equals[42]
+
+    ---- Tags ----
+    - used for: control flow
+    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - related zefop: inject_list
+    - related zefop: absorbed
+    - related zefop: without_absorbed
+    - related zefop: reverse_args
+    - related zefop: as_pipeline
     """
     return injectee[x]
 
@@ -5385,6 +5494,15 @@ def inject_list_imp(v, injectee):
 
     ---- Examples ----
     >>> [pred1, pred2, pred3] | inject[And]         # => And[pred1][pred2][pred3]
+
+    ---- Tags ----
+    - used for: control flow
+    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - related zefop: inject
+    - related zefop: absorbed
+    - related zefop: without_absorbed
+    - related zefop: reverse_args
+    - related zefop: as_pipeline
     """
     return v | reduce[lambda a, el: a[el]][injectee] | collect
 
