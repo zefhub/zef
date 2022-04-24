@@ -1013,8 +1013,23 @@ def insert_into_imp(key_val_pair, x):
 #---------------------------------------- remove -----------------------------------------------
 def remove_imp(d: dict, key_to_remove: tuple):
     """
+    Given a key and a dictionary, returns a new dictionary 
+    with the key value pair removed.
+
+    This operator is NOT overloaded for Lists, since this
+    could be confused with the mutating Python method on
+    lists: my_list.remove(2) removes the first occurrence
+    of the VALUE "2" and not at the location.
+    Use "remove_at" for lists.
+
     ---- Examples ----
     >>> {'a': 1, 'b', 2} | remove['a']   ->  {'b': 2}
+    
+    ---- Tags ----
+    - operates on: Dict
+    - related zefop: remote_at
+    - related zefop: insert
+    - related zefop: get
     """
     if isinstance(d, FlatGraph):
         fg = d
@@ -1035,7 +1050,10 @@ def get_imp(d, key, default=None):
     External function equivalent to Python's '__get__' method.
 
     ---- Examples ----
-    >>> {'a': 42} | get['a']                    # => 42      
+    >>> {'a': 42} | get['a']                    # => 42
+
+    ---- Tags ----
+    - operates on: Dict
     """
     if isinstance(d, FlatGraph):
         return fg_get_imp(d, key)
@@ -3841,14 +3859,24 @@ def filter_implementation(itr, pred):
     else:
         raise Exception(f"Filter can't work on input_type={input_type}")
 
+
+
+
 #---------------------------------------- select_by_field -----------------------------------------------
-def select_by_field_imp(zrs : Iterable[ZefRef], rt: RelationType, val):# -> Union[ZefRef, Nil]:
+def select_by_field_imp(zrs : List[ZefRef], rt: RelationType, val):
     """An optimized equivalent of calling:
     zrs | filter[Z >> O[rt] | value_or[None] | equals[val]]
     although the case of val=None is not permitted.
     
     This is implemented in C++. In the future when the native version is as
     fast, this will deprecated.
+
+    ----- Signature: ----
+    (List[ZefRef], RelationType, Any) -> List[ZefRef]
+
+    ---- Tags ----
+    - operates on: Graph
+    - related zefop: filter
     """
     return pyzefops.select_by_field_impl(zrs, rt, val)
 
