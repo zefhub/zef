@@ -5083,10 +5083,11 @@ def merge_imp(a, second=None, *args):
     * similar: merge_with
     ...
     """
+    from typing import Generator
     if isinstance(a, FlatGraph) and isinstance(second, FlatGraph):
         return fg_merge_imp(a, second)
-    if second is None:
-        assert isinstance(a, tuple) or isinstance(a, list)
+    elif second is None:
+        assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, Generator)
         return {k: v for d in a for k, v in d.items()}
     else:
         assert isinstance(a, dict)
