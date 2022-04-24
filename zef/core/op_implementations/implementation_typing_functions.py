@@ -1454,7 +1454,7 @@ def push_tp(op, curr_type):
 #---------------------------------------- cartesian_product -----------------------------------------------
 def cartesian_product_imp(x, second=None, *args):
     """ 
-    Not that Python's itertools calls this "product only", but 
+    Note that Python's itertools calls this "product only", but 
     but that term is too overloaded, e.g. the 'multiply' operator.
     
     ---- Examples ----
@@ -1467,6 +1467,13 @@ def cartesian_product_imp(x, second=None, *args):
     ---- Signature ----
     List[ List[T1], List[T2] ] -> List[ (T1, T2) ]
     (List[T1], List[T2])       -> List[ (T1, T2) ]
+
+
+    ---- Tags ----
+    - operates on: List
+    - used for: combinatorics
+    - related zefop: combinations
+    - related zefop: permutations
     """    
     from itertools import product
     if second is None:
@@ -1484,7 +1491,8 @@ def cartesian_product_tp(a, second, *args):
 def permutations_imp(v, n=None):
     """ 
     Given a list of items, return a list of lists with all 
-    permutations lazily.
+    permutations lazily. Order within the returned combination 
+    does not play a role.
 
     If given, the second argument is the length of each output.
 
@@ -1500,9 +1508,18 @@ def permutations_imp(v, n=None):
     >>> #     ['c', 'b', 'a']
     >>> # ]
 
+    >>> [1,2,3] | permutations[2]    # specify the number of elements in each sample
+    >>> # returns: [(1, 2), (1, 3), (2, 1), (2, 3), (3, 1), (3, 2)]
+
     ---- Signature ----
     List[T] -> List[List[T]]
     (List[T], Int) -> List[List[T]]
+
+    ---- Tags ----
+    - operates on: List
+    - used for: combinatorics
+    - related zefop: combinations
+    - related zefop: cartesian_product
     """
     from itertools import permutations
     return permutations(v, r=n)
