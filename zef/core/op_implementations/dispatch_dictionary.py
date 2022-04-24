@@ -25,6 +25,8 @@ _op_to_functions = {
         RT.Skip :          (skip_imp, skip_tp),
         RT.Nth:            (nth_implementation, nth_type_info),
         RT.Filter:         (filter_implementation, filter_type_info),
+        RT.SelectKeys:     (select_keys_imp, None),
+        RT.Modulo:         (modulo_imp, None),
         RT.SelectByField:  (select_by_field_imp, select_by_field_tp),
         RT.First:          (first_imp, first_tp),
         RT.Second:         (second_imp, second_tp),

@@ -81,6 +81,8 @@ merge_with      = make_zefop(RT.MergeWith)
 # Implemented Lazy ZefOps
 expect          = make_zefop(RT.Expect)
 filter          = make_zefop(RT.Filter)
+select_keys     = make_zefop(RT.SelectKeys)
+modulo          = make_zefop(RT.Modulo)
 select_by_field = make_zefop(RT.SelectByField)
 apply_functions = make_zefop(RT.ApplyFunctions)
 map             = make_zefop(RT.Map)

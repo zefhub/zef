@@ -3829,16 +3829,55 @@ def nth_implementation(iterable, n):
     return next(it)
     #   TODO: implementation for awaitables
             
+
+
+
+
+#---------------------------------------- select_by_field -----------------------------------------------
+def select_keys_imp(d: dict, *keys: list):
+    """
+    Given a dictionary, return a new dictionary containing 
+    the same key value pairs, but for a specified subset of
+    keys only.
+
+    Based on Clojure's select-keys 
+    https://clojuredocs.org/clojure.core/select-keys
+
+    {'a': 3, 'b': 2, 'c': 1} | select_keys['a']['f']
+    """
+    return {k: v for k, v in d.items() if k in keys}
+
+
+
+
+#---------------------------------------- select_by_field -----------------------------------------------
+def modulo_imp(m: int, n: int):
+    """
+    The modulo function.
+
+    ---- Examples: ----
+    >>> 12 | mod[10]       # => 2
+
+    ----- Signature: ----
+    (Int, Int) -> Int
     
+    ---- Tags ----
+    - operates on: Int
+    - topic: Maths
+    """
+    return m % n
+
     
 
+
+#---------------------------------------- select_by_field -----------------------------------------------
 def filter_implementation(itr, pred):
     """
     Filters an iterable or stream lazily.
 
     ---- Examples: ----
-    >>>[1,2,3,4,5] | filter[lambda x: x%2 == 0]       # => [2, 4]
-    >>>[1,2,3,4,5] | filter[greater_than[2]]          # => [3, 4, 5]
+    >>> [1,2,3,4,5] | filter[lambda x: x%2 == 0]       # => [2, 4]
+    >>> [1,2,3,4,5] | filter[greater_than[2]]          # => [3, 4, 5]
     
     ---- Arguments: ----
     itr: a List[T] / LazyValue[List[T]] / Awaitable[List[T]]
@@ -3863,7 +3902,7 @@ def filter_implementation(itr, pred):
 
 
 #---------------------------------------- select_by_field -----------------------------------------------
-def select_by_field_imp(zrs : List[ZefRef], rt: RelationType, val):
+def select_by_field_imp(zrs : Iterable[ZefRef], rt: RelationType, val):
     """An optimized equivalent of calling:
     zrs | filter[Z >> O[rt] | value_or[None] | equals[val]]
     although the case of val=None is not permitted.
@@ -3871,7 +3910,7 @@ def select_by_field_imp(zrs : List[ZefRef], rt: RelationType, val):
     This is implemented in C++. In the future when the native version is as
     fast, this will deprecated.
 
-    ----- Signature: ----
+    ----- Signature ----
     (List[ZefRef], RelationType, Any) -> List[ZefRef]
 
     ---- Tags ----
