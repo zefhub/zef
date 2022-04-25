@@ -338,20 +338,26 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 set(COG_DUMMY ${CMAKE_CURRENT_SOURCE_DIR}/dummy_cog.tracker)
 
 if(NOT MSVC)
-  add_custom_target(cogbuild ALL
-    DEPENDS ${COG_DUMMY})
-  add_dependencies(zef cogbuild)
+  # We have to get all files that will be cogged - this is a little weird.
+  FILE(GLOB cog_files ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cog ${CMAKE_CURRENT_SOURCE_DIR}/include/*.cog)
 
+  add_custom_target(cogbuild ALL
+    # DEPENDS ${COG_DUMMY})
+    DEPENDS ${cog_files})
+  add_dependencies(zef cogbuild)
+  
   # Do the cogging itself
   add_custom_command(
     DEPENDS zeftypes_EN.json zeftypes_ET.json zeftypes_RT.json zeftypes_KW.json
-    OUTPUT ${COG_DUMMY}
+    # OUTPUT ${COG_DUMMY}
+    OUTPUT ${cog_files}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Running cog"
     COMMAND ${Python3_EXECUTABLE} -mpip install cogapp
     COMMAND ${Python3_EXECUTABLE} scripts/run_cog_gen.py
     # COMMAND python3 run_cog_inplace.py
-    COMMAND date > ${COG_DUMMY})
+    # COMMAND date > ${COG_DUMMY}
+    )
 
   if(LOCAL_ZEFTYPES)
     # Copy over the bootstrap files if the non-bootstrap versions don't exist
