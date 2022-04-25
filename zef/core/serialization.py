@@ -124,7 +124,8 @@ def serialize_zeftypes(z) -> dict:
 
     elif isinstance(z, RelationType) or isinstance(z, EntityType) or isinstance(z, AtomicEntityType):
         bt_type = {RelationType: "RT", EntityType: "ET", AtomicEntityType: "AET"}[type(z)]
-        return {"_zeftype": bt_type, "value": str(z)}
+        absorbed_args = z | absorbed | collect
+        return {"_zeftype": bt_type, "value": str(z), "absorbed": serialize(absorbed_args)}
 
     elif isinstance(z, Graph):
         return {"_zeftype": "Graph", "guid": str(uid(z))}
@@ -249,7 +250,10 @@ def deserialize_zeftypes(z) -> dict:
 
     elif z['_zeftype'] in {"RT", "ET"}:
         bt_class = {"RT": RT, "ET": ET}[z['_zeftype']]
-        return bt_class(z['value'])
+        absorbed_args = deserialize(z['absorbed'])
+        base = bt_class(z['value'])
+        base._absorbed = absorbed_args
+        return base
 
     elif z['_zeftype'] == "AET": 
         type_map = {
@@ -263,12 +267,13 @@ def deserialize_zeftypes(z) -> dict:
                 "Time":             AET.Time,
                 "Serialized":       AET.Serialized,
         }
+        absorbed_args = deserialize(z['absorbed'])
         first_part,*rest = z['value'].split('.')
         out = type_map[first_part]
         for part in rest:
             out = getattr(out, part)
+        if absorbed_args: out._absorbed = absorbed_args
         return out
-            
 
     elif z['_zeftype'] == "Graph":
         return Graph(z['guid'])
