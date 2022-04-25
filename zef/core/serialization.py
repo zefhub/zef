@@ -166,7 +166,8 @@ def serialize_zeftypes(z) -> dict:
         abstract_type = {Entity: "Entity", Relation: "Relation", AtomicEntity: "AtomicEntity"}[type(z)]
         uid_or_uids = "uids" if abstract_type == "Relation" else "uid"
         type_or_types = [serialize_zeftypes(rae) for rae in z.d['type']] if abstract_type == "Relation" else serialize_zeftypes(z.d['type'])
-        return {"_zeftype": abstract_type, "type": type_or_types, uid_or_uids: serialize_zeftypes(z.d[uid_or_uids])}
+        absorbed_args = z.d['absorbed']
+        return {"_zeftype": abstract_type, "type": type_or_types, uid_or_uids: serialize_zeftypes(z.d[uid_or_uids]), 'absorbed': serialize(absorbed_args)}
 
     elif isinstance(z, _ErrorType):
         return {"_zeftype": "ErrorType", "type": z.name, "args": serialize_list(z.args)}
@@ -312,7 +313,8 @@ def deserialize_zeftypes(z) -> dict:
         uid_or_uids = "uids" if z['_zeftype'] == "Relation" else "uid"
         uid_or_uids_value = tuple(z[uid_or_uids]) if z['_zeftype'] == "Relation" else z[uid_or_uids]
         type_or_types = tuple([deserialize_zeftypes(rae) for rae in z['type']]) if z['_zeftype'] == "Relation" else deserialize_zeftypes(z['type'])
-        return abstract_type({'type': type_or_types, uid_or_uids: deserialize_zeftypes(uid_or_uids_value)})
+        absorbed_args = deserialize(z['absorbed'])
+        return abstract_type({'type': type_or_types, uid_or_uids: deserialize_zeftypes(uid_or_uids_value), 'absorbed': absorbed_args})
 
     elif z['_zeftype'] == "ErrorType":
         return Error.__getattribute__(z['type'])(*deserialize_list(z['args']))
