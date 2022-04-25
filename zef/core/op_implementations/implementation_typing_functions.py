@@ -5650,6 +5650,35 @@ def random_pick_tp(op, curr_type):
 
 
 
+#---------------------------------------- int_to_alpha -----------------------------------------------
+def int_to_alpha_imp(n: int) -> str:
+    """
+    Map an integer n to the nth letter of the alphabet.
+    Always lower case.
+    
+    >>> 3 | int_to_alpha    # => 'c'
+    """
+    d = 'abcdefghijklmnopqrstuvwxyz'
+    return d[n]
+
+
+
+
+#---------------------------------------- permute_to -----------------------------------------------
+def permute_to_imp(v, indices: list[int]):
+    """
+    given a input list, as well as a list of indices, 
+    return the list of elements arranged according to the 
+    list of indices.
+
+    >>> ['a', 'b', 'c', 'd'] | permute_to[2,0,1]    # => ['c', 'a', 'b']
+
+    """
+    cached = tuple(v | take[max(indices)+1])
+    return (cached[n] for n in indices)
+
+
+
 #---------------------------------------- is_alpha -----------------------------------------------
 def is_alpha_imp(s: VT.String) -> VT.Bool:
     """ 
