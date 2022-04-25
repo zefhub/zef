@@ -1546,9 +1546,12 @@ namespace zefDB {
                 return "auto";
             }
                 
-            py::gil_scoped_acquire acquire;
-            auto get_config = py::module_::import("zef.ops._config").attr("get_config");
-            return get_config("login.autoConnect").cast<std::string>();
+            // py::gil_scoped_acquire acquire;
+            // auto get_config = py::module_::import("zef.ops._config").attr("get_config");
+            // return get_config("login.autoConnect").cast<std::string>();
+
+            // TODO: reimplement config into C
+            return "auto";
         }
 
         bool Butler::want_upstream_connection() {
@@ -2014,6 +2017,22 @@ namespace zefDB {
             return path;
         }
 
+        ////////////////////////////////////////////////////////
+        // * External handlers
 
+
+        std::optional<std::function<merge_handler_t>> merge_handler;
+        json pass_to_merge_handler(Graph g, const json & payload) {
+            if(!merge_handler)
+                throw std::runtime_error("Merge handler has not been assigned.");
+
+            return (*merge_handler)(g, payload);
+        }
+
+        void register_merge_handler(merge_handler_t func) {
+            if(merge_handler)
+                throw std::runtime_error("Merge handler has already been registered.");
+            merge_handler = func;
+        }
     }
 }

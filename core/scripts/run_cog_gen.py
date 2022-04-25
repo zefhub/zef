@@ -71,18 +71,3 @@ for filename in find_files_of_type(path='src_cpp', filename_endings={'.cog'}, re
         print(f'An exception was raised when processing file "{filename}": {exc}')
         # Need this to fail for cmake to not continue on without a care.
         raise
-
-for filename in find_files_of_type(path='zef', filename_endings={'.cog'}, recurse=True):
-    try:
-        true_output = filename[:-len(".cog")]
-        cog.options.sOutputName = true_output + ".tmp"
-        cog.processOneFile(filename)
-        if not os.path.exists(true_output) or open(true_output + ".tmp").read() != open(true_output).read():
-            print(filename, " changed")
-            os.rename(true_output + ".tmp", true_output)
-        else:
-            os.unlink(true_output + ".tmp")
-    except Exception as exc:
-        print(f'An exception was raised when processing file "{filename}": {exc}')
-        # Need this to fail for cmake to not continue on without a care.
-        raise

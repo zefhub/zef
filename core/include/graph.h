@@ -13,6 +13,7 @@
 #include <mutex>
 #include <thread>
 #include <future>
+#include <unordered_set>
 // #include <chrono>         // std::chrono::seconds
 #include "range/v3/all.hpp"
 

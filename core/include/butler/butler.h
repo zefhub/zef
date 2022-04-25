@@ -10,12 +10,6 @@
 
 #include <nlohmann/json.hpp>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/embed.h>
-#include <pybind11/stl.h>
-namespace py = pybind11;
-#include <pybind11_json/pybind11_json.hpp>
-
 namespace zefDB {
 
     LIBZEF_DLL_EXPORTED extern bool initialised_python_core;
@@ -401,6 +395,13 @@ namespace zefDB {
 
 
         GenericResponse generic_from_json(json j);
+
+        ////////////////////////////////////////
+        // * External handlers
+
+        typedef json (merge_handler_t)(Graph, const json &);
+        LIBZEF_DLL_EXPORTED void register_merge_handler(merge_handler_t func);
+        LIBZEF_DLL_EXPORTED json pass_to_merge_handler(Graph g, const json & payload);
 
 
 

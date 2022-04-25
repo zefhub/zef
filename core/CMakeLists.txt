@@ -1,9 +1,22 @@
 cmake_minimum_required(VERSION 3.8)
 
-project(ZefDB CXX ASM)
+# Use this to distinguish the full project from the individual subdirectories.
+project(ZefCore CXX)
 
-############################
+#########################
 # customizable variables
+
+# Force using environment variable when specified
+if(DEFINED ENV{LOCAL_ZEFTYPES})
+  set(LOCAL_ZEFTYPES $ENV{LOCAL_ZEFTYPES} CACHE BOOL "Disable getting zeftypes from zefhub" FORCE)
+else()
+  set(LOCAL_ZEFTYPES FALSE CACHE BOOL "Disable getting zeftypes from zefhub")
+endif()
+
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -rdynamic -ggdb -g")
+  add_definitions(-DDEBUG)
+endif()
 
 if(DEFINED ENV{ZEFDB_ALLOW_NO_TLS})
   set(ZEFDB_ALLOW_NO_TLS $ENV{ZEFDB_ALLOW_NO_TLS} CACHE BOOL "Allow insecure websockets for ZefHub connections" FORCE)
@@ -23,6 +36,32 @@ else()
 endif()
 if(ZEFDB_TEST_NO_MMAP_CHECKS)
   message(WARNING "Testing mmap slowness - graphs are given 10MB of memory and other ensure page checks are disabled.")
+endif()
+
+
+######################
+# Macos hinting
+
+# Try and give a good enough hint for success on macos
+if (APPLE)
+  if(NOT DEFINED MACOS_BREW_PREFIX)
+    if(DEFINED ENV{MACOS_BREW_PREFIX})
+      set(MACOS_BREW_PREFIX $ENV{MACOS_BREW_PREFIX})
+    else()
+      execute_process(
+        COMMAND brew --prefix
+        RESULT_VARIABLE BREW_RESULT
+        OUTPUT_VARIABLE MACOS_BREW_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE)
+      if (BREW_RESULT EQUAL 0 AND EXISTS "${MACOS_BREW_PREFIX}")
+      else()
+        message(SEND_ERROR "Unable to run brew to determine install prefix. Likely to fail later in the build process unless environment variables have been set manually.")
+      endif()
+    endif()
+  endif()
+  message(STATUS "Appending brew install prefix of ${MACOS_BREW_PREFIX} to cmake path. Manually set MACOS_BREW_PREFIX='' to disable this behaviour.")
+
+  list(APPEND CMAKE_PREFIX_PATH ${MACOS_BREW_PREFIX})
 endif()
 
 ############################
@@ -137,8 +176,8 @@ option(USE_EXTERNAL_JSON "Use an external JSON library" OFF)
 
 add_subdirectory(external)
 
-###########################
-# libzef itself
+############################
+# * The library
 
 # Explicit file list
 set(SOURCES
@@ -203,14 +242,13 @@ add_library (zef SHARED ${SOURCES})
 
 target_include_directories(zef PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include/zefDB>
+  $<INSTALL_INTERFACE:include/zef>
   )
 
 target_include_directories(zef PUBLIC ${ZSTD_INCLUDE_DIRS})
 target_include_directories(zef PUBLIC ${CURL_INCLUDE_DIRS})
 target_include_directories(zef PUBLIC ${OPENSSL_INCLUDE_DIR})
 
-target_link_libraries(zef PUBLIC pybind11::embed)
 target_link_libraries(zef PUBLIC ${OPENSSL_LIBRARIES})
 target_link_libraries(zef PUBLIC ${ZSTD_LIBRARIES})
 target_link_libraries(zef PUBLIC ${CURL_LIBRARIES})
@@ -222,7 +260,6 @@ if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
 endif()
 
 target_link_libraries(zef PUBLIC nlohmann_json::nlohmann_json)
-target_link_libraries(zef PUBLIC pybind11_json)
 target_link_libraries(zef PUBLIC phmap)
 target_link_libraries(zef PUBLIC range-v3)
 target_link_libraries(zef PRIVATE doctest)
@@ -249,8 +286,6 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     CXX_VISIBILITY_PRESET default)
 endif()
 
-target_compile_definitions(zef PUBLIC LIBZEF_NO_FORKING=1)
-
 if(ZEFDB_ALLOW_NO_TLS)
   target_compile_definitions(zef PUBLIC ZEFDB_ALLOW_NO_TLS)
 endif()
@@ -258,99 +293,114 @@ if(ZEFDB_TEST_NO_MMAP_CHECKS)
   target_compile_definitions(zef PUBLIC ZEFDB_TEST_NO_MMAP_CHECKS)
 endif()
   
-
 # Extra things needed for Visual Studio
 if(MSVC)
 	target_compile_options(zef PUBLIC "/permissive-")
 endif()
 
 install ( TARGETS zef
-  EXPORT zefDB
+  EXPORT zef
   LIBRARY DESTINATION lib
-  PUBLIC_HEADER DESTINATION include/zefDB
+  PUBLIC_HEADER DESTINATION include/zef
   )
 install(FILES auth.html DESTINATION share/zefDB)
-add_custom_command(TARGET zef POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E make_directory 
-                       ${CMAKE_CURRENT_BINARY_DIR}/../share/zefDB/
-                   COMMAND ${CMAKE_COMMAND} -E create_symlink
-                       ${CMAKE_CURRENT_SOURCE_DIR}/auth.html
-                       ${CMAKE_CURRENT_BINARY_DIR}/auth.html
-                   )
+# add_custom_command(TARGET zef POST_BUILD
+#                    COMMAND ${CMAKE_COMMAND} -E make_directory 
+#                        ${CMAKE_CURRENT_BINARY_DIR}/../share/zefDB/
+#                    COMMAND ${CMAKE_COMMAND} -E create_symlink
+#                        ${CMAKE_CURRENT_SOURCE_DIR}/auth.html
+#                        ${CMAKE_CURRENT_BINARY_DIR}/auth.html
+#                    )
 
-#############################
-# The testing executable
+############################
+# * Subprojects
 
-list(REMOVE_ITEM SOURCES src/library_entrypoint.cpp)
-list(APPEND SOURCES src/doctest_stub.cpp)
+# add_subdirectory(tests)
 
-add_executable (zeftest ${SOURCES})
-set_target_properties(zeftest PROPERTIES
-  CXX_STANDARD 17
-  # COMPILE_DEFINITIONS "DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN"
-  EXCLUDE_FROM_ALL TRUE
-  )
+############################
+# * Cmake install files
 
-# Always no forking for the test script
-target_compile_definitions(zeftest PUBLIC LIBZEF_NO_FORKING=1)
+# include(CMakePackageConfigHelpers)
+# # configure_package_config_file(${CMAKE_CURRENT_SOURCE_DIR}/zefDBConfig.cmake.in
+# configure_file(${CMAKE_CURRENT_SOURCE_DIR}/zefDBConfig.cmake.in
+#   "${CMAKE_CURRENT_BINARY_DIR}/zefDBConfig.cmake"
+#   # INSTALL_DESTINATION lib/cmake/zefDB
+#   @ONLY
+# )
+# install(FILES "${CMAKE_CURRENT_BINARY_DIR}/zefDBConfig.cmake" DESTINATION lib/cmake/zefDB)
+# install(EXPORT zefDB DESTINATION lib/cmake/zefDB)
 
-# target_include_directories(zeftest SYSTEM PUBLIC ${Python3_INCLUDE_DIRS})
-# target_link_libraries(zeftest PUBLIC ${Python3_LIBRARIES})
-target_link_libraries(zeftest PUBLIC pybind11::embed)
+############################
+# * Cog commands
 
-if(UNIX AND NOT APPLE)
-    set_target_properties(zef PROPERTIES INSTALL_RPATH "$ORIGIN")
-elseif(APPLE)
-    set_target_properties(zef PROPERTIES INSTALL_RPATH "@loader_path")
+find_package(Python3 REQUIRED COMPONENTS Interpreter)
+
+set(COG_DUMMY ${CMAKE_CURRENT_SOURCE_DIR}/dummy_cog.tracker)
+
+if(NOT MSVC)
+  add_custom_target(cogbuild ALL
+    DEPENDS ${COG_DUMMY})
+  add_dependencies(zef cogbuild)
+
+  # Do the cogging itself
+  add_custom_command(
+    DEPENDS zeftypes_EN.json zeftypes_ET.json zeftypes_RT.json zeftypes_KW.json
+    OUTPUT ${COG_DUMMY}
+    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMENT "Running cog"
+    COMMAND ${Python3_EXECUTABLE} -mpip install cogapp
+    COMMAND ${Python3_EXECUTABLE} scripts/run_cog_gen.py
+    # COMMAND python3 run_cog_inplace.py
+    COMMAND date > ${COG_DUMMY})
+
+  if(LOCAL_ZEFTYPES)
+    # Copy over the bootstrap files if the non-bootstrap versions don't exist
+    add_custom_command(
+      DEPENDS templates/zeftypes_bootstrap_ET.json
+      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_ET.json
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMENT "Copying ET bootstrap"
+      COMMAND cp templates/zeftypes_bootstrap_ET.json zeftypes_ET.json)
+    add_custom_command(
+      DEPENDS templates/zeftypes_bootstrap_RT.json
+      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_RT.json
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMENT "Copying RT bootstrap"
+      COMMAND cp templates/zeftypes_bootstrap_RT.json zeftypes_RT.json)
+    add_custom_command(
+      DEPENDS templates/zeftypes_bootstrap_EN.json
+      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_EN.json
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMENT "Copying EN bootstrap"
+      COMMAND cp templates/zeftypes_bootstrap_EN.json zeftypes_EN.json)
+    add_custom_command(
+      DEPENDS templates/zeftypes_bootstrap_KW.json
+      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_KW.json
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMENT "Copying KW bootstrap"
+      COMMAND cp templates/zeftypes_bootstrap_KW.json zeftypes_KW.json)
+  else()
+    add_custom_command(
+      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_ET.json
+      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_RT.json
+      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_EN.json
+      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_KW.json
+      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      COMMENT "Grabbing latest zeftypes from zefhub using the guest account."
+      COMMAND ${Python3_EXECUTABLE} -mpip install structlog
+      COMMAND ${Python3_EXECUTABLE} ../scripts/get_zeftypes.py)
+  endif()
+
 endif()
 
+#########################################
+# * All tests
+enable_testing ()
 
-target_include_directories(zeftest PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_include_directories(zeftest PRIVATE ${RANGE_INCLUDE_DIRS})
-target_include_directories(zeftest PRIVATE ${doctest_INCLUDES})
-# target_include_directories(zeftest PUBLIC ${pybind11_INCLUDE_DIRS})
+#####################
+# ** C tests
+# # Seems like some annoying manual dependency is required in here
+# add_test (NAME zeftest_build COMMAND "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target zeftest)
 
-target_include_directories(zeftest PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/blake3/c)
-
-
-#############################
-# Butler testing executable
-
-add_executable (butler_test src/butler/butler_test.cpp)
-set_target_properties(butler_test PROPERTIES
-  CXX_STANDARD 17
-  EXCLUDE_FROM_ALL TRUE
-  )
-
-# target_link_libraries(butler_test PUBLIC ${Python3_LIBRARIES})
-
-# Always no forking for the test script
-target_compile_definitions(butler_test PUBLIC LIBZEF_NO_FORKING=1)
-
-# target_include_directories(butler_test SYSTEM PUBLIC ${Python3_INCLUDE_DIRS})
-target_link_libraries(butler_test PUBLIC pybind11::embed)
-
-target_link_libraries(butler_test PRIVATE zef)
-
-#############################
-# Danny testing stuff
-
-add_executable (danny_test butler/test_wholefilemapping.cpp)
-set_target_properties(danny_test PROPERTIES
-  CXX_STANDARD 17
-  EXCLUDE_FROM_ALL TRUE
-  )
-
-# target_link_libraries(butler_test PUBLIC ${Python3_LIBRARIES})
-
-# Always no forking for the test script
-target_compile_definitions(danny_test PUBLIC LIBZEF_NO_FORKING=1)
-
-# target_include_directories(danny_test SYSTEM PUBLIC ${Python3_INCLUDE_DIRS})
-target_link_libraries(danny_test PUBLIC pybind11::embed)
-
-target_link_libraries(danny_test PRIVATE zef)
-
-# set(THREADS_PREFER_PTHREAD_FLAG ON)
-find_package(Threads REQUIRED)
-target_link_libraries(danny_test PRIVATE Threads::Threads)
+# add_test (NAME zeftest COMMAND zeftest)
+# set_property(TEST zeftest PROPERTY DEPENDS zeftest_build)

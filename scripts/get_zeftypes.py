@@ -36,10 +36,12 @@ except Exception as exc:
     print("NOT USING LATEST TOKENS, FALLINBACK BACK TO BOOTSTRAP!!!!")
 
     import shutil
-    shutil.copy("zeftypes_bootstrap_ET.json", "zeftypes_ET.json")
-    shutil.copy("zeftypes_bootstrap_RT.json", "zeftypes_RT.json")
-    shutil.copy("zeftypes_bootstrap_KW.json", "zeftypes_KW.json")
-    shutil.copy("zeftypes_bootstrap_EN.json", "zeftypes_EN.json")
+    import os
+    template_dir = os.path.join(os.path.dirname(__file__), "templates")
+    shutil.copy(os.path.join(template_dir, "zeftypes_bootstrap_ET.json"), "zeftypes_ET.json")
+    shutil.copy(os.path.join(template_dir, "zeftypes_bootstrap_RT.json"), "zeftypes_RT.json")
+    shutil.copy(os.path.join(template_dir, "zeftypes_bootstrap_KW.json"), "zeftypes_KW.json")
+    shutil.copy(os.path.join(template_dir, "zeftypes_bootstrap_EN.json"), "zeftypes_EN.json")
 
     import sys
     sys.exit(0)

@@ -835,9 +835,10 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
     std::visit(overload {
             [&](MergeRequest::PayloadGraphDelta & payload) {
                 try {
-                    py::gil_scoped_acquire acquire;
-                    auto pymerge = py::module_::import("zef.core.internals.merges").attr("_graphdelta_merge");
-                    json receipt = pymerge(Graph(*me.gd), payload.delta);
+                    // py::gil_scoped_acquire acquire;
+                    // auto pymerge = py::module_::import("zef.core.internals.merges").attr("_graphdelta_merge");
+                    // json receipt = pymerge(Graph(*me.gd), payload.delta);
+                    json receipt = pass_to_merge_handler(Graph(*me.gd), payload.delta);
 
                     if(content.task_uid) {
                         if(content.msg_version <= 0) {
