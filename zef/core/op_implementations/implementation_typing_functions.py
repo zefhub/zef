@@ -1107,11 +1107,15 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
     - related zefop: remove
     - related zefop: select_in
     """
+    from typing import Generator
     if isinstance(d, FlatGraph):
         return fg_get_imp(d, key)
     elif isinstance(d, dict):
         return d.get(key, default)
-    return Error(f"get called with unsupported type {type(d)}")
+    elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator):
+        return Error(f"get called on a list. Use 'nth' to get an element at a specified index.")
+    else:
+        return Error(f"get called with unsupported type {type(d)}.")
 
 def get_tp(d_tp, key_tp):
     return VT.Any
