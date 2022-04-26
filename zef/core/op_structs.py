@@ -395,11 +395,11 @@ class ZefOp:
 
     def __gt__(self, other):
         if is_supported_zef_value(other): return LazyValue(other) < self
-        return self.lt_gt_behavior(other, RT.Out)
+        return self.lt_gt_behavior(other, RT.OutRel)
 
     def __lt__(self, other):
         if is_supported_zef_value(other): return LazyValue(other) > self
-        return self.lt_gt_behavior(other, RT.In)
+        return self.lt_gt_behavior(other, RT.InRel)
         
     def __getitem__(self, x):
         if not len(self.el_ops)==1: 
@@ -513,11 +513,11 @@ class CollectingOp:
 
     def __gt__(self, other):
         if is_supported_zef_value(other): return LazyValue(other) < self
-        return self.lt_gt_behavior(other, RT.Out)
+        return self.lt_gt_behavior(other, RT.OutRel)
 
     def __lt__(self, other):
         if is_supported_zef_value(other): return LazyValue(other) > self
-        return self.lt_gt_behavior(other, RT.In)
+        return self.lt_gt_behavior(other, RT.InRel)
 
     def lshift_rshift_behavior(self, other, rt):
         base = ((RT.Collect, ()),) if self.el_ops == () else (*self.el_ops, (RT.Collect, ()))
@@ -605,9 +605,9 @@ class Awaitable:
         frame = inspect.currentframe().f_back.f_back
         line_no = frame.f_lineno   
         if len(self.el_ops) > 0:
-            if rt == RT.Out:
+            if rt == RT.OutRel:
                 res = self.el_ops > other
-            elif rt == RT.In:
+            elif rt == RT.InRel:
                 res = self.el_ops < other
             elif rt == RT.InIn:
                 res = self.el_ops << other
@@ -632,14 +632,14 @@ class Awaitable:
         new_awaitable = Awaitable(self.stream_ezefref, self.pushable, self.unwrapping)
         new_awaitable.el_ops = res
 
-        if rt == RT.Out or rt == RT.In:  _terrible_global_state[(line_no, id(other))] = new_awaitable
+        if rt == RT.OutRel or rt == RT.InRel:  _terrible_global_state[(line_no, id(other))] = new_awaitable
         return new_awaitable
 
     def __gt__(self, other):
-        return self.lt_gt_lshift_rshift_behavior(other, RT.Out)
+        return self.lt_gt_lshift_rshift_behavior(other, RT.OutRel)
 
     def __lt__(self, other):
-        return self.lt_gt_lshift_rshift_behavior(other, RT.In)
+        return self.lt_gt_lshift_rshift_behavior(other, RT.InRel)
 
     def __lshift__(self, other):
         return self.lt_gt_lshift_rshift_behavior(other, RT.InIn) 
@@ -818,9 +818,9 @@ class LazyValue:
         other_id = id(other)
 
         if len(self.el_ops) > 0:
-            if rt == RT.Out:
+            if rt == RT.OutRel:
                 res = self.el_ops > other
-            elif rt == RT.In:
+            elif rt == RT.InRel:
                 res = self.el_ops < other
             elif rt == RT.InIn:
                 res = self.el_ops << other
@@ -845,17 +845,17 @@ class LazyValue:
         
         res_lazyval = LazyValue(self.initial_val)
         res_lazyval.el_ops = res
-        if rt == RT.Out or rt == RT.In:
+        if rt == RT.OutRel or rt == RT.InRel:
             # We are caching with as many line_nos as possible due to the fact that we don't how deep the call stack is to arrive to this point.
             while frame:_terrible_global_state[(frame.f_lineno, other_id)] = res_lazyval;frame = frame.f_back
         if should_trigger_eval(res_lazyval): return evaluate_lazy_value(res_lazyval)
         return res_lazyval
 
     def __gt__(self, other):
-        return self.lt_gt_lshift_rshift_behavior(other, RT.Out)
+        return self.lt_gt_lshift_rshift_behavior(other, RT.OutRel)
 
     def __lt__(self, other):
-        return self.lt_gt_lshift_rshift_behavior(other, RT.In)
+        return self.lt_gt_lshift_rshift_behavior(other, RT.InRel)
 
     def __lshift__(self, other):
         return self.lt_gt_lshift_rshift_behavior(other, RT.InIn) 
@@ -1168,7 +1168,7 @@ internals.BlobType.__rlshift__ = new__rlshift__
 def rt_lt_gt_behavior(self, arg, rt):
     # Because > , < aren't defined for ZefRef the RT binds but with the reverse of the operator i.e > becomes <
     if isinstance(arg, ZefRef) or isinstance(arg, ZefRefs) or isinstance(arg, EZefRef) or isinstance(arg, EZefRefs):
-        if rt == RT.In: return arg > ZefOp(((RT.TmpZefOp, (self,)), )) 
+        if rt == RT.InRel: return arg > ZefOp(((RT.TmpZefOp, (self,)), )) 
         else: return arg < ZefOp(((RT.TmpZefOp, (self,)), )) 
     elif isinstance(self, TraversableABC) and (isinstance(arg, TraversableABC) or isinstance(arg, ZefOp)):
         import inspect
@@ -1259,20 +1259,20 @@ def rt_lt_gt_behavior(self, arg, rt):
 
         return res
 
-    print(f'unsupported operand type(s) for {">" if rt == RT.Out else "<"} {self} , {arg}')
+    print(f'unsupported operand type(s) for {">" if rt == RT.OutRel else "<"} {self} , {arg}')
     raise NotImplemented
 
 # monkey patch > for RT and BT (or z < RT when z has no __lt__)
 old__RT_gt__ = RelationType.__gt__
 def new__gt__(self, arg):
-    return rt_lt_gt_behavior(self, arg, RT.Out)
+    return rt_lt_gt_behavior(self, arg, RT.OutRel)
 RelationType.__gt__ = new__gt__
 internals.BlobType.__gt__ = new__gt__
 
 # monkey patch < for RT and BT (or z > RT when z has no __gt__)
 old__RT_lt__ = RelationType.__lt__
 def new__lt__(self, arg):
-    return rt_lt_gt_behavior(self, arg, RT.In)
+    return rt_lt_gt_behavior(self, arg, RT.InRel)
 RelationType.__lt__ = new__lt__
 internals.BlobType.__lt__ = new__lt__
 
