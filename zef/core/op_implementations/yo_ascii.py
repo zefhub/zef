@@ -1,4 +1,5 @@
-from ..ops import *
+from .. import *
+from .._ops import *
 from .. import VT
 import random
 
