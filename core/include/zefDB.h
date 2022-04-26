@@ -1,3 +1,5 @@
+// This is the include entry point for external users of the library.
+
 #pragma once
 
 

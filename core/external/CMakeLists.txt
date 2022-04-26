@@ -1,6 +1,6 @@
 include(FetchContent)
 # set(FETCHCONTENT_QUIET OFF)
-get_filename_component(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/../_cmake_deps REALPATH)
+# get_filename_component(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/../_cmake_deps REALPATH)
 
 function(ManualFetchContent_MakeAvailable name)
   FetchContent_GetProperties(${name})

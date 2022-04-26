@@ -6,38 +6,27 @@ project(ZefCore CXX)
 #########################
 # customizable variables
 
-# Force using environment variable when specified
-if(DEFINED ENV{LOCAL_ZEFTYPES})
-  set(LOCAL_ZEFTYPES $ENV{LOCAL_ZEFTYPES} CACHE BOOL "Disable getting zeftypes from zefhub" FORCE)
-else()
-  set(LOCAL_ZEFTYPES FALSE CACHE BOOL "Disable getting zeftypes from zefhub")
-endif()
-
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -rdynamic -ggdb -g")
   add_definitions(-DDEBUG)
 endif()
 
-if(DEFINED ENV{ZEFDB_ALLOW_NO_TLS})
-  set(ZEFDB_ALLOW_NO_TLS $ENV{ZEFDB_ALLOW_NO_TLS} CACHE BOOL "Allow insecure websockets for ZefHub connections" FORCE)
-else()
-  set(ZEFDB_ALLOW_NO_TLS TRUE CACHE BOOL "Allow insecure websockets for ZefHub connections")
-endif()
+option(LOCAL_ZEFTYPES "Disable getting zeftypes from zefhub" FALSE)
+option(ZEFDB_ALLOW_NO_TLS "Allow insecure websockets for ZefHub connections" TRUE)
+option(ZEFDB_TEST_NO_MMAP_CHECKS "Test for mmap slowness" FALSE)
+option(LIBZEF_PYZEF_BUNDLED "libzef is going to be bundled together with pyzef, which  means putting files in different places." FALSE)
+
+
+
 if(ZEFDB_ALLOW_NO_TLS)
   message(STATUS "Insecure connections are permitted")
 else()
   message(STATUS "Insecure connections are disallowed")
 endif()
 
-if(DEFINED ENV{ZEFDB_TEST_NO_MMAP_CHECKS})
-  set(ZEFDB_TEST_NO_MMAP_CHECKS $ENV{ZEFDB_TEST_NO_MMAP_CHECKS} CACHE BOOL "Test for mmap slowness" FORCE)
-else()
-  set(ZEFDB_TEST_NO_MMAP_CHECKS FALSE CACHE BOOL "Test for mmap slowness")
-endif()
 if(ZEFDB_TEST_NO_MMAP_CHECKS)
   message(WARNING "Testing mmap slowness - graphs are given 10MB of memory and other ensure page checks are disabled.")
 endif()
-
 
 ######################
 # Macos hinting
@@ -97,7 +86,7 @@ endif()
 if(NOT OPENSSL_FOUND)
   find_library(OPENSSL_LIBRARIES ssl)
   find_path(OPENSSL_INCLUDE_DIR openssl/ssl.h)
-  if(OPENSSL_LIBRARIES AND OPENSSL_INCLUDE_DIRS)
+  if(OPENSSL_LIBRARIES AND OPENSSL_INCLUDE_DIR)
     set(OPENSSL_FOUND TRUE)
   endif()
 endif()
@@ -298,19 +287,17 @@ if(MSVC)
 	target_compile_options(zef PUBLIC "/permissive-")
 endif()
 
-install ( TARGETS zef
-  EXPORT zef
-  LIBRARY DESTINATION lib
-  PUBLIC_HEADER DESTINATION include/zef
-  )
-install(FILES auth.html DESTINATION share/zefDB)
-# add_custom_command(TARGET zef POST_BUILD
-#                    COMMAND ${CMAKE_COMMAND} -E make_directory 
-#                        ${CMAKE_CURRENT_BINARY_DIR}/../share/zefDB/
-#                    COMMAND ${CMAKE_COMMAND} -E create_symlink
-#                        ${CMAKE_CURRENT_SOURCE_DIR}/auth.html
-#                        ${CMAKE_CURRENT_BINARY_DIR}/auth.html
-#                    )
+if(LIBZEF_PYZEF_BUNDLED)
+  install (TARGETS zef LIBRARY DESTINATION .)
+  install(FILES auth.html DESTINATION .)
+else()
+  install ( TARGETS zef
+    EXPORT zef
+    LIBRARY DESTINATION lib
+    PUBLIC_HEADER DESTINATION include/zef
+    )
+  install(FILES auth.html DESTINATION share/zef)
+endif()
 
 ############################
 # * Subprojects
@@ -327,8 +314,8 @@ install(FILES auth.html DESTINATION share/zefDB)
 #   # INSTALL_DESTINATION lib/cmake/zefDB
 #   @ONLY
 # )
-# install(FILES "${CMAKE_CURRENT_BINARY_DIR}/zefDBConfig.cmake" DESTINATION lib/cmake/zefDB)
-# install(EXPORT zefDB DESTINATION lib/cmake/zefDB)
+# # install(FILES "${CMAKE_CURRENT_BINARY_DIR}/zefDBConfig.cmake" DESTINATION lib/cmake/zefDB)
+# install(EXPORT zef DESTINATION lib/cmake/zef)
 
 ############################
 # * Cog commands
@@ -339,18 +326,24 @@ set(COG_DUMMY ${CMAKE_CURRENT_SOURCE_DIR}/dummy_cog.tracker)
 
 if(NOT MSVC)
   # We have to get all files that will be cogged - this is a little weird.
-  FILE(GLOB cog_files ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cog ${CMAKE_CURRENT_SOURCE_DIR}/include/*.cog)
+  file(GLOB cog_files ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cog ${CMAKE_CURRENT_SOURCE_DIR}/include/*.cog)
+  list(TRANSFORM cog_files REPLACE "[.]cog$" ".gen" OUTPUT_VARIABLE cog_files_output)
 
-  add_custom_target(cogbuild ALL
+  # MESSAGE(STATUS "cog files" "${cog_files}")
+  # MESSAGE(STATUS "cog outputs" "${cog_files_output}")
+
+  # target_include_directories(zef PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include)
+
+  add_custom_target(cogbuild
     # DEPENDS ${COG_DUMMY})
-    DEPENDS ${cog_files})
+    DEPENDS ${cog_files_output})
   add_dependencies(zef cogbuild)
   
   # Do the cogging itself
   add_custom_command(
-    DEPENDS zeftypes_EN.json zeftypes_ET.json zeftypes_RT.json zeftypes_KW.json
+    DEPENDS zeftypes_EN.json zeftypes_ET.json zeftypes_RT.json zeftypes_KW.json ${cog_files}
     # OUTPUT ${COG_DUMMY}
-    OUTPUT ${cog_files}
+    OUTPUT ${cog_files_output}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Running cog"
     COMMAND ${Python3_EXECUTABLE} -mpip install cogapp

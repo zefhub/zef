@@ -118,3 +118,4 @@ tests/Testing/Temporary/
 /zef/core/internals/rel_ent_classes.pyi
 /zef/packaged_git_commit
 /cmake_install/
+/wheelhouse/
