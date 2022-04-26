@@ -192,7 +192,7 @@ def value_previous_of_aet(aet, tx) -> str:
 
 
 def value_of_aet_at_tx(aet, tx) -> str:
-    latest_or_current = "latest" if (tx is now or len(tx >> L[BT.NEXT_TX_EDGE] | collect) == 0) else "current"
+    latest_or_current = "latest" if (tx is now or len(tx | Outs[BT.NEXT_TX_EDGE] | collect) == 0) else "current"
     try:
         if tx is now:
             tx = Graph(aet) | now | collect
@@ -251,6 +251,8 @@ def src_dst_info(uzr) -> str:
 
 
 def relations_view(zr_or_uzr) -> str:
+    reference_frame = zr_or_uzr | frame | collect if isinstance(zr_or_uzr, ZefRef) else Graph(zr_or_uzr) | now | collect
+    reference_tx = reference_frame | to_tx | collect
     def compose_triple_name(rel, z):
         if to_ezefref(rel | source) == to_ezefref(z):
             return ('outs', zr_type(rel), zr_type(rel | target | collect))
@@ -258,7 +260,7 @@ def relations_view(zr_or_uzr) -> str:
             return ('ins', zr_type(rel), zr_type(rel | source | collect))
 
     edges_to_show = ( 
-        (zr_or_uzr < L[RT], zr_or_uzr > L[RT]) 
+        (zr_or_uzr | in_rels[RT], zr_or_uzr | out_rels[RT]) 
         | concat 
         | (identity if isinstance(zr_or_uzr, ZefRef) else filter[is_zefref_promotable])
         | collect
@@ -303,7 +305,6 @@ def timeline_view(zr_or_uzr) -> str:
             return f'    x      <---- Value assignment: {value_of_aet_at_tx(uzr,low_level_edge_uzr | source | collect)}'  # get the value: pass the respective tx
         if BT(low_level_edge_uzr) == BT.TERMINATION_EDGE:
             return f'=========  <---- Termination'
-
         raise Exception("To be fixed with new lineage system")
 
     # Function: visually list all details about a single relation.
@@ -331,10 +332,10 @@ def timeline_view(zr_or_uzr) -> str:
         return edge | source | time | collect
 
     reference_tx_timeslice = time_slice(reference_tx)
-    rel_ent_inst_edge = uzr < BT.RAE_INSTANCE_EDGE
-    all_edges = [(e, "low_lvl", "") for e in rel_ent_inst_edge < L[BT] | collect]
-    add_directed_rt_to_list(uzr < L[RT] | filter[lambda z: BT(z) != BT.RAE_INSTANCE_EDGE] | collect, "in")
-    add_directed_rt_to_list(uzr > L[RT] | collect, "out")
+    rel_ent_inst_edge = uzr | in_rel[BT.RAE_INSTANCE_EDGE]
+    all_edges = [(e, "low_lvl", "") for e in rel_ent_inst_edge | in_rels[BT] | collect]
+    add_directed_rt_to_list(uzr | in_rels[RT] | filter[lambda z: BT(z) != BT.RAE_INSTANCE_EDGE] | collect, "in")
+    add_directed_rt_to_list(uzr | out_rels[RT] | collect, "out")
     all_edges.sort(key=edge_time_by_type)
     descriptions_and_txs = []
     termination_edge_description = [""]
@@ -415,13 +416,13 @@ def type_summary_view(bl: EZefRefs, g: Graph, bt_filter: BlobType) -> str:
     def find_alive_count_of_triple(triple: Tuple[str]) -> int:
         # TODO Replace this when triple lookup is implemented for instances zefop
         # return seq([z for z in
-        #     (g[internals.root_node_blob_index()] > L[RT] | filter[BT.TO_DELEGATE_EDGE] | target | filter[RT(triple[1][3:])]
-        #       | only > L[RT] | filter[lambda z: not internals.is_delegate(z)] | target
+        #     (g[internals.root_node_blob_index()] | out_rels[RT] | filter[BT.TO_DELEGATE_EDGE] | target | filter[RT(triple[1][3:])]
+        #       | only | out_rels[RT] | filter[lambda z: not internals.is_delegate(z)] | target
         #       | filter[lambda x: zr_type(x | source | collect) == triple[0] and zr_type(x | target | collect) == triple[2]]
         #             | collect)])\
         #     .sum(lambda x: len(x | now | all | collect))
-        temp = g[internals.root_node_blob_index()] > L[BT] | filter[BT.TO_DELEGATE_EDGE] | target | filter[RT(triple[1][3:])] | single # > L[RT] #| filter[lambda z: not internals.is_delegate(z)] | target
-        temp = temp > L[BT] | filter[lambda z: not internals.is_delegate(z)] | target
+        temp = g[internals.root_node_blob_index()] | out_rels[BT] | filter[BT.TO_DELEGATE_EDGE] | target | filter[RT(triple[1][3:])] | single # | out_rels[RT] #| filter[lambda z: not internals.is_delegate(z)] | target
+        temp = temp | out_rels[BT] | filter[lambda z: not internals.is_delegate(z)] | target
         temp = temp | filter[lambda x: zr_type(x | source | collect) == triple[0] and zr_type(x | target | collect) == triple[2]]
         temp = temp | collect
         return sum(len(x | now | all | collect) for x in temp)
