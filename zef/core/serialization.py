@@ -79,7 +79,6 @@ def deserialize(v):
 # * Implementations
 #----------------------------------
 def serialize_flatgraph_or_flatref(fg_or_fr) -> dict:
-    # TODO Fix max recursive depth error
     if isinstance(fg_or_fr, FlatGraph):
         return {
             "_zeftype": "FlatGraph",
@@ -144,8 +143,9 @@ def serialize_zeftypes(z) -> dict:
 
     elif isinstance(z, RelationType) or isinstance(z, EntityType) or isinstance(z, AtomicEntityType):
         bt_type = {RelationType: "RT", EntityType: "ET", AtomicEntityType: "AET"}[type(z)]
-        absorbed_args = z | absorbed | collect
-        return {"_zeftype": bt_type, "value": str(z), "absorbed": serialize(absorbed_args)}
+        absorbed_args = LazyValue(z) | absorbed | collect
+        if absorbed_args: absorbed_args= serialize(absorbed_args)
+        return {"_zeftype": bt_type, "value": str(z), "absorbed": absorbed_args}
 
     elif isinstance(z, Graph):
         return {"_zeftype": "Graph", "guid": str(uid(z))}
