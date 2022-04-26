@@ -1,0 +1,11 @@
+[tool.cibuildwheel]
+skip = ["pp*", "*musllinux*"]
+archs = ["auto64"]
+
+[tool.cibuildwheel.linux]
+before-all = "yum install -y openssl-devel libcurl-devel"
+
+[build-system]
+# TODO: Get rid of these deps from the libzef part
+requires = ["setuptools", "cmake", "pybind11", "cogapp", "structlog", "pyfunctional"]
+build-backend = "setuptools.build_meta"
