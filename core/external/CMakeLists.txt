@@ -146,3 +146,65 @@ set(JWT_DISABLE_PICOJSON TRUE CACHE BOOL "")
 set(JWT_BUILD_EXAMPLES OFF CACHE BOOL "")
 
 ManualFetchContent_MakeAvailable(jwt-cpp)
+
+
+# * zstd
+if(LIBZEF_BUNDLED_ZSTD)
+  message(STATUS "External: zstd")
+
+  FetchContent_Declare(zstd
+    GIT_REPOSITORY https://github.com/facebook/zstd
+    GIT_TAG v1.5.2
+    GIT_SHALLOW ON
+    UPDATE_COMMAND "")
+
+  # Have to do this manually as the cmake directory is deep
+  FetchContent_GetProperties(zstd)
+  if(NOT ${zstd_POPULATED})
+    FetchContent_Populate(zstd)
+  endif()
+
+  set(ZSTD_BUILD_SHARED OFF)
+  add_subdirectory(${zstd_SOURCE_DIR}/build/cmake ${zstd_BINARY_DIR} EXCLUDE_FROM_ALL)
+
+
+  add_library(libzstd_internal INTERFACE)
+  target_link_libraries(libzstd_internal INTERFACE libzstd_static)
+  # Because the cmake of libzstd is a little dodgy, we need to manually add in the include directories.
+  get_target_property(LIBZSTD_INCLUDE_DIRECTORIES libzstd_static INCLUDE_DIRECTORIES)
+  target_include_directories(libzstd_internal INTERFACE ${LIBZSTD_INCLUDE_DIRECTORIES})
+else()
+  # Finding zstd through various options.
+  # 1. First try pkg-config
+  # 2. Then try cmake
+  # 3. Then fallback to just finding the lib file
+  # It seems like the cmake version does not always behave appropriately, and
+  # officially there might only be a pkg-config version included.
+  if(PKGCONFIG_FOUND)
+    pkg_check_modules(ZSTD libzstd)
+    if(ZSTD_FOUND)
+      message(STATUS "Found zstd with pkg-config")
+      set(ZSTD_LIBRARIES ${ZSTD_LINK_LIBRARIES})
+    endif()
+  endif()
+  if(NOT ZSTD_FOUND)
+    find_package(Zstd QUIET)
+  endif()
+  if(NOT ZSTD_FOUND)
+    find_library(ZSTD_LIBRARIES zstd)
+    find_path(ZSTD_INCLUDE_DIRS zstd.h)
+    if(ZSTD_LIBRARIES AND ZSTD_INCLUDE_DIRS)
+      set(ZSTD_FOUND TRUE)
+    endif()
+  endif()
+
+  if(ZSTD_FOUND)
+    message(STATUS "Found zstd libraries at: ${ZSTD_LIBRARIES}")
+    message(STATUS "Found zstd includes at: ${ZSTD_INCLUDE_DIRS}")
+    add_library(libzstd_internal INTERFACE)
+    target_include_directories(libzstd_internal INTERFACE ${ZSTD_INCLUDE_DIRS})
+    target_link_libraries(libzstd_internal INTERFACE ${ZSTD_LIBRARIES})
+  else()
+    message(FATAL_ERROR "Couldn't find zstd via cmake, pkg-config or find_library")
+  endif()
+endif()

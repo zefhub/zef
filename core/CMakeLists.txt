@@ -1,4 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
+cmake_policy(SET CMP0077 NEW)
 
 # Use this to distinguish the full project from the individual subdirectories.
 project(ZefCore CXX)
@@ -15,6 +16,7 @@ option(LOCAL_ZEFTYPES "Disable getting zeftypes from zefhub" FALSE)
 option(ZEFDB_ALLOW_NO_TLS "Allow insecure websockets for ZefHub connections" TRUE)
 option(ZEFDB_TEST_NO_MMAP_CHECKS "Test for mmap slowness" FALSE)
 option(LIBZEF_PYZEF_BUNDLED "libzef is going to be bundled together with pyzef, which  means putting files in different places." FALSE)
+option(LIBZEF_BUNDLED_ZSTD "Bundle libzstd in the library" TRUE)
 
 
 
@@ -98,38 +100,6 @@ else()
   message(FATAL_ERROR "Couldn't find openssl via cmake, pkg-config or find_library")
 endif()
   
-
-# ** zstd
-# Finding zstd through various options.
-# 1. First try pkg-config
-# 2. Then try cmake
-# 3. Then fallback to just finding the lib file
-# It seems like the cmake version does not always behave appropriately, and
-# officially there might only be a pkg-config version included.
-if(PKGCONFIG_FOUND)
-  pkg_check_modules(ZSTD libzstd)
-  if(ZSTD_FOUND)
-    message(STATUS "Found zstd with pkg-config")
-    set(ZSTD_LIBRARIES ${ZSTD_LINK_LIBRARIES})
-  endif()
-endif()
-if(NOT ZSTD_FOUND)
-  find_package(Zstd QUIET)
-endif()
-if(NOT ZSTD_FOUND)
-  find_library(ZSTD_LIBRARIES zstd)
-  find_path(ZSTD_INCLUDE_DIRS zstd.h)
-  if(ZSTD_LIBRARIES AND ZSTD_INCLUDE_DIRS)
-    set(ZSTD_FOUND TRUE)
-  endif()
-endif()
-
-if(ZSTD_FOUND)
-  message(STATUS "Found zstd libraries at: ${ZSTD_LIBRARIES}")
-  message(STATUS "Found zstd includes at: ${ZSTD_INCLUDE_DIRS}")
-else()
-  message(FATAL_ERROR "Couldn't find zstd via cmake, pkg-config or find_library")
-endif()
 
 # ** libcurl
 
@@ -234,12 +204,10 @@ target_include_directories(zef PUBLIC
   $<INSTALL_INTERFACE:include/zef>
   )
 
-target_include_directories(zef PUBLIC ${ZSTD_INCLUDE_DIRS})
 target_include_directories(zef PUBLIC ${CURL_INCLUDE_DIRS})
 target_include_directories(zef PUBLIC ${OPENSSL_INCLUDE_DIR})
 
 target_link_libraries(zef PUBLIC ${OPENSSL_LIBRARIES})
-target_link_libraries(zef PUBLIC ${ZSTD_LIBRARIES})
 target_link_libraries(zef PUBLIC ${CURL_LIBRARIES})
 
 MESSAGE(STATUS "Compiler version is ${CMAKE_CXX_COMPILER_VERSION}")
@@ -256,6 +224,8 @@ target_link_libraries(zef PUBLIC websocketpp)
 # target_link_libraries(zef PRIVATE blake3)
 target_link_libraries(zef PRIVATE curl)
 target_link_libraries(zef PRIVATE jwt-cpp)
+# Until I fix up our header deps this will have to be public
+target_link_libraries(zef PUBLIC libzstd_internal)
 
 if (NOT APPLE)
   target_link_libraries(zef PUBLIC rt)
@@ -342,14 +312,12 @@ if(NOT MSVC)
   # Do the cogging itself
   add_custom_command(
     DEPENDS zeftypes_EN.json zeftypes_ET.json zeftypes_RT.json zeftypes_KW.json ${cog_files}
-    # OUTPUT ${COG_DUMMY}
     OUTPUT ${cog_files_output}
     WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Running cog"
-    COMMAND ${Python3_EXECUTABLE} -mpip install cogapp
+    # We don't install cog at run now, but have to have it around as a dependency.
+    # COMMAND ${Python3_EXECUTABLE} -mpip install cogapp
     COMMAND ${Python3_EXECUTABLE} scripts/run_cog_gen.py
-    # COMMAND python3 run_cog_inplace.py
-    # COMMAND date > ${COG_DUMMY}
     )
 
   if(LOCAL_ZEFTYPES)
@@ -379,6 +347,9 @@ if(NOT MSVC)
       COMMENT "Copying KW bootstrap"
       COMMAND cp templates/zeftypes_bootstrap_KW.json zeftypes_KW.json)
   else()
+    # We can find the get_zeftypes.py file in various places depending on if we
+    # have been packaged into a sdist with python.
+    find_file(get_zeftypes_file get_zeftypes.py REQUIERD HINTS ${CMAKE_CURRENT_SOURCE_DIR}/../scripts ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
     add_custom_command(
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_ET.json
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_RT.json
@@ -386,8 +357,8 @@ if(NOT MSVC)
       OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_KW.json
       WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
       COMMENT "Grabbing latest zeftypes from zefhub using the guest account."
-      COMMAND ${Python3_EXECUTABLE} -mpip install structlog
-      COMMAND ${Python3_EXECUTABLE} ../scripts/get_zeftypes.py)
+      # COMMAND ${Python3_EXECUTABLE} -mpip install structlog
+      COMMAND ${Python3_EXECUTABLE} ${get_zeftypes_file})
   endif()
 
 endif()

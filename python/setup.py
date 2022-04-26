@@ -1,15 +1,11 @@
 import os, sys
 from setuptools import setup, find_packages, Extension
 from setuptools.command.build_ext import build_ext
+from setuptools.command.sdist import sdist
 
 import configparser
 
 import subprocess
-
-with open("requirements.txt") as file:
-    reqs = [z.strip() for z in file.readlines() if z.strip()]
-
-
 
 # This setup has been stolen and merged from a few places... it really needs to
 # be fixed up.
@@ -42,16 +38,10 @@ class cmake_build_ext(build_ext):
             cmake_path_s = ':'.join(os.path.abspath(x) for x in ext.cmake_path)
             cmake_args = [
                 f'-DCMAKE_BUILD_TYPE={cfg}',
-                # Ask CMake to place the resulting library in the directory
-                # containing the extension
-                # f'-DCMAKE_LIBRARY_OUTPUT_DIRECTORY={extdir}',
-                # Other intermediate static libraries are placed in a
-                # temporary build directory instead
-                # f'-DCMAKE_ARCHIVE_OUTPUT_DIRECTORY={self.build_temp}',
                 # Hint CMake to use the same Python executable that
                 # is launching the build, prevents possible mismatching if
                 # multiple versions of Python are installed
-                # '-DPYTHON_EXECUTABLE={}'.format(sys.executable),
+                '-DPython3_EXECUTABLE={}'.format(sys.executable),
                 # Add other project-specific CMake arguments if needed
                 # ...
                 f"-DCMAKE_PREFIX_PATH={cmake_path_s}",
@@ -75,6 +65,40 @@ class cmake_build_ext(build_ext):
             
 
 
+class override_sdist(sdist):
+    def make_release_tree(self, base_dir, files):
+        sdist.make_release_tree(self, base_dir, files)
+        # Adding in the libzef core too, using git to obtain the list of files.
+        target_dir = os.path.join(base_dir, "libzef")
+        print("Target dir is", target_dir)
+        # if os.path.exists(target
+        os.makedirs(target_dir)
+        filelist = subprocess.Popen(["git", "ls-files", "."], cwd="../core", stdout=subprocess.PIPE)
+        tarcreate = subprocess.Popen(["tar", "-cvf", "-", "-T", "-"], cwd="../core", stdin=filelist.stdout, stdout=subprocess.PIPE)
+        subprocess.check_call(["tar", "-xvf", "-"], cwd=target_dir, stdin=tarcreate.stdout)
+
+        # We need to include the get_zeftypes.py file along with the distribution
+        import shutil
+        shutil.copy("../scripts/get_zeftypes.py", os.path.join(base_dir, "libzef", "scripts"))
+
+        # We now overwrite the setup.cfg file to point at this new directory
+        setup_cfg = os.path.join(base_dir, "setup.cfg")
+        parser = configparser.ConfigParser()
+        with open(setup_cfg) as cfg_file:
+            parser.read_file(cfg_file)
+        parser["libzef"]["location"] = "libzef"
+        parser["libzef"]["kind"] = "source"
+        with open(setup_cfg, "w") as cfg_file:
+            parser.write(cfg_file)
+
+
+
+
+
+# This here is to create the declaration of the extension used in th build.
+# Unfortunately it is run, and is very spammy, even if this file is used for
+# other commands like sdist.
+
 root = os.getcwd()
 setup_cfg = os.path.join(root, "setup.cfg")
 parser = configparser.ConfigParser()
@@ -85,14 +109,14 @@ libzef_kind = parser.get("libzef", "kind", fallback="guess")
 if libzef_kind == "guess":
     if libzef_location is None:
         # We first try without the default location to see if anything is found
-        ret = subprocess.call(['cmake', '-P', 'lookforzef.cmake'])
+        ret = subprocess.call(['cmake', '-P', 'lookforzef.cmake'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if ret == 0:
             libzef_kind = "binary"
         else:
             libzef_location = "../core"
 
     if libzef_kind == "guess":
-        ret = subprocess.call(['cmake', '-DCMAKE_PREFIX_PATH=' + libzef_location, '-P', 'lookforzef.cmake'])
+        ret = subprocess.call(['cmake', '-DCMAKE_PREFIX_PATH=' + libzef_location, '-P', 'lookforzef.cmake'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         if ret == 0:
             libzef_kind = "binary"
         elif os.path.exists(os.path.join(libzef_location, "zefDBConfig.cmake.in")):
@@ -118,17 +142,28 @@ else:
     raise Exception(f"Don't understand libzef_kind of '{libzef_kind}'")
 
 
+
+
+# I HATE PYTHON PACKAGING
+sys.path += [""]
 import versioneer
 
-if __name__ == "__main__":
-    setup(
-        name="zef",
-        version=versioneer.get_version(),
-        author="ZefHub.io",
-        packages=find_packages(),
-        install_requires=reqs,
-        ext_modules=[pyzef_ext],
-        cmdclass = versioneer.get_cmdclass({'build_ext': cmake_build_ext})
-    )
+with open("requirements.txt") as file:
+    reqs = [z.strip() for z in file.readlines() if z.strip()]
+
+
+setup(
+    name="zef",
+    author="ZefHub.io",
+    python_requires=">=3.8",
+    version=versioneer.get_version(),
+    packages=find_packages(),
+    install_requires=reqs,
+    ext_modules=[pyzef_ext],
+    cmdclass = versioneer.get_cmdclass({
+        'build_ext': cmake_build_ext,
+        'sdist': override_sdist,
+    })
+)
 
 

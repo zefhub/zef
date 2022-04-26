@@ -57,7 +57,7 @@ def enum_val(x):
     return x.split('.')[1]
 """
 #cog.options.verbosity = 0
-for filename in find_files_of_type(path='src_cpp', filename_endings={'.cog'}, recurse=True):#, directories_to_exclude={'libraries','src_cpp/build_julia_package','gql'}):
+for filename in find_files_of_type(path='.', filename_endings={'.cog'}, recurse=True):#, directories_to_exclude={'libraries','src_cpp/build_julia_package','gql'}):
     try:
         true_output = filename[:-len(".cog")] + ".gen"
         cog.options.sOutputName = true_output + ".tmp"

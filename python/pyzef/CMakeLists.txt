@@ -28,6 +28,7 @@ find_package(Python3 ${PYTHON_VERSION_ARG} REQUIRED COMPONENTS Development.Modul
 
 # Find pybind
 # Note: pybind is needed for libzef as a convenience.
+message(STATUS "Using python executable of ${Python3_EXECUTABLE}")
 execute_process(COMMAND ${Python3_EXECUTABLE} -m pybind11 --cmakedir
   OUTPUT_VARIABLE PYBIND_CMAKE_LOCATION
   OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -61,11 +62,17 @@ message(STATUS "Python executable found at ${Python3_EXECUTABLE}")
 
 # We either use an installed zef, or fallback to using a zefcore source folder.
 
-find_package(zef QUIET)
-if(NOT zef_FOUND)
-  message(WARNING "Did not find zef as a compiled package. Going to look for source folder")
-  # TODO: For now we are always hitting this.
+if(NOT DEFINED LIBZEF_PYZEF_BUNDLED)
+  find_package(zef QUIET)
+  if(zef_FOUND)
+    set(LIBZEF_PYZEF_BUNDLED FALSE)
+  else()
+    message(WARNING "Did not find zef as a compiled package. Going to look for source folder")
+    set(LIBZEF_PYZEF_BUNDLED TRUE)
+  endif()
+endif()
 
+if(LIBZEF_PYZEF_BUNDLED)
   find_path(Zef_DIR zefDBConfig.cmake.in REQUIRED)
   set(LIBZEF_PYZEF_BUNDLED TRUE)
   # Note: no EXCLUDE_FROM_ALL as we want to install the lib file as well.
@@ -86,6 +93,10 @@ pybind11_add_module (pyzef
   zefops.cpp
   internals.cpp
   )
+
+if(LIBZEF_PYZEF_BUNDLED)
+  set_target_properties(pyzef PROPERTIES INSTALL_RPATH "$ORIGIN")
+endif()
 
 set_target_properties(pyzef
     PROPERTIES
