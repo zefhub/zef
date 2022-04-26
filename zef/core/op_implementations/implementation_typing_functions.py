@@ -4356,6 +4356,8 @@ def out_rels_imp(z, rt=None):
     from zef.pyzef.zefops import traverse_out_edge_multi
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
+    if rt == RT: return z | outs | filter[BT.RELATION_EDGE] | collect
+    if rt == BT: return z | to_ezefref | outs | collect
     return traverse_out_edge_multi(z, rt)
 
 
@@ -4408,6 +4410,8 @@ def in_rels_imp(z, rt=None):
     from zef.pyzef.zefops import traverse_in_edge_multi
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "multi")
+    if rt == RT: return z | ins | filter[BT.RELATION_EDGE] | collect
+    if rt == BT: return z | to_ezefref | ins | collect
     return traverse_in_edge_multi(z, rt)
 
 
