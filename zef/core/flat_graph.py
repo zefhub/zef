@@ -1,3 +1,4 @@
+from operator import ne
 from ._ops import *
 from dataclasses import dataclass
 from . import VT
@@ -12,6 +13,11 @@ class FlatGraph:
         if args == ():
             self.key_dict = {}
             self.blobs = ()
+        elif len(args) == 1 and isinstance(args[0], list):
+            new_fg = FlatGraph()
+            new_fg = new_fg | insert[args[0]] | collect
+            self.key_dict = new_fg.key_dict
+            self.blobs = new_fg.blobs
         else:
             raise NotImplementedError("FlatGraph with args")
 
