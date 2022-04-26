@@ -4201,7 +4201,8 @@ def Out_imp(z, rt=VT.Any):
     EZefRef -> EZefRef | Error
     """
     from zef.pyzef.zefops import traverse_out_node, outs
-    assert isinstance(z, (ZefRef, EZefRef))
+    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
+    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "single")
     if isinstance(rt, RelationType):
         try:
             return traverse_out_node(z, rt)
@@ -4248,7 +4249,8 @@ def Outs_imp(z, rt):
     EZefRef -> EZefRefs
     """
     from zef.pyzef.zefops import traverse_out_node_multi
-    assert isinstance(z, (ZefRef, EZefRef))
+    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
+    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
     return traverse_out_node_multi(z, rt)
 
 
@@ -4276,7 +4278,8 @@ def In_imp(z, rt=None):
     EZefRef -> EZefRef | Error
     """
     from zef.pyzef.zefops import traverse_in_node
-    assert isinstance(z, (ZefRef, EZefRef))
+    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
+    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
     return traverse_in_node(z, rt)
 
 
@@ -4300,7 +4303,8 @@ def Ins_imp(z, rt):
     EZefRef -> EZefRefs
     """
     from zef.pyzef.zefops import traverse_in_node_multi
-    assert isinstance(z, (ZefRef, EZefRef))
+    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
+    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
     return traverse_in_node_multi(z, rt)
 
 
@@ -4325,7 +4329,8 @@ def out_rel_imp(z, rt=None):
     EZefRef -> EZefRef | Error
     """
     from zef.pyzef.zefops import traverse_out_edge
-    assert isinstance(z, (ZefRef, EZefRef))
+    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
+    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "single")
     return traverse_out_edge(z, rt)
 
 
@@ -4349,7 +4354,8 @@ def out_rels_imp(z, rt=None):
     EZefRef -> EZefRefs
     """
     from zef.pyzef.zefops import traverse_out_edge_multi
-    assert isinstance(z, (ZefRef, EZefRef))
+    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
+    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
     return traverse_out_edge_multi(z, rt)
 
 
@@ -4375,7 +4381,8 @@ def in_rel_imp(z, rt=None):
     EZefRef -> EZefRef | Error
     """
     from zef.pyzef.zefops import traverse_in_edge
-    assert isinstance(z, (ZefRef, EZefRef))
+    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
+    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "single")
     return traverse_in_edge(z, rt)
 
 
@@ -4399,7 +4406,8 @@ def in_rels_imp(z, rt=None):
     EZefRef -> EZefRefs
     """
     from zef.pyzef.zefops import traverse_in_edge_multi
-    assert isinstance(z, (ZefRef, EZefRef))
+    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
+    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "multi")
     return traverse_in_edge_multi(z, rt)
 
 
@@ -6200,33 +6208,25 @@ def fr_value_imp(fr):
     assert isinstance(blob[1], AtomicEntityType), "Can only ask for the value of an AET"
     return blob[-1]
 
-def traverse_flatref_imp(fr, rt_and_l_maybe, direction):
-    if len(rt_and_l_maybe) == 1:
-        rt = rt_and_l_maybe[0]
-        traverse_type = None
-    else:
-        traverse_type,(rt,) = rt_and_l_maybe
+def traverse_flatref_imp(fr, rt, direction, traverse_type):
+    translation_dict = {
+        "outout": "Out",
+        "out"  : "out_rel",
+        "inin": "In",
+        "in": "in_rel",
+    }
     assert isinstance(rt, RelationType), f"Passed Argument to traverse should be of type RelationType but got {rt}"
-
     blob = fr.fg.blobs[fr.idx]
     specific = blob[2] | filter[greater_than[0] if direction in {"out", "outout"} else less_than[0]] | collect
     specific_blobs = specific | map[lambda idx: fr.fg.blobs[abs(idx)]] | filter[lambda b: b[1] == rt] | collect
-    if traverse_type is None and len(specific_blobs) != 1: return Error.ValueError(f"There isn't exactly one RT.{rt} Relation. Did you mean L[RT.{rt}]?")
-    if traverse_type == RT.O and len(specific_blobs) > 1: return Error.ValueError(f"There is more than one RT.{rt} Relation. Did you mean L[RT.{rt}]?")
+    if traverse_type == "single" and len(specific_blobs) != 1: return Error.ValueError(f"There isn't exactly one {translation_dict[direction]} RT.{rt} Relation. Did you mean {translation_dict[direction]}s[RT.{rt}]?")
     
     if direction == "inin": idx = 4
     elif direction == "outout": idx = 5
-    else: idx = 0
+    else: idx = 0 # itself the relation
 
-    if traverse_type is None: return FlatRef(fr.fg, specific_blobs[0][idx])
-    opts = specific_blobs | map[lambda b: b[idx]] | collect
-    if traverse_type == RT.L: return FlatRefs(fr.fg, opts)
-    if traverse_type == RT.O:
-        if len(opts) == 0:
-            return None
-        else:
-            return FlatRef(fr.fg, single(opts))
-    raise Exception("Shouldn't get here")
+    if traverse_type == "single": return FlatRef(fr.fg, specific_blobs[0][idx])
+    return FlatRefs(fr.fg, specific_blobs | map[lambda b: b[idx]] | collect)
 
 def fr_outs_imp(fr):
     assert isinstance(fr, FlatRef)
