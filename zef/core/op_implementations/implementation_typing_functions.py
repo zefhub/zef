@@ -5964,8 +5964,8 @@ def fg_insert_imp(fg, new_el):
 
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
             key = peel(new_el)| first | second | first | collect
-            if key not in new_key_dict: raise KeyError(f"{key} doesn't exist in internally known ids!")
-            idx = new_key_dict[key]
+            if key not in new_key_dict and not isinstance(key, int): raise KeyError(f"{key} doesn't exist in internally known ids!")
+            idx = new_key_dict.get(key, key)
 
         # i.e: z4 <= 42 ; AET.String <= "42" ; AET.String['z1'] <= 42 ; Z['n1'] <= 42
         elif isinstance(new_el, LazyValue) and length(peel(new_el)) == 2:
@@ -5982,8 +5982,8 @@ def fg_insert_imp(fg, new_el):
                 if inner_zefop_type(first_op, RT.Z):
                     key = peel(first_op)[0][1][0]
                     aet_value = peel(peel(new_el)[1])[0][1][0]
-                    if key not in new_key_dict: raise KeyError(f"{key} doesn't exist in internally known ids!")
-                    idx = new_key_dict[key]
+                    if key not in new_key_dict and not isinstance(key, int): raise KeyError(f"{key} doesn't exist in internally known ids!")
+                    idx = new_key_dict.get(key, key)
                     assert isinstance(new_blobs[idx][1], AtomicEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
                     new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
                 else:
@@ -6018,48 +6018,59 @@ def fg_insert_imp(fg, new_el):
             idx = common_logic(origin_rae(new_el))
             if isinstance(new_blobs[idx][1], AtomicEntityType) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))
-                
         else:
             idx = None
         return idx
 
-    if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val}:
-        common_logic(new_el)
-    elif isinstance(new_el, tuple) and len(new_el) == 3:
-        src, rt, trgt = new_el
-        src_idx = common_logic(src)
-        trgt_idx = common_logic(trgt)
-        assert isinstance(src_idx, int) and isinstance(trgt_idx, int), "Couldn't find/create src or target!"
-        assert type(rt) in {RelationType, ZefOp}, "Tuples must have Relation as second item."
-        idx = next_idx()
+    def _insert_single(new_el):
+        if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val}:
+            common_logic(new_el)
+        elif isinstance(new_el, tuple) and len(new_el) == 3:
+            src, rt, trgt = new_el
+            src_idx = common_logic(src)
+            trgt_idx = common_logic(trgt)
+            assert isinstance(src_idx, int) and isinstance(trgt_idx, int), "Couldn't find/create src or target!"
+            assert type(rt) in {RelationType, ZefOp}, "Tuples must have Relation as second item."
+            idx = next_idx()
 
-        # Case of RT.A['a']
-        if isinstance(rt, RelationType):
-            internal_id = LazyValue(rt) | absorbed | attempt[single][None] | collect
-            rt = LazyValue(rt) | without_absorbed | collect
-            if internal_id: new_key_dict[internal_id] = idx
-        # Case of Z['a']
-        elif isinstance(rt, ZefOp) and inner_zefop_type(rt, RT.Z): 
-            raise ValueError(f"Cannot reference an internal element to be used as a Relation. {rt}")
+            # Case of RT.A['a']
+            if isinstance(rt, RelationType):
+                internal_id = LazyValue(rt) | absorbed | attempt[single][None] | collect
+                rt = LazyValue(rt) | without_absorbed | collect
+                if internal_id: new_key_dict[internal_id] = idx
+            # Case of Z['a']
+            elif isinstance(rt, ZefOp) and inner_zefop_type(rt, RT.Z): 
+                raise ValueError(f"Cannot reference an internal element to be used as a Relation. {rt}")
 
-        new_blobs.append((idx, rt, [], None, src_idx, trgt_idx))
-        if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
-        if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
-    elif isinstance(new_el, Relation):
-        src, rt, trgt = new_el.d['type']
-        src_uid, rt_uid, trgt_uid = new_el.d['uids']
+            new_blobs.append((idx, rt, [], None, src_idx, trgt_idx))
+            if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
+            if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
+        elif isinstance(new_el, Relation):
+            src, rt, trgt = new_el.d['type']
+            src_uid, rt_uid, trgt_uid = new_el.d['uids']
 
-        if type(src) == RelationType and src_uid not in new_key_dict: raise ValueError("Source of an abstract Relation can't be a Relation that wasn't inserted before!")
-        if type(trgt) == RelationType and trgt_uid not in new_key_dict: raise ValueError("Target of an abstract Relation can't be a Relation that wasn't inserted before!")
-        src_idx = construct_abstract_rae_and_return_idx(src, src_uid)
-        trgt_idx = construct_abstract_rae_and_return_idx(trgt, trgt_uid)
-        idx = next_idx()
-        new_blobs.append((idx, rt, [], rt_uid, src_idx, trgt_idx))
-        new_key_dict[rt_uid] = idx
-        if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
-        if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
-    else: 
-        raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\n{new_el=}")
+            if type(src) == RelationType and src_uid not in new_key_dict: raise ValueError("Source of an abstract Relation can't be a Relation that wasn't inserted before!")
+            if type(trgt) == RelationType and trgt_uid not in new_key_dict: raise ValueError("Target of an abstract Relation can't be a Relation that wasn't inserted before!")
+            src_idx = construct_abstract_rae_and_return_idx(src, src_uid)
+            trgt_idx = construct_abstract_rae_and_return_idx(trgt, trgt_uid)
+            idx = next_idx()
+            new_blobs.append((idx, rt, [], rt_uid, src_idx, trgt_idx))
+            new_key_dict[rt_uid] = idx
+            if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
+            if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
+        elif isinstance(new_el, dict): 
+            ent, sub_d = list(new_el.items()) | single | collect
+            ent_idx = common_logic(ent)
+            [_insert_single((Z[ent_idx], k, v)) for k,v in sub_d.items()]
+        else: 
+            raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\n{new_el=}")
+        
+    if isinstance(new_el, list): [_insert_single(el) for el in new_el]
+    elif isinstance(new_el, dict): 
+        ent, sub_d = list(new_el.items()) | single | collect
+        ent_idx = common_logic(ent)
+        [_insert_single((Z[ent_idx], k, v)) for k,v in sub_d.items()]
+    else: _insert_single(new_el)
         
     new_fg.key_dict = new_key_dict
     new_fg.blobs = (*new_blobs,)
