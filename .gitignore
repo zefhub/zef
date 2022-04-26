@@ -119,3 +119,5 @@ tests/Testing/Temporary/
 /zef/packaged_git_commit
 /cmake_install/
 /wheelhouse/
+/python/dist/
+/python/zef.egg-info/
