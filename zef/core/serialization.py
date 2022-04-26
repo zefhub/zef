@@ -11,7 +11,7 @@ from .abstract_raes import Entity, Relation, AtomicEntity
 from .error import _ErrorType, Error
 from .image import Image
 from .fx.fx_types import _Effect_Class, FXElement, Effect
-
+from .flat_graph import FlatGraph, FlatRef, FlatRefs
 from ..pyzef import internals as pyinternals
 
 ##############################
@@ -78,6 +78,26 @@ def deserialize(v):
 ####################################
 # * Implementations
 #----------------------------------
+def serialize_flatgraph_or_flatref(fg_or_fr) -> dict:
+    # TODO Fix max recursive depth error
+    if isinstance(fg_or_fr, FlatGraph):
+        return {
+            "_zeftype": "FlatGraph",
+            "key_dict": serialize_dict(fg_or_fr.key_dict),
+            "blobs": serialize_tuple(fg_or_fr.blobs),
+        }
+    elif isinstance(fg_or_fr, FlatRef):
+        return {
+            "_zeftype": "FlatRef",
+            "fg": serialize_flatgraph_or_flatref(fg_or_fr.fg),
+            "idx": fg_or_fr.idx,
+        }
+    elif isinstance(fg_or_fr, FlatRefs):
+        return {
+            "_zeftype": "FlatRefs",
+            "fg": serialize_flatgraph_or_flatref(fg_or_fr.fg),
+            "idxs": serialize_list(fg_or_fr.idxs),
+        }
 
 def serialize_tuple(l: tuple) -> dict:
     return {
@@ -329,7 +349,21 @@ def deserialize_zeftypes(z) -> dict:
 
     elif z['_zeftype'] == "FXElement":
         return FXElement(tuple(z['elements']))
-        
+
+    elif z['_zeftype'] == "FlatGraph":
+        new_fg = FlatGraph()
+        new_fg.key_dict = deserialize_dict(z['key_dict'])
+        new_fg.blobs = deserialize_tuple(z['blobs'])
+        return new_fg
+
+    elif z['_zeftype'] == "FlatRef":
+        fg = deserialize_zeftypes(z['fg'])
+        return FlatRef(fg, z['idx'])
+
+    elif z['_zeftype'] == "FlatRefs":
+        fg = deserialize_zeftypes(z['fg'])
+        return FlatRefs(fg, deserialize_list(z['idxs']))
+
     else:
         raise NotImplementedError(f"{z['_zeftype']} isn't part of the supported deserializable zeftypes!")
 
@@ -397,6 +431,9 @@ serialization_mapping[Image] = serialize_zeftypes
 serialization_mapping[_Effect_Class] = serialize_zeftypes
 serialization_mapping[FXElement] = serialize_zeftypes
 serialization_mapping[Delegate] = serialize_delegate
+serialization_mapping[FlatGraph] = serialize_flatgraph_or_flatref
+serialization_mapping[FlatRef] = serialize_flatgraph_or_flatref
+serialization_mapping[FlatRefs] = serialize_flatgraph_or_flatref
 serialization_mapping[pyinternals.DelegateEntity] = serialize_delegate
 serialization_mapping[pyinternals.DelegateAtomicEntity] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRelationGroup] = serialize_delegate
@@ -433,6 +470,9 @@ deserialization_mapping["ErrorType"] = deserialize_zeftypes
 deserialization_mapping["Image"] = deserialize_zeftypes
 deserialization_mapping["Effect"] = deserialize_zeftypes
 deserialization_mapping["FXElement"] = deserialize_zeftypes
+deserialization_mapping["FlatGraph"] = deserialize_zeftypes
+deserialization_mapping["FlatRef"] = deserialize_zeftypes
+deserialization_mapping["FlatRefs"] = deserialize_zeftypes
 deserialization_mapping["Delegate"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateEntity"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateAtomicEntity"] = deserialize_delegate
