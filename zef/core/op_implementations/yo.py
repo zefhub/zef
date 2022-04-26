@@ -280,7 +280,7 @@ def relations_view(zr_or_uzr) -> str:
         newline = '\n'
         return f"""\
 {len(triple_type_and_list[1])}x:     (z:{zr_type(zr_or_uzr)}) {l_symb}---{wrap_to_fixed_length(triple_type_and_list[0][1])}--{r_symb} ({triple_type_and_list[0][2]})
-{maybe_elide(''.join([f"            (z) {l_symb}---({ro | to_ezefref | uid | collect})---{r_symb} ({ro | to_ezefref | (source if l_symb == '<' else target) | uid | collect}{value_of_aet_at_tx(ro | (source if l_symb == '<' else target) | collect, now)}){newline}" for ro in triple_type_and_list[1]]))}
+{maybe_elide(''.join([f"            (z) {l_symb}---({ro | to_ezefref | uid | collect})---{r_symb} ({ro | to_ezefref | (source if l_symb == '<' else target) | uid | collect}{value_of_aet_at_tx(ro | (source if l_symb == '<' else target) | collect,  reference_tx | to_ezefref | collect)}){newline}" for ro in triple_type_and_list[1]]))}
 """
 
     return f"""\
