@@ -1,69 +1,200 @@
+"""
+In Zef the types of Zef Values are values themselves: ValueType.
+These are distinct from the host language's implementation type
+of the value instance.
+
+In contrast to most programming languages's type system, the 
+Zef Type system is based on set theory and has a stronger focus 
+on succinctly being able to express complex domains and associative
+ontolgies.
+
+ValueTypes fall into the category of Zef Values that can absorb other
+Zef Values, which is useful in constructing query expressions (as native
+data structures) and graph commands. 
+It also allows them to be flexibly used by the user to build custom DSLs.
+
+---------------------- internal structure ---------------------------
+It also has "absorbed": a tuple of other values
+
+
+----------- Nesting Order ----------------
+TODO: Do we want to keep this? Probably not.
+
+
+What is "Union"? A basic value type.
+Union[Int, Union[Float, String]]
+
+Union[Int,Float]
+Union[Int,Float,String]
+
+This can be distinguished from Tuples as a type
+Union[(Int,Float,String),]
+
+
+----------- Constructor Overloading ----------------
+Int(3.4) can have overloaded behavior. The user 
+provides a function.
+
+------------ Square Bracket Overloading --------
+Should Union be of type ZefType? Or just return a ZefType?
+
+
+Intersection
+Union
+SetOf
+
+There is also a Union ValueType, which is returned.
+This custom structure may rearrange and parse terms.
+
+
+---------- User Defined Types ----------
+needed?
+"""
+from ..error import Error
+# For certain value types, the user may want to call e.g. Float(4.5).
+# This looks up the associated function 
+_value_type_constructor_funcs = {}
+
 class ValueType:
-    def __init__(self, type_name: str, nesting_order: int, nested_types: tuple = ()):
-        self.d = (type_name, nesting_order, nested_types) 
-    
-    def to_str(self, t: tuple)->str:
-        """helper function for the repr: nice output. We want to 
-        call recursively on a tuple, not a ValueType object"""
-        nested_types = ",".join(self.to_str(n.d) for n in t[2])
-        return f"{t[0]}{'' if t[2] == () else f'[{nested_types}]'}"
-    
-    def __repr__(self):
-        return self.to_str(self.d)
+    """ 
+    Zef ValueTypes are Values themselves.
+    """
+    def __init__(self, type_name: str, absorbed=(), constructor_func=None):
+            self.d = {
+                'type_name': type_name,
+                'absorbed': absorbed,
+            }
+            if constructor_func is not None:
+                _value_type_constructor_funcs[type_name] = constructor_func
 
-    def nested(self):
-        if len(self.d[2]) == 0:
-            raise ValueError(f"{self.d[0]} doesn't have any nested values!")
-        elif len(self.d[2]) == 1:
-            return self.d[2][0]
-        else:
-            return self.d[2]
-    
-    def __getitem__(self, x):
-        if self.d[1] == 0:
-            raise ValueError(f"Nothing can be nested inside a ZefType \"{self.d[0]}\"")
-        if self.d[1] == 1:
-            return ValueType(self.d[0], self.d[1], (ValueType(*x.d), ))
-        if self.d[1] == 2:
-            return ValueType(self.d[0], self.d[1], (ValueType(*x[0].d), ValueType(*x[1].d)))
-
-        raise NotImplementedError(f"Nesting level {self.d[1]} isn't handled in __getitem__")
         
+    def __repr__(self):
+        return self.d['type_name'] + (
+            '' if self.d['absorbed'] == () 
+            else ''.join([ f"[{repr(el)}]" for el in self.d['absorbed'] ])
+        )
+
 
     def __call__(self, *args, **kwargs):
-        """
-        Make the ValueType behave like constructors.
-        e.g. 
-
-        >>> y = Float(2.3)                    # makes this an int. Returns a Python int for now.
-        >>> g = Graph('4986cbe323762e99')     # loads the graph with this uid
-        """
-        from ..error import Error
-        from ...pyzef.main import Graph
-        if self.d == ('String', 0, ()):
-            assert len(args)==1
-            return str(args[0])
-
-        if self.d == ('Int', 0, ()):
-            assert len(args)==1
-            return int(args[0])
-
-        if self.d == ('Float', 0, ()):
-            assert len(args)==1
-            return float(args[0])
-
-        if self.d == ('Bool', 0, ()):
-            assert len(args)==1
-            # don't automatically determine truthiness, e.g. Bool(79) should return an Error
-            if args[0] == 0: return False
-            if args[0] == 1: return True
-            raise TypeError(f"Bool({args[0]}) called. Only 0 and 1 are automatically converted to Bool in Zef. Please be more specific.")
-
-        if self.d[0] == 'Graph':
-            return Graph(*args, **kwargs)
+        try:
+            f = _value_type_constructor_funcs[self.d["type_name"]]
+        except KeyError:
+            return Error(f'{self.d["type_name"]}(...) was called, but constructor function was registered for this type')
+        return f(*args, **kwargs)
 
 
-        return Error(f'The ValueType "{self.d[0]}" cannot be called as a constructor. Arguments given: {args=}, {kwargs=}')
-        
-        
+    def __getitem__(self, x):
+        return ValueType(self.d["type_name"], absorbed=(*self.d['absorbed'], x))
 
+
+    def __eq__(self, other):
+        if not isinstance(other, ValueType): return False
+        return self.d['type_name'] == other.d['type_name'] and self.d['absorbed'] == other.d['absorbed']
+
+
+    def __hash__(self):
+        return hash(self.d['type_name']) ^ hash(self.d['absorbed'])
+
+
+    def __or__(self, other):
+        # TODO: if other | is_a[ZefOp] call other.__ror__(LazyValue(self))
+        if isinstance(other, ValueType):
+            return simplify_value_type(ValueType(type_name='Union', absorbed=(self, other,)))
+        else:
+            return Error(f'"ValueType`s "|" called with unsupported type {type(other)}')
+    
+    def __and__(self, other):
+        if isinstance(other, ValueType):
+            return simplify_value_type(ValueType(type_name='Intersection', absorbed=(self, other,)))
+        else:
+            return Error(f'"ValueType`s "&" called with unsupported type {type(other)}')
+    
+
+
+
+class UnionClass:
+    def __getitem__(self, x):
+        if isinstance(x, tuple):
+            return ValueType(type_name='Union', absorbed=x)
+        elif isinstance(x, ValueType):
+            return ValueType(type_name='Union', absorbed=(x,))
+        else:
+            return Error(f'"Union[...]" called with unsupported type {type(x)}')
+            
+
+class IntersectionClass:
+    def __getitem__(self, x):
+        if isinstance(x, tuple):
+            return ValueType(type_name='Intersection', absorbed=x)
+        elif isinstance(x, ValueType):
+            return ValueType(type_name='Intersection', absorbed=(x,))
+        else:
+            return Error(f'"Intersection[...]" called with unsupported type {type(x)}')
+            
+
+
+class SetOfClass:
+    def __getitem__(self, x):
+        if isinstance(x, tuple):
+            return ValueType(type_name='SetOf', absorbed=(x,))
+        elif isinstance(x, ValueType):
+            return ValueType(type_name='SetOf', absorbed=(x,))
+        else:
+            return Error(f'"SetOf[...]" called with unsupported type {type(x)}')
+            
+
+
+def make_distinct(v):
+    """
+    utility function to replace the 'distinct'
+    zefop and preserve order.
+    Writing this on a plane and can't use zefops,
+    since I forgot the environment variable to
+    allow offline mode.
+    """
+    seen = set()
+    for el in v:
+        if el not in seen:
+            yield el
+            seen.add(el)
+
+
+def simplify_value_type(x):
+    """
+    Only simplifies nested Union and Intersection.
+    It does not change any absorbed values, but
+    only rearranges on the outer level of Zef Values.
+
+    Union and Intersection behave analogous to + and *.
+
+    I[U[A, B], C] = I[U[A,C], U[B,C]]              # True
+    I[U[Ev, Od], Pos] = I[U[Ev,Pos], U[Odd,Pos]]   # True
+    (A+B)*C = A*C + B*C
+    
+    U[I[Ev, Od], Pos] = U[I[Ev,Pos], I[Odd,Pos]]   # This is False!!!!
+
+
+    """
+    def is_a_union(y):
+        try:
+            return y.d['type_name'] == 'Union'
+        except:
+            return False
+    def is_a_intersection(y):
+        try:
+            return y.d['type_name'] == 'Intersection'
+        except:
+            return False
+
+    if is_a_union(x):
+        # flatten out unions: Union[Union[A][B]][C]  == Union[A][B][C]
+        old_abs = x.d['absorbed']
+        absorbed = tuple((el.d['absorbed'] if is_a_union(el) else (el,) for el in old_abs))  # flatten this out
+        return ValueType(type_name='Union', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
+    elif is_a_intersection(x):
+        # flatten out Intersections: Intersection[Intersection[A][B]][C]  == Intersection[A][B][C]
+        old_abs = x.d['absorbed']
+        absorbed = tuple((el.d['absorbed'] if is_a_intersection(el) else (el,) for el in old_abs))  # flatten this out
+        return ValueType(type_name='Intersection', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
+    else:
+        return x
