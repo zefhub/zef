@@ -1531,20 +1531,20 @@ namespace zefDB {
         // * Connection management
 
         std::string get_auto_connect() {
-            if(!initialised_python_core) {
-                std::cerr << "WARNING!!!" << std::endl;
-                std::cerr << "WARNING!!!" << std::endl;
-                std::cerr << "WARNING!!!" << std::endl;
-                std::cerr << "WARNING!!!" << std::endl;
-                std::cerr << "WARNING!!!" << std::endl;
-                std::cerr << "C library wants to call into python module before it has finished loading. Specifically, it wants to determine the \"login.autoConnect\" value. Going to return \"auto\" to avoid creating a circular dependency." << std::endl;
-                std::cerr << "WARNING!!!" << std::endl;
-                std::cerr << "WARNING!!!" << std::endl;
-                std::cerr << "WARNING!!!" << std::endl;
-                std::cerr << "WARNING!!!" << std::endl;
-                std::cerr << "WARNING!!!" << std::endl;
-                return "auto";
-            }
+            // if(!initialised_python_core) {
+            //     std::cerr << "WARNING!!!" << std::endl;
+            //     std::cerr << "WARNING!!!" << std::endl;
+            //     std::cerr << "WARNING!!!" << std::endl;
+            //     std::cerr << "WARNING!!!" << std::endl;
+            //     std::cerr << "WARNING!!!" << std::endl;
+            //     std::cerr << "C library wants to call into python module before it has finished loading. Specifically, it wants to determine the \"login.autoConnect\" value. Going to return \"auto\" to avoid creating a circular dependency." << std::endl;
+            //     std::cerr << "WARNING!!!" << std::endl;
+            //     std::cerr << "WARNING!!!" << std::endl;
+            //     std::cerr << "WARNING!!!" << std::endl;
+            //     std::cerr << "WARNING!!!" << std::endl;
+            //     std::cerr << "WARNING!!!" << std::endl;
+            //     return "auto";
+            // }
                 
             // py::gil_scoped_acquire acquire;
             // auto get_config = py::module_::import("zef.ops._config").attr("get_config");

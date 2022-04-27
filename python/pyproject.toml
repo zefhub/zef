@@ -2,7 +2,7 @@
 skip = ["pp*", "*musllinux*"]
 archs = ["auto64"]
 test-requires = "pytest"
-test-command = "pytest {project}/python/tests"
+test-command = "bash scripts/assert_no_created_tokens.sh && pytest {project}/python/tests"
 
 [tool.cibuildwheel.linux]
 before-all = "yum install -y openssl-devel libcurl-devel"

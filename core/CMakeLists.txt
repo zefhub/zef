@@ -1,3 +1,6 @@
+# TODO: Fix up the zeftypes files so that they are grabbed and used for cogging
+# inside of the build directories only.
+
 cmake_minimum_required(VERSION 3.8)
 cmake_policy(SET CMP0077 NEW)
 

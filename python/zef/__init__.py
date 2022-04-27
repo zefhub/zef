@@ -1,3 +1,6 @@
+from . import _version
+__version__ = _version.get_versions()['version']
+
 import os
 if os.environ.get("ZEFDB_DEVELOPER_CIRCULAR_IMPORTS", "FALSE") == "TRUE":
     from .circular_imports import check_circular_imports
@@ -33,5 +36,3 @@ def _autostart_behaviour():
         core.internals.initialise_butler()
 
 _autostart_behaviour()
-from . import _version
-__version__ = _version.get_versions()['version']
