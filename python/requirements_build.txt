@@ -1,3 +1,0 @@
-absl-py
-protobuf
-pybind11>=2.9.0

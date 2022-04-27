@@ -80,7 +80,7 @@ class override_sdist(sdist):
         print("Target dir is", target_dir)
         # if os.path.exists(target
         os.makedirs(target_dir)
-        print("** Copying all of the files foudn with git ls-files across using tar packing/unpacking")
+        print("** Copying all of the files found with git ls-files across using tar packing/unpacking")
         filelist = subprocess.Popen(["git", "ls-files", "."], cwd="../core", stdout=subprocess.PIPE)
         tarcreate = subprocess.Popen(["tar", "-cvf", "-", "-T", "-"], cwd="../core", stdin=filelist.stdout, stdout=subprocess.PIPE)
         subprocess.check_call(["tar", "-xvf", "-"], cwd=target_dir, stdin=tarcreate.stdout)
