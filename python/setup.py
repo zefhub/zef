@@ -48,7 +48,11 @@ class cmake_build_ext(build_ext):
                 # f"-DPython_ROOT_DIR={sys.base_prefix}",
 
                 f"-DCMAKE_INSTALL_PREFIX={extdir}",
+                "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15",
             ] + ext.cmake_args
+
+            # For debugging CI builds
+            subprocess.call(['set'], shell=True)
 
             # Config
             subprocess.check_call(['cmake', ext.cmake_lists_dir] + cmake_args,
