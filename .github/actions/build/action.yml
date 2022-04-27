@@ -125,11 +125,11 @@ runs:
       id: build-cache
       uses: actions/cache@v3
       with:
-        key: build-cache-v5-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('core/**', 'python/pyzef/**') }}
+        key: build-cache-v6-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('core/**', 'python/pyzef/**') }}
         path: |
           core
           python/pyzef
-          python/pyzef.*
+          python/zef/pyzef.*
 
     # Note: we can't use restore-keys above as cmake only uses timestamps to
     # identify different files. If this were to be done properly, we would need
