@@ -58,6 +58,11 @@ _op_to_functions = {
         RT.InRels:          (in_rels_imp, None),
         RT.OutRel:          (out_rel_imp, None),
         RT.OutRels:         (out_rels_imp, None),
+
+        RT.InOld:              (InOld_implementation, None),
+        RT.InInOld:            (InInOld_implementation, None),
+        RT.OutOld:             (OutOld_implementation, None),
+        RT.OutOutOld:          (OutOutOld_implementation, None),
         
         RT.InsOld:          (ins_implementation_old, ins_type_info),
         RT.OutsOld:         (outs_implementation_old, outs_type_info),
