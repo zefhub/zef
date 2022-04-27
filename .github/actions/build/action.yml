@@ -61,13 +61,6 @@ runs:
         restore-keys: |
           pip-${{ inputs.os }}-${{ inputs.python-version }}-
 
-    - name: Install python dependencies for build
-      shell: bash
-      run: |
-        python3 -m pip install --upgrade pip
-        pip3 install absl-py protobuf
-        if [ -f requirements.txt ]; then pip3 install -r requirements.txt; fi
-
     ########
     # Julia
 
@@ -126,6 +119,8 @@ runs:
       shell: bash
       run: |
         cd core
+        # TODO: Will be removing this soon
+        pip3 install structlog
         python3 ../scripts/get_zeftypes.py
 
     - name: Check cache for build

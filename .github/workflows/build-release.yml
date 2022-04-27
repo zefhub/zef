@@ -33,13 +33,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Showing tags from different sources
-        env:
-          FROM_RELEASE: ${{ toJSON(github.event.release.tag_name) }}
-        run: |
-          echo GITHUB_REF is $GITHUB_REF
-          echo FROM_RELEASE is $FROM_RELEASE
-
       - name: Build wheel
         uses: ./.github/actions/build
         with:
