@@ -145,7 +145,7 @@ runs:
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
       shell: bash
       run: |
-        zsh compile_for_local_dev.sh
+        bash compile_for_local_dev.sh
 
     #########
     # Testing
