@@ -121,3 +121,5 @@ tests/Testing/Temporary/
 /wheelhouse/
 /python/dist/
 /python/zef.egg-info/
+/scripts/all_created.tokens
+/scripts/early.tokens
