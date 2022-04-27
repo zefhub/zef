@@ -126,7 +126,7 @@ runs:
       shell: bash
       run: |
         cd core
-        python3 scripts/get_zeftypes.py
+        python3 ../scripts/get_zeftypes.py
 
     - name: Check cache for build
       id: build-cache
