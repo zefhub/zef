@@ -96,7 +96,7 @@ pybind11_add_module (pyzef
 
 if(LIBZEF_PYZEF_BUNDLED)
   if(APPLE)
-    set_target_properties(pyzef PROPERTIES INSTALL_RPATH "@rpath")
+    set_target_properties(pyzef PROPERTIES INSTALL_RPATH "@loader_path")
   else()
     set_target_properties(pyzef PROPERTIES INSTALL_RPATH "\$ORIGIN")
   endif()
