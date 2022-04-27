@@ -1,6 +1,4 @@
 from urllib.request import urlopen
-import structlog
-log = structlog.get_logger()
 
 import sys
 if len(sys.argv) >= 2:
@@ -20,7 +18,7 @@ try:
     assert j["success"] == True
 
 except Exception as exc:
-    log.error("There was an exception when trying to get the tokens from zefhub", exc_info=exc)
+    print(f"There was an exception when trying to get the tokens from zefhub: {exc}")
 
     print("NOT USING LATEST TOKENS, FALLINBACK BACK TO BOOTSTRAP!!!!")
     print("NOT USING LATEST TOKENS, FALLINBACK BACK TO BOOTSTRAP!!!!")
@@ -58,13 +56,13 @@ else:
 
 with open("zeftypes_ET.json", "w") as file:
     file.write(et)
-log.info("Successfully wrote ETs to zeftypes_ET.json")
+print("Successfully wrote ETs to zeftypes_ET.json")
 with open("zeftypes_RT.json", "w") as file:
     file.write(rt)
-log.info("Successfully wrote RTs to zeftypes_RT.json")
+print("Successfully wrote RTs to zeftypes_RT.json")
 with open("zeftypes_EN.json", "w") as file:
     file.write(en)
-log.info("Successfully wrote ENs to zeftypes_EN.json")
+print("Successfully wrote ENs to zeftypes_EN.json")
 with open("zeftypes_KW.json", "w") as file:
     file.write(kw)
-log.info("Successfully wrote KWs to zeftypes_KW.json")
+print("Successfully wrote KWs to zeftypes_KW.json")

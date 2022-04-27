@@ -1,4 +1,4 @@
-#!/bin/zsh
+#!/bin/bash
 
 echo "pip-ing"
 # Use tomlq to extract the build requirements
@@ -7,8 +7,13 @@ if ! which tomlq ; then
 fi
 
 # Q and z are here to split using quotes and then remove the quotes in the resultant array
-packages=( ${(Q)${(z)$(tomlq -r '."build-system".requires | @sh' python/pyproject.toml)}} )
-python3 -m pip install $packages || exit 1
+# packages=( ${(Q)${(z)$(tomlq -r '."build-system".requires | @sh' python/pyproject.toml)}} )
+jqout=$(tomlq -r '."build-system".requires | @sh' python/pyproject.toml)
+eval "packages=( $jqout )"
+echo "$jqout" "${packages[@]}"
+echo "${#jqout}" "${#packages[@]}"
+echo "Packages to install: ${packages[@]}"
+python3 -m pip install "${packages[@]}" || exit 1
 # Install the runtime requirements
 # python3 -m pip install -qr requirements.txt || exit 1
 

@@ -9,5 +9,5 @@ before-all = "yum install -y openssl-devel libcurl-devel"
 
 [build-system]
 # TODO: Get rid of these deps from the libzef part
-requires = ["setuptools", "cmake", "pybind11", "cogapp", "structlog", "pyfunctional"]
+requires = ["setuptools", "cmake", "pybind11", "cogapp", "pyfunctional"]
 build-backend = "setuptools.build_meta"

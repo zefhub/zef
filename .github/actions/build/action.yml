@@ -119,8 +119,6 @@ runs:
       shell: bash
       run: |
         cd core
-        # TODO: Will be removing this soon
-        pip3 install structlog
         python3 ../scripts/get_zeftypes.py
 
     - name: Check cache for build
