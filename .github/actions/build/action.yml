@@ -160,8 +160,8 @@ runs:
       if: inputs.run-tests == 'true'
       shell: bash
       env:
-        ZEFDB_QUIET=YES
-        ZEFHUB_AUTH_KEY=GUEST
+        ZEFDB_QUIET: YES
+        ZEFHUB_AUTH_KEY: GUEST
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         pip3 install -r python/requirements.txt
