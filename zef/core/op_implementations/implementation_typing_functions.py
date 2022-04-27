@@ -5721,7 +5721,7 @@ def int_to_alpha_imp(n: int) -> str:
 
 
 #---------------------------------------- permute_to -----------------------------------------------
-def permute_to_imp(v, indices: list[int]):
+def permute_to_imp(v, indices: VT.List[VT.Int]):
     """
     given a input list, as well as a list of indices, 
     return the list of elements arranged according to the 

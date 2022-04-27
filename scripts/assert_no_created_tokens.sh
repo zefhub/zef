@@ -1,6 +1,8 @@
 #!/bin/bash
 
-python3 create_tokens_files.py || exit 1
+THISDIR=$(dirname $0)
+
+python3 $THISDIR/create_tokens_files.py || exit 1
 
 echo "Output for debugging"
 wc -l early.tokens
