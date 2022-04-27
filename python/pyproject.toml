@@ -7,6 +7,9 @@ test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUT
 [tool.cibuildwheel.linux]
 before-all = "yum install -y openssl-devel libcurl-devel"
 
+[tool.cibuildwheel.macos]
+before-all = "brew install openssl"
+
 [build-system]
 # TODO: Get rid of these deps from the libzef part
 requires = ["setuptools", "cmake", "pybind11", "cogapp", "pyfunctional"]
