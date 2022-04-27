@@ -12,10 +12,10 @@ inputs:
     type: string
     required: true
 
-  build-wheel:
-    default: 'false'
-    required: false
-  run-cmake-tests:
+  # build-wheel:
+  #   default: 'false'
+  #   required: false
+  run-tests:
     default: 'true'
     required: false
 
@@ -125,21 +125,18 @@ runs:
     - name: Get zeftypes early for cache check
       shell: bash
       run: |
+        cd core
         python3 scripts/get_zeftypes.py
 
     - name: Check cache for build
       id: build-cache
       uses: actions/cache@v3
       with:
-        key: build-cache-v5-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('src_cpp/**', 'make_everything.sh', 'CMakeLists.txt', 'zeftypes_??.json') }}
+        key: build-cache-v5-${{ inputs.python-version }}-${{ inputs.os }}-${{ hashFiles('core/**', 'python/pyzef/**') }}
         path: |
-          cmake_build
-          cmake_install
-          _cmake_deps
-          zef/pyzef.*
-          zef/libzef.*
-          src_cpp/**/*.gen
-          zef/core/internals/rel_ent_classes.pyi
+          core
+          python/pyzef
+          python/pyzef.*
 
     # Note: we can't use restore-keys above as cmake only uses timestamps to
     # identify different files. If this were to be done properly, we would need
@@ -153,51 +150,27 @@ runs:
       if: steps.build-cache.outputs.cache-hit != 'true'
       env:
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
-        FORCE_PYTHON_VERSION: ${{ inputs.python-version }}
       shell: bash
       run: |
-        bash make_everything.sh
-        bash scripts/setup_tools_prep.sh
-
+        zsh compile_for_local_dev.sh
 
     #########
     # Testing
-    - name: Run tests
-      if: inputs.run-cmake-tests == 'true'
+    - name: Run python tests
+      if: inputs.run-tests == 'true'
       shell: bash
-      run: |
-        export LD_LIBRARY_PATH="${JULIA_LIB_DIR}:$LD_LIBRARY_PATH"
-        export PYTHONPATH="${GITHUB_WORKSPACE}:$PYTHONPATH"
-        pip3 install -r tests/requirements_tests.txt
-        cd cmake_build
-        ctest -V
-
-    #########
-    # Wheel building
-    - name: Get tag
-      if: inputs.build-wheel == 'true'
-      id: vars
-      shell: bash
-      run: |
-        echo GITHUB_REF is ${GITHUB_REF}
-        echo ::set-output name=tag::${GITHUB_REF##*/v}
-
-    - name: build wheel
-      if: inputs.build-wheel == 'true'
       env:
-        VERSION_STRING: ${{ steps.vars.outputs.tag }}
-        WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
-      shell: bash
+        ZEFDB_QUIET=YES
+        ZEFHUB_AUTH_KEY=GUEST
       run: |
-        pip3 install wheel
-        python3 setup.py bdist_wheel
+        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        pip3 install -r python/requirements.txt
+        pip3 install -r python/tests/requirements_tests.txt
+        pytest python/tests
 
-    - name: Ensure no early token creation
-      if: inputs.build-wheel == 'true'
+    - name: Check no created tokens
+      if: inputs.run-tests == 'true'
       shell: bash
       run: |
-        ORIG_DIR=$(pwd)
-        cd /
-        pip3 install ${ORIG_DIR}/dist/*.whl
-        cd ${ORIG_DIR}/scripts
-        bash assert_no_created_tokens.sh
+        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        bash scripts/assert_no_created_tokens.sh

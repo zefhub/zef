@@ -1,8 +1,8 @@
 [tool.cibuildwheel]
 skip = ["pp*", "*musllinux*"]
 archs = ["auto64"]
-test-requires = "pytest"
-test-command = "bash {project}/scripts/assert_no_created_tokens.sh && pytest {project}/python/tests"
+test-requires = "pytest networkx>=2.6.3"
+test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST ZEFDB_QUIET=YES pytest {project}/python/tests"
 
 [tool.cibuildwheel.linux]
 before-all = "yum install -y openssl-devel libcurl-devel"

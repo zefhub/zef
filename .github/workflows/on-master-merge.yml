@@ -24,6 +24,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      # TODO: Update this to check via building the wheel rather than a local build
       - name: Build
         uses: ./.github/actions/build
         with:

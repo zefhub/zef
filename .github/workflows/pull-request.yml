@@ -19,6 +19,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
 
+      # TODO: Update this to check via building the wheel rather than a local build
       - name: Build
         uses: ./.github/actions/build
         with:
