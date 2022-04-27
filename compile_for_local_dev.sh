@@ -1,6 +1,15 @@
 #!/bin/bash
 
 echo "pip-ing"
+if ! which jq ; then
+    echo "jq needs to be installed to use this script. If you are on macos, please run `brew install jq`. If you are on linux use your package manager to install jq (e.g. `sudo apt-get install jq` or `sudo pacman -S jq`)"
+    exit 1
+fi
+if ! which realpath ; then
+    echo "realpath needs to be installed to use this script. If you are on macos, please run `brew install coreutils`. If you are on linux this is weird, realpath should already be available!"
+    exit 1
+fi
+
 # Use tomlq to extract the build requirements
 if ! which tomlq ; then
     python3 -m pip install yq || exit 1
@@ -10,9 +19,6 @@ fi
 # packages=( ${(Q)${(z)$(tomlq -r '."build-system".requires | @sh' python/pyproject.toml)}} )
 jqout=$(tomlq -r '."build-system".requires | @sh' python/pyproject.toml)
 eval "packages=( $jqout )"
-echo "$jqout" "${packages[@]}"
-echo "${#jqout}" "${#packages[@]}"
-echo "Packages to install: ${packages[@]}"
 python3 -m pip install "${packages[@]}" || exit 1
 # Install the runtime requirements
 # python3 -m pip install -qr requirements.txt || exit 1
