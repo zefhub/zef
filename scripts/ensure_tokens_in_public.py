@@ -12,10 +12,10 @@ else:
     raise Exception("Mode should be early or created")
 
 import time
-for pulled_filename in ["../zeftypes_ET.json", "../zeftypes_RT.json", "../zeftypes_EN.json"]:
-    if time.time() - os.path.getmtime(pulled_filename) > 600:
-        print(f"The modification time of {pulled_filename} is more than 10min ago, please rerun get_zeftypes.py and recompile.")
-        sys.exit(1)
+# for pulled_filename in ["../zeftypes_ET.json", "../zeftypes_RT.json", "../zeftypes_EN.json"]:
+#     if time.time() - os.path.getmtime(pulled_filename) > 600:
+#         print(f"The modification time of {pulled_filename} is more than 10min ago, please rerun get_zeftypes.py and recompile.")
+#         sys.exit(1)
 
 if time.time() - os.path.getmtime(filename) > 600:
     print(f"The modification time of {filename} is more than 10min ago, please run create_tokens_files.py to refresh these files.")

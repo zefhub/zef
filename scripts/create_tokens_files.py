@@ -7,6 +7,12 @@ from zef import *
 from zef.ops import *
 import zef.core.internals
 
+l = zef.core.internals.early_token_list()
+with open("early.tokens", "w") as file:
+    for s in l:
+        print(s, file=file)
+
+
 g = Graph()
 g2 = Graph()
 
@@ -33,11 +39,6 @@ s = serialize(d2)
 deserialize(s)
 
 # TODO: Add more things in here that zefhub might have to do.
-
-l = zef.core.internals.early_token_list()
-with open("early.tokens", "w") as file:
-    for s in l:
-        print(s, file=file)
 
 l = zef.core.internals.created_token_list()
 with open("all_created.tokens", "w") as file:
