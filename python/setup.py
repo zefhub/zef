@@ -68,19 +68,25 @@ class cmake_build_ext(build_ext):
 class override_sdist(sdist):
     def make_release_tree(self, base_dir, files):
         sdist.make_release_tree(self, base_dir, files)
+
+        print("* Adding libzef to sdist")
+
         # Adding in the libzef core too, using git to obtain the list of files.
         target_dir = os.path.join(base_dir, "libzef")
         print("Target dir is", target_dir)
         # if os.path.exists(target
         os.makedirs(target_dir)
+        print("** Copying all of the files foudn with git ls-files across using tar packing/unpacking")
         filelist = subprocess.Popen(["git", "ls-files", "."], cwd="../core", stdout=subprocess.PIPE)
         tarcreate = subprocess.Popen(["tar", "-cvf", "-", "-T", "-"], cwd="../core", stdin=filelist.stdout, stdout=subprocess.PIPE)
         subprocess.check_call(["tar", "-xvf", "-"], cwd=target_dir, stdin=tarcreate.stdout)
 
+        print("** Adding in the get_zeftypes.py script manually")
         # We need to include the get_zeftypes.py file along with the distribution
         import shutil
         shutil.copy("../scripts/get_zeftypes.py", os.path.join(base_dir, "libzef", "scripts"))
 
+        print("** Updating the setup.cfg file")
         # We now overwrite the setup.cfg file to point at this new directory
         setup_cfg = os.path.join(base_dir, "setup.cfg")
         parser = configparser.ConfigParser()
