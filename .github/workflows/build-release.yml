@@ -104,7 +104,7 @@ jobs:
       - name: Get tag
         id: vars
         run: |
-          echo ::set-output name=tag::${GITHUB_REF##*/v}
+          echo ::set-output name=tag::${GITHUB_REF##*/pyzef-}
 
       - name: Release announcement
         if: ${{ (!contains(github.ref, 'dev') && github.event.release.prerelease == false) }}
