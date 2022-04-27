@@ -144,7 +144,7 @@ def serialize_zeftypes(z) -> dict:
     elif isinstance(z, RelationType) or isinstance(z, EntityType) or isinstance(z, AtomicEntityType):
         bt_type = {RelationType: "RT", EntityType: "ET", AtomicEntityType: "AET"}[type(z)]
         absorbed_args = LazyValue(z) | absorbed | collect
-        if absorbed_args: absorbed_args= serialize(absorbed_args)
+        absorbed_args = serialize(absorbed_args)
         return {"_zeftype": bt_type, "value": str(z), "absorbed": absorbed_args}
 
     elif isinstance(z, Graph):
