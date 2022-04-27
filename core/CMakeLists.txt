@@ -254,6 +254,13 @@ endif()
 if(ZEFDB_TEST_NO_MMAP_CHECKS)
   target_compile_definitions(zef PUBLIC ZEFDB_TEST_NO_MMAP_CHECKS)
 endif()
+
+# Make auth.html accessible for uninstalled builds
+add_custom_command(TARGET zef POST_BUILD
+                   COMMAND ${CMAKE_COMMAND} -E create_symlink
+                       ${CMAKE_CURRENT_SOURCE_DIR}/auth.html
+                       ${CMAKE_CURRENT_BINARY_DIR}/auth.html
+                   )
   
 # Extra things needed for Visual Studio
 if(MSVC)
@@ -261,7 +268,7 @@ if(MSVC)
 endif()
 
 if(LIBZEF_PYZEF_BUNDLED)
-  install (TARGETS zef LIBRARY DESTINATION .)
+  install(TARGETS zef LIBRARY DESTINATION .)
   install(FILES auth.html DESTINATION .)
 else()
   install ( TARGETS zef
