@@ -78,10 +78,10 @@ def all_edges_with_end(z, rt, direction):
         return concat(all_edges_with_end(z, rt, Direction.OUTGOING),
                       all_edges_with_end(z, rt, Direction.INCOMING))
     elif direction == Direction.OUTGOING:
-        return z > L[rt] | map[lambda z: (z, target(z))] | collect
+        return z | out_rels[rt] | map[lambda z: (z, target(z))] | collect
     else:
         assert direction == Direction.INCOMING
-        return z < L[rt] | map[lambda z: (z, source(z))] | collect
+        return z | in_rels[rt] | map[lambda z: (z, source(z))] | collect
 
 class ProxyGraph:
     def __init__(self,
@@ -433,7 +433,7 @@ class ProxyEdgeView:
 
 def get_props_on(z, include_type):
     props = {}
-    for rel in z > L[RT] | filter[target | is_a[AET]]:
+    for rel in z | out_rels[RT] | filter[target | is_a[AET]]:
         props[str(RT(rel))] = rel|target|value|collect
     if include_type:
         props["type"] = rae_type(z)

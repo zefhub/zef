@@ -37,12 +37,12 @@ class MyTestCase(unittest.TestCase):
         (z, RT.Map, 2) | g | run
         (z, RT.Value, 2) | g | run
 
-        z | now >> L[RT.Map] | map[terminate] | g | run
+        z | now | Outs[RT.Map] | map[terminate] | g | run
 
         (z, RT.Value, 3) | g | run
         (z, RT.Map, 4) | g | run
 
-        z | now >> L[RT.Value] | map[terminate] | g | run
+        z | now | Outs[RT.Value] | map[terminate] | g | run
 
         # Test that keep_alive kills subs when it is False only
         sub2 = None
@@ -55,7 +55,7 @@ class MyTestCase(unittest.TestCase):
 
         # Test that unsubscribe kills subs definitely
         sub4.unsubscribe()
-        z | now >> L[RT.Map] | map[terminate] | g | run
+        z | now | Outs[RT.Map] | map[terminate] | g | run
 
         self.assertEqual(on_value_assign_list, [1,2,3,4,5])
         self.assertEqual(on_rel_list, [

@@ -652,7 +652,7 @@ def cmds_for_instantiated(x: dict):
             raet = getattr(AET.QuantityFloat, val.unit.enum_value)
         else:
             raet = getattr(AET.QuantityInt, val.unit.enum_value)
-        exprs += [Z[internal_id] <= val]#{'cmd': 'assign_value', 'value': val, 'explicit': True, 'internal_id': internal_id}]
+        exprs += [Z[internal_id] | assign_value[val]]#{'cmd': 'assign_value', 'value': val, 'explicit': True, 'internal_id': internal_id}]
 
     cmds += [{'cmd': 'instantiate', 'rae_type': raet, 'internal_id': internal_id}]
     return (), cmds

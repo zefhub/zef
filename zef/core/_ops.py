@@ -124,6 +124,7 @@ first           = make_zefop(RT.First)
 second          = make_zefop(RT.Second)
 last            = make_zefop(RT.Last)
 single          = make_zefop(RT.Single)           
+single_or       = make_zefop(RT.SingleOr)
 only            = make_zefop(RT.Single)                 # TODO: retire, since we renamed this to 'single'
 identity        = make_zefop(RT.Identity)
 take            = make_zefop(RT.Take)

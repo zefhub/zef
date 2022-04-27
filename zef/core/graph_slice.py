@@ -110,7 +110,7 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
 
     zz = g[origin_uid]
     if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
-        z_candidates = zz << L[BT.ORIGIN_RAE_EDGE] | target | filter[exists_at[gs]] | collect
+        z_candidates = zz | Ins[BT.ORIGIN_RAE_EDGE] | map[target] | filter[exists_at[gs]] | collect
         if len(z_candidates) > 1:
             raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {origin_uid}")
         elif len(z_candidates) == 1:

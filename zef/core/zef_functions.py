@@ -185,16 +185,16 @@ def compile_zef_function(z_fct: ZefRef):
     # first compile all zef functions bound within this zef fct's scope
     z_bound_fcts_pairs = (
         z_fct
-        > L[RT.Binding]
-        | map[lambda z_rel: (z_rel >> RT.Name | value | collect,
+        | out_rels[RT.Binding]
+        | map[lambda z_rel: (z_rel | Out[RT.Name] | value | collect,
                              z_rel | target | in_frame[
-                                 g[z_rel >> RT.UseTimeSlice | value | collect]
+                                 g[z_rel | Out[RT.UseTimeSlice] | value | collect]
                                  | to_graph_slice | collect
                              ] | collect)]
         | map[lambda p: (p[0], compile_zef_function(p[1]))]
         | collect
     )
-    fct_str = z_fct >> RT.PythonSourceCode | value | collect
+    fct_str = z_fct | Out[RT.PythonSourceCode] | value | collect
     # what is in the scope of the zef function that will execute?    
     fct = compile_in_zef_context(fct_str, dict(z_bound_fcts_pairs))
     _local_compiled_zef_functions[time_resolved_hashable(z_fct)] = fct
@@ -321,20 +321,20 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
                 raise RuntimeError("The uid extracted from the zef function name was not found in the graph")
 
             z_zef_fct = (g[zef_fct_uid] | now)
-            z_python_str = (z_zef_fct >> RT.PythonSourceCode) | collect
+            z_python_str = z_zef_fct | Out[RT.PythonSourceCode] | collect
             # only assign a new value if the contents changed
             if (value(z_python_str)) != s:
-                (z_python_str <= s) | g | run
+                z_python_str | assign_value[s] | g | run
 
             # If docstring already exists; update it may be
-            if len(z_zef_fct >> L[RT.DocString] |collect) == 1:
-                z_doctstring_str = z_zef_fct >> RT.DocString | collect
+            if len(z_zef_fct | Outs[RT.DocString] |collect) == 1:
+                z_doctstring_str = z_zef_fct | Out[RT.DocString] | collect
                 # If the Docstring was removed
                 if not docstring_maybe:
-                    terminate(z_zef_fct > RT.DocString)
+                    z_zef_fct | out_rel[RT.DocString] | terminate | g | run
                 # If Docstring was updated
                 elif docstring_maybe != (z_doctstring_str | value | collect):
-                    (z_doctstring_str <= docstring_maybe) | collect
+                    z_doctstring_str | assign_value[docstring_maybe] | collect
             # Case where this function existed before introducting Docstring parsing
             else:
                 # If Docstring is defined attach it
@@ -362,8 +362,8 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
 
         # immediately focus on the diffing case, if one needs to establish the required diff of bindings present in the 
         # zef function pre and post                
-        bindings_pre = dict((z_zef_fct > L[RT.Binding]) 
-                        | map[lambda z_rel: (z_rel >> RT.Name | value, z_rel | target | to_frame[ g[z_rel >> RT.UseTimeSlice | value]] )]
+        bindings_pre = dict((z_zef_fct | out_rels[RT.Binding]) 
+                        | map[lambda z_rel: (z_rel | Out[RT.Name] | value, z_rel | target | to_frame[ g[z_rel | Out[RT.UseTimeSlice] | value]] )]
                         | collect
                         )
         bindings_post = kwargs
@@ -372,10 +372,10 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
         bindings_to_remove = {k:v for k,v in bindings_pre.items() if k not in bindings_post}
 
         def remove_binding(z_fct: ZefRef, name: str, z_attached_fct: EZefRef):
-            z_ed = (z_fct > L[RT.Binding]) | filter[lambda z_ed: z_ed >> RT.Name | value == name] | only | collect
-            terminate(z_ed >> RT.Name)
-            terminate(z_ed >> RT.UseTimeSlice)
-            terminate(z_ed)
+            z_ed = (z_fct | out_rels[RT.Binding]) | filter[lambda z_ed: z_ed | Out[RT.Name] | value == name] | only | collect
+            z_ed | Out[RT.Name] | terminate | g | run
+            z_ed | Out[RT.UseTimeSlice] | terminate | g | run
+            z_ed | terminate | g | run
 
         def add_binding(z_fct: ZefRef, name: str, z_attached_fct):                    
             z_rel = (instantiate(z_fct | to_ezefref | collect, RT.Binding, z_attached_fct | to_ezefref | collect, g) 
@@ -433,7 +433,7 @@ def zef_fct_to_source_code_string(z_func: ZefRef) -> str:
     def _make_header(z_zef_function: ZefRef)->str:
         g = Graph(z_zef_function)         
         # TODO: possibly warn if this is NOT the latest version known at the time of generating this snippet!
-        original_fct_name = z_zef_function >> RT.OriginalName | value | collect if z_zef_function | has_out[RT.OriginalName] | collect else None
+        original_fct_name = z_zef_function | Out[RT.OriginalName] | value | collect if z_zef_function | has_out[RT.OriginalName] | collect else None
         original_fct_name_val = original_fct_name if original_fct_name is not None else '*unknown*'
         graph_uid = str(uid(g))
         return (
@@ -448,14 +448,14 @@ f"# we need to bind this to a var outside for now to prevent the graph being gar
 f"g_{graph_uid[:8]} = Graph('{graph_uid}')     # Graph tags: {g.tags}",
 f'@func(',
 f'    g = g_{graph_uid[:8]},',
-f"    label = '{value(z_zef_function >> RT.Label)}'," if z_zef_function | has_out[RT.Label] | collect else None,
-f"    is_pure = {value(z_zef_function >> RT.IsPure)}," if z_zef_function | has_out[RT.IsPure] | collect else None,
-*[f"    {value(z_ed>>RT.Name)} = g['{uid(z_ed | target)}'] | to_frame[g['{value(z_ed>>RT.UseTimeSlice)}']]," for z_ed in (z_zef_function > L[RT.Binding] | collect) ],
+f"    label = '{value(z_zef_function | Out[RT.Label])}'," if z_zef_function | has_out[RT.Label] | collect else None,
+f"    is_pure = {value(z_zef_function | Out[RT.IsPure])}," if z_zef_function | has_out[RT.IsPure] | collect else None,
+*[f"    {value(z_ed | Out[RT.Name])} = g['{uid(z_ed | target)}'] | to_frame[g['{value(z_ed | Out[RT.UseTimeSlice])}']]," for z_ed in (z_zef_function | out_rels[RT.Binding] | collect) ],
 f")\n"
         ] | filter[lambda x: x is not None] | collect
         ))    
     assert isinstance(z_func, ZefRef) and ET(z_func)==ET.ZEF_Function
-    fct_body = z_func >> RT.PythonSourceCode | value | collect
+    fct_body = z_func | Out[RT.PythonSourceCode] | value | collect
     assert isinstance(fct_body, str)       
     return  _make_header(z_func) + fct_body + "\n"*8
 

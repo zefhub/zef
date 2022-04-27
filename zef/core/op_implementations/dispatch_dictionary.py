@@ -32,6 +32,7 @@ _op_to_functions = {
         RT.Second:         (second_imp, second_tp),
         RT.Last:           (last_imp, last_tp),
         RT.Single:         (single_imp, single_tp),
+        RT.SingleOr:       (single_or_imp, single_or_tp),
         RT.Zip:            (zip_imp, zip_tp),
         RT.Concat:         (concat_implementation, concat_type_info),
         RT.Prepend:        (prepend_imp, prepend_tp),

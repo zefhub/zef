@@ -462,7 +462,7 @@ def prepend_imp(v, item, *additional_items):
 
         
         g = Graph(z_list)
-        rels = z_list > L[RT.ZEF_ListElement] | collect
+        rels = z_list | out_rels[RT.ZEF_ListElement] | collect
         rels1 = (elements_to_prepend 
                 | enumerate 
                 | map[lambda p: (z_list, RT.ZEF_ListElement[str(p[0])], p[1])] 
@@ -477,7 +477,7 @@ def prepend_imp(v, item, *additional_items):
         # if there are elements in the list, use the last one. Otherwise return an empty list.
         first_existing_el_rel = (
             rels 
-            | filter[lambda r: r < L[RT.ZEF_NextElement] | length | equals[0] | collect] 
+            | filter[lambda r: r | in_rels[RT.ZEF_NextElement] | length | equals[0] | collect] 
             | attempt[
                 single
                 | func[lambda x: [(new_rels[-1], RT.ZEF_NextElement, x)]]
@@ -545,7 +545,7 @@ def append_imp(v, item, *additional_items):
 
         
         g = Graph(z_list)
-        rels = z_list > L[RT.ZEF_ListElement] | collect
+        rels = z_list | out_rels[RT.ZEF_ListElement] | collect
         rels1 = (elements_to_append 
                 | enumerate 
                 | map[lambda p: (z_list, RT.ZEF_ListElement[str(p[0])], p[1])] 
@@ -560,7 +560,7 @@ def append_imp(v, item, *additional_items):
         # if there are elements in the list, use the last one. Otherwise return an empty list.
         last_existing_ZEF_ListElement_rel = (
             rels 
-            | filter[lambda r: r > L[RT.ZEF_NextElement] | length | equals[0] | collect] 
+            | filter[lambda r: r | out_rels[RT.ZEF_NextElement] | length | equals[0] | collect] 
             | attempt[
                 single
                 | func[lambda x: [(x, RT.ZEF_NextElement, Z['0'])]]
@@ -1291,9 +1291,9 @@ def all_imp(*args):
         return fg_all_imp(*args)
     if isinstance(args[0], ZefRef) and is_a[ET.ZEF_List](args[0]):
         z_list = args[0]
-        rels = z_list > L[RT.ZEF_ListElement] | collect
-        first_el = rels | attempt[filter[lambda r: r < L[RT.ZEF_NextElement] | length | equals[0] | collect] | single | collect][None] | collect
-        return (x for x in first_el | iterate[attempt[lambda r: r >> RT.ZEF_NextElement | collect][None]] | take_while[Not[equals[None]]] | map[target])
+        rels = z_list | out_rels[RT.ZEF_ListElement] | collect
+        first_el = rels | attempt[filter[lambda r: r | in_rels[RT.ZEF_NextElement] | length | equals[0] | collect] | single | collect][None] | collect
+        return (x for x in first_el | iterate[attempt[lambda r: r | Out[RT.ZEF_NextElement] | collect][None]] | take_while[Not[equals[None]]] | map[target])
 
     if isinstance(args[0], GraphSlice):
         # TODO: We should probalby make slice | all return the delegates too to
@@ -2314,6 +2314,33 @@ def single_tp(op, curr_type):
     return curr_type
 
 
+#---------------------------------------- single_or -----------------------------------------------
+def single_or_imp(itr, default):
+    """ 
+    Given an iterable which should contain either 0 or 1 elements and a default, return the element if it exists, otherwise return the default. Lists that are 2 or more elements long cause an Error
+
+    ---- Examples ----
+    >>> [42] | single_or[None]          # => 42
+    >>> [] | single_or[None]            # => None
+    >>> [42, 43] | single_or[None]      # => Error
+
+    ---- Signature ----
+    List[T],T2 -> Union[T, T2, Error]
+    """
+    iterable = iter(itr)
+    try:
+        val = next(iterable)
+        try:
+            next(iterable)
+            raise Exception("single_or detected more than one item in iterator")
+        except StopIteration:
+            return val
+    except StopIteration:
+        return default
+
+def single_or_tp(op, curr_type):
+    return VT.Any
+
 
 #---------------------------------------- first -----------------------------------------------
 
@@ -3147,7 +3174,7 @@ def next_tx_imp(z_tx):
     """
     def next_tx_ezr(zz):
         try:
-            return zz >> BT.NEXT_TX_EDGE | collect
+            return zz | Out[BT.NEXT_TX_EDGE] | collect
         except RuntimeError:
             return None
 
@@ -3185,7 +3212,7 @@ def previous_tx_imp(z_tx):
     """
     def previous_tx_ezr(zz):
         try:
-            return zz << BT.NEXT_TX_EDGE | collect
+            return zz | In[BT.NEXT_TX_EDGE] | collect
         except RuntimeError:
             return None
 
@@ -3297,7 +3324,7 @@ def value_assigned_tp(x):
 
 # ----------------------------------------- merged --------------------------------------------
 def _is_merged(z):
-    inst_edge = collect(to_ezefref(z) < BT.RAE_INSTANCE_EDGE)
+    inst_edge = collect(to_ezefref(z) | in_rel[BT.RAE_INSTANCE_EDGE])
     return has_out(inst_edge, BT.ORIGIN_RAE_EDGE)
 
 def merged_imp(x):    
@@ -3490,7 +3517,7 @@ def in_frame_imp(z, *args):
 
         zz = g_frame[the_origin_uid]
         if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
-            z_candidates = zz << L[BT.ORIGIN_RAE_EDGE] | target | filter[exists_at[frame]] | collect
+            z_candidates = zz | Ins[BT.ORIGIN_RAE_EDGE] | map[target] | filter[exists_at[frame]] | collect
             if len(z_candidates) > 1:
                 raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {the_origin_uid}")
             elif len(z_candidates) == 1:
@@ -4203,28 +4230,29 @@ def Out_imp(z, rt=VT.Any):
     from zef.pyzef.zefops import traverse_out_node, outs
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "single")
-    if isinstance(rt, RelationType):
-        try:
-            return traverse_out_node(z, rt)
-        except RuntimeError as exc:
-            # create a summary of what went wrong
-            existing_rels = (outs(z)
-                | map[RT] 
-                | frequencies       # which relation types are present how often?
-                | items 
-                | map[lambda p: f"{repr(p[0])}: {repr(p[1])}"] 
-                | join['\n'] 
-                | collect
-                )
-            return Error(f"traversing {z} via relation type {rt}. The existing outgoing edges here are: {existing_rels}")    
-    elif rt==VT.Any or rt==RT:
-        my_outs = outs(z)
-        if len(my_outs)==1:
-            return my_outs[0]
-        else:
-            return Error(f"traversing {z} using 'out': there were {len(my_outs)} outgoing edges: {my_outs}")
-    else:
-        return Error(f'Invalid type "{rt}" specified in Out[...]')
+    # if isinstance(rt, RelationType):
+    #     try:
+    #         return traverse_out_node(z, rt)
+    #     except RuntimeError as exc:
+    #         # create a summary of what went wrong
+    #         existing_rels = (outs(z)
+    #             | map[RT] 
+    #             | frequencies       # which relation types are present how often?
+    #             | items 
+    #             | map[lambda p: f"{repr(p[0])}: {repr(p[1])}"] 
+    #             | join['\n'] 
+    #             | collect
+    #             )
+    #         return Error(f"traversing {z} via relation type {rt}. The existing outgoing edges here are: {existing_rels}")    
+    # elif rt==VT.Any or rt==RT:
+    #     my_outs = outs(z)
+    #     if len(my_outs)==1:
+    #         return my_outs[0]
+    #     else:
+    #         return Error(f"traversing {z} using 'out': there were {len(my_outs)} outgoing edges: {my_outs}")
+    # else:
+    #     return Error(f'Invalid type "{rt}" specified in Out[...]')
+    return target(out_rel(z, rt))
 
 
 
@@ -4251,9 +4279,8 @@ def Outs_imp(z, rt):
     from zef.pyzef.zefops import traverse_out_node_multi
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
-    return traverse_out_node_multi(z, rt)
 
-
+    return map(out_rels(z, rt), target)
 
 
 
@@ -4280,8 +4307,8 @@ def In_imp(z, rt=None):
     from zef.pyzef.zefops import traverse_in_node
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
-    return traverse_in_node(z, rt)
 
+    return source(in_rel(z, rt))
 
 
 #---------------------------------------- Ins -----------------------------------------------
@@ -4305,7 +4332,8 @@ def Ins_imp(z, rt):
     from zef.pyzef.zefops import traverse_in_node_multi
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
-    return traverse_in_node_multi(z, rt)
+
+    return map(in_rels(z, rt), source)
 
 
 #---------------------------------------- out_rel -----------------------------------------------
@@ -4331,7 +4359,13 @@ def out_rel_imp(z, rt=None):
     from zef.pyzef.zefops import traverse_out_edge
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "single")
-    return traverse_out_edge(z, rt)
+
+
+    opts = out_rels(z, rt)
+    if len(opts) != 1:
+        # TODO: hinting if problems occur goes here
+        raise Exception("out_rel did not find a single edge. TODO hints here.")
+    return single(opts)
 
 
 #---------------------------------------- out_rels -----------------------------------------------
@@ -4356,8 +4390,11 @@ def out_rels_imp(z, rt=None):
     from zef.pyzef.zefops import traverse_out_edge_multi
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
-    if rt == RT: return z | outs | filter[BT.RELATION_EDGE] | collect
-    if rt == BT: return z | to_ezefref | outs | collect
+
+
+    if isinstance(z, FlatRef): return fr_outs_imp(zr)
+    if rt == RT or rt is None: return pyzefops.outs(z) | filter[BT.RELATION_EDGE] | collect
+    if rt == BT: return pyzefops.outs(z | to_ezefref | collect)
     return traverse_out_edge_multi(z, rt)
 
 
@@ -4385,7 +4422,13 @@ def in_rel_imp(z, rt=None):
     from zef.pyzef.zefops import traverse_in_edge
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "single")
-    return traverse_in_edge(z, rt)
+
+
+    opts = in_rels(z, rt)
+    if len(opts) != 1:
+        # TODO: hinting if problems occur goes here
+        raise Exception("in_rel did not find a single edge. TODO hints here.")
+    return single(opts)
 
 
 #---------------------------------------- in_rels -----------------------------------------------
@@ -4410,10 +4453,11 @@ def in_rels_imp(z, rt=None):
     from zef.pyzef.zefops import traverse_in_edge_multi
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "multi")
-    if rt == RT: return z | ins | filter[BT.RELATION_EDGE] | collect
-    if rt == BT: return z | to_ezefref | ins | collect
-    return traverse_in_edge_multi(z, rt)
 
+    if isinstance(z, FlatRef): return fr_ins_imp(zr)
+    if rt == RT or rt is None: return pyzefops.ins(z) | filter[BT.RELATION_EDGE] | collect
+    if rt == BT: return pyzefops.ins(z | to_ezefref | collect)
+    return traverse_in_edge_multi(z, rt)
 
 
 

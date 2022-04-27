@@ -18,9 +18,9 @@ class MyTestCase(unittest.TestCase):
                                                          (RT.Status, EN.Status.On),
                                                          (RT.Disabled, True)]] | collect
 
-        self.assertEqual(length(z > L[RT]), 1)
-        self.assertEqual(length(z2 > L[RT]), 2)
-        self.assertEqual(length(z3 > L[RT]), 5)
+        self.assertEqual(length(z | out_rels[RT]), 1)
+        self.assertEqual(length(z2 | out_rels[RT]), 2)
+        self.assertEqual(length(z3 | out_rels[RT]), 5)
 
 
     def test_shorthand(self):
@@ -65,10 +65,10 @@ class MyTestCase(unittest.TestCase):
         ae = AET.String | g | run
         self.assertEqual(value(ae), None)
 
-        (ae <= "word") | g | run
+        ae | assign_value["word"] | g | run
         self.assertEqual(value(now(ae)), "word")
 
-        (g | now | all[AET] | single <= "single") | g | run
+        g | now | all[AET] | single | assign_value["single"] | g | run
         self.assertEqual(value(now(ae)), "single")
 
 if __name__ == '__main__':

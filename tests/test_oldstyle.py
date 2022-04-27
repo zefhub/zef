@@ -17,14 +17,14 @@ class MyTestCase(unittest.TestCase):
             n2 = instantiate(ET.Pet, g)
             r1 = instantiate(n1, RT.HasPet, n2, g)
 
-        self.assertEqual(n1 >> RT.HasPet | collect, n2)
-        self.assertEqual(n1 >> RT.HasPet << RT.HasPet | collect, n1)
+        self.assertEqual(n1 | Out[RT.HasPet] | collect, n2)
+        self.assertEqual(n1 | Out[RT.HasPet] | In[RT.HasPet] | collect, n1)
 
         with Transaction(g):
             n3 = instantiate(ET.Person, g)
             r2 = instantiate(n1, RT.HasPet, n3, g)
 
-        self.assertEqual(n1 >> RT.HasPet | collect, n2)
+        self.assertEqual(n1 | Out[RT.HasPet] | collect, n2)
 
     def test_something2(self):
         g = Graph()
@@ -36,14 +36,14 @@ class MyTestCase(unittest.TestCase):
             r1 = instantiate(c1, RT.HasPet, p1, g)
             r2 = instantiate(c2, RT.HasPet, p2, g)
 
-        v = ZefRefs([c1, c2]) >> RT.HasPet | collect
+        v = ZefRefs([c1, c2]) | map[Out[RT.HasPet]] | collect
         self.assertEqual(len(v), 2)
         self.assertEqual(v[0], p1)
         self.assertEqual(v[1], p2)
 
-        vv = ZefRefss([v, v, v, v])
-        for x in vv:
-            str(x)
+        # vv = ZefRefss([v, v, v, v])
+        # for x in vv:
+        #     str(x)
 
     def test_find_source_tx(self):
         g = Graph()
@@ -139,10 +139,10 @@ class MyTestCase(unittest.TestCase):
             (z_two, RT.TypeOf, 1) | g | run
             (z_two, RT.TypeOf, 2) | g | run
 
-        self.assertEqual(z_zero >> O[RT.TypeOf] | collect, None)
-        self.assertEqual(z_one >> O[RT.TypeOf] | collect, z_one >> RT.TypeOf | collect)
-        with self.assertRaisesRegex(RuntimeError, "Unable to traverse"):
-            z_two >> O[RT.TypeOf] | collect
+        self.assertEqual(z_zero | Outs[RT.TypeOf] | single_or[None] | collect, None)
+        self.assertEqual(z_one | Outs[RT.TypeOf] | single_or[None] | collect, z_one | Out[RT.TypeOf] | collect)
+        with self.assertRaisesRegex(Exception, "single_or detected more than one item in iterator"):
+            z_two | Outs[RT.TypeOf] | single_or[None] | collect
 
 if __name__ == '__main__':
     unittest.main()
