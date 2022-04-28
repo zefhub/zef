@@ -10,6 +10,10 @@ You can contribute across all fronts, from improving the documentation, submitti
 
 ## How to contribute
 
-We currently do not have a strict process or guidelines. [Raise bugs or issues](https://github.com/zefhub/zef/issues), [suggest features or ideas](https://github.com/zefhub/zef/discussions), or submit a pull request - dive right in!
+We currently do not have a strict process or guidelines. To optimize for feedback speed, please raise bugs, suggest features, or ask if anything seems unclear, missing, or broken directly in our community chat at [https://zef.chat](https://zef.chat).
 
-The fastest way to contribute is to send a general message on [https://zef.chat](https://zef.chat) on anything that seems unclear, missing, or broken.
+Please don't be shy on submitting a pull request - just dive in!
+
+## Your first contribution
+
+A good first place to start contributing is the documentation and tutorials. We feel this is a good way for people who want to get involved to understand Zef and start making meaningful contributions right away!
