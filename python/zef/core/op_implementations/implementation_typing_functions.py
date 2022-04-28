@@ -4653,6 +4653,61 @@ def is_a_implementation(x, typ):
 
     """
     from ..error import _ErrorType
+    def union_matching(el, union):
+        for t in union.d['absorbed']: 
+            if is_a_implementation(el, t): return True
+        return False
+
+    def intersection_matching(el, intersection):
+        for t in intersection.d['absorbed']: 
+            if not is_a_implementation(el, t): return False
+        return True
+
+    def setof_matching(el, setof):
+        from typing import Callable
+        for t in setof.d['absorbed']: 
+            if isinstance(t, ValueType): 
+                if not is_a_implementation(el, t): return False
+            elif isinstance(t, (ZefOp, Callable)):
+                if not t(el): return False
+            else: return Error.ValueError(f"Expected a predicate function or value type inside SetOf but got {t} instead.")
+        return True
+
+    def valuetype_matching(el, vt):
+        if vt == VT.Any: return True
+
+        # TODO: compare on actual ValueType along with its absorbed subtypes. 
+        # TODO: Extend list
+        vt_name_to_python_type = {
+            "Nil": type(None),
+            # "Any": ,
+            "Bool": bool,
+            "Int": int,
+            "Float":  float,
+            "String": str,
+            "List": list,
+            "Dict": dict,
+            "Set": set,
+        }
+        if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType matching not implemented for {vt}")
+        python_type = vt_name_to_python_type[vt.d['type_name']]
+        return isinstance(el, python_type)
+
+    if isinstance(typ, ValueType):
+        if typ.d['type_name'] == "Union":
+            return union_matching(x, typ)
+
+        if typ.d['type_name'] == "Intersection":
+            return intersection_matching(x, typ)
+
+        if typ.d['type_name'] == "SetOf":
+            return setof_matching(x, typ)
+
+        return valuetype_matching(x, typ)
+
+
+    
+
     if type(x) == _ErrorType:
         if typ == Error:
             return True
