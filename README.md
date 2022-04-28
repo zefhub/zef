@@ -13,7 +13,7 @@
 
 <div align="center">
     <a href="https://github.com/zefhub/zef/blob/master/LICENSE">
-        <img src="https://img.shields.io/badge/license-Apache%202.0-blue" />
+        <img src="https://img.shields.io/badge/license-Apache%202.0-teal" />
     </a>
     <br />
     <br />
@@ -24,7 +24,6 @@
     <a href="https://zef.chat/">Chat</a>
     <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
     <a href="https://www.zefhub.io/">ZefHub</a>
-    <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
 </div>
 
 <br />
@@ -95,7 +94,7 @@ Here's some quick points to get going. Check out our [Quick Start](https://zef.z
 <br />
 
 <div align="center">
-    <h3>Get started</h3>
+    <h3>💆 Get started 💆</h3>
 </div>
 
 ```python
@@ -108,7 +107,7 @@ g = Graph()                # create an empty graph
 <br />
 
 <div align="center">
-    <h3>Add some data</h3> 
+    <h3>🌱 Add some data 🌱</h3> 
 </div>
 
 ```python
@@ -120,7 +119,7 @@ p1 = ET.Person | g | run                  # add an entity to the graph
 <br />
 
 <div align="center">
-    <h3>Traverse the graph</h3>
+    <h3>🐾 Traverse the graph 🐾</h3>
 </div>
 
 ```python
@@ -132,7 +131,7 @@ p1 | out_rel[RT.FirstName]     # two hops: step onto the target
 <br />
 
 <div align="center">
-    <h3>Time travel</h3>
+    <h3>⏳ Time travel ⌛</h3>
 </div>
 
 ```python
@@ -144,7 +143,7 @@ p1 | time_travel[Time('2021 December 4 15:31:00 (+0100)')]     # move to a speci
 <br />
 
 <div align="center">
-    <h3>Share with other users (via ZefHub)</h3>
+    <h3>👐 Share with other users (via ZefHub) 👐</h3>
 </div>
 
 ```python
@@ -162,7 +161,7 @@ g | now | all[ET] | collect                     # see all entities in the latest
 <br />
 
 <div align="center">
-    <h3>Choose your own adventure</h3>
+    <h3>🚣 Choose your own adventure 🚣</h3>
 </div>
 
 - [Basic tutorial of Zef](https://zef.zefhub.io/tutorials/basic/employee-database)
@@ -175,7 +174,7 @@ g | now | all[ET] | collect                     # see all entities in the latest
 <br />
 
 <div align="center">
-    <h3>A note on ZefHub</h3>
+    <h3>📌 A note on ZefHub 📌</h3>
 </div>
 
 Zef is designed so you can use it locally and drop it into any existing project. You have the option of syncing your graphs with ZefHub, a service that stores, syncs, and distributes graphs automatically (and the company behind Zef). ZefHub makes it possible to [share graphs with other users and see changes live](https://zef.zefhub.io/how-to/share-graphs), by memory mapping across machines in real-time!
