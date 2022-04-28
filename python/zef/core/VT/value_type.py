@@ -136,7 +136,7 @@ class IntersectionClass:
 class SetOfClass:
     def __getitem__(self, x):
         if isinstance(x, tuple):
-            return ValueType(type_name='SetOf', absorbed=(x,))
+            return ValueType(type_name='SetOf', absorbed=x)
         elif isinstance(x, ValueType):
             return ValueType(type_name='SetOf', absorbed=(x,))
         else:
