@@ -97,9 +97,11 @@ class ValueType:
 
 
     def __or__(self, other):
-        # TODO: if other | is_a[ZefOp] call other.__ror__(LazyValue(self))
+        from ..op_structs import ZefOp
         if isinstance(other, ValueType):
             return simplify_value_type(ValueType(type_name='Union', absorbed=(self, other,)))
+        elif isinstance(other, ZefOp):
+            return other.__ror__(self)
         else:
             return Error(f'"ValueType`s "|" called with unsupported type {type(other)}')
     
@@ -114,9 +116,12 @@ class ValueType:
 
 class UnionClass:
     def __getitem__(self, x):
+        from ..op_structs import ZefOp
         if isinstance(x, tuple):
             return ValueType(type_name='Union', absorbed=x)
         elif isinstance(x, ValueType):
+            return ValueType(type_name='Union', absorbed=(x,))
+        elif isinstance(x, ZefOp):
             return ValueType(type_name='Union', absorbed=(x,))
         else:
             return Error(f'"Union[...]" called with unsupported type {type(x)}')
@@ -124,9 +129,12 @@ class UnionClass:
 
 class IntersectionClass:
     def __getitem__(self, x):
+        from ..op_structs import ZefOp
         if isinstance(x, tuple):
             return ValueType(type_name='Intersection', absorbed=x)
         elif isinstance(x, ValueType):
+            return ValueType(type_name='Intersection', absorbed=(x,))
+        elif isinstance(x, ZefOp):
             return ValueType(type_name='Intersection', absorbed=(x,))
         else:
             return Error(f'"Intersection[...]" called with unsupported type {type(x)}')
@@ -135,9 +143,12 @@ class IntersectionClass:
 
 class SetOfClass:
     def __getitem__(self, x):
+        from ..op_structs import ZefOp
         if isinstance(x, tuple):
             return ValueType(type_name='SetOf', absorbed=x)
         elif isinstance(x, ValueType):
+            return ValueType(type_name='SetOf', absorbed=(x,))
+        elif isinstance(x, ZefOp):
             return ValueType(type_name='SetOf', absorbed=(x,))
         else:
             return Error(f'"SetOf[...]" called with unsupported type {type(x)}')
