@@ -1,14 +1,14 @@
+<div align="center">
+    <img width="300px" src="https://github.com/zefhub/zefhub-web-assets/blob/main/zef_logo_white.png#gh-dark-mode-only">
+    <img width="300px" src="https://github.com/zefhub/zefhub-web-assets/blob/main/zef_logo_black.png#gh-light-mode-only">
+</div>
+
 <p align="center">
-<img width="300px" src="https://github.com/zefhub/zefhub-web-assets/blob/main/zef_logo_white.png#gh-dark-mode-only">
-<img width="300px" src="https://github.com/zefhub/zefhub-web-assets/blob/main/zef_logo_black.png#gh-light-mode-only">
+    A toolkit for data-oriented systems
 </p>
 
 <p align="center">
-A toolkit for data-oriented systems
-</p>
-
-<p align="center">
-<em>versioned graphs + streams + query using Python + GraphQL</em>
+    <em>versioned graphs + streams + query using Python + GraphQL</em>
 </p>
 
 <div align="center">
@@ -56,7 +56,7 @@ If any of these apply to you, Zef might help:
 - query and transform data using Python with composable lazy operators
 - data streams and subscriptions
 - GraphQL API with low impedance mismatch to data model
-- automatically store, sync, distribute graphs with ZefHub
+- automatically store, sync, distribute graphs securely with ZefHub
 
 <br />
 <br />
@@ -66,7 +66,7 @@ If any of these apply to you, Zef might help:
 Zef is currently in Public Alpha.
 
 - [x] Private Alpha: Testing Zef internally and with a closed group of users.
-- [ ] Public Alpha: Anyone can use Zef but please be patient with very large graphs!
+- [x] Public Alpha: Anyone can use Zef but please be patient with very large graphs!
 - [ ] Public Beta: Stable enough for most non-enterprise use cases.
 - [ ] Public: Stable for all production use cases.
 
