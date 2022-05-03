@@ -39,7 +39,7 @@ python3 -m pip install "${packages[@]}" || exit 1
     else
         np=""
     fi
-    make -j $np || exit 1
+    cmake --build . || exit 1
 )
 
 ln -fs $(realpath python/pyzef/build/pyzef.* --relative-to=python/zef) python/zef/

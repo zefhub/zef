@@ -238,15 +238,16 @@ set(COG_DUMMY ${CMAKE_CURRENT_SOURCE_DIR}/dummy_cog.tracker)
 if(NOT MSVC)
   # We have to get all files that will be cogged - this is a little weird.
   file(GLOB cog_files ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cog ${CMAKE_CURRENT_SOURCE_DIR}/include/*.cog)
-  list(TRANSFORM cog_files REPLACE "[.]cog$" ".gen" OUTPUT_VARIABLE cog_files_output)
+  list(TRANSFORM cog_files REPLACE "[.]cog$" ".gen" OUTPUT_VARIABLE cog_files_output_temp)
+  list(TRANSFORM cog_files_output_temp REPLACE "^${CMAKE_CURRENT_SOURCE_DIR}" "${CMAKE_CURRENT_BINARY_DIR}" OUTPUT_VARIABLE cog_files_output)
 
-  # MESSAGE(STATUS "cog files" "${cog_files}")
-  # MESSAGE(STATUS "cog outputs" "${cog_files_output}")
-
-  # target_include_directories(zef PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/include)
+  # This is a little dodgy, but at least these filenames as so specific, they
+  # won't be accidentally included elsewhere. Need to make them be included when
+  # installed to a public header directory though.
+  target_include_directories(zef PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/src)
+  target_include_directories(zef PUBLIC ${CMAKE_CURRENT_BINARY_DIR}/include)
 
   add_custom_target(cogbuild
-    # DEPENDS ${COG_DUMMY})
     DEPENDS ${cog_files_output})
   add_dependencies(zef cogbuild)
   
@@ -254,51 +255,44 @@ if(NOT MSVC)
   add_custom_command(
     DEPENDS zeftypes_EN.json zeftypes_ET.json zeftypes_RT.json zeftypes_KW.json ${cog_files}
     OUTPUT ${cog_files_output}
-    WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
     COMMENT "Running cog"
     # We don't install cog at run now, but have to have it around as a dependency.
     # COMMAND ${Python3_EXECUTABLE} -mpip install cogapp
-    COMMAND ${Python3_EXECUTABLE} scripts/run_cog_gen.py
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/scripts/run_cog_gen.py ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}
     )
 
   if(LOCAL_ZEFTYPES)
     # Copy over the bootstrap files if the non-bootstrap versions don't exist
     add_custom_command(
       DEPENDS templates/zeftypes_bootstrap_ET.json
-      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_ET.json
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      OUTPUT zeftypes_ET.json
       COMMENT "Copying ET bootstrap"
-      COMMAND cp templates/zeftypes_bootstrap_ET.json zeftypes_ET.json)
+      COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/templates/zeftypes_bootstrap_ET.json zeftypes_ET.json)
     add_custom_command(
       DEPENDS templates/zeftypes_bootstrap_RT.json
-      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_RT.json
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      OUTPUT zeftypes_RT.json
       COMMENT "Copying RT bootstrap"
-      COMMAND cp templates/zeftypes_bootstrap_RT.json zeftypes_RT.json)
+      COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/templates/zeftypes_bootstrap_RT.json zeftypes_RT.json)
     add_custom_command(
       DEPENDS templates/zeftypes_bootstrap_EN.json
-      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_EN.json
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      OUTPUT zeftypes_EN.json
       COMMENT "Copying EN bootstrap"
-      COMMAND cp templates/zeftypes_bootstrap_EN.json zeftypes_EN.json)
+      COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/templates/zeftypes_bootstrap_EN.json zeftypes_EN.json)
     add_custom_command(
       DEPENDS templates/zeftypes_bootstrap_KW.json
-      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_KW.json
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      OUTPUT zeftypes_KW.json
       COMMENT "Copying KW bootstrap"
-      COMMAND cp templates/zeftypes_bootstrap_KW.json zeftypes_KW.json)
+      COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/templates/zeftypes_bootstrap_KW.json zeftypes_KW.json)
   else()
     # We can find the get_zeftypes.py file in various places depending on if we
     # have been packaged into a sdist with python.
     find_file(get_zeftypes_file get_zeftypes.py REQUIERD HINTS ${CMAKE_CURRENT_SOURCE_DIR}/../scripts ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
     add_custom_command(
-      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_ET.json
-      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_RT.json
-      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_EN.json
-      OUTPUT ${CMAKE_CURRENT_SOURCE_DIR}/zeftypes_KW.json
-      WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+      OUTPUT zeftypes_ET.json
+      OUTPUT zeftypes_RT.json
+      OUTPUT zeftypes_EN.json
+      OUTPUT zeftypes_KW.json
       COMMENT "Grabbing latest zeftypes from zefhub using the guest account."
-      # COMMAND ${Python3_EXECUTABLE} -mpip install structlog
       COMMAND ${Python3_EXECUTABLE} ${get_zeftypes_file})
   endif()
 

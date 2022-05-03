@@ -1,53 +1,44 @@
 import os
 from cogapp import Cog
 
-def find_files_of_type(path, filename_endings, recurse=True, directories_to_exclude={}):
-    found_files = set()
-    def treat_dir(path):
-        for entry in os.listdir(path):
-            if not os.path.islink(entry):
-                path_to_entry = path + '/' + entry
-                if recurse and os.path.isdir(path_to_entry) and not any({os.path.samefile(path_to_entry, dir_) for dir_ in directories_to_exclude}):
-                    treat_dir(path_to_entry)
-                else:
-                    if any({path_to_entry.endswith(ending) for ending in filename_endings}):
-                        found_files.add(path_to_entry)
-    treat_dir(path)
-    return found_files
+import sys
+search_path = sys.argv[1]
+output_path = sys.argv[2]
+tokens_path = sys.argv[3]
 
-# two options to invoke:
-# by inclusion:
-#print(find_files_of_type(path='src_cpp', filename_endings={'.py', '.h', '.cpp'}))
-#print("----------------")
-#print(find_files_of_type(path='zefhub', filename_endings={'.py', '.h', '.cpp'}))
-#print("----------------")
-#print(find_files_of_type(path='zefdb', filename_endings={'.py', '.h', '.cpp'}))
-#print("----------------")
-#print(find_files_of_type(path='.', filename_endings={'.py', '.h', '.cpp'}, recurse=False))
-# by exclusion:
-#print(find_files_of_type(path='.', filename_endings={'.py', '.h', '.cpp'}, recurse=True, directories_to_exclude={'libraries'}))
+def find_files_of_type(path, filename_endings, directories_to_exclude={}):
+    # Returns paths relative to the input path
+    for dirpath,dirnames,filenames in os.walk(path):
+        for filename in filenames:
+            thispath = os.path.join(dirpath, filename)
+            if os.path.splitext(thispath)[1] in filename_endings:
+                yield os.path.relpath(thispath, path)
+
+        for dirname in directories_to_exclude:
+            while dirname in dirnames:
+                dirnames.remove(dirname)
 
 cog = Cog()
 cog.options.bReplace = False
 cog.options.bDeleteCode = True
-cog.options.sPrologue = """
+cog.options.sPrologue = f"""
 import cog
 import json
 import os
 
-et_filename = "zeftypes_ET.json" if os.path.exists('zeftypes_ET.json') else "zeftypes_bootstrap_ET.json"
+et_filename = os.path.join("{tokens_path}", "zeftypes_ET.json")
 with open(et_filename) as F:
     et = json.loads(F.read())
 
-rt_filename = "zeftypes_RT.json" if os.path.exists('zeftypes_RT.json') else "zeftypes_bootstrap_RT.json"
+rt_filename = os.path.join("{tokens_path}", "zeftypes_RT.json")
 with open(rt_filename) as F:
     rt = json.loads(F.read())
 
-kw_filename = "zeftypes_KW.json" if os.path.exists('zeftypes_KW.json') else "zeftypes_bootstrap_KW.json"
+kw_filename = os.path.join("{tokens_path}", "zeftypes_KW.json")
 with open(kw_filename) as F:
     kw = json.loads(F.read())
 
-en_filename = "zeftypes_EN.json" if os.path.exists('zeftypes_EN.json') else "zeftypes_bootstrap_EN.json"
+en_filename = os.path.join("{tokens_path}", "zeftypes_EN.json")
 with open(en_filename) as F:
     en = json.loads(F.read())
 
@@ -56,12 +47,15 @@ def enum_type(x):
 def enum_val(x):
     return x.split('.')[1]
 """
+
+
 #cog.options.verbosity = 0
-for filename in find_files_of_type(path='.', filename_endings={'.cog'}, recurse=True):#, directories_to_exclude={'libraries','src_cpp/build_julia_package','gql'}):
+for filename in find_files_of_type(path=search_path, filename_endings={'.cog'}):
     try:
-        true_output = filename[:-len(".cog")] + ".gen"
+        true_output = os.path.join(output_path, filename[:-len(".cog")] + ".gen")
+        os.makedirs(os.path.dirname(true_output), exist_ok=True)
         cog.options.sOutputName = true_output + ".tmp"
-        cog.processOneFile(filename)
+        cog.processOneFile(os.path.join(search_path, filename))
         if not os.path.exists(true_output) or open(true_output + ".tmp").read() != open(true_output).read():
             print(filename, " changed")
             os.rename(true_output + ".tmp", true_output)
