@@ -253,7 +253,15 @@ if(NOT MSVC)
   
   # Do the cogging itself
   add_custom_command(
-    DEPENDS zeftypes_EN.json zeftypes_ET.json zeftypes_RT.json zeftypes_KW.json ${cog_files}
+    # Note: this is a bit more verbose than it normally would be, but that's
+    # because we never want to confuse this with files in the source directory.
+    # This actually happens in the github CI when it wants to do a hash compare
+    # to see if it needs to rebuild.
+    DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/zeftypes_EN.json
+        ${CMAKE_CURRENT_BINARY_DIR}/zeftypes_ET.json
+        ${CMAKE_CURRENT_BINARY_DIR}/zeftypes_RT.json
+        ${CMAKE_CURRENT_BINARY_DIR}/zeftypes_KW.json
+        ${cog_files}
     OUTPUT ${cog_files_output}
     COMMENT "Running cog"
     # We don't install cog at run now, but have to have it around as a dependency.

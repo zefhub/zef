@@ -114,8 +114,9 @@ runs:
         brew install zstd
 
     # Only do the make if the C++ files and their deps have changed. These deps
-    # are everything inside of src_cpp, but also things like the tokens files
-    # from get_zeftypes.py, so we need to call that manually first.
+    # are everything inside of core, but also things like the tokens files from
+    # get_zeftypes.py, so we need to call that first, polluting the source
+    # directory.
 
     - name: Get zeftypes early for cache check
       shell: bash
