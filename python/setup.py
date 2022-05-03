@@ -67,7 +67,7 @@ class cmake_build_ext(build_ext):
                                   cwd=this_build_dir, env=cmake_env)
 
             # Build
-            subprocess.check_call(['cmake', '--build', '.', '--config', cfg],
+            subprocess.check_call(['cmake', '--build', '.', '--config', cfg, '-v'],
                                   cwd=this_build_dir, env=cmake_env)
 
             # Install to the lib dir

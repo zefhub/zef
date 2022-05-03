@@ -41,32 +41,6 @@ if(ZEFDB_TEST_NO_MMAP_CHECKS)
   message(WARNING "Testing mmap slowness - graphs are given 10MB of memory and other ensure page checks are disabled.")
 endif()
 
-######################
-# Macos hinting
-
-# Try and give a good enough hint for success on macos
-if (APPLE)
-  if(NOT DEFINED MACOS_BREW_PREFIX)
-    if(DEFINED ENV{MACOS_BREW_PREFIX})
-      set(MACOS_BREW_PREFIX $ENV{MACOS_BREW_PREFIX})
-    else()
-      execute_process(
-        COMMAND brew --prefix
-        RESULT_VARIABLE BREW_RESULT
-        OUTPUT_VARIABLE MACOS_BREW_PREFIX
-        OUTPUT_STRIP_TRAILING_WHITESPACE)
-      if (BREW_RESULT EQUAL 0 AND EXISTS "${MACOS_BREW_PREFIX}")
-      else()
-        message(SEND_ERROR "Unable to run brew to determine install prefix. Likely to fail later in the build process unless environment variables have been set manually.")
-      endif()
-    endif()
-  endif()
-  message(STATUS "Appending brew install prefix of ${MACOS_BREW_PREFIX} to cmake path. Manually set MACOS_BREW_PREFIX='' to disable this behaviour.")
-
-  list(APPEND CMAKE_PREFIX_PATH ${MACOS_BREW_PREFIX})
-endif()
-
-
 ############################
 # * External projects
 

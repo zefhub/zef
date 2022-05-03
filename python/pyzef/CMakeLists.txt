@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.13)
 
 # Use this to distinguish the full project from the individual subdirectories.
 project(PyZef)
@@ -74,7 +74,6 @@ endif()
 
 if(LIBZEF_PYZEF_BUNDLED)
   find_path(Zef_DIR zefDBConfig.cmake.in REQUIRED)
-  set(LIBZEF_PYZEF_BUNDLED TRUE)
   # Note: no EXCLUDE_FROM_ALL as we want to install the lib file as well.
   add_subdirectory(${Zef_DIR} ${CMAKE_CURRENT_BINARY_DIR}/zef-build)
 endif()
@@ -122,6 +121,9 @@ set_target_properties(pyzef
 
 target_link_libraries(pyzef PUBLIC zef)
 # target_include_directories(pyzef PRIVATE ${Zef_INCLUDE})
+
+# Hoping that hardcoding this will at least allow us to get somewhere.
+target_link_libraries(pyzef PUBLIC openssl)
 
 target_link_libraries(pyzef PUBLIC pybind11_json)
 
