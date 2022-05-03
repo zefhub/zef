@@ -286,7 +286,7 @@ if(NOT MSVC)
   else()
     # We can find the get_zeftypes.py file in various places depending on if we
     # have been packaged into a sdist with python.
-    find_file(get_zeftypes_file get_zeftypes.py REQUIERD HINTS ${CMAKE_CURRENT_SOURCE_DIR}/../scripts ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
+    find_file(get_zeftypes_file get_zeftypes.py REQUIRED HINTS ${CMAKE_CURRENT_SOURCE_DIR}/../scripts ${CMAKE_CURRENT_SOURCE_DIR}/scripts)
     add_custom_command(
       OUTPUT zeftypes_ET.json
       OUTPUT zeftypes_RT.json

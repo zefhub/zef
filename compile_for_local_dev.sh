@@ -1,17 +1,17 @@
 #!/bin/bash
 
 echo "pip-ing"
-if ! which jq ; then
+if ! which jq > /dev/null ; then
     echo "jq needs to be installed to use this script. If you are on macos, please run `brew install jq`. If you are on linux use your package manager to install jq (e.g. `sudo apt-get install jq` or `sudo pacman -S jq`)"
     exit 1
 fi
-if ! which realpath ; then
+if ! which realpath > /dev/null ; then
     echo "realpath needs to be installed to use this script. If you are on macos, please run `brew install coreutils`. If you are on linux this is weird, realpath should already be available!"
     exit 1
 fi
 
 # Use tomlq to extract the build requirements
-if ! which tomlq ; then
+if ! which tomlq > /dev/null ; then
     python3 -m pip install yq || exit 1
 fi
 
@@ -30,16 +30,23 @@ python3 -m pip install "${packages[@]}" || exit 1
 
     [ -d build ] || mkdir build || exit 1
     cd build
+
+    if which ninja > /dev/null ; then
+        export CMAKE_GENERATOR=Ninja
+        CMAKE_ARGS=""
+    else
+        if which nproc ; then
+            np="$(expr $(nproc))"
+        elif which sysctl ; then
+            np="$(expr $(sysctl -n hw.logicalcpu))"
+        else
+            np=""
+        fi
+        CMAKE_ARGS="-j $np"
+    fi
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(realpath ../../../core) || exit 1
 
-    if which nproc ; then
-        np="$(expr $(nproc))"
-    elif which sysctl ; then
-        np="$(expr $(sysctl -n hw.logicalcpu))"
-    else
-        np=""
-    fi
-    cmake --build . || exit 1
+    cmake --build $CMAKE_ARGS . || exit 1
 )
 
 ln -fs $(realpath python/pyzef/build/pyzef.* --relative-to=python/zef) python/zef/
