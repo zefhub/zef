@@ -84,11 +84,20 @@ if(OPENSSL_FOUND)
   message(STATUS "Found openssl libraries at: ${OPENSSL_LIBRARIES}")
   message(STATUS "Found openssl includes at: ${OPENSSL_INCLUDE_DIR}")
   add_library(openssl INTERFACE)
-  target_include_directories(openssl INTERFACE ${OPENSSL_INCLUDE_DIRS})
+  target_include_directories(openssl SYSTEM INTERFACE ${OPENSSL_INCLUDE_DIRS})
+  target_include_directories(openssl INTERFACE /usr/dannynorm)
+  target_include_directories(openssl INTERFACE /usr/dannynorm_sysow)
+  target_include_directories(openssl SYSTEM INTERFACE /usr/dannysys)
+  target_include_directories(openssl SYSTEM INTERFACE /usr/dannysysow)
   target_link_libraries(openssl INTERFACE ${OPENSSL_LIBRARIES})
 else()
   message(FATAL_ERROR "Couldn't find openssl via cmake, pkg-config or find_library")
 endif()
+
+add_library(test_ow INTERFACE)
+target_include_directories(test_ow SYSTEM INTERFACE /usr/dannynorm_sysow)
+target_include_directories(test_ow INTERFACE /usr/dannysysow)
+
 
 # * nlohmann json
 message(STATUS "External: nlohmann_json")
@@ -127,7 +136,7 @@ if(NOT asio_POPULATED)
 endif()
 
 add_library(asio INTERFACE)
-target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
+target_include_directories(asio SYSTEM INTERFACE ${asio_SOURCE_DIR}/asio/include)
 target_link_libraries(asio INTERFACE openssl)
 
 # * websocketpp
@@ -147,7 +156,7 @@ if(NOT websocketpp_POPULATED)
 endif()
 
 add_library(websocketpp INTERFACE)
-target_include_directories(websocketpp INTERFACE ${websocketpp_SOURCE_DIR})
+target_include_directories(websocketpp SYSTEM INTERFACE ${websocketpp_SOURCE_DIR})
 target_link_libraries(websocketpp INTERFACE asio)
 
 
@@ -210,7 +219,7 @@ target_sources(blake3 INTERFACE
     ${blake3_SOURCE_DIR}/c/blake3_avx512_x86-64_unix.S
     )
 
-target_include_directories(blake3 INTERFACE ${blake3_SOURCE_DIR}/c)
+target_include_directories(blake3 SYSTEM INTERFACE ${blake3_SOURCE_DIR}/c)
 
 # * jwt-cpp
 message(STATUS "External: jwt-cpp")
@@ -252,7 +261,7 @@ if(LIBZEF_BUNDLED_ZSTD)
   target_link_libraries(libzstd_internal INTERFACE libzstd_static)
   # Because the cmake of libzstd is a little dodgy, we need to manually add in the include directories.
   get_target_property(LIBZSTD_INCLUDE_DIRECTORIES libzstd_static INCLUDE_DIRECTORIES)
-  target_include_directories(libzstd_internal INTERFACE ${LIBZSTD_INCLUDE_DIRECTORIES})
+  target_include_directories(libzstd_internal SYSTEM INTERFACE ${LIBZSTD_INCLUDE_DIRECTORIES})
 else()
   # Finding zstd through various options.
   # 1. First try pkg-config
@@ -282,7 +291,7 @@ else()
     message(STATUS "Found zstd libraries at: ${ZSTD_LIBRARIES}")
     message(STATUS "Found zstd includes at: ${ZSTD_INCLUDE_DIRS}")
     add_library(libzstd_internal INTERFACE)
-    target_include_directories(libzstd_internal INTERFACE ${ZSTD_INCLUDE_DIRS})
+    target_include_directories(libzstd_internal SYSTEM INTERFACE ${ZSTD_INCLUDE_DIRS})
     target_link_libraries(libzstd_internal INTERFACE ${ZSTD_LIBRARIES})
   else()
     message(FATAL_ERROR "Couldn't find zstd via cmake, pkg-config or find_library")
@@ -335,7 +344,7 @@ else()
     message(STATUS "Found curl libraries at: ${CURL_LIBRARIES}")
     message(STATUS "Found curl includes at: ${CURL_INCLUDE_DIRS}")
     add_library(libcurl INTERFACE)
-    target_include_directories(libcurl INTERFACE ${CURL_INCLUDE_DIRS})
+    target_include_directories(libcurl SYSTEM INTERFACE ${CURL_INCLUDE_DIRS})
     target_link_libraries(libcurl INTERFACE ${CURL_LIBRARIES})
   else()
     message(FATAL_ERROR "Couldn't find curl via cmake, pkg-config or find_library")
