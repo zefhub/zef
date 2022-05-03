@@ -103,12 +103,13 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev
+        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev ninja-build
 
     - name: Grab homebrew packages
       if: ${{ startsWith(inputs.os, 'macos') }}
       shell: bash
       run: |
+        brew install ninja
         brew install openssl
         brew install zstd
 

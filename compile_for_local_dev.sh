@@ -46,7 +46,7 @@ python3 -m pip install "${packages[@]}" || exit 1
     fi
     cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(realpath ../../../core) || exit 1
 
-    cmake --build $CMAKE_ARGS . || exit 1
+    cmake --build . $CMAKE_ARGS || exit 1
 )
 
 ln -fs $(realpath python/pyzef/build/pyzef.* --relative-to=python/zef) python/zef/
