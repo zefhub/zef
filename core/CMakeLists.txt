@@ -155,7 +155,7 @@ target_link_libraries(zef PUBLIC range-v3)
 target_link_libraries(zef PRIVATE doctest)
 target_link_libraries(zef PUBLIC websocketpp)
 # target_link_libraries(zef PRIVATE blake3)
-target_link_libraries(zef PRIVATE openssl)
+target_link_libraries(zef PUBLIC openssl)
 target_link_libraries(zef PRIVATE libcurl)
 target_link_libraries(zef PRIVATE jwt-cpp)
 # Until I fix up our header deps this will have to be public
