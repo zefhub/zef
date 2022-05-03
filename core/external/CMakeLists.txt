@@ -11,6 +11,8 @@ function(ManualFetchContent_MakeAvailable name)
   add_subdirectory(${${name}_SOURCE_DIR} ${${name}_BINARY_DIR} EXCLUDE_FROM_ALL)
 endfunction()
 
+find_package(PkgConfig QUIET)
+
 # * nlohmann json
 message(STATUS "External: nlohmann_json")
 
@@ -207,4 +209,106 @@ else()
   else()
     message(FATAL_ERROR "Couldn't find zstd via cmake, pkg-config or find_library")
   endif()
+endif()
+
+
+# * libcurl
+if(LIBZEF_BUNDLED_CURL)
+  message(STATUS "External: curl")
+
+  FetchContent_Declare(curl
+    GIT_REPOSITORY https://github.com/curl/curl
+    GIT_TAG curl-7_83_0
+    GIT_SHALLOW ON
+    UPDATE_COMMAND "")
+
+  # Have to do this manually as the cmake directory is deep
+  FetchContent_GetProperties(curl)
+  if(NOT ${curl_POPULATED})
+    FetchContent_Populate(curl)
+  endif()
+
+  set(BUILD_CURL_EXE OFF)
+  set(BUILD_SHARED_LIBS OFF)
+  set(BUILD_TESTING OFF)
+  add_subdirectory(${curl_SOURCE_DIR} ${curl_BINARY_DIR} EXCLUDE_FROM_ALL)
+  set_target_properties(libcurl PROPERTIES
+    POSITION_INDEPENDENT_CODE ON)
+else()
+  if(PKGCONFIG_FOUND)
+    pkg_check_modules(CURL libcurl)
+    if(CURL_FOUND)
+      message(STATUS "Found curl with pkg-config")
+      set(CURL_LIBRARIES ${CURL_LINK_LIBRARIES})
+    endif()
+  endif()
+  if(NOT CURL_FOUND)
+    find_package(Curl QUIET)
+  endif()
+  if(NOT CURL_FOUND)
+    find_library(CURL_LIBRARIES curl)
+    find_path(CURL_INCLUDE_DIRS curl/curl.h)
+    if(CURL_LIBRARIES AND CURL_INCLUDE_DIRS)
+      set(CURL_FOUND TRUE)
+    endif()
+  endif()
+
+  if(CURL_FOUND)
+    message(STATUS "Found curl libraries at: ${CURL_LIBRARIES}")
+    message(STATUS "Found curl includes at: ${CURL_INCLUDE_DIRS}")
+    add_library(libcurl INTERFACE)
+    target_include_directories(libcurl INTERFACE ${CURL_INCLUDE_DIRS})
+    target_link_libraries(libcurl INTERFACE ${CURL_LIBRARIES})
+  else()
+    message(FATAL_ERROR "Couldn't find curl via cmake, pkg-config or find_library")
+  endif()
+endif()
+
+
+
+
+# ** openssl
+
+# This is only here for consistency. It doesn't have an option to pull from
+# upstream and only builds using the system libraries.
+
+if(APPLE)
+  # Brew on macos doesn't link these things in by default to not shadow the main macos openssl 
+  execute_process(
+    COMMAND brew --prefix openssl
+    RESULT_VARIABLE BREW_RESULT
+    OUTPUT_VARIABLE BREW_OPENSSL_PATH
+    OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if (BREW_RESULT EQUAL 0 AND EXISTS "${BREW_OPENSSL_PATH}")
+    list(APPEND CMAKE_PREFIX_PATH ${BREW_OPENSSL_PATH})
+  endif()
+endif()
+
+find_package(OpenSSL QUIET)
+if(NOT OPENSSL_FOUND)
+  if(PKGCONFIG_FOUND)
+    pkg_check_modules(OPENSSL openssl)
+    if(OPENSSL_FOUND)
+      message(STATUS "Found openssl with pkg-config")
+      set(OPENSSL_LIBRARIES ${OPENSSL_LINK_LIBRARIES})
+      set(OPENSSL_INCLUDE_DIR ${OPENSSL_INCLUDE_DIRS})
+    endif()
+  endif()
+endif()
+if(NOT OPENSSL_FOUND)
+  find_library(OPENSSL_LIBRARIES ssl)
+  find_path(OPENSSL_INCLUDE_DIR openssl/ssl.h)
+  if(OPENSSL_LIBRARIES AND OPENSSL_INCLUDE_DIR)
+    set(OPENSSL_FOUND TRUE)
+  endif()
+endif()
+
+if(OPENSSL_FOUND)
+  message(STATUS "Found openssl libraries at: ${OPENSSL_LIBRARIES}")
+  message(STATUS "Found openssl includes at: ${OPENSSL_INCLUDE_DIR}")
+  add_library(openssl INTERFACE)
+  target_include_directories(openssl INTERFACE ${OPENSSL_INCLUDE_DIRS})
+  target_link_libraries(openssl INTERFACE ${OPENSSL_LIBRARIES})
+else()
+  message(FATAL_ERROR "Couldn't find openssl via cmake, pkg-config or find_library")
 endif()

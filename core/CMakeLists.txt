@@ -1,7 +1,8 @@
 # TODO: Fix up the zeftypes files so that they are grabbed and used for cogging
 # inside of the build directories only.
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.13)
+# This makes option() recognise set() variables
 cmake_policy(SET CMP0077 NEW)
 
 # Use this to distinguish the full project from the individual subdirectories.
@@ -18,9 +19,16 @@ endif()
 option(LOCAL_ZEFTYPES "Disable getting zeftypes from zefhub" FALSE)
 option(ZEFDB_ALLOW_NO_TLS "Allow insecure websockets for ZefHub connections" TRUE)
 option(ZEFDB_TEST_NO_MMAP_CHECKS "Test for mmap slowness" FALSE)
-option(LIBZEF_PYZEF_BUNDLED "libzef is going to be bundled together with pyzef, which  means putting files in different places." FALSE)
-option(LIBZEF_BUNDLED_ZSTD "Bundle libzstd in the library" TRUE)
+option(LIBZEF_PYZEF_BUNDLED "libzef is going to be bundled together with pyzef, which means putting files in different places." FALSE)
 
+# When bundling for pyzef we default to bundling everything else.
+if(LIBZEF_PYZEF_BUNDLED)
+  option(LIBZEF_BUNDLED_ZSTD "Bundle libzstd statically in the library" TRUE)
+  option(LIBZEF_BUNDLED_CURL "Bundle libcurl statically in the library" TRUE)
+else()
+  option(LIBZEF_BUNDLED_ZSTD "Bundle libzstd statically in the library" FALSE)
+  option(LIBZEF_BUNDLED_CURL "Bundle libcurl statically in the library" FALSE)
+endif()
 
 
 if(ZEFDB_ALLOW_NO_TLS)
@@ -58,78 +66,6 @@ if (APPLE)
   list(APPEND CMAKE_PREFIX_PATH ${MACOS_BREW_PREFIX})
 endif()
 
-############################
-# * External single libraries
-
-find_package(PkgConfig QUIET)
-
-# ** openssl
-
-if(APPLE)
-  # Brew on macos doesn't link these things in by default to not shadow the main macos openssl 
-  execute_process(
-    COMMAND brew --prefix openssl
-    RESULT_VARIABLE BREW_RESULT
-    OUTPUT_VARIABLE BREW_OPENSSL_PATH
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  if (BREW_RESULT EQUAL 0 AND EXISTS "${BREW_OPENSSL_PATH}")
-    list(APPEND CMAKE_PREFIX_PATH ${BREW_OPENSSL_PATH})
-  endif()
-endif()
-
-find_package(OpenSSL QUIET)
-if(NOT OPENSSL_FOUND)
-  if(PKGCONFIG_FOUND)
-    pkg_check_modules(OPENSSL openssl)
-    if(OPENSSL_FOUND)
-      message(STATUS "Found openssl with pkg-config")
-      set(OPENSSL_LIBRARIES ${OPENSSL_LINK_LIBRARIES})
-      set(OPENSSL_INCLUDE_DIR ${OPENSSL_INCLUDE_DIRS})
-    endif()
-  endif()
-endif()
-if(NOT OPENSSL_FOUND)
-  find_library(OPENSSL_LIBRARIES ssl)
-  find_path(OPENSSL_INCLUDE_DIR openssl/ssl.h)
-  if(OPENSSL_LIBRARIES AND OPENSSL_INCLUDE_DIR)
-    set(OPENSSL_FOUND TRUE)
-  endif()
-endif()
-
-if(OPENSSL_FOUND)
-  message(STATUS "Found openssl libraries at: ${OPENSSL_LIBRARIES}")
-  message(STATUS "Found openssl includes at: ${OPENSSL_INCLUDE_DIR}")
-else()
-  message(FATAL_ERROR "Couldn't find openssl via cmake, pkg-config or find_library")
-endif()
-  
-
-# ** libcurl
-
-if(PKGCONFIG_FOUND)
-  pkg_check_modules(CURL libcurl)
-  if(CURL_FOUND)
-    message(STATUS "Found curl with pkg-config")
-    set(CURL_LIBRARIES ${CURL_LINK_LIBRARIES})
-  endif()
-endif()
-if(NOT CURL_FOUND)
-  find_package(Curl QUIET)
-endif()
-if(NOT CURL_FOUND)
-  find_library(CURL_LIBRARIES curl)
-  find_path(CURL_INCLUDE_DIRS curl/curl.h)
-  if(CURL_LIBRARIES AND CURL_INCLUDE_DIRS)
-    set(CURL_FOUND TRUE)
-  endif()
-endif()
-
-if(CURL_FOUND)
-  message(STATUS "Found curl libraries at: ${CURL_LIBRARIES}")
-  message(STATUS "Found curl includes at: ${CURL_INCLUDE_DIRS}")
-else()
-  message(FATAL_ERROR "Couldn't find curl via cmake, pkg-config or find_library")
-endif()
 
 ############################
 # * External projects
@@ -207,12 +143,6 @@ target_include_directories(zef PUBLIC
   $<INSTALL_INTERFACE:include/zef>
   )
 
-target_include_directories(zef PUBLIC ${CURL_INCLUDE_DIRS})
-target_include_directories(zef PUBLIC ${OPENSSL_INCLUDE_DIR})
-
-target_link_libraries(zef PUBLIC ${OPENSSL_LIBRARIES})
-target_link_libraries(zef PUBLIC ${CURL_LIBRARIES})
-
 MESSAGE(STATUS "Compiler version is ${CMAKE_CXX_COMPILER_VERSION}")
 if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
   MESSAGE(STATUS "Including stdc++fs into libraries.")
@@ -225,7 +155,8 @@ target_link_libraries(zef PUBLIC range-v3)
 target_link_libraries(zef PRIVATE doctest)
 target_link_libraries(zef PUBLIC websocketpp)
 # target_link_libraries(zef PRIVATE blake3)
-target_link_libraries(zef PRIVATE curl)
+target_link_libraries(zef PRIVATE openssl)
+target_link_libraries(zef PRIVATE libcurl)
 target_link_libraries(zef PRIVATE jwt-cpp)
 # Until I fix up our header deps this will have to be public
 target_link_libraries(zef PUBLIC libzstd_internal)

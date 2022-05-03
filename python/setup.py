@@ -36,6 +36,14 @@ class cmake_build_ext(build_ext):
             # os.makedirs(this_install_dir, exist_ok=True)
 
             cmake_path_s = ':'.join(os.path.abspath(x) for x in ext.cmake_path)
+            # Use ninja if available
+            ret = subprocess.call(['which', 'ninja'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if ret == 0:
+                cmake_env = {"CMAKE_GENERATOR": "Ninja"}
+                # The update after the initial value will allow an external caller to override this option if they want.
+                cmake_env.update(os.environ)
+            else:
+                cmake_env = None
             cmake_args = [
                 f'-DCMAKE_BUILD_TYPE={cfg}',
                 # Hint CMake to use the same Python executable that
@@ -52,19 +60,19 @@ class cmake_build_ext(build_ext):
             ] + ext.cmake_args
 
             # For debugging CI builds
-            subprocess.call(['set'], shell=True)
+            # subprocess.call(['set'], shell=True, env=cmake_env)
 
             # Config
             subprocess.check_call(['cmake', ext.cmake_lists_dir] + cmake_args,
-                                  cwd=this_build_dir)
+                                  cwd=this_build_dir, env=cmake_env)
 
             # Build
-            subprocess.check_call(['cmake', '--build', '.', '--config', cfg, '--', '-j'],
-                                  cwd=this_build_dir)
+            subprocess.check_call(['cmake', '--build', '.', '--config', cfg],
+                                  cwd=this_build_dir, env=cmake_env)
 
             # Install to the lib dir
             subprocess.check_call(['cmake', '--install', '.'],
-                                  cwd=this_build_dir)
+                                  cwd=this_build_dir, env=cmake_env)
             
             
 
