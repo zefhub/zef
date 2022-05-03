@@ -4671,10 +4671,10 @@ def is_a_implementation(x, typ):
         from typing import Callable
         for t in setof.d['absorbed']: 
             if isinstance(t, ValueType): 
-                if not is_a_implementation(el, t): return False
+                return Error.ValueError(f"A ValueType was passed to SetOf but it only takes predicate functions. Try wrapping in is_a[{t}]")
             elif isinstance(t, (ZefOp, Callable)):
                 if not t(el): return False
-            else: return Error.ValueError(f"Expected a predicate function or value type inside SetOf but got {t} instead.")
+            else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside SetOf but got {t} instead.")
         return True
 
     def valuetype_matching(el, vt):
