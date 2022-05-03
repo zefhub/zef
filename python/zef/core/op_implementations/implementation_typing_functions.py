@@ -4486,6 +4486,8 @@ def source_implementation(zr, *curried_args):
         return fr_source_imp(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
+    if is_a(zr, ET):
+        raise Exception(f"Can't take the source of an entity (have {zr}), only relations have sources/targets")
     return (pyzefops.source)(zr, *curried_args)
 
 def target_implementation(zr):
@@ -4493,6 +4495,8 @@ def target_implementation(zr):
         return fr_target_imp(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
+    if is_a(zr, ET):
+        raise Exception(f"Can't take the target of an entity (have {zr}), only relations have sources/targets")
     return pyzefops.target(zr)
 
 def value_implementation(zr, maybe_tx=None):
