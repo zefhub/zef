@@ -29,12 +29,10 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Showing tags from different sources
-        env:
-          FROM_RELEASE: ${{ toJSON(github.event.release.tag_name) }}
+      - name: Install OpenSSL on macos
+        if: ${{ !startsWith(matrix.os, 'macos') }}
         run: |
-          echo GITHUB_REF is $GITHUB_REF
-          echo FROM_RELEASE is $FROM_RELEASE
+          brew install openssl
 
 
       - name: Build wheels
