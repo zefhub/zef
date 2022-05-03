@@ -25,13 +25,28 @@ def get_serializable_types():
 serialization_mapping = {}
 deserialization_mapping = {}
 
+def is_serialization(v):
+    return isinstance(v, dict) and v.get("_zeftype", None) == "serialization"
+
 def serialize(v):
-    # from ..zefops import uid, tx, to_frame, first
     """
-    Given a dictionary, list, and any Zeftype this function converts all of the ZefTypes into
-    dictionaries that describe the ZefType and allows it to be serialized using JSON dumps.
-    This function recursively call iself and other internal functions 
-    to fully explore nested lists and dictionaries.
+    Given a dictionary, list, and any Zeftype this function converts all of the
+    ZefTypes into dictionaries that describe the ZefType and allows it to be
+    serialized using JSON dumps.
+
+    This function wraps the result of serialize_internal with a serialization
+    header. The output of this function will always be a dictionary, even if
+    serialize_internal does no work.
+    """
+
+    return {"_zeftype": "serialization",
+            "version": 1,
+            "data": serialize_internal(v)}
+
+def serialize_internal(v):
+    """
+    This function is the recursive core of the serialization, which does not
+    wrap the objects with any header.
     """
 
     # Serializes a list and recursively calls itself if one of the list elements is of type List
@@ -56,12 +71,26 @@ def serialize(v):
     raise Exception(f"Don't know how to serialize type {type(v)}")
 
 def deserialize(v):
-    # from ..zefops import to_frame
     """
-    Given a dictionary that includes serialized Zeftypes, Dicts, Lists this function converts all of the serialized ZefTypes 
-    into their original ZefType form.
-    This function recursively call iself and other internal functions 
-    to fully deserialize nested lists and dictionaries.
+    Given an output from a previous call to serialize, convert the contained
+    Zeftypes, Dicts, Lists into their original forms. This function recursively
+    calls itself and other internal functions to fully deserialize nested lists
+    and dictionaries.
+    """
+    if not is_serialization(v):
+        from .logger import log
+        log.warn("Warning, deserializing an object without a serialization header. This behaviour is deprecated.")
+        return deserialize_internal(v)
+
+    if v.get("version", None) != 1:
+        raise Exception("Don't understand serialization version '{v.get('version', None)}'")
+
+    return deserialize_internal(v["data"])
+
+def deserialize_internal(v):
+    """
+    This function is the recursive core of the deserialization, where the
+    objects are not wrapped in the serialization header.
     """
     if isinstance(v, dict) and "_zeftype" in v:
         v = deserialization_mapping[v["_zeftype"]](v)
@@ -101,17 +130,17 @@ def serialize_flatgraph_or_flatref(fg_or_fr) -> dict:
 def serialize_tuple(l: tuple) -> dict:
     return {
         "_zeftype": "tuple",
-        "items": [serialize(el) for el in l]
+        "items": [serialize_internal(el) for el in l]
     }
 
 def serialize_list(l: list) -> list:
-    return [serialize(el) for el in l]
+    return [serialize_internal(el) for el in l]
 
 def serialize_dict(json_d: dict) -> dict:
     # return {k: serialize(v) for k,v in json_d.items()}
     return {
         "_zeftype": "dict",
-        "items": [[serialize(k), serialize(v)] for k,v in json_d.items()]
+        "items": [[serialize_internal(k), serialize_internal(v)] for k,v in json_d.items()]
     }
 
 def serialize_zeftypes(z) -> dict:
@@ -144,7 +173,7 @@ def serialize_zeftypes(z) -> dict:
     elif isinstance(z, RelationType) or isinstance(z, EntityType) or isinstance(z, AtomicEntityType):
         bt_type = {RelationType: "RT", EntityType: "ET", AtomicEntityType: "AET"}[type(z)]
         absorbed_args = LazyValue(z) | absorbed | collect
-        absorbed_args = serialize(absorbed_args)
+        absorbed_args = serialize_internal(absorbed_args)
         return {"_zeftype": bt_type, "value": str(z), "absorbed": absorbed_args}
 
     elif isinstance(z, Graph):
@@ -188,7 +217,7 @@ def serialize_zeftypes(z) -> dict:
         uid_or_uids = "uids" if abstract_type == "Relation" else "uid"
         type_or_types = [serialize_zeftypes(rae) for rae in z.d['type']] if abstract_type == "Relation" else serialize_zeftypes(z.d['type'])
         absorbed_args = z.d['absorbed']
-        return {"_zeftype": abstract_type, "type": type_or_types, uid_or_uids: serialize_zeftypes(z.d[uid_or_uids]), 'absorbed': serialize(absorbed_args)}
+        return {"_zeftype": abstract_type, "type": type_or_types, uid_or_uids: serialize_zeftypes(z.d[uid_or_uids]), 'absorbed': serialize_internal(absorbed_args)}
 
     elif isinstance(z, _ErrorType):
         return {"_zeftype": "ErrorType", "type": z.name, "args": serialize_list(z.args)}
@@ -242,14 +271,14 @@ def serialize_zefops(k_type, ops):
 
 
 def deserialize_tuple(json_d: dict) -> tuple:
-    return tuple(deserialize(el) for el in json_d["items"])
+    return tuple(deserialize_internal(el) for el in json_d["items"])
 
 def deserialize_list(l: list) -> list:
-    return [deserialize(el) for el in l]
+    return [deserialize_internal(el) for el in l]
 
 def deserialize_dict(json_d):
     # return {k: deserialize(v) for k,v in json_d.items()}
-    return {deserialize(k): deserialize(v) for k,v in json_d["items"]}
+    return {deserialize_internal(k): deserialize_internal(v) for k,v in json_d["items"]}
 
     
 def deserialize_zeftypes(z) -> dict:
@@ -270,7 +299,7 @@ def deserialize_zeftypes(z) -> dict:
 
     elif z['_zeftype'] in {"RT", "ET"}:
         bt_class = {"RT": RT, "ET": ET}[z['_zeftype']]
-        absorbed_args = deserialize(z['absorbed'])
+        absorbed_args = deserialize_internal(z['absorbed'])
         base = bt_class(z['value'])
         base._absorbed = absorbed_args
         return base
@@ -287,7 +316,7 @@ def deserialize_zeftypes(z) -> dict:
                 "Time":             AET.Time,
                 "Serialized":       AET.Serialized,
         }
-        absorbed_args = deserialize(z['absorbed'])
+        absorbed_args = deserialize_internal(z['absorbed'])
         first_part,*rest = z['value'].split('.')
         out = type_map[first_part]
         for part in rest:
@@ -338,7 +367,7 @@ def deserialize_zeftypes(z) -> dict:
         uid_or_uids = "uids" if z['_zeftype'] == "Relation" else "uid"
         uid_or_uids_value = tuple(z[uid_or_uids]) if z['_zeftype'] == "Relation" else z[uid_or_uids]
         type_or_types = tuple([deserialize_zeftypes(rae) for rae in z['type']]) if z['_zeftype'] == "Relation" else deserialize_zeftypes(z['type'])
-        absorbed_args = deserialize(z['absorbed'])
+        absorbed_args = deserialize_internal(z['absorbed'])
         return abstract_type({'type': type_or_types, uid_or_uids: deserialize_zeftypes(uid_or_uids_value), 'absorbed': absorbed_args})
 
     elif z['_zeftype'] == "ErrorType":
