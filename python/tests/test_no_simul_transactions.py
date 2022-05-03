@@ -31,7 +31,7 @@ class MyTestCase(unittest.TestCase):
         g = Graph()
         # TODO: Need to fix this!
         with self.assertRaises(Exception):
-            asyncio.get_event_loop().run_until_complete(Parent(g))
+            asyncio.run(Parent(g))
 
         # This is for when things can work, or at least wait on one another.
         #self.assertTrue(time_before_parent_sleep < time_inside_client < time_after_parent_sleep)
