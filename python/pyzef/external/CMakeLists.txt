@@ -23,6 +23,7 @@ endfunction()
 #   GIT_TAG v3.9.1
 #   # GIT_TAG v3.10.4
 #   GIT_SHALLOW ON
+#   PATCH_COMMAND git apply ${CMAKE_CURRENT_SOURCE_DIR}/pybindjson_disable_bytes_tuple.patch
 #   UPDATE_COMMAND "")
 
 # # FetchContent_MakeAvailable(nlohmann_json)

@@ -115,6 +115,8 @@ parser = configparser.ConfigParser()
 with open(setup_cfg, "r") as cfg_file:
     parser.read_file(cfg_file)
 libzef_location = parser.get("libzef", "location", fallback=None)
+if libzef_location is None:
+    libzef_location = os.environ.get("LIBZEF_LOCATION", None)
 libzef_kind = parser.get("libzef", "kind", fallback="guess")
 if libzef_kind == "guess":
     if libzef_location is None:
@@ -132,7 +134,9 @@ if libzef_kind == "guess":
         elif os.path.exists(os.path.join(libzef_location, "zefDBConfig.cmake.in")):
             libzef_kind = "source"
         else:
-            raise Exception(f"Can't guess what kind of libzef exists at '{libzef_location}'")
+            raise Exception(f"Can't guess what kind of libzef exists at '{libzef_location}' looking from the cwd of '{os.getcwd()}'. If this is a relative directory, and you are installing via `pip wheel ...` or similar, then you should specify it in either the setup.cfg, or via the `LIBZEF_LOCATION` environment variable, as a absolute directory.")
+
+    print(f"libzef location was guessed to be '{libzef_kind}' from using directory '{libzef_location}' (although it may be on the cmake path instead)")
     
 if libzef_location is None:
     libzef_paths = []
