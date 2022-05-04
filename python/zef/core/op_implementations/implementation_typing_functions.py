@@ -5138,6 +5138,22 @@ def hasin_type_info(op, curr_type):
 def rae_type_type_info(op, curr_type):
     return VT.BT
 
+
+def is_represented_as_implementation(arg, vt):
+    if isinstance(arg, bool):
+        return vt == VT.Bool
+    
+    if isinstance(arg, int):
+        return vt == VT.Int
+
+    if isinstance(arg, float):
+        return vt == VT.Float
+    
+    return Error(f"Is Represented As not implemented for {type(arg)}")
+
+
+def is_represented_as_type_info(op, curr_type):
+    VT.Bool
 #---------------------------------------- tag -----------------------------------------------
 def tag_imp(x, tag: str, force: bool = False):
     """ 

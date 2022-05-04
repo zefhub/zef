@@ -107,6 +107,7 @@ _op_to_functions = {
         RT.Tap:             (tap_imp, tap_tp),
         RT.Push:            (push_imp, push_tp),
         RT.IsA:             (is_a_implementation, is_a_type_info),
+        RT.IsRepresentedAs: (is_represented_as_implementation, is_represented_as_type_info),
         RT.ZefType:         (zef_type_imp, None),
         RT.HasRelation:     (has_relation_implementation, has_relation_type_info),
         RT.Relation:        (relation_implementation, relation_type_info),
