@@ -79,7 +79,7 @@ class ValueType:
         try:
             f = _value_type_constructor_funcs[self.d["type_name"]]
         except KeyError:
-            return Error(f'{self.d["type_name"]}(...) was called, but constructor function was registered for this type')
+            return Error(f'{self.d["type_name"]}(...) was called, but no constructor function was registered for this type')
         return f(*args, **kwargs)
 
 

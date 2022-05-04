@@ -1,26 +1,46 @@
 from .value_type import *
 
 
-Nil        = ValueType(type_name='Nil', constructor_func=None)
-Any        = ValueType(type_name='Any', constructor_func=None)
-Bool       = ValueType(type_name='Bool', constructor_func=bool)
-Int        = ValueType(type_name='Int', constructor_func=int)
-Float      = ValueType(type_name='Float', constructor_func=float)
-String     = ValueType(type_name='String', constructor_func=str)
-List       = ValueType(type_name='List', constructor_func=tuple)
-Dict       = ValueType(type_name='Dict', constructor_func=dict)
-Set        = ValueType(type_name='Set', constructor_func=set)
-EZefRef    = ValueType(type_name='EZefRef', constructor_func=None)    
-ZefRef     = ValueType(type_name='ZefRef', constructor_func=None)     
-Graph      = ValueType(type_name='Graph', constructor_func=None)     
+# the following functions add a layer of indirection to prevent circular imports
+
+def graph_ctor(*args, **kwargs):
+    from ... import core
+    return core.Graph(*args, **kwargs)
+
+
+
+def time_ctor(*args, **kwargs):
+    from ... import pyzef
+    return pyzef.main.Time(*args, **kwargs)
+
+
+# def error_ctor(*args, **kwargs):
+#     from ... import core
+#     return core.error._Error.Error(*args, **kwargs)
+
+
+Error.RuntimeError('abcd')
+
+Nil        = ValueType(type_name='Nil',        constructor_func=None)
+Any        = ValueType(type_name='Any',        constructor_func=None)
+Bool       = ValueType(type_name='Bool',       constructor_func=bool)
+Int        = ValueType(type_name='Int',        constructor_func=int)
+Float      = ValueType(type_name='Float',      constructor_func=float)
+String     = ValueType(type_name='String',     constructor_func=str)
+List       = ValueType(type_name='List',       constructor_func=tuple)
+Dict       = ValueType(type_name='Dict',       constructor_func=dict)
+Set        = ValueType(type_name='Set',        constructor_func=set)
+EZefRef    = ValueType(type_name='EZefRef',    constructor_func=None)    
+ZefRef     = ValueType(type_name='ZefRef',     constructor_func=None)     
+Graph      = ValueType(type_name='Graph',      constructor_func=graph_ctor)     
 GraphSlice = ValueType(type_name='GraphSlice', constructor_func=None)     
-FlatGraph  = ValueType(type_name='FlatGraph', constructor_func=None)     
-ZefOp      = ValueType(type_name='ZefOp', constructor_func=None)     
-Stream     = ValueType(type_name='Stream', constructor_func=None)     
-TX         = ValueType(type_name='TX',          constructor_func=None)     
-Time       = ValueType(type_name='Time',       constructor_func=None)
-Graph      = ValueType(type_name='Graph',      constructor_func=None) 
+FlatGraph  = ValueType(type_name='FlatGraph',  constructor_func=None)     
+ZefOp      = ValueType(type_name='ZefOp',      constructor_func=None)     
+Stream     = ValueType(type_name='Stream',     constructor_func=None)     
+TX         = ValueType(type_name='TX',         constructor_func=None)     
+Time       = ValueType(type_name='Time',       constructor_func=time_ctor)
 Error      = ValueType(type_name='Error',      constructor_func=None)
+Image      = ValueType(type_name='Image',      constructor_func=None)
 
 UID        = ValueType(type_name='UID',        constructor_func=None)       
 BaseUID    = ValueType(type_name='BaseUID',    constructor_func=None)       
