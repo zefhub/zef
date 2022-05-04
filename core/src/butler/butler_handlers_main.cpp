@@ -91,6 +91,11 @@ void Butler::handle_guest_message(TokenQuery & content, Butler::msg_ptr & msg) {
         }
     }
 
+
+    // This is a bit of the logic inside of wait_for_auth, so that we can put a more informative error message.
+    if(!want_upstream_connection())
+        throw std::runtime_error("We can't create new tokens unless we can connect to ZefHub. Either make sure you have logged in using `login | run` to store your credentials, or run in offline mode by restarting your python session with the environment variable `ZEF_OFFLINE_MODE=TRUE` set.");
+
     wait_for_auth();
 
     std::string group;

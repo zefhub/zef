@@ -1579,7 +1579,7 @@ namespace zefDB {
                 // We have a special spam message in here to let users know what's going on. 
                 wait_pred(auth_locker, done_auth, std::chrono::seconds(3));
                 if(!done_auth()) {
-                    std::cerr << "Warning: waiting for connection with ZefHub is taking a long time.\n\nIf you would like to see more information enable debug messages through `zwitch.zefhub_communication_output(True)` or setting the environment variable `ZEFDB_VERBOSE=true`." << std::endl;
+                    std::cerr << "Warning: waiting for connection with ZefHub is taking a long time.\n\nIf you would like to see more information enable debug messages through `zwitch.zefhub_communication_output(True)` or setting the environment variable `ZEFDB_VERBOSE=true`.\n\nIf you would like to run Zef in offline mode, then start a new python session with the environment variable `ZEF_OFFLINE_MODE=TRUE`." << std::endl;
                     wait_pred(auth_locker, done_auth);
                 }
             }
@@ -1591,7 +1591,7 @@ namespace zefDB {
             if(no_credentials_warning)
                 throw std::runtime_error("No credentials present to allow auth to take place.");
             if(fatal_connection_error)
-                throw std::runtime_error("Fatal connection error is aborting waiting for auth");
+                throw std::runtime_error("Fatal connection error while trying to auth with ZefHub.\n\nIf you would like to run in offline mode, please restart your python session with the environment variable `ZEF_OFFLINE_MODE=TRUE`.");
             debug_time_print("finish wait_for_auth");
             return true;
         }

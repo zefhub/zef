@@ -1,7 +1,6 @@
 import os
 os.environ["ZEFDB_DEVELOPER_EARLY_TOKENS"] = "1"
-os.environ["ZEFDB_DEVELOPER_LOCAL_TOKENS"] = "1"
-os.environ["ZEFHUB_URL"] = "MASTER"
+os.environ["ZEF_OFFLINE_MODE"] = "TRUE"
 
 from zef import *
 from zef.ops import *
