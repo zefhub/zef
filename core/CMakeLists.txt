@@ -131,8 +131,8 @@ target_link_libraries(zef PUBLIC websocketpp)
 # target_link_libraries(zef PRIVATE blake3)
 target_link_libraries(zef PUBLIC openssl)
 target_link_libraries(zef PRIVATE test_ow)
-target_link_libraries(zef PRIVATE libcurl)
-target_link_libraries(zef PRIVATE jwt-cpp)
+target_link_libraries(zef PUBLIC libcurl)
+target_link_libraries(zef PUBLIC jwt-cpp)
 # Until I fix up our header deps this will have to be public
 target_link_libraries(zef PUBLIC libzstd_internal)
 
