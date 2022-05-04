@@ -176,6 +176,8 @@ def repr_with_absorbed(self):
         return original + ''.join(('[' + repr(el) + ']' for el in self._absorbed))
 
 
+# The C++ implementation does not consider the absorbed values.
+# Monkeypatch this function here.
 def keyword_eq_monkeypatched(self, other):
     if not isinstance(other, main.Keyword):
         return False
