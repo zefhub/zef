@@ -1120,6 +1120,29 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
 def get_tp(d_tp, key_tp):
     return VT.Any
 
+#---------------------------------------- get_field -----------------------------------------------
+def get_field_imp(obj, field):
+    """
+    Specific to python. Get the attribute of an object, equivalent to
+    getattr(obj, field).
+
+    ---- Examples ----
+    # Note: the following example is much better expressed as ET("Machine")
+    >>> ET | get_field["Machine"]                # => ET.Machine
+
+    # Note: the nodes of a NetworkX graph can be accessed via, e.g. list(nxg.nodes)
+    >>> nxg | get_field["nodes"] | filter[...]
+
+    ----- Signature ----
+    (T, String) -> T2
+    
+    ---- Tags ----
+    - related zefop: get
+    """
+    return getattr(obj, field)
+
+def get_field_tp(d_tp, key_tp):
+    return VT.Any
 
 
 #---------------------------------------- enumerate -----------------------------------------------

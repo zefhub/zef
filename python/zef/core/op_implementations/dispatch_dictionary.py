@@ -119,6 +119,7 @@ _op_to_functions = {
         RT.ReverseArgs:     (reverse_args_imp, None),
         RT.Remove:          (remove_imp, remove_tp),
         RT.Get:             (get_imp, get_tp),
+        RT.GetField:        (get_field_imp, get_field_tp),
         RT.Enumerate:       (enumerate_imp, enumerate_tp),
         RT.Items:           (items_imp, items_tp),
         RT.Values:          (values_imp, values_tp),
