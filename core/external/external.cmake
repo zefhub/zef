@@ -306,6 +306,8 @@ endif()
 if(LIBZEF_BUNDLED_CURL)
   message(STATUS "External: curl")
 
+  # message(FATAL_ERROR "We cannot bundle libcurl with the library due to CA issues.")
+
   FetchContent_Declare(curl
     GIT_REPOSITORY https://github.com/curl/curl
     GIT_TAG curl-7_83_0
@@ -321,6 +323,15 @@ if(LIBZEF_BUNDLED_CURL)
   set(BUILD_CURL_EXE OFF)
   set(BUILD_SHARED_LIBS OFF)
   set(BUILD_TESTING OFF)
+  set(HTTP_ONLY ON)
+  # We can't use the CA bundles as this will be in the system somewhere. Instead
+  # we have to acquire these from the python side as environment variables.
+  # set(CURL_CA_FALLBACK ON CACHE BOOL "" FORCE)
+  set(CURL_CA_BUNDLE "none" CACHE STRING "" FORCE)
+  set(CURL_CA_PATH "none" CACHE STRING "" FORCE)
+  # TODO: Should set a config variable here which would allow python and the cpp
+  # code to identify that it is in this bundled state. But for now, setting env
+  # vars even if they aren't needed will be fine.
   add_subdirectory(${curl_SOURCE_DIR} ${curl_BINARY_DIR} EXCLUDE_FROM_ALL)
   set_target_properties(libcurl PROPERTIES
     POSITION_INDEPENDENT_CODE ON)

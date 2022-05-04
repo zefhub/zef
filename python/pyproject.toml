@@ -5,7 +5,7 @@ test-requires = "pytest networkx>=2.6.3"
 test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST ZEFDB_QUIET=YES pytest {project}/python/tests"
 
 [tool.cibuildwheel.linux]
-before-all = "yum install -y openssl-devel libcurl-devel"
+before-all = "yum install -y openssl-devel"
 
 [tool.cibuildwheel.macos]
 before-all = "brew install openssl"

@@ -107,6 +107,7 @@ set(SOURCES
 #     )
 
 add_library (zef SHARED ${SOURCES})
+add_library (zef::zef ALIAS zef)
 
 target_include_directories(zef PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

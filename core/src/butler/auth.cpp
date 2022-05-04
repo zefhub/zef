@@ -46,6 +46,17 @@ namespace zefDB {
     json curl_json_req(std::string url, json j) {
         auto handle = initialise_curl();
         curl_easy_setopt(handle, CURLOPT_URL, url.c_str());
+        if(check_env_bool("ZEF_DEVELOPER_CURL_DEBUG"))
+            curl_easy_setopt(handle, CURLOPT_VERBOSE, 1L);
+
+        // Reading CA details which should be provided by python.
+        // TODO: This needs to go in a block that is only run if we were compiled as a bundled library.
+        char * env = std::getenv("LIBZEF_CA_BUNDLE");
+        if(env != nullptr && *env != NULL)
+            curl_easy_setopt(handle, CURLOPT_CAINFO, env);
+        env = std::getenv("LIBZEF_CA_PATH");
+        if(env != nullptr && *env != NULL)
+            curl_easy_setopt(handle, CURLOPT_CAPATH, env);
 
         curl_easy_setopt(handle, CURLOPT_WRITEFUNCTION, _curl_write_data);
         std::string buf;
@@ -57,14 +68,18 @@ namespace zefDB {
         struct curl_slist * headers = NULL;
         headers = curl_slist_append(headers, "Content-Type: application/json");
         curl_easy_setopt(handle, CURLOPT_HTTPHEADER, headers);
-        // curl_easy_setopt(handle, CURLOPT_VERBOSE, 1);
 
-        bool res = curl_easy_perform(handle);
+        char errbuf[CURL_ERROR_SIZE];
+        errbuf[0] = 0;
+        curl_easy_setopt(handle, CURLOPT_ERRORBUFFER, errbuf);
+        CURLcode res = curl_easy_perform(handle);
 
         curl_slist_free_all(headers);
 
         if(res != CURLE_OK) {
-            std::cerr << "Error! " << res << std::endl;
+            std::cerr << "Curl error! Code: " << res << std::endl;
+            std::cerr << "Simple explanation: " << curl_easy_strerror(res) << std::endl;
+            std::cerr << "Detailed error: " << std::string(errbuf) << std::endl;
             // TODO: Probably should retry here.
             throw std::runtime_error("Problem in curl getting token");
         }

@@ -119,7 +119,7 @@ set_target_properties(pyzef
 #   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:zef> ${ZEFDB_DIR}/zef/`basename $<TARGET_FILE:zef>`
 # )
 
-target_link_libraries(pyzef PUBLIC zef)
+target_link_libraries(pyzef PUBLIC zef::zef)
 # target_include_directories(pyzef PRIVATE ${Zef_INCLUDE})
 
 # Hoping that hardcoding this will at least allow us to get somewhere.
