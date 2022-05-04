@@ -90,7 +90,7 @@ class Entity:
 
     def __eq__(self, other):
         if not isinstance(other, Entity): return False
-        return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid']
+        return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid'] and self.d['absorbed'] == other.d['absorbed']
 
     def __hash__(self):
         return hash(self.d['uid'])
