@@ -1671,8 +1671,10 @@ def absorbed_imp(x):
         if len(x.el_ops) != 1: 
             return Error(f'"absorbed" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
         return x.el_ops[0][1]
+
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return ()
+
     else:
         return Error(f'absorbed called on {type(x)=}   {x=}')
 
@@ -1721,6 +1723,14 @@ def without_absorbed_imp(x):
         else:
             new_kw = Keyword(x.value)
             return new_kw
+
+    elif isinstance(x, ZefOp):
+        if len(x.el_ops) != 1: 
+            return Error(f'"without_absorbed_imp" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
+        return ZefOp( ((x.el_ops[0][0], ()),) )
+
+    elif isinstance(x, ValueType):
+        return x.d['absorbed']
 
     return Error('Not Implemented')
 
