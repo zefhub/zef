@@ -82,7 +82,7 @@ endif()
 # * External deps
 
 # TODO: This will need better handling if zef is found as a package
-add_subdirectory(external)
+include(external/external.cmake)
 
 ############################
 # * Library
@@ -123,7 +123,8 @@ target_link_libraries(pyzef PUBLIC zef)
 # target_include_directories(pyzef PRIVATE ${Zef_INCLUDE})
 
 # Hoping that hardcoding this will at least allow us to get somewhere.
-target_link_libraries(pyzef PUBLIC openssl)
+# target_link_libraries(pyzef PUBLIC openssl)
+# target_link_libraries(pyzef PUBLIC OpenSSL::SSL)
 
 target_link_libraries(pyzef PUBLIC pybind11_json)
 

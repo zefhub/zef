@@ -1,9 +1,4 @@
-# TODO: Fix up the zeftypes files so that they are grabbed and used for cogging
-# inside of the build directories only.
-
 cmake_minimum_required(VERSION 3.13)
-# This makes option() recognise set() variables
-cmake_policy(SET CMP0077 NEW)
 
 # Use this to distinguish the full project from the individual subdirectories.
 project(ZefCore CXX)
@@ -44,9 +39,10 @@ endif()
 ############################
 # * External projects
 
-option(USE_EXTERNAL_JSON "Use an external JSON library" OFF)
+# option(USE_EXTERNAL_JSON "Use an external JSON library" OFF)
 
-add_subdirectory(external)
+# add_subdirectory(external)
+include(external/external.cmake)
 
 ############################
 # * The library
@@ -130,9 +126,8 @@ target_link_libraries(zef PRIVATE doctest)
 target_link_libraries(zef PUBLIC websocketpp)
 # target_link_libraries(zef PRIVATE blake3)
 target_link_libraries(zef PUBLIC openssl)
-target_link_libraries(zef PRIVATE test_ow)
-target_link_libraries(zef PUBLIC libcurl)
-target_link_libraries(zef PUBLIC jwt-cpp)
+target_link_libraries(zef PRIVATE libcurl)
+target_link_libraries(zef PRIVATE jwt-cpp)
 # Until I fix up our header deps this will have to be public
 target_link_libraries(zef PUBLIC libzstd_internal)
 
@@ -149,10 +144,10 @@ set_target_properties(zef PROPERTIES
   # INTERPROCEDURAL_OPTIMIZATION ON
   # PUBLIC_HEADER "${HEADERS}"
   )
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  set_target_properties(zef PROPERTIES
-    CXX_VISIBILITY_PRESET default)
-endif()
+# if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+#   set_target_properties(zef PROPERTIES
+#     CXX_VISIBILITY_PRESET default)
+# endif()
 
 if(ZEFDB_ALLOW_NO_TLS)
   target_compile_definitions(zef PUBLIC ZEFDB_ALLOW_NO_TLS)
