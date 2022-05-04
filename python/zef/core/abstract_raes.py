@@ -1,5 +1,12 @@
 from ._core import *
 
+
+_custom_entity_display_names = {}
+
+def get_custom_entity_name_dict():
+    return _custom_entity_display_names
+
+
 #                                     _     _           _                       _       ____      _     _____      ____  _                                                            
 #                                    / \   | |__   ___ | |_  _ __   __ _   ___ | |_    |  _ \    / \   | ____|    / ___|| |  __ _  ___  ___   ___  ___                                
 #   _____  _____  _____  _____      / _ \  | '_ \ / __|| __|| '__| / _` | / __|| __|   | |_) |  / _ \  |  _|     | |    | | / _` |/ __|/ __| / _ \/ __|    _____  _____  _____  _____ 
@@ -46,7 +53,16 @@ class Entity:
             raise TypeError(f"can't construct an abstract entity from a {type(x)=}.  Value passed in: {x=}")
 
     def __repr__(self):
-        return f'Entity({repr(self.d["type"])}, {repr(self.d["uid"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
+            # whether something is a custom entity with a overloaded repr
+            # is encoded in the graph uid
+            custom_entity_display_names = get_custom_entity_name_dict()
+            base_name: str = (
+                custom_entity_display_names[self.d['uid'].blob_uid]
+                if str(self.d['uid'])[16:] == '0000000000000001'
+                else f'Entity({repr(self.d["type"])}, {repr(self.d["uid"])})' 
+            )
+            # also show any absorbed elements
+            return base_name + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
         if not isinstance(other, Entity): return False
@@ -161,3 +177,43 @@ def abstract_rae_from_rae_type_and_uid(rae_type, uid):
         assert is_a(rae_type, RT)
         raise Exception("Unable to create an abstract Relation without knowing its source and target")
         
+
+
+
+
+
+
+
+def make_custom_entity(name_to_display: str, predetermined_uid=None):
+    import random
+    from . import internals
+    d = ('0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'a', 'b', 'c', 'd', 'e', 'f')
+
+    if predetermined_uid is not None:
+        if not isinstance(predetermined_uid, str):
+            raise TypeError('make_custom_entity must be called with a string')
+        if len(predetermined_uid) != 16:
+            raise ValueError('predetermined_uid must be of length 16')
+        if not all((el in d for el in predetermined_uid)):
+            raise ValueError('predetermined_uid may only contain hexadecimal digits (lower case)')
+    
+    def generate_uid():
+        return ''.join([random.choice(d) for _ in range(16)])
+
+    src_g_uid = internals.BaseUID('0000000000000001')   # special code for custom entities
+    this_uid = internals.BaseUID(generate_uid() if predetermined_uid is None else predetermined_uid)
+
+    if name_to_display is not None:
+        custom_entity_display_names: dict = get_custom_entity_name_dict()
+        if this_uid in custom_entity_display_names:
+            raise KeyError(f"Error in make_custom_entity: the key {this_uid} was already registered in custom_entity_display_names.")
+        custom_entity_display_names[this_uid] = name_to_display
+
+    return Entity({
+        'type': ET.ZEF_CustomEntity,
+        'uid': internals.EternalUID(this_uid, src_g_uid),
+    })
+
+
+
+
