@@ -1674,6 +1674,9 @@ def absorbed_imp(x):
 
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return ()
+    
+    elif isinstance(x, ValueType):
+        return x.d['absorbed']
 
     else:
         return Error(f'absorbed called on {type(x)=}   {x=}')
@@ -1730,7 +1733,7 @@ def without_absorbed_imp(x):
         return ZefOp( ((x.el_ops[0][0], ()),) )
 
     elif isinstance(x, ValueType):
-        return x.d['absorbed']
+        return ValueType(type_name=x.d['type_name'])
 
     return Error('Not Implemented')
 

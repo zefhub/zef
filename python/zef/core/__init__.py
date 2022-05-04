@@ -71,6 +71,7 @@ from .serialization import serialize, deserialize
 from . import op_implementations
 
 from .abstract_raes import make_custom_entity
+from .VT.value_type import ValueType
 
 # instantiating these here, since not all of the core has been
 # initialized when Python imports the abstract_raes module
