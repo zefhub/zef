@@ -1120,6 +1120,29 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
 def get_tp(d_tp, key_tp):
     return VT.Any
 
+#---------------------------------------- get_field -----------------------------------------------
+def get_field_imp(obj, field):
+    """
+    Specific to python. Get the attribute of an object, equivalent to
+    getattr(obj, field).
+
+    ---- Examples ----
+    # Note: the following example is much better expressed as ET("Machine")
+    >>> ET | get_field["Machine"]                # => ET.Machine
+
+    # Note: the nodes of a NetworkX graph can be accessed via, e.g. list(nxg.nodes)
+    >>> nxg | get_field["nodes"] | filter[...]
+
+    ----- Signature ----
+    (T, String) -> T2
+    
+    ---- Tags ----
+    - related zefop: get
+    """
+    return getattr(obj, field)
+
+def get_field_tp(d_tp, key_tp):
+    return VT.Any
 
 
 #---------------------------------------- enumerate -----------------------------------------------
@@ -4671,10 +4694,10 @@ def is_a_implementation(x, typ):
         from typing import Callable
         for t in setof.d['absorbed']: 
             if isinstance(t, ValueType): 
-                if not is_a_implementation(el, t): return False
+                return Error.ValueError(f"A ValueType was passed to SetOf but it only takes predicate functions. Try wrapping in is_a[{t}]")
             elif isinstance(t, (ZefOp, Callable)):
                 if not t(el): return False
-            else: return Error.ValueError(f"Expected a predicate function or value type inside SetOf but got {t} instead.")
+            else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside SetOf but got {t} instead.")
         return True
 
     def valuetype_matching(el, vt):
@@ -5115,6 +5138,22 @@ def hasin_type_info(op, curr_type):
 def rae_type_type_info(op, curr_type):
     return VT.BT
 
+
+def is_represented_as_implementation(arg, vt):
+    if isinstance(arg, bool):
+        return vt == VT.Bool
+    
+    if isinstance(arg, int):
+        return vt == VT.Int
+
+    if isinstance(arg, float):
+        return vt == VT.Float
+    
+    return Error(f"Is Represented As not implemented for {type(arg)}")
+
+
+def is_represented_as_type_info(op, curr_type):
+    VT.Bool
 #---------------------------------------- tag -----------------------------------------------
 def tag_imp(x, tag: str, force: bool = False):
     """ 
