@@ -97,7 +97,7 @@ namespace zefDB {
 
             debug_time_print("initialise butler");
 
-            if(zefhub_uri == "MASTER") {
+            if(!butler_is_master && check_env_bool("ZEF_OFFLINE_MODE")) {
                 initialise_butler_as_master();
                 return;
             }
@@ -107,24 +107,6 @@ namespace zefDB {
 
             // std::cerr << "Before making butler" << std::endl;
             butler = std::make_unique<Butler>(zefhub_uri);
-
-            // // We wait for the first connection to go through, so as to better
-            // // return error messages.
-            // if(zefhub_uri != "") {
-            //     // std::cerr << "Going to wait for connection: " << zefhub_uri << std::endl;
-            //     butler->wait_for_auth();
-            //     if (!butler->connection_authed) {
-            //         // TODO: Error handling
-            //         std::cerr << "When initialising butler, wasn't able to connect." << std::endl;
-            //     }
-            //     // Wait a tiny bit to give time for the ET/RT/EN updates to come through...
-            //     // TODO: Remove this once we have proper ZH communication happening
-            //     // std::this_thread::sleep_for(std::chrono::seconds(1));
-            //     // auto& tracker = get_all_active_graph_data_tracker();
-            //     // while(!tracker.received_initial_ET_list) {
-            //     //     std::this_thread::sleep_for(std::chrono::seconds(1));
-            //     // }
-            // }
 
             // std::cerr << "Before making butler thread" << std::endl;
             butler->thread = std::make_unique<std::thread>(&Butler::msgqueue_listener, &(*butler));
@@ -151,7 +133,9 @@ namespace zefDB {
             if (butler && !butler_is_master)
                 throw std::runtime_error("Butler already initialised as non-master");
             butler_is_master = true;
-            // We have no upstream in this case, as we are the top.
+
+            std::cerr << "Warning: starting the Zef butler in offline mode. This means that you can create graphs and arbitrary ET/RT/EN/KW tokens. However, note that you can't persist graphs beyond your session." << std::endl;
+            
             initialise_butler("");
         }
 
@@ -307,7 +291,7 @@ namespace zefDB {
             return early_tokens;
         }
         std::vector<std::string> created_token_list() {
-            return early_tokens;
+            return created_tokens;
         }
 
 
@@ -431,6 +415,8 @@ namespace zefDB {
         }
 
         void Butler::send_ZH_message(json & j, const std::vector<std::string> & rest) {
+            if(butler_is_master)
+                throw std::runtime_error("Should not be trying to send messages to ZefHub when we are running in offline mode.");
             if(!want_upstream_connection()) {
                 throw Communication::disconnected_exception();
             }

@@ -3,16 +3,16 @@
 #----------------------------------
 
 import ctypes, sys, sysconfig, os
-if sys.platform == "linux":
-    libext = ".so"
-elif sys.platform == "darwin":
-    libext = ".dylib"
-# path = os.path.abspath(os.path.join(sysconfig.get_path("data"), "lib", "libzef" + libext))
-path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, "libzef" + libext))
-try:
-    ctypes.cdll.LoadLibrary(path)
-except:
-    print(f"FAILED TO FIND LIBZEF at {path} - hopefully pyzef has it hard-coded (true when running from source directory)")
+# if sys.platform == "linux":
+#     libext = ".so"
+# elif sys.platform == "darwin":
+#     libext = ".dylib"
+# # path = os.path.abspath(os.path.join(sysconfig.get_path("data"), "lib", "libzef" + libext))
+# path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, "libzef" + libext))
+# try:
+#     ctypes.cdll.LoadLibrary(path)
+# except:
+#     print(f"FAILED TO FIND LIBZEF at {path} - hopefully pyzef has it hard-coded (true when running from source directory)")
 
 if os.environ.get("ZEFDB_DEVELOPER_CIRCULAR_IMPORTS", "FALSE") == "TRUE":
     from .circular_imports import check_circular_imports
