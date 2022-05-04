@@ -1687,7 +1687,7 @@ def without_absorbed_imp(x):
     Return the bare Type as if nothing had ever been absorbed.
 
     ---- Examples ----
-    >>> reduce[add[1]][42] | without_absorbed    # => reduce
+    >>> LazyValue(reduce[add[1]][42]) | without_absorbed    # => reduce
     
     ---- Tags ----
     - used for: control flow
@@ -1697,6 +1697,7 @@ def without_absorbed_imp(x):
     - related zefop: inject_list
     - related zefop: reverse_args
     """
+    print(f"without_absorbed called for {x=}")
     if isinstance(x, EntityType):
         if '_absorbed' not in x.__dict__:
             return x

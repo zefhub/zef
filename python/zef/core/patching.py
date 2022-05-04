@@ -176,6 +176,15 @@ def repr_with_absorbed(self):
         return original + ''.join(('[' + repr(el) + ']' for el in self._absorbed))
 
 
+def keyword_eq_monkeypatched(self, other):
+    if not isinstance(other, main.Keyword):
+        return False
+    if self.value != other.value:
+        return False
+    return self.__dict__.get('_absorbed', None) == other.__dict__.get('_absorbed', None) 
+
+
+
 main.EntityType.__getitem__ = entity_type_get_item
 main.EntityType.__repr__ = repr_with_absorbed
 
@@ -184,6 +193,7 @@ main.RelationType.__repr__ = repr_with_absorbed
 
 main.Keyword.__getitem__ = keyword_get_item
 main.Keyword.__repr__ = repr_with_absorbed
+main.Keyword.__eq__ = keyword_eq_monkeypatched
 
 internals.AtomicEntityType.__getitem__ = atomic_entity_type_get_item
 internals.AtomicEntityType.__repr__ = repr_with_absorbed
