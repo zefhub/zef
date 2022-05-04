@@ -1,5 +1,29 @@
 from ._core import *
 
+# "Custom Entities" are also used to represent plain data values.
+# Originally, we used ZefOps for these, which absorb other Zef Values
+# in the same way as Entities do.
+# Using ZefOps when just wanting plain data is not the best choice though.
+# It does not convey the intent of what it is (a zefop acts like a function
+# and is chainable). But most importantly, they are not recognized as values
+# to act as the initial value that automatically act as the input value 
+# when written at the beginning of a data pipeline, which requires constant 
+# additional mental overhead.
+# It may seem weird at first, but using Entities to represent pure data 
+# expressions works fairly well. All the syntactic behavior and absorption 
+# of elements already comes out of the box.
+# Synchronization across multiple processes and over ZefHub is also already
+# implemented. The ability to merge an entity into any graph and the lineage
+# being taken care of is useful and one can also immediately treat 
+# custom entities as first class citizens on a graph, that relations for 
+# meta-information etc. can be added to.
+
+# The one thing that is missing is that the repr output for data expressions
+# should agree with the written expression for legibility. 
+# For this reason a bit of logic is added to the repr function for Entities.
+# If it is a custom entity (as indicated by a special graph uid), a special
+# name to display may be presen in the _custom_entity_display_names dictionary.
+# TODO: make _custom_entity_display_names part of a unified zef process state.
 
 _custom_entity_display_names = {}
 
