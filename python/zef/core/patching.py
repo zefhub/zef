@@ -141,53 +141,28 @@ main.QuantityInt.__getitem__ = _rae_get_item
 
 # ---------------------------- special treatment for EntityType ------------------------------------
 
-def entity_type_get_item(self, x):
+def absorbed_get_item(self, x):
     # don't mutate, create a new instance
-    new_et = main.EntityType(self.value)
+    from copy import copy
+    new_obj = copy(self)
     if '_absorbed' not in self.__dict__:
-        new_et._absorbed = (x, )
+        new_obj._absorbed = (x, )
     else:
-        new_et._absorbed = (*self._absorbed, x)
-    return new_et
+        new_obj._absorbed = (*self._absorbed, x)
+    return new_obj
+    
 
-
-def relation_type_get_item(self, x):
-    # don't mutate, create a new instance
-    new_rt = main.RelationType(self.value)
-    if '_absorbed' not in self.__dict__:
-        new_rt._absorbed = (x, )
-    else:
-        new_rt._absorbed = (*self._absorbed, x)
-    return new_rt
-
-
-def atomic_entity_type_get_item(self, x):
-    # don't mutate, create a new instance
-    new_aet = internals.AtomicEntityType(self.value)
-    if '_absorbed' not in self.__dict__:
-        new_aet._absorbed = (x, )
-    else:
-        new_aet._absorbed = (*self._absorbed, x)
-    return new_aet
-
-
-def keyword_get_item(self, x):
-    # don't mutate, create a new instance
-    new_kw = main.Keyword(self.value)
-    if '_absorbed' not in self.__dict__:
-        new_kw._absorbed = (x, )
-    else:
-        new_kw._absorbed = (*self._absorbed, x)
-    return new_kw
-
-
-
-def repr_with_absorbed(self):
-    original = self.__repr_without_absorbed__()
+def repr_with_absorbed(self, orig_repr):
+    original = orig_repr(self)
     if '_absorbed' not in self.__dict__:
         return original
     else:
         return original + ''.join(('[' + repr(el) + ']' for el in self._absorbed))
+
+def wrap_repr(typ):
+    orig = typ.__repr__
+    typ.__repr__ = lambda self,orig=orig: repr_with_absorbed(self, orig)
+    
 
 
 # The C++ implementation does not consider the absorbed values.
@@ -201,19 +176,21 @@ def keyword_eq_monkeypatched(self, other):
 
 
 
-main.EntityType.__getitem__ = entity_type_get_item
-main.EntityType.__repr__ = repr_with_absorbed
+main.EntityType.__getitem__ = absorbed_get_item
+wrap_repr(main.EntityType)
 
-main.RelationType.__getitem__ = relation_type_get_item
-main.RelationType.__repr__ = repr_with_absorbed
+main.RelationType.__getitem__ = absorbed_get_item
+wrap_repr(main.RelationType)
 
-main.Keyword.__getitem__ = keyword_get_item
-main.Keyword.__repr__ = repr_with_absorbed
+main.Keyword.__getitem__ = absorbed_get_item
+wrap_repr(main.Keyword)
 main.Keyword.__eq__ = keyword_eq_monkeypatched
 
-internals.AtomicEntityType.__getitem__ = atomic_entity_type_get_item
-internals.AtomicEntityType.__repr__ = repr_with_absorbed
+internals.AtomicEntityType.__getitem__ = absorbed_get_item
+wrap_repr(internals.AtomicEntityType)
 
+internals.Delegate.__getitem__ = absorbed_get_item
+wrap_repr(internals.Delegate)
 
 
 

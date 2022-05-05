@@ -1672,7 +1672,7 @@ def absorbed_imp(x):
     - related zefop: inject_list
     - related zefop: reverse_args
     """
-    if isinstance(x, EntityType) or isinstance(x, RelationType) or isinstance(x, AtomicEntityType)  or isinstance(x, Keyword):
+    if isinstance(x, (EntityType, RelationType, AtomicEntityType, Keyword, Delegate)):
         if '_absorbed' not in x.__dict__:
             return ()
         else:

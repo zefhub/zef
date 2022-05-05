@@ -586,9 +586,15 @@ def cmds_for_lv_terminate(x):
     return (), [cmd]
 
 def cmds_for_delegate(x):                            
+    internal_ids = []
+    a_id = get_absorbed_id(x)
+    if a_id is not None:
+        internal_ids += [a_id]
+
     return (), [{
         'cmd': 'merge', 
         'origin_rae': x,
+        'internal_ids': internal_ids,
         }]
 
 
