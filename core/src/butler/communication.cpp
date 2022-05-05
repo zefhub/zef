@@ -212,6 +212,16 @@ namespace zefDB {
 
                 ctx->set_default_verify_paths();
 
+                // We add in the certificates that may have been set by python,
+                // as the default openssl paths could be baked into a bundled
+                // libssl.
+                char * env = std::getenv("LIBZEF_CA_BUNDLE");
+                if(env != nullptr && env[0] != '\0')
+                    ctx->load_verify_file(env);
+                env = std::getenv("LIBZEF_CA_PATH");
+                if(env != nullptr && env[0] != '\0')
+                    ctx->add_verify_path(env);
+
                 ctx->set_verify_mode(asio::ssl::verify_peer);
                 // ctx->set_verify_mode(asio::ssl::verify_none);
                 // ctx->set_verify_callback(std::bind(&verify_certificate, hostname, std::placeholders::_1, std::placeholders::_2));
