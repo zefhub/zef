@@ -75,6 +75,8 @@ venv/
 
 .idea/
 
+.DS_Store
+
 build/
 
 /julia_module/Manifest.toml
