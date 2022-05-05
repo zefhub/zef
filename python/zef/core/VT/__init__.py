@@ -61,6 +61,11 @@ BaseUID    = ValueType(type_name='BaseUID',    constructor_func=None)
 ZefRefUID  = ValueType(type_name='ZefRefUID',  constructor_func=None)        
 EternalUID = ValueType(type_name='EternalUID', constructor_func=None)       
 
+Instantiated = ValueType(type_name='Instantiated', constructor_func=None)       
+Terminated = ValueType(type_name='Terminated', constructor_func=None)       
+Assigned   = ValueType(type_name='Assigned',   constructor_func=None)       
+Tagged     = ValueType(type_name='Tagged',     constructor_func=None)       
+
 LazyValue  = ValueType(type_name='LazyValue',  constructor_func=None) 
 Awaitable  = ValueType(type_name='Awaitable',  constructor_func=None) 
 
