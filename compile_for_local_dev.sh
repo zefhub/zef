@@ -16,11 +16,11 @@
 
 echo "pip-ing"
 if ! which jq > /dev/null ; then
-    echo "jq needs to be installed to use this script. If you are on macos, please run `brew install jq`. If you are on linux use your package manager to install jq (e.g. `sudo apt-get install jq` or `sudo pacman -S jq`)"
+    echo 'jq needs to be installed to use this script. If you are on macos, please run `brew install jq`. If you are on linux use your package manager to install jq (e.g. `sudo apt-get install jq` or `sudo pacman -S jq`)'
     exit 1
 fi
 if ! which realpath > /dev/null ; then
-    echo "realpath needs to be installed to use this script. If you are on macos, please run `brew install coreutils`. If you are on linux this is weird, realpath should already be available!"
+    echo 'realpath needs to be installed to use this script. If you are on macos, please run `brew install coreutils`. If you are on linux this is weird, realpath should already be available!'
     exit 1
 fi
 
