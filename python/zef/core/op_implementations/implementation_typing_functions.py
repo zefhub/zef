@@ -1716,7 +1716,6 @@ def without_absorbed_imp(x):
     - related zefop: inject_list
     - related zefop: reverse_args
     """
-    print(f"without_absorbed called for {x=}")
     if isinstance(x, EntityType):
         if '_absorbed' not in x.__dict__:
             return x
