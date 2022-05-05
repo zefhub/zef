@@ -728,16 +728,13 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
             //     msg->promise.set_value(GenericResponse{false, "Timed out waiting for sync."});
             //     return;
             // }
-            std::cerr << "Sync is goign to wait_pred for sync_head to come up to date." << std::endl;
             // We use poll here to bail out when network disconnection happens.
             // It would be preferable to listen to two CVs simultaneously, but
             // that is not natively supported. Maybe a rewrite of the locks
             // structure would help here.
             wait_pred_poll(me.gd->heads_locker,
                       [&]() {
-                          std::cerr << "Wait_pred test has sync_head: " << me.gd->sync_head.load() << " and sync_to: " << sync_to << std::endl;
                           return me.gd->sync_head >= sync_to || !network.connected || me.gd->error_state != GraphData::ErrorState::OK; }, std::chrono::seconds(1));
-            std::cerr << "Sync after wait_pred for sync_head to come up to date." << std::endl;
 
             if(!network.connected) {
                 msg->promise.set_value(GenericResponse{false, "Lost network connection while trying to sync."});
