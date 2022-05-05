@@ -1120,6 +1120,29 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
 def get_tp(d_tp, key_tp):
     return VT.Any
 
+#---------------------------------------- get_field -----------------------------------------------
+def get_field_imp(obj, field):
+    """
+    Specific to python. Get the attribute of an object, equivalent to
+    getattr(obj, field).
+
+    ---- Examples ----
+    # Note: the following example is much better expressed as ET("Machine")
+    >>> ET | get_field["Machine"]                # => ET.Machine
+
+    # Note: the nodes of a NetworkX graph can be accessed via, e.g. list(nxg.nodes)
+    >>> nxg | get_field["nodes"] | filter[...]
+
+    ----- Signature ----
+    (T, String) -> T2
+    
+    ---- Tags ----
+    - related zefop: get
+    """
+    return getattr(obj, field)
+
+def get_field_tp(d_tp, key_tp):
+    return VT.Any
 
 
 #---------------------------------------- enumerate -----------------------------------------------
@@ -1648,8 +1671,13 @@ def absorbed_imp(x):
         if len(x.el_ops) != 1: 
             return Error(f'"absorbed" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
         return x.el_ops[0][1]
+
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return ()
+    
+    elif isinstance(x, ValueType):
+        return x.d['absorbed']
+
     else:
         return Error(f'absorbed called on {type(x)=}   {x=}')
 
@@ -1664,7 +1692,7 @@ def without_absorbed_imp(x):
     Return the bare Type as if nothing had ever been absorbed.
 
     ---- Examples ----
-    >>> reduce[add[1]][42] | without_absorbed    # => reduce
+    >>> LazyValue(reduce[add[1]][42]) | without_absorbed    # => reduce
     
     ---- Tags ----
     - used for: control flow
@@ -1674,6 +1702,7 @@ def without_absorbed_imp(x):
     - related zefop: inject_list
     - related zefop: reverse_args
     """
+    print(f"without_absorbed called for {x=}")
     if isinstance(x, EntityType):
         if '_absorbed' not in x.__dict__:
             return x
@@ -1697,6 +1726,14 @@ def without_absorbed_imp(x):
         else:
             new_kw = Keyword(x.value)
             return new_kw
+
+    elif isinstance(x, ZefOp):
+        if len(x.el_ops) != 1: 
+            return Error(f'"without_absorbed_imp" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
+        return ZefOp( ((x.el_ops[0][0], ()),) )
+
+    elif isinstance(x, ValueType):
+        return ValueType(type_name=x.d['type_name'])
 
     return Error('Not Implemented')
 
@@ -4486,6 +4523,8 @@ def source_implementation(zr, *curried_args):
         return fr_source_imp(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
+    if is_a(zr, ET):
+        raise Exception(f"Can't take the source of an entity (have {zr}), only relations have sources/targets")
     return (pyzefops.source)(zr, *curried_args)
 
 def target_implementation(zr):
@@ -4493,6 +4532,8 @@ def target_implementation(zr):
         return fr_target_imp(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
+    if is_a(zr, ET):
+        raise Exception(f"Can't take the target of an entity (have {zr}), only relations have sources/targets")
     return pyzefops.target(zr)
 
 def value_implementation(zr, maybe_tx=None):
@@ -4667,10 +4708,10 @@ def is_a_implementation(x, typ):
         from typing import Callable
         for t in setof.d['absorbed']: 
             if isinstance(t, ValueType): 
-                if not is_a_implementation(el, t): return False
+                return Error.ValueError(f"A ValueType was passed to SetOf but it only takes predicate functions. Try wrapping in is_a[{t}]")
             elif isinstance(t, (ZefOp, Callable)):
                 if not t(el): return False
-            else: return Error.ValueError(f"Expected a predicate function or value type inside SetOf but got {t} instead.")
+            else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside SetOf but got {t} instead.")
         return True
 
     def valuetype_matching(el, vt):
@@ -5111,6 +5152,22 @@ def hasin_type_info(op, curr_type):
 def rae_type_type_info(op, curr_type):
     return VT.BT
 
+
+def is_represented_as_implementation(arg, vt):
+    if isinstance(arg, bool):
+        return vt == VT.Bool
+    
+    if isinstance(arg, int):
+        return vt == VT.Int
+
+    if isinstance(arg, float):
+        return vt == VT.Float
+    
+    return Error(f"Is Represented As not implemented for {type(arg)}")
+
+
+def is_represented_as_type_info(op, curr_type):
+    VT.Bool
 #---------------------------------------- tag -----------------------------------------------
 def tag_imp(x, tag: str, force: bool = False):
     """ 

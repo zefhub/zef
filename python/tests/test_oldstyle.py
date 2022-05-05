@@ -1,8 +1,4 @@
 import unittest  # pytest takes ages to run anything as soon as anything from zef is imported
-import os
-os.environ["ZEF_DEVELOPER_LOCAL_TOKENS"] = "1"
-os.environ["ZEFHUB_URL"] = "MASTER"
-os.environ["ZEF_QUIET"] = "1"
 from zef import *
 from zef.ops import *
 import zef

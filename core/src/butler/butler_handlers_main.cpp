@@ -50,7 +50,16 @@ void Butler::handle_guest_message(TokenQuery & content, Butler::msg_ptr & msg) {
     }
 
     if(content.create) {
-        if(check_env_bool("ZEFDB_DEVELOPER_LOCAL_TOKENS")) {
+        if(content.group == TokenQuery::ET && !zwitch.allow_dynamic_entity_type_definitions())
+            throw std::runtime_error("ET creation is disallowed.");
+        if(content.group == TokenQuery::RT && !zwitch.allow_dynamic_relation_type_definitions())
+            throw std::runtime_error("RT creation is disallowed.");
+        if(content.group == TokenQuery::EN && !zwitch.allow_dynamic_enum_type_definitions())
+            throw std::runtime_error("EN creation is disallowed.");
+        if(content.group == TokenQuery::KW && !zwitch.allow_dynamic_keyword_definitions())
+            throw std::runtime_error("KW creation is disallowed.");
+
+        if(check_env_bool("ZEF_OFFLINE_MODE") || check_env_bool("ZEFDB_DEVELOPER_LOCAL_TOKENS")) {
             auto & tokens = global_token_store();
             std::vector<TokenQueryResponse::pair> pairs;
             for(auto & name : content.names) {
@@ -76,21 +85,16 @@ void Butler::handle_guest_message(TokenQuery & content, Butler::msg_ptr & msg) {
             return;
         }
 
-        if(content.group == TokenQuery::ET && !zwitch.allow_dynamic_entity_type_definitions())
-            throw std::runtime_error("ET creation is disallowed.");
-        if(content.group == TokenQuery::RT && !zwitch.allow_dynamic_relation_type_definitions())
-            throw std::runtime_error("RT creation is disallowed.");
-        if(content.group == TokenQuery::EN && !zwitch.allow_dynamic_enum_type_definitions())
-            throw std::runtime_error("EN creation is disallowed.");
-        if(content.group == TokenQuery::KW && !zwitch.allow_dynamic_keyword_definitions())
-            throw std::runtime_error("KW creation is disallowed.");
-
-
         if(check_env_bool("ZEFDB_DEVELOPER_EARLY_TOKENS") && before_first_graph) {
             for(auto & name : content.names)
                 add_to_early_tokens(content.group, name);
         }
     }
+
+
+    // This is a bit of the logic inside of wait_for_auth, so that we can put a more informative error message.
+    if(!want_upstream_connection())
+        throw std::runtime_error("We can't create new tokens unless we can connect to ZefHub. Either make sure you have logged in using `login | run` to store your credentials, or run in offline mode by restarting your python session with the environment variable `ZEF_OFFLINE_MODE=TRUE` set.");
 
     wait_for_auth();
 

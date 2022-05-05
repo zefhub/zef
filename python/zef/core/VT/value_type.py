@@ -79,7 +79,7 @@ class ValueType:
         try:
             f = _value_type_constructor_funcs[self.d["type_name"]]
         except KeyError:
-            return Error(f'{self.d["type_name"]}(...) was called, but constructor function was registered for this type')
+            return Error(f'{self.d["type_name"]}(...) was called, but no constructor function was registered for this type')
         return f(*args, **kwargs)
 
 
@@ -103,13 +103,13 @@ class ValueType:
         elif isinstance(other, ZefOp):
             return other.__ror__(self)
         else:
-            return Error(f'"ValueType`s "|" called with unsupported type {type(other)}')
+            raise Exception(f'"ValueType`s "|" called with unsupported type {type(other)}')
     
     def __and__(self, other):
         if isinstance(other, ValueType):
             return simplify_value_type(ValueType(type_name='Intersection', absorbed=(self, other,)))
         else:
-            return Error(f'"ValueType`s "&" called with unsupported type {type(other)}')
+            raise Exception(f'"ValueType`s "&" called with unsupported type {type(other)}')
     
 
 
@@ -124,7 +124,7 @@ class UnionClass:
         elif isinstance(x, ZefOp):
             return ValueType(type_name='Union', absorbed=(x,))
         else:
-            return Error(f'"Union[...]" called with unsupported type {type(x)}')
+            raise Exception(f'"Union[...]" called with unsupported type {type(x)}')
             
 
 class IntersectionClass:
@@ -137,7 +137,7 @@ class IntersectionClass:
         elif isinstance(x, ZefOp):
             return ValueType(type_name='Intersection', absorbed=(x,))
         else:
-            return Error(f'"Intersection[...]" called with unsupported type {type(x)}')
+            raise Exception(f'"Intersection[...]" called with unsupported type {type(x)}')
             
 
 
@@ -151,7 +151,7 @@ class SetOfClass:
         elif isinstance(x, ZefOp):
             return ValueType(type_name='SetOf', absorbed=(x,))
         else:
-            return Error(f'"SetOf[...]" called with unsupported type {type(x)}')
+            raise Exception(f'"SetOf[...]" called with unsupported type {type(x)}')
             
 
 
