@@ -100,6 +100,9 @@ jobs:
   dev-announcement:
     name: Dev announcement
     runs-on: ubuntu-20.04
+    # Suprisingly, we need this if always even though upload-to-pypi is always
+    # run, because of the weird dependency handling by the workflow runner.
+    if: ${{ always() }}
     needs: [upload-to-pypi]
     steps:
       - uses: actions/checkout@v2
