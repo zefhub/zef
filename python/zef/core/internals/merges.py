@@ -20,8 +20,6 @@ def c_merge_handler(g, serialized_delta):
     from .._ops import run, transact
 
     # TODO: Double check primary role here.
-    from ..logger import log
-    log.debug("c_merge_handler with", g=g, serialized_delta=serialized_delta)
 
     commands = deserialize(serialized_delta)
     from zef.core.graph_delta import perform_transaction_commands
