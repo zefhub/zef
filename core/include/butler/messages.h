@@ -165,7 +165,7 @@ namespace zefDB {
         struct MergeRequest {
             struct PayloadGraphDelta {
                 // TODO: Currently this is got from python as a python object, but will later be a native C object.
-                json delta;
+                json commands;
             };
             // If task_uid is not set, then this has been generated locally
             std::optional<std::string> task_uid;
