@@ -67,6 +67,9 @@ jobs:
   upload-to-pypi:
     name: Upload wheels to PyPI
     runs-on: ubuntu-20.04
+    # We need this if in case build-wheels doesn't run see workflow syntax
+    # documentation for jobs.<job_id>.needs.
+    if: ${{ always() }}
     needs: [build-wheels]
     steps:
       - uses: actions/checkout@v2
