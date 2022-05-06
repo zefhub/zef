@@ -1044,7 +1044,7 @@ def resolve_dag_ordering_step(arg: dict)->dict:
             return False
         if cmd['cmd'] == 'merge' and isinstance(cmd['origin_rae'], Relation) and (cmd['origin_rae'].d["uids"][0] not in ids or cmd['origin_rae'].d["uids"][2] not in ids):
             return False
-        if cmd['cmd'] == 'terminate' and any(get_id(cmd) == get_id(other) for other in state['input'] if other['cmd'] != 'terminate'):
+        if cmd['cmd'] == 'terminate' and any(get_id(cmd) in get_ids(other) for other in state['input'] if other['cmd'] != 'terminate'):
             return False
         return True        
     (_,can), (_,cannot) = state['input'] | group_by[can_be_executed][[True, False]] | collect
