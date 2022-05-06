@@ -356,7 +356,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
                                 {"target_guid", str(content.target_guid)},
                                 {"payload", {
                                         {"type", "delta"},
-                                        {"delta", payload.delta}
+                                        {"commands", payload.commands}
                                     }}
                             });
                     }

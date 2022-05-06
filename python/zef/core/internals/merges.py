@@ -13,24 +13,22 @@
 # limitations under the License.
 
 
-def _graphdelta_merge(g, serialized_delta):
+def c_merge_handler(g, serialized_delta):
     """Don't call this explicitly. Only for the zefdb core."""
 
     from ..serialization import serialize, deserialize
-    from .. import Graph, Effect, FX
     from .._ops import run, transact
 
-    # Double check primary role here.
-    # if g.
-    # TODO The reason we are constructing an effect is that serialized 
-    # data contains the commands and not the actions.
-    # Can we somehow fix that?
+    # TODO: Double check primary role here.
+    from ..logger import log
+    log.debug("c_merge_handler with", g=g, serialized_delta=serialized_delta)
+
     commands = deserialize(serialized_delta)
-    # receipt = delta | transact[g] | run
-    receipt = Effect({
-            "type": FX.TX.Transact,
-            "target_graph": g,
-            "commands": commands
-    }) | run
+    from zef.core.graph_delta import perform_transaction_commands
+    receipt = perform_transaction_commands(commands, g)
 
     return serialize(receipt)
+
+def register_merge_handler():
+    from ...pyzef import internals
+    internals.register_merge_handler(c_merge_handler)
