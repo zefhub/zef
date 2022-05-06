@@ -36,4 +36,4 @@ jobs:
         with:
           go-version: "^1.13.1"
       - run: go install github.com/zefhub/addlicense@0dff3a5860a17dabe0678454c9ff70b805a2ea5e
-      - run: ./.github/scripts/check-license.sh
+      - run: addlicense -c "Synchronous Technologies Pte Ltd" -f .github/assets/apache-license.md -ignore "_cmake_deps/**" -ignore "cmake_build/**" -ignore ".github/**" -failhard .
