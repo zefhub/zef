@@ -231,12 +231,13 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	py::class_<AtomicEntityType>(internals_submodule, "AtomicEntityType", py::dynamic_attr())
 		.def(py::init<enum_indx>())	
 		.def_readonly("value", &AtomicEntityType::value)
-		.def("__repr_without_absorbed__", [](const AtomicEntityType& self)->std::string { return to_str(self); })
+		.def("__repr__", [](const AtomicEntityType& self)->std::string { return to_str(self); })
 		.def("__str__", [](const AtomicEntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const AtomicEntityType& self, const AtomicEntityType& other)->bool { return self == other; }, py::is_operator())
 		.def("__ne__", [](const AtomicEntityType& self, const AtomicEntityType& other)->bool { return self != other; }, py::is_operator())
 		.def("__hash__", [](const AtomicEntityType& self)->enum_indx {return self.value; })
 		.def("__int__", [](const AtomicEntityType& self)->int {return self.value; })
+		.def("__copy__", [](const AtomicEntityType& self)->AtomicEntityType {return self; })
 
 		.def_property_readonly("__enum_type", [](const AtomicEntityType& self) { return internals::get_enum_type_from_aet(self); })
 		.def_property_readonly("__unit", [](const AtomicEntityType& self) { return internals::get_unit_from_aet(self); })
@@ -407,7 +408,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def("__eq__", &DelegateRelationTriple::operator==, py::is_operator())
         ;
 
-    py::class_<Delegate>(internals_submodule, "Delegate", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>())
+    py::class_<Delegate>(internals_submodule, "Delegate", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>(), py::dynamic_attr())
         .def(py::init<int,DelegateEntity>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateAtomicEntity>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateRelationGroup>(), py::call_guard<py::gil_scoped_release>())
@@ -422,6 +423,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_readonly("item", &Delegate::item)
         .def("__repr__", [](const Delegate & d) { return to_str(d); })
 		.def("__eq__", &Delegate::operator==, py::is_operator())
+		.def("__copy__", [](const Delegate & d)->Delegate { return d; })
         ;
 
 
@@ -743,4 +745,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
         return Butler::get_butler()->get_local_process_graph();
     },
         py::call_guard<py::gil_scoped_release>());
+
+    internals_submodule.def("register_merge_handler", &Butler::register_merge_handler);
+    internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&Butler::remove_merge_handler));
 }
