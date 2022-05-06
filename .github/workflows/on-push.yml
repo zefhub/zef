@@ -36,4 +36,4 @@ jobs:
         with:
           go-version: "^1.13.1"
       - run: go version
-      - run: go get -v github.com/zefhub/addlicense
+      - run: go install -v github.com/zefhub/addlicense@30bee36ea38ded70df8f973999d8b438f226b350
