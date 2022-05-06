@@ -429,7 +429,7 @@ void Butler::handle_incoming_merge_request(json & j) {
                 task_uid,
                 target_guid,
                 MergeRequest::PayloadGraphDelta{
-                    j["payload"]["delta"].get<json>(),
+                    j["payload"]["commands"].get<json>(),
                 },
                 msg_version
             };
