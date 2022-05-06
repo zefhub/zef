@@ -7,6 +7,7 @@ on:
 
 jobs:
   build-wheels:
+    if: ${{ !contains(github.ref, 'dev') }}
     name: Build wheels
     runs-on: ${{ matrix.os }}
     strategy:
@@ -73,6 +74,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Grab built wheels
+        if: ${{ !contains(github.ref, 'dev') }}
         uses: actions/download-artifact@v3
         with:
           name: wheels
