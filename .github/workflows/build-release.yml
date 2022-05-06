@@ -11,6 +11,9 @@ on:
     types: [published, create]
 
 jobs:
+  check-license:
+    uses: ./.github/workflows/check-license.yml
+
   build-wheels:
     name: Build wheels
     runs-on: ${{ matrix.os }}

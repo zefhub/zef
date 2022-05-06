@@ -6,8 +6,11 @@ on:
      - "pyzef-*"
 
 jobs:
+  check-license:
+    uses: ./.github/workflows/check-license.yml
   build-wheels:
     if: ${{ !contains(github.ref, 'dev') }}
+    needs: check-license
     name: Build wheels
     runs-on: ${{ matrix.os }}
     strategy:

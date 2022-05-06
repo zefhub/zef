@@ -17,7 +17,7 @@ from typing import Generator, Iterable, Iterator
 
 
 from rx import operators as rxops
-from ..VT.value_type import ValueType
+from ..VT.value_type import ValueType_
 
 # This is the only submodule that is allowed to do this. It can assume that everything else has been made available so that it functions as a "user" of the core module.
 from .. import *
@@ -40,7 +40,7 @@ def curry_args_in_zefop(zefop, first_arg, nargs = ()):
     for arg in nargs: zefop = zefop[arg]
     return zefop(first_arg) if callable(zefop) else zefop[first_arg]
 
-def parse_input_type(input_type: ValueType) -> str:
+def parse_input_type(input_type: ValueType_) -> str:
     # TODO instead of returning a string may be return also types i.e VT.Zef or VT.Tools
     if input_type is None: return None
     if input_type == VT.Nil: return None
@@ -340,7 +340,7 @@ def match_apply_tp(op, curr_type):
 #---------------------------------------- peel -----------------------------------------------
 def peel_imp(el, *args):
     from ..fx.fx_types import _Effect_Class
-    if isinstance(el, ValueType):
+    if isinstance(el, ValueType_):
         return el.nested()
     elif isinstance(el, _Effect_Class):
         return el.d
@@ -1690,7 +1690,7 @@ def absorbed_imp(x):
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return ()
     
-    elif isinstance(x, ValueType):
+    elif isinstance(x, ValueType_):
         return x.d['absorbed']
 
     else:
@@ -1746,8 +1746,8 @@ def without_absorbed_imp(x):
             return Error(f'"without_absorbed_imp" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
         return ZefOp( ((x.el_ops[0][0], ()),) )
 
-    elif isinstance(x, ValueType):
-        return ValueType(type_name=x.d['type_name'])
+    elif isinstance(x, ValueType_):
+        return ValueType_(type_name=x.d['type_name'])
 
     return Error('Not Implemented')
 
@@ -4649,7 +4649,7 @@ def zef_type_imp(x):
     """
     Warning: this function is not complete and its behavior may change!!!!!!!!!!!
 
-    Returns a Zef ValueType (a value itself),
+    Returns a Zef ValueType_ (a value itself),
     also when used with the python builtin supported
     types, as well as with instances of Zef Values.
 
@@ -4686,7 +4686,7 @@ def zef_type_imp(x):
             Graph: VT.Graph,
             # FlatGraph: VT.FlatGraph,
             # Keyword: VT.Keyword,
-            # ValueType: VT.ValueType,
+            # ValueType_: VT.ValueType_,
             # SymbolicExpression: VT.SymbolicExpression,
             # Stream: VT.Stream,
             # Error: VT.Error,
@@ -4721,8 +4721,8 @@ def is_a_implementation(x, typ):
     def setof_matching(el, setof):
         from typing import Callable
         for t in setof.d['absorbed']: 
-            if isinstance(t, ValueType): 
-                return Error.ValueError(f"A ValueType was passed to SetOf but it only takes predicate functions. Try wrapping in is_a[{t}]")
+            if isinstance(t, ValueType_): 
+                return Error.ValueError(f"A ValueType_ was passed to SetOf but it only takes predicate functions. Try wrapping in is_a[{t}]")
             elif isinstance(t, (ZefOp, Callable)):
                 if not t(el): return False
             else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside SetOf but got {t} instead.")
@@ -4731,7 +4731,7 @@ def is_a_implementation(x, typ):
     def valuetype_matching(el, vt):
         if vt == VT.Any: return True
 
-        # TODO: compare on actual ValueType along with its absorbed subtypes. 
+        # TODO: compare on actual ValueType_ along with its absorbed subtypes. 
         # TODO: Extend list
         vt_name_to_python_type = {
             "Nil": type(None),
@@ -4744,11 +4744,11 @@ def is_a_implementation(x, typ):
             "Dict": dict,
             "Set": set,
         }
-        if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType matching not implemented for {vt}")
+        if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
         python_type = vt_name_to_python_type[vt.d['type_name']]
         return isinstance(el, python_type)
 
-    if isinstance(typ, ValueType):
+    if isinstance(typ, ValueType_):
         if typ.d['type_name'] == "Union":
             return union_matching(x, typ)
 

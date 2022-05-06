@@ -12,6 +12,9 @@
 </p>
 
 <div align="center">
+    <a href="https://github.com/zefhub/zef/actions/workflows/on-master-merge.yml">
+      <img src="/zefhub/zef/actions/workflows/on-master-merge.yml/badge.svg" alt="Workflow status badge" loading="lazy" height="20">
+    </a>
     <a href="https://github.com/zefhub/zef/blob/master/LICENSE">
         <img src="https://img.shields.io/badge/license-Apache%202.0-teal" />
     </a>

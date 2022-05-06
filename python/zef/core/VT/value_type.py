@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-In Zef the types of Zef Values are values themselves: ValueType.
+In Zef the types of Zef Values are values themselves: ValueType_.
 These are distinct from the host language's implementation type
 of the value instance.
 
@@ -57,7 +57,7 @@ Intersection
 Union
 SetOf
 
-There is also a Union ValueType, which is returned.
+There is also a Union ValueType_, which is returned.
 This custom structure may rearrange and parse terms.
 
 
@@ -69,7 +69,7 @@ from ..error import Error
 # This looks up the associated function 
 _value_type_constructor_funcs = {}
 
-class ValueType:
+class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
@@ -98,11 +98,11 @@ class ValueType:
 
 
     def __getitem__(self, x):
-        return ValueType(self.d["type_name"], absorbed=(*self.d['absorbed'], x))
+        return ValueType_(self.d["type_name"], absorbed=(*self.d['absorbed'], x))
 
 
     def __eq__(self, other):
-        if not isinstance(other, ValueType): return False
+        if not isinstance(other, ValueType_): return False
         return self.d['type_name'] == other.d['type_name'] and self.d['absorbed'] == other.d['absorbed']
 
 
@@ -112,18 +112,18 @@ class ValueType:
 
     def __or__(self, other):
         from ..op_structs import ZefOp
-        if isinstance(other, ValueType):
-            return simplify_value_type(ValueType(type_name='Union', absorbed=(self, other,)))
+        if isinstance(other, ValueType_):
+            return simplify_value_type(ValueType_(type_name='Union', absorbed=(self, other,)))
         elif isinstance(other, ZefOp):
             return other.__ror__(self)
         else:
-            raise Exception(f'"ValueType`s "|" called with unsupported type {type(other)}')
+            raise Exception(f'"ValueType_`s "|" called with unsupported type {type(other)}')
     
     def __and__(self, other):
-        if isinstance(other, ValueType):
-            return simplify_value_type(ValueType(type_name='Intersection', absorbed=(self, other,)))
+        if isinstance(other, ValueType_):
+            return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(self, other,)))
         else:
-            raise Exception(f'"ValueType`s "&" called with unsupported type {type(other)}')
+            raise Exception(f'"ValueType_`s "&" called with unsupported type {type(other)}')
     
 
 
@@ -132,11 +132,11 @@ class UnionClass:
     def __getitem__(self, x):
         from ..op_structs import ZefOp
         if isinstance(x, tuple):
-            return ValueType(type_name='Union', absorbed=x)
-        elif isinstance(x, ValueType):
-            return ValueType(type_name='Union', absorbed=(x,))
+            return ValueType_(type_name='Union', absorbed=x)
+        elif isinstance(x, ValueType_):
+            return ValueType_(type_name='Union', absorbed=(x,))
         elif isinstance(x, ZefOp):
-            return ValueType(type_name='Union', absorbed=(x,))
+            return ValueType_(type_name='Union', absorbed=(x,))
         else:
             raise Exception(f'"Union[...]" called with unsupported type {type(x)}')
             
@@ -145,11 +145,11 @@ class IntersectionClass:
     def __getitem__(self, x):
         from ..op_structs import ZefOp
         if isinstance(x, tuple):
-            return ValueType(type_name='Intersection', absorbed=x)
-        elif isinstance(x, ValueType):
-            return ValueType(type_name='Intersection', absorbed=(x,))
+            return ValueType_(type_name='Intersection', absorbed=x)
+        elif isinstance(x, ValueType_):
+            return ValueType_(type_name='Intersection', absorbed=(x,))
         elif isinstance(x, ZefOp):
-            return ValueType(type_name='Intersection', absorbed=(x,))
+            return ValueType_(type_name='Intersection', absorbed=(x,))
         else:
             raise Exception(f'"Intersection[...]" called with unsupported type {type(x)}')
             
@@ -159,11 +159,11 @@ class SetOfClass:
     def __getitem__(self, x):
         from ..op_structs import ZefOp
         if isinstance(x, tuple):
-            return ValueType(type_name='SetOf', absorbed=x)
-        elif isinstance(x, ValueType):
-            return ValueType(type_name='SetOf', absorbed=(x,))
+            return ValueType_(type_name='SetOf', absorbed=x)
+        elif isinstance(x, ValueType_):
+            return ValueType_(type_name='SetOf', absorbed=(x,))
         elif isinstance(x, ZefOp):
-            return ValueType(type_name='SetOf', absorbed=(x,))
+            return ValueType_(type_name='SetOf', absorbed=(x,))
         else:
             raise Exception(f'"SetOf[...]" called with unsupported type {type(x)}')
             
@@ -215,11 +215,11 @@ def simplify_value_type(x):
         # flatten out unions: Union[Union[A][B]][C]  == Union[A][B][C]
         old_abs = x.d['absorbed']
         absorbed = tuple((el.d['absorbed'] if is_a_union(el) else (el,) for el in old_abs))  # flatten this out
-        return ValueType(type_name='Union', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
+        return ValueType_(type_name='Union', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
     elif is_a_intersection(x):
         # flatten out Intersections: Intersection[Intersection[A][B]][C]  == Intersection[A][B][C]
         old_abs = x.d['absorbed']
         absorbed = tuple((el.d['absorbed'] if is_a_intersection(el) else (el,) for el in old_abs))  # flatten this out
-        return ValueType(type_name='Intersection', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
+        return ValueType_(type_name='Intersection', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
     else:
         return x
