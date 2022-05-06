@@ -267,7 +267,7 @@ def obtain_ids(x) -> dict:
                 ids = merge_no_overwrite(ids, obtain_ids(target(x)))
 
     elif type(x) in [ZefRef, EZefRef]:
-        ids = {uid(to_ezefref(x)): x}
+        ids = {origin_uid(x): x}
 
 
     # This is an extra step on top of the previous checks
