@@ -416,7 +416,7 @@ namespace zefDB {
         // * External handlers
 
         typedef json (merge_handler_t)(Graph, const json &);
-        LIBZEF_DLL_EXPORTED void register_merge_handler(merge_handler_t func);
+        LIBZEF_DLL_EXPORTED void register_merge_handler(std::function<merge_handler_t> func);
         LIBZEF_DLL_EXPORTED json pass_to_merge_handler(Graph g, const json & payload);
 
 

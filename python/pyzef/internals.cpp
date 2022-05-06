@@ -745,4 +745,6 @@ void fill_internals_module(py::module_ & internals_submodule) {
         return Butler::get_butler()->get_local_process_graph();
     },
         py::call_guard<py::gil_scoped_release>());
+
+    internals_submodule.def("register_merge_handler", &Butler::register_merge_handler);
 }

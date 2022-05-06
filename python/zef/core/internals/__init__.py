@@ -120,6 +120,8 @@ from ...pyzef.main import ZefRef
 BlobType.__str__ = lambda self: repr(self).split(':')[0][10:]   # strip away the 'BlobType. ...' and out <>
 
 from .rel_ent_classes import ET, RT, EN, AET
+from .merges import register_merge_handler
+register_merge_handler()
 
 BT = BlobTypeStruct()
 
@@ -177,45 +179,3 @@ def assign_value_imp(z, value):
         else:
             raise Exception(f"Don't know how to serialize a type of {val}")
     c_assign_value(z, value)
-
-####################################
-# * Old: deprecated
-#----------------------------------
-
-
-@contextmanager
-def expose_to(g, target):
-    # In all cases, sync the graph
-    from .. import sync
-    sync(g, True)
-
-    # This is for the convenience of not duplicating code by having to write a no-op context manager
-    if target is None:
-        yield
-        return
-
-    # Special case for username of everyone for convenience
-    if target == "everyone":
-        target = "group:everyone"
-    # Make the assumption that a user is meant, unless group is explicitly specified.
-    if ":" not in target:
-        target = "user:" + target
-
-    from ..admins import add_right, remove_right
-    from ..zefops import uid
-
-    add_right(target, "graph:" + uid(g), "AllowView")
-    add_right(target, "graph:" + uid(g), "AllowDiscover")
-
-    try:
-        yield
-    finally:
-        try:
-            remove_right(target, "graph:" + uid(g), "AllowView")
-            remove_right(target, "graph:" + uid(g), "AllowDiscover")
-        except:
-            import logging
-            logging.error("Ignoring error in finally block of expose_to when trying to remove rights from exposed graph.")
-
-
-    
