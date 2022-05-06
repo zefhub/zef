@@ -229,14 +229,14 @@ def is_python_scalar_type(o):
 
 def is_supported_value(o):
     from .fx.fx_types import _Effect_Class
-    from .VT import ValueType
+    from .VT import ValueType_
     from . import  GraphSlice
     from types import GeneratorType
     from .. import Image
     from .error import _ErrorType
     from ..pyzef.main import Keyword
     if is_python_scalar_type(o): return True
-    if type(o) in {set, range, GeneratorType, list, tuple, dict, _Effect_Class, ValueType, GraphSlice, Time, Image, _ErrorType, Keyword}: return True
+    if type(o) in {set, range, GeneratorType, list, tuple, dict, _Effect_Class, ValueType_, GraphSlice, Time, Image, _ErrorType, Keyword}: return True
     return False
 
 def is_supported_zef_value(o):
@@ -1089,12 +1089,12 @@ def type_spec_tuple(obj):
         return new_tup[VT.Any]
 
 def type_spec(obj, no_type_casting = False):
-    from .VT import ValueType
+    from .VT import ValueType_
     from .fx.fx_types import _Effect_Class
     from . import GraphSlice
     from rx.subject import Subject
     from rx.core import Observable
-    if isinstance(obj, ValueType):               return obj
+    if isinstance(obj, ValueType_):               return obj
     if isinstance(obj, type) or no_type_casting: t = obj
     else:                                        t = type(obj)
     res = {
@@ -1119,7 +1119,7 @@ def type_spec(obj, no_type_casting = False):
         Observable:                 VT.Awaitable,
         _Effect_Class:              VT.Effect,
         GraphSlice:                 VT.GraphSlice,
-    }.get(t, lambda o: ValueType(type(o).__name__, 0))
+    }.get(t, lambda o: ValueType_(type(o).__name__, 0))
     try:
         return res if str(res) in dir(VT) else res(obj)
     except Exception as e:
