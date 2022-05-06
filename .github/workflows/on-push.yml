@@ -7,6 +7,8 @@ on:
 
 jobs:
   run-tests:
+    # check-license is quick and we want to abort quickly if that fails
+    needs: check-license
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
