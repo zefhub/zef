@@ -35,6 +35,7 @@ jobs:
 
       - name: Build wheel
         uses: ./.github/actions/build
+        timeout-minutes: 15
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
