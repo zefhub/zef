@@ -152,7 +152,6 @@ runs:
     # Testing
     - name: Run python tests
       if: inputs.run-tests == 'true'
-      timeout-minutes: 1
       shell: bash
       env:
         ZEFDB_QUIET: YES
@@ -165,7 +164,6 @@ runs:
 
     - name: Check no created tokens
       if: inputs.run-tests == 'true'
-      timeout-minutes: 1
       shell: bash
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
