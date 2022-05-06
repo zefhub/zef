@@ -6,7 +6,11 @@ on:
       - main
 
 jobs:
+  check-license:
+    uses: ./.github/workflows/check-license.yml
   test-code:
+    # check-license is quick and we want to abort quickly if that fails
+    needs: check-license
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:

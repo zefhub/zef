@@ -3,12 +3,19 @@ name: Validate Pull Request
 on: [pull_request]
 
 jobs:
+  check-license:
+    uses: ./.github/workflows/check-license.yml
   test-code:
+    # check-license is quick and we want to abort quickly if that fails
+    needs: check-license
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-18.04]
+        os: [ubuntu-20.04, macos-latest]
         python-version: [3.8, 3.9, "3.10"]
+        exclude:
+          - os: macos-latest
+            python-version: "cp38"
     env:
       ZEFHUB_AUTH_KEY: "GUEST"
     steps:
