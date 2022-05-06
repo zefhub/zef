@@ -6,6 +6,8 @@ on:
       - main
 
 jobs:
+  check-license:
+    uses: ./.github/workflows/check-license.yml
   run-tests:
     # check-license is quick and we want to abort quickly if that fails
     needs: check-license
@@ -28,14 +30,3 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
-  check-license:
-    runs-on: "ubuntu-20.04"
-    steps:
-      - uses: actions/checkout@v3
-        #with:
-        #  repository: "zefhub/addlicense"
-      - uses: actions/setup-go@v3
-        with:
-          go-version: "^1.13.1"
-      - run: go install github.com/zefhub/addlicense@0dff3a5860a17dabe0678454c9ff70b805a2ea5e
-      - run: addlicense -c "Synchronous Technologies Pte Ltd" -f .github/assets/apache-license.md -ignore "_cmake_deps/**" -ignore "cmake_build/**" -ignore ".github/**" -failhard .
