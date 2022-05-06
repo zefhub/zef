@@ -2034,5 +2034,11 @@ namespace zefDB {
                 throw std::runtime_error("Merge handler has already been registered.");
             merge_handler = func;
         }
+
+        void remove_merge_handler() {
+            if(!merge_handler)
+                std::cerr << "Warning, no merge_handler registered to be removed." << std::endl;
+            merge_handler.reset();
+        }
     }
 }

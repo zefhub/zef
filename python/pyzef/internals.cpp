@@ -747,4 +747,5 @@ void fill_internals_module(py::module_ & internals_submodule) {
         py::call_guard<py::gil_scoped_release>());
 
     internals_submodule.def("register_merge_handler", &Butler::register_merge_handler);
+    internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&Butler::remove_merge_handler));
 }
