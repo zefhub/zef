@@ -413,7 +413,7 @@ if(LIBZEF_BUNDLED_CURL)
   set_target_properties(libcurl PROPERTIES
     POSITION_INDEPENDENT_CODE ON)
 
-  create_license_file("libcurl" ${curl_SOURCE_DIR}/COPYING NO "This library bundles the libcurl library (https://github.com/facebook/zstd)\n\nThe full text of the libcurl license follows below.\n\n")
+  create_license_file("libcurl" ${curl_SOURCE_DIR}/COPYING NO "This library bundles the libcurl library (https://github.com/curl/curl)\n\nThe full text of the libcurl license follows below.\n\n")
 else()
   if(PKGCONFIG_FOUND)
     pkg_check_modules(CURL libcurl)
