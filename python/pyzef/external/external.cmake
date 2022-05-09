@@ -44,7 +44,7 @@ endfunction()
 # # set(nlohmann_json_DIR ${nlohmann_json_SOURCE_DIR} CACHE PATH "" FORCE)
 
 # * pybind11 json
-message(STATUS "External: pybind11")
+message(STATUS "External: pybind11_json")
 
 FetchContent_Declare(pybind11_json
   GIT_REPOSITORY https://github.com/pybind/pybind11_json
