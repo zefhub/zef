@@ -232,7 +232,7 @@ def is_python_scalar_type(o):
 def is_supported_value(o):
     from .fx.fx_types import _Effect_Class
     from .VT import ValueType_
-    from . import  GraphSlice
+    from . import GraphSlice
     from types import GeneratorType
     from .. import Image
     from .error import _ErrorType

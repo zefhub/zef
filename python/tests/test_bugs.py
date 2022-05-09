@@ -30,7 +30,7 @@ class MyTestCase(unittest.TestCase):
         r = [
             ET.Person["joe"],
             (Z["joe"], RT.FirstName["rel"], "name"),
-        ]) | transact[g] | run[execute]
+        ] | transact[g] | run[execute]
 
         self.assertEqual(1, g | now | all[ET.Person] | length | collect)
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)
@@ -45,15 +45,15 @@ class MyTestCase(unittest.TestCase):
         r = [
             ET.Person["joe"],
             (Z["joe"], RT.FirstName["rel"], "name"),
-        ]) | transact[g] | run[execute]
+        ] | transact[g] | run[execute]
 
         self.assertEqual(1, g | now | all[ET.Person] | length | collect)
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)
 
         g2 = Graph()
-        r2 = GraphDelta([
-            terminate[r["rel"]],
-        ]) | transact[g2] | run[execute]
+        r2 = [
+            r["rel"] | terminate["rel from g2"],
+        ] | transact[g2] | run[execute]
         self.assertEqual(1, g | now | all[ET.Person] | length | collect)
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)
         self.assertEqual(0, g2 | now | all[ET.Person] | length | collect)
@@ -67,7 +67,7 @@ class MyTestCase(unittest.TestCase):
                 ET.Danny["a"],
                 ET.Machine["a"],
                 (Z["a"], RT.Something, "name")
-            ]) | transact[g] | run[execute]
+            ] | transact[g] | run[execute]
         
 
 if __name__ == '__main__':

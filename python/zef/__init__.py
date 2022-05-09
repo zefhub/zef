@@ -45,3 +45,8 @@ def _autostart_behaviour():
         core.internals.initialise_butler()
 
 _autostart_behaviour()
+
+
+# ------- ReactiveZ: do this at the very end when all is imported ---------------
+core.reactivez.set_up_zefop_graph()         
+core.reactivez.start_zef_runtime()     # starts it in the thread from which this import is performed
