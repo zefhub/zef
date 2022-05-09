@@ -206,7 +206,7 @@ class _Effect_Class:
             logging.warning(f"Effect of type {self.d.get('type')} was garbage collected without being run. Set {__name__}._warn_did_not_run to False to disable this warning.")
 
     def __call__(self):
-        raise TypeError("Effects are not callable. Please use `eff | run` instead.")
+        raise TypeError("Effects are not callable. Please use `eff | run[execute]` instead.")
 
     def __iter__(self):
         """ 

@@ -75,20 +75,20 @@ from ._ops import *
 #----------------------------
 
 # This provides the zefop-like behaviour expected from a func. Needs to support theset hings:
-# - z | func[f] | run
+# - z | func[f] | run[execute]
 #
 # - @func
 #   def f(x, y):
 #     ...
-#   z | f[42] | run
+#   z | f[42] | run[execute]
 #
 # - g = Graph()
 #   @func(g)
 #   def f(x, y):
 #     ...
-#   z | f[42] | run
+#   z | f[42] | run[execute]
 #
-# - z | func[lambda x: x] | run
+# - z | func[lambda x: x] | run[execute]
 
 
 
@@ -338,7 +338,7 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
             z_python_str = z_zef_fct | Out[RT.PythonSourceCode] | collect
             # only assign a new value if the contents changed
             if (value(z_python_str)) != s:
-                z_python_str | assign_value[s] | g | run
+                z_python_str | assign_value[s] | g | run[execute]
 
             # If docstring already exists; update it may be
             if len(z_zef_fct | Outs[RT.DocString] |collect) == 1:
@@ -352,24 +352,24 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
             # Case where this function existed before introducting Docstring parsing
             else:
                 # If Docstring is defined attach it
-                if docstring_maybe: (z_zef_fct, RT.DocString, docstring_maybe) | g | run
+                if docstring_maybe: (z_zef_fct, RT.DocString, docstring_maybe) | g | run[execute]
         else:
             # zef function does not exist yet. Make a new ET.ZEF_Function and attach the string after processing
-            z_zef_fct = ET.ZEF_Function | g | run
+            z_zef_fct = ET.ZEF_Function | g | run[execute]
             # replace the function name given by the user with a unique one containing the uid of the rel
             s_renamed = s[:s.find('def')] + f"def zef_function_{uid(z_zef_fct)}" + s[s.find('('):]
-            (z_zef_fct, RT.PythonSourceCode, s_renamed) | g | run
+            (z_zef_fct, RT.PythonSourceCode, s_renamed) | g | run[execute]
             if label is not None:
-                (z_zef_fct, RT.Label, label) | g | run
+                (z_zef_fct, RT.Label, label) | g | run[execute]
             if is_pure is not False:
-                (z_zef_fct, RT.IsPure, is_pure) | g | run
+                (z_zef_fct, RT.IsPure, is_pure) | g | run[execute]
 
             # attach the very first name the programmer gave as metadata (extracting 
             # the fct after this will auto-generate the name using the uid)
-            (z_zef_fct, RT.OriginalName, fct_name) | g | run
+            (z_zef_fct, RT.OriginalName, fct_name) | g | run[execute]
 
             # If Docstring is defined attach it
-            if docstring_maybe: (z_zef_fct, RT.DocString, docstring_maybe) | g | run
+            if docstring_maybe: (z_zef_fct, RT.DocString, docstring_maybe) | g | run[execute]
 
 
         # TODO: What if only the name of the bound variable was changed?

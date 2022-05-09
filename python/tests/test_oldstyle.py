@@ -144,10 +144,10 @@ class MyTestCase(unittest.TestCase):
         g = Graph()
         with Transaction(g):
             z_zero = instantiate(ET.Machine, g)
-            z_one,_,_ = (ET.Machine, RT.TypeOf, 1) | g | run
-            z_two = ET.Machine | g | run
-            (z_two, RT.TypeOf, 1) | g | run
-            (z_two, RT.TypeOf, 2) | g | run
+            z_one,_,_ = (ET.Machine, RT.TypeOf, 1) | g | run[execute]
+            z_two = ET.Machine | g | run[execute]
+            (z_two, RT.TypeOf, 1) | g | run[execute]
+            (z_two, RT.TypeOf, 2) | g | run[execute]
 
         self.assertEqual(z_zero | Outs[RT.TypeOf] | single_or[None] | collect, None)
         self.assertEqual(z_one | Outs[RT.TypeOf] | single_or[None] | collect, z_one | Out[RT.TypeOf] | collect)

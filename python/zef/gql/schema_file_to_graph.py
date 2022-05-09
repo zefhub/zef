@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from zef import *
-from zef.ops import run
+from zef.ops import run, execute
 from .ariadne_utils import gqlify
 
 #TODO types_dict will have collisions if  blocks of different types have same name i.e type Zeyad, enum Zeyad
@@ -70,7 +70,7 @@ def handle_enum_type(g, enum_type, entity, lines, i):
         enum_val = line.strip(' ')
         EN(enum_type, enum_val)
         ae = instantiate(AET.Enum(enum_type), g)
-        (ae <= EN(enum_type, enum_val)) | g | run
+        (ae <= EN(enum_type, enum_val)) | g | run[execute]
         r = instantiate(entity, RT(gqlify("field")), ae, g)
         i = i + 1
         line = lines[i]
@@ -80,7 +80,7 @@ def handle_enum_type(g, enum_type, entity, lines, i):
 
 def initialize_named_entity(g, name, gql_type):
     et_name = instantiate(AET.String, g)
-    (et_name <= name) | g | run
+    (et_name <= name) | g | run[execute]
     entity = instantiate(ET(gqlify(gql_type)), g)
     instantiate(entity, RT("Name"), et_name, g)
     return entity
@@ -124,7 +124,7 @@ def initialize_field_return(g, field_type):
             aet_types[field_type] = True
         aet = instantiate(getattr(AET, field_type), g)
         if len(splitted) > 1:
-            (aet <= type(aet_types[field_type])(splitted[1].strip(" "))) | g | run
+            (aet <= type(aet_types[field_type])(splitted[1].strip(" "))) | g | run[execute]
         return aet
 
     et = initialize_named_entity(g, field_type, "type")
@@ -140,7 +140,7 @@ def create_aet_relation(g, entity, relation_name, relation_target, relation_type
         instantiate(r, RT(gqlify("nonNullable")), instantiate(AET.Int, g), g)
     # relation between field relation and its field name
     name = instantiate(AET.String, g)
-    (name <= relation_name) | g | run
+    (name <= relation_name) | g | run[execute]
     instantiate(r, RT("Name"), name, g)
     return r
 
@@ -180,7 +180,7 @@ def create_et_relation(g, type_dict, et_name, entity, relation_target, relation_
     if "!" in relation_target:
         instantiate(r, RT(gqlify("nonNullable")), instantiate(AET.Int, g), g)
     name = instantiate(AET.String, g)
-    (name <= relation_name) | g | run
+    (name <= relation_name) | g | run[execute]
     instantiate(r, RT("Name"), name, g)
     return r
 

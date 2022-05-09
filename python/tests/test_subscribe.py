@@ -47,16 +47,16 @@ class MyTestCase(unittest.TestCase):
         z | assign_value[4] | g | run
         z | assign_value[5] | g | run
 
-        (z, RT.Map, 1) | g | run
-        (z, RT.Map, 2) | g | run
-        (z, RT.Value, 2) | g | run
+        (z, RT.Map, 1) | g | run[execute]
+        (z, RT.Map, 2) | g | run[execute]
+        (z, RT.Value, 2) | g | run[execute]
 
-        z | now | Outs[RT.Map] | map[terminate] | g | run
+        z | now | Outs[RT.Map] | map[terminate] | g | run[execute]
 
-        (z, RT.Value, 3) | g | run
-        (z, RT.Map, 4) | g | run
+        (z, RT.Value, 3) | g | run[execute]
+        (z, RT.Map, 4) | g | run[execute]
 
-        z | now | Outs[RT.Value] | map[terminate] | g | run
+        z | now | Outs[RT.Value] | map[terminate] | g | run[execute]
 
         # Test that keep_alive kills subs when it is False only
         sub2 = None
@@ -64,12 +64,12 @@ class MyTestCase(unittest.TestCase):
         import gc
         gc.collect()
 
-        (z, RT.Map, 10) | g | run
-        (z, RT.Value, 10) | g | run
+        (z, RT.Map, 10) | g | run[execute]
+        (z, RT.Value, 10) | g | run[execute]
 
         # Test that unsubscribe kills subs definitely
         sub4.unsubscribe()
-        z | now | Outs[RT.Map] | map[terminate] | g | run
+        z | now | Outs[RT.Map] | map[terminate] | g | run[execute]
 
         self.assertEqual(on_value_assign_list, [1,2,3,4,5])
         self.assertEqual(on_rel_list, [

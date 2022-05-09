@@ -18,7 +18,7 @@ import time
 
 
 def make_item(x):
-    (ET.Machine, RT.UsedBy, x) | g | run
+    (ET.Machine, RT.UsedBy, x) | g | run[execute]
 
 def find_item(x):
     from zef.pyzef.zefops import instances_impl, now as now_impl, select_by_field_impl

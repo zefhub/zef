@@ -689,7 +689,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
         if(have_auth_credentials()) {
             msg->promise.set_value(GenericResponse{false, "Can't sync when we aren't connected to upstream."});
         } else {
-            msg->promise.set_value(GenericResponse{false, "Can't sync without a login. Please run `login | run` to login to ZefHub first."});
+            msg->promise.set_value(GenericResponse{false, "Can't sync without a login. Please run `login | run[execute]` to login to ZefHub first."});
         }
         return;
     }

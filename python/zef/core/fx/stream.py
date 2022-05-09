@@ -14,25 +14,30 @@
 
 from .fx_types import Effect
 from .._core import EZefRef, ET
-from .state import _state
 from ..op_structs import Awaitable
-from .._ops import *
+
+
+
+
 
 def stream_create_pushable_stream_handler(eff: Effect):
     """ 
-    Create an ET.PushableStream on the local process graph.
-    Store the actual Awaitable in fx._state['streams']
+    On which process graph? The one targeted with "this_eff | run[target_runtime]".
+    This is executed on the thread where it should be created.
     """
-    from rx.subject import Subject
     from .. import internals
+    from .._ops import get, run, collect, execute
+    from zef import GraphDelta
+    from zef.core.reactivez import get_runtime_state
+    
 
-    g_process = internals.get_local_process_graph()
-    # z_stream (an ET.PushableStream) is just a proxy for the actual stream.
-    # Both on push and subscribing / applying further transformations
-    z_stream = to_ezefref(ET.PushableStream | g_process | run)
-    _state['streams'][z_stream] = Subject()
-    # return { 'stream': my_stream }    # too verbose?
-    return Awaitable(z_stream, True)
+    pg = get_runtime_state()['process_graph']
+    s = GraphDelta([
+        ET.ZEF_PushableStream['s']
+    ]) | pg | run[execute] | get['s'] | collect          # But: we want to return a stream, not a raw ZefRef
+    return {'stream': Awaitable(s)}             # the response of an effect handler is always a dictionary
+
+
 
 
 def stream_push_handler(eff: Effect):   # -> Union[Nil, Error]
@@ -51,4 +56,3 @@ def stream_push_handler(eff: Effect):   # -> Union[Nil, Error]
 
 def stream_complete_handler(eff: Effect):
     raise NotImplementedError()
-

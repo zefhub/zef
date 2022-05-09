@@ -40,12 +40,12 @@ class MyTestCase(unittest.TestCase):
     def test_shorthand(self):
         g = Graph()
 
-        z = ET.Dog | g | run
+        z = ET.Dog | g | run[execute]
         self.assertTrue(is_a(z, ET.Dog))
 
         z1, [(name_rel, name),
              (breed_rel, breed)] = (z, [(RT.Name, "Rufus"),
-                                        (RT.Breed, "Labrador")]) | g | run
+                                        (RT.Breed, "Labrador")]) | g | run[execute]
 
         self.assertEqual(to_ezefref(z), to_ezefref(z1))
         self.assertTrue(is_a(name_rel, RT.Name))
@@ -53,7 +53,7 @@ class MyTestCase(unittest.TestCase):
         self.assertTrue(is_a(breed_rel, RT.Breed))
         self.assertEqual(value(breed), "Labrador")
 
-        z1, none, [a,b,c] = (z, RT.Nickname, ["Dog", "Boy", "Mongrel"]) | g | run
+        z1, none, [a,b,c] = (z, RT.Nickname, ["Dog", "Boy", "Mongrel"]) | g | run[execute]
 
         self.assertEqual(to_ezefref(z), to_ezefref(z1))
         self.assertEqual(none, None)
@@ -64,7 +64,7 @@ class MyTestCase(unittest.TestCase):
         self.assertTrue(has_relation(now(z), RT.Nickname, b))
         self.assertTrue(has_relation(now(z), RT.Nickname, c))
 
-        [a,b], none, z1 = (["Alice", "Bob"], RT.Owner, z) | g | run
+        [a,b], none, z1 = (["Alice", "Bob"], RT.Owner, z) | g | run[execute]
 
         self.assertEqual(to_ezefref(z), to_ezefref(z1))
         self.assertEqual(none, None)

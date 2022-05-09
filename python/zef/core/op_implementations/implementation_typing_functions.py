@@ -201,7 +201,7 @@ def on_implementation(g, op):
     from ...pyzef import zefops as internal
     from ..fx import FX, Effect
 
-    stream =  Effect({'type': FX.Stream.CreatePushableStream}) | run
+    stream =  Effect({'type': FX.Stream.CreatePushableStream}) | run[execute]
     sub_decl = internal.subscribe[internal.keep_alive[True]]
     
     if isinstance(g, Graph):
@@ -215,12 +215,12 @@ def on_implementation(g, op):
                 # Type 1: a specific entity i.e on[terminated[zr]]  !! Cannot be on[instantiated[zr]] because doesnt logically make sense !!
                 if isinstance(rae_or_zr, ZefRef): 
                     assert op_kind == RT.Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
-                    def filter_func(root_node): root_node | frame | to_tx  | terminated | filter[lambda x: to_ezefref(x) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(terminated[x]) | push[stream] | run ] 
+                    def filter_func(root_node): root_node | frame | to_tx  | terminated | filter[lambda x: to_ezefref(x) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(terminated[x]) | push[stream] | run[execute] ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl                
                 # Type 2: any RAE  i.e on[terminated[ET.Dog]] or on[instantiated[RT.owns]] 
                 elif type(rae_or_zr) in {AtomicEntityType, EntityType, RelationType}: 
-                    def filter_func(root_node): root_node | frame | to_tx | selected_types[1] | filter[lambda x: rae_type(x) == rae_or_zr] |  for_each[lambda x: LazyValue(selected_types[1][x]) | push[stream] | run ] 
+                    def filter_func(root_node): root_node | frame | to_tx | selected_types[1] | filter[lambda x: rae_type(x) == rae_or_zr] |  for_each[lambda x: LazyValue(selected_types[1][x]) | push[stream] | run[execute] ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl
                 else:
@@ -229,7 +229,7 @@ def on_implementation(g, op):
             # Type 3: An instantiated or terminated relation outgoing or incoming from a specific zr 
             elif len(op_args[0]) == 3: 
                 src, rt, _ = op_args[0] # TODO don't ignore matching on the Target! To be implemented!
-                sub_decl = sub_decl[selected_types[0][internal.outgoing][rt]][lambda x: LazyValue(selected_types[1][x]) | push[stream] | run] # TODO: is it always outgoing?
+                sub_decl = sub_decl[selected_types[0][internal.outgoing][rt]][lambda x: LazyValue(selected_types[1][x]) | push[stream] | run[execute]] # TODO: is it always outgoing?
                 sub = src | sub_decl            
             else:
                 raise Exception(f"Unhandled type in on[{selected_types[1]}] where the curried args were {op_args}")
@@ -238,7 +238,7 @@ def on_implementation(g, op):
             aet_or_zr = op_args[0]
             # Type 1: a specific zefref to an AET i.e on[value_assigned[zr_to_aet]]
             if isinstance(aet_or_zr, ZefRef): 
-                sub_decl = sub_decl[internal.on_value_assignment][lambda x: LazyValue(value_assigned[x][x|value|collect]) | push[stream] | run]
+                sub_decl = sub_decl[internal.on_value_assignment][lambda x: LazyValue(value_assigned[x][x|value|collect]) | push[stream] | run[execute]]
                 sub = aet_or_zr | sub_decl
             # Type 2: any AET.* i.e on[value_assigned[AET.String]]
             elif isinstance(aet_or_zr, AtomicEntityType): 
@@ -4035,7 +4035,11 @@ def nth_implementation(iterable, n):
         return iterable | all | nth[n] | collect
         
     if isinstance(iterable, ZefRefs) or isinstance(iterable, EZefRefs) or isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, str):
-        return iterable[n]
+        if n>=0:
+            return iterable[n]
+        else:
+            return list(iterable)[n]
+    
     it = iter(iterable)
     for cc in range(n):
         next(it)
@@ -5187,9 +5191,9 @@ def tag_imp(x, tag: str, force: bool = False):
     Create an effect to add a tag to either a Graph or a RAE.
 
     ---- Examples ----
-    >>> g | tag["my_graph"] | run
-    >>> g2 | tag["my_graph"][True] | run
-    >>> z | tag["settings_node"] | run
+    >>> g | tag["my_graph"] | run[execute]
+    >>> g2 | tag["my_graph"][True] | run[execute]
+    >>> z | tag["settings_node"] | run[execute]
 
     ---- Arguments ----
     x Graph / ZefRef: object to tag
@@ -5228,8 +5232,8 @@ def untag_imp(x, tag: str):
     Create an effect to remove a tag from either a Graph or a RAE
 
     ---- Examples ----
-    >>> g | untag["my_graph"] | run
-    >>> z | untag["settings_node"] | run
+    >>> g | untag["my_graph"] | run[execute]
+    >>> z | untag["settings_node"] | run[execute]
 
     ---- Signature ----
     (Graph, str) -> Effect
@@ -5265,9 +5269,9 @@ def sync_imp(x: VT.Graph, sync_state: bool = True):
     sync (sync_state=True) but can be set to False to disable sync.
 
     ---- Examples ----
-    >>> g | sync | run
-    >>> g | sync[True] | run
-    >>> g | sync[False] | run
+    >>> g | sync | run[execute]
+    >>> g | sync[True] | run[execute]
+    >>> g | sync[False] | run[execute]
 
     ---- Signature ----
     Graph -> Effect
@@ -5381,8 +5385,8 @@ def to_clipboard_imp(x):
 
     ---- Examples ----
     'hello' | to_clipboard                                  # returns an effect
-    my_zef_func | to_clipboard | run                        # copy a single zef function to the clipboard
-    g | now | all[ET.ZEF_Function] | to_clipboard | run     # copy all zef function on graph to clipboard
+    my_zef_func | to_clipboard | run[execute]               # copy a single zef function to the clipboard
+    g | now | all[ET.ZEF_Function] | to_clipboard | run[execute]    # copy all zef function on graph to clipboard
 
     ---- Signature ----
     String                          -> Effect
@@ -5756,6 +5760,157 @@ def inject_list_tp():
 
 
 
+#---------------------------------------- gather -----------------------------------------------
+
+
+def gather_imp(z_initial, rules=None):
+    """ 
+    An operator that given a launch point on a graph, gathers up 
+    a subgraph by traversing based on a rules pattern that is specified.
+    There are two main modes of usage: 
+
+    ---------------- A: Explicit Rules -----------------
+    Giving an explicit rule set:
+    rules = {
+    >>> 'from_source': [
+    >>>     (ET.A, RT.R1, ET.B),
+    >>>     (_any, RT.R2, AET.String),
+    >>> ],
+    >>> 'from_target': [],
+    >>> }
+    then 
+    >>> z1 | gather[rules]
+    will iteratively traverse the graph until there is nothing more to be collected.
+    What do the rules specify in this case? For example, the first rule (ET.A, RT.R1, ET.B)
+    being part of 'from_source' mean that if one were to stand on a node of type "ET.A" as a source,
+    with an outgoing relation of type "RT.R1" which leads to a "ET.B", then take that step
+    and include both the edge and the "ET.B" in the gathered set.
+
+    ---------------- B: Implicit Rules -----------------
+    For certain entity types, predefined rule sets are associated.
+    B1) For ET.ZEF_Function, a rule set to gather all things related to that function is predefined.
+    Future: Also for ET.ZEF_EffectModule, ET.ZEF_Op
+
+    >>> z_my_zef_fct | gather      # gathers everything up, e.g. to merge over to another graph
+    
+    """
+    # ------------------------------ catch all cases for implicit rules ----------------------------------
+    if rules is None:
+
+        # --------------------------------- ET.ZEF_Function --------------------------------
+        if z_initial | is_a[ET.ZEF_Function] | collect:
+            zef_fct_rules ={
+                    'from_source': [
+                        (ET.ZEF_Function, RT.PythonSourceCode, AET.String),
+                        (ET.ZEF_Function, RT.OriginalName, AET.String),
+                        (ET.ZEF_Function, RT.DocString, AET.String),
+                        (ET.ZEF_Function, RT.Binding, ET.ZEF_Function),
+                        (RT.Binding, RT.Name, AET.String),
+                        (RT.Binding, RT.UseTimeSlice, AET.String),
+                    ],
+                    'from_target': [],
+                    }
+            return gather_imp(z_initial, zef_fct_rules)
+        
+        # --------------------------------- ET.ZEF_ElementaryOp --------------------------------
+        elif z_initial | is_a[ET.ZEF_ElementaryOp] | collect:
+            zef_elop_rules = {
+                'from_source': [
+                    (ET.ZEF_ElementaryOp, RT.Name, AET.String),
+                    (ET.ZEF_ElementaryOp, RT.ZEF_StreamImplementation, ET.ZEF_DispatchPoint),
+                    (ET.ZEF_DispatchPoint, RT.ZEF_Dispatch, ET.ZEF_Function),
+                    (ET.ZEF_DispatchPoint, RT.ZEF_HelperFunction, ET.ZEF_Function),
+
+                    (ET.ZEF_Function, RT.PythonSourceCode, AET.String),
+                    (ET.ZEF_Function, RT.OriginalName, AET.String),
+                    (ET.ZEF_Function, RT.DocString, AET.String),
+                    (ET.ZEF_Function, RT.Binding, ET.ZEF_Function),
+                    (RT.Binding, RT.Name, AET.String),
+                    (RT.Binding, RT.UseTimeSlice, AET.String),
+                ],
+                'from_target':[]
+            }
+            return gather_imp(z_initial, zef_elop_rules)           
+        else:
+            raise TypeError(f"Implicit rules not defined in 'gather' operator for {rae_type(z_initial)}")
+
+
+    # --------------------------------- explicit rules -------------------------------
+    def traverse_rae_step(z: ZefRef) -> ZefRefs:
+
+        def from_single_rule_from_source(triple) -> ZefRefs:
+            src_tp, rel_tp, trg_tp = triple
+            if not is_a[src_tp](z):
+                return []
+            return z > L[rel_tp] | filter[lambda rel: is_a[trg_tp](target(rel)) ] | map[lambda rel: (rel, target(rel))] | concat | collect
+
+        def from_single_rule_from_target(triple) -> ZefRefs:
+            src_tp, rel_tp, trg_tp = triple
+            if not is_a[trg_tp](z):
+                return []
+            return z < L[rel_tp] | filter[lambda rel: is_a[src_tp](source(rel)) ] | map[lambda rel: (rel, source(rel))] | concat | collect
+
+        return (
+            rules | get['from_source'] | map[from_single_rule_from_source] | concat | collect,
+            rules | get['from_target'] | map[from_single_rule_from_target]  | concat | collect,
+            ) | concat | collect
+
+    def step(d: dict) -> dict:
+        new_gathered = {*d['gathered'], *d['frontier']}
+        new_frontier = d['frontier'] | map[traverse_rae_step] | concat | filter[Not[contained_in[new_gathered]]] | collect
+        return {
+            'gathered': new_gathered,
+            'frontier': new_frontier,
+        }
+    
+    frontier_is_empty = get['frontier'] | length | equals[0]    
+    return {
+        'gathered': set(),
+        'frontier': {z_initial, },
+    } | iterate[step] | take_until[frontier_is_empty] | last | get['gathered'] | collect
+
+
+
+
+def gather_tp():
+    return VT.ZefRefs
+
+
+
+
+
+
+
+
+#---------------------------------------- blake3 -----------------------------------------------
+def blake3_imp(x):
+    """
+    Performant cryptographic hash function.
+    Zefop takes either bytes or a str and returns the hash in form of a hex string.
+    TODO: return this as a Zef Value.Bytes. Make the default repr for bytes in hex string form
+    to be simple to copy and view. But the actual hash can be pure bytes to simplify the interop 
+    across language boundaries.
+
+    >> 'hello' | blake3    
+    """
+    try:
+        from blake3 import blake3 as b3
+    except:
+        raise RuntimeError("Error importing blake3 Python package: Run 'pip3 install blake3'")
+    # Hash some input all at once. The input can be bytes, a bytearray, or a memoryview.
+    if isinstance(x, bytes):
+        return b3(x).hexdigest()
+    elif isinstance(x, str):
+        return b3(x.encode()).hexdigest()
+    else:
+        raise TypeError(f"blake3 only implemented to hash values of type 'bytes' (and strings, which are utf8 encoded)")
+
+
+def blake3_tp():
+    return VT.String
+
+    
+
 #---------------------------------------- Zascii -----------------------------------------------
 def zascii_to_asg_imp(zascii_str: VT.String) -> VT.Dict:
     """ 
@@ -6044,8 +6199,11 @@ def blake3_imp(obj) -> VT.String:
             type_str = str(type(obj))
         return blake3_imp(type_str + str(obj))
 
-def blake3_tp(op, curr_type):
-    return VT.String
+def lazy_imp(v, zefop) -> VT.String:
+    return v | zefop
+
+def lazy_tp(op, curr_type):
+    return VT.Any
 
 
 #-------------------------------ZEF LIST------------------------------------------

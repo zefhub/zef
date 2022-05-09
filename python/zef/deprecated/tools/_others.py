@@ -368,7 +368,7 @@ def cprint(x):
 # * Inject
 #----------------------------
 def instantiate_ae_from_val(val, g)->ZefRef:
-    ae, = [val] | g | run
+    ae, = [val] | g | run[execute]
     return ae
 
 

@@ -55,8 +55,8 @@ class Image:
             file.close()
 
         from . import FX, Effect
-        from ._ops import run
+        from ._ops import run, execute
         Effect({
             "type": FX.LocalFile.SystemOpenWith,
             "filepath": filename
-        }) | run
+        }) | run[execute]

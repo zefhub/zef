@@ -1175,6 +1175,7 @@ def unpack_receipt(unpacking_template, receipt: dict):
 #------------------------------------------------
 
 def perform_transaction_gdelta(g_delta, g: Graph):
+    from . import internals
     d_raes = {}  # keep track of instantiated RAEs with temp ids            
     try:
         with Transaction(g) as tx_now:

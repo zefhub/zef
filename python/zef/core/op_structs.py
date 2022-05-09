@@ -302,8 +302,8 @@ class ZefOp:
             return on_implementation(other, *self.el_ops[0][1])
         elif is_supported_stream(other):
             from .fx import FX, Effect
-            from ._ops import run
-            stream =  Effect({'type': FX.Stream.CreatePushableStream}) | run
+            from ._ops import run, execute
+            stream =  Effect({'type': FX.Stream.CreatePushableStream}) | run[execute]
             return stream | self
         elif is_supported_value(other) or is_supported_zef_value(other):
             return LazyValue(other) | self
@@ -573,46 +573,73 @@ class CollectingOp:
 OpLike.register(CollectingOp)
 
 
-class ConcreteAwaitable:
-    def __init__(self, concrete_awaitable, concrete_type, chain):
-        self.concrete_awaitable = concrete_awaitable
-        self.concrete_type = concrete_type
-        self.chain = chain + [self.concrete_type] 
+#                                     _                      _  _           _      _                                      
+#                                    / \   __      __  __ _ (_)| |_   __ _ | |__  | |  ___                                
+#   _____  _____  _____  _____      / _ \  \ \ /\ / / / _` || || __| / _` || '_ \ | | / _ \    _____  _____  _____  _____ 
+#  |_____||_____||_____||_____|    / ___ \  \ V  V / | (_| || || |_ | (_| || |_) || ||  __/   |_____||_____||_____||_____|
+#                                 /_/   \_\  \_/\_/   \__,_||_| \__| \__,_||_.__/ |_| \___|                               
+#     
 
-    def __repr__(self):
-        return f"{self.concrete_awaitable} -> {self.chain}"
+def instantiate_on_process_graph(awaitable, run_or_sub):
+    # Doing things on the graph and return ezefref to the concrete stream
+    print(f"instantiate_on_process_graph called! {awaitable=}    {run_or_sub=}")
+    concrete_stream = None
+    return Awaitable(concrete_stream)
 
-class Awaitable:
-    
-    def __init__(self, stream_ezefref, pushable=False, unwrapping = False):
-        self.stream_ezefref = stream_ezefref
-        self.pushable = pushable
-        self.unwrapping = unwrapping
-        self.el_ops = ZefOp(())
 
-    def __repr__(self):
-        return f"Awaitable({self.stream_ezefref} \n| {self.el_ops})"
+class Awaitable():
+    """ 
+    An awaitable is isomorphic to a lazy value with 
+    (iterable)         <->     (observable)
+    (initial_value)    <->     (initial_stream)
+    (el_ops)           <->     (el_ops)
+
+    An Awaitable is a thin wrapper around two values:
+        1) an initial stream:  self.initial_stream
+        2) a list of elementary zefops:  self.el_ops
+
+    my_awaitable | first            # returns the initial value    
+    my_awaitable | second           # returns the list of el_ops  
+    """
+    def __init__(self, x):
+        from ._ops import Or, is_a, to_ezefref, collect
+        from . import Entity, Error
+        if isinstance(x, EZefRef) or isinstance(x, ZefRef):
+            if x | Or[is_a[ET.ZEF_PushableStream]][is_a[ET.Stream]][is_a[AET]] | collect:
+                self.initial_stream = to_ezefref(x)
+                self.el_ops = []
+            else:
+                return Error(f"Could not initialize an Awaitable with given type {type(x)} for value {x}")
+        elif isinstance(x, Entity):
+            raise NotImplementedError()
+        elif isinstance(x, Awaitable):
+            self.initial_stream = x.initial_stream
+            self.el_ops = x.el_ops
+        else:
+            raise TypeError(f"Cannot construct an awaitable from {type(x)=}    value: {x}")
 
     def __or__(self, other):
         if isinstance(other, ZefOp) and is_evaluating_run(other):
-            return self.evaluation(other, "Run")
+            return instantiate_on_process_graph(self, other)
+
+        if isinstance(other, SubscribingOp):
+            return instantiate_on_process_graph(self, other)
 
         if isinstance(other, ZefOp):
-            new_awaitable = Awaitable(self.stream_ezefref, self.pushable, self.unwrapping)
+            new_awaitable = Awaitable(self.initial_stream)
             if len(self.el_ops) > 0:
                 new_awaitable.el_ops = ZefOp((*self.el_ops.el_ops, *other.el_ops,)) 
             else:
                 new_awaitable.el_ops = other
             return new_awaitable
 
-        if isinstance(other, SubscribingOp):
-            return self.evaluation(other, "Subscribe")
-
         if isinstance(other, CollectingOp):
             raise NotImplementedError(f"Awaitable | not implemented with collect")
 
         raise NotImplementedError(f"Awaitable | not implemented with {type(other)}")
-        
+
+    def __repr__(self):
+        return f"Awaitable({self.initial_stream}, {self.el_ops})"
 
     def lt_gt_lshift_rshift_behavior(self, other, rt):
         import inspect
@@ -643,7 +670,7 @@ class Awaitable:
             else:
                 res = ZefOp((*unpack_ops(rt, other.el_ops),))
         
-        new_awaitable = Awaitable(self.stream_ezefref, self.pushable, self.unwrapping)
+        new_awaitable = Awaitable(self.initial_stream)
         new_awaitable.el_ops = res
 
         if rt == RT.OutOld or rt == RT.InOld:  _terrible_global_state[(line_no, id(other))] = new_awaitable
@@ -933,9 +960,7 @@ class LazyValue:
             if op[0] == RT.Collect: continue
             if op[0] == RT.Run:  
                 from .fx.fx_types import _Effect_Class
-                if isinstance(curr_value, _Effect_Class): 
-                    curr_value = _op_to_functions[op[0]][0](curr_value)
-                elif len(op[1]) > 1: # i.e run[impure_func]
+                if len(op[1]) > 1: # i.e run[impure_func] or run[execute]
                     curr_value = op[1][1](curr_value)
                 else:
                     raise NotImplementedError(f"only effects or nullary functions can be passed to 'run' to be executed in the imperative shell. Received {curr_value}")
@@ -1203,7 +1228,7 @@ def rt_lt_gt_behavior(self, arg, rt):
                 if isinstance(cached, LazyValue) or isinstance(cached, Awaitable):
                     res = ZefOp((*(cached.el_ops.el_ops), *arg_ops))
                     if isinstance(cached, LazyValue): cached_clone = type(cached)(cached.initial_val)
-                    else: cached_clone = type(cached)(cached.stream_ezefref, cached.pushable, cached.unwrapping)
+                    else: cached_clone = type(cached)(cached.initial_stream)
                     cached_clone.el_ops = res
                     res = cached_clone
                     is_non_op = True
@@ -1219,7 +1244,7 @@ def rt_lt_gt_behavior(self, arg, rt):
             if isinstance(cached, LazyValue) or isinstance(cached, Awaitable):
                 res = ZefOp(( *(cached.el_ops.el_ops), (rt, (arg,))) )
                 if isinstance(cached, LazyValue): cached_clone = type(cached)(cached.initial_val)
-                else: cached_clone = type(cached)(cached.stream_ezefref, cached.pushable, cached.unwrapping)
+                else: cached_clone = type(cached)(cached.initial_stream)
                 cached_clone.el_ops = res
                 res = cached_clone
                 is_non_op = True
@@ -1251,7 +1276,7 @@ def rt_lt_gt_behavior(self, arg, rt):
             if isinstance(cached, LazyValue) or isinstance(cached, Awaitable):
                 res = type(arg)(ZefOp(( *(cached.el_ops.el_ops), *args)))
                 if isinstance(cached, LazyValue): cached_clone = type(cached)(cached.initial_val)
-                else: cached_clone = type(cached)(cached.stream_ezefref, cached.pushable, cached.unwrapping)
+                else: cached_clone = type(cached)(cached.initial_stream)
                 cached_clone.el_ops = res
                 res = cached_clone
             else:

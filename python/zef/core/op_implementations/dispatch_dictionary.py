@@ -251,9 +251,12 @@ _op_to_functions = {
         RT.AsPipeline:          (as_pipeline_imp, as_pipeline_tp),
         RT.Inject:              (inject_imp, inject_tp),
         RT.InjectList:          (inject_list_imp, inject_list_tp),
+         
+        RT.Gather:              (gather_imp, gather_tp),
+        RT.Blake3:              (blake3_imp, blake3_tp),
 
         RT.ZasciiToAsg:         (zascii_to_asg_imp, zascii_to_asg_tp),
-        RT.ZasciiToScehma:      (zascii_to_schema_imp, zascii_to_schema_tp),
+        RT.ZasciiToSchema:      (zascii_to_schema_imp, zascii_to_schema_tp),
 
         RT.ReplaceAt:           (replace_at_imp, replace_at_tp),
         RT.RandomPick:          (random_pick_imp, random_pick_tp),
@@ -279,4 +282,6 @@ _op_to_functions = {
         RT.Function:           (function_imp, function_tp),
         RT.On:                 (on_implementation, None),
         RT.Range:              (range_imp, range_tp),
+        RT.Execute:             (run_effect_implementation, None),
+        RT.Lazy:                (lazy_imp, lazy_tp),
 }

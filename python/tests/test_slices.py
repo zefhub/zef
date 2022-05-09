@@ -20,13 +20,13 @@ class MyTestCase(unittest.TestCase):
     def test_zefrefs_from_slices(self):
 
         g = Graph()
-        z = AET.String | g | run
-        (z <= "a") | g | run
-        (z <= "b") | g | run
-        z | terminate | g | run
+        z = AET.String | g | run[execute]
+        (z <= "a") | g | run[execute]
+        (z <= "b") | g | run[execute]
+        z | terminate | g | run[execute]
 
         g2 = Graph()
-        z2 = z | g2 | run
+        z2 = z | g2 | run[execute]
 
         ctx = z | instantiated | collect
         # Note: slice 1 is created on Graph(), so this is slice 2

@@ -278,6 +278,8 @@ as_pipeline    = make_zefop(RT.AsPipeline)
 inject         = make_zefop(RT.Inject)
 inject_list    = make_zefop(RT.InjectList)
 
+gather         = ZefOp(((RT.Gather, ()), ))
+blake3         = ZefOp(((RT.Blake3, ()), ))
 
 is_alpha        = make_zefop(RT.IsAlpha)
 to_upper_case   = make_zefop(RT.ToUpperCase)
@@ -314,6 +316,9 @@ merge           = make_zefop(RT.Merge)                 # We need this for observ
 blake3          = make_zefop(RT.Blake3)
 to_zef_list     = make_zefop(RT.ToZefList)
 transact        = make_zefop(RT.Transact)
+execute         = ZefOp(((RT.Execute, ()),))
+lazy            = ZefOp(((RT.Lazy, ()), ))
+
 # transact
 
 # subscribe

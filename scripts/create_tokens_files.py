@@ -30,14 +30,14 @@ g = Graph()
 g2 = Graph()
 
 d =[ET.User["z"]]
-r = d | transact[g] | run
+r = d | transact[g] | run[execute]
 
 z = r["z"]
 d2 =[
     z,
     (ET.Token, RT.Index, AET.Int["aet"]),
 ]
-d2 | transact[g2] | run
+d2 | transact[g2] | run[execute]
 
 # g | subscribe[lambda x: None]
 # r2["aet"] | subscribe[on_value_assignment][lambda x: None]

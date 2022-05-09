@@ -33,7 +33,7 @@ def graphql_start_server_handler(eff: Effect):
         "path": "/gql", (default="/gql")
         "playground_path": "/", (default=None)
         "open_browser": False (default=False)
-    }) | run
+    }) | run[execute]
     """
 
     eff_d = eff.d
@@ -73,12 +73,12 @@ def graphql_start_server_handler(eff: Effect):
         **eff_d,
         'type': FX.HTTP.StartServer,
         'port': port,
-        # 'pipe_into': map[resolve_gql_query] | subscribe[run]
+        # 'pipe_into': map[resolve_gql_query] | subscribe[execute]
         # This doesn't work with rxops atm... need to do it all in a custom map[] function
         # 'pipe_into': middleware[[permit_cors, resolve_gql_query, send_response]]
         'pipe_into': map[middleware_worker[permit_cors, resolve_gql_query, fallback_not_found, send_response]] | subscribe[run],
         'logging': logging,
-    }) | run
+    }) | run[execute]
 
     log.info(f"Started GQL server at http://localhost:{port}{gql_path}")
     if playground_path is not None:
@@ -106,7 +106,7 @@ def graphql_start_playground_handler(eff: Effect):
         "path": "/gql", (default="/gql")
         "playground_path": "/", (default="/")
         "open_browser": True (default=True)
-    }) | run
+    }) | run[execute]
     """
     
     schema = eff.d['schema_root']
@@ -128,7 +128,7 @@ def graphql_start_playground_handler(eff: Effect):
         "path": gql_path,
         "playground_path": playground_path,
         "open_browser": open_browser,
-    }) | run
+    }) | run[execute]
 
     return http_r
     
@@ -136,5 +136,5 @@ def graphql_start_playground_handler(eff: Effect):
 def graphql_stop_playground_handler(eff: Effect):
     new_d = dict(eff.d)
     new_d["type"] = FX.HTTP.StopServer
-    return run(Effect(new_d))
+    return run[execute](Effect(new_d))
     

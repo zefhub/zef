@@ -26,10 +26,10 @@ class MyTestCase(unittest.TestCase):
         from zef.experimental.networkx import ProxyGraph
 
         g = Graph()
-        zs = [ET.Machine]*42 | g | run
+        zs = [ET.Machine]*42 | g | run[execute]
         for i,j in [(0,1), (1,2), (2,5), (5,10), (10,0),
                     (5,6), (6,7), (7,8), (8,6)]:
-            (zs[i], RT.UsedBy, zs[j]) | g | run
+            (zs[i], RT.UsedBy, zs[j]) | g | run[execute]
 
         r = [
             (ET.Person["alex"], [(RT.FirstName, "Alex"),
@@ -46,7 +46,7 @@ class MyTestCase(unittest.TestCase):
 
             (Z["alex"], RT.Knows["d-z"], Z["zach"]),
             (Z["d-z"], RT.From, "Nowhere"),
-        ] | transact[g] | run
+        ] | transact[g] | run[execute]
 
 
         dg = ProxyGraph(now(g), ET.Person, RT.Knows)
@@ -93,7 +93,7 @@ class MyTestCase(unittest.TestCase):
 
         nx.diameter(ug)
 
-        (r["bob"], RT.Knows, r["zach"]) | g | run
+        (r["bob"], RT.Knows, r["zach"]) | g | run[execute]
         ug_complete = ProxyGraph(now(g), ET.Person, RT.Knows, undirected=True)
 
         # Doesn't work - tries to construct a graph itself

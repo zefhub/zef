@@ -74,6 +74,7 @@ from . import graph_slice
 from . import flat_graph
 from . import fx
 from . import serialization
+from . import reactivez
 
 from .error import Error
 
@@ -97,6 +98,8 @@ from .op_structs import ZefOp, LazyValue
 
 
 from .serialization import serialize, deserialize
+
+from .reactivez import start_runtime, completion_event
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
@@ -125,4 +128,3 @@ pyzef.internals.finished_loading_python_core()
 #         internals.initialise_butler()
 
 # _autostart_behaviour()
-        

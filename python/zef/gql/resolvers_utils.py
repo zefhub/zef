@@ -53,29 +53,29 @@ def connect_delegate_resolvers(g, gql_type, field_resolving_dict):
     for field_name, delegate_details in field_resolving_dict.items():
         delegate_triple, is_out = delegate_details["triple"], delegate_details.get("is_out", True)
         field_zr = find_field_with_name(gql_type, field_name) | to_ezefref | collect
-        data_delegate = [delegate_of(delegate_triple)] | transact[g] | run | get[delegate_of(delegate_triple)] | collect
+        data_delegate = [delegate_of(delegate_triple)] | transact[g] | run[execute] | get[delegate_of(delegate_triple)] | collect
         create_resolver_to_field(g, field_zr, data_delegate, is_out)
 
 # Resolve With Connectors#
 def create_zefscript_resolver(g, gql_rt, script):
     if length(now(gql_rt) >> L[RT(gqlify("resolve_with_script"))] | collect) == 0:
         aet_str = instantiate(AET.String, g)
-        (aet_str <= script) | g | run
+        (aet_str <= script) | g | run[execute]
         zef_scr = instantiate(ET.ZEF_Script, g)
         instantiate(zef_scr, RT.ZEF_Python, aet_str, g)
         instantiate(gql_rt, RT(gqlify("resolve_with_script")), zef_scr, g)
     else:
         log.warn(f"The bindings for resolve_with_script on {gql_rt | uid} has been updated")
-        (((gql_rt >> RT(gqlify("resolve_with_script")) | collect) >> RT.ZEF_Python) <= script) | g | run
+        (((gql_rt >> RT(gqlify("resolve_with_script")) | collect) >> RT.ZEF_Python) <= script) | g | run[execute]
 
 def create_body_resolver(g, gql_rt, script):
     if length(now(gql_rt) >> L[RT(gqlify("resolve_with_body"))]) == 0:
         aet_str = instantiate(AET.String, g)
-        (aet_str <= script) | g | run
+        (aet_str <= script) | g | run[execute]
         instantiate(gql_rt, RT(gqlify("resolve_with_body")), aet_str, g)
     else:
         log.warn(f"The bindings for resolve_with_body on {gql_rt | uid} has been updated")
-        ((gql_rt >> RT(gqlify("resolve_with_body")) | collect ) <= script) | g | run
+        ((gql_rt >> RT(gqlify("resolve_with_body")) | collect ) <= script) | g | run[execute]
 
 
 def create_intermediate_resolver_to_field(g, gql_rt, del_rt):
@@ -89,7 +89,7 @@ def create_resolver_to_field(g, gql_rt, del_rt, is_out = False):
         gql_rt, del_rt = gql_rt | to_ezefref | collect, del_rt | to_ezefref | collect
         rt = instantiate(gql_rt, RT(gqlify("resolve_with")), del_rt, g)
         aet = instantiate(AET.Bool, g)
-        (aet <= is_out) | g | run
+        (aet <= is_out) | g | run[execute]
         rt = instantiate(rt, RT.IsOut, aet, g)
 
 

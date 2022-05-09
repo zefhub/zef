@@ -14,8 +14,6 @@
 
 from .fx_types import FX, Effect
 
-from .state import _state
-
 from .graph_transactions import (
     graph_transaction_handler,
 )
