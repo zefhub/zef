@@ -707,7 +707,7 @@ def update_in_tp(d_tp, path_tp, func_to_update_tp):
 
 
 #---------------------------------------- update_at -----------------------------------------------
-def update_at_imp(v: list, n, f):
+def update_at_imp(lst: list, index, func_to_apply):
     """
     Apply a specified function "f" to a specified position of 
     a list using the existing element "el" as function input.
@@ -730,7 +730,6 @@ def update_at_imp(v: list, n, f):
         return (f(el) if m==n else el for m, el in enumerate(v))
     else:
         return Error(f'update_at not implemented for negative indexes n yet')
-
 
 
 def update_at_tp(op, curr_type):
