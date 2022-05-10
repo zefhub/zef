@@ -23,7 +23,6 @@ and then
 Compiling from source requires the following system libraries:
 
 - OpenSSL and headers
-- libcurl and headers
 
 and the following build-time python libraries:
 
@@ -40,4 +39,7 @@ A convenience script exists in the repo root:
 
 which compiles both libzef and the python bindings, along with including a symlink to the library in the source repo. Adding the `<repo_root>/python` path to `PYTHONPATH` will then allow `import zef` to find the package.
 
-TODO more details.
+You may need to manually include all of the python requirements for Zef by
+running:
+
+`pip3 install -r python/requirements.txt`
