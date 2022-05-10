@@ -361,7 +361,7 @@ def peel_tp(op, curr_type):
     elif curr_type in {VT.ZefOp, VT.LazyValue}:
         return VT.Record
     else:
-        return curr_type.nested()
+        return absorbed(curr_type)[0]
 
 
 #---------------------------------------- zip -----------------------------------------------
@@ -438,7 +438,7 @@ def concat_type_info(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2358,7 +2358,7 @@ def single_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2422,7 +2422,7 @@ def first_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2460,7 +2460,7 @@ def second_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2502,7 +2502,7 @@ def last_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -3084,7 +3084,7 @@ def tx_tp(op, curr_type):
     if curr_type == VT.Graph:
         curr_type = VT.EZefRefs
     else:
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 
@@ -4993,7 +4993,7 @@ def nth_type_info(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -5009,13 +5009,13 @@ def sort_type_info(op, curr_type):
     return curr_type
 
 def ins_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def outs_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def ins_and_outs_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def source_type_info(op, curr_type):
     return curr_type
@@ -5071,25 +5071,25 @@ def l_type_info(op, curr_type):
 def Out_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def In_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def OutOut_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def InIn_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def terminate_implementation(z, *args):
