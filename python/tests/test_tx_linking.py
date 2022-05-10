@@ -60,6 +60,10 @@ class MyTestCase(unittest.TestCase):
             (ctx, RT.User, "Someone") | g | run
 
         (delegate_of(ctx), RT.Fixed, True) | g | run
+        # Note: True so that we create the delegate
+        (g | root | delegate_of[True] | collect, RT.Root, True) | g | run
+        # Note: trying alternative with abstract delegate
+        (g | root | to_delegate | delegate_of | collect, RT.Second, True) | g | run
 
     def test_failure_on_other_graph(self):
         g = Graph()
