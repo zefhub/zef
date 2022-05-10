@@ -4,6 +4,12 @@ Simply run:
 
 `pip install zef`
 
+You may have to replace `pip` with `pip3` in some distributions.
+
+Native Windows installs are currently not supported, although it is possible to
+install Zef in a WSL (Windows Subsystem for Linux) environment. We are aiming to
+include native Windows support soon.
+
 # Compiling from source
 
 Either obtain the source distribution from PyPI using:
@@ -42,4 +48,4 @@ which compiles both libzef and the python bindings, along with including a symli
 You may need to manually include all of the python requirements for Zef by
 running:
 
-`pip3 install -r python/requirements.txt`
+`pip install -r python/requirements.txt`
