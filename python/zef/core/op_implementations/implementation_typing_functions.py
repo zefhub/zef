@@ -2555,9 +2555,10 @@ def Z_tp(op, curr_type):
 
 
 #---------------------------------------- Root -----------------------------------------------
-def root_imp(g):
-    assert isinstance(g, Graph)
-    return g[42]            # TODO: don't hard code
+def root_imp(x):
+    if isinstance(x, (Graph, GraphSlice)):
+        return x[pyzef.internals.root_node_blob_index()]
+    raise Exception(f"Don't know how to find root of type {type(g)}")
 
 
 def root_tp(op, curr_type):
@@ -3532,13 +3533,17 @@ def in_frame_imp(z, *args):
     zz = to_ezefref(z)
     g_frame = Graph(z_tx)
     # z's origin lives in the frame graph
-    cond1 = g_frame == Graph(zz)    # will be reused
-    if cond1 or origin_uid(zz).graph_uid == uid(g_frame):
-        z_obj = to_ezefref(z) if cond1 else g_frame[origin_uid(zz)]
+    is_same_g = g_frame == Graph(zz)    # will be reused
+    if is_same_g or origin_uid(zz).graph_uid == uid(g_frame):
+        z_obj = to_ezefref(z) if is_same_g else g_frame[origin_uid(zz)]
         # exit early if we are looking in a frame prior to the objects instantiation: this is not even allowed when allow_tombstone=True
         if internals.is_delegate(z_obj):
             from ..logger import log
             log.warn("Need to fix, assuming delegate exists from the beginning of time.")
+            instantiation_ts = 0
+        elif BT(z_obj) == BT.TX_EVENT_NODE:
+            instantiation_ts = time_slice(z_obj)
+        elif BT(z_obj) == BT.ROOT_NODE:
             instantiation_ts = 0
         else:
             instantiation_ts = time_slice(instantiated(z_obj))
@@ -3549,6 +3554,8 @@ def in_frame_imp(z, *args):
             if internals.is_delegate(z_obj):
                 from ..logger import log
                 log.warn("Need to fix, assuming delegate exists to the end of time.")
+                z_tx_term = None
+            elif BT(z_obj) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
                 z_tx_term = None
             else:
                 z_tx_term = terminated(z_obj)
@@ -3761,10 +3768,12 @@ def time_travel_tp(x, p):
 
 def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
-    if type(z) in [Entity, AtomicEntity, Relation]:
+    if type(z) in [Entity, AtomicEntity, Relation, TXNode, Root]:
         return uid(z)
-    assert BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}
+    assert BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
+        return uid(to_ezefref(z))
+    if BT(z) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
         return uid(to_ezefref(z))
     origin_candidates = z | to_ezefref | in_rel[BT.RAE_INSTANCE_EDGE] | Outs[BT.ORIGIN_RAE_EDGE] | collect    
     if len(origin_candidates) == 0:
@@ -3789,7 +3798,7 @@ def origin_uid_tp(x):
 
 def origin_rae_imp(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
-    if type(x) in [Entity, AtomicEntity, Relation]:
+    if type(x) in [Entity, AtomicEntity, Relation, TXNode, Root]:
         return x
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         if internals.is_delegate(x):
@@ -3800,6 +3809,10 @@ def origin_rae_imp(x):
             return Relation(x)
         elif BT(x) == BT.ATOMIC_ENTITY_NODE:
             return AtomicEntity(x)
+        elif BT(x) == BT.TX_EVENT_NODE:
+            return TXNode(x)
+        elif BT(x) == BT.ROOT_NODE:
+            return Root(x)
         raise Exception("Not a ZefRef that is a concrete RAE")
     if is_a_implementation(x, Delegate):
         return x
@@ -4598,12 +4611,10 @@ def instances_implementation(*args):
 def uid_implementation(arg):
     if isinstance(arg, str):
         return to_uid(arg)
-    if isinstance(arg, Entity):
+    if isinstance(arg, (Entity, AtomicEntity, TXNode, Root)):
         return arg.d["uid"]
     if isinstance(arg, Relation):
         return arg.d["uids"][1]
-    if isinstance(arg, AtomicEntity):
-        return arg.d["uid"]
     else:
         return pyzefops.uid(arg)
 
@@ -4908,6 +4919,16 @@ def rae_type_implementation(z):
         return z.d["type"]
     return pymain.rae_type(z)
 
+def abstract_type_implementation(z):
+    # This is basically rae_type, but also including TXNode and Root
+    if isinstance(z, TXNode):
+        return BT.TX_EVENT_NODE
+    if isinstance(z, Root):
+        return BT.ROOT_NODE
+    if isinstance(z, (ZefRef, EZefRef)) and BT(z) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
+        return BT(z)
+    return rae_type(z)
+
 
 
 
@@ -5163,6 +5184,9 @@ def hasin_type_info(op, curr_type):
     return VT.Bool
 
 def rae_type_type_info(op, curr_type):
+    return VT.BT
+
+def abstract_type_type_info(op, curr_type):
     return VT.BT
 
 

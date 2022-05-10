@@ -2212,7 +2212,7 @@ namespace zefDB {
                                  
                                  
 		// called when creating a relation: prevent the user from linking any blobs_ns other than these
- 		inline auto assert_is_this_an_entity_or_relation = [](EZefRef uzr) {
+ 		inline auto assert_is_this_a_rae = [](EZefRef uzr) {
 			switch (*(BlobType*)uzr.blob_ptr) {
 			case BlobType::ENTITY_NODE: return true;
 			case BlobType::ATOMIC_ENTITY_NODE: return true;
@@ -2223,11 +2223,13 @@ namespace zefDB {
                                  
                                  
 		// called when creating a relation: prevent the user from linking any blobs_ns other than these
- 		inline auto assert_target_node_can_be_linked_via_relation = [](EZefRef uzr) {
+ 		inline auto assert_blob_can_be_linked_via_relation = [](EZefRef uzr) {
 			switch (*(BlobType*)uzr.blob_ptr) {
 			case BlobType::ENTITY_NODE: return true;
 			case BlobType::ATOMIC_ENTITY_NODE: return true;
 			case BlobType::RELATION_EDGE: return true;
+			case BlobType::TX_EVENT_NODE: return true;
+			case BlobType::ROOT_NODE: return true;
 			default: throw std::runtime_error("attempting to link a blob that cannot be linked via a relation");
 			}                    
 		};                       

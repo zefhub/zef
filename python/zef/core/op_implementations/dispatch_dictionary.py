@@ -141,6 +141,7 @@ _op_to_functions = {
         RT.Keys:            (keys_imp, keys_tp),
         RT.Reverse:         (reverse_imp, reverse_tp),
         RT.RaeType:         (rae_type_implementation, rae_type_type_info),
+        RT.AbstractType:    (abstract_type_implementation, abstract_type_type_info),
         RT.Root:            (root_imp, root_tp),
         RT.Blobs:           (blobs_imp, blobs_tp),
         RT.Z:               (Z_imp, Z_tp),
