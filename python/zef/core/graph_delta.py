@@ -1167,7 +1167,7 @@ def unpack_receipt(unpacking_template, receipt: dict):
             return tuple((step(el) for el in x))
         if isinstance(x, list):
             return [step(el) for el in x]
-        return receipt[x] if isinstance(x, str) or is_a(x, uid) else x
+        return receipt[x] if isinstance(x, str) or is_a(x, uid) or is_a(x, Delegate) else x
     return step(unpacking_template)
 
 
@@ -1212,7 +1212,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                     if is_a(cmd['origin_rae'], Delegate):
                         d = cmd['origin_rae']
                         zz = internals.delegate_to_ezr(d, g, True, 0)
-                        d_raes[d] = zz
+                        zz = now(zz)
                     else:
                         candidate = most_recent_rae_on_graph(uid(cmd['origin_rae']), g)
                         if candidate is not None:

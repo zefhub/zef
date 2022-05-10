@@ -1804,6 +1804,8 @@ namespace zefDB {
 			case BT.ENTITY_NODE: return true;
 			case BT.ATOMIC_ENTITY_NODE: return true;
 			case BT.RELATION_EDGE: return true;
+			case BT.TX_EVENT_NODE: return true;
+			case BT.ROOT_NODE: return true;
 			default: return false;
 			};
 			return false;

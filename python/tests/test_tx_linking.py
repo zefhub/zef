@@ -53,6 +53,14 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(g | all[TX] | last | now | Out[RT.User] | value | collect,
                          "Someone")
 
+    def test_attaching_to_delegates(self):
+        g = Graph()
+
+        with Transaction(g) as ctx:
+            (ctx, RT.User, "Someone") | g | run
+
+        (delegate_of(ctx), RT.Fixed, True) | g | run
+
     def test_failure_on_other_graph(self):
         g = Graph()
         g2 = Graph()
