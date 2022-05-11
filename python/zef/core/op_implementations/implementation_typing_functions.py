@@ -3447,28 +3447,62 @@ def affected_tp(x):
 
 # ----------------------------------------- events --------------------------------------------
 
-def events_imp(z_tx):
+def events_imp(z_tx_or_rae, filter_on=None):
     """ 
-    Given a TX as a (E)ZefRef, return all events that occurred.
+    Given a TX as a (E)ZefRef, return all events that occurred in that TX.
+    Given a ZefRef to a RAE, return all the events that happend on the RAE.
+
+    - filter_on allows for filtering on the type of the events; by default it is none which
+    returns all events.
 
     ---- Examples ----
-    z_tx | events            # => [instantiated[z1], terminated[z3], value_assigned[z8][42] ]
+    >>> z_tx  | events                          => [instantiated[z1], terminated[z3], value_assigned[z8][41][42] ]
+    >>> z_rae | events                          => [instantiated[z1], value_assigned[z8][41][42], terminated[z3]]
+    >>> z_rae | events[Instantiated]            => [instantiated[z1]]
+    >>> z_rae | events[Instantiated | Assigned] => [instantiated[z1], value_assigned[z8][41][42]]
 
     ---- Signature ----
     Union[ZefRef[TX], EZefRef[TX]]  ->  List[ZefOp[Union[Instantiated[ZefRef], Terminated[ZefRef], ValueAssigned[ZefRef, T]]]]
     """
-    z = to_ezefref(z_tx)
-    assert BT(z) == BT.TX_EVENT_NODE
-    gs = z | to_graph_slice | collect
+    from zef.pyzef import zefops as pyzefops
 
-    def make_val_ev(zz):
-        zzz = to_frame[gs](zz)
-        return value_assigned[zzz][value(zzz)]
+    if BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
+        zr = to_ezefref(z_tx_or_rae)
+        gs = zr | to_graph_slice | collect
 
-    insts = z | instantiated | map[lambda zz: instantiated[to_frame[gs](zz) ]] | collect
-    val_assigns = z | value_assigned | map[make_val_ev] | collect
-    terminations = z | terminated | map[lambda zz: terminated[to_frame[allow_tombstone][gs](zz) ]] | collect
-    return insts+val_assigns+terminations
+        def make_val_as_for_aet(aet):
+            aet_at_frame = to_frame[gs](aet)
+            try:
+                prev_tx  = zr | previous_tx | collect                                  # Will fail if tx is already first TX
+                prev_val = aet | to_frame[to_graph_slice(prev_tx)] | value | collect   # Will fail if aet didn't exist at prev_tx
+            except:
+                prev_val = None
+            return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+
+        insts        = zr | pyzefops.instantiated   | map[lambda zz: instantiated[to_frame[gs](zz) ]] | collect
+        val_assigns  = zr | pyzefops.value_assigned | map[make_val_as_for_aet] | collect
+        terminations = zr | pyzefops.terminated     | map[lambda zz: terminated[to_frame[allow_tombstone][gs](zz) ]] | collect
+        full_list = insts+val_assigns+terminations
+    else:
+        zr = z_tx_or_rae
+
+        def make_val_as_from_tx(tx):
+            aet_at_frame = to_frame[to_graph_slice(tx)](zr)
+            try:
+                prev_tx  = tx | previous_tx | collect                                   # Will fail if tx is already first TX
+                prev_val = zr | to_frame[to_graph_slice(prev_tx)] | value | collect     # Will fail if aet didn't exist at prev_tx
+            except:
+                prev_val = None
+            return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+
+        inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: instantiated[to_frame[to_graph_slice(tx)](zr) ]] | collect
+        val_assigns =  pyzefops.value_assignment_txs(zr) | map[make_val_as_from_tx] | collect
+        # TODO termination_tx returns even if zr is a zefref with a timeslice where it wasn't terminated yet
+        termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[to_frame[allow_tombstone][to_graph_slice(tx)](zr)]] | collect
+        full_list = inst + val_assigns + termination 
+
+    if filter_on: return full_list | filter[lambda z: is_a(z, filter_on)] | collect
+    return full_list
 
 
 def events_tp(x):
@@ -4774,7 +4808,12 @@ def is_a_implementation(x, typ):
         if typ.d['type_name'] == "SetOf":
             return setof_matching(x, typ)
 
+        if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
+            map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
+            return without_absorbed(x) == map_[typ.d['type_name']]
+            
         return valuetype_matching(x, typ)
+
 
 
     
