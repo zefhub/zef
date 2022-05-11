@@ -5865,13 +5865,14 @@ def replace_at_imp(str_or_list, index, new_el):
     (VT.String, VT.Int, VT.String) -> VT.String
     (VT.List, VT.Int, VT.Any) -> VT.List
     """
+    from typing import Generator
     if isinstance(str_or_list, str):
         s = str_or_list
         char = str(new_el)
         if index >= len(s) or index < 0: return s
         if index == len(s) - 1: return s[:index] + char
         return s[:index] + char + s[index+1:] 
-    elif isinstance(str_or_list, list):
+    elif isinstance(str_or_list, list) or isinstance(str_or_list, tuple) or isinstance(str_or_list, Generator):
         it = iter(str_or_list)
         c = 0
         try:
@@ -5885,6 +5886,8 @@ def replace_at_imp(str_or_list, index, new_el):
             return
     else:
         return Error.TypeError(f"Expected an string or a list. Got {type(str_or_list)} instead.")
+
+
 
 def replace_at_tp(op, curr_type):
     return VT.String
