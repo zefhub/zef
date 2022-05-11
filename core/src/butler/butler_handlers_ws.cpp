@@ -58,7 +58,7 @@ void Butler::ws_close_handler(void) {
 
 void Butler::ws_fatal_handler(std::string reason) {
     std::cerr << "FATAL: connection failure in background WS thread, reason: " << reason << std::endl;
-    std::cerr << "If you would like to run in offline mode instead, please restart your python session and set the environment variable `ZEF_OFFLINE_MODE=TRUE`." << std::endl;
+    std::cerr << "If you would like to run in offline mode instead, please restart your python session and set the environment variable `ZEFDB_OFFLINE_MODE=TRUE`." << std::endl;
     update(auth_locker, fatal_connection_error, true);
 
     ws_close_handler();
