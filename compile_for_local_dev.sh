@@ -13,8 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+echo 'This command uses several pip-installed binaries. Make sure that the pip-installed binary path is on your PATH environment variable. For example, PATH=$PATH:$HOME/.local/bin'
 
-echo "pip-ing"
 if ! which jq > /dev/null ; then
     echo 'jq needs to be installed to use this script. If you are on macos, please run `brew install jq`. If you are on linux use your package manager to install jq (e.g. `sudo apt-get install jq` or `sudo pacman -S jq`)'
     exit 1
@@ -59,7 +59,7 @@ python3 -m pip install "${packages[@]}" || exit 1
         CMAKE_ARGS="-j $np"
     fi
     # The -DPython3_EXECUTABLE seems necessary here for github CI
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(realpath ../../../core) -DPython3_EXECUTABLE=$(which python3) || exit 1
+    cmake .. -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} -DCMAKE_PREFIX_PATH=$(realpath ../../../core) -DPython3_EXECUTABLE=$(which python3) || exit 1
 
     cmake --build . $CMAKE_ARGS || exit 1
 ) || exit 1

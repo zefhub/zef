@@ -2209,7 +2209,7 @@ namespace zefDB {
 
 
 		bool is_terminated(EZefRef my_rel_ent) {
- 			assert_is_this_an_entity_or_relation(my_rel_ent);
+ 			assert_is_this_a_rae(my_rel_ent);
 			EZefRef this_re_ent_inst = get_RAE_INSTANCE_EDGE(my_rel_ent);
 			blob_index last_index = internals::last_set_edge_index(this_re_ent_inst);
 			EZefRef last_in_edge_on_scenario_node(last_index, *graph_data(my_rel_ent));
@@ -2314,8 +2314,8 @@ namespace zefDB {
 		// tasks::apply_immediate_updates_from_zm();
 		using namespace internals;
 		auto my_tx_to_keep_this_open_in_this_fct = Transaction(gd);
- 		assert_is_this_an_entity_or_relation(my_source);
- 		assert_target_node_can_be_linked_via_relation(my_target);
+ 		assert_blob_can_be_linked_via_relation(my_source);
+ 		assert_blob_can_be_linked_via_relation(my_target);
 
 
 
@@ -3361,7 +3361,7 @@ namespace zefDB {
             // tasks::apply_immediate_updates_from_zm();
             // TODO: check whether locally owned!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
             using namespace internals;
-            assert_is_this_an_entity_or_relation(my_rel_ent);
+            assert_is_this_a_rae(my_rel_ent);
             if (is_terminated(my_rel_ent))
                 throw std::runtime_error("Terminate called on already terminated entity or relation.");
 
@@ -3567,7 +3567,8 @@ namespace zefDB {
         }
 
         std::optional<EZefRef> delegate_to_ezr(const DelegateTX & d, int order, Graph g, bool create) {
-            EZefRef root{constants::ROOT_NODE_blob_index, g.my_graph_data()};
+            auto & gd = g.my_graph_data();
+            EZefRef root{constants::ROOT_NODE_blob_index, gd};
 
             EZefRef z = root;
             for(int i = 0 ; i < order ; i++) {
@@ -3575,18 +3576,23 @@ namespace zefDB {
                                        [&](EZefRef z) { return BT(z) == BT.TX_EVENT_NODE; });
                 if(length(opts) == 0) {
                     if(create) {
-                        throw std::runtime_error("Create not implemented yet");
+                        EZefRef tx = internals::get_or_create_and_get_tx(gd);
+                        EZefRef new_z = internals::instantiate(BT.TX_EVENT_NODE, gd);
+                        EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
+                        internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
                     } else
                         return {};
+                } else {
+                    z = only(opts);
                 }
-                z = only(opts);
             }
 
             return z;
         }
 
         std::optional<EZefRef> delegate_to_ezr(const DelegateRoot & d, int order, Graph g, bool create) {
-            EZefRef root{constants::ROOT_NODE_blob_index, g.my_graph_data()};
+            auto & gd = g.my_graph_data();
+            EZefRef root{constants::ROOT_NODE_blob_index, gd};
 
             EZefRef z = root;
             for(int i = 0 ; i < order ; i++) {
@@ -3594,11 +3600,15 @@ namespace zefDB {
                                        [&](EZefRef z) { return BT(z) == BT.ROOT_NODE; });
                 if(length(opts) == 0) {
                     if(create) {
-                        throw std::runtime_error("Create not implemented yet");
+                        EZefRef tx = internals::get_or_create_and_get_tx(gd);
+                        EZefRef new_z = internals::instantiate(BT.ROOT_NODE, gd);
+                        EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
+                        internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
                     } else
                         return {};
+                } else {
+                    z = only(opts);
                 }
-                z = only(opts);
             }
 
             return z;

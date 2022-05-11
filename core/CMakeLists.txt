@@ -186,13 +186,15 @@ endif()
 if(LIBZEF_PYZEF_BUNDLED)
   install(TARGETS zef LIBRARY DESTINATION .)
   install(FILES auth.html DESTINATION .)
+  install(FILES ${LICENSE_FILES} DESTINATION .)
 else()
   install ( TARGETS zef
     EXPORT zef
     LIBRARY DESTINATION lib
     PUBLIC_HEADER DESTINATION include/zef
     )
-  install(FILES auth.html DESTINATION share/zef)
+    install(FILES auth.html DESTINATION share/zef)
+    install(FILES ${LICENSE_FILES} DESTINATION share/zef)
 endif()
 
 ############################

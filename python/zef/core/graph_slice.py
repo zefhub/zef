@@ -84,7 +84,7 @@ class GraphSlice:
         # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
         # Accessing the low-level BTs can only be done through traversals
         if BT(ezr) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
-            res = get_instance_rae(uid(ezr), self)
+            res = get_instance_rae(uid(thing), self)
             if res is None:
                 raise KeyError("RAE doesn't have an alive instance in this timeslice")
             return res

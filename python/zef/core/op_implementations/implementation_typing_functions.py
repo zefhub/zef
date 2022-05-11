@@ -17,7 +17,7 @@ from typing import Generator, Iterable, Iterator
 
 
 from rx import operators as rxops
-from ..VT.value_type import ValueType
+from ..VT.value_type import ValueType_
 
 # This is the only submodule that is allowed to do this. It can assume that everything else has been made available so that it functions as a "user" of the core module.
 from .. import *
@@ -40,7 +40,7 @@ def curry_args_in_zefop(zefop, first_arg, nargs = ()):
     for arg in nargs: zefop = zefop[arg]
     return zefop(first_arg) if callable(zefop) else zefop[first_arg]
 
-def parse_input_type(input_type: ValueType) -> str:
+def parse_input_type(input_type: ValueType_) -> str:
     # TODO instead of returning a string may be return also types i.e VT.Zef or VT.Tools
     if input_type is None: return None
     if input_type == VT.Nil: return None
@@ -340,7 +340,7 @@ def match_apply_tp(op, curr_type):
 #---------------------------------------- peel -----------------------------------------------
 def peel_imp(el, *args):
     from ..fx.fx_types import _Effect_Class
-    if isinstance(el, ValueType):
+    if isinstance(el, ValueType_):
         return el.nested()
     elif isinstance(el, _Effect_Class):
         return el.d
@@ -361,7 +361,7 @@ def peel_tp(op, curr_type):
     elif curr_type in {VT.ZefOp, VT.LazyValue}:
         return VT.Record
     else:
-        return curr_type.nested()
+        return absorbed(curr_type)[0]
 
 
 #---------------------------------------- zip -----------------------------------------------
@@ -438,7 +438,7 @@ def concat_type_info(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -622,6 +622,7 @@ def get_in_imp(d: dict, path, default_val=VT.Error):
     """
     assert isinstance(path, list) or isinstance(path, tuple)
     if len(path) == 0: return d
+    if type(d) != dict: return default_val
     return get_in(d.get(path[0], default_val), path[1:], default_val)
 
     
@@ -1128,6 +1129,11 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
         return d.get(key, default)
     elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator):
         return Error(f"get called on a list. Use 'nth' to get an element at a specified index.")
+    elif isinstance(d, Graph) or isinstance(d, GraphSlice):
+        try:
+            return d[key]
+        except KeyError:
+            return default
     else:
         return Error(f"get called with unsupported type {type(d)}.")
 
@@ -1672,7 +1678,7 @@ def absorbed_imp(x):
     - related zefop: inject_list
     - related zefop: reverse_args
     """
-    if isinstance(x, EntityType) or isinstance(x, RelationType) or isinstance(x, AtomicEntityType)  or isinstance(x, Keyword):
+    if isinstance(x, (EntityType, RelationType, AtomicEntityType, Keyword, Delegate)):
         if '_absorbed' not in x.__dict__:
             return ()
         else:
@@ -1689,7 +1695,7 @@ def absorbed_imp(x):
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return ()
     
-    elif isinstance(x, ValueType):
+    elif isinstance(x, ValueType_):
         return x.d['absorbed']
 
     else:
@@ -1716,7 +1722,6 @@ def without_absorbed_imp(x):
     - related zefop: inject_list
     - related zefop: reverse_args
     """
-    print(f"without_absorbed called for {x=}")
     if isinstance(x, EntityType):
         if '_absorbed' not in x.__dict__:
             return x
@@ -1746,8 +1751,8 @@ def without_absorbed_imp(x):
             return Error(f'"without_absorbed_imp" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
         return ZefOp( ((x.el_ops[0][0], ()),) )
 
-    elif isinstance(x, ValueType):
-        return ValueType(type_name=x.d['type_name'])
+    elif isinstance(x, ValueType_):
+        return ValueType_(type_name=x.d['type_name'])
 
     return Error('Not Implemented')
 
@@ -2359,7 +2364,7 @@ def single_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2423,7 +2428,7 @@ def first_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2461,7 +2466,7 @@ def second_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2503,7 +2508,7 @@ def last_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2556,9 +2561,10 @@ def Z_tp(op, curr_type):
 
 
 #---------------------------------------- Root -----------------------------------------------
-def root_imp(g):
-    assert isinstance(g, Graph)
-    return g[42]            # TODO: don't hard code
+def root_imp(x):
+    if isinstance(x, (Graph, GraphSlice)):
+        return x[pyzef.internals.root_node_blob_index()]
+    raise Exception(f"Don't know how to find root of type {type(g)}")
 
 
 def root_tp(op, curr_type):
@@ -3057,7 +3063,7 @@ def tx_imp(*args):
     """
     import traceback
     traceback.print_stack()
-    print(f"Deprecation warning: the 'tx' operator will be deprecated. Its usage was too broad and mixed up concepts. Use 'to_graph_slice' and 'to_tx' instead")
+    print(f"😭😭😭😭😭😭😭😭 Deprecation warning: the 'tx' operator will be deprecated. Its usage was too broad and mixed up concepts. Use 'to_graph_slice' and 'to_tx' instead")
     # print(f">>>>> {args[0]=}")
     # print(f">>>>> {args[1]=}")
     # print(f">>>>> {args[1]== lazy_zefops.instantiated}")
@@ -3085,7 +3091,7 @@ def tx_tp(op, curr_type):
     if curr_type == VT.Graph:
         curr_type = VT.EZefRefs
     else:
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 
@@ -3191,6 +3197,7 @@ def time_slice_implementation(first_arg, *curried_args):
     ---- Signature ----
     GraphSlice -> Int
     """
+    print(f"😞😞😞😞😞  The use of the 'time_slice' is deprecated: use 'to_graph_slice' instead 😞😞😞😞😞")  
     if isinstance(first_arg, GraphSlice):
         return int(first_arg)       # casting a GraphSlice onto an int implemented
 
@@ -3295,6 +3302,7 @@ def instantiated_imp(x):
     ZefRef[RAE]    -> ZefRef[TX]
     EZefRef[RAE]   -> EZefRef[TX]
     """
+    print(f"Warning: 'instantiated' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_tx | events[Terminated]' instead")
     if isinstance(x, GraphSlice):
         raise TypeError("`instantiated` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | instantiated`")
     assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
@@ -3323,6 +3331,7 @@ def terminated_imp(x):
     ZefRef[RAE]    -> Union[ZefRef[TX], Nil]
     EZefRef[RAE]   -> Union[EZefRef[TX], Nil]
     """
+    print(f"Warning: 'terminated' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_tx | events[Terminated]' instead")
     if isinstance(x, GraphSlice):
         raise TypeError("`terminated` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | terminated`")
     assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
@@ -3354,6 +3363,7 @@ def value_assigned_imp(x):
     ZefRef[AET]  -> List[ZefRef[TX]]
     EZefRef[AET] -> List[EZefRef[TX]]
     """
+    print(f"Warning: 'value_assigned' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_tx | events[Assigned]' instead")
     if isinstance(x, GraphSlice):
         raise TypeError("`value_assigned` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | value_assigned`")
     assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
@@ -3388,6 +3398,7 @@ def merged_imp(x):
     ZefRef     -> GraphSlice
     GraphSlice -> List[ZefRef]
     """
+    print(f"Warning: 'merged' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸")
     if isinstance(x, GraphSlice):
         raise TypeError("`merged` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | merged`")
     assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
@@ -3431,7 +3442,7 @@ def affected_imp(x):
     EZefRef[TX]  -> List[EZefRef]
     """
     # assert isinstance(x, GraphSlice)
-
+    print(f"Warning: 'affected' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸")
     return concat(instantiated(x), terminated(x), value_assigned(x))
 
 def affected_tp(x):
@@ -3441,28 +3452,62 @@ def affected_tp(x):
 
 # ----------------------------------------- events --------------------------------------------
 
-def events_imp(z_tx):
+def events_imp(z_tx_or_rae, filter_on=None):
     """ 
-    Given a TX as a (E)ZefRef, return all events that occurred.
+    Given a TX as a (E)ZefRef, return all events that occurred in that TX.
+    Given a ZefRef to a RAE, return all the events that happend on the RAE.
+
+    - filter_on allows for filtering on the type of the events; by default it is none which
+    returns all events.
 
     ---- Examples ----
-    z_tx | events            # => [instantiated[z1], terminated[z3], value_assigned[z8][42] ]
+    >>> z_tx  | events                          => [instantiated[z1], terminated[z3], value_assigned[z8][41][42] ]
+    >>> z_rae | events                          => [instantiated[z1], value_assigned[z8][41][42], terminated[z3]]
+    >>> z_rae | events[Instantiated]            => [instantiated[z1]]
+    >>> z_rae | events[Instantiated | Assigned] => [instantiated[z1], value_assigned[z8][41][42]]
 
     ---- Signature ----
     Union[ZefRef[TX], EZefRef[TX]]  ->  List[ZefOp[Union[Instantiated[ZefRef], Terminated[ZefRef], ValueAssigned[ZefRef, T]]]]
     """
-    z = to_ezefref(z_tx)
-    assert BT(z) == BT.TX_EVENT_NODE
-    gs = z | to_graph_slice | collect
+    from zef.pyzef import zefops as pyzefops
 
-    def make_val_ev(zz):
-        zzz = to_frame[gs](zz)
-        return value_assigned[zzz][value(zzz)]
+    if BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
+        zr = to_ezefref(z_tx_or_rae)
+        gs = zr | to_graph_slice | collect
 
-    insts = z | instantiated | map[lambda zz: instantiated[to_frame[gs](zz) ]] | collect
-    val_assigns = z | value_assigned | map[make_val_ev] | collect
-    terminations = z | terminated | map[lambda zz: terminated[to_frame[allow_tombstone][gs](zz) ]] | collect
-    return insts+val_assigns+terminations
+        def make_val_as_for_aet(aet):
+            aet_at_frame = to_frame[gs](aet)
+            try:
+                prev_tx  = zr | previous_tx | collect                                  # Will fail if tx is already first TX
+                prev_val = aet | to_frame[to_graph_slice(prev_tx)] | value | collect   # Will fail if aet didn't exist at prev_tx
+            except:
+                prev_val = None
+            return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+
+        insts        = zr | pyzefops.instantiated   | map[lambda zz: instantiated[to_frame[gs](zz) ]] | collect
+        val_assigns  = zr | pyzefops.value_assigned | map[make_val_as_for_aet] | collect
+        terminations = zr | pyzefops.terminated     | map[lambda zz: terminated[to_frame[allow_tombstone][gs](zz) ]] | collect
+        full_list = insts+val_assigns+terminations
+    else:
+        zr = z_tx_or_rae
+
+        def make_val_as_from_tx(tx):
+            aet_at_frame = to_frame[to_graph_slice(tx)](zr)
+            try:
+                prev_tx  = tx | previous_tx | collect                                   # Will fail if tx is already first TX
+                prev_val = zr | to_frame[to_graph_slice(prev_tx)] | value | collect     # Will fail if aet didn't exist at prev_tx
+            except:
+                prev_val = None
+            return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+
+        inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: instantiated[to_frame[to_graph_slice(tx)](zr) ]] | collect
+        val_assigns =  pyzefops.value_assignment_txs(zr) | map[make_val_as_from_tx] | collect
+        # TODO termination_tx returns even if zr is a zefref with a timeslice where it wasn't terminated yet
+        termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[to_frame[allow_tombstone][to_graph_slice(tx)](zr)]] | collect
+        full_list = inst + val_assigns + termination 
+
+    if filter_on: return full_list | filter[lambda z: is_a(z, filter_on)] | collect
+    return full_list
 
 
 def events_tp(x):
@@ -3533,13 +3578,17 @@ def in_frame_imp(z, *args):
     zz = to_ezefref(z)
     g_frame = Graph(z_tx)
     # z's origin lives in the frame graph
-    cond1 = g_frame == Graph(zz)    # will be reused
-    if cond1 or origin_uid(zz).graph_uid == uid(g_frame):
-        z_obj = to_ezefref(z) if cond1 else g_frame[origin_uid(zz)]
+    is_same_g = g_frame == Graph(zz)    # will be reused
+    if is_same_g or origin_uid(zz).graph_uid == uid(g_frame):
+        z_obj = to_ezefref(z) if is_same_g else g_frame[origin_uid(zz)]
         # exit early if we are looking in a frame prior to the objects instantiation: this is not even allowed when allow_tombstone=True
         if internals.is_delegate(z_obj):
             from ..logger import log
             log.warn("Need to fix, assuming delegate exists from the beginning of time.")
+            instantiation_ts = 0
+        elif BT(z_obj) == BT.TX_EVENT_NODE:
+            instantiation_ts = time_slice(z_obj)
+        elif BT(z_obj) == BT.ROOT_NODE:
             instantiation_ts = 0
         else:
             instantiation_ts = time_slice(instantiated(z_obj))
@@ -3550,6 +3599,8 @@ def in_frame_imp(z, *args):
             if internals.is_delegate(z_obj):
                 from ..logger import log
                 log.warn("Need to fix, assuming delegate exists to the end of time.")
+                z_tx_term = None
+            elif BT(z_obj) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
                 z_tx_term = None
             else:
                 z_tx_term = terminated(z_obj)
@@ -3762,10 +3813,12 @@ def time_travel_tp(x, p):
 
 def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
-    if type(z) in [Entity, AtomicEntity, Relation]:
+    if type(z) in [Entity, AtomicEntity, Relation, TXNode, Root]:
         return uid(z)
-    assert BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}
+    assert BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
+        return uid(to_ezefref(z))
+    if BT(z) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
         return uid(to_ezefref(z))
     origin_candidates = z | to_ezefref | in_rel[BT.RAE_INSTANCE_EDGE] | Outs[BT.ORIGIN_RAE_EDGE] | collect    
     if len(origin_candidates) == 0:
@@ -3790,7 +3843,7 @@ def origin_uid_tp(x):
 
 def origin_rae_imp(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
-    if type(x) in [Entity, AtomicEntity, Relation]:
+    if type(x) in [Entity, AtomicEntity, Relation, TXNode, Root]:
         return x
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         if internals.is_delegate(x):
@@ -3801,6 +3854,10 @@ def origin_rae_imp(x):
             return Relation(x)
         elif BT(x) == BT.ATOMIC_ENTITY_NODE:
             return AtomicEntity(x)
+        elif BT(x) == BT.TX_EVENT_NODE:
+            return TXNode(x)
+        elif BT(x) == BT.ROOT_NODE:
+            return Root(x)
         raise Exception("Not a ZefRef that is a concrete RAE")
     if is_a_implementation(x, Delegate):
         return x
@@ -4587,9 +4644,11 @@ def time_implementation(x, *curried_args):
 
 
 def instantiation_tx_implementation(first_arg, *curried_args):
+    print(f"Warning: 'instantiation_tx' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_rae | events[Instantiated]' instead")
     return (pyzefops.instantiation_tx)(first_arg, *curried_args)
 
 def termination_tx_implementation(first_arg, *curried_args):
+    print(f"Warning: 'termination_tx' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_rae | events[Terminated]' instead")
     return (pyzefops.termination_tx)(first_arg, *curried_args)
 
 def instances_implementation(*args):
@@ -4599,14 +4658,13 @@ def instances_implementation(*args):
 def uid_implementation(arg):
     if isinstance(arg, str):
         return to_uid(arg)
-    if isinstance(arg, Entity):
+    if isinstance(arg, (Entity, AtomicEntity, TXNode, Root)):
         return arg.d["uid"]
     if isinstance(arg, Relation):
         return arg.d["uids"][1]
-    if isinstance(arg, AtomicEntity):
-        return arg.d["uid"]
-    else:
-        return pyzefops.uid(arg)
+    if is_a(arg, uid):
+        return arg
+    return pyzefops.uid(arg)
 
 def base_uid_implementation(first_arg):
     if isinstance(first_arg, EternalUID) or isinstance(first_arg, ZefRefUID):
@@ -4649,7 +4707,7 @@ def zef_type_imp(x):
     """
     Warning: this function is not complete and its behavior may change!!!!!!!!!!!
 
-    Returns a Zef ValueType (a value itself),
+    Returns a Zef ValueType_ (a value itself),
     also when used with the python builtin supported
     types, as well as with instances of Zef Values.
 
@@ -4659,6 +4717,7 @@ def zef_type_imp(x):
     Should the various uid types be exposed to userland?
 
     """
+    from ...core.bytes import Bytes_
     tp = type(x)    
     try:
         return {
@@ -4671,6 +4730,7 @@ def zef_type_imp(x):
             dict: VT.Dict,
             set: VT.Set,
             Time: VT.Time,
+            Bytes_: VT.Bytes,
             # QuantityFloat: VT.QuantityFloat,
             # QuantityInt: VT.QuantityInt,
             # EntityType: VT.EntityType,
@@ -4686,7 +4746,7 @@ def zef_type_imp(x):
             Graph: VT.Graph,
             # FlatGraph: VT.FlatGraph,
             # Keyword: VT.Keyword,
-            # ValueType: VT.ValueType,
+            # ValueType_: VT.ValueType_,
             # SymbolicExpression: VT.SymbolicExpression,
             # Stream: VT.Stream,
             # Error: VT.Error,
@@ -4721,8 +4781,8 @@ def is_a_implementation(x, typ):
     def setof_matching(el, setof):
         from typing import Callable
         for t in setof.d['absorbed']: 
-            if isinstance(t, ValueType): 
-                return Error.ValueError(f"A ValueType was passed to SetOf but it only takes predicate functions. Try wrapping in is_a[{t}]")
+            if isinstance(t, ValueType_): 
+                return Error.ValueError(f"A ValueType_ was passed to SetOf but it only takes predicate functions. Try wrapping in is_a[{t}]")
             elif isinstance(t, (ZefOp, Callable)):
                 if not t(el): return False
             else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside SetOf but got {t} instead.")
@@ -4731,7 +4791,7 @@ def is_a_implementation(x, typ):
     def valuetype_matching(el, vt):
         if vt == VT.Any: return True
 
-        # TODO: compare on actual ValueType along with its absorbed subtypes. 
+        # TODO: compare on actual ValueType_ along with its absorbed subtypes. 
         # TODO: Extend list
         vt_name_to_python_type = {
             "Nil": type(None),
@@ -4744,11 +4804,11 @@ def is_a_implementation(x, typ):
             "Dict": dict,
             "Set": set,
         }
-        if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType matching not implemented for {vt}")
+        if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
         python_type = vt_name_to_python_type[vt.d['type_name']]
         return isinstance(el, python_type)
 
-    if isinstance(typ, ValueType):
+    if isinstance(typ, ValueType_):
         if typ.d['type_name'] == "Union":
             return union_matching(x, typ)
 
@@ -4758,7 +4818,12 @@ def is_a_implementation(x, typ):
         if typ.d['type_name'] == "SetOf":
             return setof_matching(x, typ)
 
+        if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
+            map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
+            return without_absorbed(x) == map_[typ.d['type_name']]
+            
         return valuetype_matching(x, typ)
+
 
 
     
@@ -4909,6 +4974,16 @@ def rae_type_implementation(z):
         return z.d["type"]
     return pymain.rae_type(z)
 
+def abstract_type_implementation(z):
+    # This is basically rae_type, but also including TXNode and Root
+    if isinstance(z, TXNode):
+        return BT.TX_EVENT_NODE
+    if isinstance(z, Root):
+        return BT.ROOT_NODE
+    if isinstance(z, (ZefRef, EZefRef)) and BT(z) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
+        return BT(z)
+    return rae_type(z)
+
 
 
 
@@ -4994,7 +5069,7 @@ def nth_type_info(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -5010,13 +5085,13 @@ def sort_type_info(op, curr_type):
     return curr_type
 
 def ins_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def outs_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def ins_and_outs_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def source_type_info(op, curr_type):
     return curr_type
@@ -5072,25 +5147,25 @@ def l_type_info(op, curr_type):
 def Out_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def In_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def OutOut_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def InIn_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def terminate_implementation(z, *args):
@@ -5166,6 +5241,9 @@ def hasin_type_info(op, curr_type):
 def rae_type_type_info(op, curr_type):
     return VT.BT
 
+def abstract_type_type_info(op, curr_type):
+    return VT.BT
+
 
 def is_represented_as_implementation(arg, vt):
     if isinstance(arg, bool):
@@ -5183,14 +5261,15 @@ def is_represented_as_implementation(arg, vt):
 def is_represented_as_type_info(op, curr_type):
     VT.Bool
 #---------------------------------------- tag -----------------------------------------------
-def tag_imp(x, tag: str, force: bool = False):
+def tag_imp(x, tag_s: str, *args):
     """ 
     Create an effect to add a tag to either a Graph or a RAE.
 
     ---- Examples ----
     >>> g | tag["my_graph"] | run
     >>> g2 | tag["my_graph"][True] | run
-    >>> z | tag["settings_node"] | run
+    >>> z | tag["settings_node"] | g | run
+    >>> [z | tag["settings_node"]] | transact[g] | run
 
     ---- Arguments ----
     x Graph / ZefRef: object to tag
@@ -5199,26 +5278,26 @@ def tag_imp(x, tag: str, force: bool = False):
 
     ---- Signature ----
     (Graph, str, bool) -> Effect
-    (ZefRef, str, bool) -> Effect
+    (ZefRef, str, bool) -> LazyValue
     """
     if isinstance(x, Graph):
+        if len(args) > 0:
+            assert len(args) == 1
+            force = args[0]
+        else:
+            force = False
         return Effect({
             'type': FX.Graph.Tag,
             'graph': x,
-            'tag': tag,
+            'tag': tag_s,
             'force': force,
             'adding': True,
         })
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        return Effect({
-            'type': FX.RAE.Tag,
-            'rae': to_ezefref(x),
-            'tag': tag,
-            'force': force,
-            'adding': True,
-        })
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
+        assert len(args) == 0
+        return LazyValue(x) | tag[tag_s]
 
-    raise RuntimeError("Unknonwn type for tag: {type(x)}")
+    raise RuntimeError(f"Unknown type for tag: {type(x)}")
     
     
 def tag_tp(op, curr_type):
@@ -5244,16 +5323,10 @@ def untag_imp(x, tag: str):
             'adding': False,
             'force': False,
         })
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        return Effect({
-            'type': FX.RAE.Tag,
-            'rae': to_ezefref(x),
-            'tag': tag,
-            'adding': False,
-            'force': False,
-        })
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
+        raise Exception("Untagging a RAE is not supported at the moment.")
 
-    raise RuntimeError("Unknonwn type for tag: {type(x)}")
+    raise RuntimeError(f"Unknown type for tag: {type(x)}")
     
     
 def untag_tp(op, curr_type):
@@ -5793,19 +5866,28 @@ def replace_at_imp(str_or_list, index, new_el):
     (VT.String, VT.Int, VT.String) -> VT.String
     (VT.List, VT.Int, VT.Any) -> VT.List
     """
+    from typing import Generator
     if isinstance(str_or_list, str):
         s = str_or_list
         char = str(new_el)
         if index >= len(s) or index < 0: return s
         if index == len(s) - 1: return s[:index] + char
         return s[:index] + char + s[index+1:] 
-    elif isinstance(str_or_list, list):
-        lst = str_or_list
-        if index >= len(lst) or (index < 0 and abs(index) > length(lst)): return lst
-        lst[index] = new_el
-        return lst
+    elif isinstance(str_or_list, list) or isinstance(str_or_list, tuple) or isinstance(str_or_list, Generator):
+        it = iter(str_or_list)
+        c = 0
+        try:
+            while c < index:
+                yield next(it)
+                c += 1
+            next(it)
+            yield new_el
+            yield from it
+        except StopIteration:
+            return
     else:
         return Error.TypeError(f"Expected an string or a list. Got {type(str_or_list)} instead.")
+
 
 
 def replace_at_tp(op, curr_type):

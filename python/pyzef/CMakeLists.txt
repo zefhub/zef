@@ -157,6 +157,34 @@ endif()
 # Anything else should not be installing
 install(TARGETS pyzef LIBRARY DESTINATION .)
 
+# We need the licenses for pybind11 and the pybind_json libraries. Technically,
+# as we could be compiling anywhere, we should grab the pybind11 license from
+# the site-packages directory... however it is not shipped in there! So instead
+# we will do our due diligence and manually include the license file.
+install(FILES
+  LICENSE.pybind11
+  LICENSE.pybind_json
+  DESTINATION .)
+
+# Finally we'll make a file up that references these license files and our own.
+# Note that the libzef license is going to be installed in the directory as
+# LICENSE.libzef and referencing its own dependencies.
+set(TOP_LICENSE_FILE "${CMAKE_CURRENT_BINARY_DIR}/LICENSE")
+install(FILES
+  ${TOP_LICENSE_FILE}
+  DESTINATION .)
+
+find_file(REPO_LICENSE
+  LICENSE
+  PATHS ${CMAKE_CURRENT_SOURCE_DIR}/../ ${CMAKE_CURRENT_SOURCE_DIR}/../../
+  NO_DEFAULT_PATH
+  NO_CACHE
+  REQUIRED)
+file(READ ${REPO_LICENSE} OUR_LICENSE)
+file(WRITE ${TOP_LICENSE_FILE} ${OUR_LICENSE})
+
+file(APPEND ${TOP_LICENSE_FILE} "\nThe following files contain additional bundled licenses:\n\nLICENSE.libzef\nLICENSE.pybind11\nLICENSE.pybind_json")
+
 #########################################
 # * All tests
 enable_testing ()

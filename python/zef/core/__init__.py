@@ -28,9 +28,26 @@ import ctypes, sys, sysconfig, os
 # except:
 #     print(f"FAILED TO FIND LIBZEF at {path} - hopefully pyzef has it hard-coded (true when running from source directory)")
 
+# ** Circular import checks
+import os
 if os.environ.get("ZEFDB_DEVELOPER_CIRCULAR_IMPORTS", "FALSE") == "TRUE":
     from .circular_imports import check_circular_imports
     check_circular_imports()
+
+# ** TLS certificates
+# See comments in libzef CMakeLists.txt. This is to pass appropriate certificate
+# information to libzef if it is bundled with pyzef.
+try:
+    # I don't think this will ever fail as python requires an SSL to build now I
+    # think. What this block should really be doing is checking for OpenSSL not
+    # LibreSSL... or maybe the libzef library should be using LibreSSL on macos.
+    import ssl
+except ImportError:
+    raise ImportError("zef requires OpenSSL to be installed.")
+
+_ssl_paths = ssl.get_default_verify_paths()
+os.environ["LIBZEF_CA_BUNDLE"] = _ssl_paths.cafile or ""
+os.environ["LIBZEF_CA_PATH"] = _ssl_paths.capath or ""
 
 ########################################################
 # * Exposing common functions
@@ -72,7 +89,7 @@ from .graph_slice import GraphSlice
 from .flat_graph import FlatGraph, FlatRef, FlatRefs, Val
 
 from .VT import TX
-from .abstract_raes import Entity, AtomicEntity, Relation
+from .abstract_raes import Entity, AtomicEntity, Relation, TXNode, Root
 
 from .zef_functions import func
 
@@ -85,7 +102,7 @@ from .serialization import serialize, deserialize
 from . import op_implementations
 
 from .abstract_raes import make_custom_entity
-from .VT.value_type import ValueType
+from .VT.value_type import ValueType_
 
 # instantiating these here, since not all of the core has been
 # initialized when Python imports the abstract_raes module
@@ -94,6 +111,29 @@ please_instantiate = make_custom_entity(name_to_display='please_instantiate', pr
 please_terminate   = make_custom_entity(name_to_display='please_terminate', predetermined_uid='67cb88b71523f6d9')
 please_assign      = make_custom_entity(name_to_display='please_assign',    predetermined_uid='4d4a93522f75ed21')
 
+
+# TODO: import the other ValueTypes here and implement constructor by forwarding args
+from .VT import (
+    Nil,
+    Any,
+    Bool,
+    Int,
+    Float,
+    String,
+    Bytes,
+    Decimal,
+    List,
+    Dict,
+    Set,
+    ValueType,
+    Instantiated, 
+    Terminated, 
+    Assigned,
+
+    Union,
+    Intersection,
+    SetOf,
+    )
 
 pyzef.internals.finished_loading_python_core()
 

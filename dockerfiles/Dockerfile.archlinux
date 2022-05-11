@@ -9,7 +9,8 @@ RUN pacman -S --noconfirm \
     curl \
     zstd \
     openssl \
-    git
+    git \
+    jq
 
 COPY . .
 

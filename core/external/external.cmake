@@ -40,6 +40,59 @@ if (APPLE)
 endif()
 
 
+######################
+# * Setup for the upstream pulling
+
+set(LICENSE_DIR ${CMAKE_CURRENT_BINARY_DIR}/licenses)
+if(LIBZEF_PYZEF_BUNDLED)
+  set(TOP_LICENSE_FILE "${LICENSE_DIR}/LICENSE.libzef")
+else()
+  set(TOP_LICENSE_FILE "${LICENSE_DIR}/LICENSE")
+endif()
+set(LICENSE_FILES ${TOP_LICENSE_FILE})
+
+# Initialise the top file - which could be in different places if we are being compiled from pyzef sdist
+find_file(REPO_LICENSE
+  LICENSE
+  PATHS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../
+  NO_DEFAULT_PATH
+  NO_CACHE
+  REQUIRED)
+  
+file(READ ${REPO_LICENSE} OUR_LICENSE)
+file(WRITE ${TOP_LICENSE_FILE} ${OUR_LICENSE})
+
+file(APPEND ${TOP_LICENSE_FILE} "\nThe following files contain additional bundled licenses:\n\n")
+
+###########
+function(create_license_file SHORT_NAME LICENSE_FILE HAS_COPYING PREAMBLE)
+  file(READ ${LICENSE_FILE} CONTENTS)
+  file(WRITE ${LICENSE_DIR}/LICENSE.${SHORT_NAME} ${PREAMBLE})
+  file(APPEND ${LICENSE_DIR}/LICENSE.${SHORT_NAME} ${CONTENTS})
+
+  list(APPEND LICENSE_FILES ${LICENSE_DIR}/LICENSE.${SHORT_NAME})
+  # Add to the top file
+  file(APPEND ${TOP_LICENSE_FILE} "LICENSE.${SHORT_NAME}\n")
+
+  get_filename_component(SEARCH_DIR ${LICENSE_FILE} DIRECTORY)
+  if(HAS_COPYING)
+    # Note: copying a file only works when not renaming, (otherwise it creates a
+    # directory) and the COPY_FILE variant is only avaiable in version 3.21, so
+    # instead we cheat with the configure_file command.
+    # file(COPY ${SEARCH_DIR}/COPYING DESTINATION ${LICENSE_DIR}/COPYING.${SHORT_NAME})
+    configure_file(${SEARCH_DIR}/COPYING ${LICENSE_DIR}/COPYING.${SHORT_NAME} COPYONLY)
+    list(APPEND LICENSE_FILES ${LICENSE_DIR}/COPYING.${SHORT_NAME})
+  endif()
+
+  if(EXISTS ${SEARCH_DIR}/NOTICE)
+    message(fatal_error "A NOTICE file was found that we haven't taken care of!")
+  endif()
+
+  # Variables need to be propagated back up
+  set(LICENSE_FILES ${LICENSE_FILES} PARENT_SCOPE)
+endfunction()
+##########
+
 include(FetchContent)
 # set(FETCHCONTENT_QUIET OFF)
 # get_filename_component(FETCHCONTENT_BASE_DIR ${CMAKE_BINARY_DIR}/../_cmake_deps REALPATH)
@@ -51,6 +104,8 @@ function(ManualFetchContent_MakeAvailable name)
   endif()
 
   add_subdirectory(${${name}_SOURCE_DIR} ${${name}_BINARY_DIR} EXCLUDE_FROM_ALL)
+  # I don't understand but somehow rangesv3 (and only rangesv3) prevents us for propagating the source dir up higher
+  set(LAST_SOURCE_DIR ${${name}_SOURCE_DIR} PARENT_SCOPE)
 endfunction()
 
 find_package(PkgConfig QUIET)
@@ -134,6 +189,7 @@ FetchContent_Declare(nlohmann_json
 ManualFetchContent_MakeAvailable(nlohmann_json)
 # set(nlohmann_json_DIR ${nlohmann_json_SOURCE_DIR} CACHE PATH "" FORCE)
 
+create_license_file("nlohmann_json" ${nlohmann_json_SOURCE_DIR}/LICENSE.MIT NO "This library bundles Niels Lohmann's JSON library (https://github.com/nlohmann/json)\n\nFrom distribution point of (https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent).\n\nThe full text of the nlohmann_json license follows below.\n\n")
 
 # * asio
 
@@ -156,6 +212,8 @@ add_library(asio INTERFACE IMPORTED)
 target_include_directories(asio SYSTEM INTERFACE ${asio_SOURCE_DIR}/asio/include)
 target_link_libraries(asio INTERFACE openssl)
 
+create_license_file("asio" ${asio_SOURCE_DIR}/asio/LICENSE_1_0.txt YES "This library bundles the non-Boost ASIO networking library (https://github.com/chriskohlhoff/asio)\n\nThe full text of the ASIO license follows below.\n\n")
+
 # * websocketpp
 message(STATUS "External: websocketpp")
 
@@ -176,6 +234,8 @@ add_library(websocketpp INTERFACE IMPORTED)
 target_include_directories(websocketpp SYSTEM INTERFACE ${websocketpp_SOURCE_DIR})
 target_link_libraries(websocketpp INTERFACE asio)
 
+create_license_file("websocketpp" ${websocketpp_SOURCE_DIR}/COPYING NO "This library bundles the websocketpp library (https://github.com/chriskohlhoff/asio)\n\nThe full text of the websocketpp license follows below.\n\n")
+
 
 # * parallel-hashmap
 message(STATUS "External: parallel-hashmap")
@@ -188,6 +248,8 @@ FetchContent_Declare(phmap
   UPDATE_COMMAND "")
 
 ManualFetchContent_MakeAvailable(phmap)
+
+create_license_file("phmap" ${phmap_SOURCE_DIR}/LICENSE NO "This library bundles the parallel-hashmap library (https://github.com/greg7mdp/parallel-hashmap)\n\nThe full text of the phmap license follows below.\n\n")
 
 # * doctest
 message(STATUS "External: doctest")
@@ -210,6 +272,8 @@ FetchContent_Declare(rangesv3
   UPDATE_COMMAND "")
 
 ManualFetchContent_MakeAvailable(rangesv3)
+
+create_license_file("rangesv3" ${LAST_SOURCE_DIR}/LICENSE.txt NO "This library bundles the ranges-v3 library (https://github.com/ericniebler/range-v3)\n\nThe full text of the ranges-v3 license follows below.\n\n")
 
 # # * blake3
 # message(STATUS "External: blake3")
@@ -237,6 +301,7 @@ ManualFetchContent_MakeAvailable(rangesv3)
 #     )
 
 # target_include_directories(blake3 SYSTEM INTERFACE ${blake3_SOURCE_DIR}/c)
+# create_license_file("blake3" ${blake3_SOURCE_DIR}/LICENSE NO "This library bundles the blake3 library (https://github.com/BLAKE3-team/BLAKE3)\n\nThe full text of the license follows below.\n\n")
 
 # * jwt-cpp
 message(STATUS "External: jwt-cpp")
@@ -252,6 +317,8 @@ set(JWT_DISABLE_PICOJSON TRUE CACHE BOOL "")
 set(JWT_BUILD_EXAMPLES OFF CACHE BOOL "")
 
 ManualFetchContent_MakeAvailable(jwt-cpp)
+
+create_license_file("jwt-cpp" ${jwt-cpp_SOURCE_DIR}/LICENSE NO "This library bundles the JWT++ library (https://github.com/Thalhammer/jwt-cpp)\n\nThe full text of the jwt-cpp license follows below.\n\n")
 
 
 # * zstd
@@ -310,6 +377,8 @@ else()
     add_library(libzstd_internal INTERFACE)
     target_include_directories(libzstd_internal SYSTEM INTERFACE ${ZSTD_INCLUDE_DIRS})
     target_link_libraries(libzstd_internal INTERFACE ${ZSTD_LIBRARIES})
+
+    create_license_file("zstd" ${zstd_SOURCE_DIR}/LICENSE NO "This library bundles the Zstandard library (https://github.com/facebook/zstd)\n\nThe full text of the zstd license follows below.\n\n")
   else()
     message(FATAL_ERROR "Couldn't find zstd via cmake, pkg-config or find_library")
   endif()
@@ -349,6 +418,8 @@ if(LIBZEF_BUNDLED_CURL)
   add_subdirectory(${curl_SOURCE_DIR} ${curl_BINARY_DIR} EXCLUDE_FROM_ALL)
   set_target_properties(libcurl PROPERTIES
     POSITION_INDEPENDENT_CODE ON)
+
+  create_license_file("libcurl" ${curl_SOURCE_DIR}/COPYING NO "This library bundles the libcurl library (https://github.com/curl/curl)\n\nThe full text of the libcurl license follows below.\n\n")
 else()
   if(PKGCONFIG_FOUND)
     pkg_check_modules(CURL libcurl)
@@ -378,7 +449,5 @@ else()
     message(FATAL_ERROR "Couldn't find curl via cmake, pkg-config or find_library")
   endif()
 endif()
-
-
 
 

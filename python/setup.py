@@ -93,7 +93,12 @@ class cmake_build_ext(build_ext):
 
 class override_sdist(sdist):
     def make_release_tree(self, base_dir, files):
+        import shutil
+
         sdist.make_release_tree(self, base_dir, files)
+
+        print("* Adding license to sdist")
+        shutil.copy("../LICENSE", os.path.join(base_dir, "LICENSE"))
 
         print("* Adding libzef to sdist")
 
@@ -109,8 +114,10 @@ class override_sdist(sdist):
 
         print("** Adding in the get_zeftypes.py script manually")
         # We need to include the get_zeftypes.py file along with the distribution
-        import shutil
-        shutil.copy("../scripts/get_zeftypes.py", os.path.join(base_dir, "libzef", "scripts"))
+        shutil.copy("../scripts/get_zeftypes.py", os.path.join(target_dir, "scripts"))
+
+        print("** Adding in the LICENSE file")
+        shutil.copy("../LICENSE", target_dir)
 
         print("** Updating the setup.cfg file")
         # We now overwrite the setup.cfg file to point at this new directory

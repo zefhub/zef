@@ -9,6 +9,7 @@ jobs:
   check-license:
     uses: ./.github/workflows/check-license.yml
   build-wheels:
+    if: ${{ !contains(github.ref, 'dev') }}
     needs: check-license
     name: Build wheels
     runs-on: ${{ matrix.os }}
@@ -40,6 +41,7 @@ jobs:
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.4.0
+        timeout-minutes: 20
         with:
           package-dir: python
         env:
@@ -68,6 +70,9 @@ jobs:
   upload-to-pypi:
     name: Upload wheels to PyPI
     runs-on: ubuntu-20.04
+    # We need this if in case build-wheels doesn't run see workflow syntax
+    # documentation for jobs.<job_id>.needs.
+    if: ${{ always() }}
     needs: [build-wheels]
     steps:
       - uses: actions/checkout@v2
@@ -75,6 +80,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Grab built wheels
+        if: ${{ !contains(github.ref, 'dev') }}
         uses: actions/download-artifact@v3
         with:
           name: wheels
@@ -92,11 +98,14 @@ jobs:
         run: |
           ls -R wheelhouse
           pip3 install --upgrade twine
-          python3 -m twine upload --repository testpypi -u __token__ -p "${PYPI_TOKEN}" --skip-existing wheelhouse/*
+          python3 -m twine upload -u __token__ -p "${PYPI_TOKEN}" --skip-existing wheelhouse/*
           
   dev-announcement:
     name: Dev announcement
     runs-on: ubuntu-20.04
+    # Suprisingly, we need this if always even though upload-to-pypi is always
+    # run, because of the weird dependency handling by the workflow runner.
+    if: ${{ always() }}
     needs: [upload-to-pypi]
     steps:
       - uses: actions/checkout@v2

@@ -203,6 +203,86 @@ class Relation:
         # return merged[self][internal_id]
         return Relation({**self.d, 'absorbed': (*self.d['absorbed'], x)})
 
+class TXNode:
+    """ 
+    A value representation of an "abstract transaction".
+    """
+    def __init__(self, x):
+        from ._ops import origin_uid
+        if isinstance(x, ZefRef) or isinstance(x, EZefRef):
+            assert BT(x)==BT.TX_EVENT_NODE
+            self.d = {
+                'uid': origin_uid(x),
+                'absorbed': (),
+            }
+        
+        elif isinstance(x, TXNode):
+            self.d = {
+                'uid': x.d['uid'],
+                'absorbed': x.d['absorbed']
+            }
+
+        else:
+            raise TypeError(f"can't construct an abstract transaction from a {type(x)=}.  Value passed in: {x=}")
+
+    def __repr__(self):
+        # also show any absorbed elements
+        base_name = f'TXNode({repr(self.d["uid"])})' 
+        return base_name + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
+
+    def __eq__(self, other):
+        if not isinstance(other, TXNode): return False
+        return self.d['uid'] == other.d['uid'] and self.d['absorbed'] == other.d['absorbed']
+
+    def __hash__(self):
+        return hash((TXNode, self.d['uid']))
+
+    def __getitem__(self, x):
+        # append x to absorbed (a tuple). Return a new object
+        temp = TXNode(self)
+        temp.d['absorbed'] = (*self.d['absorbed'], x)
+        return temp
+        
+
+class Root:
+    """ 
+    A value representation of an "abstract root node".
+    """
+    def __init__(self, x):
+        from ._ops import origin_uid
+        if isinstance(x, ZefRef) or isinstance(x, EZefRef):
+            assert BT(x)==BT.ROOT_NODE
+            self.d = {
+                'uid': origin_uid(x),
+                'absorbed': (),
+            }
+        
+        elif isinstance(x, Root):
+            self.d = {
+                'uid': x.d['uid'],
+                'absorbed': x.d['absorbed']
+            }
+
+        else:
+            raise TypeError(f"can't construct an abstract root node from a {type(x)=}.  Value passed in: {x=}")
+
+    def __repr__(self):
+        # also show any absorbed elements
+        base_name = f'Root({repr(self.d["uid"])})' 
+        return base_name + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
+
+    def __eq__(self, other):
+        if not isinstance(other, Root): return False
+        return self.d['uid'] == other.d['uid'] and self.d['absorbed'] == other.d['absorbed']
+
+    def __hash__(self):
+        return hash((Root, self.d['uid']))
+
+    def __getitem__(self, x):
+        # append x to absorbed (a tuple). Return a new object
+        temp = Root(self)
+        temp.d['absorbed'] = (*self.d['absorbed'], x)
+        return temp
 
 
 def abstract_rae_from_rae_type_and_uid(rae_type, uid):

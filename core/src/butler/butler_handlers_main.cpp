@@ -73,7 +73,7 @@ void Butler::handle_guest_message(TokenQuery & content, Butler::msg_ptr & msg) {
         if(content.group == TokenQuery::KW && !zwitch.allow_dynamic_keyword_definitions())
             throw std::runtime_error("KW creation is disallowed.");
 
-        if(check_env_bool("ZEF_OFFLINE_MODE") || check_env_bool("ZEFDB_DEVELOPER_LOCAL_TOKENS")) {
+        if(check_env_bool("ZEFDB_OFFLINE_MODE") || check_env_bool("ZEFDB_DEVELOPER_LOCAL_TOKENS")) {
             auto & tokens = global_token_store();
             std::vector<TokenQueryResponse::pair> pairs;
             for(auto & name : content.names) {
@@ -108,7 +108,7 @@ void Butler::handle_guest_message(TokenQuery & content, Butler::msg_ptr & msg) {
 
     // This is a bit of the logic inside of wait_for_auth, so that we can put a more informative error message.
     if(!want_upstream_connection())
-        throw std::runtime_error("We can't create new tokens unless we can connect to ZefHub. Either make sure you have logged in using `login | run` to store your credentials, or run in offline mode by restarting your python session with the environment variable `ZEF_OFFLINE_MODE=TRUE` set.");
+        throw std::runtime_error("We can't create new tokens unless we can connect to ZefHub. Either make sure you have logged in using `login | run` to store your credentials, or run in offline mode by restarting your python session with the environment variable `ZEFDB_OFFLINE_MODE=TRUE` set.");
 
     wait_for_auth();
 
@@ -356,7 +356,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
                                 {"target_guid", str(content.target_guid)},
                                 {"payload", {
                                         {"type", "delta"},
-                                        {"delta", payload.delta}
+                                        {"commands", payload.commands}
                                     }}
                             });
                     }

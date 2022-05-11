@@ -12,21 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# This test is meant to check whether zef shuts down properly when it isn't given time to connect to ZefHub
+import os
+os.environ["ZEFHUB_AUTH_KEY"] = "GUEST"
+# These shouldn't be necessary but can't hurt, prevents overrides from the CI
+# environment taking over..
+os.environ["ZEFDB_LOGIN_AUTOCONNECT"] = "TRUE"
+os.environ["ZEFDB_BUTLER_AUTOSTART"] = "TRUE"
 
-def c_merge_handler(g, serialized_delta):
-    """Don't call this explicitly. Only for the zefdb core."""
+from zef import *
+from zef.ops import *
+import zef
 
-    from ..serialization import serialize, deserialize
-    from .._ops import run, transact
-
-    # TODO: Double check primary role here.
-
-    commands = deserialize(serialized_delta)
-    from zef.core.graph_delta import perform_transaction_commands
-    receipt = perform_transaction_commands(commands, g)
-
-    return serialize(receipt)
-
-def register_merge_handler():
-    from ...pyzef import internals
-    internals.register_merge_handler(c_merge_handler)
