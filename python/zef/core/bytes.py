@@ -12,22 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class Bytes:
-    def __init__(self, data):
+class Bytes_:
+    """
+    The default repr uses hexadecimal encoding.
+    """
+    def __init__(self, x):
         import string
-        if isinstance(data, bytes):
-            self.data = data
-            self.is_hex = False
-        elif isinstance(data, str) and all(c in string.hexdigits for c in data):
-            self.data = data
-            self.is_hex = True
+        if isinstance(x, bytes):
+            self.data = x
+        elif isinstance(x, str) and all(c in string.hexdigits for c in x):
+            self.data = x.encode()    # use utf8
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"constructing a bytes from {x=}")
     
     def __repr__(self):
-        if self.is_hex: return f'Bytes("{self.data})"'
-        else: return f'Bytes("{self.data.hex()}")'
+        return f'Bytes("{self.data.hex()}")'
 
     def __str__(self):
-        if self.is_hex: return self.data
-        else: return self.data.hex()
+        return self.data.hex()

@@ -3063,7 +3063,7 @@ def tx_imp(*args):
     """
     import traceback
     traceback.print_stack()
-    print(f"Deprecation warning: the 'tx' operator will be deprecated. Its usage was too broad and mixed up concepts. Use 'to_graph_slice' and 'to_tx' instead")
+    print(f"😭😭😭😭😭😭😭😭 Deprecation warning: the 'tx' operator will be deprecated. Its usage was too broad and mixed up concepts. Use 'to_graph_slice' and 'to_tx' instead")
     # print(f">>>>> {args[0]=}")
     # print(f">>>>> {args[1]=}")
     # print(f">>>>> {args[1]== lazy_zefops.instantiated}")
@@ -3197,6 +3197,7 @@ def time_slice_implementation(first_arg, *curried_args):
     ---- Signature ----
     GraphSlice -> Int
     """
+    print(f"😞😞😞😞😞  The use of the 'time_slice' is deprecated: use 'to_graph_slice' instead 😞😞😞😞😞")  
     if isinstance(first_arg, GraphSlice):
         return int(first_arg)       # casting a GraphSlice onto an int implemented
 
@@ -3301,6 +3302,7 @@ def instantiated_imp(x):
     ZefRef[RAE]    -> ZefRef[TX]
     EZefRef[RAE]   -> EZefRef[TX]
     """
+    print(f"Warning: 'instantiated' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_tx | events[Terminated]' instead")
     if isinstance(x, GraphSlice):
         raise TypeError("`instantiated` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | instantiated`")
     assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
@@ -3329,6 +3331,7 @@ def terminated_imp(x):
     ZefRef[RAE]    -> Union[ZefRef[TX], Nil]
     EZefRef[RAE]   -> Union[EZefRef[TX], Nil]
     """
+    print(f"Warning: 'terminated' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_tx | events[Terminated]' instead")
     if isinstance(x, GraphSlice):
         raise TypeError("`terminated` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | terminated`")
     assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
@@ -3360,6 +3363,7 @@ def value_assigned_imp(x):
     ZefRef[AET]  -> List[ZefRef[TX]]
     EZefRef[AET] -> List[EZefRef[TX]]
     """
+    print(f"Warning: 'value_assigned' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_tx | events[Assigned]' instead")
     if isinstance(x, GraphSlice):
         raise TypeError("`value_assigned` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | value_assigned`")
     assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
@@ -3394,6 +3398,7 @@ def merged_imp(x):
     ZefRef     -> GraphSlice
     GraphSlice -> List[ZefRef]
     """
+    print(f"Warning: 'merged' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸")
     if isinstance(x, GraphSlice):
         raise TypeError("`merged` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | merged`")
     assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
@@ -3437,7 +3442,7 @@ def affected_imp(x):
     EZefRef[TX]  -> List[EZefRef]
     """
     # assert isinstance(x, GraphSlice)
-
+    print(f"Warning: 'affected' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸")
     return concat(instantiated(x), terminated(x), value_assigned(x))
 
 def affected_tp(x):
@@ -4639,9 +4644,11 @@ def time_implementation(x, *curried_args):
 
 
 def instantiation_tx_implementation(first_arg, *curried_args):
+    print(f"Warning: 'instantiation_tx' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_rae | events[Instantiated]' instead")
     return (pyzefops.instantiation_tx)(first_arg, *curried_args)
 
 def termination_tx_implementation(first_arg, *curried_args):
+    print(f"Warning: 'termination_tx' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_rae | events[Terminated]' instead")
     return (pyzefops.termination_tx)(first_arg, *curried_args)
 
 def instances_implementation(*args):
@@ -4709,6 +4716,7 @@ def zef_type_imp(x):
     Should the various uid types be exposed to userland?
 
     """
+    from ...core.bytes import Bytes_
     tp = type(x)    
     try:
         return {
@@ -4721,6 +4729,7 @@ def zef_type_imp(x):
             dict: VT.Dict,
             set: VT.Set,
             Time: VT.Time,
+            Bytes_: VT.Bytes,
             # QuantityFloat: VT.QuantityFloat,
             # QuantityInt: VT.QuantityInt,
             # EntityType: VT.EntityType,

@@ -112,6 +112,29 @@ please_terminate   = make_custom_entity(name_to_display='please_terminate', pred
 please_assign      = make_custom_entity(name_to_display='please_assign',    predetermined_uid='4d4a93522f75ed21')
 
 
+# TODO: import the other ValueTypes here and implement constructor by forwarding args
+from .VT import (
+    Nil,
+    Any,
+    Bool,
+    Int,
+    Float,
+    String,
+    Bytes,
+    Decimal,
+    List,
+    Dict,
+    Set,
+    ValueType,
+    Instantiated, 
+    Terminated, 
+    Assigned,
+
+    Union,
+    Intersection,
+    SetOf,
+    )
+
 pyzef.internals.finished_loading_python_core()
 
 # ############################################
