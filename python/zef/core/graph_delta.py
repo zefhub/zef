@@ -233,24 +233,6 @@ def obtain_ids(x) -> dict:
     ids = {}
     if isinstance(x, LazyValue):
         ids = obtain_ids(x.initial_val)
-    elif isinstance(x, ZefOp):
-        if is_a(x, instantiated):
-            # is there an internal id curried in?
-            if len(x.el_ops[0][1]) > 1:
-                internal_id = get_curried_arg(x, 1)
-                rae_type = get_curried_arg(x, 0)
-                ids = {internal_id: rae_type}
-
-        elif is_a(x, merged):
-            # is there an internal id curried in?
-            if len(x.el_ops[0][1]) > 1:
-                internal_id = get_curried_arg(x, 1)
-                obj = get_curried_arg(x, 0)
-                ids = {internal_id: obj}
-
-        elif is_a(x, assign_value):
-            ids = obtain_ids(get_curried_arg(x, 0))
-
     elif is_a(x, Delegate):
         ids = {x: x}
 
@@ -339,8 +321,6 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
                 return
         if length(LazyValue(x) | absorbed) != 1:
             raise Exception(f"ZefOp has more than one op inside of it. {x}")
-        if is_a(x, merged):
-            return
         raise Exception(f"Not allowing ZefOps except for those starting with Z. Got {x}")
 
     elif is_a(x, Delegate):
@@ -437,18 +417,8 @@ def dispatch_cmds_for(expr, gen_id):
             raise Exception("LazyValue obtained which is not an assign_value or terminate")
 
     elif isinstance(expr, ZefOp):
-        if False:
-            pass
-        # elif is_a(expr, terminate):
-        #     return cmds_for_terminate(expr)
-        # elif is_a(expr, assign_value):
-        #     return cmds_for_assign_value(expr)
-        elif is_a(expr, instantiated):
-            return cmds_for_instantiated(expr)
-        elif is_a(expr, merged):
-            return cmds_for_merged(expr)
         # If we have a chain beginning with a Z, convert to LazyValue
-        elif len(expr) > 1 and is_a(LazyValue(expr) | peel | first | collect, Z):
+        if len(expr) > 1 and is_a(LazyValue(expr) | peel | first | collect, Z):
             return cmds_for_initial_Z(expr)
 
         raise RuntimeError(f'We should not have landed here, with expr={expr}')
@@ -546,7 +516,7 @@ def cmds_for_mergable(x):
             [cmd],
         )
     else:
-        raise NotImplementedError(f"Unknown type for merged[]: {type(x)}")
+        raise NotImplementedError(f"Unknown type for mergable: {type(x)}")
 
 def cmds_for_lv_tag(x, gen_id):
     assert isinstance(x, LazyValue)
@@ -667,76 +637,6 @@ def cmds_for_tuple(x: tuple, gen_id: Callable):
 
 
 
-#### ** Old versions
-def cmds_for_instantiated(x: dict):
-    internal_id = x.el_ops[0][1][1]
-    raet = x.el_ops[0][1][0]
-    cmds = []
-    if isinstance(raet, QuantityFloat) or isinstance(raet, QuantityInt):
-        # This duplicates the logic in realise_single_node a bit here
-        val = raet
-        if isinstance(val, QuantityFloat):
-            raet = getattr(AET.QuantityFloat, val.unit.enum_value)
-        else:
-            raet = getattr(AET.QuantityInt, val.unit.enum_value)
-        exprs += [Z[internal_id] | assign_value[val]]#{'cmd': 'assign_value', 'value': val, 'explicit': True, 'internal_id': internal_id}]
-
-    cmds += [{'cmd': 'instantiate', 'rae_type': raet, 'internal_id': internal_id}]
-    return (), cmds
-
-def cmds_for_merged(x: dict):
-    obj = x.el_ops[0][1][0]
-
-    origin = origin_rae(obj)
-
-    base_cmd = {"cmd": "merge",
-                "origin_rae": origin,
-                "internal_ids": []}
-    if len(x.el_ops[0][1]) == 2:
-        base_cmd["internal_ids"] += [x.el_ops[0][1][1]]
-    else:
-        assert len(x.el_ops[0][1]) == 1
-
-    if is_a(obj, ZefRef) or is_a(obj, EZefRef):
-        if BT(obj) == BT.ENTITY_NODE:
-            return (), [base_cmd]
-
-        elif BT(obj) == BT.ATOMIC_ENTITY_NODE:
-            assign_val_cmds = [] if isinstance(obj, EZefRef) else [{
-                'cmd': 'assign_value', 
-                'value': obj | value | collect,
-                'internal_id': uid(origin),
-                'explicit': False,
-                }]
-
-            return (), [base_cmd] + assign_val_cmds
-
-        elif BT(obj) == BT.RELATION_EDGE:
-            return (
-                (obj | source | to_ezefref | collect, obj | target | to_ezefref | collect),
-                [base_cmd],
-            )
-        else:
-            raise NotImplementedError(f"Unknown ZefRef type for merging: {BT(obj)}")
-    elif is_a(obj, Entity) or is_a(obj, AtomicEntity):
-        return (), [base_cmd]
-    elif is_a(obj, Relation):
-        maybe_src_trg = []
-        if not is_a(obj.d["type"][0], RT):
-            maybe_src_trg.append(source(obj))
-        if not is_a(obj.d["type"][2], RT):
-            maybe_src_trg.append(target(obj))
-
-        return (
-            tuple(maybe_src_trg),
-            [base_cmd],
-        )
-    else:
-        raise NotImplementedError(f"Unknown type for merged[]: {type(obj)}")
-        
-
-
-
 ##############################################################
 # ** Complex->primitve expr utils
 #------------------------------------------------------------
@@ -841,7 +741,7 @@ def realise_single_node(x, gen_id):
             exprs = [x]
             iid = origin_uid(x)
     elif type(x) in [Entity, AtomicEntity, Relation]:
-        exprs = [merged[x]]
+        exprs = [x]
         iid = origin_uid(x)
     elif type(x) in scalar_types:
         iid = gen_id()
@@ -853,24 +753,6 @@ def realise_single_node(x, gen_id):
             iid = params | first | collect
             # No expr to perform
             exprs = []
-        elif is_a(x, instantiated):
-            if length(params) == 1:
-                # We need to create a new id for this object
-                x = x[gen_id()]
-                params = LazyValue(x) | peel | first | second
-            iid = params | second | collect
-            exprs = [x]
-        elif is_a(x, merged):
-            # Note: we always use the origin_uid here, even if there's an
-            # internal id curried in. Simpler to later order operations.
-            iid = origin_uid(params | first | collect)
-            exprs = [x]
-        # elif is_a(x, assign_value):
-        #     iid = origin_uid(params | first | collect)
-        #     exprs = [x]
-        # elif is_a(x, terminate):
-        #     iid = origin_uid(params | first | collect)
-        #     exprs = [x]
         else:
             raise NotImplementedError(f"Can't pass zefops to GraphDelta: for {x}")
     elif is_a(x, Delegate):
@@ -1157,10 +1039,6 @@ def encode(xx):
             if not allow_scalar:
                 raise Exception("Scalars are not allowed on their own to avoid accidental typos such as (ET.X, ET.Y, 'z') when (ET.X, RT.Y, 'z') is meant. If you want this behaviour, then create an explicit AET, i.e. (AET.String <= 'z').")
         
-        if isinstance(x, ZefOp):
-            if is_a(x, instantiated):
-                raise Exception("Not allowed to pass internal names to RAEs in shorthand syntax")
-
         iid,exprs = realise_single_node(x, gen_id)
         gd_exprs.extend(exprs)
         return iid
