@@ -161,6 +161,7 @@ runs:
         pip3 install -r python/requirements.txt
         pip3 install -r python/tests/requirements_tests.txt
         pytest python/tests
+        python python/tests/quick_start.py
 
     - name: Check no created tokens
       if: inputs.run-tests == 'true'

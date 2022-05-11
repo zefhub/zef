@@ -21,6 +21,9 @@ void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr &
 
 
 void Butler::ws_open_handler(void) {
+    if(should_stop)
+        return;
+
     // Reset any variables that need it.
     zefdb_protocol_version = -1;
     // connection_authed = false;
@@ -36,6 +39,9 @@ void Butler::ws_open_handler(void) {
 }
 
 void Butler::ws_close_handler(void) {
+    if(should_stop)
+        return;
+
     // TODO: Tell any graph managers that we lost the connection.
     // Note: this means we should cancel any tasks that rely on
     // network. This means we need to tag those tasks as being
@@ -60,6 +66,9 @@ void Butler::ws_fatal_handler(std::string reason) {
 
 
 void Butler::ws_message_handler(std::string msg) {
+    if(should_stop)
+        return;
+
     auto [j, rest]  = Communication::parse_ZH_message(msg);
 
     if(zwitch.debug_zefhub_json_output())
