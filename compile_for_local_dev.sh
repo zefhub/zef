@@ -59,7 +59,7 @@ python3 -m pip install "${packages[@]}" || exit 1
         CMAKE_ARGS="-j $np"
     fi
     # The -DPython3_EXECUTABLE seems necessary here for github CI
-    cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$(realpath ../../../core) -DPython3_EXECUTABLE=$(which python3) || exit 1
+    cmake .. -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} -DCMAKE_PREFIX_PATH=$(realpath ../../../core) -DPython3_EXECUTABLE=$(which python3) || exit 1
 
     cmake --build . $CMAKE_ARGS || exit 1
 ) || exit 1

@@ -1,8 +1,6 @@
 # This should be run from the zef repo root
 FROM debian:stable
 
-WORKDIR /root/project
-
 RUN apt-get update
 RUN apt-get install -y --no-install-recommends \
     build-essential \
@@ -24,4 +22,4 @@ RUN apt-get install -y --no-install-recommends \
 
 COPY . .
 
-RUN LIBZEF_LOCATION=$(realpath core) pip3 install ./python
+RUN bash compile_for_local_dev.sh
