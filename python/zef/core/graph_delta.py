@@ -293,7 +293,9 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
             return
         elif is_a(x.el_ops, terminate):
             return
-        raise Exception(f"A LazyValue must have come from (x <= value) or (x | terminate) only. Got {x}")
+        elif is_a(x.el_ops, tag):
+            return
+        raise Exception(f"A LazyValue must have come from (x | assign_value), (x | terminate) or (x | tag) only. Got {x}")
 
     # Note: just is_a(x, Z) will also mean ZefRefs will be hit
     elif is_a(x, ZefOp) and is_a(x, Z):
@@ -331,21 +333,15 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
         return
 
     elif isinstance(x, ZefOp):
-        if length(LazyValue(x) | absorbed) > 1:
-            # This could be something like AET.Int["asdf"] <= 5
-            if x | peel | last | is_a[assign_value]:
+        if len(x) > 1:
+            # This could be something like Z["asdf"] | assign_value[5]
+            if x | peel | first | is_a[Z]:
                 return
         if length(LazyValue(x) | absorbed) != 1:
             raise Exception(f"ZefOp has more than one op inside of it. {x}")
-        if is_a(x, terminate):
-            return
         if is_a(x, merged):
             return
-        if is_a(x, assign_value):
-            return
-        if is_a(x, tag):
-            return
-        raise Exception(f"Not allowing ZefOps except for terminate, assign_value, delegate and tag. Got {x}")
+        raise Exception(f"Not allowing ZefOps except for those starting with Z. Got {x}")
 
     elif is_a(x, Delegate):
         return
@@ -425,8 +421,6 @@ def iteration_step(state: dict, gen_id)->dict:
             'commands': cmds,
     }
 
-
-
 def dispatch_cmds_for(expr, gen_id):
     if isinstance(expr, LazyValue):
         expr = collect(expr)
@@ -437,6 +431,8 @@ def dispatch_cmds_for(expr, gen_id):
             return cmds_for_lv_assign_value(expr, gen_id)
         elif is_a(expr.el_ops, terminate):
             return cmds_for_lv_terminate(expr)
+        elif is_a(expr.el_ops, tag):
+            return cmds_for_lv_tag(expr, gen_id)
         else:
             raise Exception("LazyValue obtained which is not an assign_value or terminate")
 
@@ -451,8 +447,9 @@ def dispatch_cmds_for(expr, gen_id):
             return cmds_for_instantiated(expr)
         elif is_a(expr, merged):
             return cmds_for_merged(expr)
-        elif is_a(expr, tag):
-            return cmds_for_tag(expr)
+        # If we have a chain beginning with a Z, convert to LazyValue
+        elif len(expr) > 1 and is_a(LazyValue(expr) | peel | first | collect, Z):
+            return cmds_for_initial_Z(expr)
 
         raise RuntimeError(f'We should not have landed here, with expr={expr}')
     if is_a(expr, Delegate):
@@ -486,6 +483,13 @@ def dispatch_cmds_for(expr, gen_id):
 # def cmds_for_complex_expr(x, merged_ids: set, gen_id):
 #     iid,exprs = realise_single_node(x, gen_id)
 #     return exprs, [], ()
+
+def cmds_for_initial_Z(expr):
+    assert len(expr) > 1 and LazyValue(expr) | peel | first | is_a[Z] | collect
+
+    expr = LazyValue(LazyValue(expr) | peel | first | collect) | (LazyValue(expr) | peel | skip[1] | as_pipeline | collect)
+    return (expr,), ()
+
 
 def cmds_for_instantiable(x):
     a_id = get_absorbed_id(x)
@@ -544,16 +548,19 @@ def cmds_for_mergable(x):
     else:
         raise NotImplementedError(f"Unknown type for merged[]: {type(x)}")
 
-def cmds_for_tag(x):
-    target = x.el_ops[0][1][0]
+def cmds_for_lv_tag(x, gen_id):
+    assert isinstance(x, LazyValue)
+
+    assert len(x | peel | collect) == 2
+    target,op = x | peel | collect
+
+    assert is_a(op, tag)
+    tag_s = LazyValue(op) | absorbed | single | collect
+    iid,exprs = realise_single_node(target, gen_id)
     cmd = {'cmd': 'tag',
-           'tag_name': x.el_ops[0][1][1],
-           'force': x.el_ops[0][1][2] if len(x.el_ops[0][1]) >= 3 else False}
-    if is_a(target, ZefOp) and is_a(target, Z):
-        cmd['internal_id'] = target.el_ops[0][1][0]
-    elif is_a(target, ZefRef) or is_a(target, EZefRef):
-        cmd['origin_rae'] = origin_rae(target)
-    return (), [cmd]
+           'tag_name': tag_s,
+           'internal_id': iid}
+    return exprs, [cmd]
     
 
 def cmds_for_lv_assign_value(x, gen_id: Callable):
@@ -810,6 +817,9 @@ def realise_single_node(x, gen_id):
             iid,exprs = realise_single_node(target, gen_id)
             exprs = exprs + [LazyValue(Z[iid]) | op]
         elif is_a(op, terminate):
+            iid = origin_uid(target)
+            exprs = [x]
+        elif is_a(op, tag):
             iid = origin_uid(target)
             exprs = [x]
         else:
@@ -1275,7 +1285,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                     else:
                         zz = d_raes[cmd['internal_id']]
                     # Go directly to the tagging instead of through another effect
-                    pyzef.main.tag(zz, cmd['tag_name'], cmd['force'])
+                    pyzef.main.tag(zz, cmd['tag_name'], True)
                 else:
                     raise RuntimeError(f'---------Unexpected case in performing graph delta tx: {cmd}')
 

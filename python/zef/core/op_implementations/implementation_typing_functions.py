@@ -1128,6 +1128,11 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
         return d.get(key, default)
     elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator):
         return Error(f"get called on a list. Use 'nth' to get an element at a specified index.")
+    elif isinstance(d, Graph) or isinstance(d, GraphSlice):
+        try:
+            return d[key]
+        except KeyError:
+            return default
     else:
         return Error(f"get called with unsupported type {type(d)}.")
 
@@ -5182,14 +5187,15 @@ def is_represented_as_implementation(arg, vt):
 def is_represented_as_type_info(op, curr_type):
     VT.Bool
 #---------------------------------------- tag -----------------------------------------------
-def tag_imp(x, tag: str, force: bool = False):
+def tag_imp(x, tag_s: str, *args):
     """ 
     Create an effect to add a tag to either a Graph or a RAE.
 
     ---- Examples ----
     >>> g | tag["my_graph"] | run
     >>> g2 | tag["my_graph"][True] | run
-    >>> z | tag["settings_node"] | run
+    >>> z | tag["settings_node"] | g | run
+    >>> [z | tag["settings_node"]] | transact[g] | run
 
     ---- Arguments ----
     x Graph / ZefRef: object to tag
@@ -5198,26 +5204,26 @@ def tag_imp(x, tag: str, force: bool = False):
 
     ---- Signature ----
     (Graph, str, bool) -> Effect
-    (ZefRef, str, bool) -> Effect
+    (ZefRef, str, bool) -> LazyValue
     """
     if isinstance(x, Graph):
+        if len(args) > 0:
+            assert len(args) == 1
+            force = args[0]
+        else:
+            force = False
         return Effect({
             'type': FX.Graph.Tag,
             'graph': x,
-            'tag': tag,
+            'tag': tag_s,
             'force': force,
             'adding': True,
         })
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        return Effect({
-            'type': FX.RAE.Tag,
-            'rae': to_ezefref(x),
-            'tag': tag,
-            'force': force,
-            'adding': True,
-        })
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
+        assert len(args) == 0
+        return LazyValue(x) | tag[tag_s]
 
-    raise RuntimeError("Unknonwn type for tag: {type(x)}")
+    raise RuntimeError(f"Unknown type for tag: {type(x)}")
     
     
 def tag_tp(op, curr_type):
@@ -5243,16 +5249,10 @@ def untag_imp(x, tag: str):
             'adding': False,
             'force': False,
         })
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        return Effect({
-            'type': FX.RAE.Tag,
-            'rae': to_ezefref(x),
-            'tag': tag,
-            'adding': False,
-            'force': False,
-        })
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
+        raise Exception("Untagging a RAE is not supported at the moment.")
 
-    raise RuntimeError("Unknonwn type for tag: {type(x)}")
+    raise RuntimeError(f"Unknown type for tag: {type(x)}")
     
     
 def untag_tp(op, curr_type):
