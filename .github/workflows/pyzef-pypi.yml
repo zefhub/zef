@@ -98,7 +98,7 @@ jobs:
         run: |
           ls -R wheelhouse
           pip3 install --upgrade twine
-          python3 -m twine upload --repository testpypi -u __token__ -p "${PYPI_TOKEN}" --skip-existing wheelhouse/*
+          python3 -m twine upload -u __token__ -p "${PYPI_TOKEN}" --skip-existing wheelhouse/*
           
   dev-announcement:
     name: Dev announcement
