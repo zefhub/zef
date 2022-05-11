@@ -622,6 +622,7 @@ def get_in_imp(d: dict, path, default_val=VT.Error):
     """
     assert isinstance(path, list) or isinstance(path, tuple)
     if len(path) == 0: return d
+    if type(d) != dict: return default_val
     return get_in(d.get(path[0], default_val), path[1:], default_val)
 
     

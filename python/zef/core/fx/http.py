@@ -80,8 +80,8 @@ class Handler(BaseHTTPRequestHandler):
                 pass
 
             status,headers,msg = result
-
             if status != 200:
+                msg = msg.decode('utf-8')
                 self.send_response(status, msg)
             else:
                 self.send_response(status)
@@ -90,6 +90,9 @@ class Handler(BaseHTTPRequestHandler):
             self.end_headers()
             if status == 200:
                 self.wfile.write(msg)
+        except BrokenPipeError:
+            log.error("Connection aborted unexpectedly")
+            pass
         except Exception as exc:
             # TODO: Place this error into a stream available to the user
             log.error("Some problem in handling HTTP request", exc_info=exc)
@@ -215,7 +218,7 @@ def http_send_response_handler(eff: Effect):
     headers = copy.deepcopy(headers)
 
     header_names = set(k.lower() for k in headers)
-    if msg is not None:
+    if msg is not None and status == 200:
         if "content-length" not in header_names:
             headers["Content-Length"] = str(len(msg))
         if "content-type" not in header_names:

@@ -135,7 +135,7 @@ def safe_current_task():
 global_transaction_task = {}
 from contextlib import contextmanager
 @contextmanager
-def Transaction(g, wait=None, *, warn_exception=True):
+def Transaction(g, wait=None):
     global global_transaction_task
     from ...pyzef.zefops import uid
 
@@ -149,11 +149,6 @@ def Transaction(g, wait=None, *, warn_exception=True):
     current_tx = StartTransactionReturnTx(g)
     try:
         yield current_tx
-    except Exception as exc:
-        if warn_exception:
-            import logging
-            logging.error("Got an exception inside of a transaction, reraising. Exc: " + str(exc))
-        raise
     finally:
         if prev_val is None and uid(g) in global_transaction_task:
             del global_transaction_task[uid(g)]
