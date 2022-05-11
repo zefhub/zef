@@ -114,7 +114,10 @@ class override_sdist(sdist):
 
         print("** Adding in the get_zeftypes.py script manually")
         # We need to include the get_zeftypes.py file along with the distribution
-        shutil.copy("../scripts/get_zeftypes.py", os.path.join(base_dir, "libzef", "scripts"))
+        shutil.copy("../scripts/get_zeftypes.py", os.path.join(target_dir, "scripts"))
+
+        print("** Adding in the LICENSE file")
+        shutil.copy("../LICENSE", target_dir)
 
         print("** Updating the setup.cfg file")
         # We now overwrite the setup.cfg file to point at this new directory

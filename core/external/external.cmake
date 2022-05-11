@@ -51,9 +51,15 @@ else()
 endif()
 set(LICENSE_FILES ${TOP_LICENSE_FILE})
 
-# Initialise the top file
-set(REPO_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../)
-file(READ ${REPO_ROOT}/LICENSE OUR_LICENSE)
+# Initialise the top file - which could be in different places if we are being compiled from pyzef sdist
+find_file(REPO_LICENSE
+  LICENSE
+  PATHS ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/../
+  NO_DEFAULT_PATH
+  NO_CACHE
+  REQUIRED)
+  
+file(READ ${REPO_LICENSE} OUR_LICENSE)
 file(WRITE ${TOP_LICENSE_FILE} ${OUR_LICENSE})
 
 file(APPEND ${TOP_LICENSE_FILE} "\nThe following files contain additional bundled licenses:\n\n")
