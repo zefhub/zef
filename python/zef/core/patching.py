@@ -28,6 +28,8 @@ internals.DelegateEntity.__hash__ = lambda self: hash(self.et)
 internals.DelegateAtomicEntity.__hash__ = lambda self: hash(self.aet)
 internals.DelegateRelationGroup.__hash__ = lambda self: hash(self.rt)
 internals.DelegateRelationTriple.__hash__ = lambda self: hash((self.rt, self.source, self.target))
+internals.DelegateTX.__hash__ = lambda self: hash(internals.DelegateTX)
+internals.DelegateRoot.__hash__ = lambda self: hash(internals.DelegateRoot)
 
 
 

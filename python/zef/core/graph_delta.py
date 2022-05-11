@@ -25,7 +25,7 @@ from .zef_functions import func
 from ._ops import *
 from .op_structs import ZefOp, LazyValue
 from .graph_slice import GraphSlice
-from .abstract_raes import Entity, Relation, AtomicEntity
+from .abstract_raes import Entity, Relation, AtomicEntity, TXNode, Root
 
 from abc import ABC
 class ListOrTuple(ABC):
@@ -434,6 +434,8 @@ def dispatch_cmds_for(expr, gen_id):
         Entity: cmds_for_mergable,
         AtomicEntity: cmds_for_mergable,
         Relation: cmds_for_mergable,
+        TXNode: cmds_for_mergable,
+        Root: cmds_for_mergable,
 
         tuple: P(cmds_for_tuple, gen_id=gen_id),
         list: P(cmds_for_tuple, gen_id=gen_id),
@@ -482,7 +484,7 @@ def cmds_for_mergable(x):
         cmd['internal_ids'] += [a_id]
 
     if is_a(x, ZefRef) or is_a(x, EZefRef):
-        if BT(x) == BT.ENTITY_NODE:
+        if BT(x) in {BT.ENTITY_NODE, BT.TX_EVENT_NODE, BT.ROOT_NODE}:
             return (), [cmd]
 
         elif BT(x) == BT.ATOMIC_ENTITY_NODE:
@@ -740,7 +742,7 @@ def realise_single_node(x, gen_id):
         else:
             exprs = [x]
             iid = origin_uid(x)
-    elif type(x) in [Entity, AtomicEntity, Relation]:
+    elif type(x) in [Entity, AtomicEntity, Relation, TXNode, Root]:
         exprs = [x]
         iid = origin_uid(x)
     elif type(x) in scalar_types:
@@ -1053,7 +1055,7 @@ def unpack_receipt(unpacking_template, receipt: dict):
             return tuple((step(el) for el in x))
         if isinstance(x, list):
             return [step(el) for el in x]
-        return receipt[x] if isinstance(x, str) or is_a(x, uid) else x
+        return receipt[x] if isinstance(x, str) or is_a(x, uid) or is_a(x, Delegate) else x
     return step(unpacking_template)
 
 
@@ -1098,12 +1100,12 @@ def perform_transaction_commands(commands: list, g: Graph):
                     if is_a(cmd['origin_rae'], Delegate):
                         d = cmd['origin_rae']
                         zz = internals.delegate_to_ezr(d, g, True, 0)
-                        d_raes[d] = zz
+                        zz = now(zz)
                     else:
                         candidate = most_recent_rae_on_graph(uid(cmd['origin_rae']), g)
                         if candidate is not None:
                             # this is already on the graph. Just assert and move on
-                            assert rae_type(cmd['origin_rae']) == rae_type(candidate)
+                            assert abstract_type(cmd['origin_rae']) == abstract_type(candidate)
                             zz = candidate
                         else:
                             origin_rae_uid = uid(cmd['origin_rae'])
@@ -1136,6 +1138,9 @@ def perform_transaction_commands(commands: list, g: Graph):
                                     origin_rae_uid.blob_uid,
                                     origin_rae_uid.graph_uid,
                                 )
+                            # Special handling for TXNode and Root currently.
+                            elif isinstance(cmd['origin_rae'], (TXNode, Root)):
+                                raise Exception("Can only merge TXNode and Root onto the same graph")
                             else:
                                 raise NotImplementedError
 
@@ -1256,6 +1261,8 @@ def most_recent_rae_on_graph(origin_uid: str, g: Graph)->ZefRef:
             return zz | in_frame[now(g)] | collect
         else:
             return None
+    elif BT(zz) in {BT.ROOT_NODE, BT.TX_EVENT_NODE}:
+        return zz | in_frame[now(g)] | collect
     else:
         raise RuntimeError("Unexpected option in most_recent_rae_on_graph")
         

@@ -89,7 +89,7 @@ from .graph_slice import GraphSlice
 from .flat_graph import FlatGraph, FlatRef, FlatRefs, Val
 
 from .VT import TX
-from .abstract_raes import Entity, AtomicEntity, Relation
+from .abstract_raes import Entity, AtomicEntity, Relation, TXNode, Root
 
 from .zef_functions import func
 

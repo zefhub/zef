@@ -174,5 +174,5 @@ runs:
         ZEFHUB_AUTH_KEY: GUEST
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
-        python python/tests/quick_start.py
-        pytest python/tests
+        python3 python/tests/quick_start.py
+        python3 -mpytest python/tests
