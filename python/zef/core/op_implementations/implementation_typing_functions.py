@@ -5873,17 +5873,19 @@ def replace_at_imp(str_or_list, index, new_el):
         if index == len(s) - 1: return s[:index] + char
         return s[:index] + char + s[index+1:] 
     elif isinstance(str_or_list, list) or isinstance(str_or_list, tuple) or isinstance(str_or_list, Generator):
-        it = iter(str_or_list)
-        c = 0
-        try:
-            while c < index:
-                yield next(it)
-                c += 1
-            next(it)
-            yield new_el
-            yield from it
-        except StopIteration:
-            return
+        def wrapper():
+            it = iter(str_or_list)
+            c = 0
+            try:
+                while c < index:
+                    yield next(it)
+                    c += 1
+                next(it)
+                yield new_el
+                yield from it
+            except StopIteration:
+                return
+        return wrapper()
     else:
         return Error.TypeError(f"Expected an string or a list. Got {type(str_or_list)} instead.")
 
