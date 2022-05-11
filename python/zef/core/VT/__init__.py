@@ -28,6 +28,19 @@ def time_ctor(*args, **kwargs):
     return pyzef.main.Time(*args, **kwargs)
 
 
+def bytes_ctor(*args, **kwargs):
+    # from ... import core
+    from ...core.bytes import Bytes_
+    # return core.bytes.Bytes_(*args, **kwargs)
+    return Bytes_(*args, **kwargs)
+
+
+def decimal_ctor(*args, **kwargs):
+    # from ... import core
+    from ...core.decimal import Decimal_
+    # return core.bytes.Bytes_(*args, **kwargs)
+    return Decimal_(*args, **kwargs)
+
 # def error_ctor(*args, **kwargs):
 #     from ... import core
 #     return core.error._Error.Error(*args, **kwargs)
@@ -40,6 +53,8 @@ Bool       = ValueType_(type_name='Bool',       constructor_func=bool)
 Int        = ValueType_(type_name='Int',        constructor_func=int)
 Float      = ValueType_(type_name='Float',      constructor_func=float)
 String     = ValueType_(type_name='String',     constructor_func=str)
+Bytes      = ValueType_(type_name='Bytes',      constructor_func=bytes_ctor)
+Decimal    = ValueType_(type_name='Decimal',    constructor_func=decimal_ctor)
 List       = ValueType_(type_name='List',       constructor_func=tuple)
 Dict       = ValueType_(type_name='Dict',       constructor_func=dict)
 Set        = ValueType_(type_name='Set',        constructor_func=set)
@@ -55,6 +70,10 @@ Time       = ValueType_(type_name='Time',       constructor_func=time_ctor)
 Error      = ValueType_(type_name='Error',      constructor_func=None)
 Image      = ValueType_(type_name='Image',      constructor_func=None)
 ValueType  = ValueType_(type_name='ValueType',  constructor_func=ValueType_)
+
+
+# QuantityInt= ValueType_(type_name='QuantityInt',constructor_func=None)
+# QuantityFloat= ValueType_(type_name='QuantityFloat',constructor_func=None)
 
 UID        = ValueType_(type_name='UID',        constructor_func=None)       
 BaseUID    = ValueType_(type_name='BaseUID',    constructor_func=None)       
