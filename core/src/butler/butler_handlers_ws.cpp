@@ -21,6 +21,9 @@ void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr &
 
 
 void Butler::ws_open_handler(void) {
+    if(should_stop)
+        return;
+
     // Reset any variables that need it.
     zefdb_protocol_version = -1;
     // connection_authed = false;
@@ -36,6 +39,9 @@ void Butler::ws_open_handler(void) {
 }
 
 void Butler::ws_close_handler(void) {
+    if(should_stop)
+        return;
+
     // TODO: Tell any graph managers that we lost the connection.
     // Note: this means we should cancel any tasks that rely on
     // network. This means we need to tag those tasks as being
@@ -52,7 +58,7 @@ void Butler::ws_close_handler(void) {
 
 void Butler::ws_fatal_handler(std::string reason) {
     std::cerr << "FATAL: connection failure in background WS thread, reason: " << reason << std::endl;
-    std::cerr << "If you would like to run in offline mode instead, please restart your python session and set the environment variable `ZEF_OFFLINE_MODE=TRUE`." << std::endl;
+    std::cerr << "If you would like to run in offline mode instead, please restart your python session and set the environment variable `ZEFDB_OFFLINE_MODE=TRUE`." << std::endl;
     update(auth_locker, fatal_connection_error, true);
 
     ws_close_handler();
@@ -60,6 +66,9 @@ void Butler::ws_fatal_handler(std::string reason) {
 
 
 void Butler::ws_message_handler(std::string msg) {
+    if(should_stop)
+        return;
+
     auto [j, rest]  = Communication::parse_ZH_message(msg);
 
     if(zwitch.debug_zefhub_json_output())

@@ -138,5 +138,18 @@ class MyTestCase(unittest.TestCase):
         x, y, z = (y, RT.Something, 3) | g | run
         g | now | all[ET.Example] | last | out_rel[RT.Something] | Out[RT.Something] | collect
 
+    def test_tagging(self):
+        g = Graph()
+
+        z = ET.Person | g | run
+        r = [
+            ET.Person["joe"],
+            Z["joe"] | tag["secret"],
+            z | tag["first"]
+        ] | transact[g] | run
+
+        self.assertEqual(r["joe"], g | now | get["secret"] | collect)
+        self.assertEqual(z | now | collect, g | now | get["first"] | collect)
+
 if __name__ == '__main__':
     unittest.main()

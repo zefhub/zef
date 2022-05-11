@@ -327,6 +327,12 @@ namespace zefDB {
                     con->append_header(item.first, item.second);
 
             debug_time_print("before endpoint connect");
+            // This is a case that can be hit in quick scripts, and if left out
+            // will still allow the client to exit, but very slowly. I'm not
+            // sure what takes so long, it seems like a timeout but I don't know
+            // where it is. This check here can't hurt and seems reasonable.
+            if(should_stop)
+                return;
             endpoint->connect(con);
             this->con = con;
 #if ZEFDB_ALLOW_NO_TLS
@@ -339,16 +345,19 @@ namespace zefDB {
             std::visit([this,failure](auto & con) {
 #endif
                 should_stop = true;
-                if(!con)
-                    return;
+                if(con) {
+                    std::error_code ec;
+                    con->close(websocketpp::close::status::going_away, "", ec);
+                }
 
-                // Note: don't reset this to false, because the user might call
-                // this after a real failure that they didn't know about.
-                if (failure)
-                    last_was_failure = failure;
-
-                std::error_code ec;
-                con->close(websocketpp::close::status::going_away, "", ec);
+                update(locker, [&]() {
+                    connected = false;
+                    wspp_in_control = false;
+                    // Note: don't reset this to false, because the user might call
+                    // this after a real failure that they didn't know about.
+                    if (failure)
+                        last_was_failure = failure;
+                });
 #if ZEFDB_ALLOW_NO_TLS
             }, con);
 #endif
@@ -494,6 +503,12 @@ namespace zefDB {
 #if ZEFDB_ALLOW_NO_TLS
                 }, endpoint);
 #endif
+                // We may have created a new connection in the intermediate time
+                // between this and the last close. So do it again now. (the
+                // last time, con may have been empty, if start_connection was
+                // halfway through its thing)
+                close();
+
                 ws_thread->join();
                 ws_thread.reset();
             }

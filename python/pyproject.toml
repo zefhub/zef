@@ -2,7 +2,7 @@
 skip = ["pp*", "*musllinux*"]
 archs = ["auto64"]
 test-requires = "pytest networkx>=2.6.3"
-test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST ZEFDB_QUIET=YES pytest {project}/python/tests"
+test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST ZEFDB_QUIET=YES pytest {project}/python/tests && python {project}/python/tests/quick_start.py"
 
 [tool.cibuildwheel.linux]
 before-all = "yum install -y openssl-devel"

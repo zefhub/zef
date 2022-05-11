@@ -95,7 +95,7 @@ def create_resolver_to_field(g, gql_rt, del_rt, is_out = False):
 
 def create_zef_function_resolver(g, gql_rt, z_func):
     if length(now(gql_rt) >> L[RT(gqlify("resolve_with_zef_function"))]) == 0:
-        instantiate(gql_rt, RT(gqlify("resolve_with_zef_function")), z_func, g)
+        (gql_rt, RT(gqlify("resolve_with_zef_function")), z_func) | g | run
 
 # Relay #
 def apply_cursor_to_edges(edges, before=None, after=None):

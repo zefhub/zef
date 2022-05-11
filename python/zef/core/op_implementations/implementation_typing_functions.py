@@ -361,7 +361,7 @@ def peel_tp(op, curr_type):
     elif curr_type in {VT.ZefOp, VT.LazyValue}:
         return VT.Record
     else:
-        return curr_type.nested()
+        return absorbed(curr_type)[0]
 
 
 #---------------------------------------- zip -----------------------------------------------
@@ -438,7 +438,7 @@ def concat_type_info(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -1128,6 +1128,11 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
         return d.get(key, default)
     elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator):
         return Error(f"get called on a list. Use 'nth' to get an element at a specified index.")
+    elif isinstance(d, Graph) or isinstance(d, GraphSlice):
+        try:
+            return d[key]
+        except KeyError:
+            return default
     else:
         return Error(f"get called with unsupported type {type(d)}.")
 
@@ -2358,7 +2363,7 @@ def single_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2422,7 +2427,7 @@ def first_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2460,7 +2465,7 @@ def second_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -2502,7 +2507,7 @@ def last_tp(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -3085,7 +3090,7 @@ def tx_tp(op, curr_type):
     if curr_type == VT.Graph:
         curr_type = VT.EZefRefs
     else:
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 
@@ -5014,7 +5019,7 @@ def nth_type_info(op, curr_type):
         curr_type = downing_d[curr_type]
     else:
         try:
-            curr_type = curr_type.nested()
+            curr_type = absorbed(curr_type)[0]
         except AttributeError as e:
             raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
@@ -5030,13 +5035,13 @@ def sort_type_info(op, curr_type):
     return curr_type
 
 def ins_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def outs_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def ins_and_outs_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def source_type_info(op, curr_type):
     return curr_type
@@ -5092,25 +5097,25 @@ def l_type_info(op, curr_type):
 def Out_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def In_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def OutOut_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def InIn_type_info(op, curr_type):
     if op[1][0] == RT.L: 
         assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d[0] else VT.EZefRefs
+        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def terminate_implementation(z, *args):
@@ -5206,14 +5211,15 @@ def is_represented_as_implementation(arg, vt):
 def is_represented_as_type_info(op, curr_type):
     VT.Bool
 #---------------------------------------- tag -----------------------------------------------
-def tag_imp(x, tag: str, force: bool = False):
+def tag_imp(x, tag_s: str, *args):
     """ 
     Create an effect to add a tag to either a Graph or a RAE.
 
     ---- Examples ----
     >>> g | tag["my_graph"] | run
     >>> g2 | tag["my_graph"][True] | run
-    >>> z | tag["settings_node"] | run
+    >>> z | tag["settings_node"] | g | run
+    >>> [z | tag["settings_node"]] | transact[g] | run
 
     ---- Arguments ----
     x Graph / ZefRef: object to tag
@@ -5222,26 +5228,26 @@ def tag_imp(x, tag: str, force: bool = False):
 
     ---- Signature ----
     (Graph, str, bool) -> Effect
-    (ZefRef, str, bool) -> Effect
+    (ZefRef, str, bool) -> LazyValue
     """
     if isinstance(x, Graph):
+        if len(args) > 0:
+            assert len(args) == 1
+            force = args[0]
+        else:
+            force = False
         return Effect({
             'type': FX.Graph.Tag,
             'graph': x,
-            'tag': tag,
+            'tag': tag_s,
             'force': force,
             'adding': True,
         })
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        return Effect({
-            'type': FX.RAE.Tag,
-            'rae': to_ezefref(x),
-            'tag': tag,
-            'force': force,
-            'adding': True,
-        })
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
+        assert len(args) == 0
+        return LazyValue(x) | tag[tag_s]
 
-    raise RuntimeError("Unknonwn type for tag: {type(x)}")
+    raise RuntimeError(f"Unknown type for tag: {type(x)}")
     
     
 def tag_tp(op, curr_type):
@@ -5267,16 +5273,10 @@ def untag_imp(x, tag: str):
             'adding': False,
             'force': False,
         })
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        return Effect({
-            'type': FX.RAE.Tag,
-            'rae': to_ezefref(x),
-            'tag': tag,
-            'adding': False,
-            'force': False,
-        })
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
+        raise Exception("Untagging a RAE is not supported at the moment.")
 
-    raise RuntimeError("Unknonwn type for tag: {type(x)}")
+    raise RuntimeError(f"Unknown type for tag: {type(x)}")
     
     
 def untag_tp(op, curr_type):

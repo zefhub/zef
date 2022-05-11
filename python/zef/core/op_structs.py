@@ -668,6 +668,7 @@ class Awaitable:
         from rx.core import Observable
         from .op_implementations.dispatch_dictionary import _op_to_functions
         from .fx import _state
+        from ._ops import absorbed, only
 
         curr_type =  VT.Awaitable[VT.List[VT.String]]
         source = _state['streams'][self.stream_ezefref]  
@@ -680,7 +681,7 @@ class Awaitable:
             for op in ops if kind == "Subscribe" else ops[:-1]:
                 observable_chain = _op_to_functions[op[0]][0](observable_chain,  *op[1])
 
-                curr_type = VT.Awaitable[_op_to_functions[op[0]][1](op,  curr_type.nested())]
+                curr_type = VT.Awaitable[_op_to_functions[op[0]][1](op,  *absorbed(curr_type))]
                 concrete_awaitable = ConcreteAwaitable(observable_chain, curr_type, concrete_awaitable.chain)
 
             if kind == "Subscribe":
@@ -693,13 +694,12 @@ class Awaitable:
             else:
                 observable_chain = observable_chain.pipe(rxops.to_list())
                 def type_assertion_wrapper(el):
-                    if isinstance(el, list) and curr_type.nested().d[0] != "List":
-                        from zefdb.lazy_zefops import only
+                    if isinstance(el, list) and absorbed(curr_type)[0] != "List":
                         return ops[-1][1][0](only(el))
                     return ops[-1][1][0](el)
                 observable_chain.subscribe(type_assertion_wrapper)
 
-            concrete_awaitable = ConcreteAwaitable(observable_chain, curr_type.nested(), concrete_awaitable.chain)
+            concrete_awaitable = ConcreteAwaitable(observable_chain, *absorbed(curr_type), concrete_awaitable.chain)
             return observable_chain 
         
         raise NotImplementedError(f"Awaitable evalation not implemented with {type(source)}")
