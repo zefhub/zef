@@ -3508,7 +3508,7 @@ def events_imp(z_tx_or_rae, filter_on=None):
         termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[pyzefops.to_frame(zr, tx, True)]] | collect
         full_list = inst + val_assigns + termination 
 
-    if filter_on: return full_list | filter[lambda z: is_a(z, filter_on)] | collect
+    if filter_on: return full_list | filter[lambda z: is_a_implementation(z, filter_on)] | collect
     return full_list
 
 
@@ -4816,6 +4816,8 @@ def is_a_implementation(x, typ):
         return isinstance(el, python_type)
 
     if isinstance(typ, ValueType_):
+        if typ.d['type_name'] == "Any": return True
+
         if typ.d['type_name'] == "Union":
             return union_matching(x, typ)
 
@@ -4827,12 +4829,16 @@ def is_a_implementation(x, typ):
 
         if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
             map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
-            return without_absorbed(x) == map_[typ.d['type_name']]
+            def compare_absorbed(x, typ):
+                val_absorbed = absorbed(x)
+                typ_absorbed = absorbed(typ)
+                for i,typ in enumerate(typ_absorbed):
+                    if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
+                    if not is_a_implementation(val_absorbed[i],typ): return False
+                return True
+            return without_absorbed(x) == map_[typ.d['type_name']] and compare_absorbed(x, typ)
             
         return valuetype_matching(x, typ)
-
-
-
     
 
     if type(x) == _ErrorType:
