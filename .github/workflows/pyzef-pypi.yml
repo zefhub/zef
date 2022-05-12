@@ -41,7 +41,6 @@ jobs:
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.4.0
-        timeout-minutes: 20
         with:
           package-dir: python
         env:
@@ -70,10 +69,11 @@ jobs:
   upload-to-pypi:
     name: Upload wheels to PyPI
     runs-on: ubuntu-20.04
-    # We need this if in case build-wheels doesn't run see workflow syntax
-    # documentation for jobs.<job_id>.needs.
-    if: ${{ always() }}
     needs: [build-wheels]
+    # We need this if in case build-wheels doesn't run, because for some reason
+    # a skipped status is treated as a reason for the following jobs to also be
+    # skipped.
+    if: ${{ needs.build-wheels.status != "failure" }}
     steps:
       - uses: actions/checkout@v2
         with:
