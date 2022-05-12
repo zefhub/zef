@@ -3197,9 +3197,10 @@ def time_slice_implementation(first_arg, *curried_args):
     ---- Signature ----
     GraphSlice -> Int
     """
-    print(f"😞😞😞😞😞  The use of the 'time_slice' is deprecated: use 'to_graph_slice' instead 😞😞😞😞😞")  
     if isinstance(first_arg, GraphSlice):
-        return int(first_arg)       # casting a GraphSlice onto an int implemented
+        return pyzefops.time_slice(first_arg.tx)
+
+    print(f"😞😞😞😞😞  The use of the 'time_slice' on arbitrary ZefRefs is deprecated: use 'frame | time_slice' or 'to_graph_slice | time_slice' instead 😞😞😞😞😞")  
 
     # Old usage:
     if not is_a(first_arg, BT.TX_EVENT_NODE):
@@ -3345,7 +3346,7 @@ def terminated_imp(x):
         if BT(res) == BT.ROOT_NODE:
             return None  
         # TODO (Ulf): fix this.
-        if isinstance(x, ZefRef) and ((x | frame | time_slice | collect) > (res | time_slice | collect)):
+        if isinstance(x, ZefRef) and ((x | frame | time_slice | collect) > (res | to_graph_slice | time_slice | collect)):
             return None
         else:
             return res
@@ -3470,40 +3471,41 @@ def events_imp(z_tx_or_rae, filter_on=None):
     Union[ZefRef[TX], EZefRef[TX]]  ->  List[ZefOp[Union[Instantiated[ZefRef], Terminated[ZefRef], ValueAssigned[ZefRef, T]]]]
     """
     from zef.pyzef import zefops as pyzefops
+    # Note: we can't use the python to_frame here as that calls into us.
 
     if BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
         zr = to_ezefref(z_tx_or_rae)
         gs = zr | to_graph_slice | collect
 
         def make_val_as_for_aet(aet):
-            aet_at_frame = to_frame[gs](aet)
+            aet_at_frame = pyzefops.to_frame(aet, zr)
             try:
                 prev_tx  = zr | previous_tx | collect                                  # Will fail if tx is already first TX
-                prev_val = aet | to_frame[to_graph_slice(prev_tx)] | value | collect   # Will fail if aet didn't exist at prev_tx
+                prev_val = pyzefops.to_frame(aet, prev_tx) | value | collect   # Will fail if aet didn't exist at prev_tx
             except:
                 prev_val = None
             return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
 
-        insts        = zr | pyzefops.instantiated   | map[lambda zz: instantiated[to_frame[gs](zz) ]] | collect
+        insts        = zr | pyzefops.instantiated   | map[lambda zz: instantiated[pyzefops.to_frame(zz, gs.tx) ]] | collect
         val_assigns  = zr | pyzefops.value_assigned | map[make_val_as_for_aet] | collect
-        terminations = zr | pyzefops.terminated     | map[lambda zz: terminated[to_frame[allow_tombstone][gs](zz) ]] | collect
+        terminations = zr | pyzefops.terminated     | map[lambda zz: terminated[pyzefops.to_frame(zz, gs.tx, True) ]] | collect
         full_list = insts+val_assigns+terminations
     else:
         zr = z_tx_or_rae
 
         def make_val_as_from_tx(tx):
-            aet_at_frame = to_frame[to_graph_slice(tx)](zr)
+            aet_at_frame = pyzefops.to_frame(zr, tx)
             try:
                 prev_tx  = tx | previous_tx | collect                                   # Will fail if tx is already first TX
-                prev_val = zr | to_frame[to_graph_slice(prev_tx)] | value | collect     # Will fail if aet didn't exist at prev_tx
+                prev_val = pyzefops.to_frame(zr, prev_tx) | value | collect     # Will fail if aet didn't exist at prev_tx
             except:
                 prev_val = None
             return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
 
-        inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: instantiated[to_frame[to_graph_slice(tx)](zr) ]] | collect
+        inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: instantiated[pyzefops.to_frame(zr, tx) ]] | collect
         val_assigns =  pyzefops.value_assignment_txs(zr) | map[make_val_as_from_tx] | collect
         # TODO termination_tx returns even if zr is a zefref with a timeslice where it wasn't terminated yet
-        termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[to_frame[allow_tombstone][to_graph_slice(tx)](zr)]] | collect
+        termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[pyzefops.to_frame(zr, tx, True)]] | collect
         full_list = inst + val_assigns + termination 
 
     if filter_on: return full_list | filter[lambda z: is_a(z, filter_on)] | collect
@@ -3554,29 +3556,28 @@ def in_frame_imp(z, *args):
     """
     # if one additional arg is passed in, it must be a frame
     if len(args)==1:
-        frame = args[0]
+        target_frame = args[0]
         tombstone_allowed = False
-        assert isinstance(frame, GraphSlice)
+        assert isinstance(target_frame, GraphSlice)
 
     # if two additional args are passed in, one must be a frame and the other 'allow_tombstone'
     elif len(args)==2:
         if isinstance(args[0], GraphSlice):
             assert isinstance(args[1], ZefOp) and args[1] == allow_tombstone
-            frame = args[0]
+            target_frame = args[0]
             tombstone_allowed = True
         elif isinstance(args[1], GraphSlice):
             assert isinstance(args[0], ZefOp) and args[0] == allow_tombstone
-            frame = args[1]
+            target_frame = args[1]
             tombstone_allowed = True
         else:
             raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone][my_gs] ")
     else:
         raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone][my_gs] ")    
-    z_tx = frame.tx
     if not (isinstance(z, ZefRef) or isinstance(z, EZefRef)):
         raise NotImplementedError(f"No in_frame yet for type {type(z)}")
     zz = to_ezefref(z)
-    g_frame = Graph(z_tx)
+    g_frame = Graph(target_frame)
     # z's origin lives in the frame graph
     is_same_g = g_frame == Graph(zz)    # will be reused
     if is_same_g or origin_uid(zz).graph_uid == uid(g_frame):
@@ -3585,30 +3586,36 @@ def in_frame_imp(z, *args):
         if internals.is_delegate(z_obj):
             from ..logger import log
             log.warn("Need to fix, assuming delegate exists from the beginning of time.")
-            instantiation_ts = 0
+            instantiation_ts = TimeSlice(0)
         elif BT(z_obj) == BT.TX_EVENT_NODE:
-            instantiation_ts = time_slice(z_obj)
+            # TODO: This should not be necessary in the future, as events[Instantiated] should cover this and the follow ROOT_NODE case.
+            instantiation_ts = pyzefops.time_slice(z_obj)
         elif BT(z_obj) == BT.ROOT_NODE:
-            instantiation_ts = 0
+            instantiation_ts = TimeSlice(0)
         else:
-            instantiation_ts = time_slice(instantiated(z_obj))
-        if (time_slice(z_tx)) < instantiation_ts:
+            instantiation_ts = z_obj | events[Instantiated] | single | absorbed | single | frame | time_slice | collect
+        if (time_slice(target_frame)) < instantiation_ts:
             raise RuntimeError(f"Causality error: you cannot point to an object from a frame prior to its existence / the first time that frame learned about it.")            
         if not tombstone_allowed:
             # assert that the frame is prior to the termination tx
             if internals.is_delegate(z_obj):
                 from ..logger import log
                 log.warn("Need to fix, assuming delegate exists to the end of time.")
-                z_tx_term = None
+                termination_ts = None
             elif BT(z_obj) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
-                z_tx_term = None
+                termination_ts = None
             else:
-                z_tx_term = terminated(z_obj)
-            if z_tx_term is not None and index(z_tx_term)!=internals.root_node_blob_index():  # if there is a termination tx
-                termination_ts = time_slice(z_tx_term)
-                if (time_slice(z_tx)) >= termination_ts:
+                termination_ts = (z_obj
+                                  | events[Terminated]
+                                  | match_apply[
+                                      (length | equals[0], always[None]),
+                                      (always[True], single | absorbed | single | frame | time_slice)
+                                  ]
+                                  | collect)
+            if termination_ts is not None:
+                if (time_slice(target_frame)) >= termination_ts:
                     raise RuntimeError(f"The RAE was terminated and no longer exists in the frame that the reference frame was about to be moved to. It is still possible to perform this action if you really want to by specifying 'to_frame[allow_tombstone][my_z]'")
-        return ZefRef(z_obj, z_tx)
+        return ZefRef(z_obj, target_frame.tx)
 
     # z's origin does not live in the frame graph
     else:
@@ -3619,11 +3626,11 @@ def in_frame_imp(z, *args):
 
         zz = g_frame[the_origin_uid]
         if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
-            z_candidates = zz | Ins[BT.ORIGIN_RAE_EDGE] | map[target] | filter[exists_at[frame]] | collect
+            z_candidates = zz | Ins[BT.ORIGIN_RAE_EDGE] | map[target] | filter[exists_at[target_frame]] | collect
             if len(z_candidates) > 1:
                 raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {the_origin_uid}")
             elif len(z_candidates) == 1:
-                return z_candidates | single | to_frame[frame] | collect
+                return z_candidates | single | to_frame[target_frame] | collect
             else:
                 return None     # no instance alive at the moment
         
