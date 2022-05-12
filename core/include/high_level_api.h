@@ -935,16 +935,8 @@ namespace zefDB {
 		struct LIBZEF_DLL_EXPORTED Uid {
 			BaseUID operator() (const Graph& g) const { return internals::get_graph_uid(g.my_graph_data()); }
 			BaseUID operator() (const GraphData& gd) const { return internals::get_graph_uid(gd); }
-			EternalUID operator() (const EZefRef uzr) const {
-                return EternalUID(internals::get_blob_uid(uzr),
-                                  internals::get_graph_uid(uzr));
-            }
-			ZefRefUID operator() (const ZefRef zr) const {
-                return ZefRefUID(internals::get_blob_uid(zr | to_ezefref),
-                                 internals::get_blob_uid(zr | tx | to_ezefref),
-                                 internals::get_graph_uid(zr | to_ezefref));
-                                 
-            }
+			EternalUID operator() (const EZefRef uzr) const;
+			ZefRefUID operator() (const ZefRef zr) const;
 		};
 		constexpr Uid uid;
 		inline BaseUID operator| (const Graph& g, Uid x) { return x(g); }
@@ -1798,18 +1790,6 @@ namespace zefDB {
 
 	namespace internals {
 
-		// us to check in Instances(uzr)  to throw if the zr does fundamentally not have a delegate
-		inline bool has_delegate(BlobType bt) {
-			switch (bt) {
-			case BT.ENTITY_NODE: return true;
-			case BT.ATOMIC_ENTITY_NODE: return true;
-			case BT.RELATION_EDGE: return true;
-			case BT.TX_EVENT_NODE: return true;
-			case BT.ROOT_NODE: return true;
-			default: return false;
-			};
-			return false;
-		}
 
         inline EZefRefs all_raes(const Graph& graph) {
             bool (&is_delegate_func)(EZefRef) = is_delegate;

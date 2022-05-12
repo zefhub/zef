@@ -185,6 +185,29 @@ namespace zefDB {
 
 		void assign_uid(EZefRef uzr, BaseUID uid);
 
+		// us to check in Instances(uzr)  to throw if the zr does fundamentally not have a delegate
+		inline bool has_delegate(BlobType bt) {
+			switch (bt) {
+			case BT.ENTITY_NODE: return true;
+			case BT.ATOMIC_ENTITY_NODE: return true;
+			case BT.RELATION_EDGE: return true;
+			case BT.TX_EVENT_NODE: return true;
+			case BT.ROOT_NODE: return true;
+			default: return false;
+			};
+		}
+
+        inline bool is_foreign_rae_blob(BlobType bt) {
+			switch (bt) {
+			case BT.FOREIGN_ENTITY_NODE: return true;
+			case BT.FOREIGN_ATOMIC_ENTITY_NODE: return true;
+			case BT.FOREIGN_RELATION_EDGE: return true;
+			// case BT.FOREIGN_TX_EVENT_NODE: return true;
+			// case BT.FOREIGN_ROOT_NODE: return true;
+            case BT.FOREIGN_GRAPH_NODE: return true;
+			default: return false;
+			};
+        }
 
 	}
 }

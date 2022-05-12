@@ -4662,8 +4662,9 @@ def uid_implementation(arg):
         return arg.d["uid"]
     if isinstance(arg, Relation):
         return arg.d["uids"][1]
-    else:
-        return pyzefops.uid(arg)
+    if is_a(arg, uid):
+        return arg
+    return pyzefops.uid(arg)
 
 def base_uid_implementation(first_arg):
     if isinstance(first_arg, EternalUID) or isinstance(first_arg, ZefRefUID):
