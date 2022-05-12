@@ -211,6 +211,9 @@ Zef is licensed under the Apache License, Version 2.0 (the "License"). You may o
 
 [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
+<br />
+<br />
+
 ## Dependencies
 
 The compiled libraries make use of the following packages:
@@ -218,11 +221,10 @@ The compiled libraries make use of the following packages:
 - `asio` (https://github.com/chriskohlhoff/asio)
 - `JWT++` (https://github.com/Thalhammer/jwt-cpp)
 - `Curl` (https://github.com/curl/curl)
-- `JSON`  (https://github.com/nlohmann/json)
+- `JSON` (https://github.com/nlohmann/json)
 - `Parallel hashmap` (https://github.com/greg7mdp/parallel-hashmap)
 - `Ranges-v3` (https://github.com/ericniebler/range-v3)
 - `Websocket++` (https://github.com/zaphoyd/websocketpp)
 - `Zstandard` (https://github.com/facebook/zstd)
 - `pybind11` (https://github.com/pybind/pybind11)
 - `pybind_json` (https://github.com/pybind/pybind11_json)
-
