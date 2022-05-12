@@ -970,12 +970,40 @@ namespace zefDB {
 
 
 
+        EternalUID Uid::operator() (const EZefRef uzr) const {
+            // Special handling for foreign RAEs. We want invertibility for
+            // g[uid(z)] to be true, which means returning the foreign
+            // EternalUID in that case.
+            if(internals::is_foreign_rae_blob(BT(uzr))) {
+                if(BT(uzr) == BT.FOREIGN_GRAPH_NODE)
+                    return EternalUID(internals::get_blob_uid(uzr),
+                                      internals::get_blob_uid(uzr));
+                else
+                    return EternalUID(internals::get_blob_uid(uzr),
+                                      internals::get_blob_uid(uzr >> BT.ORIGIN_GRAPH_EDGE));
+            }
+            return EternalUID(internals::get_blob_uid(uzr),
+                              internals::get_graph_uid(uzr));
+        }
+        ZefRefUID Uid::operator() (const ZefRef zr) const {
+            // Note that it makes no sense to have a foreign blob as a
+            // ZefRef. In fact it is downright confusing - does the graph
+            // UID belong to the current graph or the foreign graph? So
+            // reject this outright.
+            if(internals::is_foreign_rae_blob(BT(zr)))
+                throw std::runtime_error("Cannot get the ZefRefUID of a ZefRef pointing at a foreign RAE blob. You should convert to an EZefRef first.");
+            return ZefRefUID(internals::get_blob_uid(zr | to_ezefref),
+                             internals::get_blob_uid(zr | tx | to_ezefref),
+                             internals::get_graph_uid(zr | to_ezefref));
+
+        }
 
 
 
 
 
-		//                       __     __         _                     _     _  __ _           _      ____  _                   _                           
+
+        //                       __     __         _                     _     _  __ _           _      ____  _                   _                           
 		//                       \ \   / /_ _ _ __(_) ___  _   _ ___    | |   (_)/ _| |_ ___  __| |    / ___|| |_ _ __ _   _  ___| |_ ___                     
 		//    _____ _____ _____   \ \ / / _` | '__| |/ _ \| | | / __|   | |   | | |_| __/ _ \/ _` |    \___ \| __| '__| | | |/ __| __/ __|  _____ _____ _____ 
 		//   |_____|_____|_____|   \ V / (_| | |  | | (_) | |_| \__ \   | |___| |  _| ||  __/ (_| |     ___) | |_| |  | |_| | (__| |_\__ \ |_____|_____|_____|

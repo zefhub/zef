@@ -13,7 +13,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-echo 'This command uses several pip-installed binaries. Make sure that the pip-installed binary path is on your PATH environment variable. For example, PATH=$PATH:$HOME/.local/bin'
+echo
+echo '====================='
+echo '====================='
+echo 'This command uses several pip-installed binaries. Make sure that the
+pip-installed binary path is on your PATH environment variable. For example,
+PATH=$PATH:$HOME/.local/bin'
+echo '====================='
+echo '====================='
+echo
 
 if ! which jq > /dev/null ; then
     echo 'jq needs to be installed to use this script. If you are on macos, please run `brew install jq`. If you are on linux use your package manager to install jq (e.g. `sudo apt-get install jq` or `sudo pacman -S jq`)'
