@@ -4791,7 +4791,10 @@ def is_a_implementation(x, typ):
             if isinstance(t, ValueType_): 
                 return Error.ValueError(f"A ValueType_ was passed to SetOf but it only takes predicate functions. Try wrapping in is_a[{t}]")
             elif isinstance(t, (ZefOp, Callable)):
-                if not t(el): return False
+                try:
+                    if not t(el): return False
+                except:
+                    return False
             else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside SetOf but got {t} instead.")
         return True
 
@@ -4816,8 +4819,6 @@ def is_a_implementation(x, typ):
         return isinstance(el, python_type)
 
     if isinstance(typ, ValueType_):
-        if typ.d['type_name'] == "Any": return True
-
         if typ.d['type_name'] == "Union":
             return union_matching(x, typ)
 
