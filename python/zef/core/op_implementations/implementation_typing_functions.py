@@ -4827,6 +4827,9 @@ def is_a_implementation(x, typ):
 
         if typ.d['type_name'] == "SetOf":
             return setof_matching(x, typ)
+        
+        if typ.d['type_name'] == "Not":
+            return not is_a_implementation(x, typ.d['absorbed'][0])
 
         if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
             map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
