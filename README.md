@@ -4,7 +4,7 @@
 </div>
 
 <p align="center">
-    A toolkit for data-oriented systems
+    A data-oriented toolkit for graph data
 </p>
 
 <p align="center">
@@ -34,30 +34,30 @@
 
 ## Description
 
-Zef is an open source toolkit of modules for building data-oriented systems. These systems can include backends, graph projects, or pipelines. Zef consists of an immutable, in-memory data structure, versioned graphs, data streams, composable lazy operators, effects handling, and GraphQL support. You can pick and choose the modules you need for your project.
+Zef is an open source, data-oriented toolkit of modules for graph data. It gives Python developers more power and flexibility with graph data. Zef consists of an immutable, in-memory database, versioned graphs, data streams, composable lazy operators, effects handling, and GraphQL support. You can pick and choose the modules you need for your project.
 
 If any of these apply to you, Zef might help:
 
 - I need a graph data model that's more powerful than NetworkX but easier than Neo4j
-- I need a GraphQL API that's easy to spin up and close to my data model
-- I like Datomic but prefer something open source that feels like working with local data structures
 - I need to "time travel" and access past states easily
+- I like Datomic but prefer something open source that feels like working with local data structures
 - I don't want to learn a new query language like Cypher or GSQL (I just want to use Python)
-- I want an easy way to build data pipelines and subscribe to data streams
+- I need a GraphQL API that's easy to spin up and close to my data model
+- I want an easy and visible way to compose functions into pipelines with subscriptions
 
 <br />
 <br />
 
 ## Features
 
-- in-memory, immutable data structure
+- in-memory, immutable database
 - fully versioned graphs
 - work with your data like local data structures
 - no separate query language
 - no ORM
 - query and transform data using Python with composable lazy operators
-- data streams and subscriptions
 - GraphQL API with low impedance mismatch to data model
+- data streams and subscriptions
 - automatically store, sync, distribute graphs securely with ZefHub
 
 <br />
