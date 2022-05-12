@@ -446,7 +446,7 @@ namespace zefDB {
                 con->ping(to_str(now), ec);
                 if (ec) {
                     std::cerr << "Error sending ping: " << ec.message() << std::endl;
-                    throw std::runtime_error("Error sending ping: " + ec.message());
+                    // throw std::runtime_error("Error sending ping: " + ec.message());
                 }
 #if ZEFDB_ALLOW_NO_TLS
             }, con);
