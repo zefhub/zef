@@ -103,7 +103,7 @@ jobs:
   dev-announcement:
     name: Dev announcement
     runs-on: ubuntu-20.04
-    if: ${{ (contains(github.ref, 'dev') }}
+    if: ${{ contains(github.ref, 'dev') }}
     needs: [upload-to-pypi]
     steps:
       - uses: actions/checkout@v2
