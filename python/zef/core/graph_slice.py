@@ -73,7 +73,7 @@ class GraphSlice:
         """
         Returns the time slice as an integer
         """
-        return int(self.tx | time_slice | collect)
+        return int(self | time_slice | collect)
 
     def __hash__(self):
         return hash(self.tx)
