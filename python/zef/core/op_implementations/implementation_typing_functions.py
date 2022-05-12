@@ -3346,7 +3346,7 @@ def terminated_imp(x):
         if BT(res) == BT.ROOT_NODE:
             return None  
         # TODO (Ulf): fix this.
-        if isinstance(x, ZefRef) and ((x | frame | time_slice | collect) > (res | time_slice | collect)):
+        if isinstance(x, ZefRef) and ((x | frame | time_slice | collect) > (res | to_graph_slice | time_slice | collect)):
             return None
         else:
             return res
@@ -3586,12 +3586,12 @@ def in_frame_imp(z, *args):
         if internals.is_delegate(z_obj):
             from ..logger import log
             log.warn("Need to fix, assuming delegate exists from the beginning of time.")
-            instantiation_ts = 0
+            instantiation_ts = TimeSlice(0)
         elif BT(z_obj) == BT.TX_EVENT_NODE:
             # TODO: This should not be necessary in the future, as events[Instantiated] should cover this and the follow ROOT_NODE case.
             instantiation_ts = pyzefops.time_slice(z_obj)
         elif BT(z_obj) == BT.ROOT_NODE:
-            instantiation_ts = 0
+            instantiation_ts = TimeSlice(0)
         else:
             instantiation_ts = z_obj | events[Instantiated] | single | absorbed | single | frame | time_slice | collect
         if (time_slice(target_frame)) < instantiation_ts:
@@ -3609,11 +3609,11 @@ def in_frame_imp(z, *args):
                                   | events[Terminated]
                                   | match_apply[
                                       (length | equals[0], always[None]),
-                                      (always[True], single | frame | time_slice)
+                                      (always[True], single | absorbed | single | frame | time_slice)
                                   ]
                                   | collect)
             if termination_ts is not None:
-                if (time_slice(g_frame)) >= termination_ts:
+                if (time_slice(target_frame)) >= termination_ts:
                     raise RuntimeError(f"The RAE was terminated and no longer exists in the frame that the reference frame was about to be moved to. It is still possible to perform this action if you really want to by specifying 'to_frame[allow_tombstone][my_z]'")
         return ZefRef(z_obj, target_frame.tx)
 
