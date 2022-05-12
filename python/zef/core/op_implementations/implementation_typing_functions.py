@@ -3478,7 +3478,7 @@ def events_imp(z_tx_or_rae, filter_on=None):
         gs = zr | to_graph_slice | collect
 
         def make_val_as_for_aet(aet):
-            aet_at_frame = pyzefops.to_frame(aet, aet)
+            aet_at_frame = pyzefops.to_frame(aet, gs)
             try:
                 prev_tx  = zr | previous_tx | collect                                  # Will fail if tx is already first TX
                 prev_val = pyzefops.to_frame(aet, prev_tx) | value | collect   # Will fail if aet didn't exist at prev_tx
