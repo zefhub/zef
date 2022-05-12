@@ -87,8 +87,12 @@ class MyTestCase(unittest.TestCase):
         self.assertTrue(uid(z_joe|to_ezefref) in g2)
         self.assertEqual(length(g | now | all[ET.Person]), 1)
 
-        # TODO: Replace with proper lookup later
-        z2_joe = g2[uid(z_joe|to_ezefref)] | In[BT.ORIGIN_RAE_EDGE] | target | now | collect
+        z2_joe = g2 | now | get[origin_uid(z_joe)] | collect
+        self.assertEqual(origin_uid(z_joe), origin_uid(z2_joe))
+        # Check low-level structure
+        self.assertEqual(uid(g2[origin_uid(z_joe)]), origin_uid(z_joe))
+        self.assertEqual(z_joe | g2 | run, g2 | now | get[origin_uid(z_joe)] | collect)
+
         r3 = [
             (z2_joe, RT.FromMerge, True)
         ] | transact[g] | run

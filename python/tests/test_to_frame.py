@@ -33,8 +33,8 @@ class MyTestCase(unittest.TestCase):
         with Transaction(g) as ctx: 
             this_frame = frame(ctx)
             self.assertEqual(this_frame, g | now | collect)
-            self.assertEqual(ctx | time_slice | collect, g | now | time_slice | collect)
-            self.assertEqual(ctx | time_slice | collect, ts4+1)
+            self.assertEqual(ctx | to_graph_slice | time_slice | collect, g | now | time_slice | collect)
+            self.assertEqual(ctx | to_graph_slice | time_slice | func[int] | collect, int(ts4)+1)
             
 
         mm1 = m1 | to_ezefref | to_frame[g | now|collect] | collect

@@ -285,3 +285,12 @@ def Graph__getitem__(self, x):
     return res
 
 main.Graph.__getitem__ = Graph__getitem__
+
+original_Graph__init__ = main.Graph.__init__
+def Graph__init__(self, *args, **kwds):
+    from .graph_slice import GraphSlice
+    if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], GraphSlice):
+        return original_Graph__init__(self, args[0].tx)
+
+    return original_Graph__init__(self, *args, **kwds)
+main.Graph.__init__ = Graph__init__

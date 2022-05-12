@@ -103,9 +103,7 @@ jobs:
   dev-announcement:
     name: Dev announcement
     runs-on: ubuntu-20.04
-    # Suprisingly, we need this if always even though upload-to-pypi is always
-    # run, because of the weird dependency handling by the workflow runner.
-    if: ${{ always() }}
+    if: ${{ (contains(github.ref, 'dev') }}
     needs: [upload-to-pypi]
     steps:
       - uses: actions/checkout@v2
@@ -130,7 +128,6 @@ jobs:
       #   run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
 
       - name: Release announcement for dev
-        if: ${{ (contains(github.ref, 'dev') || github.event.release.prerelease == true) }}
         env:
           MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
           CHANNEL: dev-releases
