@@ -24,6 +24,15 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         return;
     }
 
+    if(me.gd->sync_head == 0 && me.gd->is_primary_instance) {
+        // We are set to sync, but we have never got around to letting zefhub know about our graph. So instead we'll wait for the sync thread to take care of it. We'll help it along by forcing a wake.
+        wake(me.gd->heads_locker);
+
+        if(zwitch.graph_event_output())
+            std::cerr << "Waking sync thread to send full graph: " << std::endl;
+        return;
+    }
+
     if(zwitch.graph_event_output())
         std::cerr << "Resubscribing to graph: " << me.uid << std::endl;
 
