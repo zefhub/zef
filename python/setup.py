@@ -97,8 +97,9 @@ class override_sdist(sdist):
 
         sdist.make_release_tree(self, base_dir, files)
 
-        print("* Adding license to sdist")
+        print("* Adding license and readme to sdist")
         shutil.copy("../LICENSE", os.path.join(base_dir, "LICENSE"))
+        shutil.copy("../README.md", os.path.join(base_dir, "README.md"))
 
         print("* Adding libzef to sdist")
 
@@ -185,9 +186,13 @@ else:
     raise Exception(f"Don't understand libzef_kind of '{libzef_kind}'")
 
 
+if os.path.exists("README.md"):
+    with open("README.md") as file:
+        long_desc = file.read()
+else:
+    with open("../README.md") as file:
+        long_desc = file.read()
 
-
-# I HATE PYTHON PACKAGING
 sys.path += [""]
 import versioneer
 
@@ -196,8 +201,8 @@ with open("requirements.txt") as file:
 
 
 setup(
-    name="zef",
-    author="ZefHub.io",
+    long_description=long_desc,
+    long_description_content_type="text/markdown",
     python_requires=">=3.8",
     version=versioneer.get_version(),
     packages=find_packages(),

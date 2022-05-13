@@ -4,7 +4,7 @@
 </div>
 
 <p align="center">
-    A toolkit for data-oriented systems
+    A data-oriented toolkit for graph data
 </p>
 
 <p align="center">
@@ -13,7 +13,7 @@
 
 <div align="center">
     <a href="https://github.com/zefhub/zef/actions/workflows/on-master-merge.yml">
-      <img src="/zefhub/zef/actions/workflows/on-master-merge.yml/badge.svg" alt="Workflow status badge" loading="lazy" height="20">
+      <img src="https://github.com/zefhub/zef/actions/workflows/on-master-merge.yml/badge.svg" alt="Workflow status badge" loading="lazy" height="20">
     </a>
     <a href="https://github.com/zefhub/zef/blob/master/LICENSE">
         <img src="https://img.shields.io/badge/license-Apache%202.0-teal" />
@@ -34,30 +34,30 @@
 
 ## Description
 
-Zef is an open source toolkit of modules for building data-oriented systems. These systems can include backends, graph projects, or pipelines. Zef consists of an immutable, in-memory data structure, versioned graphs, data streams, composable lazy operators, effects handling, and GraphQL support. You can pick and choose the modules you need for your project.
+Zef is an open source, data-oriented toolkit of modules for graph data. It gives Python developers more power and flexibility with graph data. Zef consists of an immutable, in-memory database, versioned graphs, data streams, composable lazy operators, effects handling, and GraphQL support. You can pick and choose the modules you need for your project.
 
 If any of these apply to you, Zef might help:
 
 - I need a graph data model that's more powerful than NetworkX but easier than Neo4j
-- I need a GraphQL API that's easy to spin up and close to my data model
-- I like Datomic but prefer something open source that feels like working with local data structures
 - I need to "time travel" and access past states easily
+- I like Datomic but prefer something open source that feels like working with local data structures
 - I don't want to learn a new query language like Cypher or GSQL (I just want to use Python)
-- I want an easy way to build data pipelines and subscribe to data streams
+- I need a GraphQL API that's easy to spin up and close to my data model
+- I want an easy and visible way to compose functions into pipelines with subscriptions
 
 <br />
 <br />
 
 ## Features
 
-- in-memory, immutable data structure
+- in-memory, immutable database
 - fully versioned graphs
 - work with your data like local data structures
 - no separate query language
 - no ORM
 - query and transform data using Python with composable lazy operators
-- data streams and subscriptions
 - GraphQL API with low impedance mismatch to data model
+- data streams and subscriptions
 - automatically store, sync, distribute graphs securely with ZefHub
 
 <br />
@@ -211,6 +211,9 @@ Zef is licensed under the Apache License, Version 2.0 (the "License"). You may o
 
 [http://www.apache.org/licenses/LICENSE-2.0](http://www.apache.org/licenses/LICENSE-2.0)
 
+<br />
+<br />
+
 ## Dependencies
 
 The compiled libraries make use of the following packages:
@@ -218,11 +221,10 @@ The compiled libraries make use of the following packages:
 - `asio` (https://github.com/chriskohlhoff/asio)
 - `JWT++` (https://github.com/Thalhammer/jwt-cpp)
 - `Curl` (https://github.com/curl/curl)
-- `JSON`  (https://github.com/nlohmann/json)
+- `JSON` (https://github.com/nlohmann/json)
 - `Parallel hashmap` (https://github.com/greg7mdp/parallel-hashmap)
 - `Ranges-v3` (https://github.com/ericniebler/range-v3)
 - `Websocket++` (https://github.com/zaphoyd/websocketpp)
 - `Zstandard` (https://github.com/facebook/zstd)
 - `pybind11` (https://github.com/pybind/pybind11)
 - `pybind_json` (https://github.com/pybind/pybind11_json)
-
