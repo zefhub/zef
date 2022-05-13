@@ -243,6 +243,10 @@ def add_internal_id(self, internal_id):
     return merged[self][internal_id]
 ZefRef.__getitem__ = add_internal_id
 EZefRef.__getitem__ = add_internal_id
+def no_iter(self):
+    raise TypeError("E/ZefRef are not iterable")
+ZefRef.__iter__ = no_iter
+EZefRef.__iter__ = no_iter
 
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):
