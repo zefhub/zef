@@ -2592,6 +2592,36 @@ namespace zefDB {
         // * exists_at
 
 		bool exists_at(EZefRef uzr, TimeSlice ts) {
+            if(is_delegate(uzr)) {
+                // Although the node itself might have some information, we
+                // should check the sequence of DELEGATE_INSTANTIATION_EDGE and
+                // DELEGATE_RETIREMENT_EDGE to determine if we are in a valid
+                // timeslice for the delegate.
+
+                EZefRef to_del = uzr < BT.TO_DELEGATE_EDGE;
+
+                TimeSlice latest_instantiation_edge(ts.value + 1);
+                TimeSlice latest_retirement_edge(ts.value + 1);
+
+                for(auto & it : uzr << BT.DELEGATE_INSTANTIATION_EDGE) {
+                    // `it` should always be a TX.
+                    TimeSlice this_ts = time_slice(it);
+                    if(this_ts <= ts && this_ts > latest_instantiation_edge)
+                        latest_instantiation_edge = this_ts;
+                }
+
+                for(auto & it : uzr << BT.DELEGATE_RETIREMENT_EDGE) {
+                    // `it` should always be a TX.
+                    TimeSlice this_ts = time_slice(it);
+                    if(this_ts <= ts && this_ts > latest_retirement_edge)
+                        latest_retirement_edge = this_ts;
+                }
+
+                if(latest_retirement_edge > ts)
+                    return true;
+                return (latest_instantiation_edge > latest_retirement_edge);
+            }
+
             switch (get<BlobType>(uzr)) {
             case BlobType::RELATION_EDGE: {
                 blobs_ns::RELATION_EDGE& x = get<blobs_ns::RELATION_EDGE>(uzr);
