@@ -3474,7 +3474,14 @@ def events_imp(z_tx_or_rae, filter_on=None):
     from zef.pyzef import zefops as pyzefops
     # Note: we can't use the python to_frame here as that calls into us.
 
-    if BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
+    if internals.is_delegate(z_tx_or_rae):
+        ezr = to_ezefref(z_tx_or_rae)
+        to_del = ezr | in_rel[BT.TO_DELEGATE_EDGE] | collect
+        insts = ezr | Ins[BT.DELEGATE_INSTANTIATION_EDGE] | filter[exists_at[gs]] | map[lambda zz: instantiated[pyzefops.to_frame(zz, gs.tx) ]] | collect
+        retirements = ezr | Ins[BT.DELEGATE_RETIREMENT_EDGE] | filter[exists_at[gs]] | map[lambda zz: terminated[pyzefops.to_frame(zz, gs.tx) ]] | collect
+        full_list = insts+terminations
+
+    elif BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
         zr = to_ezefref(z_tx_or_rae)
         gs = zr | to_graph_slice | collect
 
@@ -3584,38 +3591,26 @@ def in_frame_imp(z, *args):
     if is_same_g or origin_uid(zz).graph_uid == uid(g_frame):
         z_obj = to_ezefref(z) if is_same_g else g_frame[origin_uid(zz)]
         # exit early if we are looking in a frame prior to the objects instantiation: this is not even allowed when allow_tombstone=True
-        if internals.is_delegate(z_obj):
-            from ..logger import log
-            log.warn("Need to fix, assuming delegate exists from the beginning of time.")
-            instantiation_ts = TimeSlice(0)
-        elif BT(z_obj) == BT.TX_EVENT_NODE:
-            # TODO: This should not be necessary in the future, as events[Instantiated] should cover this and the follow ROOT_NODE case.
+        if BT(z_obj) == BT.TX_EVENT_NODE:
+            # TODO: This should not be necessary in the future, as
+            # events[Instantiated] should cover this and the following ROOT_NODE
+            # case.
             instantiation_ts = pyzefops.time_slice(z_obj)
         elif BT(z_obj) == BT.ROOT_NODE:
+            # TODO: It should also be possible to pass this to
+            # events[Instantiated], as then the delegates of the root node can
+            # also be handled seamlessly
             instantiation_ts = TimeSlice(0)
         else:
-            instantiation_ts = z_obj | events[Instantiated] | single | absorbed | single | frame | time_slice | collect
+            # Note that 'first' is used here instead of 'single', as delegates
+            # may have been brought back to life... but we only care about
+            # casuality here, which corresponds to the very first instantiation.
+            instantiation_ts = z_obj | events[Instantiated] | first | absorbed | single | frame | time_slice | collect
         if (time_slice(target_frame)) < instantiation_ts:
             raise RuntimeError(f"Causality error: you cannot point to an object from a frame prior to its existence / the first time that frame learned about it.")            
         if not tombstone_allowed:
-            # assert that the frame is prior to the termination tx
-            if internals.is_delegate(z_obj):
-                from ..logger import log
-                log.warn("Need to fix, assuming delegate exists to the end of time.")
-                termination_ts = None
-            elif BT(z_obj) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
-                termination_ts = None
-            else:
-                termination_ts = (z_obj
-                                  | events[Terminated]
-                                  | match_apply[
-                                      (length | equals[0], always[None]),
-                                      (always[True], single | absorbed | single | frame | time_slice)
-                                  ]
-                                  | collect)
-            if termination_ts is not None:
-                if (time_slice(target_frame)) >= termination_ts:
-                    raise RuntimeError(f"The RAE was terminated and no longer exists in the frame that the reference frame was about to be moved to. It is still possible to perform this action if you really want to by specifying 'to_frame[allow_tombstone][my_z]'")
+            if not exists_at(z_obj, target_frame):
+                raise RuntimeError(f"The RAE was terminated and no longer exists in the frame that the reference frame was about to be moved to. It is still possible to perform this action if you really want to by specifying 'to_frame[allow_tombstone][my_z]'")
         return ZefRef(z_obj, target_frame.tx)
 
     # z's origin does not live in the frame graph
