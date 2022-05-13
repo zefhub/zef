@@ -3587,8 +3587,11 @@ namespace zefDB {
                 } else {
                     z = only(opts);
                 }
-                d_src = delegate_to_ezr(delegate_of(*d_src), g, create);
-                d_trg = delegate_to_ezr(delegate_of(*d_trg), g, create);
+                // Don't create these on the last loop, as that's unnecessary
+                if(i < order-1) {
+                    d_src = delegate_to_ezr(delegate_of(*d_src), g, create);
+                    d_trg = delegate_to_ezr(delegate_of(*d_trg), g, create);
+                }
             }
 
             return z;
