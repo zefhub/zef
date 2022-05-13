@@ -1302,7 +1302,18 @@ namespace zefDB {
     EZefRefs TerminationTx::operator() (EZefRefs&& uzrs) { return internals::lift_list_uzrs_mv(*this)(std::move(uzrs)); }
     EZefRefs TerminationTx::operator() (const EZefRefs& uzrs) { return internals::lift_list_uzrs_cpy(*this)(uzrs); }
 
-    ZefRef TerminationTx::operator() (ZefRef zr) { return internals::lift_zr(*this)(zr); }
+    ZefRef TerminationTx::operator() (ZefRef zr) { 
+        EZefRef termination_tx_maybe = (*this)(zr | to_ezefref);
+        if(index(termination_tx_maybe) == constants::ROOT_NODE_blob_index){
+            return ZefRef(termination_tx_maybe, zr.tx);
+        }
+        // If the termination occurred after the reference frame, this seems like it hasn't happened
+        if(time_slice(termination_tx_maybe) > time_slice(zr.tx)){
+            return ZefRef(EZefRef(constants::ROOT_NODE_blob_index, *graph_data(termination_tx_maybe)), zr.tx);
+        }
+        return ZefRef(termination_tx_maybe, zr.tx);
+    }
+
     ZefRefs TerminationTx::operator() (ZefRefs&& zrs) { return internals::lift_list_zrs_mv(internals::lift_zr(*this))(std::move(zrs)); }
     ZefRefs TerminationTx::operator() (const ZefRefs& zrs) { return internals::lift_list_zrs_cpy(internals::lift_zr(*this))(zrs); }
 
