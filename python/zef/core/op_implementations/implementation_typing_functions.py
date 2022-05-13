@@ -6800,7 +6800,7 @@ def schema_imp(x, include_edges=False):
         return all_items | without[[g | root | collect]] | collect
     elif isinstance(x, GraphSlice):
         log.warn("Currently schema(graph_slice) returns eternal schema not the schema in the appropriate reference frame. This will be fixed in the future.")
-        return schema_imp(Graph(x)) | filter[exists_at[x]] | map[in_frame[x]] | collect
+        return schema_imp(Graph(x), include_edges) | filter[exists_at[x]] | map[in_frame[x]] | collect
 
     return Error(f"Don't know how to handle type of {type(x)} in schema zefop")
 
