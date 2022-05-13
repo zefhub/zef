@@ -24,6 +24,7 @@ from .. import *
 from ..op_structs import _call_0_args_translation, type_spec
 from .._ops import *
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
+from ..logger import log
 
 from ...pyzef import zefops as pyzefops, main as pymain
 from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
@@ -6698,3 +6699,115 @@ InInOld_implementation = partial(traverse_implementation,
                               func_BT=lambda zz: pyzefops.target(pyzefops.ins(pyzefops.to_ezefref(zz))),
                               traverse_direction="inin",
                               )
+
+def flat_map_imp(x, f):
+    """ 
+    Returns the flatten results of f applied to each item of x. Equivalent to:
+    `x | map[f] | concat`.
+ 
+    ---- Examples ----
+    >>> [1,0,3] | flat_map[lambda x: x | repeat[x]]  # => [1, 3, 3, 3]
+    >>> [z1,z2] | flat_map[Outs[RT]]             # All outgoing relations on z1 and z2.
+ 
+    ---- Signature ----
+    (Iterable, Function) => List
+    """
+    # This can be made more efficient
+    return concat_implementation(map_implementation(x, f))
+
+def flat_map_tp(x):
+    return VT.List
+
+def without_imp(x, y):
+    """ 
+    Returns the piped iterable without any items that are contained in the
+    argument. As a special case, dictionaries are returned without any keys
+    contained in the argument.
+
+    Note the syntax of `| without[1]` is not supported. The argument must be an
+    iterable.
+
+    Note that the type of the output is determined by the following operators,
+    e.g. `{1,2,3} | without[x] | collect` will return a list, even though the
+    input is a set.
+ 
+    ---- Examples ----
+    >>> [1,2,3] | without[[2]]            # => [1,3]
+    >>> {'a', 5, 10} | without['abc']     # => [10, 5]
+    >>> {'a': 1, 'b': 2} | without[['a']] # => {'b': 2}
+ 
+    ---- Signature ----
+    (Iterable, Iterable) => List
+    (Dict, Iterable) => Dict
+    """
+
+    # Because this will likely be surprising, make a special case of it here.
+    # Though note that technically y doesn't have to be iterable for this to
+    # work... TODO: make this more general and test for 'contains' support.
+    try:
+        y_itr = iter(y)
+    except:
+        return Error("The given argument to `without` is not iterable. If you have passed a single value, then you must wrap it in a list first, e.g. `| without[[1]]` instead of `| without[1]`.")
+        
+    if isinstance(x, dict):
+        return x | items | filter[first | Not[contained_in[y]]] | func[dict] | collect
+    else:
+        return x | filter[Not[contained_in[y]]] | collect
+
+def without_tp(x):
+    return VT.Any
+
+def schema_imp(x, include_edges=False):
+    """ 
+    Returns all schema nodes on the graph or alive in the given GraphSlice.
+    These are the delegate entities/relations which reference all instances on
+    the graph.
+
+    The optional argument `include_edges` can be set to True to also return the
+    low-level edges between these nodes, which is useful for plotting with
+    `graphviz`.
+ 
+    ---- Examples ----
+    >>> g | schema[True] | graphviz          # Shows the schema of graph g.
+    >>> g | now | schema[True] | graphviz    # Shows the schema of graph g in the current time slice.
+
+    # A blank graph already has one TX delegate node.
+    >>> g = Graph()
+    >>> g | schema | collect
+    ... [<EZefRef #65 DELEGATE TX at slice=0>]
+ 
+    ---- Signature ----
+    (Graph, Bool) => List[EZefRef]
+    (GraphSlice, Bool) => List[ZefRef]
+    """
+
+    if isinstance(x, Graph):
+        g = x
+        if include_edges:
+            frontier_of = flat_map[out_rels[BT.TO_DELEGATE_EDGE]] | flat_map[lambda x: (x, target(x))]
+        else:
+            frontier_of = flat_map[Outs[BT.TO_DELEGATE_EDGE]]
+
+        frontier = [g | root | collect]
+
+        def step(found, last_frontier):
+            new_frontier = last_frontier | frontier_of | without[found] | collect
+            return found+new_frontier, new_frontier
+
+        all_items = ((frontier,frontier)
+                     | iterate[unpack[step]]
+                     | take_until[second
+                                  | length
+                                  | equals[0]]
+                     | last
+                     | first
+                     | collect)
+        return all_items | without[[g | root | collect]] | collect
+    elif isinstance(x, GraphSlice):
+        log.warn("Currently schema(graph_slice) returns eternal schema not the schema in the appropriate reference frame. This will be fixed in the future.")
+        return schema_imp(Graph(x)) | filter[exists_at[x]] | map[in_frame[x]] | collect
+
+    return Error(f"Don't know how to handle type of {type(x)} in schema zefop")
+
+def schema_tp(x):
+    return VT.List
