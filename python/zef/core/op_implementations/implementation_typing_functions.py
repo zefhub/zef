@@ -6542,13 +6542,14 @@ def fg_all_imp(fg, selector=None):
 
 # -------------------------------- transact -------------------------------------------------
 def transact_imp(data, g, **kwargs):
+    from typing import Generator
     from ..graph_delta import construct_commands
     if isinstance(data, FlatGraph):
         commands = flatgraph_to_commands(data)
-
-    elif type(data)  in {list, tuple}:
+    elif type(data) in {list, tuple}:
         commands = construct_commands(data)
-    
+    elif isinstance(data, Generator):
+        commands = construct_commands(tuple(data))
     else:
         raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
 
@@ -6560,6 +6561,7 @@ def transact_imp(data, g, **kwargs):
 
 def transact_tp(op, curr_type):
     return VT.Effect
+
 
 def fg_merge_imp(fg1, fg2):
     def idx_generator(n):
