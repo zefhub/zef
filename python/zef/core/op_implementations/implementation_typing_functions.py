@@ -265,7 +265,11 @@ def transpose_imp(iterable):
     >>> [ [2,3,4], [5,6,7] ]                    # => [ [2, 5], [3,6], [4,7] ]
     >>> 
     >>> # terminates upon the shortest one:
-    >>> [ range(2, inf), [5,6], [15,16,17] ]    # => [[2, 5, 15], [3, 6, 16]]
+    >>> [ range(2, infinity), [5,6], [15,16,17] ]    # => [[2, 5, 15], [3, 6, 16]]
+
+    ---- Tags ----
+    - used for: list manipulation
+    - used for: linear algebra
     """
     its = [iter(el) for el in iterable]
     while True:
@@ -302,6 +306,7 @@ def match_imp(item, patterns):
 
     ---- Tags ----
     - used for: control flow
+    - used for: logic
     - used for: function application
     """
     for pred, return_val in patterns:
@@ -334,6 +339,7 @@ def match_apply_imp(item, patterns):
 
     ---- Tags ----
     - used for: control flow
+    - used for: logic
     - used for: function application
     """
     for pred, applied_func in patterns:
@@ -418,6 +424,24 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
     >>> 
     >>> # B) One list piped in, other lists to concatenated curried into op
     >>> [1,2,3] | concat[ (42,43) ][('a','b','c')]      # =>  [1, 2, 3, 42, 43, 'a', 'b', 'c']
+
+    ---- Signature ----
+    (List[T1], List[T2], ...)        -> List[T1 | T2 | ...]
+    (Stream[T1], Stream[T2], ...)    -> Stream[T1 | T2 | ...]
+    (String, String, ...)            -> String
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: Stream
+    - operates on: String
+    - related zefop: interleave
+    - related zefop: interleave_longest
+    - related zefop: merge
+    - related zefop: append
+    - related zefop: prepend
+    - used for: list manipulation
+    - used for: stream manipulation
+    - used for: string manipulation
     """
     if isinstance(v, ZefRefss) or isinstance(v, EZefRefss):
         return pyzefops.flatten(v)
@@ -464,8 +488,18 @@ def prepend_imp(v, item, *additional_items):
     >>> 'morning' | prepend['good ']        # => 'good morning'
 
     ---- Signature ----
-    (List[T], T)      -> List[T]
+    (List[T1], T2)    -> List[T1 | T2]
+    (Stream[T1], T2)  -> Stream[T1 | T2]
     (String, String)  -> String
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: Stream
+    - operates on: String
+    - related zefop: append
+    - related zefop: insert_at
+    - used for: list manipulation
+    - used for: string manipulation
     """
     from typing import Generator, Iterable, Iterator
     if isinstance(v, list):
@@ -544,8 +578,18 @@ def append_imp(v, item, *additional_items):
     >>> 'good' | append[' evening']        # => 'good evening'
 
     ---- Signature ----
-    (List[T], T)      -> List[T]
+    (List[T1], T2)    -> List[T1 | T2]
+    (Stream[T1], T2)  -> Stream[T1 | T2]
     (String, String)  -> String
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: Stream
+    - operates on: String
+    - related zefop: prepend
+    - related zefop: insert_at
+    - used for: list manipulation
+    - used for: string manipulation
     """
     from typing import Generator, Iterable, Iterator
     if isinstance(v, list):
@@ -668,8 +712,26 @@ def insert_in_tp(d_tp, path_tp, value_tp):
 #---------------------------------------- remove_in -----------------------------------------------
 def remove_in_imp(d: dict, path):
     """
+    Given a dictionary and a tuple describing a path into the dictionary,
+    this returns a new dictionary with the pointed to value removed.
+    The original dictionary is not mutated.
+
     ---- Examples ----
-    >>> {'a': 1, 'b': {'c': 1}} | remove_in[('b', 'c')]   # => {'a': 1, 'b': {}} 
+    >>> {'a': 1, 'b': {'c': 1}} | remove_in[('b', 'c')]   # => {'a': 1, 'b': {}}
+
+    ---- Signature ----
+    (Dict[T1][T2], List) -> Dict[T1][T2]
+
+    ---- Tags ----
+    - related zefop: remove
+    - related zefop: remove_in
+    - related zefop: remove_at
+    - related zefop: update_in
+    - related zefop: insert_in
+    - related zefop: get_in
+    - operates on: Dict
+    - used for: control flow
+    - used for: function application
     """
     assert isinstance(path, list) or isinstance(path, tuple)
     is_last_step = len(path)==1
@@ -739,6 +801,7 @@ def update_at_imp(v: list, n, f):
     - related zefop: update_in
     - related zefop: remove_at
     - related zefop: replace_at
+    - operates on: List
     - used for: control flow
     - used for: function application
     """
@@ -794,6 +857,15 @@ def remove_at_imp(v, *nn):
 
     ['a', 'b', 'c'] | remove_at[1]       # => ['a', 'c']
     ['a', 'b', 'c'] | remove_at[1][0]    # => ['c']
+
+    ---- Signature ----
+    List[T] & Length[Z] -> List[T] & Length[Z-1]
+
+    ---- Tags ----
+    - related zefop: interleave_longest
+    - related zefop: concat
+    - related zefop: merge
+    - operates on: List
     """
     if isinstance(v, dict): raise TypeError('"remove_at" only acts on iterables. Use "remove" for dictionaries. For nested access, use "remove_in".')
     return (el for m, el in enumerate(v) if m not in nn)
