@@ -4889,7 +4889,6 @@ def is_a_implementation(x, typ):
         # TODO: Extend list
         vt_name_to_python_type = {
             "Nil": type(None),
-            # "Any": ,
             "Bool": bool,
             "Int": int,
             "Float":  float,
@@ -4898,6 +4897,11 @@ def is_a_implementation(x, typ):
             "Dict": dict,
             "Set": set,
         }
+
+        if vt.d['type_name'] in {"Int", "Float", "Bool"}:
+            python_type = vt_name_to_python_type[vt.d['type_name']]
+            return isinstance(el, python_type) or python_type(el) == el
+
         if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
         python_type = vt_name_to_python_type[vt.d['type_name']]
         return isinstance(el, python_type)
