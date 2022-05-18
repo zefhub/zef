@@ -124,6 +124,9 @@ class ValueType_:
             return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(self, other,)))
         else:
             raise Exception(f'"ValueType_`s "&" called with unsupported type {type(other)}')
+
+    def __invert__(self):
+        return ValueType_(type_name='Not', absorbed=(self,))
     
 
 

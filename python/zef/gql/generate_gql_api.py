@@ -36,7 +36,7 @@ def generate_resolvers_fcts(schema_root, resolvers_destination):
     if z is None:
         default_resolvers_list = []
     else:
-        default_resolvers_list = json.loads(z)
+        default_resolvers_list = from_json(z)
         
         
     z = schema_root >> O[RT.CustomerSpecificResolvers] | collect

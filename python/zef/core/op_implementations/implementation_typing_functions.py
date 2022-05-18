@@ -3508,7 +3508,7 @@ def events_imp(z_tx_or_rae, filter_on=None):
         termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[pyzefops.to_frame(zr, tx, True)]] | collect
         full_list = inst + val_assigns + termination 
 
-    if filter_on: return full_list | filter[lambda z: is_a(z, filter_on)] | collect
+    if filter_on: return full_list | filter[lambda z: is_a_implementation(z, filter_on)] | collect
     return full_list
 
 
@@ -4791,7 +4791,10 @@ def is_a_implementation(x, typ):
             if isinstance(t, ValueType_): 
                 return Error.ValueError(f"A ValueType_ was passed to SetOf but it only takes predicate functions. Try wrapping in is_a[{t}]")
             elif isinstance(t, (ZefOp, Callable)):
-                if not t(el): return False
+                try:
+                    if not t(el): return False
+                except:
+                    return False
             else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside SetOf but got {t} instead.")
         return True
 
@@ -4824,15 +4827,22 @@ def is_a_implementation(x, typ):
 
         if typ.d['type_name'] == "SetOf":
             return setof_matching(x, typ)
+        
+        if typ.d['type_name'] == "Not":
+            return not is_a_implementation(x, typ.d['absorbed'][0])
 
         if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
             map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
-            return without_absorbed(x) == map_[typ.d['type_name']]
+            def compare_absorbed(x, typ):
+                val_absorbed = absorbed(x)
+                typ_absorbed = absorbed(typ)
+                for i,typ in enumerate(typ_absorbed):
+                    if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
+                    if not is_a_implementation(val_absorbed[i],typ): return False
+                return True
+            return without_absorbed(x) == map_[typ.d['type_name']] and compare_absorbed(x, typ)
             
         return valuetype_matching(x, typ)
-
-
-
     
 
     if type(x) == _ErrorType:
@@ -5881,17 +5891,19 @@ def replace_at_imp(str_or_list, index, new_el):
         if index == len(s) - 1: return s[:index] + char
         return s[:index] + char + s[index+1:] 
     elif isinstance(str_or_list, list) or isinstance(str_or_list, tuple) or isinstance(str_or_list, Generator):
-        it = iter(str_or_list)
-        c = 0
-        try:
-            while c < index:
-                yield next(it)
-                c += 1
-            next(it)
-            yield new_el
-            yield from it
-        except StopIteration:
-            return
+        def wrapper():
+            it = iter(str_or_list)
+            c = 0
+            try:
+                while c < index:
+                    yield next(it)
+                    c += 1
+                next(it)
+                yield new_el
+                yield from it
+            except StopIteration:
+                return
+        return wrapper()
     else:
         return Error.TypeError(f"Expected an string or a list. Got {type(str_or_list)} instead.")
 
@@ -6530,13 +6542,14 @@ def fg_all_imp(fg, selector=None):
 
 # -------------------------------- transact -------------------------------------------------
 def transact_imp(data, g, **kwargs):
+    from typing import Generator
     from ..graph_delta import construct_commands
     if isinstance(data, FlatGraph):
         commands = flatgraph_to_commands(data)
-
-    elif type(data)  in {list, tuple}:
+    elif type(data) in {list, tuple}:
         commands = construct_commands(data)
-    
+    elif isinstance(data, Generator):
+        commands = construct_commands(tuple(data))
     else:
         raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
 
@@ -6548,6 +6561,7 @@ def transact_imp(data, g, **kwargs):
 
 def transact_tp(op, curr_type):
     return VT.Effect
+
 
 def fg_merge_imp(fg1, fg2):
     def idx_generator(n):
