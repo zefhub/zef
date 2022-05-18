@@ -2968,9 +2968,12 @@ def replace_imp(collection, old_val, new_val):
     
     ---- Examples ----
     >>> ['a', 'b', 'c', 'd'] | replace['b', 42]    # ['a', 42, 'c', 'd'] 
+    >>> 'the zen of python' | replace['n']['f']    # 'the zef of pythof'
 
     ---- Signature ----
     List[T1], T1, T2 -> List[T1 | T2]
+    Char = String & Length[1]
+    String, Char, Char -> String
     
     ---- Tags ----
     - operates on: List, String
@@ -2980,10 +2983,12 @@ def replace_imp(collection, old_val, new_val):
     - related zefop: insert
     - related zefop: remove
     """
-    from collections.abc import Iterable
-    assert isinstance(old_new_pair, tuple)
+    from typing import Iterable
     def rep(el):
         return new_val if old_val == el else el
+    
+    if isinstance(collection, str):
+        return collection.replace(old_val, new_val)
     
     if isinstance(collection, set):
         return set((rep(el) for el in collection))
