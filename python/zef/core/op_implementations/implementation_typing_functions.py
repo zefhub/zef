@@ -905,7 +905,17 @@ def stride_imp(v, step: int):
     related zefop: sliding
     related zefop: slice
     """
-    return v[::step]
+    it = iter(v)  
+    # shield the yield for when we extend this.  
+    def wrapper():
+        while True:
+            try:
+                yield next(it)
+                for _ in range(step-1):
+                    next(it)                
+            except StopIteration:            
+                return
+    return wrapper()
 
 
 def stride_tp(v_tp, step_tp):
@@ -936,7 +946,8 @@ def chunk_imp(iterable, chunk_size: int):
     >>> range(8) | chunk[3]     #  [[0, 1, 2], [3, 4, 5], [6, 7]]
     
     ---- Signature ----
-    (List[T], Int) -> List[List[T]]
+    (List[T], Int)   -> List[List[T]]
+    (Stream[T], Int) -> Stream[Stream[T]]
 
     ---- Tags ----
     operates on: List
