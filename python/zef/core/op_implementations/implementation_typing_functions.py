@@ -2589,6 +2589,20 @@ def Z_tp(op, curr_type):
 
 #---------------------------------------- Root -----------------------------------------------
 def root_imp(x):
+    """
+    Retrieve the root node for a Graph or Graph Slice.
+
+    ---- Examples ----
+    >>> g | root
+    >>> g | now | root
+
+    ---- Signature ----
+    Graph -> EZefRef
+    GraphSlice -> ZefRef
+
+    ---- Tags ----
+    - used for: graph traversal
+    """
     if isinstance(x, (Graph, GraphSlice)):
         return x[pyzef.internals.root_node_blob_index()]
     raise Exception(f"Don't know how to find root of type {type(g)}")
@@ -2772,6 +2786,13 @@ def pattern_imp(x, p):
     ---- Signature ----
     (List[T], List[Union[T, _Any]]) -> Bool
     (Dict[T1, T2], Dict[Union[T1, _Any], Union[T2, _Any]]) -> Bool
+
+    ---- Tags ----
+    - operates on: Dict, List
+    - used for: control flow
+    - related zefop: match
+    - related zefop: match_apply
+    - related zefop: distinct_by
     """
     from zef.ops import _any
     class Sentinel:
@@ -2832,6 +2853,12 @@ def distinct_imp(v):
     ---- Signature ----
     List[T] -> List[T]
     LazyValue[List[T]] -> LazyValue[List[T]]
+
+    ---- Tags ----
+    - operates on: List, Stream
+    - used for: list manipulation
+    - related zefop: is_distinct
+    - related zefop: distinct_by
     """
     observed = set()
     it = iter(v)
@@ -2871,7 +2898,11 @@ def distinct_by_imp(v, fct):
     (List[T], (T->Any)) -> List[T]
     LazyValue[(List[T], (T->Any))] -> LazyValue[List[T]]
 
-    
+    ---- Tags ----
+    - operates on: List, Stream
+    - used for: list manipulation
+    - related zefop: is_distinct_by
+    - related zefop: distinct
     """
     observed = set()
     it = iter(v)
@@ -2913,6 +2944,12 @@ def is_distinct_imp(v):
     List[T] -> Bool
     Stream[T] -> Bool
     LazyValue[List[T]] -> Bool
+
+    ---- Tags ----
+    - operates on: List, String
+    - used for: set theory
+    - related zefop: is_distinct_by
+    - related zefop: distinct
     """
     vv = tuple(v)
     return len(vv) == len(set(vv))
@@ -2927,11 +2964,8 @@ def is_distinct_tp(x):
 
 def is_distinct_by_imp(v, fn):
     """
-    Used on an iterable / stream of values and
-    returns a boolean indicating whether all
-    values are distinct after tranformation with 
-    a given function. i.e. as soon as any value
-    appears more than once, False is returned.
+    Very similar to `is_distinct` zefop, but takes a user
+    provided function `fn` to compare the equality testing with.
 
     ---- Examples ----
     >>> [1,2] | is_distinct_by[lambda x: x%2]      # => True
@@ -2948,6 +2982,8 @@ def is_distinct_by_imp(v, fn):
     ---- Tags ----
     - operates on: List, String
     - used for: set theory
+    - related zefop: distinct_by
+    - related zefop: is_distinct
     """
     w = [fn(x) for x in v]
     return len(w) == len(set(w))        # TODO: this can clearly be made more efficient by exiting early.
