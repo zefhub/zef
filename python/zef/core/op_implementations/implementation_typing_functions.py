@@ -808,10 +808,42 @@ def update_at_imp(v: list, n, f):
     assert isinstance(n, int)
     assert callable(f)
 
-    if n>=0:
-        return (f(el) if m==n else el for m, el in enumerate(v))
-    else:
-        return Error(f'update_at not implemented for negative indexes n yet')
+    it = iter(v)
+    def wrapper():
+        if n>=0:
+            try:
+                for _ in range(n):
+                    yield next(it)
+                yield f(next(it))
+                yield from it
+            except StopIteration:
+                return        
+        else:
+            # we want to enable this lazily=, but only know which
+            # element to apply the function to once the iterable completes.
+            # This means we need to cache n values at any point in time.
+            # Do this mutatingly here to optimize the tight loop.
+            cached = []
+            m = -n          # working with a positive m is easier
+            offset = 0
+            try:
+                for _ in range(m):
+                    cached.append(next(it))                
+                while True:
+                    cand = cached[offset]
+                    cached[offset] = next(it)
+                    yield cand
+                    offset = 0 if offset==m-1 else offset + 1
+            except StopIteration:
+                if m<=len(cached):
+                    yield f(cached[offset])
+                else:
+                    yield cached[offset]
+                yield from cached[offset+1:]
+                yield from cached[:offset]
+                return
+
+    return wrapper()
 
 
 
