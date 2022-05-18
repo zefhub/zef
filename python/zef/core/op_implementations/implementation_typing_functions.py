@@ -884,6 +884,27 @@ def interleave_longest_tp(v_tp):        #TODO
 
 #---------------------------------------- stride -----------------------------------------------
 def stride_imp(v, step: int):
+    """
+    Return a new list where only every nth 
+    (specified by the stride step) is sampled.
+
+    ---- Examples ----
+    >>> Range(8) | stride[3]     #  [0, 3, 6]
+    
+    ---- Signature ----
+    (List[T], Int) -> List[T]
+
+    ---- Tags ----
+    operates on: List
+    operates on: String
+    operates on: Stream
+    used for: list manipulation
+    used for: string manipulation
+    used for: stream manipulation
+    related zefop: chunk
+    related zefop: sliding
+    related zefop: slice
+    """
     return v[::step]
 
 
@@ -918,6 +939,12 @@ def chunk_imp(iterable, chunk_size: int):
     (List[T], Int) -> List[List[T]]
 
     ---- Tags ----
+    operates on: List
+    operates on: String
+    operates on: Stream
+    used for: list manipulation
+    used for: string manipulation
+    used for: stream manipulation
     related zefop: stride
     related zefop: sliding
     related zefop: slice
@@ -1005,10 +1032,27 @@ def sliding_tp(v_tp, step_tp):
 
 #---------------------------------------- insert -----------------------------------------------
 def insert_imp(d: dict, key, val=None):
-    """ 
+    """
+    Takes a dictionary / flatgraph together with something to insert
+    and returns a new dictionary / flatgraph with that inserted.
+    The input values are not mutated or harmed during this operation.
+    
+
     ---- Examples ----
     >>> {'a': 1} | insert['b'][2]   ->  {'a': 1, 'b': 2} 
     >>> FlatGraph() | insert[ET.God, RT.Favorite, Val(1/137)] | insert[ET.BigBang]
+    
+    ---- Signature ----
+    (Dict[T1][T2], T1, T2) -> Dict[T1][T2]
+
+    ---- Tags ----
+    - level: easy
+    - used for: control flow
+    - operates on: Dict
+    - operates on: FlatGraph
+    - related zefop: insert_in
+    - related zefop: remove
+    - related zefop: update
     """
     if isinstance(d, FlatGraph):
         fg = d
@@ -1044,10 +1088,14 @@ def reverse_args_imp(flow_arg, op, *args):
     >>> ('my_key': 42) | reverse_args[insert][{'a':1}]      # {'my_key': 42, 'a': 1}
     >>> 'x' |  reverse_args[get][{'a':1, 'x': 42}]          # 42
 
+    ---- Signature ----
+    (T1, ZefOp[T..., T1][T2], T...) -> T2
+
     ---- Tags ----
     - level: advanced
     - used for: control flow
-    - operates on: ZefOps, Functions
+    - operates on: ZefOps
+    - operates on: Functions
     - related zefop: func
     - related zefop: apply_functions
     """
@@ -1113,6 +1161,7 @@ def remove_imp(d: dict, key_to_remove: tuple):
     ---- Tags ----
     - operates on: Dict
     - related zefop: remote_at
+    - related zefop: remote_in
     - related zefop: insert
     - related zefop: get
     """
@@ -1141,10 +1190,15 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
 
     ----- Signature ----
     (Dict[T1, T2], T1) -> T2
+    (Graph, T1) -> Any
+    (FlatGraph, T1) -> Any
     
     ---- Tags ----
     - operates on: Dict
+    - operates on: Graph
+    - operates on: FlatGraph
     - related zefop: get_in
+    - related zefop: get_field
     - related zefop: insert
     - related zefop: remove
     - related zefop: select_in
@@ -1194,6 +1248,23 @@ def get_field_tp(d_tp, key_tp):
 
 #---------------------------------------- enumerate -----------------------------------------------
 def enumerate_imp(v):
+    """
+    Given an iterable, returns an iterable of pairs where 
+    the first is an incrementing integer starting at zero.
+
+    ---- Examples ----
+    >>> ['a', 'b', 'c'] | enumerate     # [(1, 'a'), (2, 'b'), (3, 'c')]
+ 
+    ---- Signature ----
+    List[T1] -> List[Tuple[Int, T1]]
+    Stream[T1] -> Stream[Tuple[Int, T1]]
+    String -> List[Tuple[Int, String]]
+
+    ---- Tags ----
+    - used for: list manipulation
+    - used for: string manipulation
+    - used for: lazy transformation
+    """
     import builtins
     return builtins.enumerate(v)
 
@@ -1205,6 +1276,19 @@ def enumerate_tp(input_arg0_tp):
 
 #---------------------------------------- items -----------------------------------------------
 def items_imp(d):
+    """
+    Return the key-value pairs of a dictionary as a tuple.
+
+    ---- Examples ----
+    >>> {'a': 100, 42: 'die antwoord', 'c': True} | values           # ( ('a', 100), (42, 'die antwoord'), ('c', True) )
+ 
+    ---- Signature ----
+    Dict[T1][T2] -> List[Tuple[T1, T2]]
+
+    ---- Tags ----
+    - used for: dict manipulation
+    - used for: list manipulation
+    """
     return tuple(d.items())
 
 
@@ -1215,6 +1299,19 @@ def items_tp(input_arg0_tp):
 
 #---------------------------------------- values -----------------------------------------------
 def values_imp(d):
+    """
+    Return the values of a dictionary
+
+    ---- Examples ----
+    >>> {'a': 100, 42: 'die antwoord', 'c': True} | values           # (100, 'die antwoord', True)
+ 
+    ---- Signature ----
+    Dict[T1][T2] -> List[T2]
+
+    ---- Tags ----
+    - used for: dict manipulation
+    - used for: list manipulation
+    """
     return tuple(d.values())
 
 
@@ -1225,6 +1322,19 @@ def values_tp(input_arg0_tp):
 
 #---------------------------------------- keys -----------------------------------------------
 def keys_imp(d):
+    """
+    Return the keys of a dictionary
+
+    ---- Examples ----
+    >>> {'a': 100, 42: 'die antwoord', 'c': True} | keys           # ('a', 42, 'c')
+ 
+    ---- Signature ----
+    Dict[T1][T2] -> List[T1]
+
+    ---- Tags ----
+    - used for: dict manipulation
+    - used for: list manipulation
+    """
     return tuple(d.keys())
 
 
@@ -1235,6 +1345,22 @@ def keys_tp(input_arg0_tp):
 
 #---------------------------------------- reverse -----------------------------------------------
 def reverse_imp(v):
+    """
+    Reverse a list or equivalent structure.
+
+    ---- Examples ----
+    >>> [2,3,4] | reverse           # [4,3,2]
+    >>> 'straw' | reverse           # 'warts'
+ 
+    ---- Signature ----
+    List[T1] -> List[T1]
+    Stream[T1] -> Stream[T1]
+    String -> String
+
+    ---- Tags ----
+    - used for: list manipulation
+    - used for: stream manipulation
+    """
     from typing import Generator
     if isinstance(v, Generator): return (tuple(v))[::-1]
     if isinstance(v, str): return v[::-1]
@@ -1246,7 +1372,6 @@ def reverse_imp(v):
 
 def reverse_tp(op, curr_type):
     return curr_type
-
 
 
 
@@ -1351,8 +1476,8 @@ def all_imp(*args):
     (GraphSliceLike, Type) -> List[ZefRef]
     (GraphLike, Type) -> List[EZefRef]
  
-    ---- Related ----
-    - predicates
+    ---- Tags ----
+    - used for: predicates
     """
 
     import builtins
