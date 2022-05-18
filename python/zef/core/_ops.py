@@ -214,7 +214,6 @@ split           = make_zefop(RT.Split)
 graphviz        = make_zefop(RT.Graphviz)
 
 tx              = make_zefop(RT.Tx)
-blobs           = make_zefop(RT.Blobs)                 # use g | all[BT]  instead????????
 exists_at       = make_zefop(RT.ExistsAt)
 base_uid        = make_zefop(RT.BaseUid)
 origin_uid      = make_zefop(RT.OriginUid)

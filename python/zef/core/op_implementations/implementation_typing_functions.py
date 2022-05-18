@@ -2556,28 +2556,6 @@ def frequencies_tp(v_tp):
 
 
 
-
-#---------------------------------------- GraphViz -----------------------------------------------
-def to_graphviz_imp(x, curried_args):
-    return f"TODO..... {x}"
-
-
-def to_graphviz_tp(op, curr_type):
-    return None
-
-
-
-
-#---------------------------------------- Blobs -----------------------------------------------
-def blobs_imp(x):    
-    print('😞😞😞😞 Deprecation of blobs operator / function: use "g | all" 😞😞😞😞')
-    return pymain.blobs(x)
-
-
-def blobs_tp(op, curr_type):
-    return VT.List[VT.ZefRef]
-
-
 #---------------------------------------- Z -----------------------------------------------
 def Z_imp(z):
     return z
