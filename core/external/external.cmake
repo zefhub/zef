@@ -310,8 +310,10 @@ FetchContent_Declare(jwt-cpp
   GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp
   GIT_TAG v0.6.0-rc.2
   GIT_SHALLOW ON
+  PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/jwt-allow-no-find-package.patch
   UPDATE_COMMAND "")
 
+set(JWT_SSL_EXTERNAL ON CACHE BOOL "")
 set(JWT_SSL_LIBRARY "OpenSSL" CACHE STRING "")
 set(JWT_DISABLE_PICOJSON TRUE CACHE BOOL "")
 set(JWT_BUILD_EXAMPLES OFF CACHE BOOL "")
@@ -346,6 +348,8 @@ if(LIBZEF_BUNDLED_ZSTD)
   # Because the cmake of libzstd is a little dodgy, we need to manually add in the include directories.
   get_target_property(LIBZSTD_INCLUDE_DIRECTORIES libzstd_static INCLUDE_DIRECTORIES)
   target_include_directories(libzstd_internal SYSTEM INTERFACE ${LIBZSTD_INCLUDE_DIRECTORIES})
+
+  create_license_file("zstd" ${zstd_SOURCE_DIR}/LICENSE NO "This library bundles the Zstandard library (https://github.com/facebook/zstd)\n\nThe full text of the zstd license follows below.\n\n")
 else()
   # Finding zstd through various options.
   # 1. First try pkg-config
@@ -377,8 +381,6 @@ else()
     add_library(libzstd_internal INTERFACE)
     target_include_directories(libzstd_internal SYSTEM INTERFACE ${ZSTD_INCLUDE_DIRS})
     target_link_libraries(libzstd_internal INTERFACE ${ZSTD_LIBRARIES})
-
-    create_license_file("zstd" ${zstd_SOURCE_DIR}/LICENSE NO "This library bundles the Zstandard library (https://github.com/facebook/zstd)\n\nThe full text of the zstd license follows below.\n\n")
   else()
     message(FATAL_ERROR "Couldn't find zstd via cmake, pkg-config or find_library")
   endif()
