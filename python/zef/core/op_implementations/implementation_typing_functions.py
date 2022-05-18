@@ -299,6 +299,10 @@ def match_imp(item, patterns):
 
     ---- Signature ----
     (T, (T->Any)) -> T
+
+    ---- Tags ----
+    - used for: control flow
+    - used for: function application
     """
     for pred, return_val in patterns:
         if pred(item): return return_val
@@ -327,6 +331,10 @@ def match_apply_imp(item, patterns):
 
     ---- Signature ----
     (T, (T->Any)) -> T
+
+    ---- Tags ----
+    - used for: control flow
+    - used for: function application
     """
     for pred, applied_func in patterns:
         if pred(item):
@@ -686,11 +694,14 @@ def update_in_imp(d: dict, path, func_to_update):
     (Dict, List, T1->T2) -> Dict
 
     ---- Tags ----
+    - related zefop: update
     - related zefop: update_at
     - related zefop: insert_in
     - related zefop: remove_in
     - related zefop: get_in
     - operates on: Dict
+    - used for: control flow
+    - used for: function application
     """
     assert isinstance(path, list) or isinstance(path, tuple)
     assert callable(func_to_update)
@@ -723,6 +734,13 @@ def update_at_imp(v: list, n, f):
     ---- Signature ----
     (List[T1], T1->T2) -> List[T1|T2]
 
+    ---- Tags ----
+    - related zefop: update
+    - related zefop: update_in
+    - related zefop: remove_at
+    - related zefop: replace_at
+    - used for: control flow
+    - used for: function application
     """
     assert isinstance(n, int)
     assert callable(f)
@@ -749,7 +767,16 @@ def update_imp(d: dict, k, fn):
     (to be consistent with "remove_at" for Lists and 
     disambiguate acting on the value)
 
-    {'a': 5, 'b': 6} | update['a'][add[10]]   # => {'a': 15, 'b': 6}    
+    {'a': 5, 'b': 6} | update['a'][add[10]]   # => {'a': 15, 'b': 6}
+
+    ---- Tags ----
+    - related zefop: update_at
+    - related zefop: update_in
+    - related zefop: get
+    - related zefop: insert
+    - operates on: Dict
+    - used for: control flow
+    - used for: function application
     """
     if not isinstance(d, dict): raise TypeError('"update" only acts on dictionaries. Use "update_at" for Lists or "update_in" for nested access.')
     r = {**d}
@@ -2843,6 +2870,8 @@ def distinct_by_imp(v, fct):
     ---- Signature ----
     (List[T], (T->Any)) -> List[T]
     LazyValue[(List[T], (T->Any))] -> LazyValue[List[T]]
+
+    
     """
     observed = set()
     it = iter(v)
@@ -2915,6 +2944,10 @@ def is_distinct_by_imp(v, fn):
     ---- Signature ----
     List[T], Callable -> Bool
     Stream[T], Callable -> Bool
+
+    ---- Tags ----
+    - operates on: List, String
+    - used for: set theory
     """
     w = [fn(x) for x in v]
     return len(w) == len(set(w))        # TODO: this can clearly be made more efficient by exiting early.
@@ -2929,28 +2962,35 @@ def is_distinct_by_tp(x):
 
 
 # ---------------------------------------- replace -----------------------------------------------
-def replace_imp(collection, old_new_pair):
+def replace_imp(collection, old_val, new_val):
+    """
+    Replace any specified old value with a new value in a List.
+    
+    ---- Examples ----
+    >>> ['a', 'b', 'c', 'd'] | replace['b', 42]    # ['a', 42, 'c', 'd'] 
+
+    ---- Signature ----
+    List[T1], T1, T2 -> List[T1 | T2]
+    
+    ---- Tags ----
+    - operates on: List, String
+    - used for: list manipulation
+    - related zefop: replace_at
+    - related zefop: insert_in
+    - related zefop: insert
+    - related zefop: remove
+    """
     from collections.abc import Iterable
     assert isinstance(old_new_pair, tuple)
     def rep(el):
-        return old_new_pair[1] if old_new_pair[0] == el else el
+        return new_val if old_val == el else el
     
     if isinstance(collection, set):
         return set((rep(el) for el in collection))
     
     if isinstance(collection, dict):
         raise TypeError('Dont use "replace", but "insert" to replace a key value pair in a dictionary')
-    
-    
-    # if isinstance(collection, list):
-    #     return [rep(el) for el in collection]
-    
-    # if isinstance(collection, tuple):
-    #     return tuple((rep(el) for el in collection))
-    
-    # if we're here, it must be a tuple/list/... 
-    # perform lazily
-    
+  
     if isinstance(collection, Iterable):
         it = iter(collection)
         def my_gen():
@@ -2959,10 +2999,7 @@ def replace_imp(collection, old_new_pair):
                     yield rep(next(it))            
             except StopIteration:
                 return
-            
         return my_gen()
-    
-    
     
     raise TypeError('not implemented')
 
@@ -2976,8 +3013,22 @@ def replace_tp(*args):
 # ----------------------------------------- shuffle ----------------------------------------------
 def shuffle_imp(collection, seed: int = None):
     """ 
-    A seed can be provided optionally.
+    Shuffles the elements in a list. If a seed is
+    provided, this is a pure function.
+    If no seed is set to None, the system's 
+    RNG is used to draw one. In this case this
+    operation is impure!
+    
+
     TODO: implement coeffects to get randomness from FX system.
+    
+    ---- Examples ----
+    >>> ['a', 'b', 'c', 'd'] | shuffle[189237]    # => ['d', 'b', 'a', 'c']
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - used for: randomness
     """
     import random
     if seed is not None:
@@ -3000,7 +3051,16 @@ def slice_imp(collection, start_end: tuple):
     Negative indexes count from the back    
 
     ---- Examples ----
-    >>> ['a', 'b', 'c', 'd'] | Slice[1:2]    # => ['b', 'c']    
+    >>> ['a', 'b', 'c', 'd'] | Slice[1:2]    # => ['b', 'c']
+    
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: take
+    - related zefop: reverse
+    - related zefop: first
+    - related zefop: last
+    - related zefop: nth    
     """
     assert isinstance(start_end, tuple)
     if len(start_end) == 2:
@@ -3740,6 +3800,10 @@ def time_travel_imp(x, *args):
     (EZefRef, Time)                         -> Union[ZefRef, Nil]
     (Graph, Time)                           -> Union[GraphSlice, Nil]
     (GraphSlice, Time)                      -> Union[GraphSlice, Nil]
+
+    ---- Tags ----
+    - used for: time traversal
+    - related zefop: time_slice    
     """
     c = collect 
 
@@ -4002,6 +4066,7 @@ def map_implementation(v, f):
 
     ---- Tags ----
     - used for: control flow
+    - used for: function application
     """
     import builtins
     input_type = parse_input_type(type_spec(v))
@@ -5865,6 +5930,7 @@ def zascii_to_asg_tp(op, curr_type):
 def zascii_to_schema_imp(zascii_str: VT.String) -> VT.GraphDelta:
     """ 
     Takes a zascii string with a schema and returns a GraphDelta.
+
     ---- Signature ----
     (VT.String) -> VT.GraphDelta
     """
@@ -5879,9 +5945,11 @@ def replace_at_imp(str_or_list, index, new_el):
     """ 
     Given a list replace element at an index with new_el.
     Given a string return a new string with element at index replaced with new_el.
+    
     ---- Signature ----
     (VT.String, VT.Int, VT.String) -> VT.String
     (VT.List, VT.Int, VT.Any) -> VT.List
+    
     """
     from typing import Generator
     if isinstance(str_or_list, str):
@@ -5938,8 +6006,13 @@ def int_to_alpha_imp(n: int) -> str:
     """
     Map an integer n to the nth letter of the alphabet.
     Always lower case.
-    
+
+    ---- Examples ----
     >>> 3 | int_to_alpha    # => 'c'
+
+    ---- Tags ----
+    - operates on: Int
+    - used for: string manipulation
     """
     d = 'abcdefghijklmnopqrstuvwxyz'
     return d[n]
@@ -5956,6 +6029,9 @@ def permute_to_imp(v, indices: VT.List[VT.Int]):
 
     >>> ['a', 'b', 'c', 'd'] | permute_to[2,0,1]    # => ['c', 'a', 'b']
 
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
     """
     cached = tuple(v | take[max(indices)+1])
     return (cached[n] for n in indices)
@@ -5985,6 +6061,16 @@ def to_upper_case_imp(s: VT.String) -> VT.Bool:
 
     ---- Signature ----
     VT.String -> VT.String
+
+    ---- Tags ----
+    - related zefop: to_lower_case
+    - related zefop: to_pascal_case
+    - related zefop: to_camel_case
+    - related zefop: to_kebab_case
+    - related zefop: to_snake_case
+    - related zefop: to_screaming_snake_case
+    - operates on: String
+    - used for: string manipulation
     """
     return s.upper()
 
@@ -6004,6 +6090,17 @@ def to_lower_case_imp(s: VT.String) -> VT.Bool:
 
     ---- Signature ----
     VT.String -> VT.String
+    
+
+    ---- Tags ----
+    - related zefop: to_upper_case
+    - related zefop: to_pascal_case
+    - related zefop: to_camel_case
+    - related zefop: to_kebab_case
+    - related zefop: to_snake_case
+    - related zefop: to_screaming_snake_case
+    - operates on: String
+    - used for: string manipulation
     """
     return s.lower()
 
@@ -6026,6 +6123,16 @@ def to_pascal_case_imp(s: VT.String) -> VT.String:
 
     ---- Signature ----
     String -> String
+
+    ---- Tags ----
+    - related zefop: to_lower_case
+    - related zefop: to_upper_case
+    - related zefop: to_camel_case
+    - related zefop: to_kebab_case
+    - related zefop: to_snake_case
+    - related zefop: to_screaming_snake_case
+    - operates on: String
+    - used for: string manipulation
     """
     import caseconverter
     return caseconverter.pascalcase(s)
@@ -6047,6 +6154,16 @@ def to_camel_case_imp(s: VT.String) -> VT.String:
 
     ---- Signature ----
     String -> String
+
+    ---- Tags ----
+    - related zefop: to_lower_case
+    - related zefop: to_upper_case
+    - related zefop: to_pascal_case
+    - related zefop: to_kebab_case
+    - related zefop: to_snake_case
+    - related zefop: to_screaming_snake_case
+    - operates on: String
+    - used for: string manipulation
     """
     import caseconverter
     return caseconverter.camelcase(s)
@@ -6068,6 +6185,16 @@ def to_kebab_case_imp(s: VT.String) -> VT.String:
 
     ---- Signature ----
     String -> String
+
+    ---- Tags ----
+    - related zefop: to_lower_case
+    - related zefop: to_upper_case
+    - related zefop: to_pascal_case
+    - related zefop: to_camel_case
+    - related zefop: to_snake_case
+    - related zefop: to_screaming_snake_case
+    - operates on: String
+    - used for: string manipulation
     """
     import caseconverter
     return caseconverter.kebabcase(s)
@@ -6089,6 +6216,16 @@ def to_snake_case_imp(s: VT.String) -> VT.String:
 
     ---- Signature ----
     String -> String
+
+    ---- Tags ----
+    - related zefop: to_lower_case
+    - related zefop: to_upper_case
+    - related zefop: to_pascal_case
+    - related zefop: to_camel_case
+    - related zefop: to_kebab_case
+    - related zefop: to_screaming_snake_case
+    - operates on: String
+    - used for: string manipulation
     """
     import caseconverter
     return caseconverter.snakecase(s)
@@ -6110,6 +6247,16 @@ def to_screaming_snake_case_imp(s: VT.String) -> VT.String:
 
     ---- Signature ----
     String -> String
+
+    ---- Tags ----
+    - related zefop: to_lower_case
+    - related zefop: to_upper_case
+    - related zefop: to_pascal_case
+    - related zefop: to_camel_case
+    - related zefop: to_kebab_case
+    - related zefop: to_snake_case
+    - operates on: String
+    - used for: string manipulation
     """
     import caseconverter
     return caseconverter.macrocase(s)
