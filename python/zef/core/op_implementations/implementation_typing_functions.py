@@ -852,6 +852,97 @@ def update_at_tp(op, curr_type):
 
     
 
+#---------------------------------------- insert_at -----------------------------------------------
+
+def insert_at_imp(v, n, new_value):
+    """
+    Insert a specified value at a specified position of 
+    a list. A new list is returned, the input list is not mutated.
+    When called with negative index n, this is interpreted as
+    reverse indexing with -1 referring to the last element.
+
+    ---- Examples ----
+    >>> [0,1,2] | insert_at[1]['hello']   # => [0,'hello',1,2]
+
+    ---- Signature ----
+    (List[T1], T1->T2) -> List[T1|T2]
+    (List[T1], T2) -> List[T1|T2]
+
+    ---- Tags ----
+    - related zefop: insert
+    - related zefop: insert_in
+    - related zefop: update_at
+    - related zefop: remove_at
+    - related zefop: replace_at
+    - operates on: List
+    - operates on: Stream
+    - operates on: String
+    - used for: list manipulation
+    - used for: stream manipulation
+    - used for: string manipulation
+    """
+
+    if isinstance(v, str):
+        assert isinstance(new_value, str)
+        if n>=0:
+            if n > len(v):
+                return v
+            else:
+                return f"{v[:n]}{new_value}{v[n:]}"
+        else:
+            l = len(v)
+            m = -n
+            if m > l+1:
+                return v
+            else:
+                p = l-m+1
+                return f"{v[:p]}{new_value}{v[p:]}"
+     
+    def wrapper():
+        it = iter(v)
+        if n>=0:
+            try:
+                for _ in range(n):
+                    yield next(it)
+                yield new_value
+                yield from it
+            except StopIteration:
+                return        
+        else:
+            # we want to enable this lazily=, but only know which
+            # element to apply the function to once the iterable completes.
+            # This means we need to cache n values at any point in time.
+            # Do this mutatingly here to optimize the tight loop.
+            
+            # treat this case separately. Indexing becomes annoying.
+            if n == -1:
+                yield from v
+                yield new_value
+                return
+            
+            cached = []
+            m = -n-1          # working with a positive m is easier
+            offset = 0            
+            try:
+                for _ in range(m):
+                    cached.append(next(it))                
+                while True:
+                    cand = cached[offset]
+                    cached[offset] = next(it)
+                    yield cand
+                    offset = 0 if offset==m-1 else offset + 1
+            except StopIteration:
+                if m<=len(cached):
+                    yield new_value
+                yield from cached[offset:]
+                yield from cached[:offset]
+                return
+
+    return wrapper()    
+
+
+
+
 #---------------------------------------- update -----------------------------------------------
 def update_imp(d: dict, k, fn):
     """

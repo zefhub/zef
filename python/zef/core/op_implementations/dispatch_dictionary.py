@@ -151,6 +151,7 @@ _op_to_functions = {
         RT.Update:          (update_imp, None),
         RT.UpdateIn:        (update_in_imp, update_in_tp),
         RT.UpdateAt:        (update_at_imp, update_at_tp),
+        RT.InsertAt:        (insert_at_imp, None),
         RT.RemoveIn:        (remove_in_imp, remove_in_tp),
         RT.RemoveAt:        (remove_at_imp, None),
         RT.Merge:           (merge_imp, merge_tp),
