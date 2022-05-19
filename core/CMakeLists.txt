@@ -25,6 +25,7 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   add_definitions(-DDEBUG)
 endif()
 
+option(LIBZEF_STATIC "Compile as a static library rather than a dynamically linked library" FALSE)
 option(LOCAL_ZEFTYPES "Disable getting zeftypes from zefhub" FALSE)
 option(ZEFDB_ALLOW_NO_TLS "Allow insecure websockets for ZefHub connections" TRUE)
 option(ZEFDB_TEST_NO_MMAP_CHECKS "Test for mmap slowness" FALSE)
@@ -120,7 +121,11 @@ set(SOURCES
 #     include/butler/communication.h
 #     )
 
+if(LIBZEF_STATIC)
+add_library (zef STATIC ${SOURCES})
+else()
 add_library (zef SHARED ${SOURCES})
+endif()
 add_library (zef::zef ALIAS zef)
 
 target_include_directories(zef PUBLIC
@@ -180,7 +185,8 @@ add_custom_command(TARGET zef POST_BUILD
   
 # Extra things needed for Visual Studio
 if(MSVC)
-	target_compile_options(zef PUBLIC "/permissive-")
+#	target_compile_options(zef PUBLIC "/permissive-")
+	target_compile_definitions(zef PUBLIC NOMINMAX)
 endif()
 
 if(LIBZEF_PYZEF_BUNDLED)
@@ -222,7 +228,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(COG_DUMMY ${CMAKE_CURRENT_SOURCE_DIR}/dummy_cog.tracker)
 
-if(NOT MSVC)
+#if(NOT MSVC)
   # We have to get all files that will be cogged - this is a little weird.
   file(GLOB cog_files ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cog ${CMAKE_CURRENT_SOURCE_DIR}/include/*.cog)
   list(TRANSFORM cog_files REPLACE "[.]cog$" ".gen" OUTPUT_VARIABLE cog_files_output_temp)
@@ -291,7 +297,10 @@ if(NOT MSVC)
       COMMAND ${Python3_EXECUTABLE} ${get_zeftypes_file})
   endif()
 
-endif()
+#endif()
+
+# Finally handle the static/dynamic linking part in export_statement.h
+configure_file(include/export_statement.h.in include/export_statement.h)
 
 #########################################
 # * All tests

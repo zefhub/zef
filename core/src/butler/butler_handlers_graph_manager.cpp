@@ -280,7 +280,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
                 if(content.payload)
                     force_fresh = true;
                 else 
-                    throw std::runtime_error("Filegraph (" + str(me.uid) + ") already exists (@ " + std::string(fg_prefix) + ") but we're trying to create a new graph!"); 
+                    throw std::runtime_error("Filegraph (" + str(me.uid) + ") already exists (@ " + fg_prefix.string() + ") but we're trying to create a new graph!"); 
             }
             try {
                 fg = new MMap::FileGraph(fg_prefix, me.uid, true, force_fresh);
@@ -556,14 +556,14 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LocalGr
         auto fg_prefix = local_graph_prefix(content.dir);
         if(content.new_graph) {
             if(any_files_with_prefix(fg_prefix))
-                throw std::runtime_error("Filegraph (" + str(me.uid) + ") already exists (@ " + std::string(fg_prefix) + ") but we're trying to create a new graph!"); 
+                throw std::runtime_error("Filegraph (" + str(me.uid) + ") already exists (@ " + fg_prefix.string() + ") but we're trying to create a new graph!"); 
 
             auto uid_file = local_graph_uid_path(content.dir);
             std::ofstream file(uid_file);
             file << str(me.uid);
         } else {
             if(!MMap::filegraph_exists(fg_prefix))
-                throw std::runtime_error("Filegraph (" + str(me.uid) + ") doesn't exist (@ " + std::string(fg_prefix) + ") can't load!"); 
+                throw std::runtime_error("Filegraph (" + str(me.uid) + ") doesn't exist (@ " + fg_prefix.string() + ") can't load!"); 
         }
         fg = new MMap::FileGraph(fg_prefix, me.uid, false);
 

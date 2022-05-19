@@ -21,7 +21,6 @@
 // I want to not have to use this:
 #include "high_level_api.h"
 #include "synchronization.h"
-#include <execinfo.h>
 
 namespace zefDB {
     bool initialised_python_core = false;
@@ -73,6 +72,7 @@ namespace zefDB {
         }
 
         void terminate_handler() {
+#ifndef _MSC_VER
             void *trace_elems[20];
             int trace_elem_count(backtrace( trace_elems, 20 ));
             char **stack_syms(backtrace_symbols( trace_elems, trace_elem_count ));
@@ -80,6 +80,7 @@ namespace zefDB {
                 std::cerr << stack_syms[i] << "\n";
             }
             free( stack_syms );
+#endif
 
             if( auto exc = std::current_exception() ) { 
                 try {
@@ -558,7 +559,7 @@ namespace zefDB {
 
                         double first_wait_time = do_wait(std::get<0>(it));
                         double first_delta_time = (now() - std::get<1>(it)).value;
-                        double first_size = std::get<2>(it);
+                        int first_size = std::get<2>(it);
                         futures.pop_front();
 
                         if(chunked_transfer_auto_adjust) {
@@ -590,7 +591,7 @@ namespace zefDB {
 
                                 if(this_delta_time < chunk_timeout/ chunked_safety_factor) {
                                     // Because we are so much smaller, we can grow a lot in here.
-                                    int new_chunk_size = min_size * chunked_safety_factor/2;
+                                    int new_chunk_size = (int)(min_size * chunked_safety_factor/2);
                                     if(new_chunk_size > chunk_size) {
                                         chunk_size = new_chunk_size;
                                         if(zwitch.developer_output())
@@ -601,7 +602,7 @@ namespace zefDB {
 
                             if(min_delta_time < chunk_timeout / chunked_safety_factor && second_wait_time < max_wait_time/chunked_safety_factor) {
                                 // Although this is not much, it grows fast.
-                                int new_chunk_size = min_size * 1.5;
+                                int new_chunk_size = (int)(min_size * 1.5);
                                 if(new_chunk_size > chunk_size) {
                                     chunk_size = new_chunk_size;
                                     if(zwitch.developer_output())
@@ -638,7 +639,7 @@ namespace zefDB {
             if(chunked_transfer_auto_adjust) {
                 double speed = estimated_transfer_speed_accum_bytes / estimated_transfer_speed_accum_time;
                 double goal_time = chunk_timeout / 5;
-                double est_chunk_size = goal_time * speed;
+                int est_chunk_size = (int)(goal_time * speed);
                 // if(est_chunk_size > chunk_size)
                 if(zwitch.developer_output()) {
                     std::cerr << "est_chunk_size: " << est_chunk_size << std::endl;
@@ -648,7 +649,7 @@ namespace zefDB {
                 if(est_chunk_size < chunked_transfer_size)
                     chunked_transfer_size = est_chunk_size;
                 else
-                    chunked_transfer_size = (chunked_transfer_size + est_chunk_size) / chunked_safety_factor / chunked_transfer_queued;
+                    chunked_transfer_size = (int)((chunked_transfer_size + est_chunk_size) / chunked_safety_factor / chunked_transfer_queued);
                 if(zwitch.developer_output())
                     std::cerr << "Adjusting chunk size to " << chunked_transfer_size << std::endl;
             }

@@ -16,11 +16,6 @@
 
 #pragma once
 
-#ifdef _MSC_VER
-#include "mmap_windows.h"
-#else
-
-
 #include <iostream>
 #include <vector>
 #include <stdexcept>
@@ -31,10 +26,10 @@
 #include "include_fs.h"
 
 #include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/file.h>
+//#include <sys/mman.h>
+//#include <sys/file.h>
 #include <fcntl.h>
-#include <unistd.h>
+//#include <unistd.h>
 #include <assert.h>
 #include <math.h>
 #include <string.h>
@@ -47,11 +42,15 @@
 #include "zefDB_utils.h"
 #include "uids.h"
 
+#include <windows.h>
+#include <sysinfoapi.h>
+#include <io.h>
+
 // For print_backtrace equivalent
-#include <stdio.h>
-#include <execinfo.h>
-#include <stdlib.h>
-#include <unistd.h>
+//#include <stdio.h>
+//#include <execinfo.h>
+//#include <stdlib.h>
+//#include <unistd.h>
 
 // The layout of memory:
 //
@@ -93,6 +92,22 @@
 namespace zefDB {
     namespace MMap {
 
+        constexpr size_t WIN_FILE_LOCK_BYTES = 1024;
+        std::string WindowsErrorMsg() {
+            LPVOID lpMsgBuf;
+            FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            GetLastError(),
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPTSTR)&lpMsgBuf,
+            0, NULL);
+
+            std::string ret((LPCTSTR)lpMsgBuf);
+
+            LocalFree(lpMsgBuf);
+            return ret;
+        }
+
         constexpr unsigned int PAGE_BITMAP_BITS = ZEF_UID_SHIFT / ZEF_PAGE_SIZE;
 
         // * Utils
@@ -107,6 +122,11 @@ namespace zefDB {
             return temp;
         }
 
+        inline size_t getpagesize() {
+            SYSTEM_INFO sys_info;
+            GetSystemInfo(&sys_info);
+            return sys_info.dwPageSize;
+        }
         inline void * align_to_system_pagesize(void * ptr) { return floor_ptr(ptr, getpagesize()); }
 
         inline void error(const char * s) {
@@ -128,11 +148,12 @@ namespace zefDB {
         }
 
         inline bool is_fd_writable(int fd) {
-            int flags;
-            flags = fcntl(fd, F_GETFL);
+            BY_HANDLE_FILE_INFORMATION info;
+            HANDLE handle = (HANDLE)_get_osfhandle(fd);
+            GetFileInformationByHandle(handle, &info);
             // The options O_WRONLY or O_RDWR do not share bits, so this is technically
             // not correct, however in our case we never have a O_WRONLY scenario.
-            return (flags & O_RDWR);
+            return (info.dwFileAttributes & O_RDWR);
         }
 
         //////////////////////////////
@@ -144,7 +165,7 @@ namespace zefDB {
             int what_errno;
             FileAlreadyLocked(std::filesystem::path path) : path(path) {
                 what_errno = errno;
-                s = std::string("Can't acquire exclusive lock on filegraph (") + std::string(path) + "), aborting. Errno = " + to_str(what_errno);
+                s = std::string("Can't acquire exclusive lock on filegraph (") + path.string() + "), aborting. Errno = " + to_str(what_errno);
             }
             const char * what() const noexcept {
                 return s.c_str();
@@ -160,7 +181,7 @@ namespace zefDB {
             std::string s;
 
             FileGraphWrongVersion(std::filesystem::path path, int version, std::string extra="") : path(path), version(version), extra(extra) {
-                s = std::string("Filegraph (") + std::string(path) + "), was the wrong version (" + to_str(version) + ").";
+                s = std::string("Filegraph (") + path.string() + "), was the wrong version (" + to_str(version) + ").";
                 if(extra != "")
                     s += " " + extra;
             }
@@ -170,7 +191,7 @@ namespace zefDB {
         };
 
         struct FileGraph {
-            static constexpr size_t invalid_page = std::numeric_limits<size_t>::max();
+            static constexpr size_t invalid_page = (std::numeric_limits<size_t>::max)();
             std::filesystem::path path_prefix;
             std::vector<int> fds = {};
             // std::vector<size_t> file_size_in_pages = {};
@@ -263,24 +284,35 @@ namespace zefDB {
             void set_latest_blob_index(blob_index new_value);
 
             void flush_mmap() {
-                msync(main_file_mapping, prefix_size(get_version()), MS_ASYNC);
+                // Note: FlushViewOfFile is asynchronous.
+                FlushViewOfFile(main_file_mapping, prefix_size(get_version()));
             }
 
             std::optional<std::string> validate_preload(BaseUID uid);
 
             FileGraph(std::filesystem::path path_prefix, BaseUID uid, bool fallback_to_fresh=false, bool force_fresh=false);
             ~FileGraph() {
+                if(main_file_mapping != nullptr) {
+                    // Note: this is not doing a sync flush, but we will be waiting on FlushFileBuffers below which will make this effectively synchronous.
+                    FlushViewOfFile(main_file_mapping, prefix_size(get_version()));
+                    if(!UnmapViewOfFile(main_file_mapping)) {
+                        std::cerr << "Problem unmapping main_file_mapping. Ignoring." << std::endl;
+                        std::cerr << WindowsErrorMsg() << std::endl;
+                    };
+                }
                 for(auto & fd : fds) {
                     if(fd != -1) {
-                        fsync(fd);
-                        flock(fd, LOCK_UN);
+                        HANDLE h = (HANDLE)_get_osfhandle(fd);
+                        if(!FlushFileBuffers(h)) {
+                            std::cerr << "Problem flushing FileGraph extra files to disk during ~FileGraph. Ignoring." << std::endl;
+                            std::cerr << WindowsErrorMsg() << std::endl;
+                        }
+                        if(!UnlockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0)) {
+                            std::cerr << "Problem unlocking extra file during ~FileGraph. Ignoring." << std::endl;
+                            std::cerr << WindowsErrorMsg() << std::endl;
+                        }
                         close(fd);
                     }
-                }
-                if(main_file_mapping != nullptr && main_file_mapping != MAP_FAILED) {
-                    // Doing a sync flush here, instead of the async in flush_mmap.
-                    msync(main_file_mapping, prefix_size(get_version()), MS_SYNC);
-                    munmap(main_file_mapping, prefix_size(get_version()));
                 }
             }
         };
@@ -489,8 +521,11 @@ namespace zefDB {
             _WholeFileMapping(const _WholeFileMapping & other) = delete;
             ~_WholeFileMapping() {
                 if(size > 0) {
-                    msync(ptr, size, MS_SYNC);
-                    munmap(ptr, size);
+                    FlushViewOfFile(ptr, size);
+                    if(!UnmapViewOfFile(ptr)) {
+                        std::cerr << WindowsErrorMsg() << std::endl;
+                        std::cerr << "Problem unmapping WholeFileMapping." << std::endl;
+                    };
                 }
                 if(fd == 0 && head != nullptr)
                     delete head;
@@ -543,5 +578,3 @@ namespace zefDB {
         };
     }
 }
-
-#endif

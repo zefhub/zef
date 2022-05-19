@@ -3755,7 +3755,7 @@ namespace zefDB {
 		inline int cast_it_for_fucks_sake(double val, int just_for_type) { 
 			if (fabs(val - round(val)) > 1E-8)
 				throw std::runtime_error("converting a double to an int, but the double was numerically not sufficiently close to an in to make rounding safe");
-			return double(val); 			
+			return int(val); 			
 		}
 		inline bool cast_it_for_fucks_sake(int val, bool just_for_type) { 
 			if(val == 1) return true; 

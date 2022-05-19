@@ -27,7 +27,10 @@ using json = nlohmann::json;
 #include "zwitch.h"
 
 
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+#if defined(_MSC_VER)
+    std::filesystem::path find_libzef_path() {
+        return "temptest";
+    }
 #elif __APPLE__
 #include <dlfcn.h>
     std::filesystem::path find_libzef_path() {

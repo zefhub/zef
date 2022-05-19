@@ -12,12 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifdef _MSC_VER
-#include "mmap_windows.cpp"
-#else
-
-#include "mmap.h"
-#include <sys/file.h>
+//#include "mmap.h"
+//#include <sys/file.h>
 #include <stdio.h>
 
 // #include <malloc.h>
@@ -730,5 +726,3 @@ namespace zefDB {
         }
     }
 }
-
-#endif
