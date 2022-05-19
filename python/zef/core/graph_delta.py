@@ -177,9 +177,21 @@ def construct_commands(elements) -> list:
                 if cmd[key] in mapping_dict:
                     new_cmd[key] = mapping_dict[cmd[key]]
         return new_cmd
+
+    def handle_dict(el):
+        if not isinstance(el, dict): return [el]
+
+        entity, sub_d = list(el.items()) | single | collect # Will throw if there isn't a single key in the dict
+        iid, _ = realise_single_node(entity, generate_id)
+        if isinstance(entity, (EntityType, RelationType, AtomicEntityType)) and len(absorbed(entity)) == 0:
+            entity = entity[iid]
+
+        return [entity] +  [(Z[iid], k, v) for k,v in sub_d.items()] 
                 
     # nested_cmds = nested_cmds | map[P(update_ids, mapping_dict=mapping_dict)] | collect
     
+    # handle any dict if found
+    elements = elements | map[handle_dict] | concat | collect
     # Obtain all user IDs
     id_definitions = elements | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
     # Check that nothing needs a user ID that wasn't provided
@@ -259,7 +271,6 @@ def obtain_ids(x) -> dict:
         a_id = get_absorbed_id(LazyValue(x))
         if a_id is not None:
             ids = merge_no_overwrite(ids, {a_id: x})
-
     return ids
 
 
