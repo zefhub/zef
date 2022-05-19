@@ -153,7 +153,7 @@ def resolve_with_wrapper(fn_body):
     """
 
 
-def create_function_body(ot, ft, bt, rt, fn, customer_specific_resolvers):
+def create_function_body(ot, ft, bt, rt, fn, fallback_resolvers):
     default_params = ["z", "ctx"]
     params = handle_params(rt, default_params)
     # TODO (Cleanup) might consider making these as well customer specific
@@ -177,7 +177,7 @@ def create_function_body(ot, ft, bt, rt, fn, customer_specific_resolvers):
         # return (rt >> RT(gqlify("resolve_with_body")) | value | collect), params
         return resolve_with_wrapper(rt >> RT(gqlify("resolve_with_body")) | value | collect), params
 
-    return customer_specific_resolvers(ot, ft, bt, rt, fn)
+    return fallback_resolvers(ot, ft, bt, rt, fn), default_params
 
 def initialize_object_type(object_type, cog):
     if "Mutation" == object_type:
@@ -230,7 +230,7 @@ def generate_interface_resolver(i, cog):
 def generate_all(global_dict, cog):
     root = global_dict["schema_root"]
     default_resolvers_list = global_dict["default_resolvers_list"]
-    customer_specific_resolvers = global_dict["customer_specific_resolvers"]
+    fallback_resolvers = global_dict["fallback_resolvers"]
     object_types = []
     types = root >> L[RT(gqlify("type"))]
     interfaces = root >> L[RT(gqlify("interface"))]
@@ -246,7 +246,7 @@ def generate_all(global_dict, cog):
         for rt in (t > L[RT(gqlify("field"))]):
             field_name = de_gqlify(str(rt >> RT.Name | value | collect), False)
             field_type = (rt | target | to_ezefref | collect)
-            fn_body, params = create_function_body(object_type, field_type, BT(field_type), rt, field_name, customer_specific_resolvers)
+            fn_body, params = create_function_body(object_type, field_type, BT(field_type), rt, field_name, fallback_resolvers)
             generate_object_resolver(object_type, field_name, rt, fn_body, params, cog)
 
     for i in interfaces:
