@@ -1017,6 +1017,8 @@ def encode(xx):
 
                     # it's a relation triple
                     src_id = step(x[0], True)
+                    if get_absorbed_id(x[1]) is not None:
+                        raise Exception("Not allowing ids in a shorthand syntax transaction.")
                     rel_id = gen_id()
                     trg_id = step(x[2], True)
                     gd_exprs.append( (Z[src_id], x[1][rel_id], Z[trg_id]) )
