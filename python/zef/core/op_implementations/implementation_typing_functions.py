@@ -5263,6 +5263,15 @@ def is_a_implementation(x, typ):
             
         return valuetype_matching(x, typ)
     
+    # To handle user passing by int instead of Int by mistake
+    if typ in {int, float, bool}:
+        py_type_to_vt = {
+            bool: Bool,
+            int: Int,
+            float: Float
+        }
+        print(f"{repr(typ)} was passed as a type, but what you meant was { py_type_to_vt[typ]}!")
+        return is_a_implementation(x, py_type_to_vt[typ])
 
     if type(x) == _ErrorType:
         if typ == Error:
