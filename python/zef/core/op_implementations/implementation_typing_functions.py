@@ -5238,30 +5238,33 @@ def is_a_implementation(x, typ):
         return isinstance(el, python_type)
 
     if isinstance(typ, ValueType_):
-        if typ.d['type_name'] == "Union":
-            return union_matching(x, typ)
+        try:
+            if typ.d['type_name'] == "Union":
+                return union_matching(x, typ)
 
-        if typ.d['type_name'] == "Intersection":
-            return intersection_matching(x, typ)
+            if typ.d['type_name'] == "Intersection":
+                return intersection_matching(x, typ)
 
-        if typ.d['type_name'] == "SetOf":
-            return setof_matching(x, typ)
-        
-        if typ.d['type_name'] == "Complement":
-            return not is_a_implementation(x, typ.d['absorbed'][0])
-
-        if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
-            map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
-            def compare_absorbed(x, typ):
-                val_absorbed = absorbed(x)
-                typ_absorbed = absorbed(typ)
-                for i,typ in enumerate(typ_absorbed):
-                    if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
-                    if not is_a_implementation(val_absorbed[i],typ): return False
-                return True
-            return without_absorbed(x) == map_[typ.d['type_name']] and compare_absorbed(x, typ)
+            if typ.d['type_name'] == "SetOf":
+                return setof_matching(x, typ)
             
-        return valuetype_matching(x, typ)
+            if typ.d['type_name'] == "Complement":
+                return not is_a_implementation(x, typ.d['absorbed'][0])
+
+            if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
+                map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
+                def compare_absorbed(x, typ):
+                    val_absorbed = absorbed(x)
+                    typ_absorbed = absorbed(typ)
+                    for i,typ in enumerate(typ_absorbed):
+                        if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
+                        if not is_a_implementation(val_absorbed[i],typ): return False
+                    return True
+                return without_absorbed(x) == map_[typ.d['type_name']] and compare_absorbed(x, typ)
+                
+            return valuetype_matching(x, typ)
+        except:
+            return False
     
     # To handle user passing by int instead of Int by mistake
     if typ in {int, float, bool}:
