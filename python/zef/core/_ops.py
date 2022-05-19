@@ -79,6 +79,7 @@ xor             = make_zefop(RT.Xor)
 
 always          = make_zefop(RT.Always)
 docstring       = make_zefop(RT.Docstring)
+source_code     = make_zefop(RT.SourceCode)
 
 absorbed        = make_zefop(RT.Absorbed)
 without_absorbed= make_zefop(RT.WithoutAbsorbed)

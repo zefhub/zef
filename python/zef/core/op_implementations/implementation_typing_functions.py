@@ -5459,6 +5459,37 @@ def docstring_imp(a) -> str:
 
 
 
+#---------------------- source_code------------------------- 
+def source_code_imp(a) -> str:
+    """
+    Return the function body for a given ZefOp or Zef Function.
+        
+    ---- Examples ----
+    >>> source_code(insert_at) | to_clipboard | run
+    """
+    from zef.core.op_implementations.dispatch_dictionary import _op_to_functions
+    import inspect
+    if not isinstance(a, ZefOp):
+        return Error('"source_code" can only be called on ZefOps')
+
+    # is this a bare zef function? We want to implement that separately
+    if len(a.el_ops) == 1 and a.el_ops[0][0]==RT.Function:
+        return Error('"source_code" not implemented for Zef functions yet')
+
+
+    if len(a.el_ops) == 1:
+        if len(a.el_ops) == 1:
+            f = _op_to_functions[a.el_ops[0][0]][0]
+            body = inspect.getsource(f)
+            return body if body else f"No function body found for given {a}!"
+    else:
+        from zef.core.op_implementations.yo_ascii import make_op_chain_ascii_output
+        return make_op_chain_ascii_output(a)
+
+
+
+
+
 #----------------------Type Functions------------------------- 
 from inspect import isfunction, getfullargspec
 def map_type_info(op, curr_type):
