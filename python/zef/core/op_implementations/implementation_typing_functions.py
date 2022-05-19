@@ -5123,9 +5123,9 @@ def o_implementation(first_arg, curried_args):
 
 
 
-#---------------------------------------- zef_type -----------------------------------------------
+#---------------------------------------- value_type -----------------------------------------------
 # @register_zefop(RT.ZefType)
-def zef_type_imp(x):
+def value_type_imp(x):
     """
     Warning: this function is not complete and its behavior may change!!!!!!!!!!!
 
@@ -5579,7 +5579,7 @@ def target_type_info(op, curr_type):
     return curr_type
 
 def value_type_info(op, curr_type):
-    return VT.Any
+    return VT.ValueType
 
 def time_type_info(op, curr_type):
     return VT.Time
