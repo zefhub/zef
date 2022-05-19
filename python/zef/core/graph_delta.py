@@ -656,6 +656,8 @@ def is_valid_single_node(x):
         return True
     if isinstance(x, AtomicEntityType):
         return True
+    if isinstance(x, Delegate):
+        return True
     return False
 
 def is_valid_relation_template(x):
