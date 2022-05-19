@@ -110,6 +110,7 @@ from .VT import (
     Union,
     Intersection,
     SetOf,
+    Complement,
     )
 from .VT.value_type import ValueType_
 

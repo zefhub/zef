@@ -5247,7 +5247,7 @@ def is_a_implementation(x, typ):
         if typ.d['type_name'] == "SetOf":
             return setof_matching(x, typ)
         
-        if typ.d['type_name'] == "Not":
+        if typ.d['type_name'] == "Complement":
             return not is_a_implementation(x, typ.d['absorbed'][0])
 
         if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
