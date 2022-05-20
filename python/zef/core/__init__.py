@@ -111,6 +111,7 @@ from .VT import (
     Intersection,
     SetOf,
     Complement,
+    Pattern
     )
 from .VT.value_type import ValueType_
 

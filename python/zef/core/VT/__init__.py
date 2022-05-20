@@ -108,7 +108,7 @@ ZefRefs    = ValueType_(type_name='ZefRefs', constructor_func=None)
 ZefRefss   = ValueType_(type_name='ZefRefss', constructor_func=None)     
 
 
-
+Pattern = ValueType_(type_name='Pattern', constructor_func=None)
 # These are special classes: using them with [...] returns a ValueType_ though
 Union = UnionClass()
 Intersection = IntersectionClass()
