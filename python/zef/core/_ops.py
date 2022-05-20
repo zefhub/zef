@@ -225,7 +225,6 @@ has_out         = make_zefop(RT.HasOut)                # z1 | has_out[RT.Foo] us
 has_in          = make_zefop(RT.HasIn)                 # z1 | has_in[RT.Foo]  use  (Z, RT.Foo, z1) | exists
 
 All             = make_zefop(RT.All)               # TODO: retire
-Any             = make_zefop(RT.Any)               # TODO: retire
 
 In              = make_zefop(RT.In)
 Ins             = make_zefop(RT.Ins)
