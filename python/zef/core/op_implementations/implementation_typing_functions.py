@@ -5063,13 +5063,12 @@ def time_implementation(x, *curried_args):
 
 
 
-def instantiation_tx_implementation(first_arg, *curried_args):
-    print(f"Warning: 'instantiation_tx' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_rae | events[Instantiated]' instead")
-    return (pyzefops.instantiation_tx)(first_arg, *curried_args)
+def instantiation_tx_implementation(z):
+    return z | events[Instantiated] | single | absorbed | single | frame | to_tx | collect
 
-def termination_tx_implementation(first_arg, *curried_args):
-    print(f"Warning: 'termination_tx' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_rae | events[Terminated]' instead")
-    return (pyzefops.termination_tx)(first_arg, *curried_args)
+def termination_tx_implementation(z):
+    root_node = Graph(z)[42] 
+    return z | events[Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
 
 def instances_implementation(*args):
     print("Deprecation: 😞😞😞😞😞 instances is deprecated. Use 'f | all'  instead 😞😞😞😞😞")
