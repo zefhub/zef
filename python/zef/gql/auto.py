@@ -15,7 +15,7 @@
 from ..core import *
 from ..ops import *
 
-
+@func
 def auto_generate_gql(g):
     if length(g | now | all[ET.GQL_Schema]) > 0:
         raise Exception("Graph already has a GQL schema, not going to auto generate a new one.")
@@ -36,10 +36,14 @@ def auto_generate_gql(g):
         (Z["scalar_time"], RT.Name, "GQL_Time"),
     ]
 
-    for ent in g | all[delegate[ET]] | collect:
-        fields = ent > L[RT] | filter[lambda z: z | target | is_a[delegate[AET]] | collect] | collect
-        out_others = ent > L[RT] | filter[lambda z: z | target | is_a[delegate[ET]] | collect] | collect
-        in_others = ent < L[RT] | filter[lambda z: z | source | is_a[delegate[ET]] | collect] | collect
+    @func
+    def del_is_a(x, T):
+        return x | And[is_a[Delegate]][abstract_type | is_a[T]] | collect
+        
+    for ent in g | all | filter[del_is_a[ET]] | collect:
+        fields = ent > L[RT] | filter[lambda z: z | target | del_is_a[AET] | collect] | collect
+        out_others = ent > L[RT] | filter[lambda z: z | target | del_is_a[ET] | collect] | collect
+        in_others = ent < L[RT] | filter[lambda z: z | source | del_is_a[ET] | collect] | collect
         if len(fields) == 0 and len(out_others) == 0 and len(in_others) == 0:
             continue
         name = "GQL_" + str(ET(ent))
@@ -57,25 +61,25 @@ def auto_generate_gql(g):
             f_name = "GQL_" + str(RT(field))
             full_name = name + f_name
 
-            if is_a(target(field), delegate[AET.Enum]):
+            if del_is_a(target(field), AET.Enum):
                 rt_s = f"{RT(field)!r}"
                 actions += [
                     (Z[full_name], RT.GQL_Resolve_with_body, "v = maybe_value(z >> O[" + rt_s + "]); return None if v is None else {'value': v.enum_value, 'type': v.enum_type}"),
                 ]
                 aet = Z["scalar_enum"]
-            elif is_a(target(field), delegate[AET.QuantityFloat]):
+            elif del_is_a(target(field), AET.QuantityFloat):
                 rt_s = f"{RT(field)!r}"
                 actions += [
                     (Z[full_name], RT.GQL_Resolve_with_body, "q = maybe_value(z >> O[" + rt_s + "]); return None if q is None else {'value': q.value, 'unit': q.unit.enum_value}"),
                 ]
                 aet = Z["scalar_quantity_float"]
-            elif is_a(target(field), delegate[AET.QuantityInt]):
+            elif del_is_a(target(field), AET.QuantityInt):
                 rt_s = f"{RT(field)!r}"
                 actions += [
                     (Z[full_name], RT.GQL_Resolve_with_body, "q = maybe_value(z >> O[" + rt_s + "]); return None if q is None else {'value': q.value, 'unit': q.unit.enum_value}"),
                 ]
                 aet = Z["scalar_quantity_int"]
-            elif is_a(target(field), delegate[AET.Time]):
+            elif del_is_a(target(field), AET.Time):
                 rt_s = f"{RT(field)!r}"
                 actions += [
                     (Z[full_name], RT.GQL_Resolve_with_body, "t = maybe_value(z >> O[" + rt_s + "]); return None if t is None else str(t)"),
@@ -84,7 +88,7 @@ def auto_generate_gql(g):
             else:
                 actions += [
                     # (Z[full_name], RT.GQL_Resolve_with, field),
-                    (Z[full_name], RT.GQL_Resolve_with, delegate[(ET(ent), RT(field), AET(target(field)) )]),
+                    (Z[full_name], RT.GQL_Resolve_with, delegate_of((ET(ent), RT(field), AET(target(field))))),
                 ]
                 aet = AET(target(field))
 
@@ -104,7 +108,7 @@ def auto_generate_gql(g):
                 (Z[name], RT.GQL_Field[full_name_rel], ET.GQL_List[full_name]),
                 (Z[full_name], RT.argument, Z[other_name]),
                 (Z[full_name_rel], RT.Name, f_name),
-                (Z[full_name_rel], RT.GQL_Resolve_with, delegate[(ET(ent), RT(other), ET(target(other)))]),
+                (Z[full_name_rel], RT.GQL_Resolve_with, delegate_of((ET(ent), RT(other), ET(target(other))))),
             ]
 
         for other in in_others:
@@ -117,7 +121,7 @@ def auto_generate_gql(g):
                 (Z[name], RT.GQL_Field[full_name_rel], ET.GQL_List[full_name]),
                 (Z[full_name], RT.argument, Z[other_name]),
                 (Z[full_name_rel], RT.Name, f_name),
-                (Z[full_name_rel], RT.GQL_Resolve_with[full_name_rel + "_with"], delegate[(ET(target(other)), RT(other), ET(ent))]),
+                (Z[full_name_rel], RT.GQL_Resolve_with[full_name_rel + "_with"], delegate_of((ET(target(other)), RT(other), ET(ent)))),
                 (Z[full_name_rel + "_with"], RT.IsOut, False),
             ]
 

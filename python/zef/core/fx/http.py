@@ -202,7 +202,7 @@ def http_send_response_handler(eff: Effect):
     d = eff.d
     if "server_uuid" not in d:
         # TODO: register this on ProcessLogger
-        return Error(f"An FX.HTTP.SendResponse event must contain a 'server_uuid' field. This was not the case for {eff=}")
+        return Error(f"An FX.HTTP.SendResponse event must contain a 'server_uuid' field. This was not the case for eff={eff}")
 
     d = _effects_processes[eff.d["server_uuid"]]
     future = d["open_requests"][eff.d["request_id"]]

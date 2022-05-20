@@ -203,7 +203,7 @@ with open("requirements.txt") as file:
 setup(
     long_description=long_desc,
     long_description_content_type="text/markdown",
-    python_requires=">=3.8",
+    python_requires=">=3.7",
     version=versioneer.get_version(),
     packages=find_packages(),
     install_requires=reqs,

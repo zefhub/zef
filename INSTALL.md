@@ -12,17 +12,27 @@ include native Windows support soon.
 
 # Compiling from source
 
-Either obtain the source distribution from PyPI using:
+You can obtain the source distribution from PyPI for a release using:
 
 `pip install --no-binary zef zef`
 
-or obtain the source from the git repo using:
+If you want to compile from the latest of a branch from the GitHub repo, then
+you have two choices:
 
-`git clone https://github.com/zefhub/zef`
+1. Use a system-installed libzef. This is currently not possible.
+2. Use a bundled lizef. In order to do this you should make an sdist package
+yourself. This is because of the way that pip and friends find files to copy.
+Hence:
 
-and then
+```
+git clone https://github.com/zefhub/zef
+cd zef/python
+python setup.py sdist
+pip install dist/zef-<version>.tar.gz
+```
 
-`pip install zef/python`
+You can look at the `dockerfiles/Dockerfile.compat` as an example of first
+building a sdist package then installing it.
 
 # Requirements
 

@@ -83,13 +83,12 @@ _op_to_functions = {
         RT.InsAndOutsOld:   (ins_and_outs_implementation_old, ins_and_outs_type_info),
         RT.Source:          (source_implementation, source_type_info),
         RT.Target:          (target_implementation, target_type_info),
-        RT.Value:           (value_implementation, value_type_info),
+        RT.Value:           (value_implementation, None),
         RT.Time:            (time_implementation, time_type_info),
         RT.TimeSlice:       (time_slice_implementation, time_slice_type_info),
         RT.Tx:              (tx_imp, tx_tp),
         RT.NextTX:          (next_tx_imp, next_tx_tp),
         RT.PreviousTX:      (previous_tx_imp, previous_tx_tp),
-        RT.Tx:              (tx_imp, tx_tp),
         RT.InstantiationTx: (instantiation_tx_implementation, instantiation_tx_type_info),                              # TODO: retire
         RT.TerminationTx:   (termination_tx_implementation, termination_tx_type_info),                            # TODO: retire
         RT.Instances:       (instances_implementation, instances_type_info),
@@ -122,7 +121,7 @@ _op_to_functions = {
         RT.Push:            (push_imp, push_tp),
         RT.IsA:             (is_a_implementation, is_a_type_info),
         RT.IsRepresentedAs: (is_represented_as_implementation, is_represented_as_type_info),
-        RT.ZefType:         (zef_type_imp, None),
+        RT.ValueType:       (value_type_imp, value_type_info),
         RT.HasRelation:     (has_relation_implementation, has_relation_type_info),
         RT.Relation:        (relation_implementation, relation_type_info),
         RT.Relations:       (relations_implementation, relations_type_info),
@@ -143,9 +142,9 @@ _op_to_functions = {
         RT.RaeType:         (rae_type_implementation, rae_type_type_info),
         RT.AbstractType:    (abstract_type_implementation, abstract_type_type_info),
         RT.Root:            (root_imp, root_tp),
-        RT.Blobs:           (blobs_imp, blobs_tp),
         RT.Z:               (Z_imp, Z_tp),
         RT.Docstring:       (docstring_imp, None),
+        RT.SourceCode:      (source_code_imp, None),
         
         
         RT.GetIn:           (get_in_imp, get_in_tp),
@@ -153,6 +152,7 @@ _op_to_functions = {
         RT.Update:          (update_imp, None),
         RT.UpdateIn:        (update_in_imp, update_in_tp),
         RT.UpdateAt:        (update_at_imp, update_at_tp),
+        RT.InsertAt:        (insert_at_imp, None),
         RT.RemoveIn:        (remove_in_imp, remove_in_tp),
         RT.RemoveAt:        (remove_at_imp, None),
         RT.Merge:           (merge_imp, merge_tp),

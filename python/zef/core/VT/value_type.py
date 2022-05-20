@@ -126,7 +126,7 @@ class ValueType_:
             raise Exception(f'"ValueType_`s "&" called with unsupported type {type(other)}')
 
     def __invert__(self):
-        return ValueType_(type_name='Not', absorbed=(self,))
+        return ValueType_(type_name='Complement', absorbed=(self,))
     
 
 
@@ -169,6 +169,19 @@ class SetOfClass:
             return ValueType_(type_name='SetOf', absorbed=(x,))
         else:
             raise Exception(f'"SetOf[...]" called with unsupported type {type(x)}')
+
+
+class ComplementClass:
+    def __getitem__(self, x):
+        from ..op_structs import ZefOp
+        if isinstance(x, tuple):
+            return ValueType_(type_name='Complement', absorbed=x)
+        elif isinstance(x, ValueType_):
+            return ValueType_(type_name='Complement', absorbed=(x,))
+        elif isinstance(x, ZefOp):
+            return ValueType_(type_name='Complement', absorbed=(x,))
+        else:
+            raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
             
 
 
