@@ -5123,7 +5123,7 @@ def o_implementation(first_arg, curried_args):
 
 #---------------------------------------- value_type -----------------------------------------------
 # @register_zefop(RT.ZefType)
-def value_type_imp(x):
+def representation_type_imp(x):
     """
     Warning: this function is not complete and its behavior may change!!!!!!!!!!!
 
@@ -5131,10 +5131,13 @@ def value_type_imp(x):
     also when used with the python builtin supported
     types, as well as with instances of Zef Values.
 
-    Open questions: what should zef_type(ET) return?
-    BT
-    RT    
-    Should the various uid types be exposed to userland?
+    TODO:
+    my_ent | representation_type   # Entity[ET.Foo]
+    z | representation_type        # ZefRef[ET.Foo]
+    ez| representation_type        # EZefRef[ET.Foo]
+
+    ET.Foo | representation_type    # ET
+    ET     | representation_type    # ValueType
 
     """
     from ...core.bytes import Bytes_
@@ -5151,6 +5154,7 @@ def value_type_imp(x):
             set: VT.Set,
             Time: VT.Time,
             Bytes_: VT.Bytes,
+            ValueType_: VT.ValueType,
             # QuantityFloat: VT.QuantityFloat,
             # QuantityInt: VT.QuantityInt,
             # EntityType: VT.EntityType,
@@ -5164,7 +5168,7 @@ def value_type_imp(x):
             # Relation: VT.Relation,
             ZefOp: VT.ZefOp,
             Graph: VT.Graph,
-            # FlatGraph: VT.FlatGraph,
+            FlatGraph: VT.FlatGraph,
             # Keyword: VT.Keyword,
             # ValueType_: VT.ValueType_,
             # SymbolicExpression: VT.SymbolicExpression,

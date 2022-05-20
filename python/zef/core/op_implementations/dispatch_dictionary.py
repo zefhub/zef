@@ -121,7 +121,7 @@ _op_to_functions = {
         RT.Push:            (push_imp, push_tp),
         RT.IsA:             (is_a_implementation, is_a_type_info),
         RT.IsRepresentedAs: (is_represented_as_implementation, is_represented_as_type_info),
-        RT.ValueType:       (value_type_imp, value_type_info),
+        RT.RepresentationType: (representation_type_imp, None),
         RT.HasRelation:     (has_relation_implementation, has_relation_type_info),
         RT.Relation:        (relation_implementation, relation_type_info),
         RT.Relations:       (relations_implementation, relations_type_info),
