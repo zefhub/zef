@@ -3471,8 +3471,6 @@ def tx_imp(*args):
     zr | tx[instantiated]       # keeps ref. frame of zr, returns a ZefRef: 
     zr | tx[terminated]
     """
-    import traceback
-    traceback.print_stack()
     print(f"😭😭😭😭😭😭😭😭 Deprecation warning: the 'tx' operator will be deprecated. Its usage was too broad and mixed up concepts. Use 'to_graph_slice' and 'to_tx' instead")
     # print(f">>>>> args[0]={args[0]}")
     # print(f">>>>> args[1]={args[1]}")
