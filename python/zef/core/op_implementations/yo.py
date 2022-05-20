@@ -364,8 +364,8 @@ def timeline_view(zr_or_uzr) -> str:
             else:
                 descriptions_and_txs.append(edge_description)
         else:
-            if (edge_state == "Instantiated" and time_slice(edge | instantiation_tx | collect) <= reference_tx_timeslice) or\
-                    (edge_state == "Terminated" and time_slice(edge | termination_tx | collect) <= reference_tx_timeslice):
+            if (edge_state == "Instantiated" and time_slice(edge | instantiation_tx | frame | collect) <= reference_tx_timeslice) or\
+                    (edge_state == "Terminated" and time_slice(edge | termination_tx | frame | collect) <= reference_tx_timeslice):
                 descriptions_and_txs.append(
                     (f"{fill_str_to_length(generate_rt_description(edge, edge_type, edge_state), 54)}", edge))
 
