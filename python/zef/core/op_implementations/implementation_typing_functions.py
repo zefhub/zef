@@ -5212,6 +5212,20 @@ def is_a_implementation(x, typ):
                     return False
             else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside SetOf but got {t} instead.")
         return True
+    
+    def pattern_vt_matching(x, typ):
+        class Sentinel: pass
+        sentinel = Sentinel() 
+        p = typ | absorbed | single | collect
+        assert (
+            (isinstance(x, dict) and isinstance(p, dict)) 
+        )
+        if isinstance(x, dict):
+            for k, v in p.items():            
+                r = x.get(k, sentinel)
+                if r is sentinel: return False
+                if not is_a_implementation(r, v): return False  
+            return True
 
     def valuetype_matching(el, vt):
         if vt == VT.Any: return True
@@ -5261,11 +5275,14 @@ def is_a_implementation(x, typ):
                         if not is_a_implementation(val_absorbed[i],typ): return False
                     return True
                 return without_absorbed(x) == map_[typ.d['type_name']] and compare_absorbed(x, typ)
-                
+
+            if typ.d['type_name'] == "Pattern":
+                return pattern_vt_matching(x, typ)
+
             return valuetype_matching(x, typ)
         except:
             return False
-    
+                    
     # To handle user passing by int instead of Int by mistake
     if typ in {int, float, bool}:
         py_type_to_vt = {
@@ -5275,6 +5292,7 @@ def is_a_implementation(x, typ):
         }
         print(f"{repr(typ)} was passed as a type, but what you meant was { py_type_to_vt[typ]}!")
         return is_a_implementation(x, py_type_to_vt[typ])
+
 
     if type(x) == _ErrorType:
         if typ == Error:
