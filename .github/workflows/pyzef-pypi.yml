@@ -18,11 +18,13 @@ jobs:
         os: [ubuntu-20.04, macos-latest]
         # os: [ubuntu-20.04]
         # Note: need "3.10" as yaml will truncate floating point number
-        python-version: ["cp38", "cp39", "cp310"]
+        python-version: ["cp37", "cp38", "cp39", "cp310"]
         # python-version: ["cp310"]
         exclude:
           - os: macos-latest
             python-version: "cp38"
+          - os: macos-latest
+            python-version: "cp37"
     env:
       ZEFHUB_AUTH_KEY: "GUEST"
 

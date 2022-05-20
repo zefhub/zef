@@ -1267,7 +1267,7 @@ def insert_imp(d: dict, key, val=None):
     elif isinstance(d, dict):
         return {**d, key: val}
     else:
-        return Error(f'"insert" zefop called with unhandled type {d=} {key=} {val=}')
+        return Error(f'"insert" zefop called with unhandled type d={d} key={key} val={val}')
 
 
 def insert_tp(input_arg0_tp, input_arg1_tp):
@@ -1329,7 +1329,7 @@ def insert_into_imp(key_val_pair, x):
 
     """
     if not isinstance(key_val_pair, (list, tuple)):
-        return Error(f'in "insert_into": key_val_pair must be a list or tuple. It was {type(x)=}     {x=}')
+        return Error(f'in "insert_into": key_val_pair must be a list or tuple. It was type(x)={type(x)}     x={x}')
     
     k, v = key_val_pair
     if isinstance(x, dict):
@@ -2047,7 +2047,7 @@ def absorbed_imp(x):
 
     elif isinstance(x, ZefOp):
         if len(x.el_ops) != 1: 
-            return Error(f'"absorbed" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
+            return Error(f'"absorbed" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on x={x}')
         return x.el_ops[0][1]
 
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
@@ -2057,7 +2057,7 @@ def absorbed_imp(x):
         return x.d['absorbed']
 
     else:
-        return Error(f'absorbed called on {type(x)=}   {x=}')
+        return Error(f'absorbed called on type(x)={type(x)}   x={x}')
 
 
 
@@ -2106,7 +2106,7 @@ def without_absorbed_imp(x):
 
     elif isinstance(x, ZefOp):
         if len(x.el_ops) != 1: 
-            return Error(f'"without_absorbed_imp" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on {x=}')
+            return Error(f'"without_absorbed_imp" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on x={x}')
         return ZefOp( ((x.el_ops[0][0], ()),) )
 
     elif isinstance(x, ValueType_):
@@ -2260,7 +2260,7 @@ def max_tp(*args):
 #---------------------------------------- max_by -----------------------------------------------
 def max_by_imp(v, max_by_function=None):
     if max_by_function is None:
-        raise RuntimeError(f'A function needs to be provided when using max_by. Called for {v=}')
+        raise RuntimeError(f'A function needs to be provided when using max_by. Called for v={v}')
     return builtins.max(v, key=max_by_function)
     
     
@@ -2282,7 +2282,7 @@ def min_tp(a, second, *args):
 #---------------------------------------- min_by -----------------------------------------------
 def min_by_imp(v, min_by_function=None):
     if min_by_function is None:
-        raise RuntimeError(f'A function needs to be provided when using min_by. Called for {v=}')
+        raise RuntimeError(f'A function needs to be provided when using min_by. Called for v={v}')
     return builtins.min(v, key=min_by_function)
     
     
@@ -3474,8 +3474,8 @@ def tx_imp(*args):
     import traceback
     traceback.print_stack()
     print(f"😭😭😭😭😭😭😭😭 Deprecation warning: the 'tx' operator will be deprecated. Its usage was too broad and mixed up concepts. Use 'to_graph_slice' and 'to_tx' instead")
-    # print(f">>>>> {args[0]=}")
-    # print(f">>>>> {args[1]=}")
+    # print(f">>>>> args[0]={args[0]}")
+    # print(f">>>>> args[1]={args[1]}")
     # print(f">>>>> {args[1]== lazy_zefops.instantiated}")
     x = args[0]
     if len(args) == 1:          
@@ -3494,7 +3494,7 @@ def tx_imp(*args):
             if args[1].el_ops[0][0] == RT.Terminated:                                
                 return pyzefops.termination_tx(x)
 
-    raise Exception("Unknown type for tx op {type(args[0])=}")
+    raise Exception("Unknown type for tx op type(args[0])={type(args[0])}")
 
 
 def tx_tp(op, curr_type):
@@ -3580,7 +3580,7 @@ def now_implementation(*args):
             z=args[0]
             return z | in_frame[allow_tombstone][now(Graph(z))] | collect
 
-    raise TypeError(f'now called with unsuitable types: {args=}')
+    raise TypeError(f'now called with unsuitable types: args={args}')
 
             
 def now_type_info(*args_tp):
@@ -3614,7 +3614,7 @@ def time_slice_implementation(first_arg, *curried_args):
 
     # Old usage:
     if not is_a(first_arg, BT.TX_EVENT_NODE):
-        print(f"😞😞😞😞😞  The use of the 'time_slice' operator with {type(first_arg)=} is deprecated: 😞😞😞😞😞")    
+        print(f"😞😞😞😞😞  The use of the 'time_slice' operator with type(first_arg)={type(first_arg)} is deprecated: 😞😞😞😞😞")    
     return (pyzefops.time_slice)(first_arg, *curried_args).value
 
 
@@ -3658,7 +3658,7 @@ def next_tx_imp(z_tx):
         else:
             return ZefRef(z_moved, z_frame_ezr)
 
-    raise TypeError(f'next_tx can only take ZefRef and EZefRef, got {z_tx=} {type(z_tx)=}')
+    raise TypeError(f'next_tx can only take ZefRef and EZefRef, got z_tx={z_tx} type(z_tx)={type(z_tx)}')
 
 
 def next_tx_tp(z_tp):
@@ -3696,7 +3696,7 @@ def previous_tx_imp(z_tx):
         else:
             return ZefRef(z_moved, z_frame_ezr)
 
-    raise TypeError(f'previous_tx can only take ZefRef and EZefRef, got {z_tx=} {type(z_tx)=}')
+    raise TypeError(f'previous_tx can only take ZefRef and EZefRef, got z_tx={z_tx} type(z_tx)={type(z_tx)}')
 
 
 def previous_tx_tp(z_tp):
@@ -4100,7 +4100,7 @@ def to_tx_imp(x, t=None):
         if t < now() and t >= (txs | last | time  | c):
             return txs | last | c
         return txs | take_until[time | greater_than_or_equal[t]] | last | c
-    raise TypeError(f'"x | to_tx" can only be called for x being a GraphSlice or a Graph. {x=}')
+    raise TypeError(f'"x | to_tx" can only be called for x being a GraphSlice or a Graph. x={x}')
 
 
 def to_tx_tp(x):
@@ -4176,9 +4176,9 @@ def time_travel_imp(x, *args):
             tombstone_allowed = True
             p = args[0]
         else:
-            raise RuntimeError(f"If two args are curried into 'time_travel', one of them MUST be 'ops.allow_tombstone'. Given: {args=}")
+            raise RuntimeError(f"If two args are curried into 'time_travel', one of them MUST be 'ops.allow_tombstone'. Given: args={args}")
     else:
-        raise RuntimeError(f"At most two args may be curried into time_travel. Given: {args=}")
+        raise RuntimeError(f"At most two args may be curried into time_travel. Given: args={args}")
 
     try:
         if isinstance(x, ZefRef):
@@ -4187,13 +4187,13 @@ def time_travel_imp(x, *args):
             elif isinstance(p, Time):
                 new_frame = Graph(x) | to_tx[p] | to_graph_slice | c
                 if new_frame is None:
-                    raise RuntimeError(f"could not determine suitable reference frame / graph slice in x | time_travel[p] for {x=}  {p=}")
+                    raise RuntimeError(f"could not determine suitable reference frame / graph slice in x | time_travel[p] for x={x}  p={p}")
                 return (x | in_frame[allow_tombstone][new_frame] | c) if tombstone_allowed else (x | in_frame[new_frame] | c)
             elif is_duration(p):
                 t = (x | frame | time | c) + p
                 new_frame = Graph(x) | to_tx[t] | to_graph_slice | c
                 if new_frame is None:
-                    raise RuntimeError(f"could not determine suitable reference frame / graph slice in x | time_travel[p] for {x=}  {p=}")
+                    raise RuntimeError(f"could not determine suitable reference frame / graph slice in x | time_travel[p] for x={x}  p={p}")
                 return (x | in_frame[allow_tombstone][new_frame] | c) if tombstone_allowed else (x | in_frame[new_frame] | c)
 
         if isinstance(x, GraphSlice):
@@ -4211,7 +4211,7 @@ def time_travel_imp(x, *args):
             if isinstance(p, Time):
                 new_frame = Graph(x) | to_tx[p] | to_graph_slice | c
                 if new_frame is None:
-                    raise RuntimeError(f"could not determine suitable reference frame / graph slice in x | time_travel[p] for {x=}  {p=}")
+                    raise RuntimeError(f"could not determine suitable reference frame / graph slice in x | time_travel[p] for x={x}  p={p}")
                 return (x | in_frame[allow_tombstone][new_frame] | c) if tombstone_allowed else (x | in_frame[new_frame] | c)
         
         elif isinstance(x, Graph):        
@@ -4219,8 +4219,8 @@ def time_travel_imp(x, *args):
                 return x | to_tx[p] | to_graph_slice | c
     
     except Exception as e:
-        raise RuntimeError(f'Error applying time_travel operator for {x=}  and  {p=} - {e=}')
-    raise TypeError(f"x | time_travel[p] was called for {x=}  {p=}")
+        raise RuntimeError(f'Error applying time_travel operator for x={x}  and  p={p} - e={e}')
+    raise TypeError(f"x | time_travel[p] was called for x={x}  p={p}")
 
 
 
@@ -4383,9 +4383,9 @@ def apply_functions_imp(x, *fns):
     """
     import builtins
     if not (isinstance(x, tuple) or isinstance(x, list)):
-        raise TypeError(f"The dataflow argument for apply_functions must be a list/tuple: Got a {type(x)=} Value: {x=}")
+        raise TypeError(f"The dataflow argument for apply_functions must be a list/tuple: Got a type(x)={type(x)} Value: x={x}")
     if not len(fns) == len(x):
-        raise TypeError(f"the length of the dataflow argument for apply_functions must be the same length as the list of functions provided. Got {x=} and {fns=}" )
+        raise TypeError(f"the length of the dataflow argument for apply_functions must be the same length as the list of functions provided. Got x={x} and fns={fns}" )
     return tuple(
         (f(el) for f, el in builtins.zip(fns, x))
     )
@@ -6900,7 +6900,7 @@ def fg_insert_imp(fg, new_el):
             ent_idx = common_logic(ent)
             [_insert_single((Z[ent_idx], k, v)) for k,v in sub_d.items()]
         else: 
-            raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\n{new_el=}")
+            raise NotImplementedError(f"Insert not implemented for type(new_el)={type(new_el)}.\nnew_el={new_el}")
         
     if isinstance(new_el, list): [_insert_single(el) for el in new_el]
     elif isinstance(new_el, dict): 

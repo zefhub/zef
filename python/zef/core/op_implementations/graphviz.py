@@ -208,7 +208,7 @@ def graphviz_imp(zz, *flags):
             G.edge(str(index(z | source | collect)), str(index(z)), color=col, dir="back", arrowtail="dot")
             G.edge(str(index(z)), str(index(z | target | collect)), color=col, dir="forward", arrowhead="normal")
         except Exception as e:
-            #print(f"add_gv_edges failed for {z} {e=}")
+            #print(f"add_gv_edges failed for {z} e={e}")
             pass
         
     nodes, edges = zz | group_by[is_node][(True,False)] | map[second] |  collect

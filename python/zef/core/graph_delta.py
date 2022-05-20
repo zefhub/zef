@@ -774,7 +774,7 @@ def realise_single_node(x, gen_id):
         iid = x
         exprs = [x]
     else:
-        raise TypeError(f'in GraphDelta encode step: for {type(x)=}')
+        raise TypeError(f'in GraphDelta encode step: for type(x)={type(x)}')
 
     return iid, exprs
 
@@ -1191,7 +1191,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                     d_raes[this_id] = zz
 
     except Exception as exc:        
-        raise RuntimeError(f"Error executing graph delta transaction {exc=}") from exc
+        raise RuntimeError(f"Error executing graph delta transaction exc={exc}") from exc
         
     return d_raes    # the transaction receipt
 

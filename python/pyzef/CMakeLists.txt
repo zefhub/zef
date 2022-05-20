@@ -20,28 +20,9 @@ project(PyZef)
 ############################
 # * Python
 
-# if(ENV{ZEFDB_STATIC_PYTHON})
-#   # This only works for newer cmakes
-#   set(Python3_FIND_STRATEGY LOCATION)
-#   set(Python3_USE_STATIC_LIBS TRUE)
-#   if($ENV{FORCE_PYTHON_VERSION})
-#     set(PYTHON_VERSION_ARG "EXACT" $ENV{FORCE_PYTHON_VERSION})
-#   endif()
-# endif()
-
-# Going to rely on pybind for the python libraries, as a way to circumvent issues with earlier cmake versions.
-
 find_package(Python3 ${PYTHON_VERSION_ARG} REQUIRED COMPONENTS Development.Module Interpreter)
 
-# Prepare build deps
-# option(ZEFDB_INSTALL_PIP_DEPS "Install python build dependencies using Python3_EXECUTEABLE -mpip" ON)
-# if(ZEFDB_INSTALL_PIP_DEPS)
-#   message(STATUS "Installing python build dependencies using pip.")
-#   execute_process(COMMAND ${Python3_EXECUTABLE} -m pip install -r ${CMAKE_CURRENT_SOURCE_DIR}/requirements_build.txt)
-# endif()
-
 # Find pybind
-# Note: pybind is needed for libzef as a convenience.
 message(STATUS "Using python executable of ${Python3_EXECUTABLE}")
 execute_process(COMMAND ${Python3_EXECUTABLE} -m pybind11 --cmakedir
   OUTPUT_VARIABLE PYBIND_CMAKE_LOCATION
