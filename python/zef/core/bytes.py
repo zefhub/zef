@@ -23,7 +23,7 @@ class Bytes_:
         elif isinstance(x, str) and all(c in string.hexdigits for c in x):
             self.data = x.encode()    # use utf8
         else:
-            raise NotImplementedError(f"constructing a bytes from {x=}")
+            raise NotImplementedError(f"constructing a bytes from x={x}")
     
     def __repr__(self):
         return f'Bytes("{self.data.hex()}")'
