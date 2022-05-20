@@ -1057,7 +1057,14 @@ def encode(xx):
             # Should contain a single key to another dict with k,v pairs where k is an RT
             ent, sub_d = list(x.items()) | single | collect
             ent = step(ent, True)
-            triples = [step((Z[ent], k, v), False) for k,v in sub_d.items()]
+            triples = []
+            for k,v in sub_d.items():
+                if isinstance(v, dict):
+                    extra_ent, extra_doubles = step(v, True)
+                    triples.append(step((Z[ent], k, Z[extra_ent]), False))
+                    triples.extend([(extra_ent, *double) for double in extra_doubles])
+                else:
+                    triples.append(step((Z[ent], k, v), False))
             doubles = [x[1:] for x in triples]
             return (ent, doubles)
             
