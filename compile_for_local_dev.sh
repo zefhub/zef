@@ -43,7 +43,7 @@ jqout=$(tomlq -r '."build-system".requires | @sh' python/pyproject.toml)
 eval "packages=( $jqout )"
 python3 -m pip install "${packages[@]}" || exit 1
 # Install the runtime requirements
-# python3 -m pip install -qr requirements.txt || exit 1
+python3 -m pip install -qr python/requirements.txt || exit 1
 
 
 
