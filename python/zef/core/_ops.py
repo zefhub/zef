@@ -253,6 +253,12 @@ has_relation    = make_zefop(RT.HasRelation)
 
 replace_at      = make_zefop(RT.ReplaceAt)           
 pad_to_length   = make_zefop(RT.PadToLength)           
+pad_left        = make_zefop(RT.PadLeft)           
+pad_right       = make_zefop(RT.PadRight)           
+pad_center      = make_zefop(RT.PadCenter)           
+ceil            = make_zefop(RT.Ceil)           
+floor           = make_zefop(RT.Floor)           
+round           = make_zefop(RT.Round)           
 random_pick     = make_zefop(RT.RandomPick)           
 
 to_json         = make_zefop(RT.ToJSON)           

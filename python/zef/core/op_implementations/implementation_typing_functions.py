@@ -1138,11 +1138,13 @@ def chunk_imp(iterable, chunk_size: int):
     until the earlier iterable has consumed them, then discard them.
 
     ---- Examples ----
-    >>> range(8) | chunk[3]     #  [[0, 1, 2], [3, 4, 5], [6, 7]]
+    >>> range(8) | chunk[3]          # => [[0, 1, 2], [3, 4, 5], [6, 7]]
+    >>> 'abcdefgh' | chunk_imp[3]    # => ['abc', 'def', 'gh']
     
     ---- Signature ----
     (List[T], Int)   -> List[List[T]]
     (Stream[T], Int) -> Stream[Stream[T]]
+    (String, Int)   -> List[String]
 
     ---- Tags ----
     operates on: List
@@ -1156,6 +1158,13 @@ def chunk_imp(iterable, chunk_size: int):
     related zefop: slice
     """
     it = iter(iterable)
+    if isinstance(iterable, str):
+        c = 0
+        while c*chunk_size < len(iterable):
+            yield iterable[c*chunk_size:(c+1)*chunk_size]
+            c+=1
+        return
+
     while True:
         try:
             # evaluate the entire chunk. Otherwise we have to share 
@@ -1173,8 +1182,6 @@ def chunk_imp(iterable, chunk_size: int):
             if this_chunk != []:
                 yield this_chunk
             return
-
-
 
 
 def chunk_tp(v_tp, step_tp):
@@ -6396,14 +6403,200 @@ def replace_at_imp(str_or_list, index, new_el):
 def replace_at_tp(op, curr_type):
     return VT.String
 
+
+
+
 def pad_to_length_imp(s: VT.String, l: VT.Int) -> VT.String:
     """ 
     Pads a string with white space to the right to a specific length l.
     """
+    print("😞😞😞😞😞  pad_to_length_imp is deprecated. Use 'pad_right' instead")
     return s + (" " * (l - len(s))) 
 
 def pad_to_length_tp(op, curr_type):
     return VT.String
+
+
+
+
+
+#---------------------------------------- floor -----------------------------------------------
+def floor_imp(x):
+    """
+    The mathematical floor function.
+    Rounds down to the next smallest integer.
+
+    ---- Examples ----
+    >>> 5.1 | floor      # => 5
+    >>> 5.9 | floor      # => 5
+    >>> 5.0 | floor      # => 5
+
+    ---- Signature ----
+    Float -> Int
+    Int -> Int
+
+    ---- Tags ----
+    operates on: Float
+    used for: maths
+    related zefop: ceil
+    related zefop: round
+    """
+    import math
+    return math.floor(x)
+
+#---------------------------------------- ceil -----------------------------------------------
+def ceil_imp(x):
+    """
+    The mathematical ceil function.
+    Rounds down to the next biggest integer.
+
+    ---- Examples ----
+    >>> 5.1 | ceil      # => 6
+    >>> 5.9 | ceil      # => 6
+    >>> 5.0 | ceil      # => 5
+
+    ---- Signature ----
+    Float -> Int
+    Int -> Int
+
+    ---- Tags ----
+    operates on: Float
+    used for: maths
+    related zefop: floor
+    related zefop: round
+    """
+    import math
+    return math.ceil(x)
+
+
+#---------------------------------------- round -----------------------------------------------
+def round_imp(x):
+    """
+    The mathematical round function.
+    Rounds down to the next integer.
+
+    ---- Examples ----
+    >>> 5.1 | round      # => 5
+    >>> 5.9 | round      # => 6
+    >>> 5.5 | round      # => 5
+    >>> 5.0 | round      # => 5
+
+    ---- Signature ----
+    Float -> Int
+    Int -> Int
+
+    ---- Tags ----
+    operates on: Float
+    used for: maths
+    related zefop: floor
+    related zefop: ceil
+    """
+    import builtins
+    return builtins.round(x)
+
+
+
+
+#---------------------------------------- pad_left -----------------------------------------------
+def pad_left_imp(s, target_length: int, pad_element=' '):
+    """
+    Pads a string to a specified length by inserting
+    the pad_element on the left.
+    If the input string is longer than the specified
+    length, the original string is returned.
+    The pad_element is optional, with ' ' being the
+    default.
+    
+    ---- Examples ----
+    >>> 'hi' | pad_left[5]['.']      # => '...hi'
+    >>> 'hi' | pad_left[5]           # => '   hi'
+
+    ---- Signature ----
+    String -> String
+
+    ---- Tags ----
+    operates on: String
+    used for: string manipulation
+    related zefop: pad_right
+    related zefop: pad_center
+    related zefop: slice
+    """
+    if not isinstance(s, str): raise NotImplementedError()
+    if len(pad_element) != 1: raise ValueError("pad_element must be of length 1 in 'pad_left'")
+    l = len(s)
+    return s if l>= target_length else f"{pad_element*(target_length-l)}{s}"
+
+
+
+#---------------------------------------- pad_right -----------------------------------------------
+def pad_right_imp(s, target_length: int, pad_element=' '):
+    """
+    Pads a string to a specified length by inserting
+    the pad_element on the right.
+    If the input string is longer than the specified
+    length, the original string is returned.
+    The pad_element is optional, with ' ' being the
+    default.
+    
+    ---- Examples ----
+    >>> 'hi' | pad_right[5]['.']      # => 'hi...'
+    >>> 'hi' | pad_right[5]           # => 'hi   '
+
+    ---- Signature ----
+    String -> String
+
+    ---- Tags ----
+    operates on: String
+    used for: string manipulation
+    related zefop: pad_left
+    related zefop: pad_center
+    related zefop: slice
+    """
+    if not isinstance(s, str): raise NotImplementedError()
+    if len(pad_element) != 1: raise ValueError("pad_element must be of length 1 in 'pad_right'")
+    l = len(s)
+    return s if l>= target_length else f"{s}{pad_element*(target_length-l)}"
+
+
+#---------------------------------------- pad_center -----------------------------------------------
+def pad_center_imp(s, target_length: int, pad_element=' '):
+    """
+    Pads a string to a specified length by inserting
+    the pad_element on both sides, equally.
+    If an odd number of pad_elements must be distributed,
+    one more is added to the left.
+    If the input string is longer than the specified
+    length, the original string is returned.
+    The pad_element is optional, with ' ' being the
+    default.
+    
+    ---- Examples ----
+    >>> 'hi' | pad_center[5]['.']      # => '..hi.'
+    >>> 'hi' | pad_center[5]           # => '  hi '
+
+    ---- Signature ----
+    String -> String
+
+    ---- Tags ----
+    operates on: String
+    used for: string manipulation
+    related zefop: pad_left
+    related zefop: pad_right
+    related zefop: slice
+    """
+    from math import floor, ceil
+    if not isinstance(s, str): raise NotImplementedError()
+    if len(pad_element) != 1: raise ValueError("pad_element must be of length 1 in 'pad_center'")
+    l = len(s)
+    diff2 = (target_length-l)/2
+    return s if l>= target_length else f"{pad_element*(ceil(diff2))}{s}{pad_element*(floor(diff2))}"
+
+
+
+
+
+#---------------------------------------- random_pick -----------------------------------------------
+
 
 def random_pick_imp(itr: VT.Any) -> VT.Any:
     """ 
