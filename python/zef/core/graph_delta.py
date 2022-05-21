@@ -178,20 +178,30 @@ def construct_commands(elements) -> list:
                     new_cmd[key] = mapping_dict[cmd[key]]
         return new_cmd
 
+    @func
     def handle_dict(el):
-        if not isinstance(el, dict): return [el]
+        if not isinstance(el, dict): return [el], None
 
         entity, sub_d = list(el.items()) | single | collect # Will throw if there isn't a single key in the dict
         iid, _ = realise_single_node(entity, generate_id)
         if isinstance(entity, (EntityType, RelationType, AtomicEntityType)) and len(absorbed(entity)) == 0:
             entity = entity[iid]
 
-        return [entity] +  [(Z[iid], k, v) for k,v in sub_d.items()] 
+        triples = []
+        for k,v in sub_d.items():
+            if isinstance(v, dict):
+                additional, new_iid = handle_dict(v)
+                triples.append((Z[iid], k, Z[new_iid]))
+                triples.extend(additional)
+            else:
+                triples.append((Z[iid], k, v))
+
+        return [entity] +  triples, iid
                 
     # nested_cmds = nested_cmds | map[P(update_ids, mapping_dict=mapping_dict)] | collect
     
     # handle any dict if found
-    elements = elements | map[handle_dict] | concat | collect
+    elements = elements | map[handle_dict | first] | concat | collect
     # Obtain all user IDs
     id_definitions = elements | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
     # Check that nothing needs a user ID that wasn't provided
@@ -1047,7 +1057,14 @@ def encode(xx):
             # Should contain a single key to another dict with k,v pairs where k is an RT
             ent, sub_d = list(x.items()) | single | collect
             ent = step(ent, True)
-            triples = [step((Z[ent], k, v), False) for k,v in sub_d.items()]
+            triples = []
+            for k,v in sub_d.items():
+                if isinstance(v, dict):
+                    extra_ent, extra_doubles = step(v, True)
+                    triples.append(step((Z[ent], k, Z[extra_ent]), False))
+                    triples.extend([(extra_ent, *double) for double in extra_doubles])
+                else:
+                    triples.append(step((Z[ent], k, v), False))
             doubles = [x[1:] for x in triples]
             return (ent, doubles)
             
