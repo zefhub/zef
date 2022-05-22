@@ -70,7 +70,7 @@ exponential     = make_zefop(RT.Exponential)
 logarithm       = make_zefop(RT.Logarithm)
 
 equals          = make_zefop(RT.Equals)
-greater_than    = make_zefop(RT.LargerThan)
+greater_than    = make_zefop(RT.GreaterThan)
 less_than       = make_zefop(RT.LessThan)
 greater_than_or_equal = make_zefop(RT.GreaterThanOrEqual)
 less_than_or_equal = make_zefop(RT.LessThanOrEqual)

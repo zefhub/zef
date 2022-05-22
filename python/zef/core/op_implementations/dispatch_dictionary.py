@@ -213,7 +213,7 @@ _op_to_functions = {
         RT.MaxBy:               (max_by_imp, max_by_tp),
         RT.MinBy:               (min_by_imp, min_by_tp),
         RT.Equals:              (equals_imp, equals_tp),
-        RT.LargerThan:          (greater_than_imp, greater_than_tp),
+        RT.GreaterThan:          (greater_than_imp, greater_than_tp),
         RT.LessThan:            (less_than_imp, less_than_tp),
         RT.GreaterThanOrEqual:  (greater_than_or_equal_imp, greater_than_or_equal_to),
         RT.LessThanOrEqual:     (less_than_or_equal_imp, less_than_or_equal_to),
