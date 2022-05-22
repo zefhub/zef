@@ -198,6 +198,8 @@ _op_to_functions = {
         RT.Permutations:        (permutations_imp, permutations_tp),
         RT.Combinations:        (combinations_imp, combinations_tp),
         RT.Add:                 (add_imp, add_tp),
+        RT.Sum:                 (sum_imp, None),
+        RT.Product:             (product_imp, None),
         RT.Subtract:            (subtract_imp, subtract_tp),
         RT.Multiply:            (multiply_imp, multiply_tp),
         RT.Divide:              (divide_imp, divide_tp),

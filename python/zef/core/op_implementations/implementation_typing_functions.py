@@ -2126,10 +2126,71 @@ def without_absorbed_imp(x):
 
 
 
+#---------------------------------------- sum -----------------------------------------------
+def sum_imp(v):
+    """
+    Sums up all elements in a List.
+    Similar to the `add` zefop, but to be used in the case of a 
+    single argument being passed as a list.
+    `add` is used when exactly two elements are passed individually.
+
+    ---- Signature ----
+    List[T] -> T
+
+    ---- Tags ----
+    used for: maths
+    operates on: List
+    related zefop: add
+    related zefop: product
+    """
+    import builtins
+    return builtins.sum(v)
+
+
+#---------------------------------------- product -----------------------------------------------
+def product_imp(v):
+    """
+    Multiplies up all elements in a List.
+    Similar to the `multiply` zefop, but to be used in the case of a 
+    single argument being passed as a list.
+    `multiply` is used when exactly two elements are passed individually.
+
+    ---- Signature ----
+    List[T] -> T
+
+    ---- Tags ----
+    used for: maths
+    operates on: List
+    related zefop: multiply
+    related zefop: sum
+    """
+    from functools import reduce
+    return reduce(lambda x, y: x * y, v)   # uses 1 as initial val
+
+
 #---------------------------------------- add -----------------------------------------------
 def add_imp(a, second=None, *args):
+    """
+    Adds two elements. Neither is a list.
+    Don't use this when summing up a list, use `sum`
+    in that case.
+
+    ---- Examples ----
+    40 | add[2]    # => 42
+
+    ---- Signature ----
+    (T1, T2) -> T1 | T2
+
+    ---- Tags ----
+    used for: maths
+    related zefop: sum
+    related zefop: subtract
+    related zefop: multiply
+    related zefop: divide
+    """
     from functools import reduce
     if second is None:
+        print(f"Warning: add was used for list {a}. This use will be deprecated: use `sum` here.")
         return reduce(lambda x, y: x + y, a)
     return reduce(lambda x, y: x + y, [a, second, *args])
     
@@ -4366,7 +4427,7 @@ def hasin_implementation(zr, rt):
 
 
 # -------------------------------- apply_functions -------------------------------------------------
-def apply_functions_imp(x, *fns):
+def apply_functions_imp(x, fns):
     """ 
     Apply different functions to different elements in a list.
     The use case is similar to using Zef's map[f1,f2,f3] with multiple
@@ -4375,16 +4436,17 @@ def apply_functions_imp(x, *fns):
     The input list and list of functions must be of the same length.
 
     ---- Examples ----
-    ['Hello', 'World'] | apply_functions[to_upper_case][to_lower_case]    # => ['HELLO', 'world']
+    ['Hello', 'World'] | apply_functions[to_upper_case, to_lower_case]    # => ['HELLO', 'world']
 
     ---- Signature ----
-    VT.List -> VT.List
+    (Tuple[T1, ...,TN], Tuple[T1->TT1, ..., TN->TTN] ) -> Tuple[TT1, ...,TTN]
 
     ---- Tags ----
     - used for: control flow
     - operates on: ZefOps, Functions
     - related zefop: func
     - related zefop: reverse_args
+    - related zefop: map
     """
     import builtins
     if not (isinstance(x, tuple) or isinstance(x, list)):
@@ -4410,11 +4472,8 @@ def map_implementation(v, f):
     case.    
 
     ---- Examples -----
-    >>> [3, 4, 5] | map[lambda x: x+1]                      # => [4, 5, 6]
-    >>> add_one, to_upper = add[1], lambda c: c.upper()
-    >>> [(2, 'a'), (3, 'b')] | map[(add_one, to_upper)]     # => [(3, 'A'), (4, 'B')]
-    >>>
-    >>> my_int_stream | map[lambda x: x+1]                  # returns a Stream[Int]
+    >>> [3, 4, 5] | map[add[1]]                      # => [4, 5, 6]
+    >>> [1, 2, 3] | map[str, add[100]]               # => [('1', 101), ('2', 102), ('3', 103)]
 
     ---- Signature ----
     (List[T1], (T1 -> T2))  -> List[T2]
@@ -4422,6 +4481,7 @@ def map_implementation(v, f):
     ---- Tags ----
     - used for: control flow
     - used for: function application
+    - related zefop: apply_functions
     """
     import builtins
     input_type = parse_input_type(type_spec(v))
@@ -4433,11 +4493,9 @@ def map_implementation(v, f):
     else:
         if not isinstance(v, Iterable): raise TypeError(f"Map only accepts values that are Iterable. Type {type(v)} was passed")
         if isinstance(f, list) or isinstance(f, tuple):
-            n = len(f)
             def wrapper_list():
-                for w in v:
-                    assert len(w) == n
-                    yield tuple((ff(el) for (ff, el) in builtins.zip(f, w)))
+                for el in v:            
+                    yield tuple(ff(el) for ff in f)
             return wrapper_list()
         else:
             def wrapper():
