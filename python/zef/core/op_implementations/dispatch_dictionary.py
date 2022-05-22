@@ -94,6 +94,7 @@ _op_to_functions = {
         RT.Instances:       (instances_implementation, instances_type_info),
         RT.Uid:             (uid_implementation, uid_type_info),
         RT.Frame:           (frame_imp, frame_tp),
+        RT.DiscardFrame:    (discard_frame_imp, None),
         RT.BaseUid:         (base_uid_implementation, base_uid_type_info),
         RT.OriginUid:       (origin_uid_imp, origin_uid_tp),
         RT.OriginRAE:       (origin_rae_imp, origin_rae_tp),

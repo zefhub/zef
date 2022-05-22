@@ -176,6 +176,7 @@ sort            = make_zefop(RT.Sort)
 instances       = make_zefop(RT.Instances)
 uid             = make_zefop(RT.Uid)
 frame           = make_zefop(RT.Frame)
+discard_frame   = make_zefop(RT.DiscardFrame)
 to_frame        = make_zefop(RT.InFrame)                           # TODO: retire this. Use 'in_frame' instead
 in_frame        = make_zefop(RT.InFrame)
 to_graph_slice  = make_zefop(RT.ToGraphSlice)

@@ -4163,6 +4163,41 @@ def in_frame_tp(op, curr_type):
     return VT.Any
 
 
+# ----------------------------------------- discard_frame --------------------------------------------
+def discard_frame_imp(x):
+    """
+    Given any kind of reference referring to a RAE,
+    it returns the frame-independent representation.
+
+    ---- Signature ----
+    ZefRef[ET[T1]] -> Entity[T1]
+    ZefRef[AET[T1]] -> AtomicEntity[T1]
+    ZefRef[RT[T1]] -> Relation[T1]
+    ZefRef[BT.TX] -> TX           # TODO
+    ZefRef[BT.Root] -> Graph      # TODO
+
+    EZefRef[ET[T1]] -> Entity[T1]
+    EZefRef[AET[T1]] -> AtomicEntity[T1]
+    EZefRef[RT[T1]] -> Relation[T1]
+    EZefRef[BT.TX] -> TX          # TODO
+    EZefRef[BT.Root] -> Graph     # TODO
+
+    Entity[T1] -> Entity[T1]
+    AtomicEntity[T1] -> AtomicEntity[T1]
+    Relation[T1] -> Relation[T1]
+
+    ---- Tags ----
+    
+    """
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
+        if   BT(x) == BT.ENTITY_NODE: return Entity(x)
+        elif BT(x) == BT.RELATION_EDGE: return Relation(x)
+        elif BT(x) == BT.ATOMIC_ENTITY_NODE: return AtomicEntity(x)
+    if isinstance(x, Entity) or isinstance(x, Relation) or isinstance(x, AtomicEntity):
+        return x
+    raise TypeError(f"'discard_frame' not implemented for type {type(x)}: it was passed {x}")
+
+
 # ----------------------------------------- to_graph_slice --------------------------------------------
 def to_graph_slice_imp(*args):
     """
