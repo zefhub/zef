@@ -112,5 +112,5 @@ Pattern = ValueType_(type_name='Pattern', constructor_func=None)
 # These are special classes: using them with [...] returns a ValueType_ though
 Union = UnionClass()
 Intersection = IntersectionClass()
-SetOf = SetOfClass()
+Is = IsClass()
 Complement = ComplementClass()

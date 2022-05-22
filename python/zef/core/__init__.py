@@ -109,7 +109,7 @@ from .VT import (
 
     Union,
     Intersection,
-    SetOf,
+    Is,
     Complement,
     Pattern
     )

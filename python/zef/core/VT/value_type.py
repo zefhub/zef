@@ -55,7 +55,7 @@ Should Union be of type ZefType? Or just return a ZefType?
 
 Intersection
 Union
-SetOf
+Is
 
 There is also a Union ValueType_, which is returned.
 This custom structure may rearrange and parse terms.
@@ -158,17 +158,17 @@ class IntersectionClass:
             
 
 
-class SetOfClass:
+class IsClass:
     def __getitem__(self, x):
         from ..op_structs import ZefOp
         if isinstance(x, tuple):
-            return ValueType_(type_name='SetOf', absorbed=x)
+            return ValueType_(type_name='Is', absorbed=x)
         elif isinstance(x, ValueType_):
-            return ValueType_(type_name='SetOf', absorbed=(x,))
+            return ValueType_(type_name='Is', absorbed=(x,))
         elif isinstance(x, ZefOp):
-            return ValueType_(type_name='SetOf', absorbed=(x,))
+            return ValueType_(type_name='Is', absorbed=(x,))
         else:
-            raise Exception(f'"SetOf[...]" called with unsupported type {type(x)}')
+            raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
 
 
 class ComplementClass:

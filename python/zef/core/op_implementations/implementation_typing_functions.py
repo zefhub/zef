@@ -5270,13 +5270,13 @@ def is_a_implementation(x, typ):
         from typing import Callable
         for t in setof.d['absorbed']: 
             if isinstance(t, ValueType_): 
-                return Error.ValueError(f"A ValueType_ was passed to SetOf but it only takes predicate functions. Try wrapping in is_a[{t}]")
+                return Error.ValueError(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
             elif isinstance(t, (ZefOp, Callable)):
                 try:
                     if not t(el): return False
                 except:
                     return False
-            else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside SetOf but got {t} instead.")
+            else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
         return True
     
     def pattern_vt_matching(x, typ):
@@ -5325,7 +5325,7 @@ def is_a_implementation(x, typ):
             if typ.d['type_name'] == "Intersection":
                 return intersection_matching(x, typ)
 
-            if typ.d['type_name'] == "SetOf":
+            if typ.d['type_name'] == "Is":
                 return setof_matching(x, typ)
             
             if typ.d['type_name'] == "Complement":
