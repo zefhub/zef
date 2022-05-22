@@ -3380,7 +3380,7 @@ def replace_imp(collection, old_val, new_val):
     Replace any specified old value with a new value in a List.
     
     ---- Examples ----
-    >>> ['a', 'b', 'c', 'd'] | replace['b', 42]    # ['a', 42, 'c', 'd'] 
+    >>> ['a', 'b', 'c', 'd'] | replace['b'][42]    # ['a', 42, 'c', 'd'] 
     >>> 'the zen of python' | replace['n']['f']    # 'the zef of pythof'
 
     ---- Signature ----
