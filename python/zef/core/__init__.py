@@ -109,9 +109,10 @@ from .VT import (
 
     Union,
     Intersection,
-    Is,
     Complement,
-    Pattern
+    Is,
+    SetOf,
+    Pattern,
     )
 from .VT.value_type import ValueType_
 

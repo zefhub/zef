@@ -5266,7 +5266,7 @@ def is_a_implementation(x, typ):
             if not is_a_implementation(el, t): return False
         return True
 
-    def setof_matching(el, setof):
+    def is_matching(el, setof):
         from typing import Callable
         for t in setof.d['absorbed']: 
             if isinstance(t, ValueType_): 
@@ -5278,6 +5278,13 @@ def is_a_implementation(x, typ):
                     return False
             else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
         return True
+    
+
+    def set_of_matching(el, setof):
+        from typing import Callable
+        for set_el in setof.d['absorbed']: 
+            if set_el == el: return True
+        return False
     
     def pattern_vt_matching(x, typ):
         class Sentinel: pass
@@ -5326,7 +5333,10 @@ def is_a_implementation(x, typ):
                 return intersection_matching(x, typ)
 
             if typ.d['type_name'] == "Is":
-                return setof_matching(x, typ)
+                return is_matching(x, typ)
+
+            if typ.d['type_name'] == "SetOf":
+                return set_of_matching(x, typ)
             
             if typ.d['type_name'] == "Complement":
                 return not is_a_implementation(x, typ.d['absorbed'][0])

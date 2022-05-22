@@ -158,19 +158,6 @@ class IntersectionClass:
             
 
 
-class IsClass:
-    def __getitem__(self, x):
-        from ..op_structs import ZefOp
-        if isinstance(x, tuple):
-            return ValueType_(type_name='Is', absorbed=x)
-        elif isinstance(x, ValueType_):
-            return ValueType_(type_name='Is', absorbed=(x,))
-        elif isinstance(x, ZefOp):
-            return ValueType_(type_name='Is', absorbed=(x,))
-        else:
-            raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
-
-
 class ComplementClass:
     def __getitem__(self, x):
         from ..op_structs import ZefOp
@@ -182,7 +169,36 @@ class ComplementClass:
             return ValueType_(type_name='Complement', absorbed=(x,))
         else:
             raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
-            
+   
+
+class IsClass:
+    def __getitem__(self, x):
+        from ..op_structs import ZefOp
+        if isinstance(x, tuple):
+            return ValueType_(type_name='Is', absorbed=x)
+        elif isinstance(x, ValueType_):
+            return ValueType_(type_name='Is', absorbed=(x,))
+        elif isinstance(x, ZefOp):
+            return ValueType_(type_name='Is', absorbed=(x,))
+        else:
+            raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
+         
+
+class SetOfClass:
+    def __getitem__(self, x):
+        # TODO: make sure that x is a zef value. No other python objects that we can't serialize etc.
+        return ValueType_(type_name='SetOf', absorbed=(x, ))
+    def __call__(self, *x):
+        """
+        calling SetOf(5,6,7) is a more convenient shorthand notation than 
+        SetOf[5][6][7]. But the former expression evaluates to the latter.
+
+        We can't use `SetOf[5,6,7]` here, since Python's treatment of
+        the [...] operator converts this to a tuple `SetOf[(5,6,7)]`,
+        which itself is a valid expression.
+        """
+        return ValueType_(type_name='SetOf', absorbed = x)
+
 
 
 def make_distinct(v):
