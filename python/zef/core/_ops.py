@@ -215,6 +215,7 @@ is_distinct     = make_zefop(RT.IsDistinct)
 is_distinct_by  = make_zefop(RT.IsDistinctBy)
 shuffle         = make_zefop(RT.Shuffle)
 split           = make_zefop(RT.Split)
+split_if        = make_zefop(RT.SplitIf)
 graphviz        = make_zefop(RT.Graphviz)
 
 tx              = make_zefop(RT.Tx)
@@ -289,6 +290,8 @@ inject_list    = make_zefop(RT.InjectList)
 
 
 is_alpha        = make_zefop(RT.IsAlpha)
+is_numeric      = make_zefop(RT.IsNumeric)
+is_alpha_numeric= make_zefop(RT.IsAlphaNumeric)
 to_upper_case   = make_zefop(RT.ToUpperCase)
 to_lower_case   = make_zefop(RT.ToLowerCase)
 

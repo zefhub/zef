@@ -3531,6 +3531,51 @@ def split_tp(*args):
 
 
 
+
+# ------------------------------------------ split_if ---------------------------------------------
+def split_if_imp(v, split_function):
+    """ 
+    Similar to split, but the user provides a predicate function 
+    that determines the positions to split on.
+
+    The symbols that are split on, are not included in the result.
+
+    ---- Examples ----
+    >>> 'good4morning2to6you' | split_if[is_numeric]    # => ['good', 'morning', 'to', 'you']
+    >>> range(10) | split_if[lambda x: x % 3 == 0 ]     # => [[], [1, 2], [4, 5], [7, 8], []]
+
+    ---- Signature ----
+    (List[T], T->Bool) -> List[List[T]]
+
+    ---- Tags ----
+    - operates on: List, String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: split
+    - related zefop: concat
+    - related zefop: trim
+    """
+    if isinstance(v, str):
+        return v | func[tuple] | split_if[split_function] | map[join] | collect
+    def wrapper():
+        it = iter(v)
+        try:
+            while True:
+                s = []
+                next_val = next(it)
+                while not split_function(next_val):                
+                    s.append(next_val)
+                    next_val = next(it)                    
+                yield s
+        except StopIteration:
+            yield s
+            return
+    return wrapper()
+
+
+
+
+
 # ------------------------------------------ tx ---------------------------------------------
 
 def tx_imp(*args):
@@ -6726,6 +6771,62 @@ def is_alpha_tp(op, curr_type):
     return VT.Bool
 
 
+
+
+#---------------------------------------- is_numeric --------------------------------------------------
+
+def is_numeric_imp(x):
+    """
+    Given a string, determine if all characters are numeric, i.e. string
+    representations of integers.
+
+    ---- Examples ----
+    >>> 'a' | is_numeric          # => False
+    >>> '4' | is_numeric          # => True
+    >>> '42' | is_numeric         # => True
+    >>> '42.6' | is_numeric       # => False
+
+    ---- Signature ----
+    String -> Bool
+
+    ---- Tags ----
+    - related zefop: is_alpha
+    - related zefop: is_alpha_numeric
+    - operates on: String
+    - used for: predicate function    
+    """
+    assert isinstance(x, str)
+    return x.isnumeric()
+
+
+
+#---------------------------------------- is_alpha_numeric --------------------------------------------
+
+def is_alpha_numeric_imp(x):
+    """
+    Given a string, determine if all characters are numeric or 
+    alphabetical letters. Any special symbols or characters 
+    would cause this function to return False.
+
+    ---- Examples ----
+    >>> 'a' | is_alpha_numeric          # => True
+    >>> '4' | is_alpha_numeric          # => True
+    >>> '42abc' | is_alpha_numeric      # => True
+    >>> 'hello!' | is_alpha_numeric     # => False
+    >>> 'good morning' | is_alpha_numeric     # => False
+    
+
+    ---- Signature ----
+    String -> Bool
+
+    ---- Tags ----
+    - related zefop: is_alpha
+    - related zefop: is_numeric
+    - operates on: String
+    - used for: predicate function    
+    """
+    assert isinstance(x, str)
+    return x.isalnum()
 
 
 #---------------------------------------- to_upper_case -----------------------------------------------

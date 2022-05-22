@@ -187,6 +187,7 @@ _op_to_functions = {
         RT.Shuffle:         (shuffle_imp, shuffle_tp),
         RT.Slice:           (slice_imp, slice_tp),
         RT.Split:           (split_imp, split_tp),
+        RT.SplitIf:         (split_if_imp, None),
         RT.Graphviz:        (graphviz_imp, graphviz_tp),
         
         RT.Always:              (always_imp, always_tp),
@@ -267,6 +268,9 @@ _op_to_functions = {
         RT.Floor:               (floor_imp, None),
         RT.Ceil:                (ceil_imp, None),
         RT.Round:               (round_imp, None),
+        RT.IsAlpha:             (is_alpha_imp, is_alpha_tp),
+        RT.IsNumeric:           (is_numeric_imp, None),
+        RT.IsAlphaNumeric:      (is_alpha_numeric_imp, None),
         RT.IsAlpha:             (is_alpha_imp, is_alpha_tp),
         RT.ToUpperCase:         (to_upper_case_imp, to_upper_case_tp),
         RT.ToLowerCase:         (to_lower_case_imp, to_lower_case_tp),
