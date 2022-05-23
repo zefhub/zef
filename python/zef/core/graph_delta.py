@@ -178,30 +178,10 @@ def construct_commands(elements) -> list:
                     new_cmd[key] = mapping_dict[cmd[key]]
         return new_cmd
 
-    @func
-    def handle_dict(el):
-        if not isinstance(el, dict): return [el], None
-
-        entity, sub_d = list(el.items()) | single | collect # Will throw if there isn't a single key in the dict
-        iid, _ = realise_single_node(entity, generate_id)
-        if isinstance(entity, (EntityType, RelationType, AtomicEntityType)) and len(absorbed(entity)) == 0:
-            entity = entity[iid]
-
-        triples = []
-        for k,v in sub_d.items():
-            if isinstance(v, dict):
-                additional, new_iid = handle_dict(v)
-                triples.append((Z[iid], k, Z[new_iid]))
-                triples.extend(additional)
-            else:
-                triples.append((Z[iid], k, v))
-
-        return [entity] +  triples, iid
-                
     # nested_cmds = nested_cmds | map[P(update_ids, mapping_dict=mapping_dict)] | collect
     
     # handle any dict if found
-    elements = elements | map[handle_dict | first] | concat | collect
+    # elements = elements | map[handle_dict | first] | concat | collect
     # Obtain all user IDs
     id_definitions = elements | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
     # Check that nothing needs a user ID that wasn't provided
@@ -262,6 +242,14 @@ def obtain_ids(x) -> dict:
     elif isinstance(x, ListOrTuple):
         ids = x | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
 
+    elif isinstance(x, dict):
+        entity, sub_d = list(x.items()) | single | collect # Will throw if there isn't a single key in the dict
+
+        ids = obtain_ids(entity)
+        for k,v in sub_d.items():
+            ids = merge_no_overwrite(ids, obtain_ids(k))
+            ids = merge_no_overwrite(ids, obtain_ids(v))
+
     elif type(x) in [Entity, AtomicEntity, Relation]:
         ids = {uid(x): x}
         if type(x) == Relation:
@@ -309,6 +297,16 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
         return
 
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
+        return
+
+    elif isinstance(x, dict):
+        entity, sub_d = list(x.items()) | single | collect # Will throw if there isn't a single key in the dict
+        verify_input_el(entity, id_definitions, False, False)
+
+        for k,v in sub_d.items():
+            verify_input_el(k, id_definitions, True, False)
+            verify_input_el(v, id_definitions, False, True)
+
         return
 
     elif isinstance(x, ListOrTuple):                         
@@ -461,6 +459,8 @@ def dispatch_cmds_for(expr, gen_id):
 
         tuple: P(cmds_for_tuple, gen_id=gen_id),
         list: P(cmds_for_tuple, gen_id=gen_id),
+
+        dict: P(cmds_for_complex_expr, gen_id=gen_id),
     }
     if type(expr) not in d_dispatch:
         raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
@@ -474,9 +474,9 @@ def dispatch_cmds_for(expr, gen_id):
 # * Handlers for expr->cmd
 #------------------------------------------------
 
-# def cmds_for_complex_expr(x, merged_ids: set, gen_id):
-#     iid,exprs = realise_single_node(x, gen_id)
-#     return exprs, [], ()
+def cmds_for_complex_expr(x, gen_id):
+    iid,exprs = realise_single_node(x, gen_id)
+    return exprs, []
 
 def cmds_for_initial_Z(expr):
     assert ((len(expr) == 1 and is_a(expr, Z))
@@ -696,9 +696,9 @@ def is_valid_relation_template(x):
     if any(isinstance(item, RelationType) for item in x):
         # Cases 1-4 above
         if len(x) != 3:
-            raise Exception("A list has an RT but isn't 3 elements long")
+            raise Exception(f"A list has an RT but isn't 3 elements long: {x}")
         if not isinstance(x[1], RelationType):
-            raise Exception("A list has an RT but it isn't in the second position")
+            raise Exception(f"A list has an RT but it isn't in the second position: {x}")
         # Note: if there are any lists involved, we cannot have a given ID as it
         # would have to be given to multiple instantiated relations.
         if not is_a(x[1], RT) and (isinstance(x[0], ListOrTuple) or isinstance(x[2], ListOrTuple)):
@@ -785,6 +785,15 @@ def realise_single_node(x, gen_id):
     elif is_a(x, Delegate):
         iid = x
         exprs = [x]
+    elif type(x) == dict:
+        entity, sub_d = list(x.items()) | single | collect # Will throw if there isn't a single key in the dict
+        iid, entity_exprs = realise_single_node(entity, gen_id)
+
+        exprs = entity_exprs
+        for k,v in sub_d.items():
+            target_iid, target_exprs = realise_single_node(v, gen_id)
+            exprs.extend(target_exprs)
+            exprs.append((Z[iid], k, Z[target_iid]))
     else:
         raise TypeError(f'in GraphDelta encode step: for type(x)={type(x)}')
 
@@ -1014,61 +1023,60 @@ def encode(xx):
     
 
     def step(x, allow_scalar):
+        # This now returns main_iid,structured_iids
+        # If main_id is None, then there is no valid "this" for the call (currently only for relations)
         if isinstance(x, ListOrTuple):
             if is_valid_relation_template(x):
                 if len(x) == 2:
-                    ent = step(x[0], True)
+                    ent,ent_iids = step(x[0], True)
                     triples = [step((Z[ent], *tup), False) for tup in x[1]]
-                    doubles = [x[1:] for x in triples]
+                    doubles = [x[1][1:] for x in triples]
 
-                    return (ent, doubles)
+                    return ent, (ent_iids, doubles)
 
                 if len(x) == 3:
                     if isinstance(x[0], ListOrTuple):
-                        assert is_valid_single_node(x[2])
-                        item = step(x[2], True)
+                        item,item_iids = step(x[2], True)
+                        assert item is not None
                         triples = [step((source, x[1], Z[item]), False) for source in x[0]]
-                        sources = [x[0] for x in triples]
+                        sources = [x[1][0] for x in triples]
                         # Note: have to return None for the relation, as there are actually multiple relations
-                        return (sources, None, item)
+                        return None, (sources, None, item_iids)
 
                     if isinstance(x[2], ListOrTuple):
-                        assert is_valid_single_node(x[0])
-                        item = step(x[0], True)
+                        item,item_iids = step(x[0], True)
+                        assert item is not None
                         triples = [step((Z[item], x[1], target), False) for target in x[2]]
-                        targets = [x[2] for x in triples]
+                        targets = [x[1][2] for x in triples]
                         # Note: have to return None for the relation, as there are actually multiple relations
-                        return (item, None, targets)
+                        return None, (item, None, targets)
 
                     # it's a relation triple
-                    src_id = step(x[0], True)
+                    src_id,src_iids = step(x[0], True)
+                    trg_id,trg_iids = step(x[2], True)
                     if get_absorbed_id(x[1]) is not None:
                         raise Exception("Not allowing ids in a shorthand syntax transaction.")
                     rel_id = gen_id()
-                    trg_id = step(x[2], True)
+                    if src_id is None or trg_id is None:
+                        raise Exception("Relation doesn't have a valid source/target. Probably you have nested a relation inside of another relation which is not allowed.")
                     gd_exprs.append( (Z[src_id], x[1][rel_id], Z[trg_id]) )
 
-                    return (src_id, rel_id, trg_id)
+                    return None, (src_iids, rel_id, trg_iids)
                 raise Exception("Shouldn't get here")
             else:
                 # recurse: return isomorphic structure with IDs
-                return tuple((step(el, False) for el in x))
+                return None, tuple((step(el, False)[1] for el in x))
         
         if isinstance(x, dict):
             # TODO review and extend checks for this!
             # Should contain a single key to another dict with k,v pairs where k is an RT
             ent, sub_d = list(x.items()) | single | collect
-            ent = step(ent, True)
-            triples = []
+            ent, ent_iids = step(ent, True)
+            out_d = {}
             for k,v in sub_d.items():
-                if isinstance(v, dict):
-                    extra_ent, extra_doubles = step(v, True)
-                    triples.append(step((Z[ent], k, Z[extra_ent]), False))
-                    triples.extend([(extra_ent, *double) for double in extra_doubles])
-                else:
-                    triples.append(step((Z[ent], k, v), False))
-            doubles = [x[1:] for x in triples]
-            return (ent, doubles)
+                _,rel_iids = step((Z[ent], k, v), False)
+                out_d[k] = rel_iids[2]
+            return ent, (ent_iids, out_d)
             
         # These next few ifs are for checks on syntax only
         if type(x) in scalar_types:
@@ -1077,9 +1085,9 @@ def encode(xx):
         
         iid,exprs = realise_single_node(x, gen_id)
         gd_exprs.extend(exprs)
-        return iid
+        return iid,iid
 
-    step_res = step(xx, False)
+    _,step_res = step(xx, False)
     return step_res, construct_commands(gd_exprs)
 
 
@@ -1089,6 +1097,8 @@ def unpack_receipt(unpacking_template, receipt: dict):
             return tuple((step(el) for el in x))
         if isinstance(x, list):
             return [step(el) for el in x]
+        if isinstance(x, dict):
+            return {k: step(v) for k,v in x.items()}
         return receipt[x] if isinstance(x, str) or is_a(x, uid) or is_a(x, Delegate) else x
     return step(unpacking_template)
 
