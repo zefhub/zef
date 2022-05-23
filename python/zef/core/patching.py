@@ -152,6 +152,17 @@ def absorbed_get_item(self, x):
     else:
         new_obj._absorbed = (*self._absorbed, x)
     return new_obj
+
+def eq_with_absorbed(x, y, orig_eq):
+    orig_res = orig_eq(x, y)
+    if orig_res == NotImplemented:
+        return NotImplemented
+    return orig_eq(x, y) and getattr(x, '_absorbed', ()) == getattr(y, '_absorbed', ())
+def wrap_eq(typ):
+    orig = typ.__eq__
+    typ.__eq__ = lambda x,y,orig=orig: eq_with_absorbed(x, y, orig)
+    import types
+    assert type(typ.__ne__) == types.WrapperDescriptorType
     
 
 def repr_with_absorbed(self, orig_repr):
@@ -167,32 +178,25 @@ def wrap_repr(typ):
     
 
 
-# The C++ implementation does not consider the absorbed values.
-# Monkeypatch this function here.
-def keyword_eq_monkeypatched(self, other):
-    if not isinstance(other, main.Keyword):
-        return False
-    if self.value != other.value:
-        return False
-    return self.__dict__.get('_absorbed', None) == other.__dict__.get('_absorbed', None) 
-
-
-
 main.EntityType.__getitem__ = absorbed_get_item
 wrap_repr(main.EntityType)
+wrap_eq(main.EntityType)
 
 main.RelationType.__getitem__ = absorbed_get_item
 wrap_repr(main.RelationType)
+wrap_eq(main.RelationType)
 
 main.Keyword.__getitem__ = absorbed_get_item
 wrap_repr(main.Keyword)
-main.Keyword.__eq__ = keyword_eq_monkeypatched
+wrap_eq(main.Keyword)
 
 internals.AtomicEntityType.__getitem__ = absorbed_get_item
 wrap_repr(internals.AtomicEntityType)
+wrap_eq(internals.AtomicEntityType)
 
 internals.Delegate.__getitem__ = absorbed_get_item
 wrap_repr(internals.Delegate)
+wrap_eq(internals.Delegate)
 
 
 
