@@ -157,12 +157,21 @@ def eq_with_absorbed(x, y, orig_eq):
     orig_res = orig_eq(x, y)
     if orig_res == NotImplemented:
         return NotImplemented
-    return orig_eq(x, y) and getattr(x, '_absorbed', ()) == getattr(y, '_absorbed', ())
+    return orig_res and getattr(x, '_absorbed', ()) == getattr(y, '_absorbed', ())
+
 def wrap_eq(typ):
     orig = typ.__eq__
     typ.__eq__ = lambda x,y,orig=orig: eq_with_absorbed(x, y, orig)
     import types
     assert type(typ.__ne__) == types.WrapperDescriptorType
+
+def hash_with_absorbed(self, orig_hash):
+    orig_res = orig_hash(self)
+    return hash((orig_res,) + getattr(self, '_absorbed', ()))
+
+def wrap_hash(typ):
+    orig = typ.__hash__
+    typ.__hash__ = lambda self,orig=orig: hash_with_absorbed(self, orig)
     
 
 def repr_with_absorbed(self, orig_repr):
@@ -181,22 +190,27 @@ def wrap_repr(typ):
 main.EntityType.__getitem__ = absorbed_get_item
 wrap_repr(main.EntityType)
 wrap_eq(main.EntityType)
+wrap_hash(main.EntityType)
 
 main.RelationType.__getitem__ = absorbed_get_item
 wrap_repr(main.RelationType)
 wrap_eq(main.RelationType)
+wrap_hash(main.RelationType)
 
 main.Keyword.__getitem__ = absorbed_get_item
 wrap_repr(main.Keyword)
 wrap_eq(main.Keyword)
+wrap_hash(main.Keyword)
 
 internals.AtomicEntityType.__getitem__ = absorbed_get_item
 wrap_repr(internals.AtomicEntityType)
 wrap_eq(internals.AtomicEntityType)
+wrap_hash(internals.AtomicEntityType)
 
 internals.Delegate.__getitem__ = absorbed_get_item
 wrap_repr(internals.Delegate)
 wrap_eq(internals.Delegate)
+wrap_hash(internals.Delegate)
 
 
 
