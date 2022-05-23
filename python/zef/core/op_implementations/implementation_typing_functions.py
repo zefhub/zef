@@ -3463,29 +3463,49 @@ def shuffle_tp(*args):
 
 
 # ---------------------------------------- slice -----------------------------------------------
-def slice_imp(collection, start_end: tuple):
+def slice_imp(v, start_end: tuple):
     """ 
     factor out python-style slicing: ...[5:8].
-    Negative indexes count from the back    
+    Negative indexes count from the back.
+    If three arguments are given from the range, the 
+    last one denotes the step size.
 
     ---- Examples ----
-    >>> ['a', 'b', 'c', 'd'] | Slice[1:2]    # => ['b', 'c']
+    >>> ['a', 'b', 'c', 'd'] | slice[1:2]    # => ['b', 'c']
+    >>> 'abcdefgh' | slice_imp[1,6,2]        # => 'bdf'
     
     ---- Tags ----
     - operates on: List
+    - operates on: String
     - used for: list manipulation
+    - used for: string manipulation
     - related zefop: take
     - related zefop: reverse
     - related zefop: first
     - related zefop: last
     - related zefop: nth    
     """
+    print(type(v))
+    from typing import Generator
+    import itertools
     assert isinstance(start_end, tuple)
-    if len(start_end) == 2:
-        return collection[start_end[0]: start_end[1]]
-    if len(start_end) == 3:
-        return collection[start_end[0]: start_end[1] : start_end[2]]
-    raise RuntimeError('start_end must be a Tuple[Int] of len 2 or 3')
+    if not len(start_end) in {2,3}:
+        raise RuntimeError('start_end must be a Tuple[Int] of len 2 or 3')
+    
+    if type(v) in {list, tuple, str}:
+        if len(start_end) == 2:
+            return v[start_end[0]: start_end[1]]
+        if len(start_end) == 3:
+            return v[start_end[0]: start_end[1] : start_end[2]]
+    elif isinstance(v, Generator):
+        start, end = start_end
+        # don't returns a custom slice object, but a generator to make it uniform.
+        def wrapper():
+            yield from itertools.islice(v, start, end)        
+        return wrapper()
+    else:
+        raise TypeError(f"`slice` not implemented for type {type(v)}: {v}")
+
 
 
 def slice_tp(*args):
