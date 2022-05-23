@@ -7449,7 +7449,7 @@ def flatgraph_to_commands(fg):
 
     for b in fg.blobs | filter[lambda b: b != None] | collect:
         el = dispatch_on_blob(b)
-        if el != None: return_elements.append(el)
+        if isinstance(el, LazyValue) or el != None: return_elements.append(el)
 
     from ..graph_delta import construct_commands
     return construct_commands(return_elements)
