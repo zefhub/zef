@@ -1023,61 +1023,46 @@ def encode(xx):
     
 
     def step(x, allow_scalar):
-        # This now returns main_iid,structured_iids
-        # If main_id is None, then there is no valid "this" for the call (currently only for relations)
         if isinstance(x, ListOrTuple):
             if is_valid_relation_template(x):
                 if len(x) == 2:
-                    ent,ent_iids = step(x[0], True)
+                    ent = step(x[0], True)
                     triples = [step((Z[ent], *tup), False) for tup in x[1]]
-                    doubles = [x[1][1:] for x in triples]
+                    doubles = [x[1:] for x in triples]
 
-                    return ent, (ent_iids, doubles)
+                    return (ent, doubles)
 
                 if len(x) == 3:
                     if isinstance(x[0], ListOrTuple):
-                        item,item_iids = step(x[2], True)
-                        assert item is not None
+                        assert is_valid_single_node(x[2])
+                        item = step(x[2], True)
                         triples = [step((source, x[1], Z[item]), False) for source in x[0]]
-                        sources = [x[1][0] for x in triples]
+                        sources = [x[0] for x in triples]
                         # Note: have to return None for the relation, as there are actually multiple relations
-                        return None, (sources, None, item_iids)
+                        return (sources, None, item)
 
                     if isinstance(x[2], ListOrTuple):
-                        item,item_iids = step(x[0], True)
-                        assert item is not None
+                        assert is_valid_single_node(x[0])
+                        item = step(x[0], True)
                         triples = [step((Z[item], x[1], target), False) for target in x[2]]
-                        targets = [x[1][2] for x in triples]
+                        targets = [x[2] for x in triples]
                         # Note: have to return None for the relation, as there are actually multiple relations
-                        return None, (item, None, targets)
+                        return (item, None, targets)
 
                     # it's a relation triple
-                    src_id,src_iids = step(x[0], True)
-                    trg_id,trg_iids = step(x[2], True)
+                    src_id = step(x[0], True)
                     if get_absorbed_id(x[1]) is not None:
                         raise Exception("Not allowing ids in a shorthand syntax transaction.")
                     rel_id = gen_id()
-                    if src_id is None or trg_id is None:
-                        raise Exception("Relation doesn't have a valid source/target. Probably you have nested a relation inside of another relation which is not allowed.")
+                    trg_id = step(x[2], True)
                     gd_exprs.append( (Z[src_id], x[1][rel_id], Z[trg_id]) )
 
-                    return None, (src_iids, rel_id, trg_iids)
+                    return (src_id, rel_id, trg_id)
                 raise Exception("Shouldn't get here")
             else:
                 # recurse: return isomorphic structure with IDs
-                return None, tuple((step(el, False)[1] for el in x))
+                return tuple((step(el, False) for el in x))
         
-        if isinstance(x, dict):
-            # TODO review and extend checks for this!
-            # Should contain a single key to another dict with k,v pairs where k is an RT
-            ent, sub_d = list(x.items()) | single | collect
-            ent, ent_iids = step(ent, True)
-            out_d = {}
-            for k,v in sub_d.items():
-                _,rel_iids = step((Z[ent], k, v), False)
-                out_d[k] = rel_iids[2]
-            return ent, (ent_iids, out_d)
-            
         # These next few ifs are for checks on syntax only
         if type(x) in scalar_types:
             if not allow_scalar:
@@ -1085,9 +1070,9 @@ def encode(xx):
         
         iid,exprs = realise_single_node(x, gen_id)
         gd_exprs.extend(exprs)
-        return iid,iid
+        return iid
 
-    _,step_res = step(xx, False)
+    step_res = step(xx, False)
     return step_res, construct_commands(gd_exprs)
 
 
