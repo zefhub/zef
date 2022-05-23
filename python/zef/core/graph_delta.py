@@ -439,7 +439,8 @@ def dispatch_cmds_for(expr, gen_id):
 
     elif isinstance(expr, ZefOp):
         # If we have a chain beginning with a Z, convert to LazyValue
-        if len(expr) > 1 and is_a(LazyValue(expr) | peel | first | collect, Z):
+        if ((len(expr) == 1 and is_a(expr, Z))
+            or (len(expr) > 1 and is_a(LazyValue(expr) | peel | first | collect, Z))):
             return cmds_for_initial_Z(expr)
 
         raise RuntimeError(f'We should not have landed here, with expr={expr}')
@@ -478,7 +479,8 @@ def dispatch_cmds_for(expr, gen_id):
 #     return exprs, [], ()
 
 def cmds_for_initial_Z(expr):
-    assert len(expr) > 1 and LazyValue(expr) | peel | first | is_a[Z] | collect
+    assert ((len(expr) == 1 and is_a(expr, Z))
+            or (len(expr) > 1 and LazyValue(expr) | peel | first | is_a[Z] | collect))
 
     expr = LazyValue(LazyValue(expr) | peel | first | collect) | (LazyValue(expr) | peel | skip[1] | as_pipeline | collect)
     return (expr,), ()
