@@ -7412,8 +7412,8 @@ def flatgraph_to_commands(fg):
                     if for_rt: return Z[key]
                     return b[1][key]
             elif for_rt or len(b[2]) == 0:
-                return b[1][idx]
-            else: return None
+                return Z[idx]
+            else: return b[1][idx]
         elif isinstance(b[1], AtomicEntityType):
             if idx in idx_key:
                 key = idx_key[idx]
@@ -7456,6 +7456,7 @@ def flatgraph_to_commands(fg):
 
     for b in fg.blobs | filter[lambda b: b != None] | collect:
         el = dispatch_on_blob(b)
+        print(b, el)
         if isinstance(el, LazyValue) or el != None: return_elements.append(el)
 
     from ..graph_delta import construct_commands
