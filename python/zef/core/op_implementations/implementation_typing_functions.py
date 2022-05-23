@@ -7276,6 +7276,17 @@ def fg_insert_imp(fg, new_el):
         else:
             idx = None
         return idx
+    
+    def _insert_dict(new_el):
+        ent, sub_d = list(new_el.items()) | single | collect
+        ent_idx = common_logic(ent)
+        for k,v in sub_d.items():
+            if isinstance(v, dict):
+               target_idx =  _insert_dict(v)
+               _insert_single((Z[ent_idx], k, Z[target_idx]))
+            else:
+                _insert_single((Z[ent_idx], k, v))
+        return ent_idx
 
     def _insert_single(new_el):
         if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val}:
@@ -7314,17 +7325,13 @@ def fg_insert_imp(fg, new_el):
             if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
             if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
         elif isinstance(new_el, dict): 
-            ent, sub_d = list(new_el.items()) | single | collect
-            ent_idx = common_logic(ent)
-            [_insert_single((Z[ent_idx], k, v)) for k,v in sub_d.items()]
+                _insert_dict(new_el)
         else: 
-            raise NotImplementedError(f"Insert not implemented for type(new_el)={type(new_el)}.\nnew_el={new_el}")
+            raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\n{new_el=}")
         
     if isinstance(new_el, list): [_insert_single(el) for el in new_el]
     elif isinstance(new_el, dict): 
-        ent, sub_d = list(new_el.items()) | single | collect
-        ent_idx = common_logic(ent)
-        [_insert_single((Z[ent_idx], k, v)) for k,v in sub_d.items()]
+        _insert_dict(new_el)
     else: _insert_single(new_el)
         
     new_fg.key_dict = new_key_dict
