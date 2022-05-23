@@ -4920,7 +4920,6 @@ def Out_imp(z, rt=VT.Any):
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
     """
-    from zef.pyzef.zefops import traverse_out_node, outs
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "single")
     # if isinstance(rt, RelationType):
@@ -4969,7 +4968,6 @@ def Outs_imp(z, rt):
     ZefRef -> ZefRefs
     EZefRef -> EZefRefs
     """
-    from zef.pyzef.zefops import traverse_out_node_multi
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
 
@@ -4997,7 +4995,6 @@ def In_imp(z, rt=None):
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
     """
-    from zef.pyzef.zefops import traverse_in_node
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
 
@@ -5022,7 +5019,6 @@ def Ins_imp(z, rt):
     ZefRef -> ZefRefs
     EZefRef -> EZefRefs
     """
-    from zef.pyzef.zefops import traverse_in_node_multi
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
 
@@ -5049,7 +5045,6 @@ def out_rel_imp(z, rt=None):
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
     """
-    from zef.pyzef.zefops import traverse_out_edge
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "single")
 
@@ -5080,15 +5075,11 @@ def out_rels_imp(z, rt=None):
     ZefRef -> ZefRefs
     EZefRef -> EZefRefs
     """
-    from zef.pyzef.zefops import traverse_out_edge_multi
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
-
-
-    if isinstance(z, FlatRef): return fr_outs_imp(zr)
     if rt == RT or rt is None: return pyzefops.outs(z) | filter[BT.RELATION_EDGE] | collect
     if rt == BT: return pyzefops.outs(z | to_ezefref | collect)
-    return traverse_out_edge_multi(z, rt)
+    return pyzefops.traverse_out_edge_multi(z, rt)
 
 
 
@@ -5112,7 +5103,6 @@ def in_rel_imp(z, rt=None):
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
     """
-    from zef.pyzef.zefops import traverse_in_edge
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "single")
 
@@ -5143,14 +5133,11 @@ def in_rels_imp(z, rt=None):
     ZefRef -> ZefRefs
     EZefRef -> EZefRefs
     """
-    from zef.pyzef.zefops import traverse_in_edge_multi
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "multi")
-
-    if isinstance(z, FlatRef): return fr_ins_imp(zr)
     if rt == RT or rt is None: return pyzefops.ins(z) | filter[BT.RELATION_EDGE] | collect
     if rt == BT: return pyzefops.ins(z | to_ezefref | collect)
-    return traverse_in_edge_multi(z, rt)
+    return pyzefops.traverse_in_edge_multi(z, rt)
 
 
 
