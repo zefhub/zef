@@ -5360,7 +5360,7 @@ def is_a_implementation(x, typ):
             return False
                     
     # To handle user passing by int instead of Int by mistake
-    if typ in {int, float, bool}:
+    if typ in [int, float, bool]:
         py_type_to_vt = {
             bool: Bool,
             int: Int,

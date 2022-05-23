@@ -168,7 +168,6 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def("__repr__", [](const EntityType& self)->std::string { return to_str(self); })
 		.def("__str__", [](const EntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const EntityType& self, const EntityType& other)->bool {return self==other; }, py::is_operator())
-		.def("__ne__", [](const EntityType& self, const EntityType& other)->bool {return self!=other; }, py::is_operator())
 		.def("__hash__", [](const EntityType& self) {return get_hash(self); })  // similar to the python hash for a python int: just use the int itself as the hash
 		.def("__int__", [](const EntityType& self)->int {return self.entity_type_indx; })  // similar to the python hash for a python int: just use the int itself as the hash
 		.def("__copy__", [](const EntityType& self)->EntityType {return self.entity_type_indx; })  // similar to the python hash for a python int: just use the int itself as the hash
@@ -180,7 +179,6 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def("__repr__", [](const RelationType& self)->std::string { return to_str(self); })
 		.def("__str__", [](const RelationType& self)->std::string {return str(self); })
 		.def("__eq__", [](const RelationType& self, const RelationType& other)->bool {return self.relation_type_indx == other.relation_type_indx; }, py::is_operator())
-		.def("__ne__", [](const RelationType& self, const RelationType& other)->bool {return self.relation_type_indx != other.relation_type_indx; }, py::is_operator())
 		.def("__hash__", [](const RelationType& self) {return get_hash(self); })
 		.def("__copy__", [](const RelationType& self)->RelationType {return self; })
 		;
@@ -191,7 +189,6 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def("__repr__", [](const Keyword& self)->std::string { return to_str(self); })
 		.def("__str__", [](const Keyword& self)->std::string {return str(self); })
 		.def("__eq__", [](const Keyword& self, const Keyword& other)->bool {return self.indx == other.indx; }, py::is_operator())
-		.def("__ne__", [](const Keyword& self, const Keyword& other)->bool {return self.indx != other.indx; }, py::is_operator())
 		.def("__hash__", [](const Keyword& self) {return get_hash(self); })
 		.def("__copy__", [](const Keyword& self)->Keyword {return self; })
 		;
@@ -202,7 +199,6 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def_readonly("value", &ZefEnumValue::value)
 		.def("__repr__", [](const ZefEnumValue& self)->std::string { return to_str(self); })		
 		.def("__eq__", [](const ZefEnumValue& self, const ZefEnumValue& other)->bool {return self.value == other.value; }, py::is_operator())
-		.def("__ne__", [](const ZefEnumValue& self, const ZefEnumValue& other)->bool {return self.value != other.value; }, py::is_operator())
 		.def("__hash__", [](const ZefEnumValue& self) {return get_hash(self); })
         .def_property_readonly("enum_type", [](ZefEnumValue& self)->std::string { return self.enum_type(); })
         .def_property_readonly("enum_value", [](ZefEnumValue& self)->std::string { return self.enum_value(); })
