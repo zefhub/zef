@@ -160,12 +160,7 @@ class IntersectionClass:
 
 class ComplementClass:
     def __getitem__(self, x):
-        from ..op_structs import ZefOp
-        if isinstance(x, tuple):
-            return ValueType_(type_name='Complement', absorbed=x)
-        elif isinstance(x, ValueType_):
-            return ValueType_(type_name='Complement', absorbed=(x,))
-        elif isinstance(x, ZefOp):
+        if isinstance(x, ValueType_):
             return ValueType_(type_name='Complement', absorbed=(x,))
         else:
             raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
