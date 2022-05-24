@@ -5057,10 +5057,10 @@ def out_rel_imp(z, rt=None):
         # TODO: hinting if problems occur goes here
         raise Exception("out_rel did not find a single edge. TODO hints here.")
     return single(opts)
-
+    # TODO add target_filter
 
 #---------------------------------------- out_rels -----------------------------------------------
-def out_rels_imp(z, rt=None):
+def out_rels_imp(z, rt=None, target_filter=None):
     """
     Traverse onto all outgoing relations of the specified 
     type and return the relations (it does NOT proceed 
@@ -5080,9 +5080,12 @@ def out_rels_imp(z, rt=None):
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
-    if rt == RT or rt is None: return pyzefops.outs(z) | filter[BT.RELATION_EDGE] | collect
-    if rt == BT: return pyzefops.outs(z | to_ezefref | collect)
-    return pyzefops.traverse_out_edge_multi(z, rt)
+
+    if rt == RT or rt is None: res = pyzefops.outs(z) | filter[BT.RELATION_EDGE] | collect
+    elif rt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
+    else: res = pyzefops.traverse_out_edge_multi(z, rt)
+    if target_filter: return res | filter[target | is_a[target_filter]] | map[identity] | collect 
+    return (zr for zr in res)
 
 
 
@@ -5118,7 +5121,7 @@ def in_rel_imp(z, rt=None):
 
 
 #---------------------------------------- in_rels -----------------------------------------------
-def in_rels_imp(z, rt=None):
+def in_rels_imp(z, rt=None, source_filter=None):
     """
     Traverse onto all incoming relations of the specified 
     type and return the relations (it does NOT proceed 
@@ -5138,10 +5141,11 @@ def in_rels_imp(z, rt=None):
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "multi")
-    if rt == RT or rt is None: return pyzefops.ins(z) | filter[BT.RELATION_EDGE] | collect
-    if rt == BT: return pyzefops.ins(z | to_ezefref | collect)
-    return pyzefops.traverse_in_edge_multi(z, rt)
-
+    if rt == RT or rt is None: res = pyzefops.ins(z) | filter[BT.RELATION_EDGE] | collect
+    elif rt == BT: res = pyzefops.ins(z | to_ezefref | collect)
+    else: res = pyzefops.traverse_in_edge_multi(z, rt)
+    if source_filter: return res | filter[source | is_a[source_filter]] | map[identity] | collect 
+    return (zr for zr in res)   
 
 
 
