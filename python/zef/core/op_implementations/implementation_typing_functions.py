@@ -4891,7 +4891,7 @@ def delegate_of_type_info(op, curr_type):
 
 
 #---------------------------------------- Out -----------------------------------------------
-def Out_imp(z, rt=VT.Any):
+def Out_imp(z, rt=VT.Any, target_filter= None):
     """
     Traverse along a unique outgoing relation to the
     thing attached to the target of that relation.
@@ -4944,8 +4944,12 @@ def Out_imp(z, rt=VT.Any):
     #         return Error(f"traversing {z} using 'out': there were {len(my_outs)} outgoing edges: {my_outs}")
     # else:
     #     return Error(f'Invalid type "{rt}" specified in Out[...]')
-    return target(out_rel(z, rt))
-
+    # res = target(out_rel_imp(z, rt))
+    # if target_filter and not is_a_implementation(res, target_filter):
+    res = Outs_imp(z, rt, target_filter)
+    if len(res) != 1:
+        raise Exception(f"Out didn't find a single target node that matched the [{rt}][{target_filter}] filter")
+    return single(res)
 
 
 
@@ -4977,7 +4981,7 @@ def Outs_imp(z, rt, target_filter = None):
 
 
 #---------------------------------------- In -----------------------------------------------
-def In_imp(z, rt=None):
+def In_imp(z, rt=None, source_filter = None):
     """
     Traverse along a unique Incoming relation to the
     thing attached to the source of that relation.
@@ -4999,7 +5003,10 @@ def In_imp(z, rt=None):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
 
-    return source(in_rel(z, rt))
+    res = Ins_imp(z, rt, source_filter)
+    if len(res) != 1:
+        raise Exception(f"In didn't find a single source node that matched the [{rt}][{source_filter}] filter")
+    return single(res)
 
 
 #---------------------------------------- Ins -----------------------------------------------
@@ -5085,7 +5092,7 @@ def out_rels_imp(z, rt=None, target_filter=None):
     elif rt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
     else: res = pyzefops.traverse_out_edge_multi(z, rt)
     if target_filter: return res | filter[target | is_a[target_filter]] | map[identity] | collect 
-    return (zr for zr in res)
+    return [zr for zr in res]
 
 
 
@@ -5145,7 +5152,7 @@ def in_rels_imp(z, rt=None, source_filter=None):
     elif rt == BT: res = pyzefops.ins(z | to_ezefref | collect)
     else: res = pyzefops.traverse_in_edge_multi(z, rt)
     if source_filter: return res | filter[source | is_a[source_filter]] | map[identity] | collect 
-    return (zr for zr in res)   
+    return [zr for zr in res]   
 
 
 
