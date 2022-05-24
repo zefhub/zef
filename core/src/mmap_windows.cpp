@@ -23,101 +23,6 @@
 namespace zefDB {
     namespace MMap {
 
-        void maybe_print_rss(void) {
-            if(!check_env_bool("ZEFDB_MMAP_ALLOC_DEBUG"))
-                return;
-            FILE * file = fopen("/proc/self/status","r");
-            char * line = nullptr;
-            size_t n = 0;
-            ssize_t read;
-            while((read = getline(&line, &n, file)) != -1) {
-                std::string s(line);
-                if(s.find("RssFile") != std::string::npos
-                   || s.find("RssAnon") != std::string::npos
-                   || s.find("VmRSS") != std::string::npos
-                   || s.find("VmSwap") != std::string::npos
-                   )
-                    std::cerr << s;
-            }
-            free(line);
-            fclose(file);
-        }
-
-        size_t my_mincore(void * start, size_t len, bool return_alloc=false) {
-            size_t total = 0;
-            
-            uintptr_t ptr = (uintptr_t)start;
-            FILE * file = fopen("/proc/self/smaps","r");
-            char * line = nullptr;
-            size_t n = 0;
-            ssize_t read;
-            // while((read = getline(&line, &n, file)) != -1) {
-            read = getline(&line, &n, file);
-            while(read != -1) {
-                // This should be the start of a map
-                std::string s(line, read);
-                int dash = s.find('-');
-                int space = s.find(' ');
-                if(dash < 4 || dash == space || space < 10 || dash > 34 || space > 34) {
-                    std::cerr << line << std::endl;
-                    std::cerr << dash << " " << space << std::endl;
-                    error("Some kind of parse error");
-                }
-                auto from_s = s.substr(0, dash);
-                auto to_s = s.substr(dash+1, space-dash);
-                // std::cerr << "PARSING: " << from_s << " " << to_s << std::endl;
-                size_t from = stoull(from_s, nullptr, 16);
-                size_t to = stoull(to_s, nullptr, 16);
-
-                // Also bail early if this is not a rw map
-                bool maybe_rw = s.find("rw-s") != std::string::npos;
-                bool count_this = maybe_rw && from >= ptr && from <= ptr+len;
-
-                while((read = getline(&line, &n, file)) != -1) {
-                    // Abort if we find a line that is a new mmap entry
-                    std::string s(line, read);
-                    if (s.find(' ') < s.find(':'))
-                        break;
-
-                    if (count_this) {
-                        char prefix[80];
-                        char kb[80];
-                        sscanf(line, "%s %s", prefix, kb);
-                        if(!return_alloc && std::string(prefix) == "Rss:") {
-                            total += atoi(kb) * 1024;
-                        } else if(return_alloc && std::string(prefix) == "Size:") {
-                            total += atoi(kb) * 1024;
-                        }
-                    }
-                }
-            }
-            fclose(file);
-            return total;
-        }
-
-        std::tuple<size_t,size_t,size_t,size_t> report_sizes(MMapAllocInfo& info) {
-            size_t total = info.occupied_pages.count() * ZEF_PAGE_SIZE * 2;
-            size_t loaded = info.loaded_pages.count() * ZEF_PAGE_SIZE * 2;
-            size_t page_size = sysconf(_SC_PAGESIZE);
-            int pages = (MAX_MMAP_SIZE+page_size-1) / page_size;
-            unsigned char * vec = new unsigned char[pages];
-            // if(-1 == mincore(info.location, MAX_MMAP_SIZE, vec))
-            //     error_p("Unexpected error in mincore");
-            // size_t rss = 0;
-            // for(unsigned char * c = vec ; c != vec+pages ; c++) {
-            //     if(*c & 0x01)
-            //         rss += page_size;
-            // }
-            size_t rss = my_mincore(info.location, MAX_MMAP_SIZE);
-            size_t mincore_total = my_mincore(info.location, MAX_MMAP_SIZE, true);
-            
-            return std::make_tuple(total, loaded, rss, mincore_total);
-        }
-
-        void print_malloc_arenas(void) {
-            // malloc_stats();
-        }
-
         // ** Page based manipulation
 
 #ifdef ZEFDB_TEST_NO_MMAP_CHECKS
@@ -139,9 +44,9 @@ namespace zefDB {
             void * blob_start = (char*)blobs_ptr + page_ind*ZEF_PAGE_SIZE;
 
             if (info.style == MMAP_STYLE_ANONYMOUS) {
+                if(NULL == VirtualAlloc(blob_start, ZEF_PAGE_SIZE, MEM_COMMIT, PAGE_READWRITE))
+                    throw std::runtime_error("Could not alloc new anonymous blobs page: " + WindowsErrorMsg());
                 // TODO: Disable write on read-only graph
-                if(0 != mprotect(blob_start, ZEF_PAGE_SIZE, PROT_READ | PROT_WRITE))
-                    error_p("Could not mprotect new blobs page");
                 memset(blob_start, 0, ZEF_PAGE_SIZE);
             }
             else if (info.style == MMAP_STYLE_FILE_BACKED) {
@@ -149,8 +54,11 @@ namespace zefDB {
                 auto [offset, file_index] = fg.get_page_offset(page_ind);
                 int fd = fg.get_fd(file_index);
                 // std::cerr << "*** Mapping file offset: " << offset << " to blob offset: " << (intptr_t)blob_start - (intptr_t)blobs_ptr << std::endl;
-                if(MAP_FAILED == mmap(blob_start, ZEF_PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_FIXED|MAP_SHARED, fd, offset))
-                    error_p("Could not mmap new blobs page from file");
+                WindowsMMap(fd, offset, ZEF_PAGE_SIZE, blob_start);
+
+                // Windows doesn't guarantee new file contents are zeroed out.
+                if(!info.occupied_pages[page_ind])
+                    memset(blob_start, 0, ZEF_PAGE_SIZE);
             }
 
             info.occupied_pages[page_ind] = 1;
@@ -172,8 +80,8 @@ namespace zefDB {
 
             FileGraph & fg = *info.file_graph;
             // size_t [offset,file_index] = fg.get_page_offset(page_ind);
-            if(-1 == munmap(blob_start, ZEF_PAGE_SIZE))
-                error_p("Could not munmap blobs page from file");
+            if(!UnmapViewOfFile(blob_start))
+                throw std::runtime_error("Unable to unmap view of file: " + WindowsErrorMsg());
 
             info.loaded_pages[page_ind] = 0;
         }
@@ -193,12 +101,9 @@ namespace zefDB {
             } else {
                 // This should create a mmap which doesn't take any physical memory.
                 // This reserves the space, so that we can fill it with other maps later on.
-                int opts = MAP_ANONYMOUS | MAP_PRIVATE;
-                int fd = -1;
-                int prot = PROT_NONE;
-                location = mmap(NULL, MAX_MMAP_SIZE, prot, opts, fd, 0);
-                if(location == MAP_FAILED)
-                    error_p("Could not mmap memory");
+                location = VirtualAlloc(NULL, MAX_MMAP_SIZE, MEM_RESERVE, PAGE_READWRITE);
+                if(location == NULL)
+                    throw std::runtime_error("Could not map memory: " + WindowsErrorMsg());
             }
 
             void * blob_ptr = blobs_ptr_from_mmap(location);
@@ -210,8 +115,8 @@ namespace zefDB {
             if (style != MMAP_STYLE_MALLOC) {
                 // if(MAP_FAILED == mmap(info_ptr, sizeof(MMapAllocInfo), PROT_READ | PROT_WRITE, MAP_ANONYMOUS | MAP_PRIVATE | MAP_FIXED, -1, 0)) {
                 void * page_aligned = align_to_system_pagesize(info_ptr);
-                if(0 != mprotect(page_aligned, ((char*)blob_ptr - (char*)page_aligned), PROT_READ | PROT_WRITE))
-                    error_p("Could not mprotect info struct location.");
+                if(NULL == VirtualAlloc(page_aligned, ((char*)blob_ptr - (char*)page_aligned), MEM_COMMIT, PAGE_READWRITE))
+                    throw std::runtime_error("Could not allocate info struct: " + WindowsErrorMsg());
             }
 
             MMapAllocInfo * info = new (info_ptr) MMapAllocInfo();
@@ -243,12 +148,14 @@ namespace zefDB {
         }
 
         void flush_mmap(MMapAllocInfo& info) {
-            msync(info.location, MAX_MMAP_SIZE, MS_SYNC);
+            // TODO: Figure this out, and put some comments when I have!
+            //msync(info.location, MAX_MMAP_SIZE, MS_SYNC);
             if(info.style == MMap::MMAP_STYLE_FILE_BACKED)
                 info.file_graph->flush_mmap();
         }
         void flush_mmap(MMapAllocInfo& info, blob_index latest_blob) {
-            msync(info.location, MAX_MMAP_SIZE, MS_SYNC);
+            // TODO: Figure this out, and put some comments when I have!
+            //msync(info.location, MAX_MMAP_SIZE, MS_SYNC);
             if(info.style == MMap::MMAP_STYLE_FILE_BACKED) {
                 info.file_graph->set_latest_blob_index(latest_blob);
                 info.file_graph->flush_mmap();
@@ -257,18 +164,19 @@ namespace zefDB {
         void page_out_mmap(MMapAllocInfo& info) {
             flush_mmap(info);
             if (info.style == MMAP_STYLE_FILE_BACKED) {
-                FileGraph & fg = *info.file_graph;
-                char * blobs_ptr = (char*)blobs_ptr_from_info(&info);
-                for(int page_ind = 0 ; page_ind < PAGE_BITMAP_BITS ; page_ind++) {
-                    if(-1 == madvise(blobs_ptr + page_ind*ZEF_PAGE_SIZE, ZEF_PAGE_SIZE, MADV_DONTNEED))
-                        error_p("Couldn't madvise.");
+                throw std::runtime_error("Not on windows");
+                //FileGraph & fg = *info.file_graph;
+                //char * blobs_ptr = (char*)blobs_ptr_from_info(&info);
+                //for(int page_ind = 0 ; page_ind < PAGE_BITMAP_BITS ; page_ind++) {
+                //    if(-1 == madvise(blobs_ptr + page_ind*ZEF_PAGE_SIZE, ZEF_PAGE_SIZE, MADV_DONTNEED))
+                //        error_p("Couldn't madvise.");
 
-                    // madvise(blobs_ptr + page_ind*ZEF_PAGE_SIZE, ZEF_PAGE_SIZE, MADV_PAGEOUT);
+                //    // madvise(blobs_ptr + page_ind*ZEF_PAGE_SIZE, ZEF_PAGE_SIZE, MADV_PAGEOUT);
 
-                    // unload_page(info, page_ind);
-                    // if(MAP_FAILED == mmap(blobs_ptr + page_ind*ZEF_PAGE_SIZE, ZEF_PAGE_SIZE, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))
-                    //     error_p("Couldn't mmap fake back.");
-                }
+                //    // unload_page(info, page_ind);
+                //    // if(MAP_FAILED == mmap(blobs_ptr + page_ind*ZEF_PAGE_SIZE, ZEF_PAGE_SIZE, PROT_NONE, MAP_ANONYMOUS|MAP_PRIVATE, -1, 0))
+                //    //     error_p("Couldn't mmap fake back.");
+                //}
                 // std::cerr << "Tried to advise" << std::endl;
             }
         }
@@ -278,15 +186,13 @@ namespace zefDB {
                 free(info.location);
             } else if (info.style == MMAP_STYLE_ANONYMOUS) {
                 // munmap can remove multiple mappings, so no need to loop through all alloced pages
-                munmap(info.location, MAX_MMAP_SIZE);
+                VirtualFree(info.location, 0, MEM_RELEASE);
             } else if (info.style == MMAP_STYLE_FILE_BACKED) {
                 // if(close(info.blob_fd) != 0 || close(info.uid_fd) != 0)
                 //     error_p("Problem closing fds for mmap");
                 flush_mmap(info);
                 delete info.file_graph;
-                // Doing a sync flush here, instead of the async in flush_mmap.
-                msync(info.location, MAX_MMAP_SIZE, MS_SYNC);
-                munmap(info.location, MAX_MMAP_SIZE);
+                VirtualFree(info.location, 0, MEM_RELEASE);
             }
         }
 
@@ -314,15 +220,16 @@ namespace zefDB {
                     if(zwitch.developer_output())
                         std::cerr << "Found existing filegraph but deleting it to force fresh graph." << std::endl;
                 } else {
-                    int flock_ret = -1;
+                    bool flock_ret = false;
                     try {
                         if(zwitch.developer_output())
                             std::cerr << "Found file to load graph from." << std::endl;
                         // First load bare minimum to determine version
                         int fd = get_fd(0);
+                        HANDLE h = (HANDLE)_get_osfhandle(fd);
                         // At this time, we have no option to open this file read-only, so we must obtain a lock on the file.
-                        flock_ret = flock(fd, LOCK_EX | LOCK_NB);
-                        if(flock_ret == -1)
+                        flock_ret = LockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0);
+                        if(!flock_ret)
                             throw FileAlreadyLocked(path);
 
                         // As early as possible, set the file size in pages.
@@ -334,16 +241,14 @@ namespace zefDB {
                             throw std::runtime_error("Filegraph is badly empty/nearly-empty");
 
                         // Setup the initial mapping to get the version
-                        main_file_mapping = mmap(NULL, ZEF_PAGE_SIZE, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-                        if(main_file_mapping == MAP_FAILED)
-                            throw std::runtime_error("Huh?");
+                        main_file_mapping = WindowsMMap(fd, 0, ZEF_PAGE_SIZE, NULL);
 
                         // With the version, create the mapping for the full prefix.
                         size_t map_size = prefix_size(get_version());
                         // TODO: Check file is at least this long.
-                        main_file_mapping = mmap(NULL, map_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-                        if(main_file_mapping == MAP_FAILED)
-                            throw std::runtime_error("Huh x 2?");
+                        if(!UnmapViewOfFile(main_file_mapping))
+                            throw std::runtime_error("Unable to unmap view of file: " + WindowsErrorMsg());
+                        main_file_mapping = WindowsMMap(fd, 0, map_size, NULL);
                         if(zwitch.developer_output())
                             std::cerr << "Existing file had latest blob index of: " << get_latest_blob_index() << std::endl;
 
@@ -353,8 +258,8 @@ namespace zefDB {
 
                         return;
                     } catch(const FileAlreadyLocked & e) {
-                        if(flock_ret != -1)
-                            flock(fds[0], LOCK_UN);
+                        if(flock_ret)
+                            WindowsUnlockFile(fds[0], false);
                         if(fds.size() > 0) {
                             close(fds[0]);
                             fds.clear();
@@ -363,8 +268,8 @@ namespace zefDB {
                     } catch(const FileGraphWrongVersion & e) {
                         std::cerr << e.what() << std::endl;
                         std::cerr << "Going to recover from upstream." << std::endl;
-                        if(flock_ret != -1)
-                            flock(fds[0], LOCK_UN);
+                        if(flock_ret)
+                            WindowsUnlockFile(fds[0], false);
                         if(fds.size() > 0) {
                             close(fds[0]);
                             fds.clear();
@@ -375,8 +280,8 @@ namespace zefDB {
                             throw;
 
                         std::cerr << "Going to delete graph and fallback to fresh filegraph" << std::endl;
-                        if(flock_ret != -1)
-                            flock(fds[0], LOCK_UN);
+                        if(flock_ret)
+                            WindowsUnlockFile(fds[0], false);
                         if(fds.size() > 0) {
                             close(fds[0]);
                             fds.clear();
@@ -396,22 +301,21 @@ namespace zefDB {
             int version = filegraph_default_version;
             size_t base_size = prefix_size(version);
             // We are using O_TRUNC here in the event that this is a fallback.
-            int flock_ret = -1;
+            int flock_ret = false;
             int fd = get_fd(0);
             if(fd == -1)
                 error_p("Error opening filegraph.");
             try {
                 // At this time, we have no option to open this file read-only, so we must obtain a lock on the file.
-                flock_ret = flock(fd, LOCK_EX | LOCK_NB);
-                if(-1 == flock_ret)
+                flock_ret = WindowsLockFile(fd);
+                if(!flock_ret)
                     throw FileAlreadyLocked(path);
 
-                ftruncate(fd, base_size);
+                // Should not need to ftruncate on windows as CreateFileMapping will take care of it.
+                //ftruncate(fd, base_size);
 
                 // Map in the space for the prefix
-                main_file_mapping = mmap(NULL, base_size, PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0);
-                if(main_file_mapping == MAP_FAILED)
-                    error_p("Mapping in file failed.");
+                main_file_mapping = WindowsMMap(fd, 0, base_size, NULL);
 
                 // Finally setup the prefix structure in the file.
                 // if (version == 1)
@@ -425,8 +329,8 @@ namespace zefDB {
 
             } catch(const std::exception & e) {
                 std::cerr << "Problem setting up new file graph '" << path << "': " << e.what() << std::endl;
-                if(flock_ret != -1)
-                    flock(fds[0], LOCK_UN);
+                if(flock_ret)
+                    WindowsUnlockFile(fds[0], false);
                 if(fds.size() > 0) {
                     close(fds[0]);
                     fds.clear();
@@ -497,7 +401,8 @@ namespace zefDB {
                     size_t file_index = 0;
                     prefix.page_info[index].file_index = file_index;
                     size_t new_offset = file_size_in_pages(file_index) + 1;
-                    ftruncate(get_fd(file_index), ZEF_PAGE_SIZE*(new_offset+1));
+                    // Shouldn't need to ftruncate on windows
+                    //ftruncate(get_fd(file_index), ZEF_PAGE_SIZE*(new_offset+1));
 
                     prefix.page_info[index].offset = new_offset;
 
@@ -525,11 +430,11 @@ namespace zefDB {
             if(fds[file_index] == -1) {
                 int fd;
                 // fd = open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0600);
-                auto path = get_filename(file_index);
+                auto path = get_filename(file_index).string();
                 fd = open(path.c_str(), O_RDWR | O_CREAT, 0600);
                 if(fd == -1) {
                     perror("Opening fd");
-                    throw std::runtime_error("Unable to open file: " + std::string(path));
+                    throw std::runtime_error("Unable to open file: " + path);
                 }
                 fds[file_index] = fd;
             }
@@ -595,21 +500,18 @@ namespace zefDB {
                 head = new size_t;
                 *head = 0;
                 size = uninitialized_size;
-                flags = MAP_PRIVATE | MAP_ANONYMOUS;
+                //flags = MAP_PRIVATE | MAP_ANONYMOUS;
             } else {
                 size = fd_size(fd);
                 if(size == 0) {
                     size = uninitialized_size;
-                    ftruncate(fd, size);
+                    // Shouldn't need ftruncate for windows
+                    //ftruncate(fd, size);
                 }
-                flags = MAP_SHARED;
+                //flags = MAP_SHARED;
             }
 
-            ptr = mmap(NULL, size, PROT_READ | PROT_WRITE, flags, fd, 0);
-            if(ptr == MAP_FAILED) {
-                perror("init");
-                throw std::runtime_error("Unable to initialize file mapping");
-            }
+            ptr = WindowsMMap(fd, 0, size, NULL);
         }
 
         void* _WholeFileMapping::Pointer::ptr() {
@@ -627,7 +529,7 @@ namespace zefDB {
 
         bool port_mremap_inplace(void * old_ptr, size_t old_size, size_t new_size, int fd) {
             // See if we can mimic mremap using mmap without MAP_FIXED.
-#ifdef __linux__
+#if defined(__linux__)
             void * new_ptr = mremap(old_ptr, old_size, new_size, 0);
             // If successful, just return
             if(new_ptr != MAP_FAILED) {
@@ -635,6 +537,9 @@ namespace zefDB {
             }
             if(errno != ENOMEM)
                 throw std::runtime_error("Some other kind of error other than can't enlarge mapping.");
+            return false;
+#elif defined(_MSC_VER)
+            // TODO
             return false;
 #else
             int flags;
@@ -661,11 +566,14 @@ namespace zefDB {
 
         void* port_mremap_move(void * old_ptr, size_t old_size, size_t new_size, int fd) {
             // See if we can mimic mremap using mmap without MAP_FIXED.
-#ifdef __linux__
+#if defined(__linux__)
             void * new_ptr = mremap(old_ptr, old_size, new_size, MREMAP_MAYMOVE);
             if(new_ptr == MAP_FAILED)
                 throw std::runtime_error("Unable to remap and enlarge memory.");
             return new_ptr;
+#elif defined(_MSC_VER)
+// TODO
+return old_ptr;
 #else
             int flags;
             if(fd == 0)
@@ -708,7 +616,8 @@ namespace zefDB {
             if(parent->fd == 0) {
                 // Nothing to do except remap.
             } else {
-                ftruncate(parent->fd, parent->size);
+                // Shouldn't need this on windows
+                //ftruncate(parent->fd, parent->size);
             }
             if(port_mremap_inplace(old_ptr, old_size, parent->size, parent->fd)) {
                 // If successful, just return

@@ -93,7 +93,7 @@ namespace zefDB {
     namespace MMap {
 
         constexpr size_t WIN_FILE_LOCK_BYTES = 1024;
-        std::string WindowsErrorMsg() {
+        inline std::string WindowsErrorMsg() {
             LPVOID lpMsgBuf;
             FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
             NULL,
@@ -106,6 +106,48 @@ namespace zefDB {
 
             LocalFree(lpMsgBuf);
             return ret;
+        }
+
+        inline void *WindowsMMap(int fd, size_t offset, size_t size, void * location) {
+            if(fd == 0) {
+                // Anonymous map
+                if(location != NULL)
+                    throw std::runtime_error("Can't map anonymous with location given.");
+                void * ret = VirtualAlloc(NULL, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+                if(ret == NULL)
+                    throw std::runtime_error("Unable to map anonymous: " + WindowsErrorMsg());
+                return ret;
+            } else {
+                // Going to hope that closing a file mapping handle leaves the mapped views alive.
+                // TODO: lookup the possibility of inter-process competition for creating file mappings - as they shared across processes?
+                // TODO: Handle the high/low parts
+                HANDLE h = (HANDLE)_get_osfhandle(fd);
+                HANDLE map_h = CreateFileMappingA(h, NULL, PAGE_READWRITE, 0, offset+size, NULL);
+                if (map_h == NULL || GetLastError() == ERROR_ALREADY_EXISTS)
+                    throw std::runtime_error("Unable to create file mapping: " + WindowsErrorMsg());
+                void* ret = MapViewOfFileEx(map_h, FILE_MAP_ALL_ACCESS, 0, offset, size, location);
+                if(ret == NULL)
+                    throw std::runtime_error("Unable to map view of file: " + WindowsErrorMsg());
+                if (!CloseHandle(map_h))
+                    throw std::runtime_error("Unable to close file mapping: " + WindowsErrorMsg());
+                return ret;
+            }
+        }
+
+        inline bool WindowsLockFile(int fd) {
+            HANDLE h = (HANDLE)_get_osfhandle(fd);
+            if (!LockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0))
+                return false;
+            return true;
+        }
+        inline void WindowsUnlockFile(int fd, bool flush=false) {
+            HANDLE h = (HANDLE)_get_osfhandle(fd);
+            if(flush) {
+                if (!FlushFileBuffers(h))
+                    throw std::runtime_error("Problem flushing file to disk: " + WindowsErrorMsg());
+            }
+            if (!UnlockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0))
+                    throw std::runtime_error("Problem unlocking file: " + WindowsErrorMsg());
         }
 
         constexpr unsigned int PAGE_BITMAP_BITS = ZEF_UID_SHIFT / ZEF_PAGE_SIZE;
@@ -302,14 +344,11 @@ namespace zefDB {
                 }
                 for(auto & fd : fds) {
                     if(fd != -1) {
-                        HANDLE h = (HANDLE)_get_osfhandle(fd);
-                        if(!FlushFileBuffers(h)) {
-                            std::cerr << "Problem flushing FileGraph extra files to disk during ~FileGraph. Ignoring." << std::endl;
-                            std::cerr << WindowsErrorMsg() << std::endl;
-                        }
-                        if(!UnlockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0)) {
-                            std::cerr << "Problem unlocking extra file during ~FileGraph. Ignoring." << std::endl;
-                            std::cerr << WindowsErrorMsg() << std::endl;
+                        try {
+                            WindowsUnlockFile(fd, true);
+                        } catch(const std::exception & exc) {
+                            std::cerr << "Problem unlocking file: " + std::string(exc.what()) << std::endl;
+                            std::cerr << "Ignoring because in ~FileGraph" << std::endl;
                         }
                         close(fd);
                     }
@@ -455,7 +494,7 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED void flush_mmap(MMapAllocInfo& info);
         LIBZEF_DLL_EXPORTED void flush_mmap(MMapAllocInfo& info, blob_index latest_blob);
         LIBZEF_DLL_EXPORTED void page_out_mmap(MMapAllocInfo& info);
-        LIBZEF_DLL_EXPORTED std::tuple<size_t,size_t,size_t,size_t> report_sizes(MMapAllocInfo& info);
+        //LIBZEF_DLL_EXPORTED std::tuple<size_t,size_t,size_t,size_t> report_sizes(MMapAllocInfo& info);
         LIBZEF_DLL_EXPORTED void print_malloc_arenas(void);
 
         LIBZEF_DLL_EXPORTED void destroy_mmap(MMapAllocInfo& info);

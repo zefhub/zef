@@ -727,10 +727,10 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
 
 	internals_submodule.def("pageout", zefDB::pageout, "Request the graph data is pushed to disk.", "g"_a);
-	internals_submodule.def("memory_details", [](Graph & g) {
-        auto & info = MMap::info_from_blob(&g.my_graph_data());
-        return report_sizes(info);
-    }, "Memory usages of the mmap for the graph", "g"_a);
+//	internals_submodule.def("memory_details", [](Graph & g) {
+//        auto & info = MMap::info_from_blob(&g.my_graph_data());
+//        return report_sizes(info);
+//    }, "Memory usages of the mmap for the graph", "g"_a);
 	// internals_submodule.def("keydict_usage", [](Graph & g) {
     //     auto & gd = g.my_graph_data();
     //     size_t cap = gd.key_dict->capacity();

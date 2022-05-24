@@ -332,9 +332,13 @@ namespace zefDB {
             std::lock_guard lock(waiting_tasks_mutex);
             for(auto it = waiting_tasks.begin() ; it != waiting_tasks.end() ; it++) {
                 if ((*it)->task->task_uid == task_uid) {
-                    if(forget)
+                    if (forget) {
+                        Butler::task_promise_ptr ret = *it;
                         waiting_tasks.erase(it);
-                    return *it;
+                        return ret;
+                    } else {
+                        return *it;
+                    }
                 }
             }
             return {};
@@ -1781,7 +1785,11 @@ namespace zefDB {
             }
 
             // Old location for fallback
+#ifdef _MSC_VER
+            env = std::getenv("LOCALAPPDATA");
+#else
             env = std::getenv("HOME");
+#endif
             std::filesystem::path path2(env);
             path2 /= ".zefdb";
             path2 /= "zefhub.key";
@@ -1966,7 +1974,11 @@ namespace zefDB {
             if (env != nullptr)
                 return std::filesystem::path(std::string(env)) / upstream_name;
 
+#ifdef _MSC_VER
+            char * home = std::getenv("LOCALAPPDATA");
+#else
             char * home = std::getenv("HOME");
+#endif
             std::filesystem::path path(home);
             path /= ".zef";
             path /= "graphs";
@@ -2007,7 +2019,11 @@ namespace zefDB {
             if (env != nullptr)
                 return std::string(env);
 
+#ifdef _MSC_VER
+            env = std::getenv("LOCALAPPDATA");
+#else
             env = std::getenv("HOME");
+#endif
             if (env == nullptr)
                 throw std::runtime_error("No HOME env set!");
 
