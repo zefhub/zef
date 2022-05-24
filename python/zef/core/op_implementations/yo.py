@@ -19,7 +19,7 @@ from functional import seq
 from ..internals import is_delegate, root_node_blob_index, BlobType
 from .._core import *
 from .. import internals
-from ..VT import TX,String
+from ..VT import TX,String, Instantiated, Terminated, Assigned
 
 def yo_implementation(x, display=True):
     import inspect
@@ -99,14 +99,6 @@ def yo_type_info(op, curr_type):
 # * Implementation details below
 #------------------------------------------------------------
 def tx_view(zr_or_uzr) -> str:
-
-    print(zr_or_uzr)
-    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-    print(zr_or_uzr)
-    print(type(zr_or_uzr))
-    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-    # return 555
-
     uzr = to_ezefref(zr_or_uzr)
 
     def value_assigned_string_view(lst):
@@ -136,16 +128,16 @@ uid:                    {uid(uzr)}
 blob index:             {index(uzr)}
 current owning graphs:  {uid(Graph(uzr))} {f", name tags: ({','.join(Graph(uzr).graph_data.tag_list)})"
     if Graph(uzr).graph_data.tag_list else ""}
-total affected:         {length(uzr | affected)}
-total instantiations:   {length(uzr | instantiated)}
-total assignments:      {length(uzr | value_assigned)}
-total terminations:     {length(uzr | terminated)}
+total affected:         {length(uzr | events)}
+total instantiations:   {length(uzr | events[Instantiated])}
+total assignments:      {length(uzr | events[Assigned])}
+total terminations:     {length(uzr | events[Terminated])}
 \n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Instantiations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | instantiated | collect, instantiated_or_terminated_string_view)} 
+{tx_block_view(uzr | events[Instantiated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Value Assignments ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | value_assigned | collect, value_assigned_string_view)} 
+{tx_block_view(uzr | events[Assigned]  | map[absorbed | first] | collect, value_assigned_string_view)} 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Terminations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | terminated | collect, instantiated_or_terminated_string_view)} 
+{tx_block_view(uzr | events[Terminated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
 """
 
 
