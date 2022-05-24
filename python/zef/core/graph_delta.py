@@ -336,7 +336,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif isinstance(x, ZefOp):
         if len(x) > 1:
             # This could be something like Z["asdf"] | assign_value[5]
-            if x | peel | first | is_a[Z]:
+            if LazyValue(x) | first | is_a[Z] | collect:
                 return
         if length(LazyValue(x) | absorbed) != 1:
             raise Exception(f"ZefOp has more than one op inside of it. {x}")
@@ -437,8 +437,7 @@ def dispatch_cmds_for(expr, gen_id):
 
     elif isinstance(expr, ZefOp):
         # If we have a chain beginning with a Z, convert to LazyValue
-        if ((len(expr) == 1 and is_a(expr, Z))
-            or (len(expr) > 1 and is_a(LazyValue(expr) | peel | first | collect, Z))):
+        if LazyValue(expr) | first | is_a[Z] | collect:
             return cmds_for_initial_Z(expr)
 
         raise RuntimeError(f'We should not have landed here, with expr={expr}')
@@ -479,10 +478,9 @@ def cmds_for_complex_expr(x, gen_id):
     return exprs, []
 
 def cmds_for_initial_Z(expr):
-    assert ((len(expr) == 1 and is_a(expr, Z))
-            or (len(expr) > 1 and LazyValue(expr) | peel | first | is_a[Z] | collect))
+    assert LazyValue(expr) | first | is_a[Z] | collect
 
-    expr = LazyValue(LazyValue(expr) | peel | first | collect) | (LazyValue(expr) | peel | skip[1] | as_pipeline | collect)
+    expr = LazyValue(LazyValue(expr) | first | collect) | (LazyValue(expr) | skip[1] | as_pipeline | collect)
     return (expr,), ()
 
 
@@ -775,6 +773,7 @@ def realise_single_node(x, gen_id):
         aet = map_scalar_to_aet_type[type(x)](x)
         exprs = [aet[iid], LazyValue(Z[iid]) | assign_value[x]]
     elif isinstance(x, ZefOp):
+        assert len(x) == 1
         params = LazyValue(x) | peel | first | second
         if is_a(x, Z):
             iid = params | first | collect
