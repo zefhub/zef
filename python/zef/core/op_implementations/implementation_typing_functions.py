@@ -4951,7 +4951,7 @@ def Out_imp(z, rt=VT.Any):
 
 
 #---------------------------------------- Outs -----------------------------------------------
-def Outs_imp(z, rt):
+def Outs_imp(z, rt, target_filter = None):
     """
     Traverse along all outgoing relation of the specified 
     type to the thing attached to the target of each relation.
@@ -4971,8 +4971,9 @@ def Outs_imp(z, rt):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
 
-    return map(out_rels(z, rt), target)
-
+    res = out_rels_imp(z, rt) | map[target] | collect
+    if target_filter: return res | filter[is_a[target_filter]] | collect
+    return res
 
 
 #---------------------------------------- In -----------------------------------------------
@@ -5002,7 +5003,7 @@ def In_imp(z, rt=None):
 
 
 #---------------------------------------- Ins -----------------------------------------------
-def Ins_imp(z, rt):
+def Ins_imp(z, rt, source_filter = None):
     """
     Traverse along all incoming relation of the specified 
     type to the thing attached to the source of each relation.
@@ -5022,7 +5023,9 @@ def Ins_imp(z, rt):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
 
-    return map(in_rels(z, rt), source)
+    res = in_rels_imp(z, rt) | map[source] | collect
+    if source_filter: return res | filter[is_a[source_filter]] | collect
+    return res
 
 
 #---------------------------------------- out_rel -----------------------------------------------
