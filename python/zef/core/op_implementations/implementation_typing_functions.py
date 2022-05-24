@@ -261,6 +261,9 @@ def transpose_imp(iterable):
     It is different from "interleave" in that it produces a List of Lists,
     whereas "interleave" flattens it out into one List.
 
+    Note that transposing is its own inverse: transposing twice leads to the
+    original List, if the operation succeeds.
+
     ---- Examples ----
     >>> [ [2,3,4], [5,6,7] ]                    # => [ [2, 5], [3,6], [4,7] ]
     >>> 
@@ -270,6 +273,7 @@ def transpose_imp(iterable):
     ---- Tags ----
     - used for: list manipulation
     - used for: linear algebra
+    - same naming as: C++ Ranges V3
     """
     its = [iter(el) for el in iterable]
     while True:
@@ -1023,7 +1027,7 @@ def interleave_imp(v, first_curried_list_maybe=None, *args):
     - related zefop: concat
     - related zefop: merge
     - operates on: List
-
+    - same naming as: C++ Ranges V3
     """
     import more_itertools as mi    
     if first_curried_list_maybe is None:
