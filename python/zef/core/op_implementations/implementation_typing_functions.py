@@ -261,6 +261,9 @@ def transpose_imp(iterable):
     It is different from "interleave" in that it produces a List of Lists,
     whereas "interleave" flattens it out into one List.
 
+    Note that transposing is its own inverse: transposing twice leads to the
+    original List, if the operation succeeds.
+
     ---- Examples ----
     >>> [ [2,3,4], [5,6,7] ]                    # => [ [2, 5], [3,6], [4,7] ]
     >>> 
@@ -270,6 +273,7 @@ def transpose_imp(iterable):
     ---- Tags ----
     - used for: list manipulation
     - used for: linear algebra
+    - same naming as: C++ Ranges V3
     """
     its = [iter(el) for el in iterable]
     while True:
@@ -1023,7 +1027,7 @@ def interleave_imp(v, first_curried_list_maybe=None, *args):
     - related zefop: concat
     - related zefop: merge
     - operates on: List
-
+    - same naming as: C++ Ranges V3
     """
     import more_itertools as mi    
     if first_curried_list_maybe is None:
@@ -2428,33 +2432,49 @@ def not_tp(a, b):
 
 #---------------------------------------- And -----------------------------------------------
 def and_imp(x, *args):
-    """Takes the input and tests it against the predicates given in the other
-    arguments one at a time, returning True only if all predicates return True.
-    Similarly to `all` will return True if the list of predicates is empty.
+    """
+    This operator can be used in two ways:    
 
-    `and` performs shortcircuiting, stopping evaluation as soon as the first
-    predicate returns False. All arguments to and should be functions which
-    return a Bool. As a convenience, bools passed instead of a predicate are
-    used directly.
+    B) Multiary combinator to compose predicate functions.
+       Given multiple predicate functions p_1, p_, ...p_m  with 
+       signature S->Bool, the expression And[]
+       a new predicate function of signature S->Bool is returned.
+       Short circuiting is accounted for and the functions are
+       evaluated in the order they are listed.
+    
+    A) binary operator on boolean values
 
     ---- Examples ----
-    >>> 5 | and[greater_than[2]][less_than[10]] # => True
+    >>> 10 | And[greater_than[0]][less_than[42]]     # => True
+    >>> {'x': 42, 'b': 'yo'} | And[contains['x']][ get['b] | length | equals[2] ]
     
-    >>> x | and[False][test_func][another_pred] # => False
-
-    >>> False | and # => True
+    >>> [9,3,1,16] | map[And[greater_than[0]][less_than[5]]]     # => [False, True, True, False]
 
     ---- Signature ----
-    (T, Callable[[T], Bool]...) -> Bool
- 
-    ---- Related ----
-    - predicates
+    (T, T->Bool, T->Bool, ..., T->Bool ) -> Bool
 
+    ---- Tags ----
+    used for: logic
+    used for: predicated
+    related zefop: Or
+    related zefop: Not
+    related: Intersection
     """
     # include short circuiting
+    if args == ():     # x | And     should always answer True (no predicate function provided)
+        return True
+        
+    a0 = args[0]
+    if (a0 is True or a0 is False):        
+        # Bools coming in: And used as direct operator, not combinator on predicates
+        if not isinstance(x, bool):
+            raise TypeError(f"'And' was called to act on a boolean (based on the non-flow args = {args}), but the flow arg was not a bool {x}")
+        if not len(args) == 1:
+            raise TypeError(f"'And' was called to act on a boolean, but the number of total arguments was more than 2: x={x} and args={args}. You may want to call `all` in this case.")
+        return x and args[0]
+              
+    # used as combinator on predicates
     for fct in args:
-        if fct is False: return False
-        if fct is True: continue
         res = fct(x)
         assert isinstance(res, bool)
         if res is False:
@@ -2470,10 +2490,47 @@ def and_tp(x, *args):
     
 #---------------------------------------- Or -----------------------------------------------
 def or_imp(x, *args):
+    """
+    This operator can be used in two ways:    
+
+    B) Multiary combinator to compose predicate functions.
+       Given multiple predicate functions p_1, p_, ...p_m  with 
+       signature S->Bool, the expression Or[]
+       a new predicate function of signature S->Bool is returned.
+       Short circuiting is accounted for and the functions are
+       evaluated in the order they are listed.
+    
+    A) binary operator on boolean values
+
+    ---- Examples ----
+    >>> 100 | Or[greater_than[0]][less_than[42]]     # => False    
+    >>> [12,7,1] | map[Or[greater_than[10]][less_than[5]]]     # => [True, False, True]
+
+    ---- Signature ----
+    (T, T->Bool, T->Bool, ..., T->Bool) -> Bool
+
+    ---- Tags ----
+    used for: logic
+    used for: predicated
+    related zefop: Or
+    related zefop: Not
+    related: Intersection
+    """
     # include short circuiting
+    if args == ():            # x | And     should always answer False (no predicate function provided)
+        return False
+        
+    a0 = args[0]
+    if (a0 is True or a0 is False):        
+        # Bools coming in: And used as direct operator, not combinator on predicates
+        if not isinstance(x, bool):
+            raise TypeError(f"'And' was called to act on a boolean (based on the non-flow args = {args}), but the flow arg was not a bool {x}")
+        if not len(args) == 1:
+            raise TypeError(f"'And' was called to act on a boolean, but the number of total arguments was more than 2: x={x} and args={args}. You may want to call `all` in this case.")
+        return x and args[0]
+              
+    # used as combinator on predicates
     for fct in args:
-        if fct is True: return True
-        if fct is False: continue
         res = fct(x)
         assert isinstance(res, bool)
         if res is True:
