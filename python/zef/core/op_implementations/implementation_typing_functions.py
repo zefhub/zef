@@ -5036,7 +5036,7 @@ def Ins_imp(z, rt, source_filter = None):
 
 
 #---------------------------------------- out_rel -----------------------------------------------
-def out_rel_imp(z, rt=None):
+def out_rel_imp(z, rt=None, target_filter = None):
     """
     Traverse onto a unique outgoing relation of the specified 
     type and return the relation (*NOT* the target).
@@ -5059,12 +5059,11 @@ def out_rel_imp(z, rt=None):
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "single")
 
 
-    opts = out_rels(z, rt)
+    opts = out_rels_imp(z, rt, target_filter)
     if len(opts) != 1:
         # TODO: hinting if problems occur goes here
         raise Exception("out_rel did not find a single edge. TODO hints here.")
     return single(opts)
-    # TODO add target_filter
 
 #---------------------------------------- out_rels -----------------------------------------------
 def out_rels_imp(z, rt=None, target_filter=None):
@@ -5097,7 +5096,7 @@ def out_rels_imp(z, rt=None, target_filter=None):
 
 
 #---------------------------------------- in_rel -----------------------------------------------
-def in_rel_imp(z, rt=None):
+def in_rel_imp(z, rt=None, source_filter = None):
     """
     Traverse onto a unique incoming relation of the specified 
     type and return the relation (it does NOT proceed to the source).
@@ -5120,7 +5119,7 @@ def in_rel_imp(z, rt=None):
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "single")
 
 
-    opts = in_rels(z, rt)
+    opts = in_rels_imp(z, rt, source_filter)
     if len(opts) != 1:
         # TODO: hinting if problems occur goes here
         raise Exception("in_rel did not find a single edge. TODO hints here.")
