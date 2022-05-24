@@ -2123,6 +2123,8 @@ def without_absorbed_imp(x):
     elif isinstance(x, ValueType_):
         return ValueType_(type_name=x.d['type_name'])
 
+    elif isinstance(x, (Entity, AtomicEntity, RelationType)):
+        return type(x)(remove(x.d, 'absorbed'))
     return Error('Not Implemented')
 
 
