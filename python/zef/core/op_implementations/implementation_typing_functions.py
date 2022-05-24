@@ -3925,43 +3925,6 @@ def merged_tp(x):
     return VT.Any
 
 
-# ----------------------------------------- affected --------------------------------------------
-def affected_imp(x):    
-    """
-    Given a transaction, return a list of all ZefRef
-    that were in some way affected by the changes in
-    that tx.
-
-    When the tx is passed in as a ZefRef, the reference
-    frame is kept by this operator.
-    When traversing the eternal graph, this behavior is 
-    also propagated by returning the EZefRef.
-
-    Related function: use "events" if a list events,
-    e.g. [instantiated[z1], terminated[z2], ...] is wanted.
-
-    TODO
-    syntax proposal, since "instantiated" et al. will become entities:
-    adjust the syntax and use types?
-    here: z_tx | raes[Instantiated]                 # returns a List[ZefRef]
-          z_tx | raes[Instantiated | Assigned]
-          z_tx | events[Instantiated | Assigned]    # returns a List[Instantiated | Terminated] 
-    which would be analogous to
-    z1 | txs[Assigned] 
-    
-
-    ---- Signature ----
-    ZefRef[TX]   -> List[ZefRef]
-    EZefRef[TX]  -> List[EZefRef]
-    """
-    # assert isinstance(x, GraphSlice)
-    print(f"Warning: 'affected' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸")
-    return concat(instantiated(x), terminated(x), value_assigned(x))
-
-def affected_tp(x):
-    return VT.Any
-    
-
 
 # ----------------------------------------- events --------------------------------------------
 

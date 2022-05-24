@@ -156,7 +156,6 @@ skip            = make_zefop(RT.Skip)
 length          = make_zefop(RT.Length) 
 nth             = make_zefop(RT.Nth) 
 now             = make_zefop(RT.Now) 
-affected        = make_zefop(RT.Affected) 
 merged          = make_zefop(RT.Merged)                    # TODO
 events          = make_zefop(RT.Events) 
 to_delegate     = make_zefop(RT.ToDelegate) 
