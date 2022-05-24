@@ -517,7 +517,7 @@ def prepend_imp(v, item, *additional_items):
         elements_to_prepend = [item, *additional_items]
         all_zef = elements_to_prepend | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
         if not all_zef: return Error("Append only takes ZefRef or EZefRef for Zef List")
-        is_any_terminated = elements_to_prepend | map[terminated] | filter[None] | length | greater_than[0] | collect 
+        is_any_terminated = elements_to_prepend | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
         if is_any_terminated: return Error("Cannot append a terminated ZefRef")
 
         
@@ -610,7 +610,7 @@ def append_imp(v, item, *additional_items):
         elements_to_append = [item, *additional_items]
         all_zef = elements_to_append | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
         if not all_zef: return Error("Append only takes ZefRef or EZefRef for Zef List")
-        is_any_terminated = elements_to_append | map[terminated] | filter[None] | length | greater_than[0] | collect 
+        is_any_terminated = elements_to_append | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
         if is_any_terminated: return Error("Cannot append a terminated ZefRef")
 
         
