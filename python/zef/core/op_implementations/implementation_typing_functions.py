@@ -5032,7 +5032,7 @@ def Outs_imp(z, rt, target_filter = None):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
 
-    res = out_rels_imp(z, rt) | map[target] | collect
+    res = out_rels_imp(z, rt) | target | collect
     if target_filter: return res | filter[is_a[target_filter]] | collect
     return res
 
@@ -5087,7 +5087,7 @@ def Ins_imp(z, rt, source_filter = None):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
 
-    res = in_rels_imp(z, rt) | map[source] | collect
+    res = in_rels_imp(z, rt) | source | collect
     if source_filter: return res | filter[is_a[source_filter]] | collect
     return res
 
@@ -5147,8 +5147,8 @@ def out_rels_imp(z, rt=None, target_filter=None):
     if rt == RT or rt is None: res = pyzefops.outs(z) | filter[BT.RELATION_EDGE] | collect
     elif rt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
     else: res = pyzefops.traverse_out_edge_multi(z, rt)
-    if target_filter: return res | filter[target | is_a[target_filter]] | map[identity] | collect 
-    return [zr for zr in res]
+    if target_filter: return res | filter[target | is_a[target_filter]] | collect 
+    return res
 
 
 
@@ -5207,8 +5207,8 @@ def in_rels_imp(z, rt=None, source_filter=None):
     if rt == RT or rt is None: res = pyzefops.ins(z) | filter[BT.RELATION_EDGE] | collect
     elif rt == BT: res = pyzefops.ins(z | to_ezefref | collect)
     else: res = pyzefops.traverse_in_edge_multi(z, rt)
-    if source_filter: return res | filter[source | is_a[source_filter]] | map[identity] | collect 
-    return [zr for zr in res]   
+    if source_filter: return res | filter[source | is_a[source_filter]] | collect 
+    return res  
 
 
 
