@@ -382,10 +382,10 @@ def graph_info(g) -> str:
 
     def simple_lengths(g) -> str:
         return (f"{g.graph_data.write_head} blobs, "
-                + str(length(bl | filter[BT.TX_EVENT_NODE])) + " TXs, "
-                + str(length(bl | filter[BT.ENTITY_NODE])) + " ETs, "
-                + str(length(bl | filter[BT.ATOMIC_ENTITY_NODE])) + " AETs, "
-                + str(length(bl | filter[BT.RELATION_EDGE])) + " RTs"
+                + str(length(bl | filter[is_a[BT.TX_EVENT_NODE]])) + " TXs, "
+                + str(length(bl | filter[is_a[BT.ENTITY_NODE]])) + " ETs, "
+                + str(length(bl | filter[is_a[BT.ATOMIC_ENTITY_NODE]])) + " AETs, "
+                + str(length(bl | filter[is_a[BT.RELATION_EDGE]])) + " RTs"
                 )
 
     from builtins import round
@@ -434,14 +434,14 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
     def find_triples_of_rt(rt: str) -> str:
         return "".join(
             seq([(rae_type(z | source | collect), rae_type(z), rae_type(z | target | collect)) for z in
-                bl | filter[RT(rt)] | filter[lambda z: not internals.is_delegate(z)]])
+                bl | filter[is_a[RT(rt)]] | filter[lambda z: not internals.is_delegate(z)]])
             .group_by(lambda x: x)
             .map(lambda x: (x[0], len(x[1]), find_alive_count_of_triple(x[0])))
             .map(triple_string_view)
         )
     # TODO find correct alive instances for RT
     return "".join(
-        seq([z for z in bl | filter[bt_filter] | filter[lambda z: not internals.is_delegate(z)]])
+        seq([z for z in bl | filter[is_a[bt_filter]] | filter[lambda z: not internals.is_delegate(z)]])
         .group_by(lambda z: zr_type(z))
         .map(lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect)))
         .map(lambda x: aet_et_rt_string_view(x) + find_triples_of_rt(
