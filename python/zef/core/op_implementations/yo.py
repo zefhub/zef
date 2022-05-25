@@ -364,8 +364,8 @@ def timeline_view(zr_or_uzr) -> str:
             else:
                 descriptions_and_txs.append(edge_description)
         else:
-            if (edge_state == "Instantiated" and time_slice(edge | instantiation_tx | collect) <= reference_tx_timeslice) or\
-                    (edge_state == "Terminated" and time_slice(edge | termination_tx | collect) <= reference_tx_timeslice):
+            if (edge_state == "Instantiated" and time_slice(edge | instantiation_tx | frame | collect) <= reference_tx_timeslice) or\
+                    (edge_state == "Terminated" and time_slice(edge | termination_tx | frame | collect) <= reference_tx_timeslice):
                 descriptions_and_txs.append(
                     (f"{fill_str_to_length(generate_rt_description(edge, edge_type, edge_state), 54)}", edge))
 
@@ -396,6 +396,7 @@ def graph_info(g) -> str:
                 + str(length(bl | filter[BT.RELATION_EDGE])) + " RTs"
                 )
 
+    from builtins import round
     return f"""
 ======================================================================================================================
 =============================================== Graph {uid(g)} ===============================================
@@ -425,25 +426,22 @@ def type_summary_view(bl: EZefRefs, g: Graph, bt_filter: BlobType) -> str:
     def triple_string_view(summary: Tuple[int, int, tuple]) -> str:
         triple, total, alive = summary[0], summary[1], summary[2]
         return (f"       [{fill_str_to_length(str(f'{total} total, {alive} alive] '), 30)}"
-                f"({triple[0]}, {triple[1]}, {triple[2]})\n")
+                f"({triple[0]!r}, {triple[1]!r}, {triple[2]!r})\n")
 
     def find_alive_count_of_triple(triple: Tuple[str]) -> int:
-        # TODO Replace this when triple lookup is implemented for instances zefop
-        # return seq([z for z in
-        #     (g[internals.root_node_blob_index()] | out_rels[RT] | filter[BT.TO_DELEGATE_EDGE] | target | filter[RT(triple[1][3:])]
-        #       | only | out_rels[RT] | filter[lambda z: not internals.is_delegate(z)] | target
-        #       | filter[lambda x: zr_type(x | source | collect) == triple[0] and zr_type(x | target | collect) == triple[2]]
-        #             | collect)])\
-        #     .sum(lambda x: len(x | now | all | collect))
-        temp = g[internals.root_node_blob_index()] | out_rels[BT] | filter[BT.TO_DELEGATE_EDGE] | target | filter[RT(triple[1][3:])] | single # | out_rels[RT] #| filter[lambda z: not internals.is_delegate(z)] | target
-        temp = temp | out_rels[BT] | filter[lambda z: not internals.is_delegate(z)] | target
-        temp = temp | filter[lambda x: zr_type(x | source | collect) == triple[0] and zr_type(x | target | collect) == triple[2]]
-        temp = temp | collect
-        return sum(len(x | now | all | collect) for x in temp)
+        d_top = delegate_of(triple[1], g)
+
+        return (d_top
+         | Outs[BT.TO_DELEGATE_EDGE]
+         | filter[And[source | rae_type | equals[triple[0]]]
+                     [target | rae_type | equals[triple[2]]]]
+         | map[now | all | length]
+         | sum
+         | collect)
 
     def find_triples_of_rt(rt: str) -> str:
         return "".join(
-            seq([(zr_type(z | source | collect), zr_type(z), zr_type(z | target | collect)) for z in
+            seq([(rae_type(z | source | collect), rae_type(z), rae_type(z | target | collect)) for z in
                 bl | filter[RT(rt)] | filter[lambda z: not internals.is_delegate(z)]])
             .group_by(lambda x: x)
             .map(lambda x: (x[0], len(x[1]), find_alive_count_of_triple(x[0])))

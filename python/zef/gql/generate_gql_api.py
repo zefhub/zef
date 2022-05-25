@@ -36,23 +36,23 @@ def generate_resolvers_fcts(schema_root, resolvers_destination):
     if z is None:
         default_resolvers_list = []
     else:
-        default_resolvers_list = json.loads(z)
+        default_resolvers_list = from_json(z)
         
         
-    z = schema_root >> O[RT.CustomerSpecificResolvers] | collect
+    z = schema_root >> O[RT.FallbackResolvers] | collect
     if z is None:
-        customer_specific_resolvers = lambda *args,**kwds: ("return None #This means that no resolver is defined!", ["z", "ctx"])
+        fallback_resolvers = lambda *args,**kwds: ("return None #This means that no resolver is defined!", ["z", "ctx"])
     else:
-        customer_specific_func_inner = z | value | collect
+        fallback_resolvers = z | value | collect
         d = {}
-        exec(customer_specific_func_inner, d)
-        customer_specific_resolvers = d["customer_specific_resolvers"]
+        exec(fallback_resolvers, d)
+        fallback_resolvers = d["fallback_resolvers"]
 
     additional_exec = schema_root >> O[RT.AdditionalExec] | value_or[""] | collect
 
     global_dict = {"schema_root": schema_root,
                    "default_resolvers_list": default_resolvers_list,
-                   "customer_specific_resolvers": customer_specific_resolvers,
+                   "fallback_resolvers": fallback_resolvers,
                    "additional_exec": additional_exec}
 
     try:

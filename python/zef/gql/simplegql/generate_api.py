@@ -1032,7 +1032,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
         rt = RT(z_field >> RT.GQL_Resolve_With | collect)
 
         if op_is_list(z_field):
-            raise Exception(f"Updating list things is a todo (for {z_field=})")
+            raise Exception(f"Updating list things is a todo (for z_field={z_field})")
         else:
             if op_is_unique(z_field):
                 et = ET(type_node >> RT.GQL_Delegate | collect)

@@ -1,1 +1,2 @@
-structlog
+pyfunctional
+cogapp

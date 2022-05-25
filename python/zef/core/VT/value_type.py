@@ -55,7 +55,7 @@ Should Union be of type ZefType? Or just return a ZefType?
 
 Intersection
 Union
-SetOf
+Is
 
 There is also a Union ValueType_, which is returned.
 This custom structure may rearrange and parse terms.
@@ -126,7 +126,7 @@ class ValueType_:
             raise Exception(f'"ValueType_`s "&" called with unsupported type {type(other)}')
 
     def __invert__(self):
-        return ValueType_(type_name='Not', absorbed=(self,))
+        return ValueType_(type_name='Complement', absorbed=(self,))
     
 
 
@@ -158,18 +158,42 @@ class IntersectionClass:
             
 
 
-class SetOfClass:
+class ComplementClass:
+    def __getitem__(self, x):
+        if isinstance(x, ValueType_):
+            return ValueType_(type_name='Complement', absorbed=(x,))
+        else:
+            raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
+   
+
+class IsClass:
     def __getitem__(self, x):
         from ..op_structs import ZefOp
         if isinstance(x, tuple):
-            return ValueType_(type_name='SetOf', absorbed=x)
+            return ValueType_(type_name='Is', absorbed=x)
         elif isinstance(x, ValueType_):
-            return ValueType_(type_name='SetOf', absorbed=(x,))
+            return ValueType_(type_name='Is', absorbed=(x,))
         elif isinstance(x, ZefOp):
-            return ValueType_(type_name='SetOf', absorbed=(x,))
+            return ValueType_(type_name='Is', absorbed=(x,))
         else:
-            raise Exception(f'"SetOf[...]" called with unsupported type {type(x)}')
-            
+            raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
+         
+
+class SetOfClass:
+    def __getitem__(self, x):
+        # TODO: make sure that x is a zef value. No other python objects that we can't serialize etc.
+        return ValueType_(type_name='SetOf', absorbed=(x, ))
+    def __call__(self, *x):
+        """
+        calling SetOf(5,6,7) is a more convenient shorthand notation than 
+        SetOf[5][6][7]. But the former expression evaluates to the latter.
+
+        We can't use `SetOf[5,6,7]` here, since Python's treatment of
+        the [...] operator converts this to a tuple `SetOf[(5,6,7)]`,
+        which itself is a valid expression.
+        """
+        return ValueType_(type_name='SetOf', absorbed = x)
+
 
 
 def make_distinct(v):

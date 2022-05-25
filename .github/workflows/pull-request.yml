@@ -12,10 +12,12 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-latest]
-        python-version: [3.8, 3.9, "3.10"]
+        python-version: [3.7, 3.8, 3.9, "3.10"]
         exclude:
           - os: macos-latest
-            python-version: "cp38"
+            python-version: "3.8"
+          - os: macos-latest
+            python-version: "3.7"
     env:
       ZEFHUB_AUTH_KEY: "GUEST"
     steps:
