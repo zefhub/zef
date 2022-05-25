@@ -429,7 +429,15 @@ def type_summary_view(bl: EZefRefs, g: Graph, bt_filter: BlobType) -> str:
                 f"({triple[0]!r}, {triple[1]!r}, {triple[2]!r})\n")
 
     def find_alive_count_of_triple(triple: Tuple[str]) -> int:
-        return delegate_of(triple, g) | now | all | length | collect
+        d_top = delegate_of(triple[1], g)
+
+        return (d_top
+         | Outs[BT.TO_DELEGATE_EDGE]
+         | filter[And[source | rae_type | equals[triple[0]]]
+                     [target | rae_type | equals[triple[2]]]]
+         | map[now | all | length]
+         | sum
+         | collect)
 
     def find_triples_of_rt(rt: str) -> str:
         return "".join(
