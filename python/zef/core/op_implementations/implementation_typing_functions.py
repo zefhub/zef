@@ -6695,7 +6695,7 @@ InInOld_implementation = partial(traverse_implementation,
                               traverse_direction="inin",
                               )
 
-def flat_map_imp(x, f):
+def map_cat_imp(x, f):
     """ 
     Returns the flatten results of f applied to each item of x. Equivalent to:
     `x | map[f] | concat`.
@@ -6710,7 +6710,7 @@ def flat_map_imp(x, f):
     # This can be made more efficient
     return concat_implementation(map_implementation(x, f))
 
-def flat_map_tp(x):
+def map_cat_tp(x):
     return VT.List
 
 def without_imp(x, y):
@@ -6779,9 +6779,9 @@ def schema_imp(x, include_edges=False):
     if isinstance(x, Graph):
         g = x
         if include_edges:
-            frontier_of = flat_map[out_rels[BT.TO_DELEGATE_EDGE]] | flat_map[lambda x: (x, target(x))]
+            frontier_of = map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | map_cat[lambda x: (x, target(x))]
         else:
-            frontier_of = flat_map[Outs[BT.TO_DELEGATE_EDGE]]
+            frontier_of = map_cat[Outs[BT.TO_DELEGATE_EDGE]]
 
         frontier = [g | root | collect]
 
