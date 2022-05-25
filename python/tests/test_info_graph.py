@@ -39,6 +39,15 @@ class MyTestCase(unittest.TestCase):
         
         m | now | yo[False] | collect
         g | yo[False] | collect
+
+    def test_nested(self):
+        g = Graph()
+
+        z = ET.Machine | g | run
+        a,b,c = (z, RT.Something, 5) | g | run
+        d,e,f = (b, RT.Nested, z) | g | run
+
+        g | yo[False] | collect
         
 if __name__ == '__main__':
     unittest.main()
