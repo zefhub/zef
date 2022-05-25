@@ -256,11 +256,6 @@ def convert_to_assign_value(self, value):
 ZefRef.__le__ = convert_to_assign_value
 EZefRef.__le__ = convert_to_assign_value
 
-def add_internal_id(self, internal_id):
-    from ._ops import merged
-    return merged[self][internal_id]
-ZefRef.__getitem__ = add_internal_id
-EZefRef.__getitem__ = add_internal_id
 
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):

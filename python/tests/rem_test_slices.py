@@ -35,7 +35,6 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(ctx | events[Instantiated] | length | collect, 1)
         self.assertEqual(ctx | events[Assigned] | length | collect, 0)
         self.assertEqual(ctx | events[events[Terminated]] | length | collect, 0)
-        self.assertEqual(ctx | merged | length | collect, 0)
 
         txs = z | now[allow_tombstone] | events[Assigned] | map[absorbed | first | frame | to_tx] | collect
         self.assertEqual([ctx  | frame | time_slice | collect for ctx in txs], [TimeSlice(3),TimeSlice(4)])
@@ -43,7 +42,6 @@ class MyTestCase(unittest.TestCase):
             self.assertEqual(ctx | events[Instantiated] | length | collect, 0)
             self.assertEqual(ctx | events[Assigned] | length | collect, 1)
             self.assertEqual(ctx | events[Terminated] | length | collect, 0)
-            self.assertEqual(ctx | merged | length | collect, 0)
             
 
         ctx = z | now[allow_tombstone] | termination_tx | collect
@@ -52,19 +50,10 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(ctx | events[Instantiated] | length | collect, 0)
         self.assertEqual(ctx | events[Assigned] | length | collect, 0)
         self.assertEqual(ctx | events[Terminated] | length | collect, 1)
-        self.assertEqual(ctx | merged | length | collect, 0)
 
         ctx = z2 | termination_tx | collect
         self.assertEqual(ctx, g2[42])
 
-        ctx = z2 | merged | collect
-        # Note: slice 1 is created on Graph(), so this is slice 2
-        self.assertEqual(ctx | to_graph_slice | time_slice | collect, TimeSlice(2))
-
-        self.assertEqual(ctx | events[Instantiated] | length | collect, 1)
-        self.assertEqual(ctx | events[Assigned] | length | collect, 0)
-        self.assertEqual(ctx | events[Terminated] | length | collect, 0)
-        self.assertEqual(ctx | merged | length | collect, 1)
 
 if __name__ == '__main__':
     unittest.main()
