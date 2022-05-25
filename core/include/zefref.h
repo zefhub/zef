@@ -162,9 +162,13 @@ namespace zefDB {
 
 		const_Iterator begin() const;
 		const_Iterator end() const;
+
+        // Adding this in to more easily map to std::vector (doing this in particular for pybind now)
+        int size() const;
 	};
 
 	inline int length(const EZefRefs& uzrs) { return uzrs.delegate_ptr == nullptr ? uzrs.len : uzrs.delegate_ptr->len; }
+        
     inline GraphData* graph_data(const EZefRefs& uzrs) {
         return (uzrs.len == 0) ? (GraphData*)nullptr : graph_data(uzrs[0]);
     }
@@ -311,6 +315,9 @@ namespace zefDB {
 		Iterator end();
 		const_Iterator begin() const;
 		const_Iterator end() const;
+
+        // Adding this in to more easily map to std::vector (doing this in particular for pybind now)
+        int size() const;
 	};
 	inline int length(const ZefRefs& zrs) { return zrs.delegate_ptr == nullptr ? zrs.len : zrs.delegate_ptr->len; }
     inline GraphData* graph_data(const ZefRefs& zrs) { return zrs.reference_frame_tx.blob_ptr == nullptr ? (GraphData*)nullptr : graph_data(zrs.reference_frame_tx); }

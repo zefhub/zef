@@ -324,7 +324,7 @@ def timeline_view(zr_or_uzr) -> str:
                 f'    |{sign if direction == "in" else "-"}---------({rt_uzr|uid|collect})---------------{sign if direction == "out" else "-"}({connected_et_or_aet | uid | collect})')
 
     # Appends directed relations to the all_edges list which is in the scope of this function
-    def add_directed_rt_to_list(edges: EZefRefs, direction: str) -> None:
+    def add_directed_rt_to_list(edges, direction: str) -> None:
         for e in edges:
             all_edges.append((e, direction, "Instantiated"))
             if e | termination_tx | BT | collect == BT.TX_EVENT_NODE:
@@ -410,7 +410,7 @@ size:                   {round((g.graph_data.write_head * 16) / 1E6, 3)}MB
 """
 
 
-def type_summary_view(bl: EZefRefs, g: Graph, bt_filter: BlobType) -> str:
+def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
     def aet_et_rt_string_view(summary: Tuple[int, int, tuple]) -> str:
         aet_or_et, total, alive = summary[0], summary[1], summary[2]
         return f"[{fill_str_to_length(str(f'{total} total, {alive} alive] '), 30)}{aet_or_et}\n"

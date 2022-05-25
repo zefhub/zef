@@ -67,13 +67,13 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
         .def(py::init<>())
         .def("__call__", py::overload_cast<ZefRef>(&ToEZefRef::operator(), py::const_))
         .def("__call__", py::overload_cast<EZefRef>(&ToEZefRef::operator(), py::const_))
-        .def("__call__", py::overload_cast<const EZefRefs&>(&ToEZefRef::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefs&>(&ToEZefRef::operator(), py::const_))
+        // .def("__call__", py::overload_cast<const EZefRefs&>(&ToEZefRef::operator(), py::const_))
+        // .def("__call__", py::overload_cast<const ZefRefs&>(&ToEZefRef::operator(), py::const_))
 
         .def("__ror__", py::overload_cast<ZefRef>(&ToEZefRef::operator(), py::const_))
         .def("__ror__", py::overload_cast<EZefRef>(&ToEZefRef::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&ToEZefRef::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&ToEZefRef::operator(), py::const_))
+        // .def("__ror__", py::overload_cast<const EZefRefs&>(&ToEZefRef::operator(), py::const_))
+        // .def("__ror__", py::overload_cast<const ZefRefs&>(&ToEZefRef::operator(), py::const_))
         ;
     zefops_submodule.attr("to_ezefref") = to_ezefref;  // expose this singleton
 
@@ -95,11 +95,11 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
 
         .def("__call__", py::overload_cast<Graph&>(&Tx::operator(), py::const_))
         .def("__call__", py::overload_cast<ZefRef>(&Tx::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefs&>(&Tx::operator(), py::const_))
+        // .def("__call__", py::overload_cast<const ZefRefs&>(&Tx::operator(), py::const_))
 
         .def("__ror__", py::overload_cast<Graph&>(&Tx::operator(), py::const_))
         .def("__ror__", py::overload_cast<ZefRef>(&Tx::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&Tx::operator(), py::const_))
+        // .def("__ror__", py::overload_cast<const ZefRefs&>(&Tx::operator(), py::const_))
         ;
     zefops_submodule.attr("tx") = tx;  // expose this singleton
 
@@ -295,18 +295,18 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //                              |_| |_|_|\__\___|_|                              
     //                                                                             
 
-    zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, const std::function<bool(ZefRef)>&>(&imperative::filter));
-    zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, const std::function<bool(EZefRef)>&>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, const std::function<bool(ZefRef)>&>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, const std::function<bool(EZefRef)>&>(&imperative::filter));
 
-    zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, EntityType>(&imperative::filter));
-    zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, BlobType>(&imperative::filter));
-    zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, RelationType>(&imperative::filter));
-    zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, AtomicEntityType>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, EntityType>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, BlobType>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, RelationType>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, AtomicEntityType>(&imperative::filter));
 
-    zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, EntityType>(&imperative::filter));
-    zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, BlobType>(&imperative::filter));
-    zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, RelationType>(&imperative::filter));
-    zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, AtomicEntityType>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, EntityType>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, BlobType>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, RelationType>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, AtomicEntityType>(&imperative::filter));
 
 
 
@@ -318,22 +318,22 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //   |_____|_____|_____|    \__ \ (_) | |  | |_    |_____|_____|_____|
     //                          |___/\___/|_|   \__|                      
     //                                                                    
-    py::class_<Sort>(zefops_submodule, "Sort", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__getitem__", [](const Sort& self, std::function<int(ZefRef)> user_defined_ordering_fct) { return sort[user_defined_ordering_fct]; })
-        //.def("__getitem__", [](const Sort& self, std::function<bool(ZefRef, ZefRef)> user_defined_ordering_fct) { return sort[user_defined_ordering_fct]; })
+    // py::class_<Sort>(zefops_submodule, "Sort", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__getitem__", [](const Sort& self, std::function<int(ZefRef)> user_defined_ordering_fct) { return sort[user_defined_ordering_fct]; })
+    //     //.def("__getitem__", [](const Sort& self, std::function<bool(ZefRef, ZefRef)> user_defined_ordering_fct) { return sort[user_defined_ordering_fct]; })
             
-        .def("__call__", py::overload_cast<EZefRefs>(&Sort::operator(), py::const_))
-        .def("__call__", py::overload_cast<ZefRefs>(&Sort::operator(), py::const_))
-        .def("__ror__", py::overload_cast<EZefRefs>(&Sort::operator(), py::const_))
-        .def("__ror__", py::overload_cast<ZefRefs>(&Sort::operator(), py::const_))
-        ;
-    zefops_submodule.attr("sort") = sort;  // expose this singleton
+    //     // .def("__call__", py::overload_cast<EZefRefs>(&Sort::operator(), py::const_))
+    //     // .def("__call__", py::overload_cast<ZefRefs>(&Sort::operator(), py::const_))
+    //     // .def("__ror__", py::overload_cast<EZefRefs>(&Sort::operator(), py::const_))
+    //     // .def("__ror__", py::overload_cast<ZefRefs>(&Sort::operator(), py::const_))
+    //     ;
+    // zefops_submodule.attr("sort") = sort;  // expose this singleton
 
-    internals_submodule.def("sort_zr_magnitude", [](std::function<int(ZefRef)> user_defined_predicate_fct) { return sort[user_defined_predicate_fct]; });
-    internals_submodule.def("sort_zr", [](std::function<bool(ZefRef, ZefRef)> user_defined_predicate_fct) { return sort[user_defined_predicate_fct]; });
-    internals_submodule.def("sort_uzr_magnitude", [](std::function<int(EZefRef)> user_defined_predicate_fct) { return sort[user_defined_predicate_fct]; });
-    internals_submodule.def("sort_uzr", [](std::function<bool(EZefRef, EZefRef)> user_defined_predicate_fct) { return sort[user_defined_predicate_fct]; });
+    // internals_submodule.def("sort_zr_magnitude", [](std::function<int(ZefRef)> user_defined_predicate_fct) { return sort[user_defined_predicate_fct]; });
+    // internals_submodule.def("sort_zr", [](std::function<bool(ZefRef, ZefRef)> user_defined_predicate_fct) { return sort[user_defined_predicate_fct]; });
+    // internals_submodule.def("sort_uzr_magnitude", [](std::function<int(EZefRef)> user_defined_predicate_fct) { return sort[user_defined_predicate_fct]; });
+    // internals_submodule.def("sort_uzr", [](std::function<bool(EZefRef, EZefRef)> user_defined_predicate_fct) { return sort[user_defined_predicate_fct]; });
 
 
 
@@ -345,15 +345,15 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //   |_____|_____|_____|_____|  | |_| | | | | | (_| | |_| |  __/  |_____|_____|_____|_____|
     //                               \__,_|_| |_|_|\__, |\__,_|\___|                           
     //                                                |_|                               
-    py::class_<Unique>(zefops_submodule, "Unique", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__call__", py::overload_cast<EZefRefs>(&Unique::operator(), py::const_))
-        .def("__call__", py::overload_cast<ZefRefs>(&Unique::operator(), py::const_))
-        .def("__ror__", py::overload_cast<EZefRefs>(&Unique::operator(), py::const_))
-        .def("__ror__", py::overload_cast<ZefRefs>(&Unique::operator(), py::const_))
-        ;
+    // py::class_<Unique>(zefops_submodule, "Unique", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     // .def("__call__", py::overload_cast<EZefRefs>(&Unique::operator(), py::const_))
+    //     // .def("__call__", py::overload_cast<ZefRefs>(&Unique::operator(), py::const_))
+    //     // .def("__ror__", py::overload_cast<EZefRefs>(&Unique::operator(), py::const_))
+    //     // .def("__ror__", py::overload_cast<ZefRefs>(&Unique::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("unique") = unique;  // expose this singleton
+    // zefops_submodule.attr("unique") = unique;  // expose this singleton
 
 
 
@@ -366,43 +366,43 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //   |_____|_____|_____|    | | | | | ||  __/ |  \__ \  __/ (__| |_      |_____|_____|_____|
     //                          |_|_| |_|\__\___|_|  |___/\___|\___|\__|                        
     //                                                                                    
-    py::class_<Intersect>(zefops_submodule, "Intersect", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__call__", py::overload_cast<const ZefRefs&, const ZefRefs&>(&Intersect::operator(), py::const_))
-        .def("__call__", py::overload_cast<const EZefRefs&, const EZefRefs&>(&Intersect::operator(), py::const_))
-        ;
+    // py::class_<Intersect>(zefops_submodule, "Intersect", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__call__", py::overload_cast<const ZefRefs&, const ZefRefs&>(&Intersect::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const EZefRefs&, const EZefRefs&>(&Intersect::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("intersect") = intersect;  // expose this singleton
+    // zefops_submodule.attr("intersect") = intersect;  // expose this singleton
 
-    py::class_<Concatenate>(zefops_submodule, "Concatenate", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__call__", py::overload_cast<const ZefRefs&, const ZefRefs&>(&Concatenate::operator(), py::const_))
-        .def("__call__", py::overload_cast<const EZefRefs&, const EZefRefs&>(&Concatenate::operator(), py::const_))
-        ;
+    // py::class_<Concatenate>(zefops_submodule, "Concatenate", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__call__", py::overload_cast<const ZefRefs&, const ZefRefs&>(&Concatenate::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const EZefRefs&, const EZefRefs&>(&Concatenate::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("concatenate") = concatenate;  // expose this singleton
+    // zefops_submodule.attr("concatenate") = concatenate;  // expose this singleton
 
-    py::class_<SetUnion>(zefops_submodule, "SetUnion", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__call__", py::overload_cast<const ZefRefs&, const ZefRefs&>(&SetUnion::operator(), py::const_))
-        .def("__call__", py::overload_cast<const EZefRefs&, const EZefRefs&>(&SetUnion::operator(), py::const_))
-        ;
+    // py::class_<SetUnion>(zefops_submodule, "SetUnion", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__call__", py::overload_cast<const ZefRefs&, const ZefRefs&>(&SetUnion::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const EZefRefs&, const EZefRefs&>(&SetUnion::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("set_union") = set_union;  // expose this singleton
+    // zefops_submodule.attr("set_union") = set_union;  // expose this singleton
 
-    py::class_<Without>(zefops_submodule, "Without", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__call__", py::overload_cast<const ZefRefs&, const ZefRefs&>(&Without::operator(), py::const_))
-        .def("__call__", py::overload_cast<const EZefRefs&, const EZefRefs&>(&Without::operator(), py::const_))
+    // py::class_<Without>(zefops_submodule, "Without", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__call__", py::overload_cast<const ZefRefs&, const ZefRefs&>(&Without::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const EZefRefs&, const EZefRefs&>(&Without::operator(), py::const_))
 
-        .def("__getitem__", [](const Without& self, const ZefRefs& zrs) { return without[zrs]; })
-        .def("__getitem__", [](const Without& self, const EZefRefs& uzrs) { return without[uzrs]; })
+    //     .def("__getitem__", [](const Without& self, const ZefRefs& zrs) { return without[zrs]; })
+    //     .def("__getitem__", [](const Without& self, const EZefRefs& uzrs) { return without[uzrs]; })
 
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&Without::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&Without::operator(), py::const_))
-        ;
+    //     .def("__ror__", py::overload_cast<const EZefRefs&>(&Without::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&Without::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("without") = without;  // expose this singleton
+    // zefops_submodule.attr("without") = without;  // expose this singleton
 
 
 
@@ -463,19 +463,19 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //                                                                                       
 
 
-    py::class_<Flatten>(zefops_submodule, "Flatten", py::buffer_protocol())
-        .def(py::init<>())
-        // .def("__call__", py::overload_cast<const EZefRefss&>(&Flatten::operator(), py::const_))
-        // .def("__call__", py::overload_cast<const ZefRefss&>(&Flatten::operator(), py::const_))
-        // .def("__ror__", py::overload_cast<const EZefRefss&>(&Flatten::operator(), py::const_))
-        // .def("__ror__", py::overload_cast<const ZefRefss&>(&Flatten::operator(), py::const_))
-        .def("__call__", py::overload_cast<EZefRefss&>(&Flatten::operator(), py::const_))
-        .def("__ror__", py::overload_cast<EZefRefss&>(&Flatten::operator(), py::const_))
-        .def("__call__", py::overload_cast<ZefRefss&>(&Flatten::operator(), py::const_))
-        .def("__ror__", py::overload_cast<ZefRefss&>(&Flatten::operator(), py::const_))
-        ;
+    // py::class_<Flatten>(zefops_submodule, "Flatten", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     // .def("__call__", py::overload_cast<const EZefRefss&>(&Flatten::operator(), py::const_))
+    //     // .def("__call__", py::overload_cast<const ZefRefss&>(&Flatten::operator(), py::const_))
+    //     // .def("__ror__", py::overload_cast<const EZefRefss&>(&Flatten::operator(), py::const_))
+    //     // .def("__ror__", py::overload_cast<const ZefRefss&>(&Flatten::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<EZefRefss&>(&Flatten::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<EZefRefss&>(&Flatten::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<ZefRefss&>(&Flatten::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<ZefRefss&>(&Flatten::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("flatten") = flatten;  // expose this singleton
+    // zefops_submodule.attr("flatten") = flatten;  // expose this singleton
 
 
     //                                                _       _                  _   _                         
@@ -485,16 +485,16 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //                        \__,_|___/___/\___|_|   \__|___|_|\___|_| |_|\__, |\__|_| |_|                    
     //                                                  |_____|            |___/                               
 
-    py::class_<AssertLength>(zefops_submodule, "AssertLength", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__getitem__", [](const AssertLength& self, int len) { return assert_length[len]; })  // do not modify self, but return a new First object
-        .def("__call__", py::overload_cast<const EZefRefs&>(&AssertLength::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefs&>(&AssertLength::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&AssertLength::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&AssertLength::operator(), py::const_))
-        ;
+    // py::class_<AssertLength>(zefops_submodule, "AssertLength", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__getitem__", [](const AssertLength& self, int len) { return assert_length[len]; })  // do not modify self, but return a new First object
+    //     .def("__call__", py::overload_cast<const EZefRefs&>(&AssertLength::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const ZefRefs&>(&AssertLength::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const EZefRefs&>(&AssertLength::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&AssertLength::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("assert_length") = assert_length;  // expose this singleton
+    // zefops_submodule.attr("assert_length") = assert_length;  // expose this singleton
 
 
 
@@ -505,51 +505,51 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //   |_____|_____|_____| | |___| |  _| |_  |_____|_____|_____|
     //                       |_____|_|_|  \__|                    
     //                                                       
-    py::class_<LiftedOnly_>(zefops_submodule, "LiftedOnly_", py::buffer_protocol())
-        .def("__call__", py::overload_cast<const EZefRefs&>(&LiftedOnly_::operator(), py::const_))
-        .def("__call__", py::overload_cast<const EZefRefss&>(&LiftedOnly_::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefs&>(&LiftedOnly_::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefss&>(&LiftedOnly_::operator(), py::const_))
+    // py::class_<LiftedOnly_>(zefops_submodule, "LiftedOnly_", py::buffer_protocol())
+    //     .def("__call__", py::overload_cast<const EZefRefs&>(&LiftedOnly_::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const EZefRefss&>(&LiftedOnly_::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const ZefRefs&>(&LiftedOnly_::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const ZefRefss&>(&LiftedOnly_::operator(), py::const_))
 
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&LiftedOnly_::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefss&>(&LiftedOnly_::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&LiftedOnly_::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefss&>(&LiftedOnly_::operator(), py::const_))
-        ;
+    //     .def("__ror__", py::overload_cast<const EZefRefs&>(&LiftedOnly_::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const EZefRefss&>(&LiftedOnly_::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&LiftedOnly_::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefss&>(&LiftedOnly_::operator(), py::const_))
+    //     ;
 
-    py::class_<LiftedFirst_>(zefops_submodule, "LiftedFirst_", py::buffer_protocol())
-        .def("__call__", py::overload_cast<const EZefRefs&>(&LiftedFirst_::operator(), py::const_))
-        .def("__call__", py::overload_cast<const EZefRefss&>(&LiftedFirst_::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefs&>(&LiftedFirst_::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefss&>(&LiftedFirst_::operator(), py::const_))
+    // py::class_<LiftedFirst_>(zefops_submodule, "LiftedFirst_", py::buffer_protocol())
+    //     .def("__call__", py::overload_cast<const EZefRefs&>(&LiftedFirst_::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const EZefRefss&>(&LiftedFirst_::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const ZefRefs&>(&LiftedFirst_::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const ZefRefss&>(&LiftedFirst_::operator(), py::const_))
 
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&LiftedFirst_::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefss&>(&LiftedFirst_::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&LiftedFirst_::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefss&>(&LiftedFirst_::operator(), py::const_))
-        ;
+    //     .def("__ror__", py::overload_cast<const EZefRefs&>(&LiftedFirst_::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const EZefRefss&>(&LiftedFirst_::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&LiftedFirst_::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefss&>(&LiftedFirst_::operator(), py::const_))
+    //     ;
 
-    py::class_<LiftedLast_>(zefops_submodule, "LiftedLast_", py::buffer_protocol())
-        .def("__call__", py::overload_cast<const EZefRefs&>(&LiftedLast_::operator(), py::const_))
-        .def("__call__", py::overload_cast<const EZefRefss&>(&LiftedLast_::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefs&>(&LiftedLast_::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefss&>(&LiftedLast_::operator(), py::const_))
+    // py::class_<LiftedLast_>(zefops_submodule, "LiftedLast_", py::buffer_protocol())
+    //     .def("__call__", py::overload_cast<const EZefRefs&>(&LiftedLast_::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const EZefRefss&>(&LiftedLast_::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const ZefRefs&>(&LiftedLast_::operator(), py::const_))
+    //     .def("__call__", py::overload_cast<const ZefRefss&>(&LiftedLast_::operator(), py::const_))
 
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&LiftedLast_::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefss&>(&LiftedLast_::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&LiftedLast_::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefss&>(&LiftedLast_::operator(), py::const_))
-        ;
+    //     .def("__ror__", py::overload_cast<const EZefRefs&>(&LiftedLast_::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const EZefRefss&>(&LiftedLast_::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&LiftedLast_::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefss&>(&LiftedLast_::operator(), py::const_))
+    //     ;
 
 
 
-    py::class_<Lift>(zefops_submodule, "Lift", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__getitem__", py::overload_cast<Only>(&Lift::operator[], py::const_))
-        .def("__getitem__", py::overload_cast<First>(&Lift::operator[], py::const_))
-        .def("__getitem__", py::overload_cast<Last>(&Lift::operator[], py::const_))			
-        ;
-    zefops_submodule.attr("lift") = lift;  // expose this singleton
+    // py::class_<Lift>(zefops_submodule, "Lift", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__getitem__", py::overload_cast<Only>(&Lift::operator[], py::const_))
+    //     .def("__getitem__", py::overload_cast<First>(&Lift::operator[], py::const_))
+    //     .def("__getitem__", py::overload_cast<Last>(&Lift::operator[], py::const_))			
+    //     ;
+    // zefops_submodule.attr("lift") = lift;  // expose this singleton
 
 
 
@@ -566,15 +566,15 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //   |_____|_____|_____| |  _| | |  \__ \ |_  |_____|_____|_____|
     //                       |_| |_|_|  |___/\__|                    
     //                                                               
-    py::class_<First>(zefops_submodule, "First", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__call__", py::overload_cast<const EZefRefs&>(&First::operator(), py::const_))   //special tag for const methods
-        .def("__call__", py::overload_cast<const ZefRefs&>(&First::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&First::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&First::operator(), py::const_))
-        ;
+    // py::class_<First>(zefops_submodule, "First", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__call__", py::overload_cast<const EZefRefs&>(&First::operator(), py::const_))   //special tag for const methods
+    //     .def("__call__", py::overload_cast<const ZefRefs&>(&First::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const EZefRefs&>(&First::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&First::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("first") = first;  // expose this singleton
+    // zefops_submodule.attr("first") = first;  // expose this singleton
 
     //                        _           _                       
     //                       | | __ _ ___| |_                     
@@ -582,15 +582,15 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //   |_____|_____|_____| | | (_| \__ \ |_  |_____|_____|_____|
     //                       |_|\__,_|___/\__|                    
     //      
-    py::class_<Last>(zefops_submodule, "Last", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__call__", py::overload_cast<const EZefRefs&>(&Last::operator(), py::const_))   //special tag for const methods
-        .def("__call__", py::overload_cast<const ZefRefs&>(&Last::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&Last::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&Last::operator(), py::const_))
-        ;
+    // py::class_<Last>(zefops_submodule, "Last", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__call__", py::overload_cast<const EZefRefs&>(&Last::operator(), py::const_))   //special tag for const methods
+    //     .def("__call__", py::overload_cast<const ZefRefs&>(&Last::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const EZefRefs&>(&Last::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&Last::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("last") = last;  // expose this singleton
+    // zefops_submodule.attr("last") = last;  // expose this singleton
 
 
 
@@ -601,15 +601,15 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //                         \___/|_| |_|_|\__, |                     
     //                                       |___/                      
 
-    py::class_<Only>(zefops_submodule, "Only", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__call__", py::overload_cast<const EZefRefs&>(&Only::operator(), py::const_))   //special tag for const methods
-        .def("__call__", py::overload_cast<const ZefRefs&>(&Only::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&Only::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&Only::operator(), py::const_))
-        ;
+    // py::class_<Only>(zefops_submodule, "Only", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__call__", py::overload_cast<const EZefRefs&>(&Only::operator(), py::const_))   //special tag for const methods
+    //     .def("__call__", py::overload_cast<const ZefRefs&>(&Only::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const EZefRefs&>(&Only::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&Only::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("only") = only;  // expose this singleton
+    // zefops_submodule.attr("only") = only;  // expose this singleton
 
 
 
@@ -620,16 +620,16 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //   |_____|_____|_____|   | (_) | | | | | |_| |  | (_) | |     |_____|_____|_____|
     //                          \___/|_| |_|_|\__, |___\___/|_|                        
     //                                        |___/_____|                              
-    py::class_<OnlyOr>(zefops_submodule, "OnlyOr", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__getitem__", [](const OnlyOr& self, std::function<ZefRef(ZefRefs)> compute_alternative) { return only_or[compute_alternative]; }) 
-        //.def("__call__", py::overload_cast<const EZefRefs&>(&OnlyOr::operator(), py::const_))   //special tag for const methods
-        .def("__call__", py::overload_cast<const ZefRefs&>(&OnlyOr::operator(), py::const_))
-        //.def("__ror__", py::overload_cast<const EZefRefs&>(&OnlyOr::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&OnlyOr::operator(), py::const_))
-        ;
+    // py::class_<OnlyOr>(zefops_submodule, "OnlyOr", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__getitem__", [](const OnlyOr& self, std::function<ZefRef(ZefRefs)> compute_alternative) { return only_or[compute_alternative]; }) 
+    //     //.def("__call__", py::overload_cast<const EZefRefs&>(&OnlyOr::operator(), py::const_))   //special tag for const methods
+    //     .def("__call__", py::overload_cast<const ZefRefs&>(&OnlyOr::operator(), py::const_))
+    //     //.def("__ror__", py::overload_cast<const EZefRefs&>(&OnlyOr::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&OnlyOr::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("only_or") = only_or;  // expose this singleton
+    // zefops_submodule.attr("only_or") = only_or;  // expose this singleton
 
 
 
@@ -639,16 +639,16 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //   |_____|_____|_____| |  __/ |  __/ | | | | |  __/ | | | |_  |_____|_____|_____|
     //                        \___|_|\___|_| |_| |_|\___|_| |_|\__|                    
     //                                                                               
-    py::class_<Element>(zefops_submodule, "Element", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__getitem__", [](const Element& self, int number_of_elements) { return element[number_of_elements]; })  // do not modify self, but return a new First object
-        .def("__call__", py::overload_cast<const EZefRefs&>(&Element::operator(), py::const_))   //special tag for const methods
-        .def("__call__", py::overload_cast<const ZefRefs&>(&Element::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&Element::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&Element::operator(), py::const_))
+    // py::class_<Element>(zefops_submodule, "Element", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__getitem__", [](const Element& self, int number_of_elements) { return element[number_of_elements]; })  // do not modify self, but return a new First object
+    //     .def("__call__", py::overload_cast<const EZefRefs&>(&Element::operator(), py::const_))   //special tag for const methods
+    //     .def("__call__", py::overload_cast<const ZefRefs&>(&Element::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const EZefRefs&>(&Element::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&Element::operator(), py::const_))
         ;
 
-    zefops_submodule.attr("element") = element;  // expose this singleton
+    // zefops_submodule.attr("element") = element;  // expose this singleton
 
 
     //                          _        _                             
@@ -657,18 +657,18 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //   |_____|_____|_____|   | || (_| |   <  __/  |_____|_____|_____|
     //                          \__\__,_|_|\_\___|                     
     //                                                                 
-    py::class_<Take>(zefops_submodule, "Take", py::buffer_protocol())
-        .def(py::init<>())
-        .def("__getitem__", [](const Take& self, int number_of_elements) { return take[number_of_elements]; })  // do not modify self, but return a new First object
-        .def("__call__", py::overload_cast<const EZefRefs&>(&Take::operator(), py::const_))   //special tag for const methods
-        .def("__call__", py::overload_cast<const ZefRefs&>(&Take::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&Take::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&Take::operator(), py::const_))
-        ;
+    // py::class_<Take>(zefops_submodule, "Take", py::buffer_protocol())
+    //     .def(py::init<>())
+    //     .def("__getitem__", [](const Take& self, int number_of_elements) { return take[number_of_elements]; })  // do not modify self, but return a new First object
+    //     .def("__call__", py::overload_cast<const EZefRefs&>(&Take::operator(), py::const_))   //special tag for const methods
+    //     .def("__call__", py::overload_cast<const ZefRefs&>(&Take::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const EZefRefs&>(&Take::operator(), py::const_))
+    //     .def("__ror__", py::overload_cast<const ZefRefs&>(&Take::operator(), py::const_))
+    //     ;
 
-    zefops_submodule.attr("take") = take;  // expose this singleton
-    zefops_submodule.def("take_impl", [](const ZefRefs& zrs, int n) { return zrs | take[n]; });
-    zefops_submodule.def("take_impl", [](const EZefRefs& uzrs, int n) { return uzrs | take[n]; });
+    // zefops_submodule.attr("take") = take;  // expose this singleton
+    // zefops_submodule.def("take_impl", [](const ZefRefs& zrs, int n) { return zrs | take[n]; });
+    // zefops_submodule.def("take_impl", [](const EZefRefs& uzrs, int n) { return uzrs | take[n]; });
 
 
 
@@ -773,14 +773,14 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     py::class_<InstantiationTx>(zefops_submodule, "InstantiationTx", py::buffer_protocol())
         .def(py::init<>())
         .def("__call__", py::overload_cast<EZefRef>(&InstantiationTx::operator(), py::const_))
-        .def("__call__", py::overload_cast<const EZefRefs&>(&InstantiationTx::operator(), py::const_))
+        // .def("__call__", py::overload_cast<const EZefRefs&>(&InstantiationTx::operator(), py::const_))
         .def("__call__", py::overload_cast<ZefRef>(&InstantiationTx::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefs&>(&InstantiationTx::operator(), py::const_))
+        // .def("__call__", py::overload_cast<const ZefRefs&>(&InstantiationTx::operator(), py::const_))
 
         .def("__ror__", py::overload_cast<EZefRef>(&InstantiationTx::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&InstantiationTx::operator(), py::const_))
+        // .def("__ror__", py::overload_cast<const EZefRefs&>(&InstantiationTx::operator(), py::const_))
         .def("__ror__", py::overload_cast<ZefRef>(&InstantiationTx::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&InstantiationTx::operator(), py::const_))
+        // .def("__ror__", py::overload_cast<const ZefRefs&>(&InstantiationTx::operator(), py::const_))
         ;
     zefops_submodule.attr("instantiation_tx") = instantiation_tx;  // expose this singleton
 
@@ -795,14 +795,14 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     py::class_<TerminationTx>(zefops_submodule, "TerminationTx", py::buffer_protocol())
         .def(py::init<>())
         .def("__call__", py::overload_cast<EZefRef>(&TerminationTx::operator()))
-        .def("__call__", py::overload_cast<const EZefRefs&>(&TerminationTx::operator()))
+        // .def("__call__", py::overload_cast<const EZefRefs&>(&TerminationTx::operator()))
         .def("__call__", py::overload_cast<ZefRef>(&TerminationTx::operator()))
-        .def("__call__", py::overload_cast<const ZefRefs&>(&TerminationTx::operator()))
+        // .def("__call__", py::overload_cast<const ZefRefs&>(&TerminationTx::operator()))
 
         .def("__ror__", py::overload_cast<EZefRef>(&TerminationTx::operator()))
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&TerminationTx::operator()))
+        // .def("__ror__", py::overload_cast<const EZefRefs&>(&TerminationTx::operator()))
         .def("__ror__", py::overload_cast<ZefRef>(&TerminationTx::operator()))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&TerminationTx::operator()))
+        // .def("__ror__", py::overload_cast<const ZefRefs&>(&TerminationTx::operator()))
         ;
     zefops_submodule.attr("termination_tx") = termination_tx;  // expose this singleton
 
@@ -903,12 +903,12 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
         .def("__getitem__", py::overload_cast<EZefRef>(&TimeTravel::operator[], py::const_))
 
         .def("__call__", py::overload_cast<ZefRef>(&TimeTravel::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefs&>(&TimeTravel::operator(), py::const_))
-        .def("__call__", py::overload_cast<const ZefRefss&>(&TimeTravel::operator(), py::const_))
+        // .def("__call__", py::overload_cast<const ZefRefs&>(&TimeTravel::operator(), py::const_))
+        // .def("__call__", py::overload_cast<const ZefRefss&>(&TimeTravel::operator(), py::const_))
 
         .def("__ror__", py::overload_cast<ZefRef>(&TimeTravel::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&TimeTravel::operator(), py::const_))
-        .def("__ror__", py::overload_cast<const ZefRefss&>(&TimeTravel::operator(), py::const_))			
+        // .def("__ror__", py::overload_cast<const ZefRefs&>(&TimeTravel::operator(), py::const_))
+        // .def("__ror__", py::overload_cast<const ZefRefss&>(&TimeTravel::operator(), py::const_))			
         ;
     zefops_submodule.attr("time_travel") = time_travel;  // expose this singleton
 
@@ -930,14 +930,14 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
         .def("__call__", py::overload_cast<const Graph&>(&Now::operator(), py::const_))
         .def("__call__", py::overload_cast<EZefRef>(&Now::operator(), py::const_))
         .def("__call__", py::overload_cast<ZefRef>(&Now::operator(), py::const_))            
-        .def("__call__", py::overload_cast<const ZefRefs&>(&Now::operator()))
-        .def("__call__", py::overload_cast<const EZefRefs&>(&Now::operator()))
+        // .def("__call__", py::overload_cast<const ZefRefs&>(&Now::operator()))
+        // .def("__call__", py::overload_cast<const EZefRefs&>(&Now::operator()))
             
         .def("__ror__", py::overload_cast<const Graph&>(&Now::operator(), py::const_))
         .def("__ror__", py::overload_cast<EZefRef>(&Now::operator(), py::const_))
         .def("__ror__", py::overload_cast<ZefRef>(&Now::operator(), py::const_))            
-        .def("__ror__", py::overload_cast<const ZefRefs&>(&Now::operator()))
-        .def("__ror__", py::overload_cast<const EZefRefs&>(&Now::operator()))
+        // .def("__ror__", py::overload_cast<const ZefRefs&>(&Now::operator()))
+        // .def("__ror__", py::overload_cast<const EZefRefs&>(&Now::operator()))
         ;
     zefops_submodule.attr("now") = now;  // expose this singleton
 
@@ -1150,15 +1150,15 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
         .def("__lt__", [](L_Class self, ZefRef zr) { return zr > self; })  // similar functionality as non-existent '__rgt__' :)
         .def("__gt__", [](L_Class self, ZefRef zr) { return zr < self; })
 
-        .def("__rrshift__", [](L_Class self, EZefRefs& uzrs) { return uzrs >> self; })
-        .def("__rlshift__", [](L_Class self, EZefRefs& uzrs) { return uzrs << self; })
-        .def("__lt__", [](L_Class self, EZefRefs uzrs) { return uzrs > self; })  // similar functionality as non-existent '__rgt__' :)
-        .def("__gt__", [](L_Class self, EZefRefs uzrs) { return uzrs < self; })
+        // .def("__rrshift__", [](L_Class self, EZefRefs& uzrs) { return uzrs >> self; })
+        // .def("__rlshift__", [](L_Class self, EZefRefs& uzrs) { return uzrs << self; })
+        // .def("__lt__", [](L_Class self, EZefRefs uzrs) { return uzrs > self; })  // similar functionality as non-existent '__rgt__' :)
+        // .def("__gt__", [](L_Class self, EZefRefs uzrs) { return uzrs < self; })
 
-        .def("__rrshift__", [](L_Class self, ZefRefs& zrs) { return zrs >> self; })
-        .def("__rlshift__", [](L_Class self, ZefRefs& zrs) { return zrs << self; })
-        .def("__lt__", [](L_Class self, ZefRefs zrs) { return zrs > self; })  // similar functionality as non-existent '__rgt__' :)
-        .def("__gt__", [](L_Class self, ZefRefs zrs) { return zrs < self; })
+        // .def("__rrshift__", [](L_Class self, ZefRefs& zrs) { return zrs >> self; })
+        // .def("__rlshift__", [](L_Class self, ZefRefs& zrs) { return zrs << self; })
+        // .def("__lt__", [](L_Class self, ZefRefs zrs) { return zrs > self; })  // similar functionality as non-existent '__rgt__' :)
+        // .def("__gt__", [](L_Class self, ZefRefs zrs) { return zrs < self; })
         ;
     zefops_submodule.attr("L") = L;  // expose this singleton
         
@@ -1278,20 +1278,20 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     zefops_submodule.def("to_frame", py::overload_cast<EZefRef, ZefRef, bool>(&imperative::to_frame), "entity"_a, "tx"_a, "allow_terminated"_a = false, py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("to_frame", py::overload_cast<ZefRef, ZefRef, bool>(&imperative::to_frame), "entity"_a, "tx"_a, "allow_terminated"_a = false, py::call_guard<py::gil_scoped_release>());
 
-    zefops_submodule.def("to_frame", py::overload_cast<EZefRefs, EZefRef, bool>(&imperative::to_frame), "uzrs"_a, "tx"_a, "allow_terminated"_a = false, py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("to_frame", py::overload_cast<ZefRefs, EZefRef, bool>(&imperative::to_frame), "zrs"_a, "tx"_a, "allow_terminated"_a = false, py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("to_frame", py::overload_cast<EZefRefs, ZefRef, bool>(&imperative::to_frame), "uzrs"_a, "tx"_a, "allow_terminated"_a = false, py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("to_frame", py::overload_cast<ZefRefs, ZefRef, bool>(&imperative::to_frame), "zrs"_a, "tx"_a, "allow_terminated"_a = false, py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("to_frame", py::overload_cast<EZefRefs, EZefRef, bool>(&imperative::to_frame), "uzrs"_a, "tx"_a, "allow_terminated"_a = false, py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("to_frame", py::overload_cast<ZefRefs, EZefRef, bool>(&imperative::to_frame), "zrs"_a, "tx"_a, "allow_terminated"_a = false, py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("to_frame", py::overload_cast<EZefRefs, ZefRef, bool>(&imperative::to_frame), "uzrs"_a, "tx"_a, "allow_terminated"_a = false, py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("to_frame", py::overload_cast<ZefRefs, ZefRef, bool>(&imperative::to_frame), "zrs"_a, "tx"_a, "allow_terminated"_a = false, py::call_guard<py::gil_scoped_release>());
 
     zefops_submodule.def("target", py::overload_cast<EZefRef>(&imperative::target), py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("target", py::overload_cast<const EZefRefs&>(&imperative::target), py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("target", py::overload_cast<const EZefRefs&>(&imperative::target), py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("target", py::overload_cast<ZefRef>(&imperative::target), py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("target", py::overload_cast<const ZefRefs&>(&imperative::target), py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("target", py::overload_cast<const ZefRefs&>(&imperative::target), py::call_guard<py::gil_scoped_release>());
 
     zefops_submodule.def("source", py::overload_cast<EZefRef>(&imperative::source), py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("source", py::overload_cast<const EZefRefs&>(&imperative::source), py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("source", py::overload_cast<const EZefRefs&>(&imperative::source), py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("source", py::overload_cast<ZefRef>(&imperative::source), py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("source", py::overload_cast<const ZefRefs&>(&imperative::source), py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("source", py::overload_cast<const ZefRefs&>(&imperative::source), py::call_guard<py::gil_scoped_release>());
 
 
     zefops_submodule.def("traverse_out_edge", py::overload_cast<EZefRef,BlobType>(&imperative::traverse_out_edge));
@@ -1339,35 +1339,35 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     zefops_submodule.def("traverse_in_edge_optional", py::overload_cast<ZefRef,RelationType>(&imperative::traverse_in_edge_optional));
     zefops_submodule.def("traverse_in_node_optional", py::overload_cast<ZefRef,RelationType>(&imperative::traverse_in_node_optional));
 
-    zefops_submodule.def("traverse_out_edge", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_out_edge));
-    zefops_submodule.def("traverse_out_node", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_out_node));
-    zefops_submodule.def("traverse_in_edge", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_in_edge));
-    zefops_submodule.def("traverse_in_node", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_in_node));
+    // zefops_submodule.def("traverse_out_edge", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_out_edge));
+    // zefops_submodule.def("traverse_out_node", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_out_node));
+    // zefops_submodule.def("traverse_in_edge", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_in_edge));
+    // zefops_submodule.def("traverse_in_node", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_in_node));
 
-    zefops_submodule.def("traverse_out_edge_multi", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_out_edge_multi));
-    zefops_submodule.def("traverse_out_node_multi", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_out_node_multi));
-    zefops_submodule.def("traverse_in_edge_multi", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_in_edge_multi));
-    zefops_submodule.def("traverse_in_node_multi", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_in_node_multi));
+    // zefops_submodule.def("traverse_out_edge_multi", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_out_edge_multi));
+    // zefops_submodule.def("traverse_out_node_multi", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_out_node_multi));
+    // zefops_submodule.def("traverse_in_edge_multi", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_in_edge_multi));
+    // zefops_submodule.def("traverse_in_node_multi", py::overload_cast<const EZefRefs&,BlobType>(&imperative::traverse_in_node_multi));
 
-    zefops_submodule.def("traverse_out_edge", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_out_edge));
-    zefops_submodule.def("traverse_out_node", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_out_node));
-    zefops_submodule.def("traverse_in_edge", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_in_edge));
-    zefops_submodule.def("traverse_in_node", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_in_node));
+    // zefops_submodule.def("traverse_out_edge", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_out_edge));
+    // zefops_submodule.def("traverse_out_node", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_out_node));
+    // zefops_submodule.def("traverse_in_edge", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_in_edge));
+    // zefops_submodule.def("traverse_in_node", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_in_node));
 
-    zefops_submodule.def("traverse_out_edge_multi", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_out_edge_multi));
-    zefops_submodule.def("traverse_out_node_multi", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_out_node_multi));
-    zefops_submodule.def("traverse_in_edge_multi", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_in_edge_multi));
-    zefops_submodule.def("traverse_in_node_multi", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_in_node_multi));
+    // zefops_submodule.def("traverse_out_edge_multi", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_out_edge_multi));
+    // zefops_submodule.def("traverse_out_node_multi", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_out_node_multi));
+    // zefops_submodule.def("traverse_in_edge_multi", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_in_edge_multi));
+    // zefops_submodule.def("traverse_in_node_multi", py::overload_cast<const EZefRefs&,RelationType>(&imperative::traverse_in_node_multi));
 
-    zefops_submodule.def("traverse_out_edge", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_out_edge));
-    zefops_submodule.def("traverse_out_node", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_out_node));
-    zefops_submodule.def("traverse_in_edge", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_in_edge));
-    zefops_submodule.def("traverse_in_node", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_in_node));
+    // zefops_submodule.def("traverse_out_edge", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_out_edge));
+    // zefops_submodule.def("traverse_out_node", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_out_node));
+    // zefops_submodule.def("traverse_in_edge", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_in_edge));
+    // zefops_submodule.def("traverse_in_node", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_in_node));
 
-    zefops_submodule.def("traverse_out_edge_multi", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_out_edge_multi));
-    zefops_submodule.def("traverse_out_node_multi", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_out_node_multi));
-    zefops_submodule.def("traverse_in_edge_multi", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_in_edge_multi));
-    zefops_submodule.def("traverse_in_node_multi", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_in_node_multi));
+    // zefops_submodule.def("traverse_out_edge_multi", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_out_edge_multi));
+    // zefops_submodule.def("traverse_out_node_multi", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_out_node_multi));
+    // zefops_submodule.def("traverse_in_edge_multi", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_in_edge_multi));
+    // zefops_submodule.def("traverse_in_node_multi", py::overload_cast<const ZefRefs&,RelationType>(&imperative::traverse_in_node_multi));
 
 
 
@@ -1407,16 +1407,16 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     zefops_submodule.def("value", py::overload_cast<EZefRef,ZefRef>(&imperative::value), "Read a value from an atomic entity.", py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("value", py::overload_cast<ZefRef,ZefRef>(&imperative::value), "Read a value from an atomic entity.", py::call_guard<py::gil_scoped_release>());
 
-    zefops_submodule.def("value", py::overload_cast<ZefRefs>(&imperative::value), py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("value", py::overload_cast<EZefRefs,EZefRef>(&imperative::value), py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("value", py::overload_cast<ZefRefs,EZefRef>(&imperative::value), py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("value", py::overload_cast<EZefRefs,ZefRef>(&imperative::value), py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("value", py::overload_cast<ZefRefs,ZefRef>(&imperative::value), py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("value", py::overload_cast<ZefRefs>(&imperative::value), py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("value", py::overload_cast<EZefRefs,EZefRef>(&imperative::value), py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("value", py::overload_cast<ZefRefs,EZefRef>(&imperative::value), py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("value", py::overload_cast<EZefRefs,ZefRef>(&imperative::value), py::call_guard<py::gil_scoped_release>());
+    // zefops_submodule.def("value", py::overload_cast<ZefRefs,ZefRef>(&imperative::value), py::call_guard<py::gil_scoped_release>());
 
 	zefops_submodule.def("terminate", py::overload_cast<EZefRef>(&imperative::terminate), py::call_guard<py::gil_scoped_release>(), "A function to terminate an entity / atomic entity / relation");
 	zefops_submodule.def("terminate", py::overload_cast<ZefRef>(&imperative::terminate), py::call_guard<py::gil_scoped_release>(), "A function to terminate an entity / atomic entity / relation");	
-	zefops_submodule.def("terminate", py::overload_cast<EZefRefs>(&imperative::terminate), py::call_guard<py::gil_scoped_release>(), "A function to terminate an entity / atomic entity / relation");
-    zefops_submodule.def("terminate", py::overload_cast<ZefRefs>(&imperative::terminate), py::call_guard<py::gil_scoped_release>(), "A function to terminate an entity / atomic entity / relation");	
+	// zefops_submodule.def("terminate", py::overload_cast<EZefRefs>(&imperative::terminate), py::call_guard<py::gil_scoped_release>(), "A function to terminate an entity / atomic entity / relation");
+    // zefops_submodule.def("terminate", py::overload_cast<ZefRefs>(&imperative::terminate), py::call_guard<py::gil_scoped_release>(), "A function to terminate an entity / atomic entity / relation");	
 
     zefops_submodule.def("delegate", py::overload_cast<EZefRef>(&imperative::delegate), py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("delegate", py::overload_cast<ZefRef>(&imperative::delegate), py::call_guard<py::gil_scoped_release>());

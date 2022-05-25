@@ -229,26 +229,26 @@ def leq_monkey_patching_ae(self, other):
 AtomicEntityType.__le__ = leq_monkey_patching_ae
 
 
-# Pretty printing for ZefRefs
-def pprint_ZefRefs(self, p, cycle):
-    p.text(str(self))
-    p.text(" [\n")
+# # Pretty printing for ZefRefs
+# def pprint_ZefRefs(self, p, cycle):
+#     p.text(str(self))
+#     p.text(" [\n")
 
-    N_max = 10
-    if len(self) > N_max:
-        # Split into first part and last part
-        N = N_max // 2
-        first = [self[i] for i in range(N)]
-        last = [self[i] for i in range(len(self)-N, len(self)-1)]
-        p.text('\n'.join("\t"+str(x) for x in first))
-        p.text('\n\t...\n')
-        p.text('\n'.join("\t"+str(x) for x in last))
-    else:
-        p.text('\n'.join("\t"+str(x) for x in self))
-    p.text(']')
+#     N_max = 10
+#     if len(self) > N_max:
+#         # Split into first part and last part
+#         N = N_max // 2
+#         first = [self[i] for i in range(N)]
+#         last = [self[i] for i in range(len(self)-N, len(self)-1)]
+#         p.text('\n'.join("\t"+str(x) for x in first))
+#         p.text('\n\t...\n')
+#         p.text('\n'.join("\t"+str(x) for x in last))
+#     else:
+#         p.text('\n'.join("\t"+str(x) for x in self))
+#     p.text(']')
 
-main.ZefRefs._repr_pretty_ = pprint_ZefRefs
-main.EZefRefs._repr_pretty_ = pprint_ZefRefs
+# main.ZefRefs._repr_pretty_ = pprint_ZefRefs
+# main.EZefRefs._repr_pretty_ = pprint_ZefRefs
 
 def convert_to_assign_value(self, value):
     from ._ops import assign_value

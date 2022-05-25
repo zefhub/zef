@@ -31,8 +31,8 @@ from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
 
-zef_types = {VT.Graph, VT.ZefRef, VT.ZefRefs, VT.ZefRefss, VT.EZefRef, VT.EZefRefs, VT.EZefRefss}
-ref_types = {VT.ZefRef, VT.ZefRefs, VT.ZefRefss, VT.EZefRef, VT.EZefRefs, VT.EZefRefss}
+zef_types = {VT.Graph, VT.ZefRef, VT.EZefRef}
+ref_types = {VT.ZefRef, VT.EZefRef}
 
 
 #--utils---
@@ -447,9 +447,7 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
     - used for: stream manipulation
     - used for: string manipulation
     """
-    if isinstance(v, ZefRefss) or isinstance(v, EZefRefss):
-        return pyzefops.flatten(v)
-    elif (isinstance(v, list) or isinstance(v, tuple)) and len(v)>0 and isinstance(v[0], str):
+    if (isinstance(v, list) or isinstance(v, tuple)) and len(v)>0 and isinstance(v[0], str):
         if not all((isinstance(el, str) for el in v)):
             raise TypeError(f'A list starting with a string was passed to concat, but not all other elements were strings. {v}')
         return v | join[''] | collect
@@ -552,10 +550,6 @@ def prepend_imp(v, item, *additional_items):
         return  actions     
     elif isinstance(v, tuple):
         return (item, *v)
-    elif isinstance(v, EZefRefs):
-        return EZefRefs([item, *v])
-    elif isinstance(v, ZefRefs):
-        return ZefRefs([item, *v])
     elif isinstance(v, str):
         return item + v
     elif isinstance(v, Generator) or isinstance(v, Iterator):
@@ -645,10 +639,6 @@ def append_imp(v, item, *additional_items):
         return  actions     
  
 
-    elif isinstance(v, EZefRefs):
-        return EZefRefs([*v, item])
-    elif isinstance(v, ZefRefs):
-        return ZefRefs([*v, item])
     elif isinstance(v, str):
         return v + item
     elif isinstance(v, Generator) or isinstance(v, Iterator):
@@ -3674,8 +3664,6 @@ def tx_imp(*args):
             return ZefRef(zz, zz)
         if isinstance(x, ZefRef):
             return pyzefops.tx(x)
-        if isinstance(x, ZefRefs):
-            return pyzefops.tx(x)
     
     if len(args) == 2:        
         if type(args[1]) == ZefOp:
@@ -3688,10 +3676,6 @@ def tx_imp(*args):
 
 
 def tx_tp(op, curr_type):
-    if curr_type == VT.Graph:
-        curr_type = VT.EZefRefs
-    else:
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 
@@ -3752,8 +3736,6 @@ def now_implementation(*args):
         if isinstance(args[0], EZefRef):
             return pyzefops.now(args[0])
 
-        if isinstance(args[0], ZefRefs):
-            return pyzefops.now(args[0])
     if len(args) == 2:
         assert args[1] == allow_tombstone
         if isinstance(args[0], Graph):
@@ -4585,7 +4567,7 @@ def nth_implementation(iterable, n):
     if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
         return iterable | all | nth[n] | collect
         
-    if isinstance(iterable, ZefRefs) or isinstance(iterable, EZefRefs) or isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, str):
+    if isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, str):
         return iterable[n]
     it = iter(iterable)
     for cc in range(n):
@@ -5638,21 +5620,11 @@ def length_type_info(op, curr_type):
 
 
 
-downing_d = {
-    VT.ZefRefss:    VT.ZefRefs,
-    VT.ZefRefs:     VT.ZefRef,
-    VT.EZefRefss:   VT.EZefRefs,
-    VT.EZefRefs:    VT.EZefRef,
-}
-
 def nth_type_info(op, curr_type):
-    if curr_type in ref_types:
-        curr_type = downing_d[curr_type]
-    else:
-        try:
-            curr_type = absorbed(curr_type)[0]
-        except AttributeError as e:
-            raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
+    try:
+        curr_type = absorbed(curr_type)[0]
+    except AttributeError as e:
+        raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
 
 def filter_type_info(op, curr_type):
@@ -5666,13 +5638,13 @@ def sort_type_info(op, curr_type):
     return curr_type
 
 def ins_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
+    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def outs_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
+    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def ins_and_outs_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
+    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def source_type_info(op, curr_type):
     return curr_type
@@ -5695,7 +5667,7 @@ def termination_tx_type_info(op, curr_type):
     return VT.ZefRef
 
 def instances_type_info(op, curr_type):
-    return VT.ZefRefs
+    return VT.Any # VT.ZefRefs
 
 def uid_type_info(op, curr_type):
     if curr_type == VT.Graph:
@@ -5726,27 +5698,15 @@ def l_type_info(op, curr_type):
     return curr_type
 
 def Out_type_info(op, curr_type):
-    if op[1][0] == RT.L: 
-        assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def In_type_info(op, curr_type):
-    if op[1][0] == RT.L: 
-        assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def OutOut_type_info(op, curr_type):
-    if op[1][0] == RT.L: 
-        assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def InIn_type_info(op, curr_type):
-    if op[1][0] == RT.L: 
-        assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def terminate_implementation(z, *args):
@@ -5807,11 +5767,7 @@ def relation_type_info(op, curr_type):
     return curr_type
 
 def relations_type_info(op, curr_type):
-    if curr_type == VT.ZefRef:
-        return VT.ZefRefs
-    if curr_type == VT.EZefRef:
-        return VT.EZefRefs
-    return VT.Error
+    return VT.Any
 
 def hasout_type_info(op, curr_type):
     return VT.Bool
@@ -6052,7 +6008,7 @@ def to_clipboard_imp(x):
     if isinstance(x, ZefRef) and ET(x)==ET.ZEF_Function:
         return to_clipboard(zef_fct_to_source_code_string(x))
 
-    if isinstance(x, ZefRefs):
+    if isinstance(x, list):
         for el in x: 
             assert ET(el)==ET.ZEF_Function
         return to_clipboard(x | map[zef_fct_to_source_code_string] | join['\n'] | collect)
