@@ -55,7 +55,6 @@ _op_to_functions = {
         RT.InterleaveLongest: (interleave_longest_imp, interleave_longest_tp),
         RT.Sort:            (sort_implementation, sort_type_info),
         RT.Now:             (now_implementation, now_type_info),
-        RT.Merged:          (merged_imp, merged_tp),
         RT.Events:          (events_imp, events_tp),
         RT.ToDelegate:      (to_delegate_implementation, to_delegate_type_info),
         RT.DelegateOf:      (delegate_of_implementation, delegate_of_type_info),

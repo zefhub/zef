@@ -3896,36 +3896,6 @@ def previous_tx_tp(z_tp):
 
 
 
-# ----------------------------------------- merged --------------------------------------------
-def _is_merged(z):
-    inst_edge = collect(to_ezefref(z) | in_rel[BT.RAE_INSTANCE_EDGE])
-    return has_out(inst_edge, BT.ORIGIN_RAE_EDGE)
-
-def merged_imp(x):    
-    """ 
-    A more specific requirement than instantiated.
-    A merge event also shows up as instantiated, but not 
-    vice versa.
-    
-    ---- Signature ----
-    ZefRef     -> GraphSlice
-    GraphSlice -> List[ZefRef]
-    """
-    print(f"Warning: 'merged' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸")
-    if isinstance(x, GraphSlice):
-        raise TypeError("`merged` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | merged`")
-    assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
-    if BT(x) == BT.TX_EVENT_NODE:
-        return filter(pyzefops.instantiated(x), lambda z: _is_merged(z))
-    else:
-        assert _is_merged(x)
-        return pyzefops.instantiation_tx(x)
-
-def merged_tp(x):    
-    return VT.Any
-
-
-
 # ----------------------------------------- events --------------------------------------------
 
 def events_imp(z_tx_or_rae, filter_on=None):
