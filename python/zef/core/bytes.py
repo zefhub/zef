@@ -30,3 +30,11 @@ class Bytes_:
 
     def __str__(self):
         return self.data.hex()
+
+    def __bytes__(self):
+        """
+        allow casting to python bytes
+        >>> bytes(my_zef_bytes)
+        """
+        return self.data
+
