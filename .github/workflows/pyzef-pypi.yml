@@ -68,6 +68,17 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         if: ${{ failure() && !contains(github.ref, 'dev') }}
 
+  cond-test:
+    name: Testing needs and context info
+    runs-on: ubuntu-20.04
+    needs: [build-wheels]
+    if: ${{ always() }}
+    steps:
+      - name: spam
+        run: |
+          echo "Trying to spam"
+          echo ${{ toJSON(needs) }}
+
   upload-to-pypi:
     name: Upload wheels to PyPI
     runs-on: ubuntu-20.04
@@ -75,7 +86,7 @@ jobs:
     # We need this if in case build-wheels doesn't run, because for some reason
     # a skipped status is treated as a reason for the following jobs to also be
     # skipped.
-    if: ${{ needs.build-wheels.status != 'failure' }}
+    if: ${{ always() && needs.build-wheels.status != 'failure' }}
     steps:
       - uses: actions/checkout@v2
         with:
