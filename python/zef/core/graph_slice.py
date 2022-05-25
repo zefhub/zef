@@ -133,7 +133,7 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
             return None     # no instance alive at the moment
         
     elif BT(zz) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}:
-        raise Exception("Shouldn't be calling this internal function with instance RAEs.")
+        return zz
     else:
         raise RuntimeError("Unexpected option in get_instance_rae")
         

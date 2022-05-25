@@ -21,20 +21,22 @@ class MyTestCase(unittest.TestCase):
     def test_attach(self):
         g = Graph()
 
-        z = instantiate(ET.Machine, g) | fill_or_attach[RT.Weight, QuantityFloat(100.0, EN.Unit.kilogram)] | collect
-        z2 = (instantiate(ET.Machine, g)
-              | fill_or_attach[RT.Name, AET.String, "asdf"]
-              | fill_or_attach[RT.Status, "asdf"]
-              | collect)
-        z3 = instantiate(ET.Machine, g) | fill_or_attach[[(RT.Number, 5),
-                                                         (RT.Time, now()),
-                                                         (RT.Fraction, 0.5),
-                                                         (RT.Status, EN.Status.On),
-                                                         (RT.Disabled, True)]] | collect
+        z = ET.Machine | g | run
+        z | fill_or_attach[RT.Weight][QuantityFloat(100.0, EN.Unit.kilogram)] | g | run
+        z2 = ET.Machine | g | run
+        z2 | fill_or_attach[RT.Name]["asdf"] | g | run
+        z2 | fill_or_attach[RT.Status]["asdf"] | g | run
+        z3 = ET.Machine | g | run
+        [z3 | fill_or_attach[RT.Number][5] | collect,
+         z3 | fill_or_attach[RT.Time][now()] | collect,
+         z3 | fill_or_attach[RT.Fraction][0.5] | collect,
+         z3 | fill_or_attach[RT.Status][EN.Status.On] | collect,
+         z3 | fill_or_attach[RT.Disabled][True]
+         ] | transact[g] | run
 
-        self.assertEqual(length(z | out_rels[RT]), 1)
-        self.assertEqual(length(z2 | out_rels[RT]), 2)
-        self.assertEqual(length(z3 | out_rels[RT]), 5)
+        self.assertEqual(length(z | now | out_rels[RT]), 1)
+        self.assertEqual(length(z2 | now | out_rels[RT]), 2)
+        self.assertEqual(length(z3 | now | out_rels[RT]), 5)
 
 
     def test_shorthand(self):

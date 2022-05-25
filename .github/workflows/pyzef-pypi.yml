@@ -74,8 +74,10 @@ jobs:
     needs: [build-wheels]
     # We need this if in case build-wheels doesn't run, because for some reason
     # a skipped status is treated as a reason for the following jobs to also be
-    # skipped.
-    if: ${{ needs.build-wheels.status != 'failure' }}
+    # skipped. Note: github has special checks for any of the
+    # "always"/"failed"/etc... expressions, so including always() indicates we
+    # are handling it manually here.
+    if: ${{ always() && needs.build-wheels.status != 'failure' }}
     steps:
       - uses: actions/checkout@v2
         with:
