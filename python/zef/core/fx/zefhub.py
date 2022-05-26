@@ -16,6 +16,14 @@ from .fx_types import _Effect_Class
 from ...pyzef.internals import login, login_manual, logout
 
 def zefhub_login_handler(eff: _Effect_Class):
+    jupyter_shell = False
+    try:
+        import IPython
+        shell = IPython.get_ipython()
+        if shell is not None and shell.__class__.__name__ != 'TerminalInteractiveShell':
+            jupyter_shell = True
+    except:
+        pass
     comments = """=================================
 You are now logged in to ZefHub. You can synchronize graphs which will enable them to be stored on
 ZefHub. Any ETs, RT, ENs and KWs you create will also be synchronized with ZefHub.
@@ -34,29 +42,34 @@ does not allow for synchronising new graphs with ZefHub.
 Disclaimer: any ETs, RTs, ENs, and KWs that you query will be stored with ZefHub.
 ================================="""
     else:
-        jupyter_shell = False
-        try:
-            import IPython
-            shell = IPython.get_ipython()
-            if shell is not None and shell.__class__.__name__ != 'TerminalInteractiveShell':
-                jupyter_shell = True
-        except:
-            pass
         if jupyter_shell:
             print("=================================")
-            print("This command starts a local libzef login web server. If you are running inside of a jupyter notebook then this will start the auth prompt on the server where jupyter is running.")
+            print("This command starts a local libzef login web server. If you are running inside")
+            print("of a jupyter notebook then this will start the auth prompt on the server where")
+            print("jupyter is running.")
             print()
-            print("If you are using jupyter through a Google Colab server or a different JupyterHub server, then this will not be useful to you. In fact, we do not recommend you login with your credentials on a remote server.")
+            print("If you are using jupyter through a Google Colab server or a different JupyterHub")
+            print("server, then this will not be useful to you. In fact, we do not recommend you")
+            print("login with your credentials on a remote server.")
             print()
             print("You can instead login as a guest user using `login_as_guest | run`")
             print()
-            print("Advanced users: If you are sure you would like to login with your credentials this, then look for workarounds involving environment variables and manual login commands.")
+            print("Advanced users: If you are sure you would like to login with your credentials,")
+            print("then look for workarounds involving environment variables and manual login commands.")
             print("=================================")
         login()
-    return {"success": True,
-            "comments": comments}
+
+    if jupyter_shell:
+        print(comments)
+        # TODO: Report user account here
+        return {"success": True}
+    else:
+        # TODO: Report user account here
+        return {"success": True,
+                "comments": comments}
 
 def zefhub_logout_handler(eff: _Effect_Class):
     logout()
-    print("Warning, after logging out all graphs will have been unloaded. Any accesses of a ZefRef referencing these old graphs will cause a segmentation fault!")
+    print("Warning, after logging out all graphs will have been unloaded. Any accesses of a ZefRef")
+    print("referencing these old graphs will cause a segmentation fault!")
     return {"success": True}
