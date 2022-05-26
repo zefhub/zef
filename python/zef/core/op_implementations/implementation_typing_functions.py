@@ -1724,6 +1724,23 @@ def all_imp(*args):
             # Note: returning list rather than ZefRefs as more compatible
             # return list(gs.tx | pyzefops.instances[fil])
             return gs.tx | pyzefops.instances[fil]
+        
+        if isinstance(fil, ValueType_):
+            representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (EntityType, AtomicEntityType))] | func[set] | collect
+            value_types = set(fil.d['absorbed']) - representation_types
+            if len(value_types) > 0: value_types = Union[tuple(value_types)]        
+            if fil.d['type_name'] == "Union":
+                sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in representation_types]))
+                if not value_types: return sets_union
+                return list(set.union(set(filter(gs.tx | pyzefops.instances, lambda x: is_a(x, value_types))), sets_union))
+            elif fil.d['type_name'] == "Intersection":
+                if len(representation_types) > 1: return []
+                if len(representation_types) == 1: initial = gs.tx | pyzefops.instances[representation_types.pop()]
+                else:  initial = gs.tx | pyzefops.instances
+                if not value_types: return initial
+                return filter(initial, lambda x: is_a(x, value_types))
+ 
+
 
         # The remaining options will just use the generic filter and is_a
         return filter(gs.tx | pyzefops.instances, lambda x: is_a(x, fil))
@@ -4892,7 +4909,7 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
 
 
 #---------------------------------------- Outs -----------------------------------------------
-def Outs_imp(z, rt, target_filter = None):
+def Outs_imp(z, rt=None, target_filter = None):
     """
     Traverse along all outgoing relation of the specified 
     type to the thing attached to the target of each relation.
@@ -4913,7 +4930,9 @@ def Outs_imp(z, rt, target_filter = None):
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
 
     res = out_rels_imp(z, rt) | map[target] | collect
-    if target_filter: return res | filter[is_a[target_filter]] | collect
+    if target_filter: 
+        if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
+        return res | filter[is_a[target_filter]] | collect
     return res
 
 
@@ -4947,7 +4966,7 @@ def In_imp(z, rt=None, source_filter = None):
 
 
 #---------------------------------------- Ins -----------------------------------------------
-def Ins_imp(z, rt, source_filter = None):
+def Ins_imp(z, rt=None, source_filter = None):
     """
     Traverse along all incoming relation of the specified 
     type to the thing attached to the source of each relation.
@@ -4968,7 +4987,9 @@ def Ins_imp(z, rt, source_filter = None):
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
 
     res = in_rels_imp(z, rt) | map[source] | collect
-    if source_filter: return res | filter[is_a[source_filter]] | collect
+    if source_filter: 
+        if isinstance(source_filter, ZefOp): source_filter = Is[source_filter]
+        return res | filter[is_a[source_filter]] | collect
     return res
 
 
@@ -5027,7 +5048,9 @@ def out_rels_imp(z, rt=None, target_filter=None):
     if rt == RT or rt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
     else: res = pyzefops.traverse_out_edge_multi(z, rt)
-    if target_filter: return res | filter[target | is_a[target_filter]] | collect 
+    if target_filter: 
+        if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
+        return res | filter[target | is_a[target_filter]] | collect 
     return res
 
 
@@ -5087,7 +5110,9 @@ def in_rels_imp(z, rt=None, source_filter=None):
     if rt == RT or rt is None: res = pyzefops.ins(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt == BT: res = pyzefops.ins(z | to_ezefref | collect)
     else: res = pyzefops.traverse_in_edge_multi(z, rt)
-    if source_filter: return res | filter[source | is_a[source_filter]] | collect 
+    if source_filter: 
+        if isinstance(source_filter, ZefOp): source_filter = Is[source_filter]
+        return res | filter[source | is_a[source_filter]] | collect 
     return res  
 
 

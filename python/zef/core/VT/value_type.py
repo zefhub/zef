@@ -112,7 +112,8 @@ class ValueType_:
 
     def __or__(self, other):
         from ..op_structs import ZefOp
-        if isinstance(other, ValueType_):
+        from zef.core import EntityType, RelationType, AtomicEntityType
+        if isinstance(other, (ValueType_, EntityType, RelationType, AtomicEntityType)):
             return simplify_value_type(ValueType_(type_name='Union', absorbed=(self, other,)))
         elif isinstance(other, ZefOp):
             return other.__ror__(self)
@@ -120,7 +121,8 @@ class ValueType_:
             raise Exception(f'"ValueType_`s "|" called with unsupported type {type(other)}')
     
     def __and__(self, other):
-        if isinstance(other, ValueType_):
+        from zef.core import EntityType, RelationType, AtomicEntityType
+        if isinstance(other, (ValueType_, EntityType, RelationType, AtomicEntityType)):
             return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(self, other,)))
         else:
             raise Exception(f'"ValueType_`s "&" called with unsupported type {type(other)}')
