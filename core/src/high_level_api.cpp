@@ -2614,14 +2614,14 @@ namespace zefDB {
                 TimeSlice latest_instantiation_edge(ts.value + 1);
                 TimeSlice latest_retirement_edge(ts.value + 1);
 
-                for(auto & it : uzr << BT.DELEGATE_INSTANTIATION_EDGE) {
+                for(auto & it : uzr << L[BT.DELEGATE_INSTANTIATION_EDGE]) {
                     // `it` should always be a TX.
                     TimeSlice this_ts = time_slice(it);
                     if(this_ts <= ts && this_ts > latest_instantiation_edge)
                         latest_instantiation_edge = this_ts;
                 }
 
-                for(auto & it : uzr << BT.DELEGATE_RETIREMENT_EDGE) {
+                for(auto & it : uzr << L[BT.DELEGATE_RETIREMENT_EDGE]) {
                     // `it` should always be a TX.
                     TimeSlice this_ts = time_slice(it);
                     if(this_ts <= ts && this_ts > latest_retirement_edge)
