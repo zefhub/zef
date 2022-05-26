@@ -480,7 +480,7 @@ def cmds_for_complex_expr(x, gen_id):
 def cmds_for_initial_Z(expr):
     assert LazyValue(expr) | first | is_a[Z] | collect
 
-    expr = LazyValue(LazyValue(expr) | first | collect) | (LazyValue(expr) | skip[1] | as_pipeline | collect)
+    expr = LazyValue(LazyValue(expr) | first | collect) | (LazyValue(expr) | skip[1] | to_pipeline | collect)
     return (expr,), ()
 
 

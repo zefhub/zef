@@ -251,7 +251,7 @@ _op_to_functions = {
 
         RT.PandasToGd:          (pandas_to_gd_imp, pandas_to_gd_tp),
         
-        RT.AsPipeline:          (as_pipeline_imp, as_pipeline_tp),
+        RT.ToPipeline:          (to_pipeline_imp, to_pipeline_tp),
         RT.Inject:              (inject_imp, inject_tp),
         RT.InjectList:          (inject_list_imp, inject_list_tp),
 

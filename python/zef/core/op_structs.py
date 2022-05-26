@@ -229,20 +229,19 @@ def is_python_scalar_type(o):
 
 def is_supported_value(o):
     from .fx.fx_types import _Effect_Class
-    from .VT import ValueType_
+    from .VT import ValueType
     from . import  GraphSlice
     from types import GeneratorType
     from .. import Image
     from .error import _ErrorType
     from ..pyzef.main import Keyword
-    from ..core.bytes import Bytes_
     if is_python_scalar_type(o): return True
-    if type(o) in {set, range, GeneratorType, list, tuple, dict, _Effect_Class, ValueType_, GraphSlice, Time, Image, Bytes_, _ErrorType, Keyword}: return True
+    if type(o) in {set, range, GeneratorType, list, tuple, dict, _Effect_Class, ValueType, GraphSlice, Time, Image, _ErrorType, Keyword}: return True
     return False
 
 def is_supported_zef_value(o):
     from .abstract_raes import Entity, Relation, AtomicEntity
-    if type(o) in {ZefRef, EZefRef, Graph, BaseUID, EternalUID, ZefRefUID, QuantityFloat, QuantityInt, Entity, Relation, AtomicEntity, Delegate, EntityType, RelationType, AtomicEntityType}: return True
+    if type(o) in {ZefRef, ZefRefs, ZefRefss, EZefRef, EZefRefs, EZefRefss, Graph, BaseUID, EternalUID, ZefRefUID, QuantityFloat, QuantityInt, Entity, Relation, AtomicEntity, Delegate, EntityType, RelationType, AtomicEntityType}: return True
     return False
 
 def is_supported_on_subscription(o, op):
@@ -669,7 +668,6 @@ class Awaitable:
         from rx.core import Observable
         from .op_implementations.dispatch_dictionary import _op_to_functions
         from .fx import _state
-        from ._ops import absorbed, only
 
         curr_type =  VT.Awaitable[VT.List[VT.String]]
         source = _state['streams'][self.stream_ezefref]  
@@ -682,7 +680,7 @@ class Awaitable:
             for op in ops if kind == "Subscribe" else ops[:-1]:
                 observable_chain = _op_to_functions[op[0]][0](observable_chain,  *op[1])
 
-                curr_type = VT.Awaitable[_op_to_functions[op[0]][1](op,  *absorbed(curr_type))]
+                curr_type = VT.Awaitable[_op_to_functions[op[0]][1](op,  curr_type.nested())]
                 concrete_awaitable = ConcreteAwaitable(observable_chain, curr_type, concrete_awaitable.chain)
 
             if kind == "Subscribe":
@@ -695,12 +693,13 @@ class Awaitable:
             else:
                 observable_chain = observable_chain.pipe(rxops.to_list())
                 def type_assertion_wrapper(el):
-                    if isinstance(el, list) and absorbed(curr_type)[0] != "List":
+                    if isinstance(el, list) and curr_type.nested().d[0] != "List":
+                        from zefdb.lazy_zefops import only
                         return ops[-1][1][0](only(el))
                     return ops[-1][1][0](el)
                 observable_chain.subscribe(type_assertion_wrapper)
 
-            concrete_awaitable = ConcreteAwaitable(observable_chain, *absorbed(curr_type), concrete_awaitable.chain)
+            concrete_awaitable = ConcreteAwaitable(observable_chain, curr_type.nested(), concrete_awaitable.chain)
             return observable_chain 
         
         raise NotImplementedError(f"Awaitable evalation not implemented with {type(source)}")
@@ -1090,7 +1089,7 @@ def type_spec_tuple(obj):
         return new_tup[VT.Any]
 
 def type_spec(obj, no_type_casting = False):
-    from .VT import ValueType_
+    from .VT import ValueType
     from .fx.fx_types import _Effect_Class
     from . import GraphSlice
     from rx.subject import Subject
@@ -1109,14 +1108,18 @@ def type_spec(obj, no_type_casting = False):
         dict:                       type_spec_dict,
         tuple:                      type_spec_tuple,
         ZefRef:                     VT.ZefRef,
+        ZefRefs:                    VT.ZefRefs,
+        ZefRefss:                   VT.ZefRefss,
         EZefRef:                    VT.EZefRef,
+        EZefRefs:                   VT.EZefRefs,
+        EZefRefss:                  VT.EZefRefss,
         Graph:                      VT.Graph,
         Time:                       VT.Time,  
         Subject:                    VT.Awaitable,
         Observable:                 VT.Awaitable,
         _Effect_Class:              VT.Effect,
         GraphSlice:                 VT.GraphSlice,
-    }.get(t, lambda o: ValueType_(type(o).__name__, 0))
+    }.get(t, lambda o: ValueType(type(o).__name__, 0))
     try:
         return res if str(res) in dir(VT) else res(obj)
     except Exception as e:
@@ -1146,8 +1149,7 @@ def create_type_info(lazyval) -> list:
 #  |_| \_\  |_|     |_|     \__,_| \__| \___||_| |_||_||_| |_| \__, |
 #                                                              |___/ 
 
-# from ..core import ZefRefs, EZefRef, EZefRefs
-from ..core import EZefRef
+from ..core import ZefRefs, EZefRef, EZefRefs
 
 def new__rshift__(self, arg):
     # promote RT or BT then rshift
@@ -1179,7 +1181,7 @@ internals.BlobType.__rlshift__ = new__rlshift__
 
 def rt_lt_gt_behavior(self, arg, rt):
     # Because > , < aren't defined for ZefRef the RT binds but with the reverse of the operator i.e > becomes <
-    if isinstance(arg, ZefRef) or isinstance(arg, EZefRef):
+    if isinstance(arg, ZefRef) or isinstance(arg, ZefRefs) or isinstance(arg, EZefRef) or isinstance(arg, EZefRefs):
         if rt == RT.InOld: return arg > ZefOp(((RT.TmpZefOp, (self,)), )) 
         else: return arg < ZefOp(((RT.TmpZefOp, (self,)), )) 
     elif isinstance(self, TraversableABC) and (isinstance(arg, TraversableABC) or isinstance(arg, ZefOp)):

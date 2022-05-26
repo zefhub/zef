@@ -283,7 +283,7 @@ save_file      = make_zefop(RT.SaveFile)
 
 pandas_to_gd = make_zefop(RT.PandasToGd)
 
-as_pipeline    = make_zefop(RT.AsPipeline)
+to_pipeline    = make_zefop(RT.ToPipeline)
 inject         = make_zefop(RT.Inject)
 inject_list    = make_zefop(RT.InjectList)
 

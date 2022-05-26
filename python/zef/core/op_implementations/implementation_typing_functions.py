@@ -6289,13 +6289,13 @@ def pandas_to_gd_tp(op, curr_type):
 
 
 #---------------------------------------- to_pipeline -----------------------------------------------
-def as_pipeline_imp(ops: list):
+def to_pipeline_imp(ops: list):
     """ 
     Given a list of operators, return one operator by constructing
     an operator pipeline in that order.
 
     ---- Examples ----
-    >>> (nth[42], repeat, enumerate) | as_pipeline      # => nth[42] | repeat | enumerate
+    >>> (nth[42], repeat, enumerate) | to_pipeline      # => nth[42] | repeat | enumerate
 
     ---- Tags ----
     - used for: control flow
@@ -6312,7 +6312,7 @@ def as_pipeline_imp(ops: list):
     return identity if len(ops) == 0 else (ops[1:] | reduce[lambda v, el: v | el][ops[0]] | collect)
 
 
-def as_pipeline_tp():
+def to_pipeline_tp():
     return VT.ZefOp
 
 
@@ -6332,7 +6332,7 @@ def inject_imp(x, injectee):
     - related zefop: absorbed
     - related zefop: without_absorbed
     - related zefop: reverse_args
-    - related zefop: as_pipeline
+    - related zefop: to_pipeline
     """
     return injectee[x]
 
@@ -6359,7 +6359,7 @@ def inject_list_imp(v, injectee):
     - related zefop: absorbed
     - related zefop: without_absorbed
     - related zefop: reverse_args
-    - related zefop: as_pipeline
+    - related zefop: to_pipeline
     """
     return v | reduce[lambda a, el: a[el]][injectee] | collect
 
