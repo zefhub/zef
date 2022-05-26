@@ -252,6 +252,8 @@ namespace zefDB {
 			#endif
 			return (delegate_ptr == nullptr) ? local_array[n] : delegate_ptr->local_array[n];				
 		}
+
+    int EZefRefs::size() const { return length(*this); }
 	
 
 
@@ -485,6 +487,8 @@ namespace zefDB {
 		#endif
 			return ZefRef{ (delegate_ptr == nullptr) ? local_array[n] : delegate_ptr->local_array[n], reference_frame_tx };
 		}
+
+    int ZefRefs::size() const { return length(*this); }
 		
 
 		// pre-increment op: this one is used mostly

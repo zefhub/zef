@@ -334,40 +334,40 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		;
 	
 
-	py::class_<zefDB::EZefRefs>(main_module, "EZefRefs", py::buffer_protocol())
-		.def(py::init([](const std::vector<EZefRef>& v_init) { return new(v_init.size()) EZefRefs(v_init, true); }))
-		.def("__repr__", [](const EZefRefs& self)->std::string { std::stringstream ss;
-			ss << "<EZefRefs len=" << self.len << ">";
-		return ss.str(); }, "short output")
-		.def("__iter__", [](EZefRefs& self) { return EZefRefs::PyIterator { self.begin(), self.end() }; },
-		// 0 referes to returns val, 1 to the first arg. 
-		// The first arg in the template below is the Nurse (the PyIterator returned), the second is the Patient (the Parent EZefRefs object)
-		// What this specifies: keep the Patient alive at least during the lifetime of the Nurse
-		py::keep_alive<0, 1>())
-		.def("__len__", [](const EZefRefs& self) { return self.len; })
-		.def("__getitem__", [](EZefRefs& self, int index) {
-		if (index < 0 || index >= self.len) throw std::runtime_error("index out of bounds accessing EZefRefs[...]");
-		return *(self._get_array_begin() + index);
-			})
-        .def("__add__", [](EZefRefs& self, EZefRefs& other) {
-            return concatenate(self, other);
-        })
-		;
+	// py::class_<zefDB::EZefRefs>(main_module, "EZefRefs", py::buffer_protocol())
+	// 	.def(py::init([](const std::vector<EZefRef>& v_init) { return new(v_init.size()) EZefRefs(v_init, true); }))
+	// 	.def("__repr__", [](const EZefRefs& self)->std::string { std::stringstream ss;
+	// 		ss << "<EZefRefs len=" << self.len << ">";
+	// 	return ss.str(); }, "short output")
+	// 	.def("__iter__", [](EZefRefs& self) { return EZefRefs::PyIterator { self.begin(), self.end() }; },
+	// 	// 0 referes to returns val, 1 to the first arg. 
+	// 	// The first arg in the template below is the Nurse (the PyIterator returned), the second is the Patient (the Parent EZefRefs object)
+	// 	// What this specifies: keep the Patient alive at least during the lifetime of the Nurse
+	// 	py::keep_alive<0, 1>())
+	// 	.def("__len__", [](const EZefRefs& self) { return self.len; })
+	// 	.def("__getitem__", [](EZefRefs& self, int index) {
+	// 	if (index < 0 || index >= self.len) throw std::runtime_error("index out of bounds accessing EZefRefs[...]");
+	// 	return *(self._get_array_begin() + index);
+	// 		})
+    //     .def("__add__", [](EZefRefs& self, EZefRefs& other) {
+    //         return concatenate(self, other);
+    //     })
+	// 	;
 
 	
 
-	py::class_<zefDB::EZefRefs::PyIterator>(main_module, "EZefRefs_PyIterator", py::buffer_protocol())		
-		.def("__repr__", [](const zefDB::EZefRefs::PyIterator& self)->std::string { std::stringstream ss;
-			ss << "<EZefRefs_PyIterator: ";			
-			ss << ">";
-			return ss.str(); }, "short output")
-		.def("__iter__", [](const zefDB::EZefRefs::PyIterator& self) { return self; })
-		.def("__next__", [](zefDB::EZefRefs::PyIterator& self)->EZefRef {
-			if(self.main_it.ptr_to_current_uzr == self.end_it.ptr_to_current_uzr)
-				throw py::stop_iteration();
-			return EZefRef(*(self.main_it++));
-		})
-		;
+	// py::class_<zefDB::EZefRefs::PyIterator>(main_module, "EZefRefs_PyIterator", py::buffer_protocol())		
+	// 	.def("__repr__", [](const zefDB::EZefRefs::PyIterator& self)->std::string { std::stringstream ss;
+	// 		ss << "<EZefRefs_PyIterator: ";			
+	// 		ss << ">";
+	// 		return ss.str(); }, "short output")
+	// 	.def("__iter__", [](const zefDB::EZefRefs::PyIterator& self) { return self; })
+	// 	.def("__next__", [](zefDB::EZefRefs::PyIterator& self)->EZefRef {
+	// 		if(self.main_it.ptr_to_current_uzr == self.end_it.ptr_to_current_uzr)
+	// 			throw py::stop_iteration();
+	// 		return EZefRef(*(self.main_it++));
+	// 	})
+	// 	;
 
 
 	
@@ -400,61 +400,61 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 
 
 		
-	// Python objects are always allocated on the heap. Pybind's wrapping ctor calls the 'new' on a given object by default.
-	// For ZefRefs, the new operator requires extra arguments: we need a custom init fct here, that explicitly passes these
-	// arguments to 'new'. Also, since we are dynamically allocating the ZefRefs struct, we pass 'I_am_allowed_to_overflow=true' along
-	py::class_<zefDB::ZefRefs>(main_module, "ZefRefs", py::buffer_protocol())		
-		.def(py::init([](const std::vector<ZefRef>& v_init) { 
-            return new(v_init.size()) ZefRefs(v_init, true); 
-			}
-		))
-		.def(py::init([](const std::vector<ZefRef>& v_init, const EZefRef& ctx) { 
-			return new(v_init.size(), graph_data(ctx)) ZefRefs(v_init, true, ctx); 
-			}
-		))
-		.def(py::init([](const std::vector<ZefRef>& v_init, const ZefRef& ctx) { 
-			return new(v_init.size(), graph_data(ctx)) ZefRefs(v_init, true, ctx|to_ezefref); 
-			}
-		))
-		.def("__repr__", [](const ZefRefs& self)->std::string { std::stringstream ss;
-                ss << "<ZefRefs";
-                ss << " len=" << self.len;
-                ss << " slice=" << time_slice(self.reference_frame_tx);
-                ss << ">";		
-		return ss.str(); }, "short output")
-		.def("__iter__", [](ZefRefs& self) { return ZefRefs::PyIterator { self.begin(), self.end() }; },
-		 //0 refers to returns val, 1 to the first arg. 
-		 //The first arg in the template below is the Nurse (the PyIterator returned), the second is the Patient (the Parent ZefRefs object)
-		 //What this specifies: keep the Patient alive at least during the lifetime of the Nurse
-		py::keep_alive<0, 1>()  
-		)
-		.def("__len__", [](const ZefRefs& self) { return self.len; })
-		.def("__getitem__", [](ZefRefs& self, int index) {
-			if (index < 0 || index >= self.len) throw std::runtime_error("index out of bounds accessing ZefRefs[...]");
-			return ZefRef{ *(self._get_array_begin() + index), self.reference_frame_tx};
-		})
+	// // Python objects are always allocated on the heap. Pybind's wrapping ctor calls the 'new' on a given object by default.
+	// // For ZefRefs, the new operator requires extra arguments: we need a custom init fct here, that explicitly passes these
+	// // arguments to 'new'. Also, since we are dynamically allocating the ZefRefs struct, we pass 'I_am_allowed_to_overflow=true' along
+	// py::class_<zefDB::ZefRefs>(main_module, "ZefRefs", py::buffer_protocol())		
+	// 	.def(py::init([](const std::vector<ZefRef>& v_init) { 
+    //         return new(v_init.size()) ZefRefs(v_init, true); 
+	// 		}
+	// 	))
+	// 	.def(py::init([](const std::vector<ZefRef>& v_init, const EZefRef& ctx) { 
+	// 		return new(v_init.size(), graph_data(ctx)) ZefRefs(v_init, true, ctx); 
+	// 		}
+	// 	))
+	// 	.def(py::init([](const std::vector<ZefRef>& v_init, const ZefRef& ctx) { 
+	// 		return new(v_init.size(), graph_data(ctx)) ZefRefs(v_init, true, ctx|to_ezefref); 
+	// 		}
+	// 	))
+	// 	.def("__repr__", [](const ZefRefs& self)->std::string { std::stringstream ss;
+    //             ss << "<ZefRefs";
+    //             ss << " len=" << self.len;
+    //             ss << " slice=" << time_slice(self.reference_frame_tx);
+    //             ss << ">";		
+	// 	return ss.str(); }, "short output")
+	// 	.def("__iter__", [](ZefRefs& self) { return ZefRefs::PyIterator { self.begin(), self.end() }; },
+	// 	 //0 refers to returns val, 1 to the first arg. 
+	// 	 //The first arg in the template below is the Nurse (the PyIterator returned), the second is the Patient (the Parent ZefRefs object)
+	// 	 //What this specifies: keep the Patient alive at least during the lifetime of the Nurse
+	// 	py::keep_alive<0, 1>()  
+	// 	)
+	// 	.def("__len__", [](const ZefRefs& self) { return self.len; })
+	// 	.def("__getitem__", [](ZefRefs& self, int index) {
+	// 		if (index < 0 || index >= self.len) throw std::runtime_error("index out of bounds accessing ZefRefs[...]");
+	// 		return ZefRef{ *(self._get_array_begin() + index), self.reference_frame_tx};
+	// 	})
 
-        .def("__add__", [](ZefRefs& self, ZefRefs& other) {
-            return concatenate(self, other);
-        })
-		;
+    //     .def("__add__", [](ZefRefs& self, ZefRefs& other) {
+    //         return concatenate(self, other);
+    //     })
+	// 	;
 
 	//main_module.def("length", py::overload_cast<EZefRef>([](EZefRefs zz) {return zz.len; }));
-	internals_submodule.def("length", [](EZefRefs zz) {return zz.len; });
-	internals_submodule.def("length", [](ZefRefs zz) {return zz.len; });
+	// internals_submodule.def("length", [](EZefRefs zz) {return zz.len; });
+	// internals_submodule.def("length", [](ZefRefs zz) {return zz.len; });
 
-	py::class_<zefDB::ZefRefs::PyIterator>(main_module, "ZefRefs_PyIterator", py::buffer_protocol())
-		.def("__repr__", [](const zefDB::ZefRefs::PyIterator& self)->std::string { std::stringstream ss;
-	ss << "<ZefRefs_PyIterator: ";
-	ss << ">";
-	return ss.str(); }, "short output")
-		.def("__iter__", [](const zefDB::ZefRefs::PyIterator& self) { return self; })
-		.def("__next__", [](zefDB::ZefRefs::PyIterator& self)->ZefRef {
-			if (self.main_it.ptr_to_current_uzr == self.end_it.ptr_to_current_uzr)
-				throw py::stop_iteration();
-			return ZefRef { *(self.main_it.ptr_to_current_uzr++), self.main_it.reference_frame_tx };
-		})		
-		;
+	// py::class_<zefDB::ZefRefs::PyIterator>(main_module, "ZefRefs_PyIterator", py::buffer_protocol())
+	// 	.def("__repr__", [](const zefDB::ZefRefs::PyIterator& self)->std::string { std::stringstream ss;
+	// ss << "<ZefRefs_PyIterator: ";
+	// ss << ">";
+	// return ss.str(); }, "short output")
+	// 	.def("__iter__", [](const zefDB::ZefRefs::PyIterator& self) { return self; })
+	// 	.def("__next__", [](zefDB::ZefRefs::PyIterator& self)->ZefRef {
+	// 		if (self.main_it.ptr_to_current_uzr == self.end_it.ptr_to_current_uzr)
+	// 			throw py::stop_iteration();
+	// 		return ZefRef { *(self.main_it.ptr_to_current_uzr++), self.main_it.reference_frame_tx };
+	// 	})		
+	// 	;
 
 
 
@@ -469,77 +469,77 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 //   |_____|_____|_____|  | |_| |/ /|  __/  _|  _ <  __/  _\__ \__ \  |_____|_____|_____|
 //                         \___//____\___|_| |_| \_\___|_| |___/___/                     
 //                                                                                       
-	py::class_<zefDB::EZefRefss>(main_module, "EZefRefss", py::buffer_protocol())
-		.def(py::init<std::vector<EZefRefs>>())
-		.def("__repr__", [](const EZefRefss& self)->std::string { std::stringstream ss;
-	ss << "<EZefRefss at " << &self << " of length=" << self.len() << ">"; return ss.str(); })
-		.def("__len__", [](const EZefRefss& self)->size_t { return self.len(); })
-		.def("__getitem__", [](const EZefRefss& self, int index) {
-		if (index < 0 || size_t(index) >= self.len()) throw std::runtime_error("index out of bounds accessing EZefRefss[...]");
-		return self.v[index];
-			})
-		.def("__iter__", [](EZefRefss& self) { return EZefRefss::PyIterator{ self.begin(), self.end() }; },
-			// 0 referes to returns val, 1 to the first arg. 
-				// The first arg in the template below is the Nurse (the PyIterator returned), the second is the Patient (the Parent EZefRefs object)
-				// What this specifies: keep the Patient alive at least during the lifetime of the Nurse
-			py::keep_alive<0, 1>()
-			)
-		;
+// 	py::class_<zefDB::EZefRefss>(main_module, "EZefRefss", py::buffer_protocol())
+// 		.def(py::init<std::vector<EZefRefs>>())
+// 		.def("__repr__", [](const EZefRefss& self)->std::string { std::stringstream ss;
+// 	ss << "<EZefRefss at " << &self << " of length=" << self.len() << ">"; return ss.str(); })
+// 		.def("__len__", [](const EZefRefss& self)->size_t { return self.len(); })
+// 		.def("__getitem__", [](const EZefRefss& self, int index) {
+// 		if (index < 0 || size_t(index) >= self.len()) throw std::runtime_error("index out of bounds accessing EZefRefss[...]");
+// 		return self.v[index];
+// 			})
+// 		.def("__iter__", [](EZefRefss& self) { return EZefRefss::PyIterator{ self.begin(), self.end() }; },
+// 			// 0 referes to returns val, 1 to the first arg. 
+// 				// The first arg in the template below is the Nurse (the PyIterator returned), the second is the Patient (the Parent EZefRefs object)
+// 				// What this specifies: keep the Patient alive at least during the lifetime of the Nurse
+// 			py::keep_alive<0, 1>()
+// 			)
+// 		;
 
 
-	py::class_<zefDB::EZefRefss::PyIterator>(main_module, "EZefRefss_PyIterator", py::buffer_protocol())
-		.def("__repr__", [](const zefDB::EZefRefss::PyIterator& self)->std::string { std::stringstream ss;
-	ss << "<EZefRefss_PyIterator: ";
-	ss << ">";
-	return ss.str(); }, "short output")
-		.def("__iter__", [](const zefDB::EZefRefss::PyIterator& self) { return self; })
-		.def("__next__", [](zefDB::EZefRefss::PyIterator& self)->EZefRefs {
-		if (self.main_it == self.end_it)
-			throw py::stop_iteration();
-		return *self.main_it++;
-			})
-		;
+// 	py::class_<zefDB::EZefRefss::PyIterator>(main_module, "EZefRefss_PyIterator", py::buffer_protocol())
+// 		.def("__repr__", [](const zefDB::EZefRefss::PyIterator& self)->std::string { std::stringstream ss;
+// 	ss << "<EZefRefss_PyIterator: ";
+// 	ss << ">";
+// 	return ss.str(); }, "short output")
+// 		.def("__iter__", [](const zefDB::EZefRefss::PyIterator& self) { return self; })
+// 		.def("__next__", [](zefDB::EZefRefss::PyIterator& self)->EZefRefs {
+// 		if (self.main_it == self.end_it)
+// 			throw py::stop_iteration();
+// 		return *self.main_it++;
+// 			})
+// 		;
 
 
 
 
-//                           _____     __ ____       __                              
-//                          |__  /___ / _|  _ \ ___ / _|___ ___                      
-//      _____ _____ _____     / // _ \ |_| |_) / _ \ |_/ __/ __|   _____ _____ _____ 
-//     |_____|_____|_____|   / /|  __/  _|  _ <  __/  _\__ \__ \  |_____|_____|_____|
-//                          /____\___|_| |_| \_\___|_| |___/___/                     
-//                                                                      
-	py::class_<zefDB::ZefRefss>(main_module, "ZefRefss", py::buffer_protocol())
-		.def(py::init<std::vector<ZefRefs>>())
-		.def("__repr__", [](const ZefRefss& self)->std::string { std::stringstream ss;
-			ss << "<ZefRefss at " << &self << " of length=" << self.len() << ">"; return ss.str(); })
-		.def("__len__", [](const ZefRefss& self)->size_t { return self.len(); })
-		.def("__getitem__", [](const ZefRefss& self, int index) {
-				if (index < 0 || size_t(index) >= self.len()) throw std::runtime_error("index out of bounds accessing ZefRefss[...]");
-				return self.v[index];
-			})
-		.def("__iter__", [](ZefRefss& self) { return ZefRefss::PyIterator{ self.begin(), self.end() }; },
-			// 0 referes to returns val, 1 to the first arg. 
-				// The first arg in the template below is the Nurse (the PyIterator returned), the second is the Patient (the Parent EZefRefs object)
-				// What this specifies: keep the Patient alive at least during the lifetime of the Nurse
-			py::keep_alive<0, 1>()
-			)
-		.def_readonly("reference_frame_tx", &ZefRefss::reference_frame_tx)
-		;
+// //                           _____     __ ____       __                              
+// //                          |__  /___ / _|  _ \ ___ / _|___ ___                      
+// //      _____ _____ _____     / // _ \ |_| |_) / _ \ |_/ __/ __|   _____ _____ _____ 
+// //     |_____|_____|_____|   / /|  __/  _|  _ <  __/  _\__ \__ \  |_____|_____|_____|
+// //                          /____\___|_| |_| \_\___|_| |___/___/                     
+// //                                                                      
+// 	py::class_<zefDB::ZefRefss>(main_module, "ZefRefss", py::buffer_protocol())
+// 		.def(py::init<std::vector<ZefRefs>>())
+// 		.def("__repr__", [](const ZefRefss& self)->std::string { std::stringstream ss;
+// 			ss << "<ZefRefss at " << &self << " of length=" << self.len() << ">"; return ss.str(); })
+// 		.def("__len__", [](const ZefRefss& self)->size_t { return self.len(); })
+// 		.def("__getitem__", [](const ZefRefss& self, int index) {
+// 				if (index < 0 || size_t(index) >= self.len()) throw std::runtime_error("index out of bounds accessing ZefRefss[...]");
+// 				return self.v[index];
+// 			})
+// 		.def("__iter__", [](ZefRefss& self) { return ZefRefss::PyIterator{ self.begin(), self.end() }; },
+// 			// 0 referes to returns val, 1 to the first arg. 
+// 				// The first arg in the template below is the Nurse (the PyIterator returned), the second is the Patient (the Parent EZefRefs object)
+// 				// What this specifies: keep the Patient alive at least during the lifetime of the Nurse
+// 			py::keep_alive<0, 1>()
+// 			)
+// 		.def_readonly("reference_frame_tx", &ZefRefss::reference_frame_tx)
+// 		;
 
 
-	py::class_<zefDB::ZefRefss::PyIterator>(main_module, "ZefRefss_PyIterator", py::buffer_protocol())
-		.def("__repr__", [](const zefDB::ZefRefss::PyIterator& self)->std::string { std::stringstream ss;
-	ss << "<ZefRefss_PyIterator: ";
-	ss << ">";
-	return ss.str(); }, "short output")
-		.def("__iter__", [](const zefDB::ZefRefss::PyIterator& self) { return self; })
-		.def("__next__", [](zefDB::ZefRefss::PyIterator& self)->ZefRefs {
-			if (self.main_it == self.end_it)
-				throw py::stop_iteration();
-			return *self.main_it++;
-		})
-		;
+// 	py::class_<zefDB::ZefRefss::PyIterator>(main_module, "ZefRefss_PyIterator", py::buffer_protocol())
+// 		.def("__repr__", [](const zefDB::ZefRefss::PyIterator& self)->std::string { std::stringstream ss;
+// 	ss << "<ZefRefss_PyIterator: ";
+// 	ss << ">";
+// 	return ss.str(); }, "short output")
+// 		.def("__iter__", [](const zefDB::ZefRefss::PyIterator& self) { return self; })
+// 		.def("__next__", [](zefDB::ZefRefss::PyIterator& self)->ZefRefs {
+// 			if (self.main_it == self.end_it)
+// 				throw py::stop_iteration();
+// 			return *self.main_it++;
+// 		})
+// 		;
 
 
 

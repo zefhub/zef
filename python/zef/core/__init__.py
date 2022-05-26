@@ -132,6 +132,10 @@ please_instantiate = make_custom_entity(name_to_display='please_instantiate', pr
 please_terminate   = make_custom_entity(name_to_display='please_terminate', predetermined_uid='67cb88b71523f6d9')
 please_assign      = make_custom_entity(name_to_display='please_assign',    predetermined_uid='4d4a93522f75ed21')
 
+instantiated     = make_custom_entity(name_to_display='instantiated', predetermined_uid='60252a53a03086b7')
+terminated       = make_custom_entity(name_to_display='terminated', predetermined_uid='4f676154ffeb9dc8')
+value_assigned   = make_custom_entity(name_to_display='value_assigned', predetermined_uid='c31287dab677f38c')
+
 infinity           = make_custom_entity(name_to_display='infinity',    predetermined_uid='4906648460291096')
 nil                = make_custom_entity(name_to_display='nil',         predetermined_uid='1654670075329719') #| register_call_handler[f1] | run[execute] | get['entity'] | collect  # TODO
 

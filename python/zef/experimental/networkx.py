@@ -135,8 +135,8 @@ class ProxyGraph:
             self.direction = Direction.OUTGOING
         
     def _all_node_refs(self):
-        if isinstance(self.node_filter, tuple) or isinstance(self.node_filter, ZefRefs):
-            raise Exception("Don't pass a tuple or a ZefRefs to ProxyGraph as the node_filter")
+        if isinstance(self.node_filter, tuple):
+            raise Exception("Don't pass a tuple to ProxyGraph as the node_filter")
 
         if isinstance(self.node_filter, list):
             if isinstance(self.node_filter[0], NodeRef):

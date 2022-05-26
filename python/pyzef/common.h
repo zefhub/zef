@@ -68,3 +68,50 @@ inline void pyint_assign_value(zefDB::EZefRef uzr, py::int_ val) {
 
     imperative::assign_value(uzr, to_assign);
 }
+
+namespace pybind11 { namespace detail {
+    // template <> struct type_caster<ZefRefs> {
+    // public:
+    //     PYBIND11_TYPE_CASTER(ZefRefs, const_name("ZefRefs"));
+
+    //     // /**
+    //     //  * Conversion part 1 (Python->C++): convert a PyObject into a inty
+    //     //  * instance or return false upon failure. The second argument
+    //     //  * indicates whether implicit conversions should be applied.
+    //     //  */
+    //     // bool load(handle src, bool) {
+    //     //     /* Extract PyObject from handle */
+    //     //     PyObject *source = src.ptr();
+    //     //     /* Try converting into a Python integer value */
+    //     //     PyObject *tmp = PyNumber_Long(source);
+    //     //     if (!tmp)
+    //     //         return false;
+    //     //     /* Now try to convert into a C++ int */
+    //     //     value.long_value = PyLong_AsLong(tmp);
+    //     //     Py_DECREF(tmp);
+    //     //     /* Ensure return code was OK (to avoid out-of-range errors etc) */
+    //     //     return !(value.long_value == -1 && !PyErr_Occurred());
+    //     // }
+
+    //     /**
+    //      * Conversion part 2 (C++ -> Python): convert an inty instance into
+    //      * a Python object. The second and third arguments are used to
+    //      * indicate the return value policy and parent object (for
+    //      * ``return_value_policy::reference_internal``) and are generally
+    //      * ignored by implicit casters.
+    //      */
+    //     static handle cast(ZefRefs src, return_value_policy, handle) {
+    //         std::vector<ZefRef> vec;
+    //         vec.reserve(length(src));
+    //         for(const auto & it : src) {
+    //             vec.push_back(it);
+    //         }
+    //         return py::cast(vec);
+    //     }
+    // };
+
+       template <>
+       struct type_caster<ZefRefs> : list_caster<ZefRefs, ZefRef> {}; 
+       template <>
+       struct type_caster<EZefRefs> : list_caster<EZefRefs, EZefRef> {}; 
+}}
