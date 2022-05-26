@@ -1715,6 +1715,23 @@ def all_imp(*args):
             # Note: returning list rather than ZefRefs as more compatible
             # return list(gs.tx | pyzefops.instances[fil])
             return gs.tx | pyzefops.instances[fil]
+        
+        if isinstance(fil, ValueType_):
+            representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (EntityType, AtomicEntityType))] | func[set] | collect
+            value_types = set(fil.d['absorbed']) - representation_types
+            if len(value_types) > 0: value_types = Union[tuple(value_types)]        
+            if fil.d['type_name'] == "Union":
+                sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in representation_types]))
+                if not value_types: return sets_union
+                return list(set.union(set(filter(gs.tx | pyzefops.instances, lambda x: is_a(x, value_types))), sets_union))
+            elif fil.d['type_name'] == "Intersection":
+                if len(representation_types) > 1: return []
+                if len(representation_types) == 1: initial = gs.tx | pyzefops.instances[representation_types.pop()]
+                else:  initial = gs.tx | pyzefops.instances
+                if not value_types: return initial
+                return filter(initial, lambda x: is_a(x, value_types))
+ 
+
 
         # The remaining options will just use the generic filter and is_a
         return filter(gs.tx | pyzefops.instances, lambda x: is_a(x, fil))
