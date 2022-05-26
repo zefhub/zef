@@ -3904,9 +3904,16 @@ def events_imp(z_tx_or_rae, filter_on=None):
     if internals.is_delegate(z_tx_or_rae):
         ezr = to_ezefref(z_tx_or_rae)
         to_del = ezr | in_rel[BT.TO_DELEGATE_EDGE] | collect
-        insts = ezr | Ins[BT.DELEGATE_INSTANTIATION_EDGE] | filter[exists_at[gs]] | map[lambda zz: instantiated[pyzefops.to_frame(zz, gs.tx) ]] | collect
-        retirements = ezr | Ins[BT.DELEGATE_RETIREMENT_EDGE] | filter[exists_at[gs]] | map[lambda zz: terminated[pyzefops.to_frame(zz, gs.tx) ]] | collect
-        full_list = insts+terminations
+        insts = to_del | Ins[BT.DELEGATE_INSTANTIATION_EDGE]
+        retirements = to_del | Ins[BT.DELEGATE_RETIREMENT_EDGE]
+        if type(ezr) == ZefRef:
+            gs = frame(ezr)
+            insts = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+            retirements = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+
+        insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        full_list = insts+retirements
 
     elif BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
         zr = to_ezefref(z_tx_or_rae)
@@ -7656,7 +7663,7 @@ def schema_imp(x, include_edges=False):
         return all_items | without[[g | root | collect]] | collect
     elif isinstance(x, GraphSlice):
         log.warn("Currently schema(graph_slice) returns eternal schema not the schema in the appropriate reference frame. This will be fixed in the future.")
-        return schema_imp(Graph(x), include_edges) | filter[exists_at[x]] | map[in_frame[x]] | collect
+        return schema_imp(Graph(x), include_edges) | filter[exists_at[x]] | map[in_frame[x][allow_tombstone]] | collect
 
     return Error(f"Don't know how to handle type of {type(x)} in schema zefop")
 

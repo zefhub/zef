@@ -1418,6 +1418,8 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
 	// zefops_submodule.def("terminate", py::overload_cast<EZefRefs>(&imperative::terminate), py::call_guard<py::gil_scoped_release>(), "A function to terminate an entity / atomic entity / relation");
     // zefops_submodule.def("terminate", py::overload_cast<ZefRefs>(&imperative::terminate), py::call_guard<py::gil_scoped_release>(), "A function to terminate an entity / atomic entity / relation");	
 
+	zefops_submodule.def("retire", py::overload_cast<EZefRef>(&imperative::retire), py::call_guard<py::gil_scoped_release>(), "A low level function that retires a delegate.");
+
     zefops_submodule.def("delegate", py::overload_cast<EZefRef>(&imperative::delegate), py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("delegate", py::overload_cast<ZefRef>(&imperative::delegate), py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("delegate", py::overload_cast<const Graph &,EntityType>(&imperative::delegate), py::call_guard<py::gil_scoped_release>());
