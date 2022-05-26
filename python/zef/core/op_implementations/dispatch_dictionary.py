@@ -288,4 +288,10 @@ _op_to_functions = {
         RT.Function:           (function_imp, function_tp),
         RT.On:                 (on_implementation, None),
         RT.Range:              (range_imp, range_tp),
+        RT.ZstandardCompress:  (zstandard_compress_imp, None),
+        RT.ZstandardDecompress:(zstandard_decompress_imp, None),        
+        RT.ToBytes:            (to_bytes_imp, None),
+        RT.Base64stringToBytes:(base64string_to_bytes_imp, None),
+        RT.BytesToBase64string:(bytes_to_base64string_imp, None),
+        RT.IsBetween:          (is_between_imp, None),
 }

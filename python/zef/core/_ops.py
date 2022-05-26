@@ -333,8 +333,16 @@ transact        = make_zefop(RT.Transact)
 # on_value_assignment
 
 
-
-
+peel            = make_zefop(RT.Peel)                
+match           = make_zefop(RT.Match)                
+match_apply     = make_zefop(RT.MatchApply)                
+Range           = make_zefop(RT.Range)      
+zstandard_compress = make_zefop(RT.ZstandardCompress)
+zstandard_decompress = make_zefop(RT.ZstandardDecompress)
+to_bytes        = make_zefop(RT.ToBytes)
+base64string_to_bytes = make_zefop(RT.Base64stringToBytes)
+bytes_to_base64string = make_zefop(RT.BytesToBase64string)
+is_between      = make_zefop(RT.IsBetween)
 
 
 
@@ -343,10 +351,7 @@ transact        = make_zefop(RT.Transact)
 on              = make_zefop(RT.On)         
 
 
-peel            = make_zefop(RT.Peel)                
-match           = make_zefop(RT.Match)                
-match_apply     = make_zefop(RT.MatchApply,)                
-Range           = make_zefop(RT.Range,)                
+          
 # match
 # split_before
 # split_after

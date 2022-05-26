@@ -7554,3 +7554,165 @@ InInOld_implementation = partial(traverse_implementation,
                               func_BT=lambda zz: pyzefops.target(pyzefops.ins(pyzefops.to_ezefref(zz))),
                               traverse_direction="inin",
                               )
+
+
+
+
+
+
+
+
+# ----------------------------- zstandard_compress -----------------------------
+
+
+
+def zstandard_compress_imp(x: bytes, compression_level=0.1) -> Bytes:
+    """
+    Compress a Bytes value using ZStandard.
+    The compression level can be specified optionally.
+    
+    ---- Example ----
+    >>> 'hello' | to_bytes | zstandard_compress
+
+    ---- Signature ----
+    Bytes -> Bytes
+
+    ---- Tags ----
+    used for: data compression    
+    operated on: Bytes
+    related zefop: zstandard_compress
+    """
+    import zstd
+    level = 1 + round(max(min(compression_level, 1), 0)*21)
+    if isinstance(x, str): raise TypeError('zstandard_compress can`t be called with a string. Must be bytes')
+    return Bytes(zstd.compress(bytes(x), level))
+
+
+
+
+
+
+# ----------------------------- zstandard_decompress -----------------------------
+def zstandard_decompress_imp(x: Bytes) -> Bytes:
+    """
+    Decompress a Bytes value using ZStandard.
+    
+    ---- Example ----
+    >>> 'hello' | to_bytes | zstandard_compress | zstandard_decompress
+
+    ---- Signature ----
+    Bytes -> Bytes
+
+    ---- Tags ----
+    used for: data compression    
+    operated on: Bytes
+    related zefop: zstandard_decompress
+    """
+    import zstd
+    if isinstance(x, str): raise TypeError('zstandard_decompress can`t be called with a string. Must be bytes')
+    return zstd.decompress(bytes(x))
+    
+
+
+
+
+
+# ----------------------------- to_bytes -----------------------------
+def to_bytes_imp(x: String) -> Bytes:
+    """
+    Convert a string to a ValueType Bytes using utf8 encoding.
+    Python bytes are wrapped and Bytes are forwarded.
+    
+    ---- Example ----
+    >>> 'hello' | bytes_to_base64string     # equivalent to Bytes(b'hello')
+
+    ---- Signature ----
+    String | Bytes -> Bytes
+
+    ---- Tags ----
+    used for: type conversion
+    operated on: String
+    """
+    if isinstance(x, str): return Bytes(x.encode())     # default: utf8
+    if isinstance(x, Bytes): return x
+    if isinstance(x, bytes): return Bytes(x)
+    else: raise NotImplementedError()
+
+
+
+
+
+# ----------------------------- base64string_to_bytes -----------------------------
+def base64string_to_bytes_imp(s: str) -> Bytes | VT.Error:
+    """
+    Convert data that is in a valid base64 encoding as a string to bytes.
+    Not all strings are valid base64 encoded strings.
+    Returns the decoded Bytes object
+    
+    ---- Example ----
+    >>> 'hello' | bytes_to_base64string
+
+    ---- Signature ----
+    String | Bytes -> Bytes
+
+    ---- Tags ----
+    used for: type conversion
+    operated on: String
+    """
+    import base64
+    return Bytes(base64.b64decode(s))
+
+
+
+
+
+
+# ----------------------------- bytes_to_base64string -----------------------------
+def bytes_to_base64string_imp(b: Bytes) -> String:
+    """
+    Convert any bytes object into a base64 encoded string.
+    
+    ---- Example ----
+    >>> b'hello' | bytes_to_base64string
+
+    ---- Signature ----
+    Bytes -> String
+
+    ---- Tags ----
+    used for: type conversion
+    operated on: Bytes
+    """
+    import base64
+    if isinstance(b, bytes): return base64.b64encode(b).decode()
+    if b | is_a[Bytes]: return base64.b64encode(bytes(b)).decode()
+    raise TypeError()
+    
+
+
+
+
+# ----------------------------- is_between_imp -----------------------------
+def is_between_imp(x, lo, hi) -> Bool:
+    """
+    Checks whether a specified value lies within the 
+    specified range for some orderable data type.
+    Like the SQL counterpart, this operator is INCLUSIVE.
+
+    ---- Examples ----
+    >>> 5 | is_between[1][9]     # => True
+    >>> 42 | is_between[1][9]    # => False
+    >>> 9 | is_between[1][9]     # => True
+
+    ---- Signature ----
+    Tuple[List[T], T, T] -> Bool
+    
+    ---- Tags ----
+    used for: logic
+    used for: maths
+    operates on: List[Int]
+    operates on: List[Float]
+    operates on: List[QuantityInt]
+    operates on: List[QuantityFloat]
+    """
+    return x>=lo and x<=hi
+
