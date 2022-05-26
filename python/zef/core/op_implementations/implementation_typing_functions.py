@@ -24,6 +24,7 @@ from .. import *
 from ..op_structs import _call_0_args_translation, type_spec
 from .._ops import *
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
+from ..logger import log
 
 from ...pyzef import zefops as pyzefops, main as pymain
 from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
@@ -3900,7 +3901,21 @@ def events_imp(z_tx_or_rae, filter_on=None):
     from zef.pyzef import zefops as pyzefops
     # Note: we can't use the python to_frame here as that calls into us.
 
-    if BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
+    if internals.is_delegate(z_tx_or_rae):
+        ezr = to_ezefref(z_tx_or_rae)
+        to_del = ezr | in_rel[BT.TO_DELEGATE_EDGE] | collect
+        insts = to_del | Ins[BT.DELEGATE_INSTANTIATION_EDGE]
+        retirements = to_del | Ins[BT.DELEGATE_RETIREMENT_EDGE]
+        if type(ezr) == ZefRef:
+            gs = frame(ezr)
+            insts = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+            retirements = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+
+        insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        full_list = insts+retirements
+
+    elif BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
         zr = to_ezefref(z_tx_or_rae)
         gs = zr | to_graph_slice | collect
 
@@ -4010,38 +4025,26 @@ def in_frame_imp(z, *args):
     if is_same_g or origin_uid(zz).graph_uid == uid(g_frame):
         z_obj = to_ezefref(z) if is_same_g else g_frame[origin_uid(zz)]
         # exit early if we are looking in a frame prior to the objects instantiation: this is not even allowed when allow_tombstone=True
-        if internals.is_delegate(z_obj):
-            from ..logger import log
-            log.warn("Need to fix, assuming delegate exists from the beginning of time.")
-            instantiation_ts = TimeSlice(0)
-        elif BT(z_obj) == BT.TX_EVENT_NODE:
-            # TODO: This should not be necessary in the future, as events[Instantiated] should cover this and the follow ROOT_NODE case.
+        if BT(z_obj) == BT.TX_EVENT_NODE:
+            # TODO: This should not be necessary in the future, as
+            # events[Instantiated] should cover this and the following ROOT_NODE
+            # case.
             instantiation_ts = pyzefops.time_slice(z_obj)
         elif BT(z_obj) == BT.ROOT_NODE:
+            # TODO: It should also be possible to pass this to
+            # events[Instantiated], as then the delegates of the root node can
+            # also be handled seamlessly
             instantiation_ts = TimeSlice(0)
         else:
-            instantiation_ts = z_obj | events[Instantiated] | single | absorbed | single | frame | time_slice | collect
+            # Note that 'first' is used here instead of 'single', as delegates
+            # may have been brought back to life... but we only care about
+            # casuality here, which corresponds to the very first instantiation.
+            instantiation_ts = z_obj | events[Instantiated] | first | absorbed | single | frame | time_slice | collect
         if (time_slice(target_frame)) < instantiation_ts:
             raise RuntimeError(f"Causality error: you cannot point to an object from a frame prior to its existence / the first time that frame learned about it.")            
         if not tombstone_allowed:
-            # assert that the frame is prior to the termination tx
-            if internals.is_delegate(z_obj):
-                from ..logger import log
-                log.warn("Need to fix, assuming delegate exists to the end of time.")
-                termination_ts = None
-            elif BT(z_obj) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
-                termination_ts = None
-            else:
-                termination_ts = (z_obj
-                                  | events[Terminated]
-                                  | match_apply[
-                                      (length | equals[0], always[None]),
-                                      (always[True], single | absorbed | single | frame | time_slice)
-                                  ]
-                                  | collect)
-            if termination_ts is not None:
-                if (time_slice(target_frame)) >= termination_ts:
-                    raise RuntimeError(f"The RAE was terminated and no longer exists in the frame that the reference frame was about to be moved to. It is still possible to perform this action if you really want to by specifying 'to_frame[allow_tombstone][my_z]'")
+            if not exists_at(z_obj, target_frame):
+                raise RuntimeError(f"The RAE was terminated and no longer exists in the frame that the reference frame was about to be moved to. It is still possible to perform this action if you really want to by specifying 'to_frame[allow_tombstone][my_z]'")
         return ZefRef(z_obj, target_frame.tx)
 
     # z's origin does not live in the frame graph
@@ -6294,13 +6297,13 @@ def pandas_to_gd_tp(op, curr_type):
 
 
 #---------------------------------------- to_pipeline -----------------------------------------------
-def as_pipeline_imp(ops: list):
+def to_pipeline_imp(ops: list):
     """ 
     Given a list of operators, return one operator by constructing
     an operator pipeline in that order.
 
     ---- Examples ----
-    >>> (nth[42], repeat, enumerate) | as_pipeline      # => nth[42] | repeat | enumerate
+    >>> (nth[42], repeat, enumerate) | to_pipeline      # => nth[42] | repeat | enumerate
 
     ---- Tags ----
     - used for: control flow
@@ -6317,7 +6320,7 @@ def as_pipeline_imp(ops: list):
     return identity if len(ops) == 0 else (ops[1:] | reduce[lambda v, el: v | el][ops[0]] | collect)
 
 
-def as_pipeline_tp():
+def to_pipeline_tp():
     return VT.ZefOp
 
 
@@ -6337,7 +6340,7 @@ def inject_imp(x, injectee):
     - related zefop: absorbed
     - related zefop: without_absorbed
     - related zefop: reverse_args
-    - related zefop: as_pipeline
+    - related zefop: to_pipeline
     """
     return injectee[x]
 
@@ -6364,7 +6367,7 @@ def inject_list_imp(v, injectee):
     - related zefop: absorbed
     - related zefop: without_absorbed
     - related zefop: reverse_args
-    - related zefop: as_pipeline
+    - related zefop: to_pipeline
     """
     return v | reduce[lambda a, el: a[el]][injectee] | collect
 
@@ -7562,3 +7565,296 @@ InInOld_implementation = partial(traverse_implementation,
                               func_BT=lambda zz: pyzefops.target(pyzefops.ins(pyzefops.to_ezefref(zz))),
                               traverse_direction="inin",
                               )
+
+
+
+
+
+
+
+
+# ----------------------------- zstandard_compress -----------------------------
+
+
+
+def zstandard_compress_imp(x: bytes, compression_level=0.1) -> Bytes:
+    """
+    Compress a Bytes value using ZStandard.
+    The compression level can be specified optionally.
+    
+    ---- Example ----
+    >>> 'hello' | to_bytes | zstandard_compress
+
+    ---- Signature ----
+    Bytes -> Bytes
+
+    ---- Tags ----
+    used for: data compression    
+    operates on: Bytes
+    related zefop: zstandard_compress
+    """
+    import zstd
+    level = 1 + round(max(min(compression_level, 1), 0)*21)
+    if isinstance(x, str): raise TypeError('zstandard_compress can`t be called with a string. Must be bytes')
+    return Bytes(zstd.compress(bytes(x), level))
+
+
+
+
+
+
+# ----------------------------- zstandard_decompress -----------------------------
+def zstandard_decompress_imp(x: Bytes) -> Bytes:
+    """
+    Decompress a Bytes value using ZStandard.
+    
+    ---- Example ----
+    >>> 'hello' | to_bytes | zstandard_compress | zstandard_decompress
+
+    ---- Signature ----
+    Bytes -> Bytes
+
+    ---- Tags ----
+    used for: data compression    
+    operates on: Bytes
+    related zefop: zstandard_decompress
+    """
+    import zstd
+    if isinstance(x, str): raise TypeError('zstandard_decompress can`t be called with a string. Must be bytes')
+    return Bytes(zstd.decompress(bytes(x)))
+    
+
+
+
+
+
+# ----------------------------- to_bytes -----------------------------
+def to_bytes_imp(x: String) -> Bytes:
+    """
+    Convert a string to a ValueType Bytes using utf8 encoding.
+    Python bytes are wrapped and Bytes are forwarded.
+    
+    ---- Example ----
+    >>> 'hello' | bytes_to_base64string     # equivalent to Bytes(b'hello')
+
+    ---- Signature ----
+    String | Bytes -> Bytes
+
+    ---- Tags ----
+    used for: type conversion
+    operates on: String
+    """
+    if isinstance(x, str): return Bytes(x.encode())     # default: utf8
+    if isinstance(x, Bytes): return x
+    if isinstance(x, bytes): return Bytes(x)
+    else: raise NotImplementedError()
+
+
+# ----------------------------- utf8bytes_to_string -----------------------------
+def utf8bytes_to_string_imp(b: Bytes) -> String | VT.Error:
+    """
+    Convert a Byes value that is a utf8 encoded string,
+    return the string. Not all bytes values are valid utf8.
+
+    
+    ---- Example ----
+    >>> 'hello' | to_bytes | utf8bytes_to_string     # => 'hello'
+
+    ---- Signature ----
+    Bytes -> String | Error
+
+    ---- Tags ----
+    used for: type conversion
+    operates on: Bytes
+    """
+    return bytes(b).decode()
+
+
+
+
+# ----------------------------- base64string_to_bytes -----------------------------
+def base64string_to_bytes_imp(s: str) -> Bytes | VT.Error:
+    """
+    Convert data that is in a valid base64 encoding as a string to bytes.
+    Not all strings are valid base64 encoded strings.
+    Returns the decoded Bytes object
+    
+    ---- Example ----
+    >>> 'hello' | bytes_to_base64string
+
+    ---- Signature ----
+    String | Bytes -> Bytes
+
+    ---- Tags ----
+    used for: type conversion
+    operates on: String
+    """
+    import base64
+    return Bytes(base64.b64decode(s))
+
+
+
+
+
+
+# ----------------------------- bytes_to_base64string -----------------------------
+def bytes_to_base64string_imp(b: Bytes) -> String:
+    """
+    Convert any bytes object into a base64 encoded string.
+    
+    ---- Example ----
+    >>> b'hello' | bytes_to_base64string
+
+    ---- Signature ----
+    Bytes -> String
+
+    ---- Tags ----
+    used for: type conversion
+    operates on: Bytes
+    """
+    import base64
+    if isinstance(b, bytes): return base64.b64encode(b).decode()
+    if b | is_a[Bytes]: return base64.b64encode(bytes(b)).decode()
+    raise TypeError()
+    
+
+
+
+
+# ----------------------------- is_between_imp -----------------------------
+def is_between_imp(x, lo, hi) -> Bool:
+    """
+    Checks whether a specified value lies within the 
+    specified range for some orderable data type.
+    Like the SQL counterpart, this operator is INCLUSIVE.
+
+    ---- Examples ----
+    >>> 5 | is_between[1][9]     # => True
+    >>> 42 | is_between[1][9]    # => False
+    >>> 9 | is_between[1][9]     # => True
+
+    ---- Signature ----
+    Tuple[List[T], T, T] -> Bool
+    
+    ---- Tags ----
+    used for: logic
+    used for: maths
+    operates on: List[Int]
+    operates on: List[Float]
+    operates on: List[QuantityInt]
+    operates on: List[QuantityFloat]
+    """
+    return x>=lo and x<=hi
+
+
+def map_cat_imp(x, f):
+    """ 
+    Returns the flatten results of f applied to each item of x. Equivalent to:
+    `x | map[f] | concat`.
+ 
+    ---- Examples ----
+    >>> [1,0,3] | flat_map[lambda x: x | repeat[x]]  # => [1, 3, 3, 3]
+    >>> [z1,z2] | flat_map[Outs[RT]]             # All outgoing relations on z1 and z2.
+ 
+    ---- Signature ----
+    (Iterable, Function) => List
+    """
+    # This can be made more efficient
+    return concat_implementation(map_implementation(x, f))
+
+def map_cat_tp(x):
+    return VT.List
+
+def without_imp(x, y):
+    """ 
+    Returns the piped iterable without any items that are contained in the
+    argument. As a special case, dictionaries are returned without any keys
+    contained in the argument.
+
+    Note the syntax of `| without[1]` is not supported. The argument must be an
+    iterable.
+
+    Note that the type of the output is determined by the following operators,
+    e.g. `{1,2,3} | without[x] | collect` will return a list, even though the
+    input is a set.
+ 
+    ---- Examples ----
+    >>> [1,2,3] | without[[2]]            # => [1,3]
+    >>> {'a', 5, 10} | without['abc']     # => [10, 5]
+    >>> {'a': 1, 'b': 2} | without[['a']] # => {'b': 2}
+ 
+    ---- Signature ----
+    (Iterable, Iterable) => List
+    (Dict, Iterable) => Dict
+    """
+
+    # Because this will likely be surprising, make a special case of it here.
+    # Though note that technically y doesn't have to be iterable for this to
+    # work... TODO: make this more general and test for 'contains' support.
+    try:
+        y_itr = iter(y)
+    except:
+        return Error("The given argument to `without` is not iterable. If you have passed a single value, then you must wrap it in a list first, e.g. `| without[[1]]` instead of `| without[1]`.")
+        
+    if isinstance(x, dict):
+        return x | items | filter[first | Not[contained_in[y]]] | func[dict] | collect
+    else:
+        return x | filter[Not[contained_in[y]]] | collect
+
+def without_tp(x):
+    return VT.Any
+
+def schema_imp(x, include_edges=False):
+    """ 
+    Returns all schema nodes on the graph or alive in the given GraphSlice.
+    These are the delegate entities/relations which reference all instances on
+    the graph.
+
+    The optional argument `include_edges` can be set to True to also return the
+    low-level edges between these nodes, which is useful for plotting with
+    `graphviz`.
+ 
+    ---- Examples ----
+    >>> g | schema[True] | graphviz          # Shows the schema of graph g.
+    >>> g | now | schema[True] | graphviz    # Shows the schema of graph g in the current time slice.
+
+    # A blank graph already has one TX delegate node.
+    >>> g = Graph()
+    >>> g | schema | collect
+    ... [<EZefRef #65 DELEGATE TX at slice=0>]
+ 
+    ---- Signature ----
+    (Graph, Bool) => List[EZefRef]
+    (GraphSlice, Bool) => List[ZefRef]
+    """
+
+    if isinstance(x, Graph):
+        g = x
+        if include_edges:
+            frontier_of = map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | map_cat[lambda x: (x, target(x))]
+        else:
+            frontier_of = map_cat[Outs[BT.TO_DELEGATE_EDGE]]
+
+        frontier = [g | root | collect]
+
+        def step(found, last_frontier):
+            new_frontier = last_frontier | frontier_of | without[found] | collect
+            return found+new_frontier, new_frontier
+
+        all_items = ((frontier,frontier)
+                     | iterate[unpack[step]]
+                     | take_until[second
+                                  | length
+                                  | equals[0]]
+                     | last
+                     | first
+                     | collect)
+        return all_items | without[[g | root | collect]] | collect
+    elif isinstance(x, GraphSlice):
+        log.warn("Currently schema(graph_slice) returns eternal schema not the schema in the appropriate reference frame. This will be fixed in the future.")
+        return schema_imp(Graph(x), include_edges) | filter[exists_at[x]] | map[in_frame[x][allow_tombstone]] | collect
+
+    return Error(f"Don't know how to handle type of {type(x)} in schema zefop")
+
+def schema_tp(x):
+    return VT.List

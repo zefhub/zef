@@ -103,11 +103,13 @@ permute_to      = make_zefop(RT.PermuteTo)
 # Implemented Lazy ZefOps
 expect          = make_zefop(RT.Expect)
 filter          = make_zefop(RT.Filter)
+without         = make_zefop(RT.Without)
 select_keys     = make_zefop(RT.SelectKeys)
 modulo          = make_zefop(RT.Modulo)
 select_by_field = make_zefop(RT.SelectByField)
 apply_functions = make_zefop(RT.ApplyFunctions)
 map             = make_zefop(RT.Map)
+map_cat         = make_zefop(RT.MapCat)
 identity        = make_zefop(RT.Identity)
 concat          = make_zefop(RT.Concat)
 zip             = make_zefop(RT.Zip)
@@ -215,6 +217,7 @@ split_if        = make_zefop(RT.SplitIf)
 graphviz        = make_zefop(RT.Graphviz)
 
 tx              = make_zefop(RT.Tx)
+schema          = make_zefop(RT.Schema)
 exists_at       = make_zefop(RT.ExistsAt)
 base_uid        = make_zefop(RT.BaseUid)
 origin_uid      = make_zefop(RT.OriginUid)
@@ -280,7 +283,7 @@ save_file      = make_zefop(RT.SaveFile)
 
 pandas_to_gd = make_zefop(RT.PandasToGd)
 
-as_pipeline    = make_zefop(RT.AsPipeline)
+to_pipeline    = make_zefop(RT.ToPipeline)
 inject         = make_zefop(RT.Inject)
 inject_list    = make_zefop(RT.InjectList)
 
@@ -333,8 +336,17 @@ transact        = make_zefop(RT.Transact)
 # on_value_assignment
 
 
-
-
+peel            = make_zefop(RT.Peel)                
+match           = make_zefop(RT.Match)                
+match_apply     = make_zefop(RT.MatchApply)                
+Range           = make_zefop(RT.Range)      
+zstandard_compress = make_zefop(RT.ZstandardCompress)
+zstandard_decompress = make_zefop(RT.ZstandardDecompress)
+to_bytes        = make_zefop(RT.ToBytes)
+utf8bytes_to_string  = make_zefop(RT.Utf8bytesToString)
+base64string_to_bytes = make_zefop(RT.Base64stringToBytes)
+bytes_to_base64string = make_zefop(RT.BytesToBase64string)
+is_between      = make_zefop(RT.IsBetween)
 
 
 
@@ -343,10 +355,7 @@ transact        = make_zefop(RT.Transact)
 on              = make_zefop(RT.On)         
 
 
-peel            = make_zefop(RT.Peel)                
-match           = make_zefop(RT.Match)                
-match_apply     = make_zefop(RT.MatchApply,)                
-Range           = make_zefop(RT.Range,)                
+          
 # match
 # split_before
 # split_after

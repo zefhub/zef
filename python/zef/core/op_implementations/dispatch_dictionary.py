@@ -22,6 +22,7 @@ from .func import unpack_implementation, unpack_type_info
 _op_to_functions = {
         RT.ApplyFunctions: (apply_functions_imp, None),
         RT.Map:            (map_implementation, map_type_info),
+        RT.MapCat:         (map_cat_imp, map_cat_tp),
         RT.Reduce:         (reduce_implementation, reduce_type_info),
         RT.Scan:           (scan_implementation, scan_type_info),
         RT.GroupBy:        (group_by_implementation, group_by_type_info),
@@ -42,6 +43,7 @@ _op_to_functions = {
         RT.SelectKeys:     (select_keys_imp, None),
         RT.Modulo:         (modulo_imp, None),
         RT.SelectByField:  (select_by_field_imp, select_by_field_tp),
+        RT.Without:        (without_imp, without_tp),
         RT.First:          (first_imp, first_tp),
         RT.Second:         (second_imp, second_tp),
         RT.Last:           (last_imp, last_tp),
@@ -138,6 +140,7 @@ _op_to_functions = {
         RT.RaeType:         (rae_type_implementation, rae_type_type_info),
         RT.AbstractType:    (abstract_type_implementation, abstract_type_type_info),
         RT.Root:            (root_imp, root_tp),
+        RT.Schema:          (schema_imp, schema_tp),
         RT.Z:               (Z_imp, Z_tp),
         RT.Docstring:       (docstring_imp, None),
         RT.SourceCode:      (source_code_imp, None),
@@ -248,7 +251,7 @@ _op_to_functions = {
 
         RT.PandasToGd:          (pandas_to_gd_imp, pandas_to_gd_tp),
         
-        RT.AsPipeline:          (as_pipeline_imp, as_pipeline_tp),
+        RT.ToPipeline:          (to_pipeline_imp, to_pipeline_tp),
         RT.Inject:              (inject_imp, inject_tp),
         RT.InjectList:          (inject_list_imp, inject_list_tp),
 
@@ -288,4 +291,11 @@ _op_to_functions = {
         RT.Function:           (function_imp, function_tp),
         RT.On:                 (on_implementation, None),
         RT.Range:              (range_imp, range_tp),
+        RT.ZstandardCompress:  (zstandard_compress_imp, None),
+        RT.ZstandardDecompress:(zstandard_decompress_imp, None),        
+        RT.ToBytes:            (to_bytes_imp, None),
+        RT.Utf8bytesToString:  (utf8bytes_to_string_imp, None),
+        RT.Base64stringToBytes:(base64string_to_bytes_imp, None),
+        RT.BytesToBase64string:(bytes_to_base64string_imp, None),
+        RT.IsBetween:          (is_between_imp, None),
 }

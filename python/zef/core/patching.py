@@ -256,7 +256,6 @@ def convert_to_assign_value(self, value):
 ZefRef.__le__ = convert_to_assign_value
 EZefRef.__le__ = convert_to_assign_value
 
-
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):
     from .abstract_raes import Entity, AtomicEntity, Relation
