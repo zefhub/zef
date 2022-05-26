@@ -50,6 +50,7 @@ namespace zefDB {
         std::shared_ptr<std::thread> thread;
 
         std::atomic<bool> should_stop = false;
+        std::atomic<bool> received_query = false;
         // TODO: Change to all details
         std::shared_ptr<std::string> reply = {};
         AtomicLockWrapper locker;

@@ -134,8 +134,10 @@ namespace zefDB {
                                {
                                    if (!acceptor_.is_open())
                                        return;
-                                   if (!ec)
+                                   if (!ec) {
+                                       update(locker, received_query, true);
                                        Session_interact(sesh);
+                                   }
 
                                    do_accept();
                                });
@@ -161,6 +163,15 @@ namespace zefDB {
     }
 
     bool AuthServer::wait_with_timeout(std::chrono::duration<double> timeout) {
+        // First wait for the initial connection. We have this as a short
+        // timeout so that things like being started with jupyter doesn't sit
+        // there waiting forever.
+        wait_pred(locker, [&]() { return should_stop || received_query; }, std::chrono::seconds(5));
+        if(!received_query) {
+            stop_server();
+            throw std::runtime_error("Did not receive any browser connection in 5 secs, aborting auth server.");
+            return false;
+        }
         bool res = wait_same(locker, should_stop, true, timeout);
         stop_server();
         if(!res)
