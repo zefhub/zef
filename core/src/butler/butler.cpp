@@ -331,9 +331,10 @@ namespace zefDB {
             std::lock_guard lock(waiting_tasks_mutex);
             for(auto it = waiting_tasks.begin() ; it != waiting_tasks.end() ; it++) {
                 if ((*it)->task->task_uid == task_uid) {
+                    Butler::task_promise_ptr ret = *it;
                     if(forget)
                         waiting_tasks.erase(it);
-                    return *it;
+                    return ret;
                 }
             }
             return {};
@@ -1578,7 +1579,7 @@ namespace zefDB {
             if(network.uri == "")
                 throw std::runtime_error("Not connecting to ZefHub without a URL");
             if(!want_upstream_connection())
-                throw std::runtime_error("Not connecting to ZefHub until we have credentials. Make sure you have logged in using `login | run` to store your credentials.");
+                throw std::runtime_error("Not connecting to ZefHub until we have credentials. Either login using `login | run` to store your credentials or `login_as_guest | run` for a temporary guest login.");
             if(!network.managing_thread) {
                 // throw std::runtime_error("Network is not trying to connect, can't wait for auth.");
                 debug_time_print("before start connection");
@@ -1616,12 +1617,13 @@ namespace zefDB {
                 if(*key_string == constants::zefhub_guest_key) {
                     std::cerr << "Connecting as guest user" << std::endl;
                     refresh_token = "";
+                    have_logged_in_as_guest = true;
                 } else 
                     refresh_token = get_firebase_refresh_token_email(*key_string);
                 return;
             } else if(!have_auth_credentials()) {
                 no_credentials_warning = true;
-                throw std::runtime_error("Have no existing credentials to determine auth token. You must login first, or set auto_connect=\"always\" to trigger the login process automatically.");
+                throw std::runtime_error("Have no existing credentials to determine auth token. You must login first.");
             } else {
                 ensure_auth_credentials();
                 if(have_logged_in_as_guest) {
@@ -1687,6 +1689,17 @@ namespace zefDB {
         void Butler::handle_successful_auth() {
             if(zwitch.zefhub_communication_output())
                 std::cerr << "Authenticated with ZefHub" << std::endl;
+
+            if(have_logged_in_as_guest && !zwitch.extra_quiet()) {
+                std::cerr << std::endl;
+                std::cerr << "=================================" << std::endl;
+                std::cerr << "You are logged in as a guest user, which allows you to view public graphs but" << std::endl;
+                std::cerr << "does not allow for synchronising new graphs with ZefHub." << std::endl;
+                std::cerr << std::endl;
+                std::cerr << "Disclaimer: any ETs, RTs, ENs, and KWs that you query will be stored with ZefHub." << std::endl;
+                std::cerr << "=================================" << std::endl;
+                std::cerr << std::endl;
+            }
             debug_time_print("successful auth");
             update(auth_locker, connection_authed, true);
 
@@ -1765,7 +1778,10 @@ namespace zefDB {
         // * Credentials
 
 
-        std::optional<std::string> load_forced_zefhub_key() {
+        std::optional<std::string> Butler::load_forced_zefhub_key() {
+            if(session_auth_key)
+                return session_auth_key;
+
             char * env = std::getenv("ZEFHUB_AUTH_KEY");
             if (env != nullptr && env[0] != '\0')
                 return std::string(env);
@@ -1837,7 +1853,9 @@ namespace zefDB {
             
             std::optional<std::string> forced_zefhub_key = load_forced_zefhub_key(); 
             if(forced_zefhub_key) {
-                if(*forced_zefhub_key != constants::zefhub_guest_key)
+                if(*forced_zefhub_key == constants::zefhub_guest_key)
+                    have_logged_in_as_guest = true;
+                else
                     get_firebase_refresh_token_email(*forced_zefhub_key);
             } else {
                 auto credentials_file = zefdb_config_path() / "credentials";
@@ -1863,11 +1881,26 @@ namespace zefDB {
                     file << *(auth_server->reply);
                     if(zwitch.zefhub_communication_output())
                         std::cerr << "Successful obtained credentials" << std::endl;
+                    if(!zwitch.extra_quiet()) {
+                        std::cerr << std::endl;
+                        std::cerr << "=================================" << std::endl;
+                        std::cerr << "You are now logged in to ZefHub. You can synchronize graphs which will enable them to be stored on" << std::endl;
+                        std::cerr << "ZefHub. Any ETs, RT, ENs and KWs you create will also be synchronized with ZefHub." << std::endl;
+                        std::cerr << std::endl;
+                        std::cerr << "Note: your credentials have been stored at '" + credentials_file.string() + "'." << std::endl;
+                        std::cerr << "By default these will be used to automatically connect to ZefHub on zef import." << std::endl;
+                        std::cerr << "If you would like to change this behavior, please see the `config` zefop for more information."  << std::endl;
+                        std::cerr << "=================================" << std::endl;
+                        std::cerr << std::endl;
+                    }
                 }
             }
         }
 
         void Butler::user_login() {
+            // Always remove this. It can't hurt and can only be confusing if we leave it set.
+            butler->session_auth_key.reset();
+
             if(load_forced_zefhub_key())
                 throw std::runtime_error("Can't login when an explicit key is given in ZEFHUB_AUTH_KEY or zefhub.key");
             if(have_auth_credentials())
@@ -1904,6 +1937,8 @@ namespace zefDB {
             //     }
             // }
             
+
+            butler->session_auth_key.reset();
 
             // Now remove credentials
             if(load_forced_zefhub_key())

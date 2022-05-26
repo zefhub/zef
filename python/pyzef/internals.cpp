@@ -63,6 +63,15 @@ void fill_internals_module(py::module_ & internals_submodule) {
         }
         f.get();
     }, py::call_guard<py::gil_scoped_release>(), "This is a low-level function. Do not use if you don't know what you are doing.");
+
+    internals_submodule.def("login_manual", [](std::string auth_string) {
+        auto butler = Butler::get_butler();
+        if(butler->network.is_running())
+            throw std::runtime_error("Can't change login details while connected to ZefHub.");
+
+        butler->session_auth_key = auth_string;
+    }, py::call_guard<py::gil_scoped_release>(), "This is a low-level function. Do not use if you don't know what you are doing.");
+
     internals_submodule.def("logout", []() {
         auto butler = Butler::get_butler();
         butler->user_logout();

@@ -583,7 +583,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	main_module.def("set_keep_alive", set_keep_alive, py::call_guard<py::gil_scoped_release>(), "keep the graph subscribed to, even if all references to it are removed", "g"_a, "keep_alive"_a=true);
 	main_module.def("tag", py::overload_cast<const Graph&,const std::string&,bool,bool>(&tag), py::call_guard<py::gil_scoped_release>(), "Add a name tag to a graph to retrieve it by that name in the future: tag(g, 'some_graph_name_tag')", "g"_a, "name_tag"_a, "force"_a=false, "adding"_a=true);
 	main_module.def("zef_get", zef_get, py::call_guard<py::gil_scoped_release>(), "get a EZefRef together with the graph for some specified uid (could be on any graph - zefhub searches)", "uid_or_name_tag"_a);
-    main_module.def("zearch", zearch, py::call_guard<py::gil_scoped_release>(), "perform a general fuzzy search for stuff on zefhub. Returns a string as an answer.", "zearch_term"_a);
+    main_module.def("zearch", zearch, py::call_guard<py::gil_scoped_release>(), "perform a general fuzzy search for stuff on zefhub. Returns a string as an answer.", "zearch_term"_a="");
     main_module.def("lookup_uid", lookup_uid, py::call_guard<py::gil_scoped_release>(), "lookup a UID for a graph by tag. Should return None if not found but will currently error.", "tag"_a);
 	main_module.def("sync", zefDB::sync, py::call_guard<py::gil_scoped_release>(), "set the sync state of a graph: should it sed / receive updates to/from zefhub? Zpplies to primary and view instances.", "g"_a, "do_sync"_a=true);
 
