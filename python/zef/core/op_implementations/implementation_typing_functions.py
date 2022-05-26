@@ -4866,7 +4866,9 @@ def Outs_imp(z, rt, target_filter = None):
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
 
     res = out_rels_imp(z, rt) | map[target] | collect
-    if target_filter: return res | filter[is_a[target_filter]] | collect
+    if target_filter: 
+        if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
+        return res | filter[is_a[target_filter]] | collect
     return res
 
 
@@ -4921,7 +4923,9 @@ def Ins_imp(z, rt, source_filter = None):
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
 
     res = in_rels_imp(z, rt) | map[source] | collect
-    if source_filter: return res | filter[is_a[source_filter]] | collect
+    if source_filter: 
+        if isinstance(source_filter, ZefOp): source_filter = Is[source_filter]
+        return res | filter[is_a[source_filter]] | collect
     return res
 
 
@@ -4980,7 +4984,9 @@ def out_rels_imp(z, rt=None, target_filter=None):
     if rt == RT or rt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
     else: res = pyzefops.traverse_out_edge_multi(z, rt)
-    if target_filter: return res | filter[target | is_a[target_filter]] | collect 
+    if target_filter: 
+        if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
+        return res | filter[target | is_a[target_filter]] | collect 
     return res
 
 
@@ -5040,7 +5046,9 @@ def in_rels_imp(z, rt=None, source_filter=None):
     if rt == RT or rt is None: res = pyzefops.ins(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt == BT: res = pyzefops.ins(z | to_ezefref | collect)
     else: res = pyzefops.traverse_in_edge_multi(z, rt)
-    if source_filter: return res | filter[source | is_a[source_filter]] | collect 
+    if source_filter: 
+        if isinstance(source_filter, ZefOp): source_filter = Is[source_filter]
+        return res | filter[source | is_a[source_filter]] | collect 
     return res  
 
 
