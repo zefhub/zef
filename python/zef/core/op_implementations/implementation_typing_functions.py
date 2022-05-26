@@ -4845,7 +4845,7 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
 
 
 #---------------------------------------- Outs -----------------------------------------------
-def Outs_imp(z, rt, target_filter = None):
+def Outs_imp(z, rt=None, target_filter = None):
     """
     Traverse along all outgoing relation of the specified 
     type to the thing attached to the target of each relation.
@@ -4902,7 +4902,7 @@ def In_imp(z, rt=None, source_filter = None):
 
 
 #---------------------------------------- Ins -----------------------------------------------
-def Ins_imp(z, rt, source_filter = None):
+def Ins_imp(z, rt=None, source_filter = None):
     """
     Traverse along all incoming relation of the specified 
     type to the thing attached to the source of each relation.
