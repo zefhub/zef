@@ -7191,7 +7191,7 @@ def fg_insert_imp(fg, new_el):
         elif isinstance(new_el, dict): 
                 _insert_dict(new_el)
         else: 
-            raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\n{new_el=}")
+            raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\nnew_el={new_el}")
         
     if isinstance(new_el, list): [_insert_single(el) for el in new_el]
     elif isinstance(new_el, dict): 
