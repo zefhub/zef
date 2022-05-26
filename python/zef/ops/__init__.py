@@ -14,7 +14,7 @@
 
 from ..core._ops import *
 from ..core._ops import _any
-from ..core import _ops
+from ..core import _ops, func
 
 import types
 lazy_all = [x for x in dir(_ops) if not x.startswith("_") and not isinstance(getattr(_ops, x), types.ModuleType)]
@@ -29,6 +29,7 @@ from .transactor_role import *
 
 __all__ = [
     # "_",
+    "func",
     "_any",
     "value_or",
     "maybe_value",
