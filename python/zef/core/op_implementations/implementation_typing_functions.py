@@ -24,6 +24,7 @@ from .. import *
 from ..op_structs import _call_0_args_translation, type_spec
 from .._ops import *
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
+from ..logger import log
 
 from ...pyzef import zefops as pyzefops, main as pymain
 from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
@@ -3900,7 +3901,21 @@ def events_imp(z_tx_or_rae, filter_on=None):
     from zef.pyzef import zefops as pyzefops
     # Note: we can't use the python to_frame here as that calls into us.
 
-    if BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
+    if internals.is_delegate(z_tx_or_rae):
+        ezr = to_ezefref(z_tx_or_rae)
+        to_del = ezr | in_rel[BT.TO_DELEGATE_EDGE] | collect
+        insts = to_del | Ins[BT.DELEGATE_INSTANTIATION_EDGE]
+        retirements = to_del | Ins[BT.DELEGATE_RETIREMENT_EDGE]
+        if type(ezr) == ZefRef:
+            gs = frame(ezr)
+            insts = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+            retirements = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+
+        insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        full_list = insts+retirements
+
+    elif BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
         zr = to_ezefref(z_tx_or_rae)
         gs = zr | to_graph_slice | collect
 
@@ -4010,38 +4025,26 @@ def in_frame_imp(z, *args):
     if is_same_g or origin_uid(zz).graph_uid == uid(g_frame):
         z_obj = to_ezefref(z) if is_same_g else g_frame[origin_uid(zz)]
         # exit early if we are looking in a frame prior to the objects instantiation: this is not even allowed when allow_tombstone=True
-        if internals.is_delegate(z_obj):
-            from ..logger import log
-            log.warn("Need to fix, assuming delegate exists from the beginning of time.")
-            instantiation_ts = TimeSlice(0)
-        elif BT(z_obj) == BT.TX_EVENT_NODE:
-            # TODO: This should not be necessary in the future, as events[Instantiated] should cover this and the follow ROOT_NODE case.
+        if BT(z_obj) == BT.TX_EVENT_NODE:
+            # TODO: This should not be necessary in the future, as
+            # events[Instantiated] should cover this and the following ROOT_NODE
+            # case.
             instantiation_ts = pyzefops.time_slice(z_obj)
         elif BT(z_obj) == BT.ROOT_NODE:
+            # TODO: It should also be possible to pass this to
+            # events[Instantiated], as then the delegates of the root node can
+            # also be handled seamlessly
             instantiation_ts = TimeSlice(0)
         else:
-            instantiation_ts = z_obj | events[Instantiated] | single | absorbed | single | frame | time_slice | collect
+            # Note that 'first' is used here instead of 'single', as delegates
+            # may have been brought back to life... but we only care about
+            # casuality here, which corresponds to the very first instantiation.
+            instantiation_ts = z_obj | events[Instantiated] | first | absorbed | single | frame | time_slice | collect
         if (time_slice(target_frame)) < instantiation_ts:
             raise RuntimeError(f"Causality error: you cannot point to an object from a frame prior to its existence / the first time that frame learned about it.")            
         if not tombstone_allowed:
-            # assert that the frame is prior to the termination tx
-            if internals.is_delegate(z_obj):
-                from ..logger import log
-                log.warn("Need to fix, assuming delegate exists to the end of time.")
-                termination_ts = None
-            elif BT(z_obj) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
-                termination_ts = None
-            else:
-                termination_ts = (z_obj
-                                  | events[Terminated]
-                                  | match_apply[
-                                      (length | equals[0], always[None]),
-                                      (always[True], single | absorbed | single | frame | time_slice)
-                                  ]
-                                  | collect)
-            if termination_ts is not None:
-                if (time_slice(target_frame)) >= termination_ts:
-                    raise RuntimeError(f"The RAE was terminated and no longer exists in the frame that the reference frame was about to be moved to. It is still possible to perform this action if you really want to by specifying 'to_frame[allow_tombstone][my_z]'")
+            if not exists_at(z_obj, target_frame):
+                raise RuntimeError(f"The RAE was terminated and no longer exists in the frame that the reference frame was about to be moved to. It is still possible to perform this action if you really want to by specifying 'to_frame[allow_tombstone][my_z]'")
         return ZefRef(z_obj, target_frame.tx)
 
     # z's origin does not live in the frame graph
@@ -7716,3 +7719,115 @@ def is_between_imp(x, lo, hi) -> Bool:
     """
     return x>=lo and x<=hi
 
+
+def map_cat_imp(x, f):
+    """ 
+    Returns the flatten results of f applied to each item of x. Equivalent to:
+    `x | map[f] | concat`.
+ 
+    ---- Examples ----
+    >>> [1,0,3] | flat_map[lambda x: x | repeat[x]]  # => [1, 3, 3, 3]
+    >>> [z1,z2] | flat_map[Outs[RT]]             # All outgoing relations on z1 and z2.
+ 
+    ---- Signature ----
+    (Iterable, Function) => List
+    """
+    # This can be made more efficient
+    return concat_implementation(map_implementation(x, f))
+
+def map_cat_tp(x):
+    return VT.List
+
+def without_imp(x, y):
+    """ 
+    Returns the piped iterable without any items that are contained in the
+    argument. As a special case, dictionaries are returned without any keys
+    contained in the argument.
+
+    Note the syntax of `| without[1]` is not supported. The argument must be an
+    iterable.
+
+    Note that the type of the output is determined by the following operators,
+    e.g. `{1,2,3} | without[x] | collect` will return a list, even though the
+    input is a set.
+ 
+    ---- Examples ----
+    >>> [1,2,3] | without[[2]]            # => [1,3]
+    >>> {'a', 5, 10} | without['abc']     # => [10, 5]
+    >>> {'a': 1, 'b': 2} | without[['a']] # => {'b': 2}
+ 
+    ---- Signature ----
+    (Iterable, Iterable) => List
+    (Dict, Iterable) => Dict
+    """
+
+    # Because this will likely be surprising, make a special case of it here.
+    # Though note that technically y doesn't have to be iterable for this to
+    # work... TODO: make this more general and test for 'contains' support.
+    try:
+        y_itr = iter(y)
+    except:
+        return Error("The given argument to `without` is not iterable. If you have passed a single value, then you must wrap it in a list first, e.g. `| without[[1]]` instead of `| without[1]`.")
+        
+    if isinstance(x, dict):
+        return x | items | filter[first | Not[contained_in[y]]] | func[dict] | collect
+    else:
+        return x | filter[Not[contained_in[y]]] | collect
+
+def without_tp(x):
+    return VT.Any
+
+def schema_imp(x, include_edges=False):
+    """ 
+    Returns all schema nodes on the graph or alive in the given GraphSlice.
+    These are the delegate entities/relations which reference all instances on
+    the graph.
+
+    The optional argument `include_edges` can be set to True to also return the
+    low-level edges between these nodes, which is useful for plotting with
+    `graphviz`.
+ 
+    ---- Examples ----
+    >>> g | schema[True] | graphviz          # Shows the schema of graph g.
+    >>> g | now | schema[True] | graphviz    # Shows the schema of graph g in the current time slice.
+
+    # A blank graph already has one TX delegate node.
+    >>> g = Graph()
+    >>> g | schema | collect
+    ... [<EZefRef #65 DELEGATE TX at slice=0>]
+ 
+    ---- Signature ----
+    (Graph, Bool) => List[EZefRef]
+    (GraphSlice, Bool) => List[ZefRef]
+    """
+
+    if isinstance(x, Graph):
+        g = x
+        if include_edges:
+            frontier_of = map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | map_cat[lambda x: (x, target(x))]
+        else:
+            frontier_of = map_cat[Outs[BT.TO_DELEGATE_EDGE]]
+
+        frontier = [g | root | collect]
+
+        def step(found, last_frontier):
+            new_frontier = last_frontier | frontier_of | without[found] | collect
+            return found+new_frontier, new_frontier
+
+        all_items = ((frontier,frontier)
+                     | iterate[unpack[step]]
+                     | take_until[second
+                                  | length
+                                  | equals[0]]
+                     | last
+                     | first
+                     | collect)
+        return all_items | without[[g | root | collect]] | collect
+    elif isinstance(x, GraphSlice):
+        log.warn("Currently schema(graph_slice) returns eternal schema not the schema in the appropriate reference frame. This will be fixed in the future.")
+        return schema_imp(Graph(x), include_edges) | filter[exists_at[x]] | map[in_frame[x][allow_tombstone]] | collect
+
+    return Error(f"Don't know how to handle type of {type(x)} in schema zefop")
+
+def schema_tp(x):
+    return VT.List

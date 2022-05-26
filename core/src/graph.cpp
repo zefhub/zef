@@ -229,7 +229,8 @@ namespace zefDB {
             // ---------------- create delegate[tx_node] --------------------
             auto delegate_tx_uzr = internals::instantiate(BT.TX_EVENT_NODE, *this);     // the delegate for TXs
 
-            auto next_tx_uzr = internals::instantiate(root_uzr, BT.TO_DELEGATE_EDGE, delegate_tx_uzr, *this);
+            auto to_del_edge_uzr = internals::instantiate(root_uzr, BT.TO_DELEGATE_EDGE, delegate_tx_uzr, *this);
+            auto del_inst_uzr = internals::instantiate(root_uzr, BT.DELEGATE_INSTANTIATION_EDGE, to_del_edge_uzr, *this);
 
             auto & info = MMap::info_from_blobs(this);
             MMap::flush_mmap(info, write_head);

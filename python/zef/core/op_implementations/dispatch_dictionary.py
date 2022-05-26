@@ -22,6 +22,7 @@ from .func import unpack_implementation, unpack_type_info
 _op_to_functions = {
         RT.ApplyFunctions: (apply_functions_imp, None),
         RT.Map:            (map_implementation, map_type_info),
+        RT.MapCat:         (map_cat_imp, map_cat_tp),
         RT.Reduce:         (reduce_implementation, reduce_type_info),
         RT.Scan:           (scan_implementation, scan_type_info),
         RT.GroupBy:        (group_by_implementation, group_by_type_info),
@@ -42,6 +43,7 @@ _op_to_functions = {
         RT.SelectKeys:     (select_keys_imp, None),
         RT.Modulo:         (modulo_imp, None),
         RT.SelectByField:  (select_by_field_imp, select_by_field_tp),
+        RT.Without:        (without_imp, without_tp),
         RT.First:          (first_imp, first_tp),
         RT.Second:         (second_imp, second_tp),
         RT.Last:           (last_imp, last_tp),
@@ -138,6 +140,7 @@ _op_to_functions = {
         RT.RaeType:         (rae_type_implementation, rae_type_type_info),
         RT.AbstractType:    (abstract_type_implementation, abstract_type_type_info),
         RT.Root:            (root_imp, root_tp),
+        RT.Schema:          (schema_imp, schema_tp),
         RT.Z:               (Z_imp, Z_tp),
         RT.Docstring:       (docstring_imp, None),
         RT.SourceCode:      (source_code_imp, None),

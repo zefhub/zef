@@ -63,6 +63,9 @@ namespace zefDB {
     struct LIBZEF_DLL_EXPORTED TimeSlice {
         int value = 0;  // first actual tx has time slice=1. Then 0 can be used as sentinel if needed
 
+        constexpr TimeSlice() = default;
+        constexpr TimeSlice(int value) : value(value) {}
+
         operator int() const { return value; }  // allow casting to an int in C++:   int n = my_timeslice;
 
         const int& operator* () const { return value; }
