@@ -297,10 +297,11 @@ def match_imp(item, patterns):
 
     ---- Examples ----
     >>> -9 | match[
-    >>>     (less_than[-10], 'very cold'),
-    >>>     (less_than[0], 'cold'),
-    >>>     (greater_than_or_equal[0], 'ok'),
-    >>> ] | collect                            => 'cold'
+    >>>     (Is[less_than[-10]], lambda x: f'it is a freezing {x} degrees'),
+    >>>     (Is[less_than[10]], lambda x: f'somewhat cold: {x} degrees'),
+    >>>     (Is[greater_than_or_equal[20]], lambda x: f'warm: {x}'),
+    >>>     (Any, lambda x: f'something else {x}'),
+    >>> ] | collect                            => 'somewhat cold: -9 degrees'
 
     ---- Arguments ----
     item: the incoming value
@@ -314,13 +315,21 @@ def match_imp(item, patterns):
     - used for: logic
     - used for: function application
     """
-    for pred, return_val in patterns:
-        if pred(item): return return_val
+    for tp, f_to_apply in patterns:
+        try:
+            if is_a(item, tp): return f_to_apply(item)
+        except Exception as e:            
+            raise RuntimeError(f'\nError within `match` zefop case predicate: `{tp}`  `applying function: {f_to_apply}`: {e}')
     raise RuntimeError(f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
     
 
+
 def match_tp(op, curr_type):
     return VT.Any
+
+
+
+
 
 
 def match_apply_imp(item, patterns):
@@ -3064,6 +3073,41 @@ def sign_tp(op, curr_type):
     return VT.Int
 
 
+
+
+# --------------------------------------- If ------------------------------------------------
+def If_imp(x, pred, true_case_func, false_case_func):
+    """
+    Dispatches to one of two provided functions based on the boolean 
+    result of the predicate function wrapped as a logic type, given
+    the input value.
+    The input value into the zefop is used by the predicate and 
+    forwarded to the relevant case function.
+
+    ---- Examples ----
+    >>> Evens = Is[modulus[2] | equals[0]]
+    >>> 4 | If[ Evens ][add[1]][add[2]]            # => 5
+
+    ---- Signature ----
+    ((T->Bool), (T->T1), (T->T2)) -> Union[T1, T2]
+
+    ---- Tags ----
+    - used for: control flow
+    - used for: logic
+    - related zefop: if_then_else
+    - related zefop: group_by
+    - related zefop: match
+    - related zefop: match_apply
+    - related zefop: filter
+    """
+    try:
+        case = pred(x)
+    except Exception as e:            
+        raise RuntimeError(f'\nError within `If` zefop evaluating predicate function: `{pred}` for value  `{x}`: {e}')
+    try:
+        return true_case_func(x) if case else false_case_func(x)
+    except Exception as e:            
+        raise RuntimeError(f'\nError within `If` zefop evaluating the apply function for value  `{x}`: {e}')
 
 
 # --------------------------------------- if_then_else ------------------------------------------------
