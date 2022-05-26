@@ -168,11 +168,11 @@ g | now | all[ET] | collect                     # see all entities in the latest
 </div>
 
 - [Basic tutorial of Zef](https://zef.zefhub.io/tutorials/basic/employee-database)
+- [Build Wordle clone with Zef](https://zef.zefhub.io/blog/wordle-using-zefops)
 - [Import data from CSV](https://zef.zefhub.io/how-to/import-csv)
 - [Import data from NetworkX](https://zef.zefhub.io/how-to/import-graph-formats)
 - [Set up a GraphQL API](https://zef.zefhub.io/how-to/graphql-basic)
 - [Use Zef graphs in NetworkX](https://zef.zefhub.io/how-to/use-zef-networkx)
-- [Add Zef to a project and use the functional operators](https://zef.zefhub.io/zef-ops) (doc not yet complete)
 
 <br />
 
