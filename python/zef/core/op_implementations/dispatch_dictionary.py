@@ -294,6 +294,7 @@ _op_to_functions = {
         RT.ZstandardCompress:  (zstandard_compress_imp, None),
         RT.ZstandardDecompress:(zstandard_decompress_imp, None),        
         RT.ToBytes:            (to_bytes_imp, None),
+        RT.Utf8bytesToString:  (utf8bytes_to_string_imp, None),
         RT.Base64stringToBytes:(base64string_to_bytes_imp, None),
         RT.BytesToBase64string:(bytes_to_base64string_imp, None),
         RT.IsBetween:          (is_between_imp, None),

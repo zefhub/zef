@@ -7582,7 +7582,7 @@ def zstandard_compress_imp(x: bytes, compression_level=0.1) -> Bytes:
 
     ---- Tags ----
     used for: data compression    
-    operated on: Bytes
+    operates on: Bytes
     related zefop: zstandard_compress
     """
     import zstd
@@ -7608,12 +7608,12 @@ def zstandard_decompress_imp(x: Bytes) -> Bytes:
 
     ---- Tags ----
     used for: data compression    
-    operated on: Bytes
+    operates on: Bytes
     related zefop: zstandard_decompress
     """
     import zstd
     if isinstance(x, str): raise TypeError('zstandard_decompress can`t be called with a string. Must be bytes')
-    return zstd.decompress(bytes(x))
+    return Bytes(zstd.decompress(bytes(x)))
     
 
 
@@ -7634,13 +7634,32 @@ def to_bytes_imp(x: String) -> Bytes:
 
     ---- Tags ----
     used for: type conversion
-    operated on: String
+    operates on: String
     """
     if isinstance(x, str): return Bytes(x.encode())     # default: utf8
     if isinstance(x, Bytes): return x
     if isinstance(x, bytes): return Bytes(x)
     else: raise NotImplementedError()
 
+
+# ----------------------------- utf8bytes_to_string -----------------------------
+def utf8bytes_to_string_imp(b: Bytes) -> String | VT.Error:
+    """
+    Convert a Byes value that is a utf8 encoded string,
+    return the string. Not all bytes values are valid utf8.
+
+    
+    ---- Example ----
+    >>> 'hello' | to_bytes | utf8bytes_to_string     # => 'hello'
+
+    ---- Signature ----
+    Bytes -> String | Error
+
+    ---- Tags ----
+    used for: type conversion
+    operates on: Bytes
+    """
+    return bytes(b).decode()
 
 
 
@@ -7660,7 +7679,7 @@ def base64string_to_bytes_imp(s: str) -> Bytes | VT.Error:
 
     ---- Tags ----
     used for: type conversion
-    operated on: String
+    operates on: String
     """
     import base64
     return Bytes(base64.b64decode(s))
@@ -7683,7 +7702,7 @@ def bytes_to_base64string_imp(b: Bytes) -> String:
 
     ---- Tags ----
     used for: type conversion
-    operated on: Bytes
+    operates on: Bytes
     """
     import base64
     if isinstance(b, bytes): return base64.b64encode(b).decode()
