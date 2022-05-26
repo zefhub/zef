@@ -32,8 +32,8 @@ from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
 
-zef_types = {VT.Graph, VT.ZefRef, VT.ZefRefs, VT.ZefRefss, VT.EZefRef, VT.EZefRefs, VT.EZefRefss}
-ref_types = {VT.ZefRef, VT.ZefRefs, VT.ZefRefss, VT.EZefRef, VT.EZefRefs, VT.EZefRefss}
+zef_types = {VT.Graph, VT.ZefRef, VT.EZefRef}
+ref_types = {VT.ZefRef, VT.EZefRef}
 
 
 #--utils---
@@ -448,9 +448,7 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
     - used for: stream manipulation
     - used for: string manipulation
     """
-    if isinstance(v, ZefRefss) or isinstance(v, EZefRefss):
-        return pyzefops.flatten(v)
-    elif (isinstance(v, list) or isinstance(v, tuple)) and len(v)>0 and isinstance(v[0], str):
+    if (isinstance(v, list) or isinstance(v, tuple)) and len(v)>0 and isinstance(v[0], str):
         if not all((isinstance(el, str) for el in v)):
             raise TypeError(f'A list starting with a string was passed to concat, but not all other elements were strings. {v}')
         return v | join[''] | collect
@@ -518,7 +516,7 @@ def prepend_imp(v, item, *additional_items):
         elements_to_prepend = [item, *additional_items]
         all_zef = elements_to_prepend | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
         if not all_zef: return Error("Append only takes ZefRef or EZefRef for Zef List")
-        is_any_terminated = elements_to_prepend | map[terminated] | filter[None] | length | greater_than[0] | collect 
+        is_any_terminated = elements_to_prepend | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
         if is_any_terminated: return Error("Cannot append a terminated ZefRef")
 
         
@@ -553,10 +551,6 @@ def prepend_imp(v, item, *additional_items):
         return  actions     
     elif isinstance(v, tuple):
         return (item, *v)
-    elif isinstance(v, EZefRefs):
-        return EZefRefs([item, *v])
-    elif isinstance(v, ZefRefs):
-        return ZefRefs([item, *v])
     elif isinstance(v, str):
         return item + v
     elif isinstance(v, Generator) or isinstance(v, Iterator):
@@ -611,7 +605,7 @@ def append_imp(v, item, *additional_items):
         elements_to_append = [item, *additional_items]
         all_zef = elements_to_append | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
         if not all_zef: return Error("Append only takes ZefRef or EZefRef for Zef List")
-        is_any_terminated = elements_to_append | map[terminated] | filter[None] | length | greater_than[0] | collect 
+        is_any_terminated = elements_to_append | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
         if is_any_terminated: return Error("Cannot append a terminated ZefRef")
 
         
@@ -646,10 +640,6 @@ def append_imp(v, item, *additional_items):
         return  actions     
  
 
-    elif isinstance(v, EZefRefs):
-        return EZefRefs([*v, item])
-    elif isinstance(v, ZefRefs):
-        return ZefRefs([*v, item])
     elif isinstance(v, str):
         return v + item
     elif isinstance(v, Generator) or isinstance(v, Iterator):
@@ -2124,6 +2114,8 @@ def without_absorbed_imp(x):
     elif isinstance(x, ValueType_):
         return ValueType_(type_name=x.d['type_name'])
 
+    elif isinstance(x, (Entity, AtomicEntity, RelationType)):
+        return type(x)(remove(x.d, 'absorbed'))
     return Error('Not Implemented')
 
 
@@ -3673,8 +3665,6 @@ def tx_imp(*args):
             return ZefRef(zz, zz)
         if isinstance(x, ZefRef):
             return pyzefops.tx(x)
-        if isinstance(x, ZefRefs):
-            return pyzefops.tx(x)
     
     if len(args) == 2:        
         if type(args[1]) == ZefOp:
@@ -3687,10 +3677,6 @@ def tx_imp(*args):
 
 
 def tx_tp(op, curr_type):
-    if curr_type == VT.Graph:
-        curr_type = VT.EZefRefs
-    else:
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 
@@ -3751,8 +3737,6 @@ def now_implementation(*args):
         if isinstance(args[0], EZefRef):
             return pyzefops.now(args[0])
 
-        if isinstance(args[0], ZefRefs):
-            return pyzefops.now(args[0])
     if len(args) == 2:
         assert args[1] == allow_tombstone
         if isinstance(args[0], Graph):
@@ -3893,161 +3877,6 @@ def previous_tx_tp(z_tp):
 
 
 
-# ---------------------------------------- instantiated -----------------------------------------------
-def instantiated_imp(x):
-    """ 
-    ---- Signature ----
-    ZefRef[TX]     -> List[ZefRef[RAE]]
-    EZefRef[TX]    -> List[EZefRef[RAE]]
-    ZefRef[RAE]    -> ZefRef[TX]
-    EZefRef[RAE]   -> EZefRef[TX]
-    """
-    print(f"Warning: 'instantiated' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_tx | events[Terminated]' instead")
-    if isinstance(x, GraphSlice):
-        raise TypeError("`instantiated` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | instantiated`")
-    assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
-    if BT(x) == BT.TX_EVENT_NODE:
-        if isinstance(x, ZefRef):
-            # zefops.to_frame(z1, zefops.to_ezefref(z_tx))
-            return pyzefops.instantiated(x) | map[in_frame[frame(x)]] | collect
-        elif isinstance(x, EZefRef):
-            return pyzefops.instantiated(x) | to_ezefref
-    elif internals.is_delegate(x):
-        raise Exception("Can't ask for instantiation time of delegate (there are multiple")
-    else:
-        return pyzefops.instantiation_tx(x)
-
-
-def instantiated_tp(op, curr_type):
-    return VT.Any #VT.ZefRefs if isinstance(op, ZefRef) else VT.EZefRefs
-
-
-# ----------------------------------------- terminated ------------------------------------------------
-def terminated_imp(x):
-    """
-    ---- Signature ----
-    ZefRef[TX]     -> List[ZefRef[RAE]]
-    EZefRef[TX]    -> List[EZefRef[RAE]]
-    ZefRef[RAE]    -> Union[ZefRef[TX], Nil]
-    EZefRef[RAE]   -> Union[EZefRef[TX], Nil]
-    """
-    print(f"Warning: 'terminated' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_tx | events[Terminated]' instead")
-    if isinstance(x, GraphSlice):
-        raise TypeError("`terminated` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | terminated`")
-    assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
-    if BT(x) == BT.TX_EVENT_NODE:
-        if isinstance(x, ZefRef):
-            return pyzefops.terminated(x) | map[in_frame[frame(x)]] | collect
-        elif isinstance(x, EZefRef):
-            return pyzefops.terminated(x) | to_ezefref
-    else:
-        res = pyzefops.termination_tx(x)  # this returns node 42 (root) as a sentinel if there is none        
-        if BT(res) == BT.ROOT_NODE:
-            return None  
-        # TODO (Ulf): fix this.
-        if isinstance(x, ZefRef) and ((x | frame | time_slice | collect) > (res | to_graph_slice | time_slice | collect)):
-            return None
-        else:
-            return res
-    
-
-def terminated_tp(x):
-    return VT.Any #VT.ZefRefs if isinstance(op, ZefRef) else VT.EZefRefs
-
-# ----------------------------------------- value_assigned --------------------------------------------
-def value_assigned_imp(x):
-    """
-    ---- Signature ----
-    ZefRef[TX]   -> List[ZefRef[AET]]
-    EZefRef[TX]  -> List[EZefRef[AET]]
-    ZefRef[AET]  -> List[ZefRef[TX]]
-    EZefRef[AET] -> List[EZefRef[TX]]
-    """
-    print(f"Warning: 'value_assigned' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸. Use 'z_tx | events[Assigned]' instead")
-    if isinstance(x, GraphSlice):
-        raise TypeError("`value_assigned` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | value_assigned`")
-    assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
-    if BT(x) == BT.TX_EVENT_NODE:
-        if isinstance(x, ZefRef):
-            # Note: value_assigned preserves the tx
-            return pyzefops.value_assigned(x)
-        elif isinstance(x, EZefRef):
-            return pyzefops.value_assigned(x) | to_ezefref
-    else:
-        return pyzefops.value_assignment_txs(x)
-
-
-def value_assigned_tp(x):
-    return VT.Any
-
-
-
-
-# ----------------------------------------- merged --------------------------------------------
-def _is_merged(z):
-    inst_edge = collect(to_ezefref(z) | in_rel[BT.RAE_INSTANCE_EDGE])
-    return has_out(inst_edge, BT.ORIGIN_RAE_EDGE)
-
-def merged_imp(x):    
-    """ 
-    A more specific requirement than instantiated.
-    A merge event also shows up as instantiated, but not 
-    vice versa.
-    
-    ---- Signature ----
-    ZefRef     -> GraphSlice
-    GraphSlice -> List[ZefRef]
-    """
-    print(f"Warning: 'merged' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸")
-    if isinstance(x, GraphSlice):
-        raise TypeError("`merged` cannot be used with a GraphSlice. Please convert to a TX first. For example `g | now | to_tx | merged`")
-    assert isinstance(x, ZefRef) or isinstance(x, EZefRef)
-    if BT(x) == BT.TX_EVENT_NODE:
-        return filter(pyzefops.instantiated(x), lambda z: _is_merged(z))
-    else:
-        assert _is_merged(x)
-        return pyzefops.instantiation_tx(x)
-
-def merged_tp(x):    
-    return VT.Any
-
-
-# ----------------------------------------- affected --------------------------------------------
-def affected_imp(x):    
-    """
-    Given a transaction, return a list of all ZefRef
-    that were in some way affected by the changes in
-    that tx.
-
-    When the tx is passed in as a ZefRef, the reference
-    frame is kept by this operator.
-    When traversing the eternal graph, this behavior is 
-    also propagated by returning the EZefRef.
-
-    Related function: use "events" if a list events,
-    e.g. [instantiated[z1], terminated[z2], ...] is wanted.
-
-    TODO
-    syntax proposal, since "instantiated" et al. will become entities:
-    adjust the syntax and use types?
-    here: z_tx | raes[Instantiated]                 # returns a List[ZefRef]
-          z_tx | raes[Instantiated | Assigned]
-          z_tx | events[Instantiated | Assigned]    # returns a List[Instantiated | Terminated] 
-    which would be analogous to
-    z1 | txs[Assigned] 
-    
-
-    ---- Signature ----
-    ZefRef[TX]   -> List[ZefRef]
-    EZefRef[TX]  -> List[EZefRef]
-    """
-    # assert isinstance(x, GraphSlice)
-    print(f"Warning: 'affected' ZefOp will be retired 🥸🥸🥸🥸🥸🥸🥸🥸")
-    return concat(instantiated(x), terminated(x), value_assigned(x))
-
-def affected_tp(x):
-    return VT.Any
-    
 
 
 # ----------------------------------------- events --------------------------------------------
@@ -4734,7 +4563,7 @@ def nth_implementation(iterable, n):
     if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
         return iterable | all | nth[n] | collect
         
-    if isinstance(iterable, ZefRefs) or isinstance(iterable, EZefRefs) or isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, str):
+    if isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, str):
         return iterable[n]
     it = iter(iterable)
     for cc in range(n):
@@ -5144,11 +4973,11 @@ def out_rels_imp(z, rt=None, target_filter=None):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
 
-    if rt == RT or rt is None: res = pyzefops.outs(z) | filter[BT.RELATION_EDGE] | collect
+    if rt == RT or rt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
     else: res = pyzefops.traverse_out_edge_multi(z, rt)
-    if target_filter: return res | filter[target | is_a[target_filter]] | map[identity] | collect 
-    return [zr for zr in res]
+    if target_filter: return res | filter[target | is_a[target_filter]] | collect 
+    return res
 
 
 
@@ -5204,11 +5033,11 @@ def in_rels_imp(z, rt=None, source_filter=None):
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "multi")
-    if rt == RT or rt is None: res = pyzefops.ins(z) | filter[BT.RELATION_EDGE] | collect
+    if rt == RT or rt is None: res = pyzefops.ins(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt == BT: res = pyzefops.ins(z | to_ezefref | collect)
     else: res = pyzefops.traverse_in_edge_multi(z, rt)
-    if source_filter: return res | filter[source | is_a[source_filter]] | map[identity] | collect 
-    return [zr for zr in res]   
+    if source_filter: return res | filter[source | is_a[source_filter]] | collect 
+    return res  
 
 
 
@@ -5787,21 +5616,11 @@ def length_type_info(op, curr_type):
 
 
 
-downing_d = {
-    VT.ZefRefss:    VT.ZefRefs,
-    VT.ZefRefs:     VT.ZefRef,
-    VT.EZefRefss:   VT.EZefRefs,
-    VT.EZefRefs:    VT.EZefRef,
-}
-
 def nth_type_info(op, curr_type):
-    if curr_type in ref_types:
-        curr_type = downing_d[curr_type]
-    else:
-        try:
-            curr_type = absorbed(curr_type)[0]
-        except AttributeError as e:
-            raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
+    try:
+        curr_type = absorbed(curr_type)[0]
+    except AttributeError as e:
+        raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
 
 def filter_type_info(op, curr_type):
@@ -5815,13 +5634,13 @@ def sort_type_info(op, curr_type):
     return curr_type
 
 def ins_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
+    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def outs_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
+    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def ins_and_outs_type_info(op, curr_type):
-    return VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
+    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def source_type_info(op, curr_type):
     return curr_type
@@ -5844,7 +5663,7 @@ def termination_tx_type_info(op, curr_type):
     return VT.ZefRef
 
 def instances_type_info(op, curr_type):
-    return VT.ZefRefs
+    return VT.Any # VT.ZefRefs
 
 def uid_type_info(op, curr_type):
     if curr_type == VT.Graph:
@@ -5875,27 +5694,15 @@ def l_type_info(op, curr_type):
     return curr_type
 
 def Out_type_info(op, curr_type):
-    if op[1][0] == RT.L: 
-        assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def In_type_info(op, curr_type):
-    if op[1][0] == RT.L: 
-        assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def OutOut_type_info(op, curr_type):
-    if op[1][0] == RT.L: 
-        assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def InIn_type_info(op, curr_type):
-    if op[1][0] == RT.L: 
-        assert curr_type in zef_types # Can only be used with Zef types
-        curr_type = VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
     return curr_type
 
 def terminate_implementation(z, *args):
@@ -5956,11 +5763,7 @@ def relation_type_info(op, curr_type):
     return curr_type
 
 def relations_type_info(op, curr_type):
-    if curr_type == VT.ZefRef:
-        return VT.ZefRefs
-    if curr_type == VT.EZefRef:
-        return VT.EZefRefs
-    return VT.Error
+    return VT.Any
 
 def hasout_type_info(op, curr_type):
     return VT.Bool
@@ -6201,7 +6004,7 @@ def to_clipboard_imp(x):
     if isinstance(x, ZefRef) and ET(x)==ET.ZEF_Function:
         return to_clipboard(zef_fct_to_source_code_string(x))
 
-    if isinstance(x, ZefRefs):
+    if isinstance(x, list):
         for el in x: 
             assert ET(el)==ET.ZEF_Function
         return to_clipboard(x | map[zef_fct_to_source_code_string] | join['\n'] | collect)
@@ -7191,7 +6994,7 @@ def blake3_tp(op, curr_type):
 def to_zef_list_imp(elements: list):
     all_zef = elements | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
     if not all_zef: return Error("to_zef_list only takes ZefRef or EZefRef.")
-    is_any_terminated = elements | map[terminated] | filter[None] | length | greater_than[0] | collect 
+    is_any_terminated = elements | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
     if is_any_terminated: return Error("Cannot create a Zef List Element from a terminated ZefRef")
     rels_to_els = (elements 
             | enumerate 
@@ -7199,7 +7002,7 @@ def to_zef_list_imp(elements: list):
             | collect
             )
 
-    new_rels = rels_to_els | map[second | peel | first | second | second | inject[Z] ] | collect
+    new_rels = rels_to_els | map[second | absorbed | first | inject[Z] ] | collect
     next_rels = new_rels | sliding[2] | attempt[map[lambda p: (p[0], RT.ZEF_NextElement, p[1])]][[]] | collect
 
 
@@ -7384,7 +7187,7 @@ def fg_insert_imp(fg, new_el):
         elif isinstance(new_el, dict): 
                 _insert_dict(new_el)
         else: 
-            raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\n{new_el=}")
+            raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\nnew_el={new_el}")
         
     if isinstance(new_el, list): [_insert_single(el) for el in new_el]
     elif isinstance(new_el, dict): 

@@ -16,6 +16,7 @@ __all__ = [
     "grant",
     "revoke",
     "login",
+    "login_as_guest",
     "logout",
 ]
 
@@ -62,7 +63,9 @@ grant = privileges[KW.grant]
 revoke = privileges[KW.revoke]
 
 login = Effect({"type": FX.ZefHub.Login})
+login_as_guest = Effect({"type": FX.ZefHub.Login, "auth_key": "GUEST"})
 logout = Effect({"type": FX.ZefHub.Logout})
 # We don't want complaints when these are garbage collected
 login._been_run = True
+login_as_guest._been_run = True
 logout._been_run = True

@@ -156,8 +156,6 @@ class AtomicEntity:
         return hash(self.d['uid'])
 
     def __getitem__(self, x):
-        # from ._ops import merged
-        # return merged[self][internal_id]
         return AtomicEntity({**self.d, 'absorbed': (*self.d['absorbed'], x)})
     
 
@@ -199,8 +197,6 @@ class Relation:
             return hash(''.join([str(x) for x in self.d['uids']]))
             
     def __getitem__(self, x):
-        # from ._ops import merged
-        # return merged[self][internal_id]
         return Relation({**self.d, 'absorbed': (*self.d['absorbed'], x)})
 
 class TXNode:

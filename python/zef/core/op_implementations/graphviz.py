@@ -137,7 +137,7 @@ def graphviz_imp(zz, *flags):
     zz = list(zz)
     if len(zz) == 0:
         return G            # exit early if there is nothing to plot
-    if isinstance(zz, ZefRefs) or (isinstance(zz, list) and isinstance(zz[0], ZefRef)):
+    if (isinstance(zz, list) and isinstance(zz[0], ZefRef)):
         plotting_eternal_graph = False
     else:
         plotting_eternal_graph = True

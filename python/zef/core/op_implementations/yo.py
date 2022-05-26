@@ -19,7 +19,7 @@ from functional import seq
 from ..internals import is_delegate, root_node_blob_index, BlobType
 from .._core import *
 from .. import internals
-from ..VT import TX,String
+from ..VT import TX,String, Instantiated, Terminated, Assigned
 
 def yo_implementation(x, display=True):
     import inspect
@@ -99,14 +99,6 @@ def yo_type_info(op, curr_type):
 # * Implementation details below
 #------------------------------------------------------------
 def tx_view(zr_or_uzr) -> str:
-
-    print(zr_or_uzr)
-    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-    print(zr_or_uzr)
-    print(type(zr_or_uzr))
-    print('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-    # return 555
-
     uzr = to_ezefref(zr_or_uzr)
 
     def value_assigned_string_view(lst):
@@ -136,16 +128,16 @@ uid:                    {uid(uzr)}
 blob index:             {index(uzr)}
 current owning graphs:  {uid(Graph(uzr))} {f", name tags: ({','.join(Graph(uzr).graph_data.tag_list)})"
     if Graph(uzr).graph_data.tag_list else ""}
-total affected:         {length(uzr | affected)}
-total instantiations:   {length(uzr | instantiated)}
-total assignments:      {length(uzr | value_assigned)}
-total terminations:     {length(uzr | terminated)}
+total affected:         {length(uzr | events)}
+total instantiations:   {length(uzr | events[Instantiated])}
+total assignments:      {length(uzr | events[Assigned])}
+total terminations:     {length(uzr | events[Terminated])}
 \n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Instantiations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | instantiated | collect, instantiated_or_terminated_string_view)} 
+{tx_block_view(uzr | events[Instantiated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Value Assignments ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | value_assigned | collect, value_assigned_string_view)} 
+{tx_block_view(uzr | events[Assigned]  | map[absorbed | first] | collect, value_assigned_string_view)} 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Terminations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | terminated | collect, instantiated_or_terminated_string_view)} 
+{tx_block_view(uzr | events[Terminated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
 """
 
 
@@ -332,7 +324,7 @@ def timeline_view(zr_or_uzr) -> str:
                 f'    |{sign if direction == "in" else "-"}---------({rt_uzr|uid|collect})---------------{sign if direction == "out" else "-"}({connected_et_or_aet | uid | collect})')
 
     # Appends directed relations to the all_edges list which is in the scope of this function
-    def add_directed_rt_to_list(edges: EZefRefs, direction: str) -> None:
+    def add_directed_rt_to_list(edges, direction: str) -> None:
         for e in edges:
             all_edges.append((e, direction, "Instantiated"))
             if e | termination_tx | BT | collect == BT.TX_EVENT_NODE:
@@ -390,10 +382,10 @@ def graph_info(g) -> str:
 
     def simple_lengths(g) -> str:
         return (f"{g.graph_data.write_head} blobs, "
-                + str(length(bl | filter[BT.TX_EVENT_NODE])) + " TXs, "
-                + str(length(bl | filter[BT.ENTITY_NODE])) + " ETs, "
-                + str(length(bl | filter[BT.ATOMIC_ENTITY_NODE])) + " AETs, "
-                + str(length(bl | filter[BT.RELATION_EDGE])) + " RTs"
+                + str(length(bl | filter[is_a[BT.TX_EVENT_NODE]])) + " TXs, "
+                + str(length(bl | filter[is_a[BT.ENTITY_NODE]])) + " ETs, "
+                + str(length(bl | filter[is_a[BT.ATOMIC_ENTITY_NODE]])) + " AETs, "
+                + str(length(bl | filter[is_a[BT.RELATION_EDGE]])) + " RTs"
                 )
 
     from builtins import round
@@ -418,7 +410,7 @@ size:                   {round((g.graph_data.write_head * 16) / 1E6, 3)}MB
 """
 
 
-def type_summary_view(bl: EZefRefs, g: Graph, bt_filter: BlobType) -> str:
+def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
     def aet_et_rt_string_view(summary: Tuple[int, int, tuple]) -> str:
         aet_or_et, total, alive = summary[0], summary[1], summary[2]
         return f"[{fill_str_to_length(str(f'{total} total, {alive} alive] '), 30)}{aet_or_et}\n"
@@ -442,14 +434,14 @@ def type_summary_view(bl: EZefRefs, g: Graph, bt_filter: BlobType) -> str:
     def find_triples_of_rt(rt: str) -> str:
         return "".join(
             seq([(rae_type(z | source | collect), rae_type(z), rae_type(z | target | collect)) for z in
-                bl | filter[RT(rt)] | filter[lambda z: not internals.is_delegate(z)]])
+                bl | filter[is_a[RT(rt)]] | filter[lambda z: not internals.is_delegate(z)]])
             .group_by(lambda x: x)
             .map(lambda x: (x[0], len(x[1]), find_alive_count_of_triple(x[0])))
             .map(triple_string_view)
         )
     # TODO find correct alive instances for RT
     return "".join(
-        seq([z for z in bl | filter[bt_filter] | filter[lambda z: not internals.is_delegate(z)]])
+        seq([z for z in bl | filter[is_a[bt_filter]] | filter[lambda z: not internals.is_delegate(z)]])
         .group_by(lambda z: zr_type(z))
         .map(lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect)))
         .map(lambda x: aet_et_rt_string_view(x) + find_triples_of_rt(

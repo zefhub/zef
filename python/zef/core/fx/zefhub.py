@@ -13,10 +13,13 @@
 # limitations under the License.
 
 from .fx_types import _Effect_Class
-from ...pyzef.internals import login, logout
+from ...pyzef.internals import login, login_manual, logout
 
 def zefhub_login_handler(eff: _Effect_Class):
-    login()
+    if 'auth_key' in eff.d:
+        login_manual(eff.d['auth_key'])
+    else:
+        login()
     return {}
 
 def zefhub_logout_handler(eff: _Effect_Class):
