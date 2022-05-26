@@ -14,7 +14,7 @@
 
 from ..pyzef.main import *
 from ..pyzef import main, zefops, internals
-from ._core import ET, AtomicEntityType
+from ._core import ET, AtomicEntityType, EntityType
 
 main.ZefRef.__hash__ = lambda self: hash(((index(self)), index(self | zefops.tx)))
 main.EZefRef.__hash__ = lambda self: index(self)
@@ -31,6 +31,30 @@ internals.DelegateRelationTriple.__hash__ = lambda self: hash((self.rt, self.sou
 internals.DelegateTX.__hash__ = lambda self: hash(internals.DelegateTX)
 internals.DelegateRoot.__hash__ = lambda self: hash(internals.DelegateRoot)
 
+
+def or_for_EntityType(self, other):
+    from . import ValueType_
+    from zef.core import EntityType, RelationType, AtomicEntityType
+    from zef.core.internals import EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
+    allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+    if isinstance(other, allowed_types):
+        return ValueType_(type_name='Union', absorbed=(self, other,))
+
+    return NotImplemented
+    
+def and_for_EntityType(self, other):
+    from . import ValueType_
+    from zef.core import EntityType, RelationType, AtomicEntityType
+    from zef.core.internals import EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
+    allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+    if isinstance(other, allowed_types):
+        return ValueType_(type_name='Intersection', absorbed=(self, other,))
+
+    return NotImplemented
+
+EntityType.__or__ = or_for_EntityType
+EntityType.__ror__ = or_for_EntityType
+EntityType.__and__ = and_for_EntityType
 
 
 # FIXME: why do we need the standard list of timezones in the docstring for Time? Should just refer people to the TZ database. I have removed it for now.
