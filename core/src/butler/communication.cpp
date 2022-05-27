@@ -15,7 +15,9 @@
 #include "butler/communication.h"
 #include "zwitch.h"
 
+#ifdef _MSC_VER
 #include <wincrypt.h>
+#endif
 
 namespace zefDB {
     namespace Communication {
@@ -215,6 +217,7 @@ namespace zefDB {
                 outside_message_handler(msg->get_payload());
             }
 
+#ifdef _MSC_VER
         void add_windows_root_certs(ssl_context_ptr & ctx) {
             HCERTSTORE hStore = CertOpenSystemStore(0, "ROOT");
             if(hStore == NULL)
@@ -237,6 +240,8 @@ namespace zefDB {
 
             SSL_CTX_set_cert_store(ctx->native_handle(), store);
         }
+#endif
+        
         // ssl_context_ptr on_tls_init(const char * hostname, websocketpp::connection_hdl) {
         ssl_context_ptr on_tls_init(websocketpp::connection_hdl x) {
             ssl_context_ptr ctx = websocketpp::lib::make_shared<asio::ssl::context>(asio::ssl::context::sslv23);

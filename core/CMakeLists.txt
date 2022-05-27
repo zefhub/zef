@@ -315,4 +315,6 @@ enable_testing ()
 # set_property(TEST zeftest PROPERTY DEPENDS zeftest_build)
 
 
-add_subdirectory(test_windows)
+if(WIN32)
+  add_subdirectory(test_windows EXCLUDE_FROM_ALL)
+endif()

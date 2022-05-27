@@ -17,12 +17,6 @@
 #pragma once
 
 
-// Needed to avoid issues with winsock.h and winsock2.h
-#define WIN32_LEAN_AND_MEAN
-#include <windows.h>
-//#undef WIN32_LEAN_AND_MEAN
-//#include <winsock2.h>
-
 #cmakedefine LIBZEF_STATIC
 #ifdef LIBZEF_STATIC
 #define LIBZEF_DLL_EXPORTED
@@ -40,4 +34,14 @@
 #define LIBZEF_DLL_EXPORTED
 /* #pragma message "Building to import DLL (gcc)" */
 #endif
+#endif
+
+#ifdef _MSC_VER
+
+// Needed to avoid issues with winsock.h and winsock2.h
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+//#undef WIN32_LEAN_AND_MEAN
+//#include <winsock2.h>
+
 #endif
