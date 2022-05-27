@@ -168,6 +168,7 @@ runs:
 
     - name: Run python tests
       if: ${{ inputs.run-tests == 'true' && startsWith(inputs.os, 'windows') }}
+      shell: cmd
       env:
         ZEFDB_QUIET: YES
         ZEFHUB_AUTH_KEY: GUEST
