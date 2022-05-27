@@ -5333,6 +5333,7 @@ def is_a_implementation(x, typ):
             "List": list,
             "Dict": dict,
             "Set": set,
+            "Bytes": bytes,
         }
 
         if vt.d['type_name'] in {"Int", "Float", "Bool"}:
