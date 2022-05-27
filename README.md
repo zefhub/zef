@@ -34,7 +34,7 @@
 
 ## Description
 
-Zef is an open source, data-oriented toolkit of modules for graph data. It gives Python developers more power and flexibility with graph data. Zef consists of an immutable, in-memory database, versioned graphs, data streams, composable lazy operators, effects handling, and GraphQL support. You can pick and choose the modules you need for your project.
+Zef is an open source, data-oriented toolkit for graph data. It combines the access speed and local development experience of an in-memory data structure with the power of a fully versioned, immutable database (and distributed persistence if needed with ZefHub). Furthermore, Zef includes a library of composable functional operators, effects handling, and native GraphQL support. You can pick and choose what you need for your project.
 
 If any of these apply to you, Zef might help:
 
@@ -43,7 +43,7 @@ If any of these apply to you, Zef might help:
 - I like Datomic but prefer something open source that feels like working with local data structures
 - I don't want to learn a new query language like Cypher or GSQL (I just want to use Python)
 - I need a GraphQL API that's easy to spin up and close to my data model
-- I want an easy and visible way to compose functions into pipelines with subscriptions
+- I want to code Python in a more functional style by chaining lazy operators
 
 <br />
 <br />
@@ -58,7 +58,7 @@ If any of these apply to you, Zef might help:
 - query and transform data using Python with composable lazy operators
 - GraphQL API with low impedance mismatch to data model
 - data streams and subscriptions
-- automatically store, sync, distribute graphs securely with ZefHub
+- automatically persist, sync, and distribute graphs securely with ZefHub for free
 
 <br />
 <br />
@@ -180,7 +180,7 @@ g | now | all[ET] | collect                     # see all entities in the latest
     <h3>📌 A note on ZefHub 📌</h3>
 </div>
 
-Zef is designed so you can use it locally and drop it into any existing project. You have the option of syncing your graphs with ZefHub, a service that stores, syncs, and distributes graphs automatically (and the company behind Zef). ZefHub makes it possible to [share graphs with other users and see changes live](https://zef.zefhub.io/how-to/share-graphs), by memory mapping across machines in real-time!
+Zef is designed so you can use it locally and drop it into any existing project. You have the option of syncing your graphs with ZefHub, a service that persists, syncs, and distributes graphs automatically (and the company behind Zef). ZefHub makes it possible to [share graphs with other users and see changes live](https://zef.zefhub.io/how-to/share-graphs), by memory mapping across machines in real-time!
 
 You can create a ZefHub account for free which gives you full access to storing and sharing graphs forever. For full transparency, our long-term hope is that many users will get value from Zef or Zef + ZefHub for free, while ZefHub power users will pay a fee for added features and services.
 
