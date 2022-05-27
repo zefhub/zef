@@ -167,12 +167,11 @@ runs:
         bash scripts/assert_no_created_tokens.sh
 
     - name: Run python tests
-      if: ${{ inputs.run-tests == 'true' && startsWith(inputs.os, 'windows') }}
-      shell: cmd
+      if: ${{ inputs.run-tests == 'true' }}
       env:
         ZEFDB_QUIET: YES
         ZEFHUB_AUTH_KEY: GUEST
       run: |
-        set "PYTHONPATH=%GITHUB_WORKSPACE%/python:%PYTHONPATH%"
-        python3 python/tests/quick_start.py
-        python3 -mpytest python/tests
+        cd python
+        python3 tests/quick_start.py
+        python3 -mpytest tests
