@@ -158,7 +158,7 @@ runs:
         pip3 install -r python/tests/requirements_tests.txt
 
     - name: Check no created tokens
-      if: inputs.run-tests == 'true'
+      if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash
       env:
         ZEFDB_OFFLINE_MODE: TRUE
@@ -167,12 +167,11 @@ runs:
         bash scripts/assert_no_created_tokens.sh
 
     - name: Run python tests
-      if: inputs.run-tests == 'true'
-      shell: bash
+      if: ${{ inputs.run-tests == 'true' && startsWith(inputs.os, 'windows') }}
       env:
         ZEFDB_QUIET: YES
         ZEFHUB_AUTH_KEY: GUEST
       run: |
-        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        set "PYTHONPATH=%GITHUB_WORKSPACE%/python:%PYTHONPATH%"
         python3 python/tests/quick_start.py
         python3 -mpytest python/tests
