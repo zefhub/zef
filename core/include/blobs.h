@@ -180,7 +180,7 @@ namespace zefDB {
 		};		
 
 		struct DELEGATE_RETIREMENT_EDGE {
-			BlobType this_BlobType = BlobType::DELEGATE_INSTANTIATION_EDGE;
+			BlobType this_BlobType = BlobType::DELEGATE_RETIREMENT_EDGE;
 			blob_index source_node_index = 0;  // coming from a TX_EVENT_NODE
 			blob_index target_node_index = 0;	 // going to a TO_DELEGATE_EDGE edge 
 		};		

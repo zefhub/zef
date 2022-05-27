@@ -227,6 +227,9 @@ namespace zefDB {
     void* EZefRefs::operator new(std::size_t size_to_allocate, int actual_array_length_to_allocate, GraphData * gd) {
         return operator new(size_to_allocate, actual_array_length_to_allocate);
     }
+    void EZefRefs::operator delete(void * ptr, int actual_array_length_to_allocate, GraphData * gd) noexcept {
+			::operator delete(ptr);
+		}
 
     void* EZefRefs::operator new(std::size_t size_to_allocate, int actual_array_length_to_allocate) {
 			constexpr int base_size_bytes = sizeof(EZefRefs) - constants::EZefRefs_local_array_size * sizeof(EZefRef);
@@ -234,6 +237,10 @@ namespace zefDB {
 			size_t actual_size_to_allocate = std::max(size_to_allocate, base_size_bytes + actual_array_length_to_allocate * sizeof(EZefRef));
 			auto res = ::operator new(actual_size_to_allocate);
 			return res;
+		}
+		
+    void EZefRefs::operator delete(void * ptr, int actual_array_length_to_allocate) noexcept {
+			::operator delete(ptr);
 		}
 
 		// This default allocator (not taking any additional arguments) is required when using functions returning a EZefRef within Python via pybind11
@@ -252,6 +259,8 @@ namespace zefDB {
 			#endif
 			return (delegate_ptr == nullptr) ? local_array[n] : delegate_ptr->local_array[n];				
 		}
+
+    int EZefRefs::size() const { return length(*this); }
 	
 
 
@@ -459,6 +468,9 @@ namespace zefDB {
     void*    ZefRefs::operator new(std::size_t size_to_allocate, int actual_array_length_to_allocate, GraphData* gd) {
         return operator new(size_to_allocate, actual_array_length_to_allocate);
     }
+    void ZefRefs::operator delete(void * ptr, int actual_array_length_to_allocate, GraphData* gd) noexcept {
+		::operator delete(ptr);
+    }
 
     void*    ZefRefs::operator new(std::size_t size_to_allocate, int actual_array_length_to_allocate) {
         constexpr int base_size_bytes = sizeof(ZefRefs) - constants::ZefRefs_local_array_size * sizeof(EZefRef);
@@ -467,6 +479,9 @@ namespace zefDB {
         auto res = ::operator new(actual_size_to_allocate);
         return res;
         //return ::operator new(base_size_bytes + actual_length_to_allocate * sizeof(EZefRef));
+    }
+    void ZefRefs::operator delete(void * ptr, int actual_array_length_to_allocate) noexcept {
+		::operator delete(ptr);
     }
 
     // This default allocator (not taking any additional arguments) is required when using functions returning a ZefRef within Python via pybind11
@@ -485,6 +500,8 @@ namespace zefDB {
 		#endif
 			return ZefRef{ (delegate_ptr == nullptr) ? local_array[n] : delegate_ptr->local_array[n], reference_frame_tx };
 		}
+
+    int ZefRefs::size() const { return length(*this); }
 		
 
 		// pre-increment op: this one is used mostly

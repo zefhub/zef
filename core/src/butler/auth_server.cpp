@@ -27,7 +27,13 @@ using json = nlohmann::json;
 #include "zwitch.h"
 
 
-#if defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__)
+#if defined(_MSC_VER)
+    std::filesystem::path find_libzef_path() {
+        char* path = std::getenv("LIBZEF_AUTH_HTML_PATH");
+        if (path == NULL)
+            throw std::runtime_error("Path was not set by controlling process!");
+        return std::filesystem::path(path);
+    }
 #elif __APPLE__
 #include <dlfcn.h>
     std::filesystem::path find_libzef_path() {
@@ -134,14 +140,19 @@ namespace zefDB {
                                {
                                    if (!acceptor_.is_open())
                                        return;
-                                   if (!ec)
+                                   if (!ec) {
+                                       update(locker, received_query, true);
                                        Session_interact(sesh);
+                                   }
 
                                    do_accept();
                                });
     }
 
     void AuthServer::stop_server() {
+        if (stopped)
+            return;
+
         io_service_.stop();
         acceptor_.close();
         if(thread && thread->joinable())
@@ -154,6 +165,8 @@ namespace zefDB {
         // functions only.
         
         global_auth_server.reset();
+
+        stopped = true;
     }
 
     AuthServer::~AuthServer() {
@@ -161,6 +174,15 @@ namespace zefDB {
     }
 
     bool AuthServer::wait_with_timeout(std::chrono::duration<double> timeout) {
+        // First wait for the initial connection. We have this as a short
+        // timeout so that things like being started with jupyter doesn't sit
+        // there waiting forever.
+        wait_pred(locker, [&]() { return should_stop || received_query; }, std::chrono::seconds(5));
+        if(!received_query) {
+            stop_server();
+            throw std::runtime_error("Did not receive any browser connection in 5 secs, aborting auth server.");
+            return false;
+        }
         bool res = wait_same(locker, should_stop, true, timeout);
         stop_server();
         if(!res)
@@ -171,7 +193,6 @@ namespace zefDB {
     }
 
     void Session_interact(AuthServer::Session sesh) {
-
         // Read first line
         asio::async_read_until(sesh->socket, sesh->buff, '\r',
                                [sesh](const std::error_code& e, std::size_t s)
@@ -221,9 +242,10 @@ namespace zefDB {
                                            response = sesh->auth_server->exit_reply();
                                        else
                                            response = "HTTP/1.1 404 Not Found\n\n";
+                                       auto ptr_response = std::make_shared<std::string>(response);
                                        asio::async_write(sesh->socket,
-                                                         asio::buffer(response),
-                                                         [sesh](const std::error_code& e, std::size_t s) {
+                                                         asio::buffer(*ptr_response),
+                                                         [sesh,ptr_response](const std::error_code& e, std::size_t s) {
                                                              // std::cout << "done" << std::endl;
                                                          });
                                        return;
@@ -265,7 +287,7 @@ namespace zefDB {
 
     std::string AuthServer::guest_reply() {
         std::string response = "HTTP/1.1 302 Found\nLocation: https://www.zefhub.io/auth/cli/success\n\n";
-        reply = std::make_shared<std::string>("GUEST");
+        reply = std::string("GUEST");
         update(locker, should_stop, true);
         return response;
     }
@@ -296,7 +318,7 @@ namespace zefDB {
         }
                 
         json j{{"refresh_token", refresh_token}};
-        reply = std::make_shared<std::string>(j.dump());
+        reply = j.dump();
         update(locker, should_stop, true);
         return response;
     }

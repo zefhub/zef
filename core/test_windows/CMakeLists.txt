@@ -12,25 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ..core._ops import *
-from ..core._ops import _any
-from ..core import _ops, func
+cmake_minimum_required(VERSION 3.13)
 
-import types
-lazy_all = [x for x in dir(_ops) if not x.startswith("_") and not isinstance(getattr(_ops, x), types.ModuleType)]
+# Use this to distinguish the full project from the individual subdirectories.
+project(TestWindows CXX)
 
-from .privileges import *
-from ._config import config
+add_executable(test_windows test_windows.cpp)
+set_target_properties(test_windows PROPERTIES
+	CXX_STANDARD 17
+)
 
-from ._values import value_or, maybe_value
-# from ..tools.ops import _ 
+target_link_libraries(test_windows PUBLIC zef::zef)
 
-from .transactor_role import *
-
-__all__ = [
-    # "_",
-    "func",
-    "_any",
-    "value_or",
-    "maybe_value",
-] + privileges.__all__ + lazy_all + transactor_role.__all__
+message(STATUS "In the test_windows file")

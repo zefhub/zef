@@ -102,15 +102,16 @@ Query      = ValueType_(type_name='Query',      constructor_func=None)
 DeltaQuery = ValueType_(type_name='DeltaQuery', constructor_func=None) 
 Effect     = ValueType_(type_name='Effect',     constructor_func=None) 
 DataFrame  = ValueType_(type_name='DataFrame', constructor_func=None)     
-EZefRefs   = ValueType_(type_name='EZefRefs', constructor_func=None)     
-EZefRefss  = ValueType_(type_name='EZefRefss', constructor_func=None)     
-ZefRefs    = ValueType_(type_name='ZefRefs', constructor_func=None)     
-ZefRefss   = ValueType_(type_name='ZefRefss', constructor_func=None)     
+# EZefRefs   = ValueType_(type_name='EZefRefs', constructor_func=None)     
+# EZefRefss  = ValueType_(type_name='EZefRefss', constructor_func=None)     
+# ZefRefs    = ValueType_(type_name='ZefRefs', constructor_func=None)     
+# ZefRefss   = ValueType_(type_name='ZefRefss', constructor_func=None)     
 
 
-
+Pattern = ValueType_(type_name='Pattern', constructor_func=None)
 # These are special classes: using them with [...] returns a ValueType_ though
 Union = UnionClass()
 Intersection = IntersectionClass()
+Is = IsClass()
 SetOf = SetOfClass()
 Complement = ComplementClass()

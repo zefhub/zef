@@ -14,6 +14,8 @@
 
 cmake_minimum_required(VERSION 3.13)
 
+include(CMakeDependentOption)
+
 # Use this to distinguish the full project from the individual subdirectories.
 project(ZefCore CXX)
 
@@ -21,8 +23,10 @@ project(ZefCore CXX)
 # customizable variables
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -rdynamic -ggdb -g")
-  add_definitions(-DDEBUG)
+  if(NOT WIN32)
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -rdynamic -ggdb -g")
+    add_definitions(-DDEBUG)
+  endif()
 endif()
 
 option(LOCAL_ZEFTYPES "Disable getting zeftypes from zefhub" FALSE)
@@ -31,14 +35,9 @@ option(ZEFDB_TEST_NO_MMAP_CHECKS "Test for mmap slowness" FALSE)
 option(LIBZEF_PYZEF_BUNDLED "libzef is going to be bundled together with pyzef, which means putting files in different places." FALSE)
 
 # When bundling for pyzef we default to bundling everything else.
-if(LIBZEF_PYZEF_BUNDLED)
-  option(LIBZEF_BUNDLED_ZSTD "Bundle libzstd statically in the library" TRUE)
-  option(LIBZEF_BUNDLED_CURL "Bundle libcurl statically in the library" TRUE)
-else()
-  option(LIBZEF_BUNDLED_ZSTD "Bundle libzstd statically in the library" FALSE)
-  option(LIBZEF_BUNDLED_CURL "Bundle libcurl statically in the library" FALSE)
-endif()
-
+cmake_dependent_option(LIBZEF_STATIC "Compile as a static library rather than a dynamically linked library" FALSE "NOT LIBZEF_PYZEF_BUNDLED" TRUE)
+cmake_dependent_option(LIBZEF_BUNDLED_ZSTD "Bundle libzstd statically in the library" FALSE "NOT LIBZEF_PYZEF_BUNDLED" TRUE)
+cmake_dependent_option(LIBZEF_BUNDLED_CURL "Bundle libcurl statically in the library" FALSE "NOT LIBZEF_PYZEF_BUNDLED" TRUE)
 
 if(ZEFDB_ALLOW_NO_TLS)
   message(STATUS "Insecure connections are permitted")
@@ -120,7 +119,13 @@ set(SOURCES
 #     include/butler/communication.h
 #     )
 
+if(LIBZEF_STATIC)
+add_library (zef STATIC ${SOURCES})
+set_target_properties(zef PROPERTIES
+  POSITION_INDEPENDENT_CODE TRUE)
+else()
 add_library (zef SHARED ${SOURCES})
+endif()
 add_library (zef::zef ALIAS zef)
 
 target_include_directories(zef PUBLIC
@@ -146,7 +151,7 @@ target_link_libraries(zef PRIVATE jwt-cpp)
 # Until I fix up our header deps this will have to be public
 target_link_libraries(zef PUBLIC libzstd_internal)
 
-if (NOT APPLE)
+if (UNIX AND NOT APPLE)
   target_link_libraries(zef PUBLIC rt)
 endif()
 
@@ -172,15 +177,18 @@ if(ZEFDB_TEST_NO_MMAP_CHECKS)
 endif()
 
 # Make auth.html accessible for uninstalled builds
-add_custom_command(TARGET zef POST_BUILD
-                   COMMAND ${CMAKE_COMMAND} -E create_symlink
-                       ${CMAKE_CURRENT_SOURCE_DIR}/auth.html
-                       ${CMAKE_CURRENT_BINARY_DIR}/auth.html
-                   )
+if(NOT MSVC)
+  add_custom_command(TARGET zef POST_BUILD
+                    COMMAND ${CMAKE_COMMAND} -E create_symlink
+                        ${CMAKE_CURRENT_SOURCE_DIR}/auth.html
+                        ${CMAKE_CURRENT_BINARY_DIR}/auth.html
+                    )
+endif()
   
 # Extra things needed for Visual Studio
 if(MSVC)
-	target_compile_options(zef PUBLIC "/permissive-")
+#	target_compile_options(zef PUBLIC "/permissive-")
+	target_compile_definitions(zef PUBLIC NOMINMAX)
 endif()
 
 if(LIBZEF_PYZEF_BUNDLED)
@@ -222,7 +230,7 @@ find_package(Python3 REQUIRED COMPONENTS Interpreter)
 
 set(COG_DUMMY ${CMAKE_CURRENT_SOURCE_DIR}/dummy_cog.tracker)
 
-if(NOT MSVC)
+#if(NOT MSVC)
   # We have to get all files that will be cogged - this is a little weird.
   file(GLOB cog_files ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cog ${CMAKE_CURRENT_SOURCE_DIR}/include/*.cog)
   list(TRANSFORM cog_files REPLACE "[.]cog$" ".gen" OUTPUT_VARIABLE cog_files_output_temp)
@@ -291,7 +299,10 @@ if(NOT MSVC)
       COMMAND ${Python3_EXECUTABLE} ${get_zeftypes_file})
   endif()
 
-endif()
+#endif()
+
+# Finally handle the static/dynamic linking part in export_statement.h
+configure_file(include/export_statement.h.in include/export_statement.h)
 
 #########################################
 # * All tests
@@ -304,3 +315,8 @@ enable_testing ()
 
 # add_test (NAME zeftest COMMAND zeftest)
 # set_property(TEST zeftest PROPERTY DEPENDS zeftest_build)
+
+
+if(WIN32)
+  add_subdirectory(test_windows EXCLUDE_FROM_ALL)
+endif()

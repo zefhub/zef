@@ -20,6 +20,7 @@
 #include "butler/locking.h"
 
 #include <map>
+#include <optional>
 
 #define ASIO_STANDALONE
 #include <asio.hpp>
@@ -45,13 +46,15 @@ namespace zefDB {
         std::string guest_reply();
         std::string exit_reply();
 
+        bool stopped = false;
         asio::io_service io_service_;
         asio::ip::tcp::acceptor acceptor_;
         std::shared_ptr<std::thread> thread;
 
         std::atomic<bool> should_stop = false;
+        std::atomic<bool> received_query = false;
         // TODO: Change to all details
-        std::shared_ptr<std::string> reply = {};
+        std::optional<std::string> reply = {};
         AtomicLockWrapper locker;
 
         struct Connection {

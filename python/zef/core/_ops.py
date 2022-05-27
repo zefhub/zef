@@ -57,6 +57,8 @@ push            = make_zefop(RT.Push)
 cartesian_product = make_zefop(RT.CartesianProduct)
 permutations    = make_zefop(RT.Permutations)
 combinations    = make_zefop(RT.Combinations)
+sum             = make_zefop(RT.Sum)
+product         = make_zefop(RT.Product)
 add             = make_zefop(RT.Add)
 subtract        = make_zefop(RT.Subtract)
 multiply        = make_zefop(RT.Multiply)
@@ -68,7 +70,7 @@ exponential     = make_zefop(RT.Exponential)
 logarithm       = make_zefop(RT.Logarithm)
 
 equals          = make_zefop(RT.Equals)
-greater_than    = make_zefop(RT.LargerThan)
+greater_than    = make_zefop(RT.GreaterThan)
 less_than       = make_zefop(RT.LessThan)
 greater_than_or_equal = make_zefop(RT.GreaterThanOrEqual)
 less_than_or_equal = make_zefop(RT.LessThanOrEqual)
@@ -101,11 +103,13 @@ permute_to      = make_zefop(RT.PermuteTo)
 # Implemented Lazy ZefOps
 expect          = make_zefop(RT.Expect)
 filter          = make_zefop(RT.Filter)
+without         = make_zefop(RT.Without)
 select_keys     = make_zefop(RT.SelectKeys)
 modulo          = make_zefop(RT.Modulo)
 select_by_field = make_zefop(RT.SelectByField)
 apply_functions = make_zefop(RT.ApplyFunctions)
 map             = make_zefop(RT.Map)
+map_cat         = make_zefop(RT.MapCat)
 identity        = make_zefop(RT.Identity)
 concat          = make_zefop(RT.Concat)
 zip             = make_zefop(RT.Zip)
@@ -154,11 +158,6 @@ skip            = make_zefop(RT.Skip)
 length          = make_zefop(RT.Length) 
 nth             = make_zefop(RT.Nth) 
 now             = make_zefop(RT.Now) 
-affected        = make_zefop(RT.Affected) 
-merged          = make_zefop(RT.Merged)                    # TODO
-terminated      = make_zefop(RT.Terminated) 
-instantiated    = make_zefop(RT.Instantiated) 
-value_assigned  = make_zefop(RT.ValueAssigned) 
 events          = make_zefop(RT.Events) 
 to_delegate     = make_zefop(RT.ToDelegate) 
 delegate_of     = make_zefop(RT.DelegateOf) 
@@ -174,6 +173,7 @@ sort            = make_zefop(RT.Sort)
 instances       = make_zefop(RT.Instances)
 uid             = make_zefop(RT.Uid)
 frame           = make_zefop(RT.Frame)
+discard_frame   = make_zefop(RT.DiscardFrame)
 to_frame        = make_zefop(RT.InFrame)                           # TODO: retire this. Use 'in_frame' instead
 in_frame        = make_zefop(RT.InFrame)
 to_graph_slice  = make_zefop(RT.ToGraphSlice)
@@ -187,7 +187,7 @@ terminate       = make_zefop(RT.Terminate)
 assign_value    = make_zefop(RT.AssignValue) 
 is_a            = make_zefop(RT.IsA)
 is_represented_as = make_zefop(RT.IsRepresentedAs)
-value_type        = make_zefop(RT.ValueType)
+representation_type = make_zefop(RT.RepresentationType)
 rae_type        = make_zefop(RT.RaeType)
 abstract_type   = make_zefop(RT.AbstractType)
 fill_or_attach  = make_zefop(RT.FillOrAttach)
@@ -213,9 +213,11 @@ is_distinct     = make_zefop(RT.IsDistinct)
 is_distinct_by  = make_zefop(RT.IsDistinctBy)
 shuffle         = make_zefop(RT.Shuffle)
 split           = make_zefop(RT.Split)
+split_if        = make_zefop(RT.SplitIf)
 graphviz        = make_zefop(RT.Graphviz)
 
 tx              = make_zefop(RT.Tx)
+schema          = make_zefop(RT.Schema)
 exists_at       = make_zefop(RT.ExistsAt)
 base_uid        = make_zefop(RT.BaseUid)
 origin_uid      = make_zefop(RT.OriginUid)
@@ -225,7 +227,6 @@ has_out         = make_zefop(RT.HasOut)                # z1 | has_out[RT.Foo] us
 has_in          = make_zefop(RT.HasIn)                 # z1 | has_in[RT.Foo]  use  (Z, RT.Foo, z1) | exists
 
 All             = make_zefop(RT.All)               # TODO: retire
-Any             = make_zefop(RT.Any)               # TODO: retire
 
 In              = make_zefop(RT.In)
 Ins             = make_zefop(RT.Ins)
@@ -254,6 +255,12 @@ has_relation    = make_zefop(RT.HasRelation)
 
 replace_at      = make_zefop(RT.ReplaceAt)           
 pad_to_length   = make_zefop(RT.PadToLength)           
+pad_left        = make_zefop(RT.PadLeft)           
+pad_right       = make_zefop(RT.PadRight)           
+pad_center      = make_zefop(RT.PadCenter)           
+ceil            = make_zefop(RT.Ceil)           
+floor           = make_zefop(RT.Floor)           
+round           = make_zefop(RT.Round)           
 random_pick     = make_zefop(RT.RandomPick)           
 
 to_json         = make_zefop(RT.ToJSON)           
@@ -276,12 +283,14 @@ save_file      = make_zefop(RT.SaveFile)
 
 pandas_to_gd = make_zefop(RT.PandasToGd)
 
-as_pipeline    = make_zefop(RT.AsPipeline)
+to_pipeline    = make_zefop(RT.ToPipeline)
 inject         = make_zefop(RT.Inject)
 inject_list    = make_zefop(RT.InjectList)
 
 
 is_alpha        = make_zefop(RT.IsAlpha)
+is_numeric      = make_zefop(RT.IsNumeric)
+is_alpha_numeric= make_zefop(RT.IsAlphaNumeric)
 to_upper_case   = make_zefop(RT.ToUpperCase)
 to_lower_case   = make_zefop(RT.ToLowerCase)
 
@@ -327,8 +336,17 @@ transact        = make_zefop(RT.Transact)
 # on_value_assignment
 
 
-
-
+peel            = make_zefop(RT.Peel)                
+match           = make_zefop(RT.Match)                
+match_apply     = make_zefop(RT.MatchApply)                
+Range           = make_zefop(RT.Range)      
+zstandard_compress = make_zefop(RT.ZstandardCompress)
+zstandard_decompress = make_zefop(RT.ZstandardDecompress)
+to_bytes        = make_zefop(RT.ToBytes)
+utf8bytes_to_string  = make_zefop(RT.Utf8bytesToString)
+base64string_to_bytes = make_zefop(RT.Base64stringToBytes)
+bytes_to_base64string = make_zefop(RT.BytesToBase64string)
+is_between      = make_zefop(RT.IsBetween)
 
 
 
@@ -337,10 +355,7 @@ transact        = make_zefop(RT.Transact)
 on              = make_zefop(RT.On)         
 
 
-peel            = make_zefop(RT.Peel)                
-match           = make_zefop(RT.Match)                
-match_apply     = make_zefop(RT.MatchApply,)                
-Range           = make_zefop(RT.Range,)                
+          
 # match
 # split_before
 # split_after

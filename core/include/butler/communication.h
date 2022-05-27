@@ -21,6 +21,7 @@
 #include "butler/locking.h"
 
 #define ASIO_STANDALONE
+#define _WEBSOCKETPP_CPP11_STL_
 #include <websocketpp/config/asio_client.hpp>
 #ifdef ZEFDB_ALLOW_NO_TLS
 #include <websocketpp/config/asio_no_tls_client.hpp>
@@ -46,7 +47,7 @@
 namespace zefDB {
     namespace Communication {
         struct disconnected_exception : public std::runtime_error {
-            disconnected_exception() : std::runtime_error("Disconnected from upstream") {}
+            disconnected_exception() : std::runtime_error("Disconnected from upstream. Please connect to ZefHub and make sure you have either provided login credentials using `login | run` or chosen a guest login via `login_as_guest | run`") {}
         };
 
         using json = nlohmann::json;

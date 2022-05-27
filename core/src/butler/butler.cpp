@@ -21,7 +21,6 @@
 // I want to not have to use this:
 #include "high_level_api.h"
 #include "synchronization.h"
-#include <execinfo.h>
 
 namespace zefDB {
     bool initialised_python_core = false;
@@ -73,6 +72,7 @@ namespace zefDB {
         }
 
         void terminate_handler() {
+#ifndef _MSC_VER
             void *trace_elems[20];
             int trace_elem_count(backtrace( trace_elems, 20 ));
             char **stack_syms(backtrace_symbols( trace_elems, trace_elem_count ));
@@ -80,6 +80,7 @@ namespace zefDB {
                 std::cerr << stack_syms[i] << "\n";
             }
             free( stack_syms );
+#endif
 
             if( auto exc = std::current_exception() ) { 
                 try {
@@ -331,9 +332,13 @@ namespace zefDB {
             std::lock_guard lock(waiting_tasks_mutex);
             for(auto it = waiting_tasks.begin() ; it != waiting_tasks.end() ; it++) {
                 if ((*it)->task->task_uid == task_uid) {
-                    if(forget)
+                    if (forget) {
+                        Butler::task_promise_ptr ret = *it;
                         waiting_tasks.erase(it);
-                    return *it;
+                        return ret;
+                    } else {
+                        return *it;
+                    }
                 }
             }
             return {};
@@ -558,7 +563,7 @@ namespace zefDB {
 
                         double first_wait_time = do_wait(std::get<0>(it));
                         double first_delta_time = (now() - std::get<1>(it)).value;
-                        double first_size = std::get<2>(it);
+                        int first_size = std::get<2>(it);
                         futures.pop_front();
 
                         if(chunked_transfer_auto_adjust) {
@@ -590,7 +595,7 @@ namespace zefDB {
 
                                 if(this_delta_time < chunk_timeout/ chunked_safety_factor) {
                                     // Because we are so much smaller, we can grow a lot in here.
-                                    int new_chunk_size = min_size * chunked_safety_factor/2;
+                                    int new_chunk_size = (int)(min_size * chunked_safety_factor/2);
                                     if(new_chunk_size > chunk_size) {
                                         chunk_size = new_chunk_size;
                                         if(zwitch.developer_output())
@@ -601,7 +606,7 @@ namespace zefDB {
 
                             if(min_delta_time < chunk_timeout / chunked_safety_factor && second_wait_time < max_wait_time/chunked_safety_factor) {
                                 // Although this is not much, it grows fast.
-                                int new_chunk_size = min_size * 1.5;
+                                int new_chunk_size = (int)(min_size * 1.5);
                                 if(new_chunk_size > chunk_size) {
                                     chunk_size = new_chunk_size;
                                     if(zwitch.developer_output())
@@ -638,7 +643,7 @@ namespace zefDB {
             if(chunked_transfer_auto_adjust) {
                 double speed = estimated_transfer_speed_accum_bytes / estimated_transfer_speed_accum_time;
                 double goal_time = chunk_timeout / 5;
-                double est_chunk_size = goal_time * speed;
+                int est_chunk_size = (int)(goal_time * speed);
                 // if(est_chunk_size > chunk_size)
                 if(zwitch.developer_output()) {
                     std::cerr << "est_chunk_size: " << est_chunk_size << std::endl;
@@ -648,7 +653,7 @@ namespace zefDB {
                 if(est_chunk_size < chunked_transfer_size)
                     chunked_transfer_size = est_chunk_size;
                 else
-                    chunked_transfer_size = (chunked_transfer_size + est_chunk_size) / chunked_safety_factor / chunked_transfer_queued;
+                    chunked_transfer_size = (int)((chunked_transfer_size + est_chunk_size) / chunked_safety_factor / chunked_transfer_queued);
                 if(zwitch.developer_output())
                     std::cerr << "Adjusting chunk size to " << chunked_transfer_size << std::endl;
             }
@@ -1578,7 +1583,7 @@ namespace zefDB {
             if(network.uri == "")
                 throw std::runtime_error("Not connecting to ZefHub without a URL");
             if(!want_upstream_connection())
-                throw std::runtime_error("Not connecting to ZefHub until we have credentials. Make sure you have logged in using `login | run` to store your credentials.");
+                throw std::runtime_error("Not connecting to ZefHub until we have credentials. Either login using `login | run` to store your credentials or `login_as_guest | run` for a temporary guest login.");
             if(!network.managing_thread) {
                 // throw std::runtime_error("Network is not trying to connect, can't wait for auth.");
                 debug_time_print("before start connection");
@@ -1616,12 +1621,13 @@ namespace zefDB {
                 if(*key_string == constants::zefhub_guest_key) {
                     std::cerr << "Connecting as guest user" << std::endl;
                     refresh_token = "";
+                    have_logged_in_as_guest = true;
                 } else 
                     refresh_token = get_firebase_refresh_token_email(*key_string);
                 return;
             } else if(!have_auth_credentials()) {
                 no_credentials_warning = true;
-                throw std::runtime_error("Have no existing credentials to determine auth token. You must login first, or set auto_connect=\"always\" to trigger the login process automatically.");
+                throw std::runtime_error("Have no existing credentials to determine auth token. You must login first.");
             } else {
                 ensure_auth_credentials();
                 if(have_logged_in_as_guest) {
@@ -1687,6 +1693,17 @@ namespace zefDB {
         void Butler::handle_successful_auth() {
             if(zwitch.zefhub_communication_output())
                 std::cerr << "Authenticated with ZefHub" << std::endl;
+
+            if(have_logged_in_as_guest && !zwitch.extra_quiet()) {
+                std::cerr << std::endl;
+                std::cerr << "=================================" << std::endl;
+                std::cerr << "You are logged in as a guest user, which allows you to view public graphs but" << std::endl;
+                std::cerr << "does not allow for synchronising new graphs with ZefHub." << std::endl;
+                std::cerr << std::endl;
+                std::cerr << "Disclaimer: any ETs, RTs, ENs, and KWs that you query will be stored with ZefHub." << std::endl;
+                std::cerr << "=================================" << std::endl;
+                std::cerr << std::endl;
+            }
             debug_time_print("successful auth");
             update(auth_locker, connection_authed, true);
 
@@ -1765,7 +1782,10 @@ namespace zefDB {
         // * Credentials
 
 
-        std::optional<std::string> load_forced_zefhub_key() {
+        std::optional<std::string> Butler::load_forced_zefhub_key() {
+            if(session_auth_key)
+                return session_auth_key;
+
             char * env = std::getenv("ZEFHUB_AUTH_KEY");
             if (env != nullptr && env[0] != '\0')
                 return std::string(env);
@@ -1780,7 +1800,11 @@ namespace zefDB {
             }
 
             // Old location for fallback
+#ifdef _MSC_VER
+            env = std::getenv("LOCALAPPDATA");
+#else
             env = std::getenv("HOME");
+#endif
             std::filesystem::path path2(env);
             path2 /= ".zefdb";
             path2 /= "zefhub.key";
@@ -1837,7 +1861,9 @@ namespace zefDB {
             
             std::optional<std::string> forced_zefhub_key = load_forced_zefhub_key(); 
             if(forced_zefhub_key) {
-                if(*forced_zefhub_key != constants::zefhub_guest_key)
+                if(*forced_zefhub_key == constants::zefhub_guest_key)
+                    have_logged_in_as_guest = true;
+                else
                     get_firebase_refresh_token_email(*forced_zefhub_key);
             } else {
                 auto credentials_file = zefdb_config_path() / "credentials";
@@ -1853,7 +1879,10 @@ namespace zefDB {
                     throw std::runtime_error("Unable to obtain credentials");
                 }
 
-                if(*(auth_server->reply) == "GUEST") {
+                if (!auth_server->reply) {
+                    throw std::runtime_error("Someting went wrong with the auth server");
+                }
+                if(auth_server->reply == "GUEST") {
                     have_logged_in_as_guest = true;
                     if(zwitch.zefhub_communication_output())
                         std::cerr << "Logging in as guest" << std::endl;
@@ -1863,11 +1892,26 @@ namespace zefDB {
                     file << *(auth_server->reply);
                     if(zwitch.zefhub_communication_output())
                         std::cerr << "Successful obtained credentials" << std::endl;
+                    if(!zwitch.extra_quiet()) {
+                        std::cerr << std::endl;
+                        std::cerr << "=================================" << std::endl;
+                        std::cerr << "You are now logged in to ZefHub. You can synchronize graphs which will enable them to be stored on" << std::endl;
+                        std::cerr << "ZefHub. Any ETs, RT, ENs and KWs you create will also be synchronized with ZefHub." << std::endl;
+                        std::cerr << std::endl;
+                        std::cerr << "Note: your credentials have been stored at '" + credentials_file.string() + "'." << std::endl;
+                        std::cerr << "By default these will be used to automatically connect to ZefHub on zef import." << std::endl;
+                        std::cerr << "If you would like to change this behavior, please see the `config` zefop for more information."  << std::endl;
+                        std::cerr << "=================================" << std::endl;
+                        std::cerr << std::endl;
+                    }
                 }
             }
         }
 
         void Butler::user_login() {
+            // Always remove this. It can't hurt and can only be confusing if we leave it set.
+            butler->session_auth_key.reset();
+
             if(load_forced_zefhub_key())
                 throw std::runtime_error("Can't login when an explicit key is given in ZEFHUB_AUTH_KEY or zefhub.key");
             if(have_auth_credentials())
@@ -1904,6 +1948,8 @@ namespace zefDB {
             //     }
             // }
             
+
+            butler->session_auth_key.reset();
 
             // Now remove credentials
             if(load_forced_zefhub_key())
@@ -1965,7 +2011,11 @@ namespace zefDB {
             if (env != nullptr)
                 return std::filesystem::path(std::string(env)) / upstream_name;
 
+#ifdef _MSC_VER
+            char * home = std::getenv("LOCALAPPDATA");
+#else
             char * home = std::getenv("HOME");
+#endif
             std::filesystem::path path(home);
             path /= ".zef";
             path /= "graphs";
@@ -2006,7 +2056,11 @@ namespace zefDB {
             if (env != nullptr)
                 return std::string(env);
 
+#ifdef _MSC_VER
+            env = std::getenv("LOCALAPPDATA");
+#else
             env = std::getenv("HOME");
+#endif
             if (env == nullptr)
                 throw std::runtime_error("No HOME env set!");
 

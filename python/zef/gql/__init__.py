@@ -61,22 +61,22 @@ def gql_schema(g: Graph) -> ZefRef:
     return schema_node | only | collect
 
 @func
-def gql_types(schema_node: ZefRef) -> ZefRefs:
+def gql_types(schema_node: ZefRef):
     schema_node_checks(schema_node)
     return (schema_node >> L[RT.GQL_Type]) | collect
 
 @func
-def gql_interfaces(schema_node: ZefRef) -> ZefRefs:
+def gql_interfaces(schema_node: ZefRef):
     schema_node_checks(schema_node)
     return (schema_node >> L[RT.GQL_Interface]) | collect
 
 @func
-def gql_scalars(schema_node: ZefRef) -> ZefRefs:
+def gql_scalars(schema_node: ZefRef):
     schema_node_checks(schema_node)
     return (schema_node >> L[RT.GQL_Scalar]) | collect
 
 @func
-def gql_enums(schema_node: ZefRef) -> ZefRefs:
+def gql_enums(schema_node: ZefRef):
     schema_node_checks(schema_node)
     return (schema_node >> L[RT.GQL_Enum]) | collect
 

@@ -283,7 +283,7 @@ namespace zefDB {
 
                 static std::random_device rd;  //Will be used to obtain a seed for the random number engine
                 static std::mt19937 gen(rd()); //Standard mersenne_twister_engine seeded with rd()
-                static std::uniform_int_distribution<T1> dis(0, std::numeric_limits<T1>::max());
+                static std::uniform_int_distribution<T1> dis(0, (std::numeric_limits<T1>::max)());
                 T1 ran = dis(gen);
 
                 return contains(ran) ? generate_unused_random_number() : ran;

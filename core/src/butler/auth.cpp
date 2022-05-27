@@ -64,7 +64,7 @@ namespace zefDB {
             curl_easy_setopt(handle, CURLOPT_VERBOSE, 1L);
 
         // Reading CA details which should be provided by python.
-        // TODO: This needs to go in a block that is only run if we were compiled as a bundled library.
+        // TODO: This needs to go in a block that is only run if we were compiled as a bundled library and then only if we are using the same as the python core (openssl?)
         char * env = std::getenv("LIBZEF_CA_BUNDLE");
         if(env != nullptr && env[0] != '\0')
             curl_easy_setopt(handle, CURLOPT_CAINFO, env);

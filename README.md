@@ -18,6 +18,7 @@
     <a href="https://github.com/zefhub/zef/blob/master/LICENSE">
         <img src="https://img.shields.io/badge/license-Apache%202.0-teal" />
     </a>
+    <a href="https://twitter.com/zefhub" target="_blank"><img src="https://img.shields.io/twitter/follow/zefhub.svg?style=social&label=Follow"></a>
     <br />
     <br />
     <a href="https://zef.zefhub.io/">Docs</a>

@@ -188,5 +188,5 @@ def pagination_algorithm(edges, before=None, after=None, first=None, last=None):
         "startCursor": return_edges[0] | uid,
         "endCursor": return_edges[length(return_edges) - 1] | uid
     },
-        "edges": ZefRefs(return_edges)}
+        "edges": return_edges}
 

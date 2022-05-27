@@ -27,6 +27,7 @@
 #include <optional>
 #include <functional>
 #include <variant>
+#include <deque>
 #include <cstring>
 #include "include_fs.h"
 
