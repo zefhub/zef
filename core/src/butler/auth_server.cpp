@@ -29,7 +29,10 @@ using json = nlohmann::json;
 
 #if defined(_MSC_VER)
     std::filesystem::path find_libzef_path() {
-        return "temptest";
+        char* path = std::getenv("LIBZEF_AUTH_HTML_PATH");
+        if (path == NULL)
+            throw std::runtime_error("Path was not set by controlling process!");
+        return std::filesystem::path(path);
     }
 #elif __APPLE__
 #include <dlfcn.h>
@@ -145,6 +148,9 @@ namespace zefDB {
     }
 
     void AuthServer::stop_server() {
+        if (stopped)
+            return;
+
         io_service_.stop();
         acceptor_.close();
         if(thread && thread->joinable())
@@ -157,6 +163,8 @@ namespace zefDB {
         // functions only.
         
         global_auth_server.reset();
+
+        stopped = true;
     }
 
     AuthServer::~AuthServer() {
@@ -174,7 +182,6 @@ namespace zefDB {
     }
 
     void Session_interact(AuthServer::Session sesh) {
-
         // Read first line
         asio::async_read_until(sesh->socket, sesh->buff, '\r',
                                [sesh](const std::error_code& e, std::size_t s)
@@ -224,9 +231,10 @@ namespace zefDB {
                                            response = sesh->auth_server->exit_reply();
                                        else
                                            response = "HTTP/1.1 404 Not Found\n\n";
+                                       auto ptr_response = std::make_shared<std::string>(response);
                                        asio::async_write(sesh->socket,
-                                                         asio::buffer(response),
-                                                         [sesh](const std::error_code& e, std::size_t s) {
+                                                         asio::buffer(*ptr_response),
+                                                         [sesh,ptr_response](const std::error_code& e, std::size_t s) {
                                                              // std::cout << "done" << std::endl;
                                                          });
                                        return;
@@ -268,7 +276,7 @@ namespace zefDB {
 
     std::string AuthServer::guest_reply() {
         std::string response = "HTTP/1.1 302 Found\nLocation: https://www.zefhub.io/auth/cli/success\n\n";
-        reply = std::make_shared<std::string>("GUEST");
+        reply = std::string("GUEST");
         update(locker, should_stop, true);
         return response;
     }
@@ -299,7 +307,7 @@ namespace zefDB {
         }
                 
         json j{{"refresh_token", refresh_token}};
-        reply = std::make_shared<std::string>(j.dump());
+        reply = j.dump();
         update(locker, should_stop, true);
         return response;
     }

@@ -1862,7 +1862,10 @@ namespace zefDB {
                     throw std::runtime_error("Unable to obtain credentials");
                 }
 
-                if(*(auth_server->reply) == "GUEST") {
+                if (!auth_server->reply) {
+                    throw std::runtime_error("Someting went wrong with the auth server");
+                }
+                if(auth_server->reply == "GUEST") {
                     have_logged_in_as_guest = true;
                     if(zwitch.zefhub_communication_output())
                         std::cerr << "Logging in as guest" << std::endl;

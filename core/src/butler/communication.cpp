@@ -376,6 +376,7 @@ namespace zefDB {
                 if(con) {
                     std::error_code ec;
                     con->close(websocketpp::close::status::going_away, "", ec);
+                    con.reset();
                 }
 
                 update(locker, [&]() {
@@ -399,6 +400,7 @@ namespace zefDB {
 
                 std::error_code ec;
                 con->close(websocketpp::close::status::going_away, "", ec);
+                con.reset();
                 update(locker, [&]() {
                     connected = false;
                     wspp_in_control = false;

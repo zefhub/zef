@@ -17,16 +17,6 @@
 #----------------------------------
 
 import ctypes, sys, sysconfig, os
-# if sys.platform == "linux":
-#     libext = ".so"
-# elif sys.platform == "darwin":
-#     libext = ".dylib"
-# # path = os.path.abspath(os.path.join(sysconfig.get_path("data"), "lib", "libzef" + libext))
-# path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.path.pardir, "libzef" + libext))
-# try:
-#     ctypes.cdll.LoadLibrary(path)
-# except:
-#     print(f"FAILED TO FIND LIBZEF at {path} - hopefully pyzef has it hard-coded (true when running from source directory)")
 
 # ** Circular import checks
 import os
@@ -48,6 +38,11 @@ except ImportError:
 _ssl_paths = ssl.get_default_verify_paths()
 os.environ["LIBZEF_CA_BUNDLE"] = _ssl_paths.cafile or ""
 os.environ["LIBZEF_CA_PATH"] = _ssl_paths.capath or ""
+
+# ** auth.html location for bundled installs
+# This is only relevant for windows, but we can set it regardless
+import pathlib
+os.environ["LIBZEF_AUTH_HTML_PATH"] = str(pathlib.Path(__file__).resolve().parent.parent)
 
 ########################################################
 # * Exposing common functions

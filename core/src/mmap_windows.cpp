@@ -539,7 +539,7 @@ namespace zefDB {
                 throw std::runtime_error("Some other kind of error other than can't enlarge mapping.");
             return false;
 #elif defined(_MSC_VER)
-            // TODO
+            // TODO: this might be possible with AWE but will have to investigate that more thoroughly before launching into an implementation.
             return false;
 #else
             int flags;
@@ -572,8 +572,15 @@ namespace zefDB {
                 throw std::runtime_error("Unable to remap and enlarge memory.");
             return new_ptr;
 #elif defined(_MSC_VER)
-// TODO
-return old_ptr;
+            void * new_ptr = WindowsMMap(fd, 0, new_size, nullptr);
+            if (fd == 0) {
+                memcpy(new_ptr, old_ptr, old_size);
+                VirtualFree(old_ptr, 0, MEM_RELEASE);
+            } else {
+                // TODO:
+                throw std::runtime_error("TODO: handle freeing mremaped files");
+            }
+            return new_ptr;
 #else
             int flags;
             if(fd == 0)

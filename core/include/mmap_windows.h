@@ -559,7 +559,7 @@ namespace zefDB {
             _WholeFileMapping(FileGraph & fg, FileGraph::WholeFile_v1 & info);
             _WholeFileMapping(const _WholeFileMapping & other) = delete;
             ~_WholeFileMapping() {
-                if(size > 0) {
+                if(fd != 0 && size > 0) {
                     FlushViewOfFile(ptr, size);
                     if(!UnmapViewOfFile(ptr)) {
                         std::cerr << WindowsErrorMsg() << std::endl;
