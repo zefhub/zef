@@ -173,9 +173,11 @@ runs:
         ZEFDB_QUIET: YES
         ZEFHUB_AUTH_KEY: GUEST
       run: |
-        cd python
-        python3 tests/quick_start.py
-        python3 -mpytest tests
+        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        echo $PYTHONPATH
+        echo should have echoed python path
+        python3 python/tests/quick_start.py
+        python3 -mpytest python/tests
 
     - name: Run python tests
       if: ${{ inputs.run-tests == 'true' && startsWith(inputs.os, 'windows') }}
@@ -184,6 +186,8 @@ runs:
         ZEFDB_QUIET: YES
         ZEFHUB_AUTH_KEY: GUEST
       run: |
-        cd python
-        python3 tests/quick_start.py
-        python3 -mpytest tests
+        set "PYTHONPATH=%GITHUB_WORKSPACE%/python:%PYTHONPATH%"
+        echo %PYTHONPATH%
+        echo should have echoed python path
+        python3 python/tests/quick_start.py
+        python3 -mpytest python/tests
