@@ -242,7 +242,7 @@ def is_supported_value(o):
 
 def is_supported_zef_value(o):
     from .abstract_raes import Entity, Relation, AtomicEntity
-    if type(o) in {ZefRef, ZefRefs, ZefRefss, EZefRef, EZefRefs, EZefRefss, Graph, BaseUID, EternalUID, ZefRefUID, QuantityFloat, QuantityInt, Entity, Relation, AtomicEntity, Delegate, EntityType, RelationType, AtomicEntityType}: return True
+    if type(o) in {ZefRef, EZefRef, Graph, BaseUID, EternalUID, ZefRefUID, QuantityFloat, QuantityInt, Entity, Relation, AtomicEntity, Delegate, EntityType, RelationType, AtomicEntityType}: return True
     return False
 
 def is_supported_on_subscription(o, op):
@@ -1109,11 +1109,7 @@ def type_spec(obj, no_type_casting = False):
         dict:                       type_spec_dict,
         tuple:                      type_spec_tuple,
         ZefRef:                     VT.ZefRef,
-        ZefRefs:                    VT.ZefRefs,
-        ZefRefss:                   VT.ZefRefss,
         EZefRef:                    VT.EZefRef,
-        EZefRefs:                   VT.EZefRefs,
-        EZefRefss:                  VT.EZefRefss,
         Graph:                      VT.Graph,
         Time:                       VT.Time,  
         Subject:                    VT.Awaitable,
@@ -1150,7 +1146,8 @@ def create_type_info(lazyval) -> list:
 #  |_| \_\  |_|     |_|     \__,_| \__| \___||_| |_||_||_| |_| \__, |
 #                                                              |___/ 
 
-from ..core import ZefRefs, EZefRef, EZefRefs
+# from ..core import ZefRefs, EZefRef, EZefRefs
+from ..core import EZefRef
 
 def new__rshift__(self, arg):
     # promote RT or BT then rshift
@@ -1182,7 +1179,7 @@ internals.BlobType.__rlshift__ = new__rlshift__
 
 def rt_lt_gt_behavior(self, arg, rt):
     # Because > , < aren't defined for ZefRef the RT binds but with the reverse of the operator i.e > becomes <
-    if isinstance(arg, ZefRef) or isinstance(arg, ZefRefs) or isinstance(arg, EZefRef) or isinstance(arg, EZefRefs):
+    if isinstance(arg, ZefRef) or isinstance(arg, EZefRef):
         if rt == RT.InOld: return arg > ZefOp(((RT.TmpZefOp, (self,)), )) 
         else: return arg < ZefOp(((RT.TmpZefOp, (self,)), )) 
     elif isinstance(self, TraversableABC) and (isinstance(arg, TraversableABC) or isinstance(arg, ZefOp)):

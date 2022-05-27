@@ -46,7 +46,7 @@ class MyTestCase(unittest.TestCase):
             r1 = instantiate(c1, RT.HasPet, p1, g)
             r2 = instantiate(c2, RT.HasPet, p2, g)
 
-        v = ZefRefs([c1, c2]) | map[Out[RT.HasPet]] | collect
+        v = [c1, c2] | map[Out[RT.HasPet]] | collect
         self.assertEqual(len(v), 2)
         self.assertEqual(v[0], p1)
         self.assertEqual(v[1], p2)
@@ -118,20 +118,9 @@ class MyTestCase(unittest.TestCase):
             z = instantiate(ET.Machine, g)
             rel = instantiate(z, RT.TypeOf, z, g)
 
-        ZefRefs([z,rel,z,z,z,rel,rel]) | map[terminate] | g | run
+        [z,rel,z,z,z,rel,rel] | map[terminate] | g | run
 
         self.assertEqual(length(g | now | all), 0)
-
-    def test_all_connected_relents(self):
-        g = Graph()
-        with Transaction(g):
-            z = instantiate(ET.Machine, g)
-            rel = instantiate(z, RT.TypeOf, z, g)
-            rel2 = instantiate(rel, RT.Value, rel, g)
-
-        zrs = ZefRefs([rel2])
-        from zef.deprecated.tools import all_connected_entities
-        self.assertEqual(set(all_connected_entities(zrs)), {z,rel,rel2})
 
     def test_no_external_graph_relations(self):
         g = Graph()

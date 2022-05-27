@@ -33,13 +33,13 @@ class GraphSlice:
         if len(args) == 1:
             z = args[0]
             if not (isinstance(z, ZefRef) or isinstance(z, EZefRef)):
-                raise TypeError(f'When calling the GraphSlice constructor with a single arguments, this has to be a ZefRef[TX] / EZefRef[TX]. Called with: {args=}')
+                raise TypeError(f'When calling the GraphSlice constructor with a single arguments, this has to be a ZefRef[TX] / EZefRef[TX]. Called with: args={args}')
             self.tx = to_ezefref(z)
             return
 
         if len(args) == 2:
             if {type(args[0]), type(args[1])} != {Graph, Time}:
-                raise TypeError(f'When calling the GraphSlice constructor with two args, this has to be with types (Time, Graph). Called with {args=}')
+                raise TypeError(f'When calling the GraphSlice constructor with two args, this has to be with types (Time, Graph). Called with args={args}')
 
             t, g = args if isinstance(args[0], Time) else args[::-1]
             if t > ops.now():
@@ -56,7 +56,7 @@ class GraphSlice:
             )
             return
 
-        raise TypeError(f'The GraphSlice constructor can only be called with one or two args. Called with {args=}')
+        raise TypeError(f'The GraphSlice constructor can only be called with one or two args. Called with args={args}')
         
         
     def __repr__(self):
@@ -133,7 +133,7 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
             return None     # no instance alive at the moment
         
     elif BT(zz) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}:
-        raise Exception("Shouldn't be calling this internal function with instance RAEs.")
+        return zz
     else:
         raise RuntimeError("Unexpected option in get_instance_rae")
         

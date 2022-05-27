@@ -174,16 +174,16 @@ def serialize_zeftypes(z) -> dict:
                 "uid"       : str(base_uid(z)),
             }
 
-    elif isinstance(z, ZefRefs) or isinstance(z, EZefRefs):
-        bt_type = {ZefRefs: "ZefRefs", EZefRefs: "EZefRefs"}[type(z)]
-        tx_uid = str(base_uid(z | frame | to_tx)) if bt_type == "ZefRefs" else None
-        guid = str(base_uid(Graph(z | first))) if len(z) > 0 else None
-        return {
-            "_zeftype"  : bt_type,
-            "tx_uid"    : tx_uid,
-            "guid"      : guid, # could be None if ZefRefs or UZefrefs was empty
-            "value" : [{"uid": str(base_uid(zr))} for zr in z]
-                }
+    # elif isinstance(z, ZefRefs) or isinstance(z, EZefRefs):
+    #     bt_type = {ZefRefs: "ZefRefs", EZefRefs: "EZefRefs"}[type(z)]
+    #     tx_uid = str(base_uid(z | frame | to_tx)) if bt_type == "ZefRefs" else None
+    #     guid = str(base_uid(Graph(z | first))) if len(z) > 0 else None
+    #     return {
+    #         "_zeftype"  : bt_type,
+    #         "tx_uid"    : tx_uid,
+    #         "guid"      : guid, # could be None if ZefRefs or UZefrefs was empty
+    #         "value" : [{"uid": str(base_uid(zr))} for zr in z]
+    #             }
 
     elif isinstance(z, RelationType) or isinstance(z, EntityType) or isinstance(z, AtomicEntityType):
         bt_type = {RelationType: "RT", EntityType: "ET", AtomicEntityType: "AET"}[type(z)]
@@ -306,10 +306,10 @@ def deserialize_zeftypes(z) -> dict:
         g = Graph(z['guid'])
         return g[z['uid']] 
 
-    elif z['_zeftype'] == "ZefRefs" or z['_zeftype'] == "EZefRefs":
-        g = Graph(z['guid'])
-        if z['_zeftype'] == "ZefRefs": return ZefRefs([g[zr['uid']] | to_frame[g[z['tx_uid']]] for zr in z['value']])
-        else: return EZefRefs([g[zr['uid']] for zr in z['value']])
+    # elif z['_zeftype'] == "ZefRefs" or z['_zeftype'] == "EZefRefs":
+    #     g = Graph(z['guid'])
+    #     if z['_zeftype'] == "ZefRefs": return ZefRefs([g[zr['uid']] | to_frame[g[z['tx_uid']]] for zr in z['value']])
+    #     else: return EZefRefs([g[zr['uid']] for zr in z['value']])
 
 
     elif z['_zeftype'] in {"RT", "ET"}:
@@ -447,9 +447,9 @@ def deserialize_zefops(ops):
 
 
 serialization_mapping[ZefRef] = serialize_zeftypes
-serialization_mapping[ZefRefs] = serialize_zeftypes
+# serialization_mapping[ZefRefs] = serialize_zeftypes
 serialization_mapping[EZefRef] = serialize_zeftypes
-serialization_mapping[EZefRefs] = serialize_zeftypes
+# serialization_mapping[EZefRefs] = serialize_zeftypes
 serialization_mapping[RelationType] = serialize_zeftypes
 serialization_mapping[EntityType] = serialize_zeftypes
 serialization_mapping[AtomicEntityType] = serialize_zeftypes
@@ -489,9 +489,9 @@ serialization_mapping[pyinternals.DelegateRelationTriple] = serialize_delegate
 deserialization_mapping["dict"] = deserialize_dict
 deserialization_mapping["tuple"] = deserialize_tuple
 deserialization_mapping["ZefRef"] = deserialize_zeftypes
-deserialization_mapping["ZefRefs"] = deserialize_zeftypes
+# deserialization_mapping["ZefRefs"] = deserialize_zeftypes
 deserialization_mapping["EZefRef"] = deserialize_zeftypes
-deserialization_mapping["EZefRefs"] = deserialize_zeftypes
+# deserialization_mapping["EZefRefs"] = deserialize_zeftypes
 deserialization_mapping["RT"] = deserialize_zeftypes
 deserialization_mapping["ET"] = deserialize_zeftypes
 deserialization_mapping["AET"] = deserialize_zeftypes

@@ -1743,8 +1743,12 @@ namespace zefDB {
 		constexpr TimeSlice time_slice{0};
 	}
 		inline TimeSlice TimeSlice::operator() (EZefRef uzr) const {
-			if ( (uzr | BT) != BT.TX_EVENT_NODE) throw std::runtime_error("time_slice(uzr) called for a uzr that is not a BT.TX_EVENT_NODE.");
-			return get<blobs_ns::TX_EVENT_NODE>(uzr).time_slice;
+			if ( (uzr | BT) == BT.ROOT_NODE)
+                return TimeSlice(0);
+			else if ( (uzr | BT) == BT.TX_EVENT_NODE)
+                return get<blobs_ns::TX_EVENT_NODE>(uzr).time_slice;
+            else
+                throw std::runtime_error("time_slice(uzr) called for a uzr that is not a BT.TX_EVENT_NODE.");
 		}
 		inline TimeSlice operator| (EZefRef uzr, TimeSlice op) { return zefOps::time_slice(uzr); }
 
@@ -2447,6 +2451,8 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED void terminate(ZefRef my_rel_ent);
         LIBZEF_DLL_EXPORTED void terminate(EZefRefs uzrs);
         LIBZEF_DLL_EXPORTED void terminate(ZefRefs zrs);
+
+        LIBZEF_DLL_EXPORTED void retire(EZefRef my_rel_ent);
 
         LIBZEF_DLL_EXPORTED EZefRef delegate(EZefRef uzr);
         LIBZEF_DLL_EXPORTED EZefRef delegate(ZefRef uzr);

@@ -137,7 +137,7 @@ def graphviz_imp(zz, *flags):
     zz = list(zz)
     if len(zz) == 0:
         return G            # exit early if there is nothing to plot
-    if isinstance(zz, ZefRefs) or (isinstance(zz, list) and isinstance(zz[0], ZefRef)):
+    if (isinstance(zz, list) and isinstance(zz[0], ZefRef)):
         plotting_eternal_graph = False
     else:
         plotting_eternal_graph = True
@@ -208,7 +208,7 @@ def graphviz_imp(zz, *flags):
             G.edge(str(index(z | source | collect)), str(index(z)), color=col, dir="back", arrowtail="dot")
             G.edge(str(index(z)), str(index(z | target | collect)), color=col, dir="forward", arrowhead="normal")
         except Exception as e:
-            #print(f"add_gv_edges failed for {z} {e=}")
+            #print(f"add_gv_edges failed for {z} e={e}")
             pass
         
     nodes, edges = zz | group_by[is_node][(True,False)] | map[second] |  collect

@@ -47,7 +47,7 @@
 namespace zefDB {
     namespace Communication {
         struct disconnected_exception : public std::runtime_error {
-            disconnected_exception() : std::runtime_error("Disconnected from upstream") {}
+            disconnected_exception() : std::runtime_error("Disconnected from upstream. Please connect to ZefHub and make sure you have either provided login credentials using `login | run` or chosen a guest login via `login_as_guest | run`") {}
         };
 
         using json = nlohmann::json;

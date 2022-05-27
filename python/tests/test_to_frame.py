@@ -41,7 +41,6 @@ class MyTestCase(unittest.TestCase):
         mm1d = m1 | now | collect
         self.assertEqual(mm1, mm1d)
         
-        self.assertEqual(ZefRefs([m1, m3]) | now | frame | collect, g|now | collect)
         self.assertEqual(m1 | now | frame | collect, g|now | collect)
 
         # self.assertEqual(ZefRefs([m1, m3]) | to_frame[now(g)] | frame | collect, g|now | collect)

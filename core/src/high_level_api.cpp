@@ -1302,7 +1302,18 @@ namespace zefDB {
     EZefRefs TerminationTx::operator() (EZefRefs&& uzrs) { return internals::lift_list_uzrs_mv(*this)(std::move(uzrs)); }
     EZefRefs TerminationTx::operator() (const EZefRefs& uzrs) { return internals::lift_list_uzrs_cpy(*this)(uzrs); }
 
-    ZefRef TerminationTx::operator() (ZefRef zr) { return internals::lift_zr(*this)(zr); }
+    ZefRef TerminationTx::operator() (ZefRef zr) { 
+        EZefRef termination_tx_maybe = (*this)(zr | to_ezefref);
+        if(index(termination_tx_maybe) == constants::ROOT_NODE_blob_index){
+            return ZefRef(termination_tx_maybe, zr.tx);
+        }
+        // If the termination occurred after the reference frame, this seems like it hasn't happened
+        if(time_slice(termination_tx_maybe) > time_slice(zr.tx)){
+            return ZefRef(EZefRef(constants::ROOT_NODE_blob_index, *graph_data(termination_tx_maybe)), zr.tx);
+        }
+        return ZefRef(termination_tx_maybe, zr.tx);
+    }
+
     ZefRefs TerminationTx::operator() (ZefRefs&& zrs) { return internals::lift_list_zrs_mv(internals::lift_zr(*this))(std::move(zrs)); }
     ZefRefs TerminationTx::operator() (const ZefRefs& zrs) { return internals::lift_list_zrs_cpy(internals::lift_zr(*this))(zrs); }
 
@@ -2589,9 +2600,88 @@ namespace zefDB {
 
     namespace imperative {
         //////////////////////////////
+        // * retire
+
+		void retire(EZefRef uzr) {
+            // This is only for the delegates and is deliberately separate from
+            // termination of instances in order to make this harder to
+            // accidentally do.
+
+
+            // We are also going to allow retiring delegates that no longer have
+            // any alive instances, or higher-order instances. This means any
+            // relation connected to the delegate (e.g. metadata) must be
+            // terminated before this is called.
+
+            if(!is_delegate(uzr))
+                throw std::runtime_error("Can only retire delegates not" + to_str(uzr) + ".");
+
+            Graph g(uzr);
+            // All of these checks must happen while we have write role so that we don't check against mutating data.
+            auto & gd = g.my_graph_data();
+            LockGraphData lock{&gd};
+
+            TimeSlice latest = time_slice(now(g));
+            if(!exists_at(uzr, latest))
+                throw std::runtime_error("Delegate is already retired");
+            
+            for(auto & parent : uzr >> L[BT.TO_DELEGATE_EDGE]) {
+                if(exists_at(parent, latest))
+                    throw std::runtime_error("Can't retire a delegate when it has a parent higher-order delegate.");
+            }
+
+            for(auto & rel : uzr | ins_and_outs) {
+                if(BT(rel) == BT.RELATION_EDGE && exists_at(rel, latest))
+                    throw std::runtime_error("Can't retire a delegate when it is the source/target of another instance/delegate.");
+            }
+
+            for(auto & instance : (uzr < BT.TO_DELEGATE_EDGE) >> L[BT.RAE_INSTANCE_EDGE]) {
+                if(exists_at(instance, latest))
+                    throw std::runtime_error("Can't retire a delegate when it has existing instances.");
+            }
+
+            // Finally we can retire this delegate!
+            Transaction transaction{gd};
+            EZefRef tx_node = internals::get_or_create_and_get_tx(gd);
+            auto retire_uzr = internals::instantiate(tx_node, BT.DELEGATE_RETIREMENT_EDGE, uzr < BT.TO_DELEGATE_EDGE, g);
+        }
+        //////////////////////////////
         // * exists_at
 
 		bool exists_at(EZefRef uzr, TimeSlice ts) {
+            if(is_delegate(uzr)) {
+                // Although the node itself might have some information, we
+                // should check the sequence of DELEGATE_INSTANTIATION_EDGE and
+                // DELEGATE_RETIREMENT_EDGE to determine if we are in a valid
+                // timeslice for the delegate.
+
+                EZefRef to_del = uzr < BT.TO_DELEGATE_EDGE;
+
+                TimeSlice dummy(-1);
+                TimeSlice latest_instantiation_edge = dummy;
+                TimeSlice latest_retirement_edge = dummy;
+
+                for(auto & it : to_del << L[BT.DELEGATE_INSTANTIATION_EDGE]) {
+                    // `it` should always be a TX.
+                    TimeSlice this_ts = time_slice(it);
+                    if(this_ts <= ts && this_ts > latest_instantiation_edge)
+                        latest_instantiation_edge = this_ts;
+                }
+
+                for(auto & it : to_del << L[BT.DELEGATE_RETIREMENT_EDGE]) {
+                    // `it` should always be a TX.
+                    TimeSlice this_ts = time_slice(it);
+                    if(this_ts <= ts && this_ts > latest_retirement_edge)
+                        latest_retirement_edge = this_ts;
+                }
+
+                if(latest_instantiation_edge == dummy)
+                    return false;
+                if(latest_retirement_edge == dummy)
+                    return true;
+                return (latest_instantiation_edge > latest_retirement_edge);
+            }
+
             switch (get<BlobType>(uzr)) {
             case BlobType::RELATION_EDGE: {
                 blobs_ns::RELATION_EDGE& x = get<blobs_ns::RELATION_EDGE>(uzr);
@@ -3587,8 +3677,11 @@ namespace zefDB {
                 } else {
                     z = only(opts);
                 }
-                d_src = delegate_to_ezr(delegate_of(*d_src), g, create);
-                d_trg = delegate_to_ezr(delegate_of(*d_trg), g, create);
+                // Don't create these on the last loop, as that's unnecessary
+                if(i < order-1) {
+                    d_src = delegate_to_ezr(delegate_of(*d_src), g, create);
+                    d_trg = delegate_to_ezr(delegate_of(*d_trg), g, create);
+                }
             }
 
             return z;
@@ -3653,14 +3746,31 @@ namespace zefDB {
             // To try and combine all additions into one transaction. Will do two attempts in the case of creating.
             std::optional<EZefRef> res =  std::visit([&](auto & x) { return delegate_to_ezr(x, actual_order, g, false); },
                                                      d.item);
-            if(create) {
-                if(!res) {
+            if(!res) {
+                if(create) {
                     auto tx = Transaction(gd);
                     res =  std::visit([&](auto & x) { return delegate_to_ezr(x, actual_order, g, true); },
                                       d.item);
+                    return res;
+                } else 
+                    return {};
+            } else {
+                auto ts = time_slice(now(g));
+                if(!exists_at(*res, ts)) {
+                    if(create) {
+                        // Assign new instantiation edges all the way down.
+                        EZefRef tx = internals::get_or_create_and_get_tx(gd);
+                        EZefRef cur_d = *res;
+                        while(!exists_at(cur_d, ts)) {
+                            internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, cur_d < BT.TO_DELEGATE_EDGE, gd);
+                            cur_d = cur_d << BT.TO_DELEGATE_EDGE;
+                        }
+                    } else {
+                        return {};
+                    }
                 }
+                return res;
             }
-            return res;
         }
 
         Delegate delegate_rep(EZefRef ezr) {

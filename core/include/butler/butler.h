@@ -82,7 +82,6 @@ namespace zefDB {
             
 
         std::filesystem::path zefdb_config_path();
-        std::optional<std::string> load_forced_zefhub_key();
         std::string get_default_zefhub_uri();
         std::string get_auto_connect();
 
@@ -276,6 +275,7 @@ namespace zefDB {
             void determine_refresh_token();
             // ensure_auth_credentials: if no credentials will pop up browser
             void ensure_auth_credentials();
+            std::optional<std::string> load_forced_zefhub_key();
             bool have_auth_credentials();
             bool is_credentials_file_valid();
             // user_login: throws if already logged in, otherwise ensure_auth_credentials
@@ -284,6 +284,7 @@ namespace zefDB {
             void user_logout();
 
             bool have_logged_in_as_guest = false;
+            std::optional<std::string> session_auth_key;
 
 
             // Butler() : Butler(get_default_zefhub_uri()) {}

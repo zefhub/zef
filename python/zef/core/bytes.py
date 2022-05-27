@@ -23,10 +23,18 @@ class Bytes_:
         elif isinstance(x, str) and all(c in string.hexdigits for c in x):
             self.data = x.encode()    # use utf8
         else:
-            raise NotImplementedError(f"constructing a bytes from {x=}")
+            raise NotImplementedError(f"constructing a bytes from x={x}")
     
     def __repr__(self):
         return f'Bytes("{self.data.hex()}")'
 
     def __str__(self):
         return self.data.hex()
+
+    def __bytes__(self):
+        """
+        allow casting to python bytes
+        >>> bytes(my_zef_bytes)
+        """
+        return self.data
+

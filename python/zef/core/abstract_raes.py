@@ -88,7 +88,7 @@ class Entity:
             x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
-            raise TypeError(f"can't construct an abstract entity from a {type(x)=}.  Value passed in: {x=}")
+            raise TypeError(f"can't construct an abstract entity from a type(x)={type(x)}.  Value passed in: x={x}")
 
     def __repr__(self):
             # whether something is a custom entity with a overloaded repr
@@ -139,7 +139,7 @@ class AtomicEntity:
             x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
-            raise TypeError(f"can't construct an abstract atomic entity from a {type(x)=}.  Value passed in: {x=}")
+            raise TypeError(f"can't construct an abstract atomic entity from a type(x)={type(x)}.  Value passed in: x={x}")
 
     def __repr__(self):
         return f'AtomicEntity({repr(self.d["type"])}, {repr(self.d["uid"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
@@ -156,8 +156,6 @@ class AtomicEntity:
         return hash(self.d['uid'])
 
     def __getitem__(self, x):
-        # from ._ops import merged
-        # return merged[self][internal_id]
         return AtomicEntity({**self.d, 'absorbed': (*self.d['absorbed'], x)})
     
 
@@ -186,7 +184,7 @@ class Relation:
             x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
-            raise TypeError(f"can't construct an abstract relation from a {type(x)=}.  Value passed in: {x=}")
+            raise TypeError(f"can't construct an abstract relation from a type(x)={type(x)}.  Value passed in: x={x}")
 
     def __repr__(self):
         return f'Relation({repr(self.d["type"])}, {repr(self.d["uids"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
@@ -199,8 +197,6 @@ class Relation:
             return hash(''.join([str(x) for x in self.d['uids']]))
             
     def __getitem__(self, x):
-        # from ._ops import merged
-        # return merged[self][internal_id]
         return Relation({**self.d, 'absorbed': (*self.d['absorbed'], x)})
 
 class TXNode:
@@ -223,7 +219,7 @@ class TXNode:
             }
 
         else:
-            raise TypeError(f"can't construct an abstract transaction from a {type(x)=}.  Value passed in: {x=}")
+            raise TypeError(f"can't construct an abstract transaction from a type(x)={type(x)}.  Value passed in: x={x}")
 
     def __repr__(self):
         # also show any absorbed elements
@@ -264,7 +260,7 @@ class Root:
             }
 
         else:
-            raise TypeError(f"can't construct an abstract root node from a {type(x)=}.  Value passed in: {x=}")
+            raise TypeError(f"can't construct an abstract root node from a type(x)={type(x)}.  Value passed in: x={x}")
 
     def __repr__(self):
         # also show any absorbed elements

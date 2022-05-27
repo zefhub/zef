@@ -177,9 +177,11 @@ def construct_commands(elements) -> list:
                 if cmd[key] in mapping_dict:
                     new_cmd[key] = mapping_dict[cmd[key]]
         return new_cmd
-                
+
     # nested_cmds = nested_cmds | map[P(update_ids, mapping_dict=mapping_dict)] | collect
     
+    # handle any dict if found
+    # elements = elements | map[handle_dict | first] | concat | collect
     # Obtain all user IDs
     id_definitions = elements | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
     # Check that nothing needs a user ID that wasn't provided
@@ -240,6 +242,14 @@ def obtain_ids(x) -> dict:
     elif isinstance(x, ListOrTuple):
         ids = x | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
 
+    elif isinstance(x, dict):
+        entity, sub_d = list(x.items()) | single | collect # Will throw if there isn't a single key in the dict
+
+        ids = obtain_ids(entity)
+        for k,v in sub_d.items():
+            ids = merge_no_overwrite(ids, obtain_ids(k))
+            ids = merge_no_overwrite(ids, obtain_ids(v))
+
     elif type(x) in [Entity, AtomicEntity, Relation]:
         ids = {uid(x): x}
         if type(x) == Relation:
@@ -259,7 +269,6 @@ def obtain_ids(x) -> dict:
         a_id = get_absorbed_id(LazyValue(x))
         if a_id is not None:
             ids = merge_no_overwrite(ids, {a_id: x})
-
     return ids
 
 
@@ -290,6 +299,16 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return
 
+    elif isinstance(x, dict):
+        entity, sub_d = list(x.items()) | single | collect # Will throw if there isn't a single key in the dict
+        verify_input_el(entity, id_definitions, False, False)
+
+        for k,v in sub_d.items():
+            verify_input_el(k, id_definitions, True, False)
+            verify_input_el(v, id_definitions, False, True)
+
+        return
+
     elif isinstance(x, ListOrTuple):                         
         if is_valid_relation_template(x):
             if len(x) == 3:
@@ -317,7 +336,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif isinstance(x, ZefOp):
         if len(x) > 1:
             # This could be something like Z["asdf"] | assign_value[5]
-            if x | peel | first | is_a[Z]:
+            if LazyValue(x) | first | is_a[Z] | collect:
                 return
         if length(LazyValue(x) | absorbed) != 1:
             raise Exception(f"ZefOp has more than one op inside of it. {x}")
@@ -418,7 +437,7 @@ def dispatch_cmds_for(expr, gen_id):
 
     elif isinstance(expr, ZefOp):
         # If we have a chain beginning with a Z, convert to LazyValue
-        if len(expr) > 1 and is_a(LazyValue(expr) | peel | first | collect, Z):
+        if LazyValue(expr) | first | is_a[Z] | collect:
             return cmds_for_initial_Z(expr)
 
         raise RuntimeError(f'We should not have landed here, with expr={expr}')
@@ -439,6 +458,8 @@ def dispatch_cmds_for(expr, gen_id):
 
         tuple: P(cmds_for_tuple, gen_id=gen_id),
         list: P(cmds_for_tuple, gen_id=gen_id),
+
+        dict: P(cmds_for_complex_expr, gen_id=gen_id),
     }
     if type(expr) not in d_dispatch:
         raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
@@ -452,14 +473,14 @@ def dispatch_cmds_for(expr, gen_id):
 # * Handlers for expr->cmd
 #------------------------------------------------
 
-# def cmds_for_complex_expr(x, merged_ids: set, gen_id):
-#     iid,exprs = realise_single_node(x, gen_id)
-#     return exprs, [], ()
+def cmds_for_complex_expr(x, gen_id):
+    iid,exprs = realise_single_node(x, gen_id)
+    return exprs, []
 
 def cmds_for_initial_Z(expr):
-    assert len(expr) > 1 and LazyValue(expr) | peel | first | is_a[Z] | collect
+    assert LazyValue(expr) | first | is_a[Z] | collect
 
-    expr = LazyValue(LazyValue(expr) | peel | first | collect) | (LazyValue(expr) | peel | skip[1] | as_pipeline | collect)
+    expr = LazyValue(LazyValue(expr) | first | collect) | (LazyValue(expr) | skip[1] | to_pipeline | collect)
     return (expr,), ()
 
 
@@ -656,6 +677,8 @@ def is_valid_single_node(x):
         return True
     if isinstance(x, AtomicEntityType):
         return True
+    if isinstance(x, Delegate):
+        return True
     return False
 
 def is_valid_relation_template(x):
@@ -671,9 +694,9 @@ def is_valid_relation_template(x):
     if any(isinstance(item, RelationType) for item in x):
         # Cases 1-4 above
         if len(x) != 3:
-            raise Exception("A list has an RT but isn't 3 elements long")
+            raise Exception(f"A list has an RT but isn't 3 elements long: {x}")
         if not isinstance(x[1], RelationType):
-            raise Exception("A list has an RT but it isn't in the second position")
+            raise Exception(f"A list has an RT but it isn't in the second position: {x}")
         # Note: if there are any lists involved, we cannot have a given ID as it
         # would have to be given to multiple instantiated relations.
         if not is_a(x[1], RT) and (isinstance(x[0], ListOrTuple) or isinstance(x[2], ListOrTuple)):
@@ -750,6 +773,7 @@ def realise_single_node(x, gen_id):
         aet = map_scalar_to_aet_type[type(x)](x)
         exprs = [aet[iid], LazyValue(Z[iid]) | assign_value[x]]
     elif isinstance(x, ZefOp):
+        assert len(x) == 1
         params = LazyValue(x) | peel | first | second
         if is_a(x, Z):
             iid = params | first | collect
@@ -760,8 +784,17 @@ def realise_single_node(x, gen_id):
     elif is_a(x, Delegate):
         iid = x
         exprs = [x]
+    elif type(x) == dict:
+        entity, sub_d = list(x.items()) | single | collect # Will throw if there isn't a single key in the dict
+        iid, entity_exprs = realise_single_node(entity, gen_id)
+
+        exprs = entity_exprs
+        for k,v in sub_d.items():
+            target_iid, target_exprs = realise_single_node(v, gen_id)
+            exprs.extend(target_exprs)
+            exprs.append((Z[iid], k, Z[target_iid]))
     else:
-        raise TypeError(f'in GraphDelta encode step: for {type(x)=}')
+        raise TypeError(f'in GraphDelta encode step: for type(x)={type(x)}')
 
     return iid, exprs
 
@@ -1017,6 +1050,8 @@ def encode(xx):
 
                     # it's a relation triple
                     src_id = step(x[0], True)
+                    if get_absorbed_id(x[1]) is not None:
+                        raise Exception("Not allowing ids in a shorthand syntax transaction.")
                     rel_id = gen_id()
                     trg_id = step(x[2], True)
                     gd_exprs.append( (Z[src_id], x[1][rel_id], Z[trg_id]) )
@@ -1027,15 +1062,6 @@ def encode(xx):
                 # recurse: return isomorphic structure with IDs
                 return tuple((step(el, False) for el in x))
         
-        if isinstance(x, dict):
-            # TODO review and extend checks for this!
-            # Should contain a single key to another dict with k,v pairs where k is an RT
-            ent, sub_d = list(x.items()) | single | collect
-            ent = step(ent, True)
-            triples = [step((Z[ent], k, v), False) for k,v in sub_d.items()]
-            doubles = [x[1:] for x in triples]
-            return (ent, doubles)
-            
         # These next few ifs are for checks on syntax only
         if type(x) in scalar_types:
             if not allow_scalar:
@@ -1055,6 +1081,8 @@ def unpack_receipt(unpacking_template, receipt: dict):
             return tuple((step(el) for el in x))
         if isinstance(x, list):
             return [step(el) for el in x]
+        if isinstance(x, dict):
+            return {k: step(v) for k,v in x.items()}
         return receipt[x] if isinstance(x, str) or is_a(x, uid) or is_a(x, Delegate) else x
     return step(unpacking_template)
 
@@ -1176,7 +1204,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                     d_raes[this_id] = zz
 
     except Exception as exc:        
-        raise RuntimeError(f"Error executing graph delta transaction {exc=}") from exc
+        raise RuntimeError(f"Error executing graph delta transaction exc={exc}") from exc
         
     return d_raes    # the transaction receipt
 

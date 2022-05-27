@@ -91,7 +91,7 @@ def clipboard_copy_to_handler(eff: Effect):
     if type(val) in {str, float, int, bool}:
         pyperclip.copy(str(val))
     else:
-        raise RuntimeError(f"copying a type {type(val)=} to the clipboard is not supported. Value: {val}")
+        raise RuntimeError(f"copying a type type(val)={type(val)} to the clipboard is not supported. Value: {val}")
     return {}
 
 

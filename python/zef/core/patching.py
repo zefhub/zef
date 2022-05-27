@@ -14,7 +14,7 @@
 
 from ..pyzef.main import *
 from ..pyzef import main, zefops, internals
-from ._core import ET, AtomicEntityType
+from ._core import ET, AtomicEntityType, EntityType
 
 main.ZefRef.__hash__ = lambda self: hash(((index(self)), index(self | zefops.tx)))
 main.EZefRef.__hash__ = lambda self: index(self)
@@ -31,6 +31,30 @@ internals.DelegateRelationTriple.__hash__ = lambda self: hash((self.rt, self.sou
 internals.DelegateTX.__hash__ = lambda self: hash(internals.DelegateTX)
 internals.DelegateRoot.__hash__ = lambda self: hash(internals.DelegateRoot)
 
+
+def or_for_EntityType(self, other):
+    from . import ValueType_
+    from zef.core import EntityType, RelationType, AtomicEntityType
+    from zef.core.internals import EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
+    allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+    if isinstance(other, allowed_types):
+        return ValueType_(type_name='Union', absorbed=(self, other,))
+
+    return NotImplemented
+    
+def and_for_EntityType(self, other):
+    from . import ValueType_
+    from zef.core import EntityType, RelationType, AtomicEntityType
+    from zef.core.internals import EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
+    allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+    if isinstance(other, allowed_types):
+        return ValueType_(type_name='Intersection', absorbed=(self, other,))
+
+    return NotImplemented
+
+EntityType.__or__ = or_for_EntityType
+EntityType.__ror__ = or_for_EntityType
+EntityType.__and__ = and_for_EntityType
 
 
 # FIXME: why do we need the standard list of timezones in the docstring for Time? Should just refer people to the TZ database. I have removed it for now.
@@ -152,6 +176,26 @@ def absorbed_get_item(self, x):
     else:
         new_obj._absorbed = (*self._absorbed, x)
     return new_obj
+
+def eq_with_absorbed(x, y, orig_eq):
+    orig_res = orig_eq(x, y)
+    if orig_res == NotImplemented:
+        return NotImplemented
+    return orig_res and getattr(x, '_absorbed', ()) == getattr(y, '_absorbed', ())
+
+def wrap_eq(typ):
+    orig = typ.__eq__
+    typ.__eq__ = lambda x,y,orig=orig: eq_with_absorbed(x, y, orig)
+    import types
+    assert type(typ.__ne__) == types.WrapperDescriptorType
+
+def hash_with_absorbed(self, orig_hash):
+    orig_res = orig_hash(self)
+    return hash((orig_res,) + getattr(self, '_absorbed', ()))
+
+def wrap_hash(typ):
+    orig = typ.__hash__
+    typ.__hash__ = lambda self,orig=orig: hash_with_absorbed(self, orig)
     
 
 def repr_with_absorbed(self, orig_repr):
@@ -167,32 +211,30 @@ def wrap_repr(typ):
     
 
 
-# The C++ implementation does not consider the absorbed values.
-# Monkeypatch this function here.
-def keyword_eq_monkeypatched(self, other):
-    if not isinstance(other, main.Keyword):
-        return False
-    if self.value != other.value:
-        return False
-    return self.__dict__.get('_absorbed', None) == other.__dict__.get('_absorbed', None) 
-
-
-
 main.EntityType.__getitem__ = absorbed_get_item
 wrap_repr(main.EntityType)
+wrap_eq(main.EntityType)
+wrap_hash(main.EntityType)
 
 main.RelationType.__getitem__ = absorbed_get_item
 wrap_repr(main.RelationType)
+wrap_eq(main.RelationType)
+wrap_hash(main.RelationType)
 
 main.Keyword.__getitem__ = absorbed_get_item
 wrap_repr(main.Keyword)
-main.Keyword.__eq__ = keyword_eq_monkeypatched
+wrap_eq(main.Keyword)
+wrap_hash(main.Keyword)
 
 internals.AtomicEntityType.__getitem__ = absorbed_get_item
 wrap_repr(internals.AtomicEntityType)
+wrap_eq(internals.AtomicEntityType)
+wrap_hash(internals.AtomicEntityType)
 
 internals.Delegate.__getitem__ = absorbed_get_item
 wrap_repr(internals.Delegate)
+wrap_eq(internals.Delegate)
+wrap_hash(internals.Delegate)
 
 
 
@@ -211,38 +253,32 @@ def leq_monkey_patching_ae(self, other):
 AtomicEntityType.__le__ = leq_monkey_patching_ae
 
 
-# Pretty printing for ZefRefs
-def pprint_ZefRefs(self, p, cycle):
-    p.text(str(self))
-    p.text(" [\n")
+# # Pretty printing for ZefRefs
+# def pprint_ZefRefs(self, p, cycle):
+#     p.text(str(self))
+#     p.text(" [\n")
 
-    N_max = 10
-    if len(self) > N_max:
-        # Split into first part and last part
-        N = N_max // 2
-        first = [self[i] for i in range(N)]
-        last = [self[i] for i in range(len(self)-N, len(self)-1)]
-        p.text('\n'.join("\t"+str(x) for x in first))
-        p.text('\n\t...\n')
-        p.text('\n'.join("\t"+str(x) for x in last))
-    else:
-        p.text('\n'.join("\t"+str(x) for x in self))
-    p.text(']')
+#     N_max = 10
+#     if len(self) > N_max:
+#         # Split into first part and last part
+#         N = N_max // 2
+#         first = [self[i] for i in range(N)]
+#         last = [self[i] for i in range(len(self)-N, len(self)-1)]
+#         p.text('\n'.join("\t"+str(x) for x in first))
+#         p.text('\n\t...\n')
+#         p.text('\n'.join("\t"+str(x) for x in last))
+#     else:
+#         p.text('\n'.join("\t"+str(x) for x in self))
+#     p.text(']')
 
-main.ZefRefs._repr_pretty_ = pprint_ZefRefs
-main.EZefRefs._repr_pretty_ = pprint_ZefRefs
+# main.ZefRefs._repr_pretty_ = pprint_ZefRefs
+# main.EZefRefs._repr_pretty_ = pprint_ZefRefs
 
 def convert_to_assign_value(self, value):
     from ._ops import assign_value
     return self | assign_value[value]
 ZefRef.__le__ = convert_to_assign_value
 EZefRef.__le__ = convert_to_assign_value
-
-def add_internal_id(self, internal_id):
-    from ._ops import merged
-    return merged[self][internal_id]
-ZefRef.__getitem__ = add_internal_id
-EZefRef.__getitem__ = add_internal_id
 
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):
