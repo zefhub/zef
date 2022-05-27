@@ -5276,12 +5276,13 @@ def is_a_implementation(x, typ):
     from ..error import _ErrorType
     def union_matching(el, union):
         for t in union.d['absorbed']: 
-            if is_a_implementation(el, t): return True
+            if is_a(el, t): 
+                return True
         return False
 
     def intersection_matching(el, intersection):
         for t in intersection.d['absorbed']: 
-            if not is_a_implementation(el, t): return False
+            if not is_a(el, t): return False
         return True
 
     def is_matching(el, setof):
@@ -5315,7 +5316,7 @@ def is_a_implementation(x, typ):
             for k, v in p.items():            
                 r = x.get(k, sentinel)
                 if r is sentinel: return False
-                if not is_a_implementation(r, v): return False  
+                if not is_a(r, v): return False  
             return True
 
     def valuetype_matching(el, vt):
@@ -5343,39 +5344,36 @@ def is_a_implementation(x, typ):
         return isinstance(el, python_type)
 
     if isinstance(typ, ValueType_):
-        try:
-            if typ.d['type_name'] == "Union":
-                return union_matching(x, typ)
+        if typ.d['type_name'] == "Union":
+            return union_matching(x, typ)
 
-            if typ.d['type_name'] == "Intersection":
-                return intersection_matching(x, typ)
+        if typ.d['type_name'] == "Intersection":
+            return intersection_matching(x, typ)
 
-            if typ.d['type_name'] == "Is":
-                return is_matching(x, typ)
+        if typ.d['type_name'] == "Is":
+            return is_matching(x, typ)
 
-            if typ.d['type_name'] == "SetOf":
-                return set_of_matching(x, typ)
-            
-            if typ.d['type_name'] == "Complement":
-                return not is_a_implementation(x, typ.d['absorbed'][0])
+        if typ.d['type_name'] == "SetOf":
+            return set_of_matching(x, typ)
+        
+        if typ.d['type_name'] == "Complement":
+            return not is_a(x, typ.d['absorbed'][0])
 
-            if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
-                map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
-                def compare_absorbed(x, typ):
-                    val_absorbed = absorbed(x)
-                    typ_absorbed = absorbed(typ)
-                    for i,typ in enumerate(typ_absorbed):
-                        if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
-                        if not is_a_implementation(val_absorbed[i],typ): return False
-                    return True
-                return without_absorbed(x) == map_[typ.d['type_name']] and compare_absorbed(x, typ)
+        if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
+            map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
+            def compare_absorbed(x, typ):
+                val_absorbed = absorbed(x)
+                typ_absorbed = absorbed(typ)
+                for i,typ in enumerate(typ_absorbed):
+                    if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
+                    if not is_a(val_absorbed[i],typ): return False
+                return True
+            return without_absorbed(x) == map_[typ.d['type_name']] and compare_absorbed(x, typ)
 
-            if typ.d['type_name'] == "Pattern":
-                return pattern_vt_matching(x, typ)
+        if typ.d['type_name'] == "Pattern":
+            return pattern_vt_matching(x, typ)
 
-            return valuetype_matching(x, typ)
-        except:
-            return False
+        return valuetype_matching(x, typ)
                     
     # To handle user passing by int instead of Int by mistake
     if typ in [int, float, bool]:
@@ -5385,7 +5383,7 @@ def is_a_implementation(x, typ):
             float: Float
         }
         print(f"{repr(typ)} was passed as a type, but what you meant was { py_type_to_vt[typ]}!")
-        return is_a_implementation(x, py_type_to_vt[typ])
+        return is_a(x, py_type_to_vt[typ])
 
 
     if type(x) == _ErrorType:
