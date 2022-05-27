@@ -186,7 +186,7 @@ runs:
         ZEFDB_QUIET: YES
         ZEFHUB_AUTH_KEY: GUEST
       run: |
-        set "PYTHONPATH=%GITHUB_WORKSPACE%/python:%PYTHONPATH%"
+        set "PYTHONPATH=%GITHUB_WORKSPACE%/python;%PYTHONPATH%"
         echo %PYTHONPATH%
         echo should have echoed python path
         python3 python/tests/quick_start.py
