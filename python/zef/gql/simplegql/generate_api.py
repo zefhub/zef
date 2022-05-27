@@ -671,7 +671,7 @@ def resolve_delete(_, info, *, type_node, **params):
             if not ents | map[pass_delete_auth[type_node][info]] | all | collect:
                 raise ExtenalError("Auth check returned False")
 
-            [terminate[ent] for ent in ents] | transact[g] | run
+            [terminate(ent) for ent in ents] | transact[g] | run
 
             count = len(ents)
 
@@ -1060,7 +1060,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
                     else:
                         actions += [(z, rt, val)]
                 else:
-                    actions += [(maybe_prior_rel | target | collect) <= val]
+                    actions += [(maybe_prior_rel | target | assign_value[val] | collect)]
             else:
                 raise Exception("Updating non-scalars is TODO")
     
@@ -1077,11 +1077,11 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
             rels = z < L[rt]
         else:
             rels = z > L[rt]
-        actions += [terminate[rel] for rel in rels]
+        actions += [terminate(rel) for rel in rels]
 
         # Also delete scalars
         if z_field | target | op_is_scalar | collect:
-            actions += [terminate[target(rel)] for rel in rels]
+            actions += [terminate(target(rel)) for rel in rels]
 
     return actions, post_checks
 
