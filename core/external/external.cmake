@@ -118,56 +118,83 @@ find_package(PkgConfig QUIET)
 # This also comes first to enable other packages below to make use of our
 # results in finding openssl.
 
-if(APPLE)
-  # Brew on macos doesn't link these things in by default to not shadow the main macos openssl 
-  execute_process(
-    COMMAND brew --prefix openssl
-    RESULT_VARIABLE BREW_RESULT
-    OUTPUT_VARIABLE BREW_OPENSSL_PATH
-    OUTPUT_STRIP_TRAILING_WHITESPACE)
-  if (BREW_RESULT EQUAL 0 AND EXISTS "${BREW_OPENSSL_PATH}")
-    list(APPEND CMAKE_PREFIX_PATH ${BREW_OPENSSL_PATH})
-  endif()
-endif()
+if(WIN32)
+  # Above I lied - we do need to build on windows.
+  message(STATUS "Going to build OpenSSL from source")
+  
+  # set(BUILD_OPENSSL ON CACHE BOOL "" FORCE)
+  # set(OPENSSL_BRANCH openssl-3.0.3 CACHE STRING "" FORCE)
+  # FetchContent_Declare(opensslsrc
+  #   GIT_REPOSITORY https://github.com/viaduck/openssl-cmake
+  #   GIT_TAG 3.0
+  #   GIT_SHALLOW ON
+  #   UPDATE_COMMAND "")
 
-find_package(OpenSSL QUIET)
-if(OPENSSL_FOUND)
-  message(STATUS "Found openssl with find_package")
-  message(STATUS "Found openssl libraries at: ${OPENSSL_LIBRARIES}")
-  message(STATUS "Found openssl includes at: ${OPENSSL_INCLUDE_DIR}")
-  add_library(openssl INTERFACE IMPORTED)
-  target_link_libraries(openssl INTERFACE OpenSSL::SSL OpenSSL::Crypto)
+  # ManualFetchContent_MakeAvailable(opensslsrc)
+
+  set(WITH_APPS OFF CACHE BOOL "" FORCE)
+  FetchContent_Declare(opensslsrc
+    GIT_REPOSITORY https://github.com/janbar/openssl-cmake
+    GIT_TAG 1.1.1n-20220327
+    GIT_SHALLOW ON
+    UPDATE_COMMAND "")
+
+  ManualFetchContent_MakeAvailable(opensslsrc)
+
+  add_library(openssl INTERFACE)
+  target_link_libraries(openssl INTERFACE ssl crypto)
 else()
-  if(OpenSSL_FOUND)
-    message(STATUS "Found different openssl tag with find_package but ignoring (shouldn't do this)")
-  endif()
-  if(NOT OPENSSL_FOUND)
-    if(PKGCONFIG_FOUND)
-      pkg_check_modules(OPENSSL openssl)
-      if(OPENSSL_FOUND)
-        message(STATUS "Found openssl with pkg-config")
-        set(OPENSSL_LIBRARIES ${OPENSSL_LINK_LIBRARIES})
-        set(OPENSSL_INCLUDE_DIR ${OPENSSL_INCLUDE_DIRS})
-      endif()
-    endif()
-  endif()
-  if(NOT OPENSSL_FOUND)
-    find_library(OPENSSL_LIBRARIES ssl)
-    find_path(OPENSSL_INCLUDE_DIR openssl/ssl.h)
-    if(OPENSSL_LIBRARIES AND OPENSSL_INCLUDE_DIR)
-      set(OPENSSL_FOUND TRUE)
-      message(STATUS "Found openssl with find_library and find_path")
+  if(APPLE)
+    # Brew on macos doesn't link these things in by default to not shadow the main macos openssl 
+    execute_process(
+      COMMAND brew --prefix openssl
+      RESULT_VARIABLE BREW_RESULT
+      OUTPUT_VARIABLE BREW_OPENSSL_PATH
+      OUTPUT_STRIP_TRAILING_WHITESPACE)
+    if (BREW_RESULT EQUAL 0 AND EXISTS "${BREW_OPENSSL_PATH}")
+      list(APPEND CMAKE_PREFIX_PATH ${BREW_OPENSSL_PATH})
     endif()
   endif()
 
+  find_package(OpenSSL QUIET)
   if(OPENSSL_FOUND)
+    message(STATUS "Found openssl with find_package")
     message(STATUS "Found openssl libraries at: ${OPENSSL_LIBRARIES}")
     message(STATUS "Found openssl includes at: ${OPENSSL_INCLUDE_DIR}")
     add_library(openssl INTERFACE IMPORTED)
-    target_include_directories(openssl SYSTEM INTERFACE ${OPENSSL_INCLUDE_DIRS})
-    target_link_libraries(openssl INTERFACE ${OPENSSL_LIBRARIES})
+    target_link_libraries(openssl INTERFACE OpenSSL::SSL OpenSSL::Crypto)
   else()
-    message(FATAL_ERROR "Couldn't find openssl via cmake, pkg-config or find_library")
+    if(OpenSSL_FOUND)
+      message(STATUS "Found different openssl tag with find_package but ignoring (shouldn't do this)")
+    endif()
+    if(NOT OPENSSL_FOUND)
+      if(PKGCONFIG_FOUND)
+        pkg_check_modules(OPENSSL openssl)
+        if(OPENSSL_FOUND)
+          message(STATUS "Found openssl with pkg-config")
+          set(OPENSSL_LIBRARIES ${OPENSSL_LINK_LIBRARIES})
+          set(OPENSSL_INCLUDE_DIR ${OPENSSL_INCLUDE_DIRS})
+        endif()
+      endif()
+    endif()
+    if(NOT OPENSSL_FOUND)
+      find_library(OPENSSL_LIBRARIES ssl)
+      find_path(OPENSSL_INCLUDE_DIR openssl/ssl.h)
+      if(OPENSSL_LIBRARIES AND OPENSSL_INCLUDE_DIR)
+        set(OPENSSL_FOUND TRUE)
+        message(STATUS "Found openssl with find_library and find_path")
+      endif()
+    endif()
+
+    if(OPENSSL_FOUND)
+      message(STATUS "Found openssl libraries at: ${OPENSSL_LIBRARIES}")
+      message(STATUS "Found openssl includes at: ${OPENSSL_INCLUDE_DIR}")
+      add_library(openssl INTERFACE IMPORTED)
+      target_include_directories(openssl SYSTEM INTERFACE ${OPENSSL_INCLUDE_DIRS})
+      target_link_libraries(openssl INTERFACE ${OPENSSL_LIBRARIES})
+    else()
+      message(FATAL_ERROR "Couldn't find openssl via cmake, pkg-config or find_library")
+    endif()
   endif()
 endif()
 
@@ -310,9 +337,11 @@ FetchContent_Declare(jwt-cpp
   GIT_REPOSITORY https://github.com/Thalhammer/jwt-cpp
   GIT_TAG v0.6.0-rc.2
   GIT_SHALLOW ON
+  PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/jwt-allow-no-find-package.patch
   UPDATE_COMMAND "")
 
-set(JWT_SSL_LIBRARY "OpenSSL" CACHE STRING "")
+#set(JWT_SSL_LIBRARY "OpenSSL" CACHE STRING "")
+set(JWT_SSL_LIBRARY "manual" CACHE STRING "")
 set(JWT_DISABLE_PICOJSON TRUE CACHE BOOL "")
 set(JWT_BUILD_EXAMPLES OFF CACHE BOOL "")
 
@@ -322,8 +351,8 @@ create_license_file("jwt-cpp" ${jwt-cpp_SOURCE_DIR}/LICENSE NO "This library bun
 
 
 # * zstd
+message(STATUS "External: zstd")
 if(LIBZEF_BUNDLED_ZSTD)
-  message(STATUS "External: zstd")
 
   FetchContent_Declare(zstd
     GIT_REPOSITORY https://github.com/facebook/zstd
@@ -346,6 +375,8 @@ if(LIBZEF_BUNDLED_ZSTD)
   # Because the cmake of libzstd is a little dodgy, we need to manually add in the include directories.
   get_target_property(LIBZSTD_INCLUDE_DIRECTORIES libzstd_static INCLUDE_DIRECTORIES)
   target_include_directories(libzstd_internal SYSTEM INTERFACE ${LIBZSTD_INCLUDE_DIRECTORIES})
+
+  create_license_file("zstd" ${zstd_SOURCE_DIR}/LICENSE NO "This library bundles the Zstandard library (https://github.com/facebook/zstd)\n\nThe full text of the zstd license follows below.\n\n")
 else()
   # Finding zstd through various options.
   # 1. First try pkg-config
@@ -377,8 +408,6 @@ else()
     add_library(libzstd_internal INTERFACE)
     target_include_directories(libzstd_internal SYSTEM INTERFACE ${ZSTD_INCLUDE_DIRS})
     target_link_libraries(libzstd_internal INTERFACE ${ZSTD_LIBRARIES})
-
-    create_license_file("zstd" ${zstd_SOURCE_DIR}/LICENSE NO "This library bundles the Zstandard library (https://github.com/facebook/zstd)\n\nThe full text of the zstd license follows below.\n\n")
   else()
     message(FATAL_ERROR "Couldn't find zstd via cmake, pkg-config or find_library")
   endif()
@@ -386,8 +415,8 @@ endif()
 
 
 # * libcurl
+message(STATUS "External: curl")
 if(LIBZEF_BUNDLED_CURL)
-  message(STATUS "External: curl")
 
   # message(FATAL_ERROR "We cannot bundle libcurl with the library due to CA issues.")
 
@@ -407,14 +436,20 @@ if(LIBZEF_BUNDLED_CURL)
   set(BUILD_SHARED_LIBS OFF)
   set(BUILD_TESTING OFF)
   set(HTTP_ONLY ON)
-  # We can't use the CA bundles as this will be in the system somewhere. Instead
-  # we have to acquire these from the python side as environment variables.
-  # set(CURL_CA_FALLBACK ON CACHE BOOL "" FORCE)
-  set(CURL_CA_BUNDLE "none" CACHE STRING "" FORCE)
-  set(CURL_CA_PATH "none" CACHE STRING "" FORCE)
-  # TODO: Should set a config variable here which would allow python and the cpp
-  # code to identify that it is in this bundled state. But for now, setting env
-  # vars even if they aren't needed will be fine.
+
+  if(WIN32)
+    set(CURL_USE_SCHANNEL ON)
+  else()
+    # We can't use the CA bundles as this will be in the system somewhere. Instead
+    # we have to acquire these from the python side as environment variables.
+    # set(CURL_CA_FALLBACK ON CACHE BOOL "" FORCE)
+    set(CURL_CA_BUNDLE "none" CACHE STRING "" FORCE)
+    set(CURL_CA_PATH "none" CACHE STRING "" FORCE)
+    # TODO: Should set a config variable here which would allow python and the cpp
+    # code to identify that it is in this bundled state. But for now, setting env
+    # vars even if they aren't needed will be fine.
+  endif()
+  
   add_subdirectory(${curl_SOURCE_DIR} ${curl_BINARY_DIR} EXCLUDE_FROM_ALL)
   set_target_properties(libcurl PROPERTIES
     POSITION_INDEPENDENT_CODE ON)
@@ -429,7 +464,7 @@ else()
     endif()
   endif()
   if(NOT CURL_FOUND)
-    find_package(Curl QUIET)
+    find_package(CURL QUIET)
   endif()
   if(NOT CURL_FOUND)
     find_library(CURL_LIBRARIES curl)

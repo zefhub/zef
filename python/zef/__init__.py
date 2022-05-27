@@ -45,3 +45,10 @@ def _autostart_behaviour():
         core.internals.initialise_butler()
 
 _autostart_behaviour()
+
+# We always run this, in case the user has started the butler manually instead of automatically
+import atexit
+@atexit.register
+def _stop_butler():
+    from . import pyzef
+    pyzef.internals.stop_butler()

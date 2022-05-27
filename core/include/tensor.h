@@ -120,18 +120,20 @@ namespace zefDB {
 		std::add_const_t<reference> operator*() const { return *ptr_to_current_el; }
 		bool operator!=(const Iterator& other) const { return ptr_to_current_el != other.ptr_to_current_el; }
 		bool operator==(const Iterator& other) const { return ptr_to_current_el == other.ptr_to_current_el; }
+
+		Iterator(ScalarType* ptr) : ptr_to_current_el(ptr) {}
 	};
 
 	template <typename ScalarType>
 	typename Tensor<ScalarType, 1>::Iterator Tensor<ScalarType, 1>::begin() {
-		return Tensor<ScalarType, 1>::Iterator{
-		std::visit([](auto& v) { return v.data(); }, val) };
+		return Tensor<ScalarType, 1>::Iterator(
+		std::visit([](auto& v) { return v.data(); }, val) );
 	}
 
 	template <typename ScalarType>
 	typename Tensor<ScalarType, 1>::Iterator Tensor<ScalarType, 1>::end() {
-		return Tensor<ScalarType, 1>::Iterator{
-            std::visit([](auto& v) { return v.data() + v.size(); }, val) };
+		return Tensor<ScalarType, 1>::Iterator(
+            std::visit([](auto& v) { return v.data() + v.size(); }, val) );
 	}
 
 
@@ -157,14 +159,14 @@ namespace zefDB {
 
 	template <typename ScalarType>
 	typename Tensor<ScalarType, 1>::const_Iterator Tensor<ScalarType, 1>::begin() const {
-		return Tensor<ScalarType, 1>::const_Iterator{
-		std::visit([](const auto& v) { return &(*v.begin()); }, val) };
+		return Tensor<ScalarType, 1>::const_Iterator(
+		std::visit([](const auto& v) { return &(*v.begin()); }, val) );
 	}
 
 	template <typename ScalarType>
 	typename Tensor<ScalarType, 1>::const_Iterator Tensor<ScalarType, 1>::end() const {
-		return Tensor<ScalarType, 1>::const_Iterator{
-		std::visit([](const auto& v) { return &(*v.end()); }, val) };
+		return Tensor<ScalarType, 1>::const_Iterator(
+		std::visit([](const auto& v) { return &(*v.end()); }, val) );
 	}
 
 

@@ -225,7 +225,7 @@ class ProxyGraph:
         resolved = None
         if isinstance(item, NodeRef):
             resolved = item.z
-        elif isinstance(item, str) or is_a(item, uid) or is_a(item, int):
+        elif isinstance(item, (str,int)) or is_a(item, uid):
             resolved = self.gs[item]
         elif isinstance(item, ZefRef):
             resolved = in_frame(item, self.gs)
