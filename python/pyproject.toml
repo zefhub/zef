@@ -10,6 +10,10 @@ before-all = "yum install -y openssl-devel"
 [tool.cibuildwheel.macos]
 before-all = "brew install openssl"
 
+[tool.cibuildwheel.windows]
+# test-command = "set \"ZEFHUB_AUTH_KEY=GUEST\" && set \"ZEFDB_QUIET=YES\" && pytest {project}/python/tests && python {project}/python/tests/quick_start.py"
+test-command = ""
+
 [build-system]
 # TODO: Get rid of these deps from the libzef part
 requires = ["setuptools", "cmake", "pybind11", "cogapp", "pyfunctional"]
