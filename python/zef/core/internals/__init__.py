@@ -83,7 +83,7 @@ from ...pyzef.internals import (
     logout,
     make_random_uid,
     max_zefdb_protocol_version,
-    memory_details,
+    #memory_details,
     merge_atomic_entity_,
     merge_entity_,
     merge_relation_,

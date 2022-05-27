@@ -16,6 +16,11 @@
 
 #pragma once
 
+
+#cmakedefine LIBZEF_STATIC
+#ifdef LIBZEF_STATIC
+#define LIBZEF_DLL_EXPORTED
+#else
 #if BUILDING_LIBZEF && __GNUC__ >= 4
 #define LIBZEF_DLL_EXPORTED __attribute__((__visibility__("default")))
 /* #pragma message "Building for exported DLL (gcc)" */
@@ -28,4 +33,15 @@
 #else
 #define LIBZEF_DLL_EXPORTED
 /* #pragma message "Building to import DLL (gcc)" */
+#endif
+#endif
+
+#ifdef _MSC_VER
+
+// Needed to avoid issues with winsock.h and winsock2.h
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+//#undef WIN32_LEAN_AND_MEAN
+//#include <winsock2.h>
+
 #endif

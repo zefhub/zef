@@ -15,6 +15,10 @@
 #include "butler/communication.h"
 #include "zwitch.h"
 
+#ifdef _MSC_VER
+#include <wincrypt.h>
+#endif
+
 namespace zefDB {
     namespace Communication {
 
@@ -213,6 +217,31 @@ namespace zefDB {
                 outside_message_handler(msg->get_payload());
             }
 
+#ifdef _MSC_VER
+        void add_windows_root_certs(ssl_context_ptr & ctx) {
+            HCERTSTORE hStore = CertOpenSystemStore(0, "ROOT");
+            if(hStore == NULL)
+                throw std::runtime_error("Unable to get Windows root certificate store.");
+
+            X509_STORE * store = X509_STORE_new();
+            PCCERT_CONTEXT pContext = NULL;
+            while((pContext = CertEnumCertificatesInStore(hStore, pContext)) != NULL) {
+                X509 *x509 = d2i_X509(NULL,
+                                      (const unsigned char **)&pContext->pbCertEncoded,
+                                      pContext->cbCertEncoded);
+                if(x509 != NULL) {
+                    X509_STORE_add_cert(store, x509);
+                    X509_free(x509);
+                }
+            }
+
+            CertFreeCertificateContext(pContext);
+            CertCloseStore(hStore, 0);
+
+            SSL_CTX_set_cert_store(ctx->native_handle(), store);
+        }
+#endif
+        
         // ssl_context_ptr on_tls_init(const char * hostname, websocketpp::connection_hdl) {
         ssl_context_ptr on_tls_init(websocketpp::connection_hdl x) {
             ssl_context_ptr ctx = websocketpp::lib::make_shared<asio::ssl::context>(asio::ssl::context::sslv23);
@@ -224,7 +253,11 @@ namespace zefDB {
                                  asio::ssl::context::single_dh_use);
 
 
+#ifdef _MSC_VER
+                add_windows_root_certs(ctx);
+#else
                 ctx->set_default_verify_paths();
+#endif
 
                 // We add in the certificates that may have been set by python,
                 // as the default openssl paths could be baked into a bundled
@@ -348,6 +381,7 @@ namespace zefDB {
                 if(con) {
                     std::error_code ec;
                     con->close(websocketpp::close::status::going_away, "", ec);
+                    con.reset();
                 }
 
                 update(locker, [&]() {
@@ -371,6 +405,7 @@ namespace zefDB {
 
                 std::error_code ec;
                 con->close(websocketpp::close::status::going_away, "", ec);
+                con.reset();
                 update(locker, [&]() {
                     connected = false;
                     wspp_in_control = false;

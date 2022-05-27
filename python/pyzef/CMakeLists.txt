@@ -126,13 +126,13 @@ target_link_libraries(pyzef PUBLIC pybind11_json)
 
 
 # Things needed for Visual Studio
-if(MSVC)
-	target_compile_options(pyzef PUBLIC "/permissive-")
-    target_compile_options(pyzef PUBLIC "/bigobj")
-    set_target_properties(pyzef PROPERTIES SUFFIX ".pyd")
-    set_target_properties(pyzef PROPERTIES ENABLE_EXPORTS 1)
-	set_target_properties(pyzef PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS 1)
-endif()
+#if(MSVC)
+#	target_compile_options(pyzef PUBLIC "/permissive-")
+#    target_compile_options(pyzef PUBLIC "/bigobj")
+#    set_target_properties(pyzef PROPERTIES SUFFIX ".pyd")
+#    set_target_properties(pyzef PROPERTIES ENABLE_EXPORTS 1)
+#	set_target_properties(pyzef PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS 1)
+#endif()
   
 # We are assuming this is an install into the python extension build directory.
 # Anything else should not be installing

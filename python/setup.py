@@ -51,7 +51,10 @@ class cmake_build_ext(build_ext):
 
             cmake_path_s = ':'.join(os.path.abspath(x) for x in ext.cmake_path)
             # Use ninja if available
-            ret = subprocess.call(['which', 'ninja'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            if sys.platform == 'win32':
+                ret = 1
+            else:
+                ret = subprocess.call(['which', 'ninja'], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
             if ret == 0:
                 cmake_env = {"CMAKE_GENERATOR": "Ninja"}
                 # The update after the initial value will allow an external caller to override this option if they want.
@@ -187,11 +190,11 @@ else:
 
 
 if os.path.exists("README.md"):
-    with open("README.md") as file:
-        long_desc = file.read()
+    with open("README.md", "rb") as file:
+        long_desc = file.read().decode("utf-8")
 else:
-    with open("../README.md") as file:
-        long_desc = file.read()
+    with open("../README.md", "rb") as file:
+        long_desc = file.read().decode("utf-8")
 
 sys.path += [""]
 import versioneer
