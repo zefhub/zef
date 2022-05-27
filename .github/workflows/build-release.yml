@@ -1,10 +1,4 @@
-name: Build Release
-
-#on:
-#  push:
-#    tags:
-#      - "v*"
-#      - "!v*-macos"
+name: Publish Release
 
 on:
   release:
@@ -14,140 +8,33 @@ jobs:
   check-license:
     uses: ./.github/workflows/check-license.yml
 
-  build-wheels:
-    name: Build wheels
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-20.04, macos-latest]
-        # Note: need "3.10" as yaml will truncate floating point number
-        # python-version: [3.8, 3.9, "3.10"]
-        python-version: ["3.10"]
-        exclude:
-          - os: macos-latest
-            python-version: 3.8
-    env:
-      ZEFHUB_AUTH_KEY: "GUEST"
-
-    steps:
-      ########
-      # Git things
-      - uses: actions/checkout@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build wheel
-        uses: ./.github/actions/build
-        timeout-minutes: 15
-        with:
-          python-version: ${{ matrix.python-version }}
-          os: ${{ matrix.os }}
-
-          build-wheel: true
-          run-cmake-tests: false
-        
-      ######
-      # Release asset
-      # Maybe remove this if we use pypi only.
-      - name: release asset
-        uses: softprops/action-gh-release@v1
-        with:
-          files: dist/*
-
-      - name: save artifact for docs upload
-        uses: actions/upload-artifact@v3
-        with:
-          name: wheels
-          path: |
-            dist/*
-
-      #######
-      # Errors to slack
-      - uses: 8398a7/action-slack@v3
-        with:
-          status: ${{ job.status }}
-          if_mention: failure
-          channel: "#alerts-github-ci"
-          fields: repo,message,commit,author,ref,workflow # selectable (default: repo,message)
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-        if: ${{ failure() && !contains(github.ref, 'dev') }}
-
-  upload-to-pypi:
-    name: Upload wheels to PyPI
-    # if: ${{ (!contains(github.ref, 'dev') && github.event.release.prerelease == false) }}
-    runs-on: ubuntu-20.04
-    needs: [build-wheels]
-    steps:
-      - name: Grab built wheels
-        uses: actions/download-artifact@v3
-        with:
-          name: wheels
-          path: dist
-
-      - name: upload to pypi
-        env:
-          PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
-        run: |
-          ls -R dist
-          pip3 install --upgrade pip setuptools
-          pip3 install --upgrade twine
-          python3 -m twine upload --repository testpypi -u __token__ -p "${PYPI_TOKEN}" --skip-existing dist/*
-          
-  update-index:
-    name: Update s3 index
-    runs-on: ubuntu-20.04
-    needs: [build-wheels]
-    steps:
-      - uses: actions/checkout@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: true
-
-      - name: Get tag
-        id: vars
-        run: |
-          echo ::set-output name=tag::${GITHUB_REF##*/pyzef-}
-
-      - name: Release announcement
-        if: ${{ (!contains(github.ref, 'dev') && github.event.release.prerelease == false) }}
-        env:
-          MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
-          CHANNEL: releases
-          NAME: ${{ github.event.release.name }}
-          DESCRIPTION: ${{ github.event.release.body }}
-          VERSION_STRING: ${{ steps.vars.outputs.tag }}
-          DOWNLOAD_STRING: "`pip3 install --upgrade zef`"
-        run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
-
-      - name: Release announcement for dev
-        if: ${{ (contains(github.ref, 'dev') || github.event.release.prerelease == true) }}
-        env:
-          MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
-          CHANNEL: dev-releases
-          NAME: "${{ github.event.release.name }}"
-          DESCRIPTION: "${{ github.event.release.body }}"
-          VERSION_STRING: ${{ steps.vars.outputs.tag }}
-          DOWNLOAD_STRING: "https://github.com/zefhub/zef/releases/${{ steps.vars.outputs.tag }}"
-        run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
-
   upload-zefops:
     name: Deploy zefops docstrings to zef-docs.
     runs-on: ubuntu-20.04
-    needs: [build-wheels]
-    if: ${{ !contains(github.ref, 'dev') && github.event.release.prerelease == 'false' }}
+    needs: [check-wheels]
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
     strategy:
       matrix:
         python-version: [3.8]
     steps:
-      - uses: actions/checkout@v2
-        with:
-          path: /home/runner/work/zefDB/zefDB/zefDB
-          token: ${{ secrets.GITHUB_TOKEN }}
+      steps:
+        - name: Get tag
+          id: tag
+          # This will probably need to massaging to find the latest tag amongst all tags
+          run: |
+            echo ::set-output name=tag::${GITHUB_REF##*/pyzef-}
+
+      # - uses: actions/checkout@v2
+      #   with:
+      #     path: /home/runner/work/zefDB/zefDB/zefDB
+      #     token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Grab built wheel
-        uses: actions/download-artifact@v3
+        env:
+          ZEF_VERSION: ${{ steps.tag.outputs.tag }}
+        run: |
+          python3 -mpip install zef==${ZEF_VERSION}
         with:
           name: wheels
           path: dist
@@ -182,3 +69,25 @@ jobs:
           git add docs/zef-ops.mdx
           git commit -m "Auto generated zef-ops docs from docstrings in Zef repo."
           git push origin master
+
+  publish-announcement:
+    name: Publish announcement of new release
+    runs-on: ubuntu-20.04
+    needs: [upload-zefops]
+    if: ${{ github.event.release.prerelease == false) }}
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Release announcement
+        env:
+          MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
+          CHANNEL: releases
+          NAME: ${{ github.event.release.name }}
+          DESCRIPTION: ${{ github.event.release.body }}
+          VERSION_STRING: ${{ needs.upload-zefops.outputs.tag }}
+          DOWNLOAD_STRING: "`pip3 install --upgrade zef`"
+        run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
+
