@@ -14,21 +14,19 @@ jobs:
     needs: [check-wheels]
     outputs:
       tag: ${{ steps.tag.outputs.tag }}
-    strategy:
-      matrix:
-        python-version: [3.8]
     steps:
-      steps:
-        - name: Get tag
-          id: tag
-          # This will probably need to massaging to find the latest tag amongst all tags
-          run: |
-            echo ::set-output name=tag::${GITHUB_REF##*/pyzef-}
+      - uses: actions/checkout@v2
+        with:
+          path: /home/runner/work/zef/zef
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      # - uses: actions/checkout@v2
-      #   with:
-      #     path: /home/runner/work/zefDB/zefDB/zefDB
-      #     token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Get tag
+        id: tag
+        run: |
+          a=$(python .github/scripts/get_version_from_tag.py)
+          b=$?
+          [ $b = 0 ] || exit $b
+          echo ::set-output name=tag::${a}
 
       - name: Grab built wheel
         env:
@@ -42,7 +40,7 @@ jobs:
       - name: Setup python
         uses: actions/setup-python@v2
         with:
-          python-version: ${{ inputs.python-version }}
+          python-version: 3.8
 
       - name: Install wheel
         run: pip3 install dist/*.whl
@@ -56,13 +54,13 @@ jobs:
           python zefDB/scripts/extract-docstrings.py
       - uses: actions/checkout@v2
         with:
-          repository: synchronoustechnologies/zef-docs
-          path: /home/runner/work/zefDB/zefDB/zef-docs
+          repository: zefhub/zef-docs
+          path: /home/runner/work/zef/zef-docs
           token: ${{ secrets.GIT_ACCESS_KEY }}
           persist-credentials: true
       - run: |
-          mv zef-ops.mdx /home/runner/work/zefDB/zefDB/zef-docs/docs/zef-ops.mdx
-          cd /home/runner/work/zefDB/zefDB/zef-docs
+          mv zef-ops.mdx /home/runner/work/zef/zef-docs/docs/zef-ops.mdx
+          cd /home/runner/work/zef/zef-docs
           git status
           git config user.email "thedanielforum@gmail.com"
           git config user.name "Zef Bot by Github Actions"

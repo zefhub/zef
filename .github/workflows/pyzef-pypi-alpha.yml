@@ -1,31 +1,27 @@
-name: PyPI releases
+# Same as pyzef-pypi but with a restricted matrix
 
+name: PyPI alpha releases
+
+# Note: we put the dev release in here too as pyzef-pypi.yml is ignoring those.
 on:
  push:
    tags:
-     - "pyzef-*"
-     - "!pyzef-*a*"
-     - "!pyzef-*dev*"
+     - "pyzef-*a*"
+     - "pyzef-*dev*"
 
 jobs:
   check-license:
     uses: ./.github/workflows/check-license.yml
   build-wheels:
+    if: ${{ !contains(github.ref, 'dev') }}
     needs: check-license
     name: Build wheels
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-latest]
-        # os: [ubuntu-20.04]
         # Note: need "3.10" as yaml will truncate floating point number
-        python-version: ["cp37", "cp38", "cp39", "cp310"]
-        # python-version: ["cp310"]
-        exclude:
-          - os: macos-latest
-            python-version: "cp38"
-          - os: macos-latest
-            python-version: "cp37"
+        python-version: ["cp39", "cp310"]
     env:
       ZEFHUB_AUTH_KEY: "GUEST"
 
@@ -35,12 +31,6 @@ jobs:
       - uses: actions/checkout@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Install OpenSSL on macos
-      #   if: ${{ startsWith(matrix.os, 'macos') }}
-      #   run: |
-      #     brew install openssl
-
 
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.4.0
@@ -104,3 +94,39 @@ jobs:
           ls -R wheelhouse
           pip3 install --upgrade twine
           python3 -m twine upload -u __token__ -p "${PYPI_TOKEN}" --skip-existing wheelhouse/*
+          
+  dev-announcement:
+    name: Dev announcement
+    runs-on: ubuntu-20.04
+    needs: [upload-to-pypi]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Get tag
+        id: vars
+        run: |
+          echo ::set-output name=tag::${GITHUB_REF##*/pyzef-}
+
+      # - name: Release announcement
+      #   if: ${{ (!contains(github.ref, 'dev') && github.event.release.prerelease == false) }}
+      #   env:
+      #     MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
+      #     CHANNEL: releases
+      #     NAME: ${{ github.event.release.name }}
+      #     DESCRIPTION: ${{ github.event.release.body }}
+      #     VERSION_STRING: ${{ steps.vars.outputs.tag }}
+      #     DOWNLOAD_STRING: "`pip3 install --upgrade zef`"
+      #   run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
+
+      - name: Release announcement for dev
+        env:
+          MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
+          CHANNEL: dev-releases
+          NAME: "${{ github.event.release.name }}"
+          DESCRIPTION: "${{ github.event.release.body }}"
+          VERSION_STRING: ${{ steps.vars.outputs.tag }}
+          DOWNLOAD_STRING: "`pip install zef==${{ steps.vars.outputs.tag }}`"
+        run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
