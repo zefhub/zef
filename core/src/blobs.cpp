@@ -85,7 +85,7 @@ namespace zefDB {
                 size_t backtrack_amount = sizeof(edge_info) - offsetof(edge_info, indices);
                 // Note: +1 is because there is another edge for the subsequent
                 // edge list.
-                return -backtrack_amount + (x.edges.local_capacity + 1)*sizeof(blob_index);
+                return (x.edges.local_capacity + 1)*sizeof(blob_index) - backtrack_amount;
             }, b);
 
         // TODO: This is probably worthwhile splitting off to a "visit_blob_with_data" too.

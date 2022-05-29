@@ -35,14 +35,15 @@ namespace zefDB {
 		void* blob_ptr = nullptr;
 				
 		//EZefRef(const EZefRef& b) : blob_ptr(b.blob_ptr) {}  // can we just keep the default ctor? Otherwise we also have to generte cpy assignment opr etc.
-		//EZefRef() : blob_ptr(nullptr) {}; // default constructor required by constructor in ZefRef class?
-		EZefRef() { blob_ptr = nullptr; };
+		EZefRef() = default;
+		EZefRef(const EZefRef& b) = default;
 		explicit EZefRef(ZefRef uzr);
 		EZefRef(void* ptr);
 		// first cast on uintptr_t to be able to shift by the my_blob_index 
 		EZefRef(blob_index my_blob_index, const GraphData& graph_data_to_get_graph_from);
 		EZefRef(blob_index my_blob_index, const Graph& graph);
 		explicit operator bool() const { return blob_ptr != nullptr &&  (*(char*)blob_ptr != char(0)); }		
+		//EZefRef& operator=(const EZefRef& b) {blob_ptr = b.blob_ptr; return *this;}
 	};
 
 
@@ -148,7 +149,9 @@ namespace zefDB {
 
 		// the GraphData object is passed along to the mem allocator that it can be allocated behind the gd object.
 		void* operator new(std::size_t size_to_allocate, int actual_array_length_to_allocate, GraphData* gd);
+		void operator delete(void * ptr, int actual_array_length_to_allocate, GraphData* gd) noexcept;
 		void* operator new(std::size_t size_to_allocate, int actual_array_length_to_allocate);
+		void operator delete(void * ptr, int actual_array_length_to_allocate) noexcept;
 
 		// This default allocator (not taking any additional arguments) is required when using functions returning a EZefRef within Python via pybind11
 		void* operator new(std::size_t size_to_allocate);
@@ -302,7 +305,9 @@ namespace zefDB {
 
 		// the GraphData object is passed along to the mem allocator that it can be allocated behind the gd object.
 		void* operator new(std::size_t size_to_allocate, int actual_array_length_to_allocate, GraphData* gd);
-		void* operator new(std::size_t size_to_allocate, int actual_array_length_to_allocate) ;
+		void operator delete(void * ptr, int actual_array_length_to_allocate, GraphData* gd) noexcept;
+		void* operator new(std::size_t size_to_allocate, int actual_array_length_to_allocate);
+		void operator delete(void * ptr, int actual_array_length_to_allocate) noexcept;
 
 		// This default allocator (not taking any additional arguments) is required when using functions returning a ZefRef within Python via pybind11
 		void* operator new(std::size_t size_to_allocate) ;
@@ -359,7 +364,8 @@ namespace zefDB {
 		using difference_type = ptrdiff_t;
 
 		const EZefRef* ptr_to_current_uzr;// = nullptr;
-		const EZefRef reference_frame_tx;// = EZefRef{ nullptr };  // we need to have access to this on the fly in the iterator as well, to create a ZefRef to return
+		// Note: tx can't be const to allow for copy assignment which is needed in some STL functions.
+		EZefRef reference_frame_tx;// = EZefRef{ nullptr };  // we need to have access to this on the fly in the iterator as well, to create a ZefRef to return
 
 
 

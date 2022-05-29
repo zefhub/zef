@@ -16,11 +16,6 @@
 
 #pragma once
 
-#ifdef _MSC_VER
-#include "mmap_windows.h"
-#else
-
-
 #include <iostream>
 #include <vector>
 #include <stdexcept>
@@ -31,10 +26,10 @@
 #include "include_fs.h"
 
 #include <sys/stat.h>
-#include <sys/mman.h>
-#include <sys/file.h>
+//#include <sys/mman.h>
+//#include <sys/file.h>
 #include <fcntl.h>
-#include <unistd.h>
+//#include <unistd.h>
 #include <assert.h>
 #include <math.h>
 #include <string.h>
@@ -47,11 +42,15 @@
 #include "zefDB_utils.h"
 #include "uids.h"
 
+#include <windows.h>
+#include <sysinfoapi.h>
+#include <io.h>
+
 // For print_backtrace equivalent
-#include <stdio.h>
-#include <execinfo.h>
-#include <stdlib.h>
-#include <unistd.h>
+//#include <stdio.h>
+//#include <execinfo.h>
+//#include <stdlib.h>
+//#include <unistd.h>
 
 // The layout of memory:
 //
@@ -93,6 +92,64 @@
 namespace zefDB {
     namespace MMap {
 
+        constexpr size_t WIN_FILE_LOCK_BYTES = 1024;
+        inline std::string WindowsErrorMsg() {
+            LPVOID lpMsgBuf;
+            FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            GetLastError(),
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPTSTR)&lpMsgBuf,
+            0, NULL);
+
+            std::string ret((LPCTSTR)lpMsgBuf);
+
+            LocalFree(lpMsgBuf);
+            return ret;
+        }
+
+        inline void *WindowsMMap(int fd, size_t offset, size_t size, void * location) {
+            if(fd == 0) {
+                // Anonymous map
+                if(location != NULL)
+                    throw std::runtime_error("Can't map anonymous with location given.");
+                void * ret = VirtualAlloc(NULL, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+                if(ret == NULL)
+                    throw std::runtime_error("Unable to map anonymous: " + WindowsErrorMsg());
+                return ret;
+            } else {
+                // Going to hope that closing a file mapping handle leaves the mapped views alive.
+                // TODO: lookup the possibility of inter-process competition for creating file mappings - as they shared across processes?
+                // TODO: Handle the high/low parts
+                HANDLE h = (HANDLE)_get_osfhandle(fd);
+                HANDLE map_h = CreateFileMappingA(h, NULL, PAGE_READWRITE, 0, offset+size, NULL);
+                if (map_h == NULL || GetLastError() == ERROR_ALREADY_EXISTS)
+                    throw std::runtime_error("Unable to create file mapping: " + WindowsErrorMsg());
+                void* ret = MapViewOfFileEx(map_h, FILE_MAP_ALL_ACCESS, 0, offset, size, location);
+                if(ret == NULL)
+                    throw std::runtime_error("Unable to map view of file: " + WindowsErrorMsg());
+                if (!CloseHandle(map_h))
+                    throw std::runtime_error("Unable to close file mapping: " + WindowsErrorMsg());
+                return ret;
+            }
+        }
+
+        inline bool WindowsLockFile(int fd) {
+            HANDLE h = (HANDLE)_get_osfhandle(fd);
+            if (!LockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0))
+                return false;
+            return true;
+        }
+        inline void WindowsUnlockFile(int fd, bool flush=false) {
+            HANDLE h = (HANDLE)_get_osfhandle(fd);
+            if(flush) {
+                if (!FlushFileBuffers(h))
+                    throw std::runtime_error("Problem flushing file to disk: " + WindowsErrorMsg());
+            }
+            if (!UnlockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0))
+                    throw std::runtime_error("Problem unlocking file: " + WindowsErrorMsg());
+        }
+
         constexpr unsigned int PAGE_BITMAP_BITS = ZEF_UID_SHIFT / ZEF_PAGE_SIZE;
 
         // * Utils
@@ -107,6 +164,11 @@ namespace zefDB {
             return temp;
         }
 
+        inline size_t getpagesize() {
+            SYSTEM_INFO sys_info;
+            GetSystemInfo(&sys_info);
+            return sys_info.dwPageSize;
+        }
         inline void * align_to_system_pagesize(void * ptr) { return floor_ptr(ptr, getpagesize()); }
 
         inline void error(const char * s) {
@@ -128,11 +190,12 @@ namespace zefDB {
         }
 
         inline bool is_fd_writable(int fd) {
-            int flags;
-            flags = fcntl(fd, F_GETFL);
+            BY_HANDLE_FILE_INFORMATION info;
+            HANDLE handle = (HANDLE)_get_osfhandle(fd);
+            GetFileInformationByHandle(handle, &info);
             // The options O_WRONLY or O_RDWR do not share bits, so this is technically
             // not correct, however in our case we never have a O_WRONLY scenario.
-            return (flags & O_RDWR);
+            return (info.dwFileAttributes & O_RDWR);
         }
 
         //////////////////////////////
@@ -144,7 +207,7 @@ namespace zefDB {
             int what_errno;
             FileAlreadyLocked(std::filesystem::path path) : path(path) {
                 what_errno = errno;
-                s = std::string("Can't acquire exclusive lock on filegraph (") + std::string(path) + "), aborting. Errno = " + to_str(what_errno);
+                s = std::string("Can't acquire exclusive lock on filegraph (") + path.string() + "), aborting. Errno = " + to_str(what_errno);
             }
             const char * what() const noexcept {
                 return s.c_str();
@@ -160,7 +223,7 @@ namespace zefDB {
             std::string s;
 
             FileGraphWrongVersion(std::filesystem::path path, int version, std::string extra="") : path(path), version(version), extra(extra) {
-                s = std::string("Filegraph (") + std::string(path) + "), was the wrong version (" + to_str(version) + ").";
+                s = std::string("Filegraph (") + path.string() + "), was the wrong version (" + to_str(version) + ").";
                 if(extra != "")
                     s += " " + extra;
             }
@@ -170,7 +233,7 @@ namespace zefDB {
         };
 
         struct FileGraph {
-            static constexpr size_t invalid_page = std::numeric_limits<size_t>::max();
+            static constexpr size_t invalid_page = (std::numeric_limits<size_t>::max)();
             std::filesystem::path path_prefix;
             std::vector<int> fds = {};
             // std::vector<size_t> file_size_in_pages = {};
@@ -263,24 +326,32 @@ namespace zefDB {
             void set_latest_blob_index(blob_index new_value);
 
             void flush_mmap() {
-                msync(main_file_mapping, prefix_size(get_version()), MS_ASYNC);
+                // Note: FlushViewOfFile is asynchronous.
+                FlushViewOfFile(main_file_mapping, prefix_size(get_version()));
             }
 
             std::optional<std::string> validate_preload(BaseUID uid);
 
             FileGraph(std::filesystem::path path_prefix, BaseUID uid, bool fallback_to_fresh=false, bool force_fresh=false);
             ~FileGraph() {
+                if(main_file_mapping != nullptr) {
+                    // Note: this is not doing a sync flush, but we will be waiting on FlushFileBuffers below which will make this effectively synchronous.
+                    FlushViewOfFile(main_file_mapping, prefix_size(get_version()));
+                    if(!UnmapViewOfFile(main_file_mapping)) {
+                        std::cerr << "Problem unmapping main_file_mapping. Ignoring." << std::endl;
+                        std::cerr << WindowsErrorMsg() << std::endl;
+                    };
+                }
                 for(auto & fd : fds) {
                     if(fd != -1) {
-                        fsync(fd);
-                        flock(fd, LOCK_UN);
+                        try {
+                            WindowsUnlockFile(fd, true);
+                        } catch(const std::exception & exc) {
+                            std::cerr << "Problem unlocking file: " + std::string(exc.what()) << std::endl;
+                            std::cerr << "Ignoring because in ~FileGraph" << std::endl;
+                        }
                         close(fd);
                     }
-                }
-                if(main_file_mapping != nullptr && main_file_mapping != MAP_FAILED) {
-                    // Doing a sync flush here, instead of the async in flush_mmap.
-                    msync(main_file_mapping, prefix_size(get_version()), MS_SYNC);
-                    munmap(main_file_mapping, prefix_size(get_version()));
                 }
             }
         };
@@ -388,17 +459,15 @@ namespace zefDB {
 #else
         inline void ensure_or_alloc_range(void * ptr, size_t size) {
 #endif
-#ifndef _MSC_VER
-            // This is a very dirty hack to ensure we never alloc something too small
-            if(size < blobs_ns::max_basic_blob_size) {
-                std::cerr << "Warning! Tried to ensure a mem range that is smaller than max_basic_blob_size!" << std::endl;
-                // Can't use print_backtrace here due to cyclic deps.
-                void *array[50];
-                size_t size;
-                size = backtrace(array, 50);
-                backtrace_symbols_fd(array, size, 1);
-            }
-#endif
+            // // This is a very dirty hack to ensure we never alloc something too small
+            // if(size < blobs_ns::max_basic_blob_size) {
+            //     std::cerr << "Warning! Tried to ensure a mem range that is smaller than max_basic_blob_size!" << std::endl;
+            //     // Can't use print_backtrace here due to cyclic deps.
+            //     void *array[50];
+            //     size_t size;
+            //     size = backtrace(array, 50);
+            //     backtrace_symbols_fd(array, size, 1);
+            // }
             
             MMapAllocInfo& info = info_from_blob(ptr);
             // TODO: See if this can be optimised by converting to a bitshift. I suspect
@@ -425,7 +494,7 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED void flush_mmap(MMapAllocInfo& info);
         LIBZEF_DLL_EXPORTED void flush_mmap(MMapAllocInfo& info, blob_index latest_blob);
         LIBZEF_DLL_EXPORTED void page_out_mmap(MMapAllocInfo& info);
-        LIBZEF_DLL_EXPORTED std::tuple<size_t,size_t,size_t,size_t> report_sizes(MMapAllocInfo& info);
+        //LIBZEF_DLL_EXPORTED std::tuple<size_t,size_t,size_t,size_t> report_sizes(MMapAllocInfo& info);
         LIBZEF_DLL_EXPORTED void print_malloc_arenas(void);
 
         LIBZEF_DLL_EXPORTED void destroy_mmap(MMapAllocInfo& info);
@@ -490,9 +559,12 @@ namespace zefDB {
             _WholeFileMapping(FileGraph & fg, FileGraph::WholeFile_v1 & info);
             _WholeFileMapping(const _WholeFileMapping & other) = delete;
             ~_WholeFileMapping() {
-                if(size > 0) {
-                    msync(ptr, size, MS_SYNC);
-                    munmap(ptr, size);
+                if(fd != 0 && size > 0) {
+                    FlushViewOfFile(ptr, size);
+                    if(!UnmapViewOfFile(ptr)) {
+                        std::cerr << WindowsErrorMsg() << std::endl;
+                        std::cerr << "Problem unmapping WholeFileMapping." << std::endl;
+                    };
                 }
                 if(fd == 0 && head != nullptr)
                     delete head;
@@ -545,5 +617,3 @@ namespace zefDB {
         };
     }
 }
-
-#endif

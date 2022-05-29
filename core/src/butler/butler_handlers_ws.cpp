@@ -14,8 +14,6 @@
 
 #include "butler/locking.h"
 
-#include <unistd.h>
-
 void handle_token_response(Butler & butler, json & j);
 void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr & task);
 

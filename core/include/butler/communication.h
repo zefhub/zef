@@ -21,6 +21,7 @@
 #include "butler/locking.h"
 
 #define ASIO_STANDALONE
+#define _WEBSOCKETPP_CPP11_STL_
 #include <websocketpp/config/asio_client.hpp>
 #ifdef ZEFDB_ALLOW_NO_TLS
 #include <websocketpp/config/asio_no_tls_client.hpp>

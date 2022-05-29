@@ -297,10 +297,11 @@ def match_imp(item, patterns):
 
     ---- Examples ----
     >>> -9 | match[
-    >>>     (less_than[-10], 'very cold'),
-    >>>     (less_than[0], 'cold'),
-    >>>     (greater_than_or_equal[0], 'ok'),
-    >>> ] | collect                            => 'cold'
+    >>>     (Is[less_than[-10]], lambda x: f'it is a freezing {x} degrees'),
+    >>>     (Is[less_than[10]], lambda x: f'somewhat cold: {x} degrees'),
+    >>>     (Is[greater_than_or_equal[20]], lambda x: f'warm: {x}'),
+    >>>     (Any, lambda x: f'something else {x}'),
+    >>> ] | collect                            => 'somewhat cold: -9 degrees'
 
     ---- Arguments ----
     item: the incoming value
@@ -314,13 +315,21 @@ def match_imp(item, patterns):
     - used for: logic
     - used for: function application
     """
-    for pred, return_val in patterns:
-        if pred(item): return return_val
+    for tp, f_to_apply in patterns:
+        try:
+            if is_a(item, tp): return f_to_apply(item)
+        except Exception as e:            
+            raise RuntimeError(f'\nError within `match` zefop case predicate: `{tp}`  `applying function: {f_to_apply}`: {e}')
     raise RuntimeError(f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
     
 
+
 def match_tp(op, curr_type):
     return VT.Any
+
+
+
+
 
 
 def match_apply_imp(item, patterns):
@@ -3083,6 +3092,41 @@ def sign_tp(op, curr_type):
 
 
 
+# --------------------------------------- If ------------------------------------------------
+def If_imp(x, pred, true_case_func, false_case_func):
+    """
+    Dispatches to one of two provided functions based on the boolean 
+    result of the predicate function wrapped as a logic type, given
+    the input value.
+    The input value into the zefop is used by the predicate and 
+    forwarded to the relevant case function.
+
+    ---- Examples ----
+    >>> Evens = Is[modulus[2] | equals[0]]
+    >>> 4 | If[ Evens ][add[1]][add[2]]            # => 5
+
+    ---- Signature ----
+    ((T->Bool), (T->T1), (T->T2)) -> Union[T1, T2]
+
+    ---- Tags ----
+    - used for: control flow
+    - used for: logic
+    - related zefop: if_then_else
+    - related zefop: group_by
+    - related zefop: match
+    - related zefop: match_apply
+    - related zefop: filter
+    """
+    try:
+        case = pred(x)
+    except Exception as e:            
+        raise RuntimeError(f'\nError within `If` zefop evaluating predicate function: `{pred}` for value  `{x}`: {e}')
+    try:
+        return true_case_func(x) if case else false_case_func(x)
+    except Exception as e:            
+        raise RuntimeError(f'\nError within `If` zefop evaluating the apply function for value  `{x}`: {e}')
+
+
 # --------------------------------------- if_then_else ------------------------------------------------
 def if_then_else_apply_imp(x, pred, true_case_func, false_case_func):
     """
@@ -5276,12 +5320,13 @@ def is_a_implementation(x, typ):
     from ..error import _ErrorType
     def union_matching(el, union):
         for t in union.d['absorbed']: 
-            if is_a_implementation(el, t): return True
+            if is_a(el, t): 
+                return True
         return False
 
     def intersection_matching(el, intersection):
         for t in intersection.d['absorbed']: 
-            if not is_a_implementation(el, t): return False
+            if not is_a(el, t): return False
         return True
 
     def is_matching(el, setof):
@@ -5315,7 +5360,7 @@ def is_a_implementation(x, typ):
             for k, v in p.items():            
                 r = x.get(k, sentinel)
                 if r is sentinel: return False
-                if not is_a_implementation(r, v): return False  
+                if not is_a(r, v): return False  
             return True
 
     def valuetype_matching(el, vt):
@@ -5332,50 +5377,51 @@ def is_a_implementation(x, typ):
             "List": list,
             "Dict": dict,
             "Set": set,
+            "Bytes": bytes,
         }
 
         if vt.d['type_name'] in {"Int", "Float", "Bool"}:
             python_type = vt_name_to_python_type[vt.d['type_name']]
-            return isinstance(el, python_type) or python_type(el) == el
+            try:
+                return isinstance(el, python_type) or python_type(el) == el
+            except:
+                return False
 
         if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
         python_type = vt_name_to_python_type[vt.d['type_name']]
         return isinstance(el, python_type)
 
     if isinstance(typ, ValueType_):
-        try:
-            if typ.d['type_name'] == "Union":
-                return union_matching(x, typ)
+        if typ.d['type_name'] == "Union":
+            return union_matching(x, typ)
 
-            if typ.d['type_name'] == "Intersection":
-                return intersection_matching(x, typ)
+        if typ.d['type_name'] == "Intersection":
+            return intersection_matching(x, typ)
 
-            if typ.d['type_name'] == "Is":
-                return is_matching(x, typ)
+        if typ.d['type_name'] == "Is":
+            return is_matching(x, typ)
 
-            if typ.d['type_name'] == "SetOf":
-                return set_of_matching(x, typ)
-            
-            if typ.d['type_name'] == "Complement":
-                return not is_a_implementation(x, typ.d['absorbed'][0])
+        if typ.d['type_name'] == "SetOf":
+            return set_of_matching(x, typ)
+        
+        if typ.d['type_name'] == "Complement":
+            return not is_a(x, typ.d['absorbed'][0])
 
-            if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
-                map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
-                def compare_absorbed(x, typ):
-                    val_absorbed = absorbed(x)
-                    typ_absorbed = absorbed(typ)
-                    for i,typ in enumerate(typ_absorbed):
-                        if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
-                        if not is_a_implementation(val_absorbed[i],typ): return False
-                    return True
-                return without_absorbed(x) == map_[typ.d['type_name']] and compare_absorbed(x, typ)
+        if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
+            map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
+            def compare_absorbed(x, typ):
+                val_absorbed = absorbed(x)
+                typ_absorbed = absorbed(typ)
+                for i,typ in enumerate(typ_absorbed):
+                    if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
+                    if not is_a(val_absorbed[i],typ): return False
+                return True
+            return without_absorbed(x) == map_[typ.d['type_name']] and compare_absorbed(x, typ)
 
-            if typ.d['type_name'] == "Pattern":
-                return pattern_vt_matching(x, typ)
+        if typ.d['type_name'] == "Pattern":
+            return pattern_vt_matching(x, typ)
 
-            return valuetype_matching(x, typ)
-        except:
-            return False
+        return valuetype_matching(x, typ)
                     
     # To handle user passing by int instead of Int by mistake
     if typ in [int, float, bool]:
@@ -5385,7 +5431,7 @@ def is_a_implementation(x, typ):
             float: Float
         }
         print(f"{repr(typ)} was passed as a type, but what you meant was { py_type_to_vt[typ]}!")
-        return is_a_implementation(x, py_type_to_vt[typ])
+        return is_a(x, py_type_to_vt[typ])
 
 
     if type(x) == _ErrorType:

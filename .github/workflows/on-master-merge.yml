@@ -14,12 +14,14 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-latest]
-        python-version: [3.7, 3.8, 3.9, "3.10"]
+        os: [ubuntu-20.04, macos-latest, windows-latest]
+        python-version: [3.7, "3.10"]
         exclude:
           - os: macos-latest
             python-version: 3.8
           - os: macos-latest
+            python-version: 3.7
+          - os: windows-latest
             python-version: 3.7
     env:
       ZEFHUB_AUTH_KEY: "GUEST"
@@ -33,7 +35,7 @@ jobs:
       # TODO: Update this to check via building the wheel rather than a local build
       - name: Build
         uses: ./.github/actions/build
-        timeout-minutes: 15
+        timeout-minutes: 30
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}

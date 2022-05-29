@@ -125,3 +125,5 @@ tests/Testing/Temporary/
 /python/zef.egg-info/
 /scripts/all_created.tokens
 /scripts/early.tokens
+python/zef/pyzef.pyd
+core/CMakeSettings.json
