@@ -36,12 +36,6 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Install OpenSSL on macos
-      #   if: ${{ startsWith(matrix.os, 'macos') }}
-      #   run: |
-      #     brew install openssl
-
-
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.4.0
         with:
