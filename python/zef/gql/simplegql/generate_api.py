@@ -1200,25 +1200,25 @@ def commit_with_post_checks(actions, post_checks, info):
                 if kind == "add":
                     for z_func in type_node | Outs[RT.OnCreate]:
                         try:
-                            func(z_func)(obj)
+                            func[z_func](obj)
                         except:
-                            raise Exception(f"OnCreate hook for type_node of '{type_name}' threw an exception")
+                            raise ExternalError(f"OnCreate hook for type_node of '{type_name}' threw an exception")
                     if not pass_add_auth(obj, type_node, info):
-                        raise Exception(f"Add auth check for type_node of '{type_name}' returned False")
+                        raise ExternalError(f"Add auth check for type_node of '{type_name}' returned False")
                 elif kind == "update":
                     for z_func in type_node | Outs[RT.OnUpdate]:
                         try:
-                            func(z_func)(obj)
+                            func[z_func](obj)
                         except:
-                            raise Exception(f"OnUpdate hook for type_node of '{type_name}' threw an exception")
+                            raise ExternalError(f"OnUpdate hook for type_node of '{type_name}' threw an exception")
                     if not pass_post_update_auth(obj, type_node, info):
-                        raise Exception(f"Post-update auth check for type_node of '{type_name}' returned False")
+                        raise ExternalError(f"Post-update auth check for type_node of '{type_name}' returned False")
                 elif kind == "remove":
                     for z_func in type_node | Outs[RT.OnRemove]:
                         try:
-                            func(z_func)(obj)
+                            func[z_func](obj)
                         except:
-                            raise Exception(f"OnRemove hook for type_node of '{type_name}' threw an exception")
+                            raise ExternalError(f"OnRemove hook for type_node of '{type_name}' threw an exception")
 
 
         except Exception as exc:
@@ -1226,6 +1226,9 @@ def commit_with_post_checks(actions, post_checks, info):
                       exc_info=exc)
             from ...pyzef.internals import AbortTransaction
             AbortTransaction(g)
-            raise ExternalError("Mutation did not pass auth checks")
+            if type(exc) == ExternalError:
+                raise exc
+            else:
+                raise ExternalError("Unexpected error in auth check/hooks execution")
 
     return r

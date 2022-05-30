@@ -31,20 +31,20 @@ parser.add_argument("--no-host-role", action="store_false", dest="host_role",
                     help="Whether the server should acquire host role on the data graph.")
 parser.add_argument("--create", action="store_true",
                     help="If the data graph does not exist, then create a new blank graph.")
-parser.add_argument("--hooks", type=str, default=None,
+parser.add_argument("--hooks", type=str, default=None, dest="hooks_file",
                     help="If present, a python file containing the hooks to make available for the schema file")
 args = parser.parse_args()
 
 from .schema_file_parser import parse_partial_graphql, json_to_minimal_nodes, prepare_hooks
 
 g_schema = Graph()
-if hooks_file is not None:
+if args.hooks_file is not None:
     # Prep the schema graph with the hooks, so that the schema nodes can point directly at these
     prepare_hooks(g_schema, args.hooks_file)
 
 schema_gql = args.schema_file | read_file | run | get["content"] | collect
 parsed_dict = parse_partial_graphql(schema_gql)
-commands = json_to_minimal_nodes(parsed_dict)
+commands = json_to_minimal_nodes(parsed_dict, g_schema)
 r = commands | transact[g_schema] | run
 root = r["root"]
 log.info(f"Created schema graph from '{args.schema_file}'")

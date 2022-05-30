@@ -53,8 +53,7 @@ def parse_partial_graphql(schema):
         try:
             details = json.loads(details)
         except Exception as exc:
-            raise Exception(
-                f"JSON parsing of Zef directive '{name}' failed") from exc
+            raise Exception(f"JSON parsing of Zef directive '{name}' failed") from exc
 
         if name == "Authentication":
             assert "auth" not in output, "Not allowed to have multiple Zef.Authentication directives."
@@ -105,7 +104,7 @@ def parse_partial_graphql(schema):
                     t_def["_ET"] = arg.value.value
                 elif directive.name.value == "hook":
                     for arg in directive.arguments:
-                        for hook_name in ["Create", "Remove", "Update"]
+                        for hook_name in ["Create", "Remove", "Update"]:
                             if arg.name.value == f"on{hook_name}":
                                 t_def[f"_On{hook_name}"] = arg.value.value
                                 break
