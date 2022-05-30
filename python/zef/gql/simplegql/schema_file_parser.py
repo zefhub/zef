@@ -17,6 +17,8 @@ from ...ops import *
 
 import json
 import graphql
+
+
 def parse_partial_graphql(schema):
     """Goes through the schema line by line and creates a json file that represents
     the schema one-to-one. This should be an invertible process.
@@ -29,10 +31,9 @@ def parse_partial_graphql(schema):
         "enums": {}
     }
 
-    
     # Find all Zef directives first, which are single-line comments that begin with # Zef.<name>:
-    lines = (schema 
-             | split["\n"] 
+    lines = (schema
+             | split["\n"]
              | filter[lambda x: x.startswith("# Zef.")]
              | map[lambda x: x[len("# Zef."):]]
              | collect)
@@ -40,7 +41,7 @@ def parse_partial_graphql(schema):
     for line in lines:
         parts = line.split(':', 1)
         assert len(parts) == 2, "Zef directive line contains no ':'."
-        name,details = parts
+        name, details = parts
         name = name.strip()
 
         if name == "SchemaVersion":
@@ -48,24 +49,25 @@ def parse_partial_graphql(schema):
             output["schema_version"] = details.strip()
             continue
 
-
         # Anything else requires json parsing
         try:
             details = json.loads(details)
         except Exception as exc:
-            raise Exception(f"JSON parsing of Zef directive '{name}' failed") from exc
+            raise Exception(
+                f"JSON parsing of Zef directive '{name}' failed") from exc
 
         if name == "Authentication":
             assert "auth" not in output, "Not allowed to have multiple Zef.Authentication directives."
             for key in details:
-                assert key in ["Algo", "JWKURL", "Audience", "Header", "Namespace", "VerificationKey", "VerificationKeyEnv", "Public"], f"Unknown auth key '{key}'"
+                assert key in ["Algo", "JWKURL", "Audience", "Header", "Namespace",
+                               "VerificationKey", "VerificationKeyEnv", "Public"], f"Unknown auth key '{key}'"
             output["auth"] = details
         else:
             raise Exception(f"Unsupported Zef.{name} directive")
 
-
     if output.get("schema_version", None) != "v1":
-        raise Exception("Only support schemas with an explicit version of 'v1'. Please include:\n# Zef.SchemaVersion: v1\ninto your schema file.")
+        raise Exception(
+            "Only support schemas with an explicit version of 'v1'. Please include:\n# Zef.SchemaVersion: v1\ninto your schema file.")
 
     for definition in doc.definitions:
         if definition.kind == "object_type_definition":
@@ -74,7 +76,8 @@ def parse_partial_graphql(schema):
             for directive in definition.directives:
                 if directive.name.value == "auth":
                     if "auth" not in output:
-                        raise Exception("Disallowing @auth directives when no # Zef.Authentication... line is present to prevent accidentally security holes.")
+                        raise Exception(
+                            "Disallowing @auth directives when no # Zef.Authentication... line is present to prevent accidentally security holes.")
                     for arg in directive.arguments:
                         if arg.name.value == "query":
                             t_def["_AllowQuery"] = arg.value.value
@@ -100,6 +103,14 @@ def parse_partial_graphql(schema):
                     if arg.name.value != "et":
                         raise Exception("ET directive needs exactly one argument, 'et'")
                     t_def["_ET"] = arg.value.value
+                elif directive.name.value == "hook":
+                    for arg in directive.arguments:
+                        for hook_name in ["Create", "Remove", "Update"]
+                            if arg.name.value == f"on{hook_name}":
+                                t_def[f"_On{hook_name}"] = arg.value.value
+                                break
+                        else:
+                            raise Exception(f"Unknown hook name {hook_name}")
                 else:
                     raise Exception(f"Don't know how to handle type directive @{directive.name.value}")
 
@@ -150,9 +161,8 @@ def parse_partial_graphql(schema):
         else:
             raise Exception(f"Don't know how to handle a top-level graphql schema object of kind {definition.kind}")
 
-
-
     return output
+
 
 def string_to_RAET(s):
     if s.startswith("ET."):
@@ -166,21 +176,22 @@ def string_to_RAET(s):
     else:
         raise Exception(f"Can't parse string as a RAE type: {s}")
 
+
 def parse_arguments_as_dict(args):
     d = {}
     for arg in args:
         d[arg.name.value] = arg.value.value
     return d
-    
-        
+
+
 def simple_capitalize(s):
     # This is here to make things like firebaseID go to FirebaseID rather than
     # FirebaseId. This is more predicatable for users.
     assert len(s) > 0
     return s[0].upper() + s[1:]
-    
 
-def json_to_minimal_nodes(json):
+
+def json_to_minimal_nodes(json, g):
     """This takes a json schema, such as one produced by the `parse_schema`
         function, and puts the minimal GQL schema nodes onto the graph.
         "Minimal" is the key word here, as the generated schema graph nodes will
@@ -247,7 +258,7 @@ def json_to_minimal_nodes(json):
         if name in json["enums"]:
             return getattr(AET.Enum, name)
         return ET(name)
-    
+
     for type_name,fields in json["types"].items():
 
         actions += [(ET.GQL_Type[type_name], RT.Name, type_name)]
@@ -265,12 +276,17 @@ def json_to_minimal_nodes(json):
                     continue
                 elif field_name in ["_AllowQuery", "_AllowAdd", "_AllowUpdate", "_AllowUpdatePost", "_AllowDelete"]:
                     # TODO: Turn into a zef function later on
-                    actions += [(Z[type_name], RT(field_name[1:]), field),]
+                    actions += [(Z[type_name], RT(field_name[1:]), field)]
+                elif field_name in ["_OnCreate", "_OnRemove", "_OnUpdaate"]:
+                    # Find the zef function that this corresponds to
+                    z_func = g[field]
+                    actions += [(Z[type_name], RT(field_name[1:]), z_func)]
+
                 elif field_name == "_Upfetch":
                     assert field in fields and "unique" in fields[field] and "required" in fields[field], f"Upfetch field '{field}' must exist, be unique and be required."
                     # We can figure out which relation we can attach the upfetch bool to.
                     qual_name = type_name + "__" + field
-                    actions += [(Z[qual_name], RT.Upfetch, True),]
+                    actions += [(Z[qual_name], RT.Upfetch, True)]
                 else:
                     raise Exception(f"Don't understand special field name '{field_name}'")
             else:
@@ -315,3 +331,15 @@ def json_to_minimal_nodes(json):
             actions += [(Z[enum_name], RT.GQL_Field, EN(enum_name, opt))]
 
     return actions
+
+
+
+# This is sort of not really part of this file but is the simplest place to put it
+def prepare_hooks(graph, hooks_file):
+    with open(hooks_file) as f:
+        code = compile(f.read(), hooks_file, "exec")
+        globs = {"g": graph}
+        locs = {}
+        exec(code, globs, locs)
+
+    # We could try and be fancy here with autodetection of names - but for the initial test let's just make the user do everything, including tagging nodes.
