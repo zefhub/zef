@@ -30,8 +30,11 @@ using json = nlohmann::json;
 #if defined(_MSC_VER)
     std::filesystem::path find_libzef_path() {
         char* path = std::getenv("LIBZEF_AUTH_HTML_PATH");
+        if (zefDB::zwitch.developer_output())
+            std::cerr << "getenv returned (" << path << ") for LIBZEF_AUTH_HTML_PATH" << std::endl;
         if (path == NULL)
             throw std::runtime_error("Path was not set by controlling process!");
+        // As the caller expects a library, we should give them something even if it doesn't exist.
         return std::filesystem::path(path);
     }
 #elif __APPLE__
@@ -46,7 +49,7 @@ using json = nlohmann::json;
         if(!dladdr(address, &info))
             throw std::runtime_error("Couldn't call dladdr");
 
-        return std::filesystem::path(info.dli_fname);
+        return std::filesystem::path(info.dli_fname).parent_path();
     }
 #elif __linux__
 #include <dlfcn.h>
@@ -60,7 +63,7 @@ using json = nlohmann::json;
         dlinfo(handle, RTLD_DI_LINKMAP, (void*)&info);
         char * filename = info->l_name;
 
-        return std::filesystem::path(filename);
+        return std::filesystem::path(filename).parent_path();
     }
 #elif __unix__ // all unices not caught above
 #else
@@ -86,6 +89,8 @@ namespace zefDB {
           port_end(port_end),
           acceptor_(io_service_) {
 
+        if(zwitch.developer_output())
+            std::cerr << "About to setup ASIO resolver and endpoint" << std::endl;
         asio::ip::tcp::resolver resolver(io_service_);
         asio::ip::tcp::endpoint endpoint{asio::ip::tcp::v4(), port_start};
         acceptor_.open(endpoint.protocol());
@@ -105,10 +110,14 @@ namespace zefDB {
         if(cur_port > port_end)
             throw std::runtime_error("Unable to find an unoccupied port in the port range " + to_str(port_start) + ":" + to_str(port_end));
 
+        if(zwitch.developer_output())
+            std::cerr << "About to call acceptor_.listen" << std::endl;
         acceptor_.listen();
 
         do_accept();
 
+        if(zwitch.developer_output())
+            std::cerr << "About to start io_server thread" << std::endl;
         thread = std::make_shared<std::thread>([this]() {io_service_.run();});
         // TODO: Trigger opening of browser
         std::string url("http://localhost:" + std::to_string(cur_port) + "/auth");
@@ -130,17 +139,24 @@ namespace zefDB {
 #else
 #   error "Unknown compiler"
 #endif
+        if(zwitch.developer_output())
+            std::cerr << "About to run system command to open browser." << std::endl;
         system(command.c_str());
     }
 
     void AuthServer::do_accept() {
+        if(zwitch.developer_output())
+            std::cerr << "Start of do_accept" << std::endl;
         Session sesh = std::make_shared<Connection>(this);
         acceptor_.async_accept(sesh->socket,
-                               [sesh,this](std::error_code ec)
+                               [sesh, this](std::error_code ec)
                                {
+                                   if (zwitch.developer_output())
+                                       std::cerr << "Start of async_accept callback" << std::endl;
                                    if (!acceptor_.is_open())
                                        return;
-                                   if (!ec) {
+                                   if (!ec)
+                                   {
                                        update(locker, received_query, true);
                                        Session_interact(sesh);
                                    }
@@ -193,6 +209,8 @@ namespace zefDB {
     }
 
     void Session_interact(AuthServer::Session sesh) {
+        if (zwitch.developer_output())
+            std::cerr << "Start of Session_interact" << std::endl;
         // Read first line
         asio::async_read_until(sesh->socket, sesh->buff, '\r',
                                [sesh](const std::error_code& e, std::size_t s)
@@ -205,6 +223,8 @@ namespace zefDB {
                                    ss >> sesh->http_headers.method;
                                    ss >> sesh->http_headers.url;
                                    ss >> sesh->http_headers.version;
+                                   if (zwitch.developer_output())
+                                       std::cerr << "Session URL: " << sesh->http_headers.url << std::endl;
                                    Session_read_next_line(sesh);
                                });
     }
@@ -259,21 +279,34 @@ namespace zefDB {
     // std::shared_ptr<server> s;
 
     std::string AuthServer::auth_reply() {
+        if (zwitch.developer_output())
+            std::cerr << "Going to reply with auth.html" << std::endl;
         auto p = find_libzef_path();
-        p = p.parent_path();
+        if (zwitch.developer_output())
+            std::cerr << "Libzef path is: " << p.string() << std::endl;
+        // Note: this changed, it was that find_libzef_path would give the path to the library, but now it gives the path to the directory containing the library.
+        // p = p.parent_path();
         // p /= "..";
         // p /= "share";
         // p /= "zefDB";
         p /= "auth.html";
+        if (zwitch.developer_output())
+            std::cerr << "auth.html path is: " << p.string() << std::endl;
 
         // std::cerr << p << std::endl;
 
-        if(!std::filesystem::exists(p))
+        if(!std::filesystem::exists(p)) {
+            std::cerr << "Failed check for existence of auth.html" << p.string() << std::endl;
             throw std::runtime_error("Can't find the template for the auth server.");
+        }
 
+        if (zwitch.developer_output())
+            std::cerr << "Reading auth.html" << std::endl;
         std::ifstream t(p);
         std::stringstream ss;
         ss << t.rdbuf();
+        if (zwitch.developer_output())
+            std::cerr << "Going to send file contents to client" << std::endl;
         std::string response = "HTTP/1.1 200 OK\n\n";
         response += ss.str();
         return response;
@@ -324,6 +357,8 @@ namespace zefDB {
     }
 
     std::shared_ptr<AuthServer> manage_local_auth_server(port_t port_start, port_t port_end) {
+        if(zwitch.developer_output())
+            std::cerr << "Start of manage_local_auth_server" << std::endl;
         if(global_auth_server)
             throw std::runtime_error("There is already an auth server running");
         global_auth_server = std::make_shared<AuthServer>(port_start, port_end);
