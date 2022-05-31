@@ -14,7 +14,6 @@
 
 from ..core import *
 from ..ops import *
-from typing import *
 from .auto import auto_generate_gql
 from ..core.logger import log
 
