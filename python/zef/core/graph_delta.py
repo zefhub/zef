@@ -305,7 +305,10 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
 
         for k,v in sub_d.items():
             verify_input_el(k, id_definitions, True, False)
-            verify_input_el(v, id_definitions, False, True)
+            if isinstance(v, list):
+                [verify_input_el(e, id_definitions, False, True) for e in v]
+            else:
+                verify_input_el(v, id_definitions, False, True)
 
         return
 
@@ -790,9 +793,15 @@ def realise_single_node(x, gen_id):
 
         exprs = entity_exprs
         for k,v in sub_d.items():
-            target_iid, target_exprs = realise_single_node(v, gen_id)
-            exprs.extend(target_exprs)
-            exprs.append((Z[iid], k, Z[target_iid]))
+            if isinstance(v, list):
+                for e in v:
+                    target_iid, target_exprs = realise_single_node(e, gen_id)
+                    exprs.extend(target_exprs)
+                    exprs.append((Z[iid], k, Z[target_iid]))
+            else:
+                target_iid, target_exprs = realise_single_node(v, gen_id)
+                exprs.extend(target_exprs)
+                exprs.append((Z[iid], k, Z[target_iid]))
     else:
         raise TypeError(f'in GraphDelta encode step: for type(x)={type(x)}')
 
