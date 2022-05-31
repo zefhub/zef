@@ -5354,7 +5354,8 @@ def is_a_implementation(x, typ):
         sentinel = Sentinel() 
         p = typ | absorbed | single | collect
         assert (
-            (isinstance(x, dict) and isinstance(p, dict)) 
+            (isinstance(x, dict) and isinstance(p, dict)) or
+            (type(x) in {list, tuple} and type(p) in {list, tuple}) 
         )
         if isinstance(x, dict):
             for k, v in p.items():            
@@ -5363,6 +5364,13 @@ def is_a_implementation(x, typ):
                 if not isinstance(v, ValueType_): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
                 if not is_a(r, v): return False  
             return True
+        elif isinstance(x, list) or isinstance(x, tuple):
+            for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
+                if not isinstance(p_e, ValueType_): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
+                if not is_a(x_e, p_e): return False  
+            return True
+        
+        raise NotImplementedError(f"Pattern ValueType isn't implemented for {x}")
 
     def valuetype_matching(el, vt):
         if vt == VT.Any: return True
