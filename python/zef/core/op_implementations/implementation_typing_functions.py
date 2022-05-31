@@ -7191,7 +7191,7 @@ def fg_insert_imp(fg, new_el):
 
         elif isinstance(new_el, Val):
             new_el = new_el.arg
-            hash_vn = blake3(str(new_el))
+            hash_vn = blake3(new_el)
             if hash_vn not in new_key_dict:
                 idx = next_idx()
                 new_key_dict[hash_vn] = idx
