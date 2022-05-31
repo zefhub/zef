@@ -5360,6 +5360,7 @@ def is_a_implementation(x, typ):
             for k, v in p.items():            
                 r = x.get(k, sentinel)
                 if r is sentinel: return False
+                if not isinstance(v, ValueType_): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
                 if not is_a(r, v): return False  
             return True
 
