@@ -206,7 +206,7 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, boo
     // Apply blob updates
 
     internals::include_new_blobs(gd, heads.blobs.from, heads.blobs.to, blob_bytes, double_link, false);
-    gd.latest_complete_tx = index(internals::get_latest_complete_tx_node(gd));
+    update(gd.heads_locker, gd.latest_complete_tx, index(internals::get_latest_complete_tx_node(gd)));
 
     // Apply cache updates
 

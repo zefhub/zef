@@ -299,8 +299,13 @@ namespace zefDB {
         if(!response.generic.success)
             throw std::runtime_error("Unable to create new graph: " + response.generic.reason);
         *this = std::move(*response.g);
-        if(internal_use_only)
+        if(internal_use_only) {
+            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
+            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
+            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
+            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
             return;
+        }
         // std::cerr << "New graph Graph(), ref_count = " << my_graph_data().reference_count.load() << std::endl;
         
         // After here, we should always destruct

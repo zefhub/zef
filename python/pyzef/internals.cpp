@@ -690,7 +690,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("initialise_butler", py::overload_cast<>(&Butler::initialise_butler));
 	internals_submodule.def("initialise_butler", py::overload_cast<std::string>(&Butler::initialise_butler));
 	internals_submodule.def("initialise_butler_as_master", &Butler::initialise_butler_as_master);
-	internals_submodule.def("stop_butler", &Butler::stop_butler);
+    // Note: stopping the butler can cause python functions to be removed from
+    // subscriptions, so the GIL needs to be released.
+	internals_submodule.def("stop_butler", &Butler::stop_butler, py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("root_node_blob_index", internals::root_node_blob_index, "which blob index does the root node have?");
 	internals_submodule.def("validate_message_version", &Messages::validate_message_version);
 	internals_submodule.def("early_token_list", &Butler::early_token_list);

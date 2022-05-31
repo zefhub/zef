@@ -162,7 +162,10 @@ namespace zefDB {
                         std::cerr << "Thread taking a long time to shutdown... " << name << std::endl;
                         if(extra_print)
                             (*extra_print)();
-                        status = future.wait_for(std::chrono::seconds(10));
+                        if(check_env_bool("ZEFDB_DEVELOPER_THREAD_LONGWAIT"))
+                            status = future.wait_for(std::chrono::seconds(10000));
+                        else
+                            status = future.wait_for(std::chrono::seconds(10));
                         if (status == std::future_status::timeout) {
                             std::cerr << "Gave up on waiting for thread: " << name << std::endl;
                             thread.detach();
@@ -1502,7 +1505,9 @@ namespace zefDB {
                     std::cerr << "Unloading graph: " << gtd->uid << std::endl;
                     // std::cerr << "Heads: sync: " << gtd->gd->sync_head.load() << ", read: " << gtd->gd->read_head.load() << ", write: " << gtd->gd->write_head.load() << std::endl;
                 }
+                gtd->debug_last_action = "Before destructing GraphData";
                 gtd->gd->~GraphData();
+                gtd->debug_last_action = "Destructed GraphData";
                 MMap::destroy_mmap((void*)gtd->gd);
                 gtd->debug_last_action = "Cleaned up mmap";
             }
