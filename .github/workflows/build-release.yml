@@ -13,16 +13,9 @@ jobs:
     name: Deploy zefops docstrings to zef-docs.
     runs-on: ubuntu-20.04
     steps:
-      # - uses: actions/checkout@v2
-      #   with:
-      #     path: zef-tagged
-      #     token: ${{ secrets.GITHUB_TOKEN }}
-      #     ref: pyzef-${{ github.event.inputs.tag }}
-
       - uses: actions/checkout@v2
         with:
           path: zef-latest
-          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup python
         uses: actions/setup-python@v2
@@ -46,8 +39,7 @@ jobs:
         with:
           repository: zefhub/zef-docs
           path: zef-docs
-          token: ${{ secrets.GIT_ACCESS_KEY }}
-          persist-credentials: true
+          token: ${{ secrets.GIT_FULL_ACCESS_KEY }}
       - run: |
           mv zef-ops.mdx /home/runner/work/zef/zef-docs/docs/zef-ops.mdx
           cd /home/runner/work/zef/zef-docs
@@ -64,9 +56,6 @@ jobs:
     needs: [upload-zefops]
     steps:
       - uses: actions/checkout@v2
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: true
 
       - name: Get announcement details
         id: release-details
