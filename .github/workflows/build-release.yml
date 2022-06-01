@@ -12,6 +12,7 @@ jobs:
   upload-zefops:
     name: Deploy zefops docstrings to zef-docs.
     runs-on: ubuntu-20.04
+    environment: Release
     steps:
       - uses: actions/checkout@v2
         with:
