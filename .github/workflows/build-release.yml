@@ -13,17 +13,16 @@ jobs:
     name: Deploy zefops docstrings to zef-docs.
     runs-on: ubuntu-20.04
     steps:
+      # - uses: actions/checkout@v2
+      #   with:
+      #     path: zef-tagged
+      #     token: ${{ secrets.GITHUB_TOKEN }}
+      #     ref: pyzef-${{ github.event.inputs.tag }}
+
       - uses: actions/checkout@v2
         with:
-          path: zef
+          path: zef-latest
           token: ${{ secrets.GITHUB_TOKEN }}
-          ref: pyzef-${{ github.event.inputs.tag }}
-
-      - name: debugging
-        run: |
-          pwd
-          ls
-          
 
       - name: Setup python
         uses: actions/setup-python@v2
@@ -42,7 +41,7 @@ jobs:
         run: |
           # export PYTHONPATH="${GITHUB_WORKSPACE}/zef:$PYTHONPATH"
           # echo $PYTHONPATH
-          python zef/scripts/extract-docstrings.py
+          python zef-latest/scripts/extract-docstrings.py
       - uses: actions/checkout@v2
         with:
           repository: zefhub/zef-docs
