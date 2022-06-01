@@ -55,6 +55,8 @@ jobs:
       ########
       # Generate docs
       - name: Run extract docstrings script
+        env:
+          VERSION_STRING: ${{ env.ZEF_TAG }}
         run: |
           python zef-latest/scripts/extract-docstrings.py
       - uses: actions/checkout@v2
@@ -62,7 +64,8 @@ jobs:
           repository: zefhub/zef-docs
           path: zef-docs
           token: ${{ secrets.GIT_FULL_ACCESS_TOKEN }}
-      - env:
+      - name: Commit to zef-docs
+        env:
           TARGET_FILE: "docs/reference/zef-ops.mdx"
         run: |
           # Make sure the file hasn't moved
