@@ -40,7 +40,7 @@ jobs:
         with:
           repository: zefhub/zef-docs
           path: zef-docs
-          token: ${{ secrets.GIT_FULL_ACCESS_KEY }}
+          token: ${{ secrets.GIT_FULL_ACCESS_TOKEN }}
       - run: |
           mv zef-ops.mdx /home/runner/work/zef/zef-docs/docs/zef-ops.mdx
           cd /home/runner/work/zef/zef-docs
