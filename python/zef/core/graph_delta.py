@@ -26,6 +26,7 @@ from ._ops import *
 from .op_structs import ZefOp, LazyValue
 from .graph_slice import GraphSlice
 from .abstract_raes import Entity, Relation, AtomicEntity, TXNode, Root
+from .logger import log
 
 from abc import ABC
 class ListOrTuple(ABC):
@@ -184,9 +185,12 @@ def construct_commands(elements) -> list:
     # elements = elements | map[handle_dict | first] | concat | collect
     # Obtain all user IDs
     id_definitions = elements | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
+    # log.debug("Got id_definitions")
     # Check that nothing needs a user ID that wasn't provided
     elements | for_each[verify_input_el[id_definitions]]
+    # log.debug("Verified input_el")
     elements | for_each[verify_relation_source_target[id_definitions]]
+    # log.debug("Verified relation_source_target")
 
     state_initial = {
         'user_expressions': tuple(elements),
@@ -200,7 +204,7 @@ def construct_commands(elements) -> list:
             nonlocal num_done, next_print
             num_done += 1
             if now() > next_print:
-                print(f"Up to iteration {num_done} - {len(x['user_expressions'])}, {len(x['commands'])}", now())
+                log.debug("Construct: Up to", num_done=num_done, num_expr=len(x['user_expressions']), num_cmd=len(x['commands']))
                 next_print = now() + 5*seconds
         return debug_output
         
@@ -851,7 +855,7 @@ def verify_and_compact_commands(cmds: tuple):
             nonlocal num_done, next_print
             num_done += 1
             if now() > next_print:
-                print(f"Up to compacting {num_done} - {len(x['state']['input'])}, {len(x['state']['output'])}", now())
+                log.debug("Compacting:", num_done=num_done, num_input=len(x['state']['input']), num_output=len(x['state']['output']))
                 next_print = now() + 5*seconds
         return debug_output
 
@@ -1108,7 +1112,12 @@ def perform_transaction_commands(commands: list, g: Graph):
             # TODO: Have to change the behavior of Transaction(g) later I suspect
             frame_now = GraphSlice(tx_now)
             d_raes['tx'] = tx_now
+
+            # next_print = now()+5*seconds
             for i,cmd in enumerate(commands):
+                # if now() > next_print:
+                #     log.debug("Perform", i=i, total=len(commands))
+                #     next_print = now() + 5*seconds
 
                 zz = None
                 
