@@ -16,6 +16,7 @@ jobs:
       - uses: actions/checkout@v2
         with:
           path: zef-latest
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup python
         uses: actions/setup-python@v2
@@ -56,6 +57,8 @@ jobs:
     needs: [upload-zefops]
     steps:
       - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Get announcement details
         id: release-details
