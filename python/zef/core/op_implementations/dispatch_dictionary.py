@@ -301,4 +301,5 @@ _op_to_functions = {
         RT.If:                 (If_imp, None),
         RT.Field:              (field_imp, None),
         RT.Fields:             (fields_imp, None),
+        RT.Apply:              (apply_imp, None),
 }

@@ -8049,3 +8049,35 @@ def fields_imp(z, rt):
 
 
 
+# ----------------------------- apply -----------------------------
+def apply_imp(x, f):
+    """
+    Very similar to func to apply a function
+    to an input argument.
+    In addition, a tuple of functions (f1,..,.fn) can 
+    be specified and the output is is the tuple of
+    the individual output values.
+    Note that this procedure is distinct from map, as
+    it acts on the single flow input argument once.
+
+    ---- Signature ----
+    (T,  (T->T2) ) -> T2    # if f is a single function
+    (T, List[(T->T2)] ) -> List[T2]
+
+    ---- Examples ----
+    >>> 40 | apply[
+        add[1],
+        add[2],
+        String,
+    ]   # [41, 42, '40']
+    
+    ---- Tags ----
+    - related zefop: map
+    - related zefop: func
+    - related zefop: call
+    - used for: control flow
+    - used for: function application
+    """
+    if isinstance(f, tuple) or isinstance(f, list):
+        return tuple(ff(x) for ff in f)
+    else: return f(x)
