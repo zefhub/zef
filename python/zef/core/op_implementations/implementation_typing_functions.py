@@ -3078,7 +3078,7 @@ def sign_imp(x):
     also: sign(0)=0
 
     ---- Signature ----
-    Union[Int, Float] -> Int
+    Union[Int, Float] -> SetOf[-1,0,1] | Error
     """
     if x > 0: return 1 
     elif x == 0: return 0
