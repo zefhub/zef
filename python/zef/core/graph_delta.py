@@ -46,69 +46,22 @@ for t in [list, tuple]:
 # - commands: dictionaries in the constructed GraphDelta which match directly to low-level changes.
 # - expressions: high-level things which match to user expectations. There are "complex" expressions and "primitive" expressions.
 #
-# The general flow to take a bunch of complex exprs, turn them into primitive
-# exprs (may increase the number of exprs) and then turn these into commands.
-#
-# GraphDelta constructor is in three stages:
-# First stage: verify input and translate to "simpler" or "fewer" base exprs.
-# Second stage: convert exprs to commands and order them
-# Orders them by iterating on to-do commands, sorts into bucket of can-be-done-now and to-do-later, applies can-be-done-now, iterate
-#
-# Logic flow of GraphDelta constructor is:
-# - handles nested GraphDeltas (including reassigning unique temporary ids)
-# - calls verify_internal_id on each expr (this builds a ID dict for the next step)
-# - calls verify_input_el on each expr (this validates that all Z[...] are in the ID dict, as well as the exprs have the expected structure)
-# - calls verify_relation_source_target (checks abstract Relations have all source/targets)
-# - TODO: call verify no TX or root nodes
-# - iteratively calls iteration_step (make_iteration_step)
-# - calls verify_and_compact_commands - does ordering
-#
-# iteration_step is a dispatch on expr type to call functions with _cmds_for prefix (e.g. _cmds_for_instantiable)
-# - takes in exprs-to-do ("user-expressions"), finished-commands ("commands") and seen-ids ("ids_present")
-# - returns new exprs, new commands and new ids
-# - eventually exprs list should "run out" and everything is now a command
-# - another analogy: exprs is a "work queue", cmds/ids is an "output list", iteration_step takes from work queue, puts results into output and maybe more jobs into the work queue.
-#
-#
-# Shorthand syntax:
-#
-# e.g. (a, (b,c,d)) = [ET.Entity, (z, RT.Something, 5)] | g | run
-#
-# If the user uses the shorthand syntax then the logic first passes through
-# `encode`. The function encode only does two additional things to the
-# GraphDelta constructor - it assigns IDs where necessary to be able to return
-# appropriate results, and prevents a few unusual things (e.g. tagging a
-# ZefRef). Most of this function is dedicated to handling relations to be able
-# to unpack them into the right structures. Other nodes are left "as is" except
-# for obtaining iids to unpack them.
-#
-#
-#
-# realise_single_node:
-# Used by encode for every top level item and used by GraphDelta constructor and
-# encode for pieces of relations. This function exists to both assign an ID and
-# convert a complex expression to a primitive one. Only works on "single
-# objects", e.g. entity, value, ZefRef, and not relations or tags.
-#
-# e.g. realise_single_node(ET.Entity) = ("tmp_id_1", ET.Entity["tmp_id_1"])
-#
-# 
-# Performing GraphDelta transaction:
-# - works through list of commands, applying then in a low-level transaction onto the graph
-# - commands must be properly ordered (done in constructor) before this function is called
-# - each command fills in ID dictionary to be returned as receipt.
-# - ID dictionary is called "d_raes"
-#
 
-# types of commands:
-# - instantiate
-# - assign_value
-# - merge
-# - terminate
-# - tag
-#
-# Commands should use keywords of "internal_id" or "origin_rae" to fill in ID dictionary.
+# TODO: REDO THE DESCRIPTION OF THIS FILE
 
+
+
+# WARNING!!!
+# WARNING!!!
+# WARNING!!!
+#
+# Much of the logic flow in this file is written in an immutable functional
+# style. However, for speed many of these functions have been changed to a
+# mutating version. This can lead to confusion when debugging.
+#
+# WARNING!!!
+# WARNING!!!
+# WARNING!!!
 
 
 ########################################################
