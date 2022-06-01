@@ -1362,15 +1362,24 @@ def get_absorbed_id(obj):
     return obj | absorbed | single_or[None] | collect
 
 
+# @func
+# def merge_no_overwrite(a,b):
+#     d = {**a}
+
+#     for k,v in b.items():
+#         if k in d and d[k] != v:
+#             raise Exception("The internal id '{k}' refers to multiple objects, including '{d[k]}' and '{v}'. This is ambiguous and not allowed.")
+#         d[k] = v
+#     return d
+
 @func
 def merge_no_overwrite(a,b):
-    d = {**a}
-
+    # This version is mutating because otherwise it's too slow
     for k,v in b.items():
-        if k in d and d[k] != v:
-            raise Exception("The internal id '{k}' refers to multiple objects, including '{d[k]}' and '{v}'. This is ambiguous and not allowed.")
-        d[k] = v
-    return d
+        if k in a and a[k] != v:
+            raise Exception("The internal id '{k}' refers to multiple objects, including '{a[k]}' and '{v}'. This is ambiguous and not allowed.")
+        a[k] = v
+    return a
 
 
 
