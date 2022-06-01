@@ -42,15 +42,20 @@ jobs:
           repository: zefhub/zef-docs
           path: zef-docs
           token: ${{ secrets.GIT_FULL_ACCESS_TOKEN }}
+        env:
+          VERSION_STRING: ${{ github.event.inputs.tag }}
+          TARGET_FILE: docs/reference/zef-ops.mdx
       - run: |
-          mv zef-ops.mdx zef-docs/docs/zef-ops.mdx
+          # Make sure the file hasn't moved
+          [ -f zef-docs/${TARGET_FILE} ]
+          mv zef-ops.mdx zef-docs/$TARGET_FILE
           cd zef-docs
           git status
           git config user.email "thedanielforum@gmail.com"
           git config user.name "Zef Bot by Github Actions"
-          git add docs/zef-ops.mdx
+          git add ${TARGET_FILE}
           if ! git diff-index --quiet HEAD ; then
-            git commit -m "Auto generated zef-ops docs from docstrings in Zef repo."
+            git commit -m "Auto generated zef-ops docs from docstrings in Zef repo for version ${VERSION_STRING}."
             git push origin master
           fi
 
