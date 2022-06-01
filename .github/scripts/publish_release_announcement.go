@@ -17,6 +17,11 @@ type Message struct {
 }
 
 func main() {
+	content, err := os.ReadFile(os.Getenv("DESCRIPTION_FILE"))
+	if err != nil {
+        log.Fatal(err)
+	}
+
 	// Create mattermost message
 	msg := Message{
 		Channel: os.Getenv("CHANNEL"),
@@ -24,7 +29,7 @@ func main() {
 			"**New ZefDB release available: %s.**\n**%s**\n%s\n\nDownload: %s",
 			os.Getenv("NAME"),
 			os.Getenv("VERSION_STRING"),
-			os.Getenv("DESCRIPTION"),
+			string(content),
 			os.Getenv("DOWNLOAD_STRING"),
 		),
 	}

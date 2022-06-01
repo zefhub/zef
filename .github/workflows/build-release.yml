@@ -3,12 +3,8 @@ name: Publish Release
 on:
   workflow_dispatch:
     inputs:
-      desc:
-        description: 'The markdown of the release'
-        required: true
-        type: string
-      title:
-        description: 'The release title'
+      tag:
+        description: 'The pyzef-x tag of the release'
         required: true
         type: string
 
@@ -17,38 +13,23 @@ jobs:
     name: Deploy zefops docstrings to zef-docs.
     runs-on: ubuntu-20.04
     needs: [check-wheels]
-    outputs:
-      tag: ${{ steps.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@v2
         with:
           path: /home/runner/work/zef/zef
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Get tag
-        id: tag
-        run: |
-          a=$(python .github/scripts/get_version_from_tag.py)
-          b=$?
-          [ $b = 0 ] || exit $b
-          echo ::set-output name=tag::${a}
-
-      - name: Grab built wheel
-        env:
-          ZEF_VERSION: ${{ steps.tag.outputs.tag }}
-        run: |
-          python3 -mpip install zef==${ZEF_VERSION}
-        with:
-          name: wheels
-          path: dist
+          tag: ${{ github.event.inputs.tag }}
 
       - name: Setup python
         uses: actions/setup-python@v2
         with:
           python-version: 3.8
 
-      - name: Install wheel
-        run: pip3 install dist/*.whl
+      - name: Grab built wheel
+        env:
+          ZEF_VERSION: ${{ github.event.inputs.tag }}
+        run: |
+          python3 -mpip install zef==${ZEF_VERSION}
 
       ########
       # Generate docs
@@ -73,14 +54,6 @@ jobs:
           git commit -m "Auto generated zef-ops docs from docstrings in Zef repo."
           git push origin master
 
-  make-gh-release:
-    name: Release on GitHub
-    steps:
-      - uses: softprops/action-gh-release@v1
-        with:
-          body: ${{ github.event.inputs.desc }}
-          name: ${{ github.event.inputs.title }}
-
   publish-announcement:
     name: Publish announcement of new release
     runs-on: ubuntu-20.04
@@ -91,13 +64,21 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
 
+      - name: Get announcement details
+        id: release-details
+        run: |
+          curl -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/zefhub/zef/releases/tags/$ZEF_TAG -o curl.out || exit 1
+          cat curl.out | jq -r .body > release.body || exit 1
+          title=$(cat curl.out | jq -r .name)
+          echo ::set-output name=title::${title}
+
       - name: Release announcement
         env:
           MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
-          CHANNEL: releases
-          NAME: ${{ github.event.inputs.title }}
-          DESCRIPTION: ${{ github.event.inputs.desc }}
-          VERSION_STRING: ${{ needs.upload-zefops.outputs.tag }}
+          CHANNEL: "releases"
+          NAME: ${{ steps.release-details.outputs.title }}
+          DESCRIPTION_FILE: "release.body"
+          VERSION_STRING: ${{ github.events.inputs.tag }}
           DOWNLOAD_STRING: "`pip3 install --upgrade zef`"
         run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
 
