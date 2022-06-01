@@ -62,9 +62,9 @@ jobs:
           repository: zefhub/zef-docs
           path: zef-docs
           token: ${{ secrets.GIT_FULL_ACCESS_TOKEN }}
-        env:
+      - env:
           TARGET_FILE: "docs/reference/zef-ops.mdx"
-      - run: |
+        run: |
           # Make sure the file hasn't moved
           [ -f zef-docs/${TARGET_FILE} ]
           mv zef-ops.mdx zef-docs/$TARGET_FILE
