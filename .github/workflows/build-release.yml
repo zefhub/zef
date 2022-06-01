@@ -68,7 +68,7 @@ jobs:
         env:
           ZEF_TAG: ${{ github.event.inputs.tag }}
         run: |
-          curl -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/zefhub/zef/releases/tags/${ZEF_TAG} -o curl.out || exit 1
+          curl -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/zefhub/zef/releases/tags/pyzef-${ZEF_TAG} -o curl.out || exit 1
           cat curl.out | jq -re .body > release.body || exit 1
           title=$(cat curl.out | jq -re .name)
           echo ::set-output name=title::${title}
