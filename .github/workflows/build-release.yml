@@ -12,7 +12,6 @@ jobs:
   upload-zefops:
     name: Deploy zefops docstrings to zef-docs.
     runs-on: ubuntu-20.04
-    needs: [check-wheels]
     steps:
       - uses: actions/checkout@v2
         with:
