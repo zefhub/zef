@@ -34,9 +34,9 @@ jobs:
       # Generate docs
       - name: Run extract docstrings script
         run: |
-          export PYTHONPATH="${GITHUB_WORKSPACE}/zefDB:$PYTHONPATH"
-          echo $PYTHONPATH
-          python zefDB/scripts/extract-docstrings.py
+          # export PYTHONPATH="${GITHUB_WORKSPACE}/zef:$PYTHONPATH"
+          # echo $PYTHONPATH
+          python zef/scripts/extract-docstrings.py
       - uses: actions/checkout@v2
         with:
           repository: zefhub/zef-docs
