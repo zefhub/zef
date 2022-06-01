@@ -356,11 +356,12 @@ def match_apply_imp(item, patterns):
     - used for: logic
     - used for: function application
     """
+    print(f"match_apply will be deprecated!  😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴. Simply use match instead ")
     for pred, applied_func in patterns:
         if pred(item):
             assert callable(applied_func)
             return applied_func(item)
-    raise RuntimeError(f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
+    raise (f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
     
 
 def match_apply_tp(op, curr_type):
@@ -3111,10 +3112,8 @@ def If_imp(x, pred, true_case_func, false_case_func):
     ---- Tags ----
     - used for: control flow
     - used for: logic
-    - related zefop: if_then_else
     - related zefop: group_by
     - related zefop: match
-    - related zefop: match_apply
     - related zefop: filter
     """
     try:
@@ -3151,6 +3150,7 @@ def if_then_else_apply_imp(x, pred, true_case_func, false_case_func):
     - related zefop: match_apply
     - related zefop: filter
     """
+    print(f"😭😭😭😭😭😭😭😭 Deprecation warning: the 'if_then_else_apply' operator will be deprecated. It is replaced by `If` instead, but it takes a valueType as a first argument.")
     return true_case_func(x) if pred(x) else false_case_func(x)
 
 
@@ -3178,6 +3178,7 @@ def if_then_else_imp(x, pred, value1, value2):
     - related zefop: match_apply
     - related zefop: filter
     """
+    print(f"😭😭😭😭😭😭😭😭 Deprecation warning: the 'if_then_else' operator will be deprecated. It is replaced by `If` instead, but it takes a valueType as a first argument.")
     return value1 if pred(x) else value2
 
 
@@ -7059,6 +7060,23 @@ def make_request_tp(op, curr_type):
 
 #---------------------------------------- blake3 -----------------------------------------------
 def blake3_imp(obj) -> VT.String:
+    """
+    Cryptographic hash function.
+    Can be applied to strings and Bytes.
+
+    ---- Examples ----
+    >>> 'hello' | blake3    
+    >>> b'hello' | blake3    
+    
+    ---- Signature ----
+    String -> String
+    Bytes -> String
+
+    ---- Tags ----
+    - used for: Cryptography
+    - operates on: String
+    - operates on: Bytes
+    """
     # Hash some input all at once. The input can be bytes, a bytearray, or a memoryview.
     from blake3 import blake3 as b3
     if isinstance(obj, bytes):
@@ -7716,9 +7734,10 @@ def to_bytes_imp(x: String) -> Bytes:
     used for: type conversion
     operates on: String
     """
+    from zef.core.bytes import Bytes_
     if isinstance(x, str): return Bytes(x.encode())     # default: utf8
-    if isinstance(x, Bytes): return x
     if isinstance(x, bytes): return Bytes(x)
+    if isinstance(x, Bytes_): return x
     else: raise NotImplementedError()
 
 
@@ -7930,3 +7949,102 @@ def schema_imp(x, include_edges=False):
 
 def schema_tp(x):
     return VT.List
+
+
+
+
+# ----------------------------- field -----------------------------
+
+@func
+def field_imp(z, rt):
+    """
+    Opinionated operator that is part of high level zef.
+
+    1) If the final node at the end of the path is an AET,
+       the `value` zefop is automatically applied. i.e. The
+       value and not the ZefRef to the node is returned.
+
+    2) Automatically maps to the right nesting order, it
+       essentially wraps with the according number of "map"s
+    >>> [z1, z2, z3] | F.Name      # equivalent to 
+    >>> [z1, z2, z3] | map[Out[RT.Name] | value]
+
+
+    ***** TODO: allow traversing the "implied graphs", given ********
+          a base graph and set of rules.
+
+    rules = [
+            Implies[ (ET.Person['p'], RT.Directed, ET.Movie['m']), (ET.Movie['m'], RT.Director, ET.Person['p']) ],
+
+            Implies[ (Any['y'], RT.BirthYear, Any['x']), (Any['y'], RT.YearOfBirth, Any['x']) ],
+            ]
+    
+    
+    ---- Signature ----
+    (ZefRef, RT) -> ZefRef
+    (List[ZefRef], RT) -> List[ZefRef]
+    (List[List[ZefRef]], RT) -> List[List[ZefRef]]
+
+    ----Examples ----
+    >>> z1 | F.Name         # equivalent to z1 | Out[RT.Name] | value     if target is an AET
+    >>> z1 | F.FriendOf     # equivalent to z1 | Out[RT.Name]             if target is an ET or RT
+
+    ---- Tags ----
+    - related zefop: fields
+    - related zefop: Out
+    - used for: graph traversal
+    """
+    def val_maybe(x):
+        if is_a(x, AET): return value(x)
+        else: return x
+
+    if isinstance(z, ZefRef):
+        return val_maybe(Out(z, rt))
+
+    if isinstance(z, list) or isinstance(z, tuple):
+        return [field(zz, rt) for zz in z]
+
+    raise TypeError(f"Field operator not implemented for {type(z)=}    {z=}")
+
+
+# ----------------------------- fields -----------------------------
+
+
+@func
+def fields_imp(z, rt):
+    """
+    Closely related to the `field` operator, but use this for
+    traversing a variable number of outgoing relations, similar
+    to `Outs`.
+
+    If any of the target nodes is an AET, the value is automatically
+    used.
+
+    ---- Signature ----
+    (ZefRef, RT) -> List[ZefRef]
+    (List[ZefRef], RT) -> List[List[ZefRef]]
+
+    ----Examples ----
+    >>> z1 | F.Name         # equivalent to z1 | Out[RT.Name] | value     if target is an AET
+    >>> z1 | F.FriendOf     # equivalent to z1 | Out[RT.Name]             if target is an ET or RT
+
+    ---- Tags ----
+    - related zefop: field
+    - related zefop: Outs
+    - used for: graph traversal
+    """
+    def val_maybe(x):
+        if is_a(x, AET): return value(x)
+        else: return x
+
+    if isinstance(z, ZefRef):
+        return [val_maybe(x) for x in Outs(z, rt)]
+
+    if isinstance(z, list) or isinstance(z, tuple):
+        return [fields(zz, rt) for zz in z]
+
+    raise TypeError(f"`fields` operator not implemented for {type(z)=}    {z=}")
+
+
+
+

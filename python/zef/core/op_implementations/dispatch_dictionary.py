@@ -299,4 +299,6 @@ _op_to_functions = {
         RT.BytesToBase64string:(bytes_to_base64string_imp, None),
         RT.IsBetween:          (is_between_imp, None),
         RT.If:                 (If_imp, None),
+        RT.Field:              (field_imp, None),
+        RT.Fields:             (fields_imp, None),
 }

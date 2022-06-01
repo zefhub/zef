@@ -349,6 +349,9 @@ bytes_to_base64string = make_zefop(RT.BytesToBase64string)
 is_between      = make_zefop(RT.IsBetween)
 If              = make_zefop(RT.If)
 
+field           = make_zefop(RT.Field)
+fields          = make_zefop(RT.Fields)
+
 
 
 
@@ -369,3 +372,22 @@ on              = make_zefop(RT.On)
 # window(Max[10], Max[30/sec, over[2*sec]])
 # 
 # time_travel         # RuntimeError: Only(EZefRefs zs) request, but length was 0
+
+
+
+
+
+# -------- These are not ZefOps, but using the `.` operator, they return ZefOps.
+# The user may not even be aware of this distinction and therefore this namespace 
+# is the most natural to put them in.
+class FClass:    
+    def __getattr__(self, s: str):        
+        return field[RT(s)]    # just returns a normal zefop called 'field'
+
+F = FClass()
+
+class FsClass:    
+    def __getattr__(self, s: str):        
+        return fields[RT(s)]    # just returns a normal zefop called 'field'
+
+Fs = FsClass()
