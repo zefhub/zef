@@ -77,5 +77,5 @@ jobs:
           DESCRIPTION_FILE: "release.body"
           VERSION_STRING: ${{ github.events.inputs.tag }}
           DOWNLOAD_STRING: "`pip3 install --upgrade zef`"
-        run: go run zef/.github/scripts/publish_release_announcement.go
+        run: go run .github/scripts/publish_release_announcement.go
 
