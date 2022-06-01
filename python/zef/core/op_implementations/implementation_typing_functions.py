@@ -7364,21 +7364,20 @@ def fg_remove_imp(fg, key):
 
 
 def flatgraph_to_commands(fg):
-    return_elements = []
+    return_elements = set()
     idx_key = {idx:key for key,idx in fg.key_dict.items()}
     def dispatch_on_blob(b, for_rt=False):
         idx = b[0]
         if isinstance(b[1], EntityType):
             if idx in idx_key:
                 key = idx_key[idx]
-                if is_a(key, uid):
-                    return Entity({"type": b[1], "uid": key})
+                if is_a(key, uid): return Entity({"type": b[1], "uid": key})
                 else:
                     if for_rt: return Z[key]
                     return b[1][key]
-            elif for_rt or len(b[2]) == 0:
-                return Z[idx]
-            else: return b[1][idx]
+            else:
+                if b[1][idx] in return_elements: return Z[idx]
+                return  b[1][idx] 
         elif isinstance(b[1], AtomicEntityType):
             if idx in idx_key:
                 key = idx_key[idx]
@@ -7389,10 +7388,13 @@ def flatgraph_to_commands(fg):
                     if for_rt: return Z[key]
                     if b[-1]: return b[1][key] <= b[-1]
                     else:     return b[1][key]
-            elif for_rt or len(b[2]) == 0:
-                if b[-1]: return b[1][idx] <= b[-1]
-                else:     return b[1][idx]
-            else: return None
+            else:
+                if b[-1]: 
+                    if (b[1][idx] <= b[-1]) in return_elements: return Z[idx] <= b[-1]
+                    return b[1][idx] <= b[-1]
+                else:     
+                    if (b[1][idx]) in return_elements: return Z[idx]
+                    return b[1][idx]
         elif isinstance(b[1], RelationType):
             if idx in idx_key: 
                 key = idx_key[idx]
@@ -7421,11 +7423,10 @@ def flatgraph_to_commands(fg):
 
     for b in fg.blobs | filter[lambda b: b != None] | collect:
         el = dispatch_on_blob(b)
-        print(b, el)
-        if isinstance(el, LazyValue) or el != None: return_elements.append(el)
+        if isinstance(el, LazyValue) or el != None: return_elements.add(el)
 
     from ..graph_delta import construct_commands
-    return construct_commands(return_elements)
+    return construct_commands(list(return_elements))
 
 
 # ------------------------------FlatRef----------------------------------
