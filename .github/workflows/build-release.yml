@@ -7,12 +7,36 @@ on:
         description: 'The pyzef-x tag of the release'
         required: true
         type: string
+  release:
+    types: [published, create]
 
 jobs:
+  extract-tag-name:
+    name: Just for tag name variable
+    runs-on: ubuntu-20.04
+    outputs:
+      tag: ${{ steps.find_tag.outputs.tag }}
+
+    steps:
+      - id: find_tag
+        env:
+          MAYBE_DISPATCH: ${{ github.event.inputs.tag }}
+          MAYBE_RELEASE: ${{ github.event.release.tag_name }}
+        run: |
+          if [ -n $MAYBE_DISPATCH ] ; then
+              echo ::set-output name=tag::${MAYBE_DISPATCH}
+          else
+              echo ::set-output name=tag::${MAYBE_RELEASE##pyzef-}
+          fi
+              
+      
   upload-zefops:
     name: Deploy zefops docstrings to zef-docs.
     runs-on: ubuntu-20.04
     environment: Release
+    needs: [extract-tag-name]
+    env:
+      ZEF_TAG: ${{ needs.extract-tag-name.outputs.tag }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -25,17 +49,13 @@ jobs:
           python-version: 3.8
 
       - name: Grab built wheel
-        env:
-          ZEF_VERSION: ${{ github.event.inputs.tag }}
         run: |
-          python3 -mpip install zef==${ZEF_VERSION}
+          python3 -mpip install zef==${ZEF_TAG}
 
       ########
       # Generate docs
       - name: Run extract docstrings script
         run: |
-          # export PYTHONPATH="${GITHUB_WORKSPACE}/zef:$PYTHONPATH"
-          # echo $PYTHONPATH
           python zef-latest/scripts/extract-docstrings.py
       - uses: actions/checkout@v2
         with:
@@ -43,8 +63,7 @@ jobs:
           path: zef-docs
           token: ${{ secrets.GIT_FULL_ACCESS_TOKEN }}
         env:
-          VERSION_STRING: ${{ github.event.inputs.tag }}
-          TARGET_FILE: docs/reference/zef-ops.mdx
+          TARGET_FILE: "docs/reference/zef-ops.mdx"
       - run: |
           # Make sure the file hasn't moved
           [ -f zef-docs/${TARGET_FILE} ]
@@ -55,14 +74,16 @@ jobs:
           git config user.name "Zef Bot by Github Actions"
           git add ${TARGET_FILE}
           if ! git diff-index --quiet HEAD ; then
-            git commit -m "Auto generated zef-ops docs from docstrings in Zef repo for version ${VERSION_STRING}."
+            git commit -m "Auto generated zef-ops docs from docstrings in Zef repo for version ${ZEF_TAG}."
             git push origin master
           fi
 
   publish-announcement:
     name: Publish announcement of new release
     runs-on: ubuntu-20.04
-    needs: [upload-zefops]
+    needs: [extract-tag-name, upload-zefops]
+    env:
+      ZEF_TAG: ${{ needs.extract-tag-name.outputs.tag }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -70,8 +91,6 @@ jobs:
 
       - name: Get announcement details
         id: release-details
-        env:
-          ZEF_TAG: ${{ github.event.inputs.tag }}
         run: |
           curl -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/zefhub/zef/releases/tags/pyzef-${ZEF_TAG} -o curl.out || exit 1
           cat curl.out | jq -re .body > release.body || exit 1
@@ -84,7 +103,7 @@ jobs:
           CHANNEL: "releases"
           NAME: ${{ steps.release-details.outputs.title }}
           DESCRIPTION_FILE: "release.body"
-          VERSION_STRING: ${{ github.events.inputs.tag }}
+          VERSION_STRING: ${{ env.ZEF_TAG }}
           DOWNLOAD_STRING: "`pip3 install --upgrade zef`"
         run: go run .github/scripts/publish_release_announcement.go
 
