@@ -49,8 +49,10 @@ jobs:
           git config user.email "thedanielforum@gmail.com"
           git config user.name "Zef Bot by Github Actions"
           git add docs/zef-ops.mdx
-          git commit -m "Auto generated zef-ops docs from docstrings in Zef repo."
-          git push origin master
+          if ! git diff-index --quiet HEAD ; then
+            git commit -m "Auto generated zef-ops docs from docstrings in Zef repo."
+            git push origin master
+          fi
 
   publish-announcement:
     name: Publish announcement of new release
