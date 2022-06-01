@@ -1,13 +1,18 @@
 name: Publish Release
 
 on:
-  release:
-    types: [published, create]
+  workflow_dispatch:
+    inputs:
+      desc:
+        description: 'The markdown of the release'
+        required: true
+        type: string
+      title:
+        description: 'The release title'
+        required: true
+        type: string
 
 jobs:
-  check-license:
-    uses: ./.github/workflows/check-license.yml
-
   upload-zefops:
     name: Deploy zefops docstrings to zef-docs.
     runs-on: ubuntu-20.04
@@ -68,11 +73,18 @@ jobs:
           git commit -m "Auto generated zef-ops docs from docstrings in Zef repo."
           git push origin master
 
+  make-gh-release:
+    name: Release on GitHub
+    steps:
+      - uses: softprops/action-gh-release@v1
+        with:
+          body: ${{ github.event.inputs.desc }}
+          name: ${{ github.event.inputs.title }}
+
   publish-announcement:
     name: Publish announcement of new release
     runs-on: ubuntu-20.04
     needs: [upload-zefops]
-    if: ${{ github.event.release.prerelease == false) }}
     steps:
       - uses: actions/checkout@v2
         with:
@@ -83,8 +95,8 @@ jobs:
         env:
           MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
           CHANNEL: releases
-          NAME: ${{ github.event.release.name }}
-          DESCRIPTION: ${{ github.event.release.body }}
+          NAME: ${{ github.event.inputs.title }}
+          DESCRIPTION: ${{ github.event.inputs.desc }}
           VERSION_STRING: ${{ needs.upload-zefops.outputs.tag }}
           DOWNLOAD_STRING: "`pip3 install --upgrade zef`"
         run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
