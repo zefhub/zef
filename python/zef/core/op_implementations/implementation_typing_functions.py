@@ -3680,41 +3680,6 @@ def split_if_imp(v, split_function):
 
 
 
-# ------------------------------------------ tx ---------------------------------------------
-
-def tx_imp(*args):
-    """
-    let zr: ZefRef  ezr: EZefRef
-    zr | tx[instantiated]       # keeps ref. frame of zr, returns a ZefRef: 
-    zr | tx[terminated]
-    """
-    print(f"😭😭😭😭😭😭😭😭 Deprecation warning: the 'tx' operator will be deprecated. Its usage was too broad and mixed up concepts. Use 'to_graph_slice' and 'to_tx' instead")
-    # print(f">>>>> args[0]={args[0]}")
-    # print(f">>>>> args[1]={args[1]}")
-    # print(f">>>>> {args[1]== lazy_zefops.instantiated}")
-    x = args[0]
-    if len(args) == 1:          
-        if isinstance(x, GraphSlice):
-            zz = x.tx
-            return ZefRef(zz, zz)
-        if isinstance(x, ZefRef):
-            return pyzefops.tx(x)
-    
-    if len(args) == 2:        
-        if type(args[1]) == ZefOp:
-            if args[1].el_ops[0][0] == RT.Instantiated:                                
-                return pyzefops.instantiation_tx(x)
-            if args[1].el_ops[0][0] == RT.Terminated:                                
-                return pyzefops.termination_tx(x)
-
-    raise Exception("Unknown type for tx op type(args[0])={type(args[0])}")
-
-
-def tx_tp(op, curr_type):
-    return curr_type
-
-
-
 # --------------------------------------- now ------------------------------------------------
 
 def now_implementation(*args):

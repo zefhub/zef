@@ -214,7 +214,6 @@ split           = make_zefop(RT.Split)
 split_if        = make_zefop(RT.SplitIf)
 graphviz        = make_zefop(RT.Graphviz)
 
-tx              = make_zefop(RT.Tx)
 schema          = make_zefop(RT.Schema)
 exists_at       = make_zefop(RT.ExistsAt)
 base_uid        = make_zefop(RT.BaseUid)
