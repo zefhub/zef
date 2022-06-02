@@ -33,6 +33,10 @@
 <br />
 <br />
 
+![gif showing Zef demo intro](https://raw.githubusercontent.com/zefhub/zefhub-web-assets/main/zef_demo_intro.gif)
+
+<br />
+
 ## Description
 
 Zef is an open source, data-oriented toolkit for graph data. It combines the access speed and local development experience of an in-memory data structure with the power of a fully versioned, immutable database (and distributed persistence if needed with ZefHub). Furthermore, Zef includes a library of composable functional operators, effects handling, and native GraphQL support. You can pick and choose what you need for your project.
@@ -102,7 +106,7 @@ Here's some quick points to get going. Check out our [Quick Start](https://zef.z
 </div>
 
 ```python
-from zef import *          # you'll see with our functional operators why we violate PEP in the first line
+from zef import *          # these imports unlock user friendly syntax and powerful Zef operators (ZefOps)
 from zef.ops import *
 
 g = Graph()                # create an empty graph
@@ -154,12 +158,12 @@ p1 | time_travel[Time('2021 December 4 15:31:00 (+0100)')]     # move to a speci
 g | sync[True] | run                            # save and sync all future changes on ZefHub
 
 # ---------------- Python Session A (You) -----------------
-g | uid | to_clipboard | run                    # uid is used to retrieve a graph uid
+g | uid | to_clipboard | run                    # copy uid onto local clipboard
 
 # ---------------- Python Session B (Friend) -----------------
 graph_uid: str = '...'                          # uid copied from Slack/WhatsApp/email/etc
 g = Graph(graph_uid)
-g | now | all[ET] | collect                     # see all entities in the latest graph slice
+g | now | all[ET] | collect                     # see all entities in the latest time slice
 ```
 
 <br />
