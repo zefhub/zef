@@ -5183,8 +5183,25 @@ def is_a_implementation(x, typ):
         return True
     
 
-    def rp_matching(el, rp):
-        print(f"!!!! {el=}   {rp=}")
+    def rp_matching(x, rp):
+        triple = rp.d['absorbed'][0]
+        v = tuple(el == Z for el in triple)
+        try:
+            if v == (True, False, False):
+                return x | Out[triple[1]] | is_a[triple[2]] | collect
+
+            if v == (False, False, True):
+                return x | In[triple[1]] | is_a[triple[0]] | collect
+
+            if v == (False, True, False):
+                return is_a(source(x), triple[0]) and is_a(target(x), triple[2])
+                
+            if  v == (False, False, False):
+                return is_a(x, triple[1]) and is_a(source(x), triple[0]) and is_a(target(x), triple[2])
+        except:
+            return False
+        raise TypeError(f"invalid pattern to match on in RP: {triple}")
+
 
 
     def set_of_matching(el, setof):

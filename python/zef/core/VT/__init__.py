@@ -103,9 +103,9 @@ def setof_getitem(x):
     return ValueType_(type_name='SetOf', absorbed=(x, ))
 
 def rp_getitem(x):
-    if not isinstance(x,tuple):
+    if not isinstance(x, tuple) or len(x)!=3:
         raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got {x=}")
-    return ValueType_(type_name='RP', absorbed=x)
+    return ValueType_(type_name='RP', absorbed=(x,))
       
 
 Nil        = ValueType_(type_name='Nil',        constructor_func=None)
