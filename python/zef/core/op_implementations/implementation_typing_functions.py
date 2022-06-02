@@ -6438,19 +6438,6 @@ def replace_at_tp(op, curr_type):
 
 
 
-def pad_to_length_imp(s: VT.String, l: VT.Int) -> VT.String:
-    """ 
-    Pads a string with white space to the right to a specific length l.
-    """
-    print("😞😞😞😞😞  pad_to_length_imp is deprecated. Use 'pad_right' instead")
-    return s + (" " * (l - len(s))) 
-
-def pad_to_length_tp(op, curr_type):
-    return VT.String
-
-
-
-
 
 #---------------------------------------- floor -----------------------------------------------
 def floor_imp(x):

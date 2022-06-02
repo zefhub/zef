@@ -248,7 +248,6 @@ _any            = make_zefop(RT._Any)                  # used as a wildcard
 has_relation    = make_zefop(RT.HasRelation)     
 
 replace_at      = make_zefop(RT.ReplaceAt)           
-pad_to_length   = make_zefop(RT.PadToLength)           
 pad_left        = make_zefop(RT.PadLeft)           
 pad_right       = make_zefop(RT.PadRight)           
 pad_center      = make_zefop(RT.PadCenter)           

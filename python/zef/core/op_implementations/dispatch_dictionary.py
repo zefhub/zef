@@ -254,7 +254,6 @@ _op_to_functions = {
 
         RT.ReplaceAt:           (replace_at_imp, replace_at_tp),
         RT.RandomPick:          (random_pick_imp, random_pick_tp),
-        RT.PadToLength:         (pad_to_length_imp, pad_to_length_tp),
         RT.PadLeft:             (pad_left_imp, None),
         RT.PadRight:            (pad_right_imp, None),
         RT.PadCenter:           (pad_center_imp, None),
