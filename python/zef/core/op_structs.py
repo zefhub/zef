@@ -78,7 +78,7 @@ Further chaining possible.
 ********************************* Expect Operator *********************************
 Introduce the 'expect' operator?
 In C++ one may consider making it templated.
-my_zefop | expect[Int] | ...
+my_zefop | ensureInt] | ...
 Will throw if during evaluation a value of a different type passes through.
 Can be used as an important tool by the runtime operator introspector, e.g.
 if no types can be inferred due to missing type annotations in functions.
@@ -135,7 +135,7 @@ my_lazy_value | collect          # we are free to also choose the same lazy eval
 
 
 my_op1 = (
- expect[Awaitable[Dict]]
+ ensureAwaitable[Dict]]
  | map[my_f]
  | merge
  | group_by[get_value['type']]
