@@ -3054,7 +3054,10 @@ def If_imp(x, pred, true_case_func, false_case_func):
     - related zefop: filter
     """
     try:
-        case = pred(x)
+        if isinstance(pred, ValueType_):
+            case = is_a(x, pred)
+        else:
+            case = pred(x)
     except Exception as e:            
         raise RuntimeError(f'\nError within `If` zefop evaluating predicate function: `{pred}` for value  `{x}`: {e}')
     try:
