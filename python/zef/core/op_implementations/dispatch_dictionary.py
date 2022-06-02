@@ -36,7 +36,6 @@ _op_to_functions = {
         RT.TakeWhilePair:  (take_while_pair_imp, take_while_pair_tp),
         RT.TakeUntil:      (take_until_imp, take_until_tp),
         RT.SkipWhile:      (skip_while_imp, skip_while_tp),
-        RT.Drop :          (drop_imp, drop_tp),
         RT.Skip :          (skip_imp, skip_tp),
         RT.Nth:            (nth_implementation, nth_type_info),
         RT.Filter:         (filter_implementation, filter_type_info),

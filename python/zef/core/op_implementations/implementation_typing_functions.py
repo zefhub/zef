@@ -2214,8 +2214,7 @@ def add_imp(a, second=None, *args):
     """
     from functools import reduce
     if second is None:
-        print(f"Warning: add was used for list {a}. This use will be deprecated: use `sum` here.")
-        return reduce(lambda x, y: x + y, a)
+        raise TypeError(f"`add` is a binary operator, i.e. always takes two arguments. If you want to sum up all elements in a list, use `sum`")
     return reduce(lambda x, y: x + y, [a, second, *args])
     
     
@@ -2578,33 +2577,6 @@ def xor_tp(x, *args):
     
        
    
-
-#---------------------------------------- drop -----------------------------------------------
-def drop_imp(v, n: int):
-    """
-    Drop the first n elements of the sequence
-    """
-    print("Deprecation: 😞😞😞😞😞 ops.drop is deprecated. Use 'skip'  instead 😞😞😞😞😞")
-    if isinstance(v, tuple) or isinstance(v, list) or isinstance(v, str):
-        return itertools.islice(v, n, None)  # None is 'inf' for the upper limit
-    # if isinstance(v, ZefRefs) or isinstance(v, EZefRefs):
-    #     return zefops.drop(v, n)
-    if n>=0:
-        it = iter(v)
-        for _ in range(n):
-            next(it)
-        def gen():
-            yield from it
-        return gen()    
-    # n<0
-    else:
-        cached = tuple(v)
-        return cached[:n]
-    
-
-def drop_tp(op, curr_type):
-    return curr_type
-
 
 
 #---------------------------------------- skip -----------------------------------------------
