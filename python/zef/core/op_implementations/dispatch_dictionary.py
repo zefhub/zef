@@ -275,6 +275,7 @@ _op_to_functions = {
 
         RT.MakeRequest:        (make_request_imp, make_request_tp),
         RT.Blake3:             (blake3_imp, blake3_tp),
+        RT.ValueHash:          (value_hash_imp, value_hash_tp),
         RT.ToZefList:          (to_zef_list_imp, to_zef_list_tp),
         RT.Transact:           (transact_imp, transact_tp),
 

@@ -6904,14 +6904,36 @@ def blake3_imp(obj) -> VT.String:
     elif isinstance(obj, str):
         return b3(obj.encode()).hexdigest()
     else:
-        try:
-            from ..op_structs import type_spec
-            type_str = str(type_spec(obj))
-        except:
-            type_str = str(type(obj))
-        return blake3_imp(type_str + str(obj))
+        raise ValueError(f"Expected Bytes or Str but got {obj} instead.")
 
 def blake3_tp(op, curr_type):
+    return VT.String
+
+
+def value_hash_imp(obj) -> VT.String:
+    """
+    Cryptographic hash function using blake3 
+    for non-str/bytes values including Zef Values.
+
+    ---- Examples ----
+    >>> 5 | value_hash    
+    >>> g | value_hash    
+    
+    ---- Signature ----
+    Any -> String
+
+    ---- Tags ----
+    - used for: Cryptography
+    - operates on: Values
+    """
+    try:
+        from ..op_structs import type_spec
+        type_str = str(type_spec(obj))
+    except:
+        type_str = str(type(obj))
+    return blake3_imp(type_str + str(obj))
+
+def value_hash_tp(op, curr_type):
     return VT.String
 
 
@@ -7038,7 +7060,7 @@ def fg_insert_imp(fg, new_el):
 
         elif isinstance(new_el, Val):
             new_el = new_el.arg
-            hash_vn = blake3(new_el)
+            hash_vn = value_hash(new_el)
             if hash_vn not in new_key_dict:
                 idx = next_idx()
                 new_key_dict[hash_vn] = idx
@@ -7128,7 +7150,7 @@ def fg_get_imp(fg, key):
     if type(key) in {ZefRef, EZefRef} and origin_uid(key) in kdict: return FlatRef(fg, kdict[origin_uid(key)])
     elif type(key) in {Entity, AtomicEntity} and key.d['uid'] in kdict: return FlatRef(fg, kdict[key.d['uid']])
     elif isinstance(key, Relation) and key.d['uids'][1] in kdict:return FlatRef(fg, kdict[key.d['uids'][1]])
-    elif isinstance(key, Val) and  blake3(key.arg) in kdict: return FlatRef(fg, kdict[blake3(key.arg)])
+    elif isinstance(key, Val) and  value_hash(key.arg) in kdict: return FlatRef(fg, kdict[value_hash(key.arg)])
     elif key in kdict: return FlatRef(fg, kdict[key])
     else: raise KeyError(f"{key} isn't found in this FlatGraph!")
 
@@ -7149,9 +7171,9 @@ def fg_remove_imp(fg, key):
         idx = kdict[key.d['uids'][1]]
         key = key.d['uids'][1]
     elif isinstance(key, Val):
-        if blake3(key.arg) not in kdict: raise error
-        idx = kdict[blake3(key.arg)]
-        key = blake3(key.arg)
+        if value_hash(key.arg) not in kdict: raise error
+        idx = kdict[value_hash(key.arg)]
+        key = value_hash(key.arg)
     elif key in kdict:  
         idx = kdict[key]
     else: raise error
@@ -7230,14 +7252,14 @@ def flatgraph_to_commands(fg):
 
         elif isinstance(b[1], str) and b[1][:2] == "BT":
             if for_rt:
-                return Z[blake3(b[-1])]
+                return Z[value_hash(b[-1])]
             else:
                 from ..graph_delta import map_scalar_to_aet_type
                 if type(b[-1]) in map_scalar_to_aet_type:
                     aet = map_scalar_to_aet_type[type(b[-1])](b[-1])
-                    return aet[blake3(b[-1])] <= (b[-1])
+                    return aet[value_hash(b[-1])] <= (b[-1])
                 else:
-                    return AET.Serialized[blake3(b[-1])] <= to_json(b[-1])
+                    return AET.Serialized[value_hash(b[-1])] <= to_json(b[-1])
 
         raise NotImplementedError(f"Unhandled type in dispatching {b}")
 

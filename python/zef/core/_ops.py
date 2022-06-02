@@ -314,6 +314,7 @@ zascii_to_schema = make_zefop(RT.ZasciiToSchema)
 merge           = make_zefop(RT.Merge)                 # We need this for observables. Only there?
 
 blake3          = make_zefop(RT.Blake3)
+value_hash      = make_zefop(RT.ValueHash)        
 to_zef_list     = make_zefop(RT.ToZefList)
 transact        = make_zefop(RT.Transact)
 # transact
