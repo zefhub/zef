@@ -4568,6 +4568,7 @@ def filter_implementation(itr, pred):
     - used for: control flow
     - operates on: List
     """
+    if isinstance(pred, ValueType_): pred = is_a[pred]
     input_type = parse_input_type(type_spec(itr))
     if input_type == "tools":
         # As this is an intermediate, we return an explicit generator
