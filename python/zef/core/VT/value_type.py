@@ -65,6 +65,7 @@ This custom structure may rearrange and parse terms.
 needed?
 """
 from ..error import Error
+
 # For certain value types, the user may want to call e.g. Float(4.5).
 # This looks up the associated function 
 _value_type_constructor_funcs = {}
@@ -170,13 +171,17 @@ class ComplementClass:
 
 class IsClass:
     def __getitem__(self, x):
+        from typing import Callable
         from ..op_structs import ZefOp
+        from .. import func
         if isinstance(x, tuple):
             return ValueType_(type_name='Is', absorbed=x)
         elif isinstance(x, ValueType_):
             return ValueType_(type_name='Is', absorbed=(x,))
         elif isinstance(x, ZefOp):
             return ValueType_(type_name='Is', absorbed=(x,))
+        elif isinstance(x, Callable):
+            return ValueType_(type_name='Is', absorbed=(func[x],))
         else:
             raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
          

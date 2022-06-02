@@ -14,6 +14,7 @@
 
 from .. import *
 from .._ops import *
+from ..VT import Is, Any
 
 def graphviz_imp(zz, *flags):
     """
@@ -127,7 +128,7 @@ def graphviz_imp(zz, *flags):
         return next(color_gen_edges)       
     
     graph_ctor_kwargs = ({} 
-        | if_then_else_apply[lambda _: KW.neato in flags][insert['engine']['neato']][identity]
+        | If[Is[lambda _: KW.neato in flags]][insert['engine']['neato']][identity]
         | collect
     )
 

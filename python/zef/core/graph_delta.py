@@ -15,7 +15,7 @@
 __all__ = [
     "GraphDelta",
 ]
-from typing import Any, Tuple, Callable
+from typing import Tuple, Callable
 from functools import partial as P
 
 from .. import pyzef
@@ -27,6 +27,7 @@ from .op_structs import ZefOp, LazyValue
 from .graph_slice import GraphSlice
 from .abstract_raes import Entity, Relation, AtomicEntity, TXNode, Root
 from .logger import log
+from .VT import Is, Any
 
 from abc import ABC
 class ListOrTuple(ABC):
@@ -784,14 +785,11 @@ def verify_and_compact_commands(cmds: tuple):
 
     # make sure if multiple assignment commands exist for the same AE, that their values agree
     cmds = (cmds | group_by[get['cmd']]
-            | map[match_apply[
-                        (first | equals["assign_value"],
-                         second | filter[Not[is_unnecessary_automatic_merge_assign]]
-                         | validate_and_compress_unique_assignment),
-                        (first | equals["merge"], second | combine_internal_ids_for_merges),
-                        (first | equals["terminate"], second | combine_terminates),
-                        # Just pack things back in for other cmd types
-                        (always[True], second)
+            | map[match[
+                        (Is[first | equals["assign_value"]],   second | filter[Not[is_unnecessary_automatic_merge_assign]] | validate_and_compress_unique_assignment),
+                        (Is[first | equals["merge"]],          second | combine_internal_ids_for_merges),
+                        (Is[first | equals["terminate"]],      second | combine_terminates), 
+                        (Any, second),                                 # Just pack things back in for other cmd types
             ]]
             | concat
             | collect)
