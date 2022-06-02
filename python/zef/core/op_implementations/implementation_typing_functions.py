@@ -7898,6 +7898,8 @@ def without_tp(x):
 
 def schema_imp(x, include_edges=False):
     """ 
+    WARNING: the name/interface of this zefop is not stable and is likely to change in the future.
+
     Returns all schema nodes on the graph or alive in the given GraphSlice.
     These are the delegate entities/relations which reference all instances on
     the graph.
@@ -7943,7 +7945,6 @@ def schema_imp(x, include_edges=False):
                      | collect)
         return all_items | without[[g | root | collect]] | collect
     elif isinstance(x, GraphSlice):
-        log.warn("Currently schema(graph_slice) returns eternal schema not the schema in the appropriate reference frame. This will be fixed in the future.")
         return schema_imp(Graph(x), include_edges) | filter[exists_at[x]] | map[in_frame[x][allow_tombstone]] | collect
 
     return Error(f"Don't know how to handle type of {type(x)} in schema zefop")
