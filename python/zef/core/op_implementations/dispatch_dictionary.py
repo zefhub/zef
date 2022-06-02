@@ -302,4 +302,5 @@ _op_to_functions = {
         RT.Field:              (field_imp, None),
         RT.Fields:             (fields_imp, None),
         RT.Apply:              (apply_imp, None),
+        RT.SplitOnNext:        (split_on_next_imp, None),
 }

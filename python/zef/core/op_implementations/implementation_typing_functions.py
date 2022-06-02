@@ -8081,3 +8081,46 @@ def apply_imp(x, f):
     if isinstance(f, tuple) or isinstance(f, list):
         return tuple(ff(x) for ff in f)
     else: return f(x)
+
+
+
+
+# ----------------------------- split_on_next -----------------------------
+def split_on_next_imp(s, el_to_split_on):
+    """
+    Split a List or a string at one point only
+
+    ---- Examples ----
+    >>> before, after = split_on_next('good morning, good afternoon, good night', ', ')     # => ['good morning', 'good afternoon, good night']
+    >>> [1,2,3,4,5,3,8] | split_on_next[3]    # => (1,2), (4, 5, 3, 8)
+
+    ---- Signature ----
+    (String, String) -> String
+    (List[T], T) -> List[T]
+
+    ---- Tags ----
+    - related zefop: split
+    - related zefop: split_if
+    - related zefop: chunk
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    """
+    from typing import Generator
+    if isinstance(s, str):
+        ind = s.find(el_to_split_on)
+        if ind == -1: return s, ''    # not found
+        return s[:ind], s[ind+len(el_to_split_on):]
+    if isinstance(s, list) or isinstance(s, tuple) or isinstance(s, Generator):
+        it = iter(s)
+        part1 = []
+        while True:
+            val = next(it)
+            if val == el_to_split_on: break
+            part1.append(val)
+        def wrapper():      # keep split_on_next a function
+            yield from it
+        return part1, wrapper()
+
+    raise TypeError(f"expected a String or a List in `split_on_next`, got a {type(s)}")

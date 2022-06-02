@@ -352,6 +352,7 @@ If              = make_zefop(RT.If)
 field           = make_zefop(RT.Field)
 fields          = make_zefop(RT.Fields)
 apply           = make_zefop(RT.Apply)
+split_on_next   = make_zefop(RT.SplitOnNext)
 
 
 
