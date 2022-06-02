@@ -88,7 +88,6 @@ _op_to_functions = {
         RT.PreviousTX:      (previous_tx_imp, previous_tx_tp),
         RT.InstantiationTx: (instantiation_tx_implementation, instantiation_tx_type_info),                              # TODO: retire
         RT.TerminationTx:   (termination_tx_implementation, termination_tx_type_info),                            # TODO: retire
-        RT.Instances:       (instances_implementation, instances_type_info),
         RT.Uid:             (uid_implementation, uid_type_info),
         RT.Frame:           (frame_imp, frame_tp),
         RT.DiscardFrame:    (discard_frame_imp, None),

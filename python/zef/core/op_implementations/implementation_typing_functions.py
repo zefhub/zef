@@ -5198,9 +5198,7 @@ def termination_tx_implementation(z):
     root_node = Graph(z)[42] 
     return z | events[Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
 
-def instances_implementation(*args):
-    print("Deprecation: 😞😞😞😞😞 instances is deprecated. Use 'f | all'  instead 😞😞😞😞😞")
-    return all(*args)
+
     
 def uid_implementation(arg):
     if isinstance(arg, str):
@@ -5750,8 +5748,6 @@ def instantiation_tx_type_info(op, curr_type):
 def termination_tx_type_info(op, curr_type):
     return VT.ZefRef
 
-def instances_type_info(op, curr_type):
-    return VT.Any # VT.ZefRefs
 
 def uid_type_info(op, curr_type):
     if curr_type == VT.Graph:
