@@ -3040,7 +3040,7 @@ def If_imp(x, pred, true_case_func, false_case_func):
     forwarded to the relevant case function.
 
     ---- Examples ----
-    >>> Evens = Is[modulus[2] | equals[0]]
+    >>> Evens = Is[modulo[2] | equals[0]]
     >>> 4 | If[ Evens ][add[1]][add[2]]            # => 5
 
     ---- Signature ----
@@ -3057,6 +3057,7 @@ def If_imp(x, pred, true_case_func, false_case_func):
         if isinstance(pred, ValueType_):
             case = is_a(x, pred)
         else:
+            # if not a VT: assume it is callable            
             case = pred(x)
     except Exception as e:            
         raise RuntimeError(f'\nError within `If` zefop evaluating predicate function: `{pred}` for value  `{x}`: {e}')
