@@ -3763,7 +3763,7 @@ def now_type_info(*args_tp):
 
 # ---------------------------------------- time_slice -----------------------------------------------
 
-def time_slice_implementation(first_arg, *curried_args):
+def time_slice_implementation(gs: GraphSlice, *curried_args):
     """ 
     Returns the time slice as an Int for GraphSlice.
     
@@ -3779,15 +3779,10 @@ def time_slice_implementation(first_arg, *curried_args):
     ---- Signature ----
     GraphSlice -> Int
     """
-    if isinstance(first_arg, GraphSlice):
-        return pyzefops.time_slice(first_arg.tx)
+    if isinstance(gs, GraphSlice):
+        return pyzefops.time_slice(gs.tx)
 
-    print(f"😞😞😞😞😞  The use of the 'time_slice' on arbitrary ZefRefs is deprecated: use 'frame | time_slice' or 'to_graph_slice | time_slice' instead 😞😞😞😞😞")  
-
-    # Old usage:
-    if not is_a(first_arg, BT.TX_EVENT_NODE):
-        print(f"😞😞😞😞😞  The use of the 'time_slice' operator with type(first_arg)={type(first_arg)} is deprecated: 😞😞😞😞😞")    
-    return (pyzefops.time_slice)(first_arg, *curried_args).value
+    raise TypeError(f"The 'time_slice' ZefOp can only be used on GraphSlices. Use 'frame | time_slice' or 'to_graph_slice | time_slice' ")  
 
 
 def time_slice_type_info(op, curr_type):
@@ -3804,14 +3799,19 @@ def next_tx_imp(z_tx):
     in that reference frame. Nil is returned in that case.
     
     For Both ZeFfRef/EZefRef, Nil is returned when called
-    on the very lastest TX.
+    on the very latest TX.
 
     ---- Examples ----
     z2_tx = z_tx | next_tx | collect
 
     ---- Signature ----
     ZefRef -> Union[ZefRef, Nil]
-    EZefRef -> Union[EZefRef, Nil]    
+    EZefRef -> Union[EZefRef, Nil]
+
+    ---- Tags ----
+    - used for: time traversal
+    - related zefop: previous_tx
+    - related zefop: time_travel
     """
     def next_tx_ezr(zz):
         try:
@@ -3845,11 +3845,17 @@ def previous_tx_imp(z_tx):
     If one tries to go back from the very first tx, nil is 
     returned.    
     
+    ---- Examples ----
+    z2_tx = z_tx | previous_tx | collect
+
     ---- Signature ----
     ZefRef -> Union[ZefRef, Nil]
     EZefRef -> Union[EZefRef, Nil]
     
-    z2_tx = z_tx | previous_tx | collect
+    ---- Tags ----
+    - used for: time traversal
+    - related zefop: previous_tx
+    - related zefop: time_travel
     """
     def previous_tx_ezr(zz):
         try:
@@ -4182,7 +4188,7 @@ def time_travel_imp(x, *args):
     >>> zr | time_travel[-3.5*units.seconds]  
     >>> my_graph_slice | time_travel[-3]
     >>> 
-    >>> #       ---- absolute time travel ----
+    >>> #       ---- time travel to fixed time ----
     >>> t1 = Time('October 20 2020 14:00 (+0100)')
     >>> g | time_travel[t1]
     >>> gs | time_travel[t1]
@@ -4208,6 +4214,9 @@ def time_travel_imp(x, *args):
     ---- Tags ----
     - used for: time traversal
     - related zefop: time_slice    
+    - related zefop: next_tx
+    - related zefop: previous_tx
+    - related zefop: time
     """
     c = collect 
 
@@ -4679,6 +4688,7 @@ def select_by_field_imp(zrs : Iterable[ZefRef], rt: RelationType, val):
     ---- Tags ----
     - operates on: Graph
     - related zefop: filter
+    - related zefop: value    
     """
     return pyzefops.select_by_field_impl(zrs, rt, val)
 
