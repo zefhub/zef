@@ -69,19 +69,21 @@ from ..error import Error
 # For certain value types, the user may want to call e.g. Float(4.5).
 # This looks up the associated function 
 _value_type_constructor_funcs = {}
+_value_type_get_item_funcs = {}
 
 class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name: str, absorbed=(), constructor_func=None):
+    def __init__(self, type_name: str, absorbed=(), constructor_func=None, get_item_func=None):
             self.d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
             }
             if constructor_func is not None:
                 _value_type_constructor_funcs[type_name] = constructor_func
-
+            if get_item_func is not None:
+                _value_type_get_item_funcs[type_name] = get_item_func
         
     def __repr__(self):
         return self.d['type_name'] + (
@@ -99,7 +101,11 @@ class ValueType_:
 
 
     def __getitem__(self, x):
-        return ValueType_(self.d["type_name"], absorbed=(*self.d['absorbed'], x))
+        try:
+            f = _value_type_get_item_funcs[self.d["type_name"]]
+            return f(x)
+        except KeyError:
+            return ValueType_(self.d["type_name"], absorbed=(*self.d['absorbed'], x))
 
 
     def __eq__(self, other):
@@ -131,85 +137,6 @@ class ValueType_:
     def __invert__(self):
         return ValueType_(type_name='Complement', absorbed=(self,))
     
-
-
-
-class UnionClass:
-    def __getitem__(self, x):
-        from ..op_structs import ZefOp
-        if isinstance(x, tuple):
-            return ValueType_(type_name='Union', absorbed=x)
-        elif isinstance(x, ValueType_):
-            return ValueType_(type_name='Union', absorbed=(x,))
-        elif isinstance(x, ZefOp):
-            return ValueType_(type_name='Union', absorbed=(x,))
-        else:
-            raise Exception(f'"Union[...]" called with unsupported type {type(x)}')
-            
-
-class IntersectionClass:
-    def __getitem__(self, x):
-        from ..op_structs import ZefOp
-        if isinstance(x, tuple):
-            return ValueType_(type_name='Intersection', absorbed=x)
-        elif isinstance(x, ValueType_):
-            return ValueType_(type_name='Intersection', absorbed=(x,))
-        elif isinstance(x, ZefOp):
-            return ValueType_(type_name='Intersection', absorbed=(x,))
-        else:
-            raise Exception(f'"Intersection[...]" called with unsupported type {type(x)}')
-            
-
-
-class ComplementClass:
-    def __getitem__(self, x):
-        if isinstance(x, ValueType_):
-            return ValueType_(type_name='Complement', absorbed=(x,))
-        else:
-            raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
-   
-
-class IsClass:
-    def __getitem__(self, x):
-        from typing import Callable
-        from ..op_structs import ZefOp
-        from .. import func
-        if isinstance(x, tuple):
-            return ValueType_(type_name='Is', absorbed=x)
-        elif isinstance(x, ValueType_):
-            return ValueType_(type_name='Is', absorbed=(x,))
-        elif isinstance(x, ZefOp):
-            return ValueType_(type_name='Is', absorbed=(x,))
-        elif isinstance(x, Callable):
-            return ValueType_(type_name='Is', absorbed=(func[x],))
-        else:
-            raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
-         
-
-class SetOfClass:
-    def __getitem__(self, x):
-        # TODO: make sure that x is a zef value. No other python objects that we can't serialize etc.
-        return ValueType_(type_name='SetOf', absorbed=(x, ))
-    def __call__(self, *x):
-        """
-        calling SetOf(5,6,7) is a more convenient shorthand notation than 
-        SetOf[5][6][7]. But the former expression evaluates to the latter.
-
-        We can't use `SetOf[5,6,7]` here, since Python's treatment of
-        the [...] operator converts this to a tuple `SetOf[(5,6,7)]`,
-        which itself is a valid expression.
-        """
-        return ValueType_(type_name='SetOf', absorbed = x)
-
-         
-
-class RPClass:
-    def __getitem__(self, x):
-        if not isinstance(x,tuple):
-            raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got {x=}")
-        return ValueType_(type_name='RP', absorbed=x)
-    
-
 
 def make_distinct(v):
     """
