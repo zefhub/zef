@@ -41,11 +41,72 @@ def decimal_ctor(*args, **kwargs):
     # return core.bytes.Bytes_(*args, **kwargs)
     return Decimal_(*args, **kwargs)
 
+def setof_ctor(*args):
+    """
+    calling SetOf(5,6,7) is a more convenient shorthand notation than 
+    SetOf[5][6][7]. But the former expression evaluates to the latter.
+    We can't use `SetOf[5,6,7]` here, since Python's treatment of
+    the [...] operator converts this to a tuple `SetOf[(5,6,7)]`,
+    which itself is a valid expression.
+    """
+    return ValueType_(type_name='SetOf', absorbed = x)
+
 # def error_ctor(*args, **kwargs):
 #     from ... import core
 #     return core.error._Error.Error(*args, **kwargs)
 
+def union_getitem(x):
+    from ..op_structs import ZefOp
+    if isinstance(x, tuple):
+        return ValueType_(type_name='Union', absorbed=x)
+    elif isinstance(x, ValueType_):
+        return ValueType_(type_name='Union', absorbed=(x,))
+    elif isinstance(x, ZefOp):
+        return ValueType_(type_name='Union', absorbed=(x,))
+    else:
+        raise Exception(f'"Union[...]" called with unsupported type {type(x)}')
 
+def intersection_getitem(x):
+    from ..op_structs import ZefOp
+    if isinstance(x, tuple):
+        return ValueType_(type_name='Intersection', absorbed=x)
+    elif isinstance(x, ValueType_):
+        return ValueType_(type_name='Intersection', absorbed=(x,))
+    elif isinstance(x, ZefOp):
+        return ValueType_(type_name='Intersection', absorbed=(x,))
+    else:
+        raise Exception(f'"Intersection[...]" called with unsupported type {type(x)}')
+
+def complement_getitem(x):
+    if isinstance(x, ValueType_):
+        return ValueType_(type_name='Complement', absorbed=(x,))
+    else:
+        raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
+
+def is_getitem(x):
+    from typing import Callable
+    from ..op_structs import ZefOp
+    from .. import func
+    if isinstance(x, tuple):
+        return ValueType_(type_name='Is', absorbed=x)
+    elif isinstance(x, ValueType_):
+        return ValueType_(type_name='Is', absorbed=(x,))
+    elif isinstance(x, ZefOp):
+        return ValueType_(type_name='Is', absorbed=(x,))
+    elif isinstance(x, Callable):
+        return ValueType_(type_name='Is', absorbed=(func[x],))
+    else:
+        raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
+
+def setof_getitem(x):
+    # TODO: make sure that x is a zef value. No other python objects that we can't serialize etc.
+    return ValueType_(type_name='SetOf', absorbed=(x, ))
+
+def rp_getitem(x):
+    if not isinstance(x,tuple):
+        raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got {x=}")
+    return ValueType_(type_name='RP', absorbed=x)
+      
 
 Nil        = ValueType_(type_name='Nil',        constructor_func=None)
 Any        = ValueType_(type_name='Any',        constructor_func=None)
@@ -107,12 +168,10 @@ DataFrame  = ValueType_(type_name='DataFrame', constructor_func=None)
 # ZefRefs    = ValueType_(type_name='ZefRefs', constructor_func=None)     
 # ZefRefss   = ValueType_(type_name='ZefRefss', constructor_func=None)     
 
-
 Pattern = ValueType_(type_name='Pattern', constructor_func=None)
-# These are special classes: using them with [...] returns a ValueType_ though
-Union = UnionClass()
-Intersection = IntersectionClass()
-Is = IsClass()
-SetOf = SetOfClass()
-Complement = ComplementClass()
-RP = RPClass()
+Union = ValueType_(type_name='Union', constructor_func=None, get_item_func=union_getitem)
+Intersection = ValueType_(type_name='Intersection', constructor_func=None, get_item_func=intersection_getitem)
+Is = ValueType_(type_name='Is', constructor_func=None, get_item_func=is_getitem)
+SetOf = ValueType_(type_name='SetOf', constructor_func=setof_ctor, get_item_func=setof_getitem)
+Complement = ValueType_(type_name='Complement', constructor_func=None, get_item_func=complement_getitem)
+RP = ValueType_(type_name='RP', constructor_func=None, get_item_func=rp_getitem)
