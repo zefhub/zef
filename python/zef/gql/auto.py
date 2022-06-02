@@ -41,9 +41,9 @@ def auto_generate_gql(g):
         return x | And[is_a[Delegate]][abstract_type | is_a[T]] | collect
         
     for ent in g | all | filter[del_is_a[ET]] | collect:
-        fields = ent > L[RT] | filter[lambda z: z | target | del_is_a[AET] | collect] | collect
-        out_others = ent > L[RT] | filter[lambda z: z | target | del_is_a[ET] | collect] | collect
-        in_others = ent < L[RT] | filter[lambda z: z | source | del_is_a[ET] | collect] | collect
+        fields = ent | out_rels[RT] | filter[lambda z: z | target | del_is_a[AET] | collect] | collect
+        out_others = ent | out_rels[RT] | filter[lambda z: z | target | del_is_a[ET] | collect] | collect
+        in_others = ent | in_rels[RT] | filter[lambda z: z | source | del_is_a[ET] | collect] | collect
         if len(fields) == 0 and len(out_others) == 0 and len(in_others) == 0:
             continue
         name = "GQL_" + str(ET(ent))
