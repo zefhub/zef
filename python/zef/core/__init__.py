@@ -107,6 +107,7 @@ from .VT import (
     Complement,
     Is,
     SetOf,
+    RP,
     Pattern,
     )
 from .VT.value_type import ValueType_

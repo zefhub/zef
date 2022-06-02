@@ -5178,6 +5178,10 @@ def is_a_implementation(x, typ):
         return True
     
 
+    def rp_matching(el, rp):
+        print(f"!!!! {el=}   {rp=}")
+
+
     def set_of_matching(el, setof):
         from typing import Callable
         for set_el in setof.d['absorbed']: 
@@ -5245,6 +5249,9 @@ def is_a_implementation(x, typ):
         if typ.d['type_name'] == "Is":
             return is_matching(x, typ)
 
+        if typ.d['type_name'] == "RP":
+            return rp_matching(x, typ)
+        
         if typ.d['type_name'] == "SetOf":
             return set_of_matching(x, typ)
         

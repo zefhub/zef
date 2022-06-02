@@ -201,6 +201,14 @@ class SetOfClass:
         """
         return ValueType_(type_name='SetOf', absorbed = x)
 
+         
+
+class RPClass:
+    def __getitem__(self, x):
+        if not isinstance(x,tuple):
+            raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got {x=}")
+        return ValueType_(type_name='RP', absorbed=x)
+    
 
 
 def make_distinct(v):
