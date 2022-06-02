@@ -5066,24 +5066,6 @@ def in_rels_imp(z, rt=None, source_filter=None):
 
 
 
-
-
-
-def ins_implementation_old(first_arg, *curried_args):
-    print("Deprecation: 😞😞😞😞😞 ops.ins is deprecated. Use 'z1 < L[RT]'  instead of 'z1 | ins' 😞😞😞😞😞")
-    if isinstance(first_arg, FlatRef): return fr_ins_imp(first_arg)
-    return (pyzefops.ins)(first_arg, *curried_args)
-
-def outs_implementation_old(zr):
-    print("Deprecation: 😞😞😞😞😞 ops.outs is deprecated. Use 'z1 > L[RT]'  instead of 'z1 | outs' 😞😞😞😞😞")
-    if isinstance(zr, FlatRef): return fr_outs_imp(zr)
-    return pyzefops.outs(zr)
-
-def ins_and_outs_implementation_old(first_arg, *curried_args):
-    print("Deprecation: 😞😞😞😞😞 ops.ins_and_outs is deprecated. use 'z1 < L[RT]' and 'z1 > L[RT]' instead😞😞😞😞😞")    
-    if isinstance(first_arg, FlatRef): return fr_ins_and_outs_imp(first_arg)
-    return (pyzefops.ins_and_outs)(first_arg, *curried_args)
-
 def source_implementation(zr, *curried_args):
     if isinstance(zr, FlatRef):
         return fr_source_imp(zr)
@@ -5665,15 +5647,6 @@ def filter_type_info(op, curr_type):
 
 def sort_type_info(op, curr_type):
     return curr_type
-
-def ins_type_info(op, curr_type):
-    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
-
-def outs_type_info(op, curr_type):
-    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
-
-def ins_and_outs_type_info(op, curr_type):
-    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
 
 def source_type_info(op, curr_type):
     return curr_type

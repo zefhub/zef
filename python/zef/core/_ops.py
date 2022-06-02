@@ -236,9 +236,6 @@ out_rels        = make_zefop(RT.OutRels)
 
 
 is_zefref_promotable= make_zefop(RT.IsZefRefPromotable)  # Retire this. this is a old love level operator. We can use is_a[RAE] or an extended concept new.
-ins             = make_zefop(RT.InsOld)                   # z < L[RT]
-outs            = make_zefop(RT.OutsOld)                  # z > L[RT]
-ins_and_outs    = make_zefop(RT.InsAndOutsOld)            # we don't seem to use this very much (looking at existing code base).
 time_slice      = make_zefop(RT.TimeSlice)             # with the GraphSlice syntax it seems that we have been using time slices / txs mostly as a proxy for that. Given the data oriented approach, it seems a more consistent design to just use Int instead of time slices when we actually want a number?
     
 instantiation_tx= make_zefop(RT.InstantiationTx)       # use tx[instantiated]

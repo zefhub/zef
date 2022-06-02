@@ -74,15 +74,11 @@ _op_to_functions = {
         RT.OutOld:             (OutOld_implementation, None),
         RT.OutOutOld:          (OutOutOld_implementation, None),
         
-        RT.InsOld:          (ins_implementation_old, ins_type_info),
-        RT.OutsOld:         (outs_implementation_old, outs_type_info),
-        RT.InsAndOutsOld:   (ins_and_outs_implementation_old, ins_and_outs_type_info),
         RT.Source:          (source_implementation, source_type_info),
         RT.Target:          (target_implementation, target_type_info),
         RT.Value:           (value_implementation, None),
         RT.Time:            (time_implementation, time_type_info),
         RT.TimeSlice:       (time_slice_implementation, time_slice_type_info),
-        RT.Tx:              (tx_imp, tx_tp),
         RT.NextTX:          (next_tx_imp, next_tx_tp),
         RT.PreviousTX:      (previous_tx_imp, previous_tx_tp),
         RT.InstantiationTx: (instantiation_tx_implementation, instantiation_tx_type_info),                              # TODO: retire
