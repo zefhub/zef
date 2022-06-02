@@ -167,8 +167,6 @@ _op_to_functions = {
         RT.Yo:              (yo_implementation, yo_type_info),
         
         RT.Sign:            (sign_imp, sign_tp),
-        RT.IfThenElse:      (if_then_else_imp, if_then_else_tp),
-        RT.IfThenElseApply:      (if_then_else_apply_imp, if_then_else_apply_tp),
         RT.Attempt:         (attempt_imp, attempt_tp),
         RT.Bypass:          (bypass_imp, bypass_tp),
         RT.Pattern:         (pattern_imp, pattern_tp),
@@ -217,7 +215,6 @@ _op_to_functions = {
         RT.Xor:                 (xor_imp, xor_tp),
         RT.Peel:                (peel_imp, peel_tp),
         RT.Match:               (match_imp, match_tp),
-        RT.MatchApply:          (match_apply_imp, match_apply_tp),
 
         RT.Sync:                (sync_imp, sync_tp),
         RT.Tag:                 (tag_imp, tag_tp),

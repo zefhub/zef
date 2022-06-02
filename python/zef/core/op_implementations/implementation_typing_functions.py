@@ -331,41 +331,6 @@ def match_tp(op, curr_type):
 
 
 
-
-def match_apply_imp(item, patterns):
-    """
-    This is apply version of match operator. Where the pattern tuple's second item contains a function to be applied
-    on the inputed item.
-
-    ---- Examples ----
-    >>> -9 | match[
-    >>>     (less_than[-10], add[10]),
-    >>>     (less_than[0], multiply[2]),
-    >>>     (greater_than_or_equal[0], add[1]),
-    >>> ] | collect                            => -18
-
-    ---- Arguments ----
-    item: the incoming value
-    patterns: (T, T) -> Bool
-
-    ---- Signature ----
-    (T, (T->Any)) -> T
-
-    ---- Tags ----
-    - used for: control flow
-    - used for: logic
-    - used for: function application
-    """
-    print(f"match_apply will be deprecated!  😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴😴. Simply use match instead ")
-    for pred, applied_func in patterns:
-        if pred(item):
-            assert callable(applied_func)
-            return applied_func(item)
-    raise (f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
-    
-
-def match_apply_tp(op, curr_type):
-    return VT.Any
 #---------------------------------------- peel -----------------------------------------------
 def peel_imp(el, *args):
     from ..fx.fx_types import _Effect_Class
@@ -3098,64 +3063,6 @@ def If_imp(x, pred, true_case_func, false_case_func):
         raise RuntimeError(f'\nError within `If` zefop evaluating the apply function for value  `{x}`: {e}')
 
 
-# --------------------------------------- if_then_else ------------------------------------------------
-def if_then_else_apply_imp(x, pred, true_case_func, false_case_func):
-    """
-    Dispatches to one of two provided functions based on the boolean 
-    result of the predicate function, given the input value.
-    The input value into the zefop is used by the predicate and 
-    forwarded to the relevant case function.
-
-    ---- Examples ----
-    >>> add_one, add_two = add[1], add[2]
-    >>> 4 | if_then_else[is_even][add_one][add_two]         # => 5
-
-    ---- Signature ----
-    ((T->Bool), (T->T1), (T->T2)) -> Union[T1, T2]
-
-    ---- Tags ----
-    - used for: control flow
-    - used for: logic
-    - related zefop: if_then_else
-    - related zefop: group_by
-    - related zefop: match
-    - related zefop: match_apply
-    - related zefop: filter
-    """
-    print(f"😭😭😭😭😭😭😭😭 Deprecation warning: the 'if_then_else_apply' operator will be deprecated. It is replaced by `If` instead, but it takes a valueType as a first argument.")
-    return true_case_func(x) if pred(x) else false_case_func(x)
-
-
-def if_then_else_apply_tp(x, pred, true_case_func, false_case_func):
-    return VT.Any
-
-
-def if_then_else_imp(x, pred, value1, value2):
-    """
-    Unlike the apply version of this function. If pred evaluates
-    to true, value1 is returned otherwise value2.
-
-    ---- Examples ----
-    >>> 4 | if_then_else[is_even]["even"]["odd"]       # => "even"
-
-    ---- Signature ----
-    (Any, (T->Bool), (Any), (Any)) -> Any
-
-    ---- Tags ----
-    - used for: control flow
-    - used for: logic
-    - related zefop: if_then_else_apply
-    - related zefop: group_by
-    - related zefop: match
-    - related zefop: match_apply
-    - related zefop: filter
-    """
-    print(f"😭😭😭😭😭😭😭😭 Deprecation warning: the 'if_then_else' operator will be deprecated. It is replaced by `If` instead, but it takes a valueType as a first argument.")
-    return value1 if pred(x) else value2
-
-
-def if_then_else_tp(x, pred, true_case_func, false_case_func):
-    return VT.Any
 
 
 # ------------------------------------------ attempt ---------------------------------------------
