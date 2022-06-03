@@ -41,19 +41,7 @@ def decimal_ctor(*args, **kwargs):
     # return core.bytes.Bytes_(*args, **kwargs)
     return Decimal_(*args, **kwargs)
 
-def setof_ctor(*args):
-    """
-    calling SetOf(5,6,7) is a more convenient shorthand notation than 
-    SetOf[5][6][7]. But the former expression evaluates to the latter.
-    We can't use `SetOf[5,6,7]` here, since Python's treatment of
-    the [...] operator converts this to a tuple `SetOf[(5,6,7)]`,
-    which itself is a valid expression.
-    """
-    return ValueType_(type_name='SetOf', absorbed = args)
 
-# def error_ctor(*args, **kwargs):
-#     from ... import core
-#     return core.error._Error.Error(*args, **kwargs)
 
 def union_getitem(x):
     from ..op_structs import ZefOp
@@ -98,9 +86,29 @@ def is_getitem(x):
     else:
         raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
 
+
+
+def setof_ctor(*args):
+    """
+    Can be called with either SetOf[5,6,7] or SetOf(5,6,7).
+    When calling with square brackets, a tuple must always be 
+    passed implicitly or explicitly.
+    SetOf[42] is NOT valid
+    SetOf[(42,)] is valid
+    SetOf[42,] is valid    
+    SetOf[42, 43] is valid    
+    """
+    return ValueType_(type_name='SetOf', absorbed = (args, ))
+
+
+
 def setof_getitem(x):
-    # TODO: make sure that x is a zef value. No other python objects that we can't serialize etc.
+    if not isinstance(x, tuple):
+        raise TypeError(f"`SetOf[...]` must be called with a tuple, either explicitly or implicitly. e.g. SetOf[3,4], SetOf[(3,4)]. When wrapping one value, use SetOf[42,]. It was called with {x}. ")
     return ValueType_(type_name='SetOf', absorbed=(x, ))
+
+
+
 
 def rp_getitem(x):
     if not isinstance(x, tuple) or len(x)!=3:
@@ -162,7 +170,7 @@ GraphDelta = ValueType_(type_name='GraphDelta', constructor_func=None)
 Query      = ValueType_(type_name='Query',      constructor_func=None) 
 DeltaQuery = ValueType_(type_name='DeltaQuery', constructor_func=None) 
 Effect     = ValueType_(type_name='Effect',     constructor_func=None) 
-DataFrame  = ValueType_(type_name='DataFrame', constructor_func=None)     
+DataFrame  = ValueType_(type_name='DataFrame',  constructor_func=None)     
 # EZefRefs   = ValueType_(type_name='EZefRefs', constructor_func=None)     
 # EZefRefss  = ValueType_(type_name='EZefRefss', constructor_func=None)     
 # ZefRefs    = ValueType_(type_name='ZefRefs', constructor_func=None)     

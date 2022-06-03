@@ -5221,7 +5221,7 @@ def is_a_implementation(x, typ):
 
     def set_of_matching(el, setof):
         from typing import Callable
-        for set_el in setof.d['absorbed']: 
+        for set_el in setof.d['absorbed'][0]: 
             if set_el == el: return True
         return False
     
