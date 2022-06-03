@@ -2203,7 +2203,10 @@ namespace zefDB {
 			case BlobType::ENTITY_NODE: return true;
 			case BlobType::ATOMIC_ENTITY_NODE: return true;
 			case BlobType::RELATION_EDGE: return true;
-			default: throw std::runtime_error("attempting to link a blob that cannot be linked via a relation");
+			default: {
+                // print_backtrace();
+                throw std::runtime_error("asserting is a RAE failed");
+            }
 			}                    
 		};                       
                                  
@@ -2216,7 +2219,10 @@ namespace zefDB {
 			case BlobType::RELATION_EDGE: return true;
 			case BlobType::TX_EVENT_NODE: return true;
 			case BlobType::ROOT_NODE: return true;
-			default: throw std::runtime_error("attempting to link a blob that cannot be linked via a relation");
+			default: {
+                // print_backtrace();
+                throw std::runtime_error("attempting to link a blob that cannot be linked via a relation");
+            }
 			}                    
 		};                       
                                  
@@ -2235,6 +2241,17 @@ namespace zefDB {
 				}                
 			}                    
 			throw std::runtime_error("We should not have landed here in get_RAE_INSTANCE_EDGE: there should have been one el to return");
+			return my_entity_or_rel; // hack to suppress compiler warnings
+		}                        
+
+		inline EZefRef get_TO_DELEGATE_EDGE(EZefRef my_entity_or_rel) {
+			for (auto ind : AllEdgeIndexes(my_entity_or_rel)) {
+				if (ind < 0) {   
+					auto candidate = EZefRef(abs_val(ind), *graph_data(my_entity_or_rel));
+					if (get<BlobType>(candidate) == BlobType::TO_DELEGATE_EDGE) return candidate;
+				}                
+			}                    
+			throw std::runtime_error("We should not have landed here in get_TO_DELEGATE_EDGE: there should have been one el to return");
 			return my_entity_or_rel; // hack to suppress compiler warnings
 		}                        
 
@@ -2338,6 +2355,8 @@ namespace zefDB {
 		LIBZEF_DLL_EXPORTED bool exists_at(ZefRef, TimeSlice);
 		LIBZEF_DLL_EXPORTED bool exists_at(ZefRef, EZefRef tx);
 		LIBZEF_DLL_EXPORTED bool exists_at(ZefRef, ZefRef tx);
+
+		LIBZEF_DLL_EXPORTED bool exists_at_now(EZefRef);
 
         LIBZEF_DLL_EXPORTED ZefRef to_frame(EZefRef uzr, EZefRef tx, bool allow_terminated=false);
         LIBZEF_DLL_EXPORTED ZefRef to_frame(ZefRef uzr, EZefRef tx, bool allow_terminated=false);
