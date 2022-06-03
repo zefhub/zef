@@ -5204,18 +5204,17 @@ def is_a_implementation(x, typ):
 
 
     def has_value_matching(x, vt):
-        print(x)
-        print(vt)
+        my_set = vt.d['absorbed'][0]
         try:
-            print('A')
             val = value(x)
-            print('B', val)
         except:
-            print('C')
             raise TypeError(f"HasValue can only be applied to AETs")
             # TODO: or return false here
-        print('D')
-        return is_a(val, vt.d['absorbed'][0])
+
+        if isinstance(my_set, set):
+            return val in my_set            
+        # If we're here, it should be a VT    
+        return is_a(val, my_set)
 
 
 
