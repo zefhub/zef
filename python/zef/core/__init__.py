@@ -108,6 +108,7 @@ from .VT import (
     Is,
     SetOf,
     RP,
+    HasValue,
     Pattern,
     )
 from .VT.value_type import ValueType_

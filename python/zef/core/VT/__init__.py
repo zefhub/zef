@@ -49,7 +49,7 @@ def setof_ctor(*args):
     the [...] operator converts this to a tuple `SetOf[(5,6,7)]`,
     which itself is a valid expression.
     """
-    return ValueType_(type_name='SetOf', absorbed = x)
+    return ValueType_(type_name='SetOf', absorbed = args)
 
 # def error_ctor(*args, **kwargs):
 #     from ... import core
@@ -168,10 +168,13 @@ DataFrame  = ValueType_(type_name='DataFrame', constructor_func=None)
 # ZefRefs    = ValueType_(type_name='ZefRefs', constructor_func=None)     
 # ZefRefss   = ValueType_(type_name='ZefRefss', constructor_func=None)     
 
-Pattern = ValueType_(type_name='Pattern', constructor_func=None)
-Union = ValueType_(type_name='Union', constructor_func=None, get_item_func=union_getitem)
-Intersection = ValueType_(type_name='Intersection', constructor_func=None, get_item_func=intersection_getitem)
-Is = ValueType_(type_name='Is', constructor_func=None, get_item_func=is_getitem)
-SetOf = ValueType_(type_name='SetOf', constructor_func=setof_ctor, get_item_func=setof_getitem)
-Complement = ValueType_(type_name='Complement', constructor_func=None, get_item_func=complement_getitem)
-RP = ValueType_(type_name='RP', constructor_func=None, get_item_func=rp_getitem)
+Pattern        = ValueType_(type_name='Pattern',             constructor_func=None)
+Union          = ValueType_(type_name='Union',               constructor_func=None,             get_item_func=union_getitem)
+Intersection   = ValueType_(type_name='Intersection',        constructor_func=None,             get_item_func=intersection_getitem)
+Is             = ValueType_(type_name='Is',                  constructor_func=None,             get_item_func=is_getitem)
+SetOf          = ValueType_(type_name='SetOf',               constructor_func=setof_ctor,       get_item_func=setof_getitem)
+Complement     = ValueType_(type_name='Complement',          constructor_func=None,             get_item_func=complement_getitem)
+RP             = ValueType_(type_name='RP',                  constructor_func=None,             get_item_func=rp_getitem)
+HasValue       = ValueType_(type_name='HasValue',            constructor_func=None)
+
+

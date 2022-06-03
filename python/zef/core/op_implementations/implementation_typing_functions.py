@@ -5203,6 +5203,21 @@ def is_a_implementation(x, typ):
         raise TypeError(f"invalid pattern to match on in RP: {triple}")
 
 
+    def has_value_matching(x, vt):
+        print(x)
+        print(vt)
+        try:
+            print('A')
+            val = value(x)
+            print('B', val)
+        except:
+            print('C')
+            raise TypeError(f"HasValue can only be applied to AETs")
+            # TODO: or return false here
+        print('D')
+        return is_a(val, vt.d['absorbed'][0])
+
+
 
     def set_of_matching(el, setof):
         from typing import Callable
@@ -5273,6 +5288,9 @@ def is_a_implementation(x, typ):
 
         if typ.d['type_name'] == "RP":
             return rp_matching(x, typ)
+
+        if typ.d['type_name'] == "HasValue":
+            return has_value_matching(x, typ)
         
         if typ.d['type_name'] == "SetOf":
             return set_of_matching(x, typ)
