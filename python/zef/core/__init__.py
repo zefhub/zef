@@ -58,6 +58,7 @@ from .overrides import *
 # This set of imports is to define the order. Later imports are the ones to
 # actually provide useful exports.
 from . import internals
+from . import pure_utils
 from . import error
 from . import image
 from . import op_structs
