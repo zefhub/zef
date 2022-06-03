@@ -7884,7 +7884,7 @@ def field_imp(z, rt):
     if isinstance(z, list) or isinstance(z, tuple):
         return [field(zz, rt) for zz in z]
 
-    raise TypeError(f"Field operator not implemented for {type(z)=}    {z=}")
+    raise TypeError(f"Field operator not implemented for type(z)={type(z)}    z={z}")
 
 
 # ----------------------------- fields -----------------------------
@@ -7923,7 +7923,7 @@ def fields_imp(z, rt):
     if isinstance(z, list) or isinstance(z, tuple):
         return [fields(zz, rt) for zz in z]
 
-    raise TypeError(f"`fields` operator not implemented for {type(z)=}    {z=}")
+    raise TypeError(f"`fields` operator not implemented for type(z)={type(z)}    z={z}")
 
 
 
