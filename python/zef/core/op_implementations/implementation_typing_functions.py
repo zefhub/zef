@@ -7472,6 +7472,9 @@ def range_imp(*args):
     Range can take a single int or a pair of ints and returns a lazy
     List[Int].
 
+    3) In contrast to Python's builtin `range`, Zef's `Range` can
+    be called with infinity as an upper bound.
+
     ---- Signature ----
     Int -> List[Int]
     (Int, Int) -> List[Int]
@@ -7480,6 +7483,8 @@ def range_imp(*args):
     >>> 4 | Range         # => [0,1,2,3]   # but as a generator
     >>> (2, 5) | Range    # => [2,3,4]
     >>> Range(4)          # => [0,1,2,3]   # not lazy! The parentheses trigger evaluation for ZefOps!
+    >>> infinity | Range  # => [0,1,2,3, ... # lazy and infinitely long
+    >>> (4, infinity) | Range  # => [4,5,6, ... # lazy and infinitely long
 
     ---- Gotchas ----
     - calling with parentheses triggers evaluation. If this is 
@@ -7490,11 +7495,11 @@ def range_imp(*args):
     if len(args) == 1:
         a = args[0]
         # 10 | Range | ...
-        if isinstance(a, int):
+        if isinstance(a, int) or a==infinity:
             lo, hi = 0, a        
         # (2, 5) | Range | ...
         elif len(a) == 2:
-            if not (isinstance(a[0], int) and isinstance(a[1], int)):
+            if not (isinstance(a[0], int) and (isinstance(a[1], int) or a[1]==infinity)):
                 raise TypeError(f'When called with two argument, Range takes two ints. Got: {a}')
             else: lo, hi = a
         else:
@@ -7502,16 +7507,22 @@ def range_imp(*args):
     # Range(2, 5) | ...
     elif len(args) == 2:
         a = args
-        if not (isinstance(a[0], int) and isinstance(a[1], int)):
+        if not (isinstance(a[0], int) and (isinstance(a[1], int) or a[1]==infinity)):
                 raise TypeError(f'When called with two argument, Range takes two ints. Got: {a}')
         else: lo, hi = a
     else:
         raise TypeError(f'Range can be called with one or two integers. It got called with the wrong number of args: {args}')
 
-    def generator_wrapper():
+    def generator_wrapper2():
+        count2 = lo
+        while True:
+            yield count2
+            count2 += 1
+
+    def generator_wrapper1():
         yield from range(lo, hi)
     # don't expose the yield directly, keep this a function
-    return generator_wrapper()
+    return generator_wrapper2() if hi==infinity else generator_wrapper1()
 
 
 def range_tp(op, curr_type):
