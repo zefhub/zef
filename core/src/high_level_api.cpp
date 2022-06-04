@@ -1413,7 +1413,7 @@ namespace zefDB {
         EZefRef latest_tx = operator()(g) | to_ezefref;
                 if (!is_promotable_to_zefref(uzr, latest_tx)) throw std::runtime_error("Zefop 'now' called on EZefRef that cannot be promoted to a ZefRef.");
 
-				if (!zefOps::exists_at[latest_tx](uzr))
+				if (!imperative::exists_at_now(uzr))
 					throw std::runtime_error("'now(EZefRef)' called on a EZefRef that does not exist at the latest time slice. You can opt in to allow representing terminated RAEs by providing the flag 'z | now[allow_tombstone]' ");
 
 				return ZefRef(uzr, latest_tx);
@@ -2248,25 +2248,7 @@ namespace zefDB {
 
 
 		bool is_terminated(EZefRef my_rel_ent) {
- 			assert_is_this_a_rae(my_rel_ent);
-			EZefRef this_re_ent_inst = get_RAE_INSTANCE_EDGE(my_rel_ent);
-			blob_index last_index = internals::last_set_edge_index(this_re_ent_inst);
-			EZefRef last_in_edge_on_scenario_node(last_index, *graph_data(my_rel_ent));
-
-			if (get<BlobType>(last_in_edge_on_scenario_node) == BlobType::TERMINATION_EDGE) return true;
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-			// assert( // check that the other incoming edges are of reasonable type (i.e. expected to be incoming on scenario edge)
-			// 	get<BlobType>(last_in_edge_on_scenario_node) == BlobType::INSTANTIATION_EDGE ||
-			// 	get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE
-			// );
-			return false;
+            return !imperative::exists_at_now(my_rel_ent);
 		}
 
 
@@ -2621,22 +2603,21 @@ namespace zefDB {
             auto & gd = g.my_graph_data();
             LockGraphData lock{&gd};
 
-            TimeSlice latest = time_slice(now(g));
-            if(!exists_at(uzr, latest))
+            if(!exists_at_now(uzr))
                 throw std::runtime_error("Delegate is already retired");
             
             for(auto & parent : uzr >> L[BT.TO_DELEGATE_EDGE]) {
-                if(exists_at(parent, latest))
+                if(exists_at_now(parent))
                     throw std::runtime_error("Can't retire a delegate when it has a parent higher-order delegate.");
             }
 
             for(auto & rel : uzr | ins_and_outs) {
-                if(BT(rel) == BT.RELATION_EDGE && exists_at(rel, latest))
+                if(BT(rel) == BT.RELATION_EDGE && exists_at_now(rel))
                     throw std::runtime_error("Can't retire a delegate when it is the source/target of another instance/delegate.");
             }
 
             for(auto & instance : (uzr < BT.TO_DELEGATE_EDGE) >> L[BT.RAE_INSTANCE_EDGE]) {
-                if(exists_at(instance, latest))
+                if(exists_at_now(instance))
                     throw std::runtime_error("Can't retire a delegate when it has existing instances.");
             }
 
@@ -2724,6 +2705,44 @@ namespace zefDB {
 		bool exists_at(ZefRef zr, ZefRef tx) {
             return exists_at(zr.blob_uzr, tx);
         }
+
+        //////////////////////////////
+        // * exists_at_now
+
+        // This is an optimised version that uses only the latest edge in the
+        // RAE_INSTANCE_EDGE or TO_DELEGATE_EDGE in order to determine whether
+        // the RAE/delegate is alive.
+        //
+        // This relies on the instantiations/terminations being sorted chronologically.
+		bool exists_at_now(EZefRef uzr) {
+            if(is_delegate(uzr)) {
+                EZefRef to_del = internals::get_TO_DELEGATE_EDGE(uzr);
+                EZefRef last_edge(internals::last_set_edge_index(to_del), *graph_data(uzr));
+
+                if (get<BlobType>(last_edge) == BlobType::DELEGATE_RETIREMENT_EDGE) return false;
+                assert(get<BlobType>(last_edge) == BlobType::DELEGATE_INSTANTIATION_EDGE
+                       || get<BlobType>(last_edge) == BlobType::RAE_INSTANCE_EDGE);
+                return true;
+            }
+
+            if(get<BlobType>(uzr) == BlobType::ROOT_NODE)
+                return true;
+
+            if(get<BlobType>(uzr) == BlobType::TX_EVENT_NODE)
+                return true;
+
+            // For RAEs
+            internals::assert_is_this_a_rae(uzr);
+			EZefRef this_re_ent_inst = internals::get_RAE_INSTANCE_EDGE(uzr);
+			blob_index last_index = internals::last_set_edge_index(this_re_ent_inst);
+			EZefRef last_in_edge_on_scenario_node(last_index, *graph_data(uzr));
+
+			if (get<BlobType>(last_in_edge_on_scenario_node) == BlobType::TERMINATION_EDGE) return false;
+            assert(get<BlobType>(last_in_edge_on_scenario_node) == BlobType::INSTANTIATION_EDGE
+                   || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE);
+            return true;
+        }
+
 
         //////////////////////////////
         // * to_frame
@@ -3755,13 +3774,12 @@ namespace zefDB {
                 } else 
                     return {};
             } else {
-                auto ts = time_slice(now(g));
-                if(!exists_at(*res, ts)) {
+                if(!exists_at_now(*res)) {
                     if(create) {
                         // Assign new instantiation edges all the way down.
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef cur_d = *res;
-                        while(!exists_at(cur_d, ts)) {
+                        while(!exists_at_now(cur_d)) {
                             internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, cur_d < BT.TO_DELEGATE_EDGE, gd);
                             cur_d = cur_d << BT.TO_DELEGATE_EDGE;
                         }

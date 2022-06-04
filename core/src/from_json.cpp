@@ -268,7 +268,10 @@ namespace zefDB {
                     cur_index += blob_index_size(uzr);
                 }
 
-                verification::verify_graph_double_linking(g);
+                if(!verification::verify_graph_double_linking(g)
+                   || !verification::verify_chronological_instantiation_order(g)) {
+                    throw std::runtime_error("Verificaiton failed after rebuilding graph");
+                }
             }
             // Now use this byte data to construct a new graph which will do
             // apply blobs, create the caches and make it managed by the butler.

@@ -112,7 +112,7 @@ def setof_getitem(x):
 
 def rp_getitem(x):
     if not isinstance(x, tuple) or len(x)!=3:
-        raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got {x=}")
+        raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got x={x}")
     return ValueType_(type_name='RP', absorbed=(x,))
       
 

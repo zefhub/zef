@@ -643,9 +643,9 @@ def get_in_imp(d: dict, path, default_val=VT.Error):
     >>> {'a': 1, 'b': {'c': 1}} | get_in[('b', 'wrong_key')][42]   # => 42
     """
     assert isinstance(path, list) or isinstance(path, tuple)
-    if len(path) == 0: return d
-    if type(d) != dict: return default_val
-    return get_in(d.get(path[0], default_val), path[1:], default_val)
+
+    from ..pure_utils import get_in_pure
+    return get_in_pure(d, path, default_val)
 
     
 def get_in_tp(d_tp, path_tp, default_val_tp):
@@ -7884,7 +7884,7 @@ def field_imp(z, rt):
     if isinstance(z, list) or isinstance(z, tuple):
         return [field(zz, rt) for zz in z]
 
-    raise TypeError(f"Field operator not implemented for {type(z)=}    {z=}")
+    raise TypeError(f"Field operator not implemented for type(z)={type(z)}    z={z}")
 
 
 # ----------------------------- fields -----------------------------
@@ -7923,7 +7923,7 @@ def fields_imp(z, rt):
     if isinstance(z, list) or isinstance(z, tuple):
         return [fields(zz, rt) for zz in z]
 
-    raise TypeError(f"`fields` operator not implemented for {type(z)=}    {z=}")
+    raise TypeError(f"`fields` operator not implemented for type(z)={type(z)}    z={z}")
 
 
 

@@ -35,7 +35,7 @@ class MyTestCase(unittest.TestCase):
         z | terminate | g | run
         g_clones += [g]
 
-        for i,tx in enumerate(g | all[TX] | drop[1] | collect):
+        for i,tx in enumerate(g | all[TX] | skip[1] | collect):
             g_clone_before_tx = g_clones[i]
 
             for j in range(i+1,len(g_clones)):

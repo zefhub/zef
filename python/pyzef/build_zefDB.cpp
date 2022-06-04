@@ -591,6 +591,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	main_module.def("tag", py::overload_cast<EZefRef,const std::string,bool>(&tag), py::call_guard<py::gil_scoped_release>(), "Add a name tag / key_dict entry to for a specific ZefRef:  tag(my_z, 'my_favorite_zefref')", "z"_a, "name_tag"_a, "force_if_name_tags_other_rel_ent"_a=false);
 
 	verification_submodule.def("verify_graph_double_linking", verification::verify_graph_double_linking, "Check that node/edge linking is consistent for the indexes.");
+	verification_submodule.def("verify_chronological_instantiation_order", verification::verify_chronological_instantiation_order, "Check that RAEs and delegates have a correct chronological instantiation order.");
 	verification_submodule.def("break_graph", verification::break_graph, "Internal use checks");
 
 	admins_submodule.def("add_user", [](std::string username, std::string key) { zefDB::user_management("add_user", username, "", key);});
