@@ -7454,12 +7454,65 @@ def fg_merge_imp(fg1, fg2):
 
 
 
+
+
+
 #-----------------------------Range----------------------------------------
 def range_imp(*args):
-    def generator_wrapper(r):
-        yield from iter(r)
+    """
+    Introduce a separate operator from Python's range.
     
-    return generator_wrapper(range(*args))
+    1)  The lazy output value type should be uniform for other
+    zefops to deal with. `range` does not return a general Python
+    generator, but a special range object. We don't want to  make
+    all other zefops that can operate on a lazy List[Int] to special
+    case range.
+
+    2) we want the ability to pipe the boundary values into `Range`.
+    Range can take a single int or a pair of ints and returns a lazy
+    List[Int].
+
+    ---- Signature ----
+    Int -> List[Int]
+    (Int, Int) -> List[Int]
+
+    ---- Examples ----
+    >>> 4 | Range         # => [0,1,2,3]   # but as a generator
+    >>> (2, 5) | Range    # => [2,3,4]
+    >>> Range(4)          # => [0,1,2,3]   # not lazy! The parentheses trigger evaluation for ZefOps!
+
+    ---- Gotchas ----
+    - calling with parentheses triggers evaluation. If this is 
+      called for an infinite lazy sequence, the evaluation will not terminate.
+
+    """
+
+    if len(args) == 1:
+        a = args[0]
+        # 10 | Range | ...
+        if isinstance(a, int):
+            lo, hi = 0, a        
+        # (2, 5) | Range | ...
+        elif len(a) == 2:
+            if not (isinstance(a[0], int) and isinstance(a[1], int)):
+                raise TypeError(f'When called with two argument, Range takes two ints. Got: {a}')
+            else: lo, hi = a
+        else:
+            raise TypeError(f'Range can be called with one or two integers. It got called with the wrong number of args: {a}')
+    # Range(2, 5) | ...
+    elif len(args) == 2:
+        a = args
+        if not (isinstance(a[0], int) and isinstance(a[1], int)):
+                raise TypeError(f'When called with two argument, Range takes two ints. Got: {a}')
+        else: lo, hi = a
+    else:
+        raise TypeError(f'Range can be called with one or two integers. It got called with the wrong number of args: {args}')
+
+    def generator_wrapper():
+        yield from range(lo, hi)
+    # don't expose the yield directly, keep this a function
+    return generator_wrapper()
+
 
 def range_tp(op, curr_type):
     return None
