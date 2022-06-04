@@ -142,15 +142,20 @@ def make_distinct(v):
     """
     utility function to replace the 'distinct'
     zefop and preserve order.
-    Writing this on a plane and can't use zefops,
-    since I forgot the environment variable to
-    allow offline mode.
     """
     seen = set()
     for el in v:
-        if el not in seen:
+        if isinstance(el, set):
+            # we can't import the following at the top of file or even outside this if
+            # block: this function executes upon import of zef and leads to 
+            # circular dependencies. We do really want to use the value_hash zefop though.
+            from ..op_implementations.implementation_typing_functions import value_hash
+            h = value_hash(el)
+        else:
+            h = el
+        if h not in seen:
             yield el
-            seen.add(el)
+            seen.add(h)
 
 
 def simplify_value_type(x):

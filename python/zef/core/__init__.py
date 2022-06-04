@@ -62,6 +62,7 @@ from . import error
 from . import image
 from . import op_structs
 from . import _ops
+from . import VT
 from . import zef_functions
 from . import abstract_raes
 from . import graph_delta
