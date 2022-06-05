@@ -6962,6 +6962,8 @@ def value_hash_imp(obj) -> VT.String:
     - used for: Cryptography
     - operates on: Values
     """
+    if isinstance(obj, dict): # Handle dict specially to fix key,value pair order.
+        return blake3_imp("dict" + str(sort(obj.items())))
     try:
         from ..op_structs import type_spec
         type_str = str(type_spec(obj))
