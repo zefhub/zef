@@ -8176,7 +8176,7 @@ def examples_imp(op: VT.ZefOp) -> VT.String:
     try:
         example_idx = s.index("---- Examples ----")
     except:
-        raise ValueError(f"The docstring for {op} is either malformed or missing an Examples section!")
+        raise ValueError(f"The docstring for {op} is either malformed or missing an Examples section!")  from None
     examples = (
         (s 
         | skip[example_idx + 1] 
@@ -8219,7 +8219,7 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.String]]:
     try:
         signature_idx = s.index("---- Signature ----")
     except:
-        raise ValueError(f"The docstring for {op} is either malformed or missing a Signature section!")
+        raise ValueError(f"The docstring for {op} is either malformed or missing a Signature section!")  from None
     signature = (
     s 
     | skip[signature_idx + 1] 
@@ -8230,3 +8230,43 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.String]]:
     | collect
     )
     return signature
+
+
+def tags_imp(op: VT.ZefOp) -> VT.String:
+    """
+    Returns the tags portion of a docstring as string.
+
+    ---- Examples ----
+    >>> tags(apply)
+    ... - related zefop: map
+    ... - related zefop: func
+    ... - related zefop: call
+    ... - used for: control flow
+    ... - used for: function application
+
+    ---- Signature ----
+    (ZefOp) -> String
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: related
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    s = LazyValue(op) | docstring | split["\n"] | collect
+    try:
+        tags_idx = s.index("---- Tags ----")
+    except:
+        raise ValueError(f"The docstring for {op} is either malformed or missing a Tags section!") from None
+    tags = (
+        s 
+        | skip[tags_idx + 1] 
+        | take_while[lambda l: l[:4] != "----"] 
+        | filter[lambda l: l != ""]
+        | join["\n"]
+        | collect
+    )
+    return tags

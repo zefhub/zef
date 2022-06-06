@@ -350,6 +350,7 @@ split_on_next   = make_zefop(RT.SplitOnNext)
 
 examples        = make_zefop(RT.Examples)
 signature       = make_zefop(RT.Signature)
+tags            = make_zefop(RT.Tags)
 
 
 
