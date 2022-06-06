@@ -352,7 +352,7 @@ examples        = make_zefop(RT.Examples)
 signature       = make_zefop(RT.Signature)
 tags            = make_zefop(RT.Tags)
 related_ops     = make_zefop(RT.RelatedOps)
-
+operates_on     = make_zefop(RT.OperatesOn)
 
 
 # TODO: implement

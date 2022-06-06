@@ -301,4 +301,5 @@ _op_to_functions = {
         RT.Signature:          (signature_imp, None),
         RT.Tags:               (tags_imp, None),
         RT.RelatedOps:         (related_ops_imp, None),
+        RT.OperatesOn:         (operates_on_imp, None), 
 }

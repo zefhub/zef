@@ -8300,3 +8300,33 @@ def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
         | filter[lambda el: el != None]
         | collect
     )
+
+def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
+    """
+    Extracts the operates on Types from the tags portion of the docstring of the op.
+    It returns back a list of ValueTypes.
+
+    ---- Examples ----
+    >>> operates_on(blake3)
+    ... [String, Bytes]
+
+    ---- Signature ----
+    (ZefOp) -> List[ValueType]
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: tags
+    - related zefop: related_ops
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    tags_lines = tags(op) | split["\n"] | collect
+    return (
+        tags_lines 
+        | filter[lambda l: "operates" in l]
+        | map[split[":"] | last | trim[" "] | prepend["VT."] | attempt[eval][None]]
+        | filter[lambda el: el != None]
+        | collect
+    )
