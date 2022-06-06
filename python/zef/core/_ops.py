@@ -353,6 +353,7 @@ signature       = make_zefop(RT.Signature)
 tags            = make_zefop(RT.Tags)
 related_ops     = make_zefop(RT.RelatedOps)
 operates_on     = make_zefop(RT.OperatesOn)
+used_for        = make_zefop(RT.UsedFor)
 
 
 # TODO: implement

@@ -8295,7 +8295,7 @@ def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
     tags_lines = tags(op) | split["\n"] | collect
     return (
         tags_lines 
-        | filter[lambda l: "related" in l]
+        | filter[lambda l: "related zefop" in l]
         | map[split[":"] | last | trim[" "] | attempt[eval][None]]
         | filter[lambda el: el != None]
         | collect
@@ -8325,8 +8325,38 @@ def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
     tags_lines = tags(op) | split["\n"] | collect
     return (
         tags_lines 
-        | filter[lambda l: "operates" in l]
+        | filter[lambda l: "operates on" in l]
         | map[split[":"] | last | trim[" "] | prepend["VT."] | attempt[eval][None]]
         | filter[lambda el: el != None]
+        | collect
+    )
+
+def used_for_imp(op: VT.ZefOp) -> VT.String:
+    """
+    Extracts the used for from the tags portion of the docstring of the op.
+
+    ---- Examples ----
+    >>> used_for(append)
+    ... list manipulation
+    ... string manipulation
+
+    ---- Signature ----
+    (ZefOp) -> String
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: tags
+    - related zefop: related_ops
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    tags_lines = tags(op) | split["\n"] | collect
+    return (
+        tags_lines 
+        | filter[lambda l: "used for" in l]
+        | map[split[":"] | last | trim[" "]]
+        | join["\n"]
         | collect
     )
