@@ -57,6 +57,7 @@ _op_to_functions = {
         RT.Sort:            (sort_implementation, sort_type_info),
         RT.Now:             (now_implementation, now_type_info),
         RT.Events:          (events_imp, events_tp),
+        RT.PrecedingEvents: (preceding_events_imp, None),
         RT.ToDelegate:      (to_delegate_implementation, to_delegate_type_info),
         RT.DelegateOf:      (delegate_of_implementation, delegate_of_type_info),
         
