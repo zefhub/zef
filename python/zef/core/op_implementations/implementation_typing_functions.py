@@ -8146,3 +8146,44 @@ def split_on_next_imp(s, el_to_split_on):
         return part1, wrapper()
 
     raise TypeError(f"expected a String or a List in `split_on_next`, got a {type(s)}")
+
+
+
+# ----------------------------- ops acting on op doctstring -----------------------------
+def examples_imp(op: VT.ZefOp) -> VT.String:
+    """
+    Returns the examples portion of a docstring as a string.
+    This will be later improved to extract executable expressions from the examples and return them.
+
+    ---- Examples ----
+    >>> examples(yo)
+    ... 'yaml-keyword' | to_snake_case   # => "yaml_keyword"
+    ... 'TokenName' | to_snake_case    # => "token_name"
+
+    ---- Signature ----
+    (ZefOp) -> String
+
+    ---- Tags ----
+    - related zefop: tags
+    - related zefop: signature
+    - related zefop: related
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    s = LazyValue(op) | docstring | split["\n"] | collect
+    try:
+        example_idx = s.index("---- Examples ----")
+    except:
+        raise ValueError(f"The docstring for {op} is either malformed or missing an Examples section!")
+    examples = (
+        (s 
+        | skip[example_idx + 1] 
+        | take_while[lambda l: l[:4] != "----"] )
+        | filter[lambda l: l != ""]
+        | join["\n"] 
+        | collect
+    )
+
+    return examples
