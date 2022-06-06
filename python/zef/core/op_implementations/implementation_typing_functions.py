@@ -8166,7 +8166,7 @@ def examples_imp(op: VT.ZefOp) -> VT.String:
     ---- Tags ----
     - related zefop: tags
     - related zefop: signature
-    - related zefop: related
+    - related zefop: related_ops
     - related zefop: operates_on
     - related zefop: used_for
     - operates on: ZefOp
@@ -8203,7 +8203,7 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.String]]:
     ---- Tags ----
     - related zefop: tags
     - related zefop: examples
-    - related zefop: related
+    - related zefop: related_ops
     - related zefop: operates_on
     - related zefop: used_for
     - operates on: ZefOp
@@ -8250,7 +8250,7 @@ def tags_imp(op: VT.ZefOp) -> VT.String:
     ---- Tags ----
     - related zefop: signature
     - related zefop: examples
-    - related zefop: related
+    - related zefop: related_ops
     - related zefop: operates_on
     - related zefop: used_for
     - operates on: ZefOp
@@ -8270,3 +8270,33 @@ def tags_imp(op: VT.ZefOp) -> VT.String:
         | collect
     )
     return tags
+
+def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
+    """
+    Extracts the related ops from the tags portion of the docstring of the op.
+    It returns back a list of ZefOp.
+
+    ---- Examples ----
+    >>> related_ops(to_snake_case)
+    ... [to_lower_case, to_upper_case, to_pascal_case, to_camel_case, to_kebab_case, to_screaming_snake_case]
+
+    ---- Signature ----
+    (ZefOp) -> List[ZefOp]
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: tags
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    tags_lines = tags(op) | split["\n"] | collect
+    return (
+        tags_lines 
+        | filter[lambda l: "related" in l]
+        | map[split[":"] | last | trim[" "] | attempt[eval][None]]
+        | filter[lambda el: el != None]
+        | collect
+    )
