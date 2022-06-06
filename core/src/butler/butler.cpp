@@ -21,6 +21,7 @@
 // I want to not have to use this:
 #include "high_level_api.h"
 #include "synchronization.h"
+#include "zef_config.h"
 
 namespace zefDB {
     bool initialised_python_core = false;
@@ -102,6 +103,9 @@ namespace zefDB {
 #ifdef DEBUG
             internals::static_checks();
 #endif
+            if(!validate_config_file()) {
+                std::cerr << "WARNING: config options are invalid..." << std::endl;
+            }
             
             if(zwitch.zefhub_communication_output())
                 std::cerr << "Will use uri=" << zefhub_uri << " when later connecting to ZefHub" << std::endl;
@@ -2016,13 +2020,7 @@ namespace zefDB {
             if (env != nullptr)
                 return std::filesystem::path(std::string(env)) / upstream_name;
 
-#ifdef _MSC_VER
-            char * home = std::getenv("LOCALAPPDATA");
-#else
-            char * home = std::getenv("HOME");
-#endif
-            std::filesystem::path path(home);
-            path /= ".zef";
+            std::filesystem::path path = zefdb_config_path();
             path /= "graphs";
             path /= upstream_name;
             return path;

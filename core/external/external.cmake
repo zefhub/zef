@@ -218,6 +218,22 @@ ManualFetchContent_MakeAvailable(nlohmann_json)
 
 create_license_file("nlohmann_json" ${nlohmann_json_SOURCE_DIR}/LICENSE.MIT NO "This library bundles Niels Lohmann's JSON library (https://github.com/nlohmann/json)\n\nFrom distribution point of (https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent).\n\nThe full text of the nlohmann_json license follows below.\n\n")
 
+# * yaml-cpp
+message(STATUS "External: yaml-cpp")
+
+FetchContent_Declare(yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp
+  GIT_TAG yaml-cpp-0.7.0
+  GIT_SHALLOW ON
+  UPDATE_COMMAND "")
+
+ManualFetchContent_MakeAvailable(yaml-cpp)
+set_target_properties(yaml-cpp PROPERTIES
+  POSITION_INDEPENDENT_CODE ON)
+
+create_license_file("yaml-cpp" ${LAST_SOURCE_DIR}/LICENSE NO "This library bundles the yaml-cpp library (https://github.com/jbeder/yaml-cpp)\n\nThe full text of the yaml-cpp license follows below.\n\n")
+
+
 # * asio
 
 message(STATUS "External: asio")

@@ -78,6 +78,7 @@ set(SOURCES
     src/zefref.cpp
     src/uids.cpp
     src/from_json.cpp
+    src/zef_config.cpp
 
     src/butler/butler.cpp
     src/butler/butler_zefhub.cpp
@@ -140,6 +141,7 @@ if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
 endif()
 
 target_link_libraries(zef PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(zef PRIVATE yaml-cpp::yaml-cpp)
 target_link_libraries(zef PUBLIC phmap)
 target_link_libraries(zef PUBLIC range-v3)
 target_link_libraries(zef PRIVATE doctest)

@@ -33,4 +33,5 @@ __all__ = [
     "_any",
     "value_or",
     "maybe_value",
+    "config",
 ] + privileges.__all__ + lazy_all + transactor_role.__all__

@@ -263,6 +263,21 @@ namespace zefDB {
         ~RAII_CallAtEnd() { func(); }
     };
 
+    inline bool parse_string_bool(std::string s) {
+        if(s == "0" ||
+           s == "NO" ||
+           s == "no" ||
+           s == "FALSE" ||
+           s == "false")
+            return false;
+        if(s == "1" ||
+           s == "YES" ||
+           s == "yes" ||
+           s == "TRUE" ||
+           s == "true")
+            return true;
+        throw std::runtime_error("Unknown string to convert to bool: '" + s + "'");
+    }
     inline bool check_env_bool(const char * var, bool default_val=false) {
         char * env = std::getenv(var);
         if(env == nullptr)
@@ -272,20 +287,11 @@ namespace zefDB {
         if(s_env == "")
             return default_val;
 
-        if(s_env == "0" ||
-           s_env == "NO" ||
-           s_env == "no" ||
-           s_env == "FALSE" ||
-           s_env == "false")
-            return false;
-        else if(s_env == "1" ||
-                s_env == "YES" ||
-                s_env == "yes" ||
-                s_env == "TRUE" ||
-                s_env == "true")
-            return true;
-        else
+        try {
+            return parse_string_bool(s_env);
+        } catch(...) {
             std::cerr << "Warning, found value for environment variable " << var << "='" << s_env << "' but was not recognised. Value should be one of 0, 1, NO, YES, FALSE, TRUE." << std::endl;
+        }
 
         return default_val;
     }
