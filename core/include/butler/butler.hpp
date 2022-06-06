@@ -59,35 +59,33 @@ namespace zefDB {
             auto future = msg_push_internal(std::move(content), ignore_closed);
             std::future_status status;
             assert(timeout.unit == EN.Unit.seconds);
-            if(timeout.value == 0)
-                status = std::future_status::ready;
-            else
-                status = future.wait_for(std::chrono::duration<double>(timeout.value));
-            if(status != std::future_status::ready) {
-                throw std::runtime_error("Butler did not return with response in time after waiting for: " + to_str(timeout.value) + ".");
-            } else {
-                Messages::Response response;
-                try {
-                    response = future.get();
-                } catch(const std::exception & e) {
-                    // std::cerr << "Exception: " << e.what() << std::endl;
-                    throw std::runtime_error("Got unexpected butler error when processing message of type: " + msg_type + "\nException was: " + e.what());
-                }
-
-                return std::visit(overloaded {
-                        [](const T & response) { return response; },
-                        [](const auto & response) -> T {
-                            if constexpr(std::is_constructible_v<T, decltype(response)>) {
-                                return T(response);
-                            } else {
-                                std::string name = typeid(response).name();
-                                std::string desired = typeid(T).name();
-                                std::cerr << "Response from ZefHub is not of the right type. " + name + " not " + desired + "." << std::endl;
-                                throw std::runtime_error("Response from ZefHub is not of the right type. " + name + " not " + desired + ".");
-                            }
-                        }
-                    }, response);
+            // This needs to be changed to timeout on the butler side instead of here.
+            // if(timeout.value == 0)
+            //     status = std::future_status::ready;
+            // else
+            //     status = future.wait_for(std::chrono::duration<double>(timeout.value));
+            Messages::Response response;
+            try {
+                response = future.get();
+            } catch(const std::exception & e) {
+                // std::cerr << "Exception: " << e.what() << std::endl;
+                throw std::runtime_error("Got unexpected butler error when processing message of type: " + msg_type + "\nException was: " + e.what());
             }
+
+            return std::visit(overloaded {
+                    [](const T & response) { return response; },
+                    [](const auto & response) -> T {
+                        if constexpr(std::is_constructible_v<T, decltype(response)>) {
+                            return T(response);
+                        } else {
+                            std::string name = typeid(response).name();
+                            std::string desired = typeid(T).name();
+                            std::cerr << "Response from ZefHub is not of the right type. " + name + " not " + desired + "." << std::endl;
+                            throw std::runtime_error("Response from ZefHub is not of the right type. " + name + " not " + desired + ".");
+                        }
+                    }
+                }, response);
+
         }
     }
 }
