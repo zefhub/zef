@@ -528,47 +528,51 @@ def resolve_id(z, info):
 ##############################
 # * Mutations
 #----------------------------
+from threading import Lock
+mutation_lock = Lock()
+
 def resolve_add(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     try:
-        name_gen = NameGen()
-        actions = []
-        post_checks = []
-        new_obj_names = []
-        updated_objs = []
+        with mutation_lock:
+            name_gen = NameGen()
+            actions = []
+            post_checks = []
+            new_obj_names = []
+            updated_objs = []
 
-        # This is not optimal but simplest to understand for now.
-        upsert = params.get("upsert", False)
-        for item in params["input"]:
-            # Check id fields to see if we already have this.
-            if "id" in item:
-                if not upsert:
-                    raise ExternalError("Can't update item with id without setting upsert")
-                obj = find_existing_entity_by_id(info, type_node, item["id"])
-                if obj is None:
-                    raise Exception("Item doesn't exist")
-                set_d = {**item}
-                set_d.pop("id")
-                new_actions,new_post_checks = update_entity(obj, info, type_node, set_d, {}, name_gen)
-                actions += new_actions
-                post_checks += new_post_checks
-                updated_objs += [obj]
-            else:
-                obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen)
-                actions += more_actions
-                post_checks += more_post_checks
-                new_obj_names += [obj_name]
+            # This is not optimal but simplest to understand for now.
+            upsert = params.get("upsert", False)
+            for item in params["input"]:
+                # Check id fields to see if we already have this.
+                if "id" in item:
+                    if not upsert:
+                        raise ExternalError("Can't update item with id without setting upsert")
+                    obj = find_existing_entity_by_id(info, type_node, item["id"])
+                    if obj is None:
+                        raise Exception("Item doesn't exist")
+                    set_d = {**item}
+                    set_d.pop("id")
+                    new_actions,new_post_checks = update_entity(obj, info, type_node, set_d, {}, name_gen)
+                    actions += new_actions
+                    post_checks += new_post_checks
+                    updated_objs += [obj]
+                else:
+                    obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen)
+                    actions += more_actions
+                    post_checks += more_post_checks
+                    new_obj_names += [obj_name]
 
-        r = commit_with_post_checks(actions, post_checks, info)
+            r = commit_with_post_checks(actions, post_checks, info)
 
-        ents = updated_objs + [r[name] for name in new_obj_names]
-        # Note: we return the details after any updates
-        ents = ents | map[now] | collect
+            ents = updated_objs + [r[name] for name in new_obj_names]
+            # Note: we return the details after any updates
+            ents = ents | map[now] | collect
 
-        count = len(new_obj_names)
+            count = len(new_obj_names)
 
-        return {"count": count, "ents": ents}
+            return {"count": count, "ents": ents}
     except ExternalError:
         raise
     except Exception as exc:
@@ -579,42 +583,43 @@ def resolve_upfetch(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     try:
-        # Upfetch is a lot like add with upsert, except it uses the specially
-        # indicated upfetch field to work on, rather than id.
-        name_gen = NameGen()
-        actions = []
-        post_checks = []
-        new_obj_names = []
-        updated_objs = []
+        with mutation_lock:
+            # Upfetch is a lot like add with upsert, except it uses the specially
+            # indicated upfetch field to work on, rather than id.
+            name_gen = NameGen()
+            actions = []
+            post_checks = []
+            new_obj_names = []
+            updated_objs = []
 
-        upfetch_field = op_upfetch_field(type_node)
-        field_name = upfetch_field >> RT.Name | value | collect
+            upfetch_field = op_upfetch_field(type_node)
+            field_name = upfetch_field >> RT.Name | value | collect
 
-        for item in params["input"]:
-            # Check the upfetch field to see if we already have this.
-            if field_name not in item:
-                raise Exception("Should never get here, because the upfetch field should be marked as required")
+            for item in params["input"]:
+                # Check the upfetch field to see if we already have this.
+                if field_name not in item:
+                    raise Exception("Should never get here, because the upfetch field should be marked as required")
 
-            obj = find_existing_entity_by_field(info, type_node, upfetch_field, item[field_name])
-            if obj is None:
-                obj_name,more_actions,more_post_checks  = add_new_entity(info, type_node, item, name_gen)
-                actions += more_actions
-                post_checks += more_post_checks
-                new_obj_names += [obj_name]
-            else:
-                new_actions,new_post_checks = update_entity(obj, info, type_node, item, {}, name_gen)
-                actions += new_actions
-                post_checks += new_post_checks
-                updated_objs += [obj]
+                obj = find_existing_entity_by_field(info, type_node, upfetch_field, item[field_name])
+                if obj is None:
+                    obj_name,more_actions,more_post_checks  = add_new_entity(info, type_node, item, name_gen)
+                    actions += more_actions
+                    post_checks += more_post_checks
+                    new_obj_names += [obj_name]
+                else:
+                    new_actions,new_post_checks = update_entity(obj, info, type_node, item, {}, name_gen)
+                    actions += new_actions
+                    post_checks += new_post_checks
+                    updated_objs += [obj]
 
-        r = commit_with_post_checks(actions, post_checks, info)
+            r = commit_with_post_checks(actions, post_checks, info)
 
-        ents = updated_objs + [r[name] for name in new_obj_names]
-        # Note: we return the details after any updates
-        ents = ents | map[now] | collect
-        count = len(new_obj_names)
+            ents = updated_objs + [r[name] for name in new_obj_names]
+            # Note: we return the details after any updates
+            ents = ents | map[now] | collect
+            count = len(new_obj_names)
 
-        return {"count": count, "ents": ents}
+            return {"count": count, "ents": ents}
     except ExternalError:
         raise
     except Exception as exc:
@@ -626,27 +631,28 @@ def resolve_update(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     try:
-        if "input" not in params or "filter" not in params["input"]:
-            raise Exception("Not allowed to update everything!")
-        ents = resolve_query(_, info, type_node=type_node, filter=params["input"]["filter"])
+        with mutation_lock:
+            if "input" not in params or "filter" not in params["input"]:
+                raise Exception("Not allowed to update everything!")
+            ents = resolve_query(_, info, type_node=type_node, filter=params["input"]["filter"])
 
-        actions = []
-        post_checks = []
+            actions = []
+            post_checks = []
 
-        name_gen = NameGen()
-        for ent in ents:
-            new_actions,new_post_checks = update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen)
-            actions += new_actions
-            post_checks += new_post_checks
+            name_gen = NameGen()
+            for ent in ents:
+                new_actions,new_post_checks = update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen)
+                actions += new_actions
+                post_checks += new_post_checks
 
-        commit_with_post_checks(actions, post_checks, info)
+            commit_with_post_checks(actions, post_checks, info)
 
-        count = len(ents)
+            count = len(ents)
 
-        # Note: we return the details after the update
-        ents = ents | map[now] | collect
+            # Note: we return the details after the update
+            ents = ents | map[now] | collect
 
-        return {"count": count, "ents": ents}
+            return {"count": count, "ents": ents}
     except ExternalError:
         raise
     except Exception as exc:
@@ -655,20 +661,21 @@ def resolve_update(_, info, *, type_node, **params):
 
 def resolve_delete(_, info, *, type_node, **params):
     try:
-        g = info.context["g"]
-        # Do the same thing as a resolve_query but delete the entities instead.
-        if "filter" not in params:
-            raise ExtenalError("Not allowed to delete everything!")
-        ents = resolve_query(_, info, type_node=type_node, **params)
+        with mutation_lock:
+            g = info.context["g"]
+            # Do the same thing as a resolve_query but delete the entities instead.
+            if "filter" not in params:
+                raise ExtenalError("Not allowed to delete everything!")
+            ents = resolve_query(_, info, type_node=type_node, **params)
 
-        if not ents | map[pass_delete_auth[type_node][info]] | all | collect:
-            raise ExtenalError("Auth check returned False")
+            if not ents | map[pass_delete_auth[type_node][info]] | all | collect:
+                raise ExtenalError("Auth check returned False")
 
-        [terminate[ent] for ent in ents] | transact[g] | run
+            [terminate[ent] for ent in ents] | transact[g] | run
 
-        count = len(ents)
+            count = len(ents)
 
-        return {"count": count, "ents": ents}
+            return {"count": count, "ents": ents}
     except ExternalError:
         raise
     except Exception as exc:

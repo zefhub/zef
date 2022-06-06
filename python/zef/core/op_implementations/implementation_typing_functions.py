@@ -3166,6 +3166,7 @@ def pattern_imp(x, p):
     - related zefop: match_apply
     - related zefop: distinct_by
     """
+    print(f"pattern will be retired: use `Pattern` and if a predicate is required `is_a[Pattern[...]]` instead. 🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱 ")
     from zef.ops import _any
     class Sentinel:
         pass
@@ -3792,6 +3793,70 @@ def previous_tx_tp(z_tp):
     return None
 
 
+# ----------------------------------------- preceding_events --------------------------------------------
+
+def preceding_events_imp(x, filter_on=None):
+    """ 
+    Given a TX as a (E)ZefRef, return all events that occurred in that TX.
+    Given a ZefRef to a RAE, return all the events that happend on the RAE.
+
+    - filter_on allows for filtering on the type of the events; by default it is none which
+    returns all events.
+
+    ---- Examples ----
+    >>> my_graph_slice | events                  => [instantiated[z1], terminated[z3], value_assigned[z8][41][42] ]
+    >>> z_rae | events                          => [instantiated[z1], value_assigned[z8][41][42], terminated[z3]]
+    >>> z_rae | events[Instantiated]            => [instantiated[z1]]
+    >>> z_rae | events[Instantiated | Assigned] => [instantiated[z1], value_assigned[z8][41][42]]
+
+    ---- Signature ----
+    Union[ZefRef[TX], EZefRef[TX]]  ->  List[ZefOp[Union[Instantiated[ZefRef], Terminated[ZefRef], ValueAssigned[ZefRef, T]]]]
+    """
+    from zef.pyzef import zefops as pyzefops
+    # Note: we can't use the python to_frame here as that calls into us.
+    
+    if isinstance(x, GraphSlice):
+        return 'TODO!!!!!!!!!!!!!!!'
+
+    if BT(x) == BT.TX_EVENT_NODE:
+        raise TypeError(f"`preceding_events` can only be called on RAEs and GraphSlices and lists all relevant events form the past. It was called on a TX. You may be looking for the `events` operator, which lists all events that happened in a TX.")
+        
+    if internals.is_delegate(x):
+        ezr = to_ezefref(x)
+        to_del = ezr | in_rel[BT.TO_DELEGATE_EDGE] | collect
+        insts = to_del | Ins[BT.DELEGATE_INSTANTIATION_EDGE]
+        retirements = to_del | Ins[BT.DELEGATE_RETIREMENT_EDGE]
+        if type(ezr) == ZefRef:
+            gs = frame(ezr)
+            insts = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+            retirements = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+
+        insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        full_list = insts+retirements
+
+
+    else:
+        zr = x
+
+        def make_val_as_from_tx(tx):
+            aet_at_frame = pyzefops.to_frame(zr, tx)
+            try:
+                prev_tx  = tx | previous_tx | collect                                   # Will fail if tx is already first TX
+                prev_val = pyzefops.to_frame(zr, prev_tx) | value | collect     # Will fail if aet didn't exist at prev_tx
+            except:
+                prev_val = None
+            return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+
+        inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: instantiated[pyzefops.to_frame(zr, tx) ]] | collect
+        val_assigns =  pyzefops.value_assignment_txs(zr) | map[make_val_as_from_tx] | collect
+        # TODO termination_tx returns even if zr is a zefref with a timeslice where it wasn't terminated yet
+        termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[pyzefops.to_frame(zr, tx, True)]] | collect
+        full_list = inst + val_assigns + termination 
+
+    if filter_on: return full_list | filter[lambda z: is_a_implementation(z, filter_on)] | collect
+    return full_list
+
 
 
 
@@ -3807,15 +3872,21 @@ def events_imp(z_tx_or_rae, filter_on=None):
 
     ---- Examples ----
     >>> z_tx  | events                          => [instantiated[z1], terminated[z3], value_assigned[z8][41][42] ]
-    >>> z_rae | events                          => [instantiated[z1], value_assigned[z8][41][42], terminated[z3]]
-    >>> z_rae | events[Instantiated]            => [instantiated[z1]]
-    >>> z_rae | events[Instantiated | Assigned] => [instantiated[z1], value_assigned[z8][41][42]]
+
 
     ---- Signature ----
-    Union[ZefRef[TX], EZefRef[TX]]  ->  List[ZefOp[Union[Instantiated[ZefRef], Terminated[ZefRef], ValueAssigned[ZefRef, T]]]]
+    ZefRef[TX] | EZefRef[TX]  ->  List[ZefOp[Union[Instantiated[ZefRef], Terminated[ZefRef], ValueAssigned[ZefRef, Any, Any]]]]
+
+    ---- Tags ----
+    - related zefop: preceding_events
+    - related zefop: instantiation_txs
+    - related zefop: termination_txs
+    - related zefop: assignment_txs
+
     """
     from zef.pyzef import zefops as pyzefops
     # Note: we can't use the python to_frame here as that calls into us.
+    
 
     if internals.is_delegate(z_tx_or_rae):
         ezr = to_ezefref(z_tx_or_rae)
@@ -3849,6 +3920,9 @@ def events_imp(z_tx_or_rae, filter_on=None):
         terminations = zr | pyzefops.terminated     | map[lambda zz: terminated[pyzefops.to_frame(zz, gs.tx, True) ]] | collect
         full_list = insts+val_assigns+terminations
     else:
+        print(f"🥱🥱🥱🥱🥱🥱 Change: The `events` ZefOp can only be used on (E)ZefRef to TXs. To look at the past of any RAE from a given frame, use `preceding_events`. ")
+        raise Exception()
+        # TODO: retire this block
         zr = z_tx_or_rae
 
         def make_val_as_from_tx(tx):
@@ -3955,7 +4029,7 @@ def in_frame_imp(z, *args):
             # Note that 'first' is used here instead of 'single', as delegates
             # may have been brought back to life... but we only care about
             # casuality here, which corresponds to the very first instantiation.
-            instantiation_ts = z_obj | events[Instantiated] | first | absorbed | single | frame | time_slice | collect
+            instantiation_ts = z_obj | preceding_events[Instantiated] | first | absorbed | single | frame | time_slice | collect
         if (time_slice(target_frame)) < instantiation_ts:
             raise RuntimeError(f"Causality error: you cannot point to an object from a frame prior to its existence / the first time that frame learned about it.")            
         if not tombstone_allowed:
@@ -5033,11 +5107,11 @@ def time_implementation(x, *curried_args):
 
 
 def instantiation_tx_implementation(z):
-    return z | events[Instantiated] | single | absorbed | single | frame | to_tx | collect
+    return z | preceding_events[Instantiated] | single | absorbed | single | frame | to_tx | collect
 
 def termination_tx_implementation(z):
     root_node = Graph(z)[42] 
-    return z | events[Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
+    return z | preceding_events[Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
 
 
     
@@ -7491,6 +7565,9 @@ def range_imp(*args):
     ---- Gotchas ----
     - calling with parentheses triggers evaluation. If this is 
       called for an infinite lazy sequence, the evaluation will not terminate.
+
+    ---- Tags ----
+    - used for: List manipulation
 
     """
 

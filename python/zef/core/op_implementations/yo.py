@@ -128,16 +128,16 @@ uid:                    {uid(uzr)}
 blob index:             {index(uzr)}
 current owning graphs:  {uid(Graph(uzr))} {f", name tags: ({','.join(Graph(uzr).graph_data.tag_list)})"
     if Graph(uzr).graph_data.tag_list else ""}
-total affected:         {length(uzr | events)}
-total instantiations:   {length(uzr | events[Instantiated])}
-total assignments:      {length(uzr | events[Assigned])}
-total terminations:     {length(uzr | events[Terminated])}
+total affected:         {length(uzr | preceding_events)}
+total instantiations:   {length(uzr | preceding_events[Instantiated])}
+total assignments:      {length(uzr | preceding_events[Assigned])}
+total terminations:     {length(uzr | preceding_events[Terminated])}
 \n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Instantiations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | events[Instantiated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
+{tx_block_view(uzr | preceding_events[Instantiated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Value Assignments ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | events[Assigned]  | map[absorbed | first] | collect, value_assigned_string_view)} 
+{tx_block_view(uzr | preceding_events[Assigned]  | map[absorbed | first] | collect, value_assigned_string_view)} 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Terminations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | events[Terminated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
+{tx_block_view(uzr | preceding_events[Terminated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
 """
 
 
