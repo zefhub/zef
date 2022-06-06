@@ -8156,7 +8156,7 @@ def examples_imp(op: VT.ZefOp) -> VT.String:
     This will be later improved to extract executable expressions from the examples and return them.
 
     ---- Examples ----
-    >>> examples(yo)
+    >>> examples(to_snake_case)
     ... 'yaml-keyword' | to_snake_case   # => "yaml_keyword"
     ... 'TokenName' | to_snake_case    # => "token_name"
 
@@ -8187,3 +8187,46 @@ def examples_imp(op: VT.ZefOp) -> VT.String:
     )
 
     return examples
+
+
+def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.String]]:
+    """
+    Returns the signature portion of a docstring as a list of tuples.
+
+    ---- Examples ----
+    >>> signature(apply)
+    ... [('(T,  (T', 'T2) )', 'T2'), ('(T, List[(T', 'T2)] )', 'List[T2]')]
+
+    ---- Signature ----
+    (ZefOp) -> List[Record[String]]
+
+    ---- Tags ----
+    - related zefop: tags
+    - related zefop: examples
+    - related zefop: related
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+
+    def clean_signature(s):
+        commment_idx = s.find("#")
+        if commment_idx != -1: s = s[:commment_idx]
+        return s.strip()
+
+    s = LazyValue(op) | docstring | split["\n"] | collect
+    try:
+        signature_idx = s.index("---- Signature ----")
+    except:
+        raise ValueError(f"The docstring for {op} is either malformed or missing a Signature section!")
+    signature = (
+    s 
+    | skip[signature_idx + 1] 
+    | take_while[lambda l: l[:4] != "----"] 
+    | filter[lambda l: l != ""]
+    | map[split["->"] | map[clean_signature]]
+    | map[tuple]
+    | collect
+    )
+    return signature

@@ -298,4 +298,5 @@ _op_to_functions = {
 
 
         RT.Examples:           (examples_imp, None),
+        RT.Signature:          (signature_imp, None),
 }
