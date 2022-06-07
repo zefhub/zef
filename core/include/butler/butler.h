@@ -82,8 +82,6 @@ namespace zefDB {
             
 
         std::filesystem::path zefdb_config_path();
-        std::string get_default_zefhub_uri();
-        std::string get_auto_connect();
 
         // If this is set, the butler no longer needs to commmunicate with
         // upstream to ask permission or take primary etc...
@@ -287,7 +285,6 @@ namespace zefDB {
             std::optional<std::string> session_auth_key;
 
 
-            // Butler() : Butler(get_default_zefhub_uri()) {}
             Butler(std::string uri);
 
 

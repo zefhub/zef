@@ -97,7 +97,7 @@ namespace zefDB {
         }   
 
         void initialise_butler() {
-            initialise_butler(get_default_zefhub_uri());
+            initialise_butler(std::get<std::string>(get_config_var("login.zefhubURL")));
         }
         void initialise_butler(std::string zefhub_uri) {
 #ifdef DEBUG
@@ -142,7 +142,7 @@ namespace zefDB {
             if(butler->want_upstream_connection()) {
                 // Lock this behind the if check, as we can get into trouble
                 // with python circular deps.
-                auto auto_connect = get_auto_connect();
+                std::string auto_connect = std::get<std::string>(get_config_var("login.autoConnect"));
                 if(auto_connect == "always" ||
                    (auto_connect == "auto" && butler->have_auth_credentials()))
                     butler->start_connection();
@@ -1544,30 +1544,6 @@ namespace zefDB {
         ////////////////////////////////////////////////
         // * Connection management
 
-        std::string get_auto_connect() {
-            // if(!initialised_python_core) {
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "C library wants to call into python module before it has finished loading. Specifically, it wants to determine the \"login.autoConnect\" value. Going to return \"auto\" to avoid creating a circular dependency." << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     return "auto";
-            // }
-                
-            // py::gil_scoped_acquire acquire;
-            // auto get_config = py::module_::import("zef.ops._config").attr("get_config");
-            // return get_config("login.autoConnect").cast<std::string>();
-
-            // TODO: reimplement config into C
-            return "auto";
-        }
-
         bool Butler::want_upstream_connection() {
             if(network.uri == "")
                 return false;
@@ -1576,7 +1552,7 @@ namespace zefDB {
             if(network.is_running())
                 return true;
 
-            std::string auto_connect = get_auto_connect();
+            std::string auto_connect = std::get<std::string>(get_config_var("login.autoConnect"));
 
             if(auto_connect == "auto" && have_auth_credentials())
                 return true;
@@ -1675,8 +1651,7 @@ namespace zefDB {
             if(network.is_running())
                 return;
 
-            // TODO: Look this up
-            std::string auto_connect = get_auto_connect();
+            std::string auto_connect = std::get<std::string>(get_config_var("login.autoConnect"));
             if(have_auth_credentials() || auto_connect == "always")
                 // Note: in the case of already having credentials,
                 // ensure_auth_credentials, will make sure the credentials are
@@ -1772,20 +1747,6 @@ namespace zefDB {
 
             return name;
         }
-
-        std::string get_default_zefhub_uri() {
-            char * env = std::getenv("ZEFHUB_URL");
-            if (env != nullptr)
-                return std::string(env);
-
-            // TODO: Load from file
-            
-            // return "http://localhost:5001";
-            // return "wss://hub.zefhub.com";
-            // return "wss://hubv2.zefhub.com";
-            return "wss://hub.zefhub.io";
-        }
-
 
         //////////////////////////////
         // * Credentials
