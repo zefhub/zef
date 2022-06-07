@@ -36,7 +36,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(ctx | events[Assigned] | length | collect, 0)
         self.assertEqual(ctx | events[events[Terminated]] | length | collect, 0)
 
-        txs = z | now[allow_tombstone] | events[Assigned] | map[absorbed | first | frame | to_tx] | collect
+        txs = z | now[allow_tombstone] | preceding_events[Assigned] | map[absorbed | first | frame | to_tx] | collect
         self.assertEqual([ctx  | frame | time_slice | collect for ctx in txs], [TimeSlice(3),TimeSlice(4)])
         for ctx in txs:
             self.assertEqual(ctx | events[Instantiated] | length | collect, 0)

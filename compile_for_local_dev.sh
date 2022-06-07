@@ -53,6 +53,9 @@ python3 -m pip install -qr python/requirements.txt || exit 1
     [ -d build ] || mkdir build || exit 1
     cd build
 
+    # Remove the token files if they are there to ensure we get the latest - ignoring any errors
+    rm zef-build/*.json >/dev/null 2>&1
+
     if which ninja > /dev/null ; then
         export CMAKE_GENERATOR=Ninja
         CMAKE_ARGS=""
