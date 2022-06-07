@@ -643,6 +643,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 
     main_module.def("get_config_var", &get_config_var, py::call_guard<py::gil_scoped_release>(), "Get a variable with defaults/override resolution from the config.", py::arg("key"));
     main_module.def("set_config_var", &set_config_var, py::call_guard<py::gil_scoped_release>(), "Set a variable in the config.", py::arg("key"), py::arg("value"));
+    main_module.def("list_config", &list_config, py::call_guard<py::gil_scoped_release>(), "List the config including all default/environment set variables.", py::arg("filter")="");
     main_module.def("validate_config_file", &validate_config_file, py::call_guard<py::gil_scoped_release>(), "Ensure the config file and environment overrides have sensible values.");
 
 

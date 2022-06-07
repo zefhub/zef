@@ -30,8 +30,13 @@ def get_config(key):
 def set_config(key, val):
     return pymain.set_config_var(key, val)
 
-def list_config():
-    raise Exception("need to redo")
+def list_config(filter):
+    tuples = pymain.list_config(filter)
+
+    d = {}
+    for path,val in tuples:
+        d = insert_in(d, path.split('.'), val)
+    return d
 
 
 def config_implementation(payload, action):
@@ -43,6 +48,9 @@ def config_implementation(payload, action):
     elif action == KW.get:
         assert isinstance(payload, str)
         return get_config(payload)
+    elif action == KW.list:
+        assert isinstance(payload, str)
+        return list_config(payload)
     else:
         raise NotImplementedError("Action {} not implemented".format(action))
 
