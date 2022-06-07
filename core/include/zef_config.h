@@ -44,10 +44,12 @@ namespace zefDB {
     };
 
     const ConfigItem config_spec[] = {
-        {"login.autoConnect", "auto", {"false", "auto", "always"}, "ZEFDB_LOGIN_AUTOCONNECT",
+        {"login.autoConnect", "auto", {"no", "auto", "always"}, "ZEFDB_LOGIN_AUTOCONNECT",
          "Whether zefdb should automatically connect to ZefHub on start of the butler."},
         {"butler.autoStart", true, {}, "ZEFDB_BUTLER_AUTOSTART",
          "Whether the butler will automatically be started on import of the zefdb module."},
+        {"login.zefhubURL", "wss://hub.zefhub.io", {}, "ZEFHUB_URL",
+         "Which URL to connect to ZefHub."},
     };
     const int num_config_spec = sizeof(config_spec) / sizeof(ConfigItem);
 
@@ -56,6 +58,6 @@ namespace zefDB {
 
     LIBZEF_DLL_EXPORTED config_var_t get_config_var(std::string key);
     LIBZEF_DLL_EXPORTED void set_config_var(std::string key, config_var_t val);
-    // LIBZEF_DLL_EXPORTED SOMETHING list_config(std::string filter="");
+    LIBZEF_DLL_EXPORTED std::vector<std::pair<std::string,config_var_t>> list_config(std::string filter="");
 }
 

@@ -128,6 +128,18 @@ namespace zefDB {
         if(spec.default_value.index() != val.index())
             throw std::runtime_error("Trying to set config variable '" + key + "' to a type (" + to_str(val.index()) + ") which is not the same as the default (" + to_str(spec.default_value.index()) + ")");
 
+        if(spec.options.size() > 0) {
+            bool found = false;
+            for(auto & opt : spec.options) {
+                if(opt == val) {
+                    found = true;
+                    break;
+                }
+            }
+            if(!found)
+                throw std::runtime_error("Trying to set config variable '" + key + "' to a value which is not in the allowed options.");
+        }
+
         try {
             YAML::Node config = YAML::LoadFile(config_file_path());
 
@@ -160,7 +172,18 @@ namespace zefDB {
         session_overrides[key] = val;
     }
 
-    // bool list_config(std::string filter="");
+    std::vector<std::pair<std::string,config_var_t>> list_config(std::string filter) {
+        std::vector<std::pair<std::string,config_var_t>> out;
+
+        for(int i = 0; i < num_config_spec ; i++) {
+            if(filter != "" && config_spec[i].path.find(filter) == std::string::npos)
+                continue;
+
+            out.emplace_back(config_spec[i].path, get_config_var(config_spec[i].path));
+        }
+
+        return out;
+    }
 
     void recurse_validate(std::string parent_path, YAML::Node self) {
         if(self.IsMap()) {
@@ -180,9 +203,7 @@ namespace zefDB {
     bool validate_config_file() {
         try {
             // Get all variables so that everything is checked.
-            for(int i = 0; i < num_config_spec ; i++) {
-                get_config_var(config_spec[i].path);
-            }
+            list_config();
 
             // Also check every entry in the file corresponds to something in the spec.
             YAML::Node config = YAML::LoadFile(config_file_path());
