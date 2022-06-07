@@ -238,13 +238,13 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
 
     if isinstance(x, LazyValue):
         # This is checking for an (x <= value) format
-        if is_a(x.el_ops, assign_value):
+        if is_a(x.el_ops, assign):
             return
         elif is_a(x.el_ops, terminate):
             return
         elif is_a(x.el_ops, tag):
             return
-        raise Exception(f"A LazyValue must have come from (x | assign_value), (x | terminate) or (x | tag) only. Got {x}")
+        raise Exception(f"A LazyValue must have come from (x | assign), (x | terminate) or (x | tag) only. Got {x}")
 
     # Note: just is_a(x, Z) will also mean ZefRefs will be hit
     elif is_a(x, ZefOp) and is_a(x, Z):
@@ -296,7 +296,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
 
     elif isinstance(x, ZefOp):
         if len(x) > 1:
-            # This could be something like Z["asdf"] | assign_value[5]
+            # This could be something like Z["asdf"] | assign[5]
             if LazyValue(x) | first | is_a[Z] | collect:
                 return
         if length(LazyValue(x) | absorbed) != 1:
@@ -387,14 +387,14 @@ def dispatch_cmds_for(expr, gen_id):
 
     # If we have a lazy value the second time around, then this must be an actual action to perform.
     if isinstance(expr, LazyValue):
-        if is_a(expr.el_ops, assign_value):
-            return cmds_for_lv_assign_value(expr, gen_id)
+        if is_a(expr.el_ops, assign):
+            return cmds_for_lv_assign(expr, gen_id)
         elif is_a(expr.el_ops, terminate):
             return cmds_for_lv_terminate(expr)
         elif is_a(expr.el_ops, tag):
             return cmds_for_lv_tag(expr, gen_id)
         else:
-            raise Exception("LazyValue obtained which is not an assign_value or terminate")
+            raise Exception("LazyValue obtained which is not an assign or terminate")
 
     elif isinstance(expr, ZefOp):
         # If we have a chain beginning with a Z, convert to LazyValue
@@ -471,7 +471,7 @@ def cmds_for_mergable(x):
 
         elif BT(x) == BT.ATOMIC_ENTITY_NODE:
             assign_val_cmds = [] if isinstance(x, EZefRef) else [{
-                'cmd': 'assign_value', 
+                'cmd': 'assign', 
                 'value': x | value | collect,
                 'internal_id': uid(origin),
                 'explicit': False,
@@ -517,17 +517,17 @@ def cmds_for_lv_tag(x, gen_id):
     return exprs, [cmd]
     
 
-def cmds_for_lv_assign_value(x, gen_id: Callable):
+def cmds_for_lv_assign(x, gen_id: Callable):
     assert isinstance(x, LazyValue)
 
     assert len(x | peel | collect) == 2
     target,op = x | peel | collect
 
-    assert is_a(op, assign_value)
+    assert is_a(op, assign)
     val = LazyValue(op) | absorbed | single | collect
     iid,exprs = realise_single_node(target, gen_id)
 
-    return exprs, [{'cmd': 'assign_value', 'value': val, 'explicit': True, "internal_id": iid}]
+    return exprs, [{'cmd': 'assign', 'value': val, 'explicit': True, "internal_id": iid}]
 
 def cmds_for_lv_terminate(x):
     assert isinstance(x, LazyValue)
@@ -696,10 +696,10 @@ def realise_single_node(x, gen_id):
     if isinstance(x, LazyValue):
         x = collect(x)
 
-    # Now this is a check for whether we are an assign_value
+    # Now this is a check for whether we are an assign
     if isinstance(x, LazyValue):
         target,op = x | peel | collect
-        if is_a(op, assign_value):
+        if is_a(op, assign):
             iid,exprs = realise_single_node(target, gen_id)
             exprs = exprs + [LazyValue(Z[iid]) | op]
         elif is_a(op, terminate):
@@ -732,7 +732,7 @@ def realise_single_node(x, gen_id):
     elif type(x) in scalar_types:
         iid = gen_id()
         aet = map_scalar_to_aet_type[type(x)](x)
-        exprs = [aet[iid], LazyValue(Z[iid]) | assign_value[x]]
+        exprs = [aet[iid], LazyValue(Z[iid]) | assign[x]]
     elif isinstance(x, ZefOp):
         assert len(x) == 1
         params = LazyValue(x) | peel | first | second
@@ -773,20 +773,20 @@ def realise_single_node(x, gen_id):
 
 def verify_and_compact_commands(cmds: tuple):                
     aes_with_explicit_assigns = (cmds
-                                 | filter[lambda d: d["cmd"] == "assign_value"]
+                                 | filter[lambda d: d["cmd"] == "assign"]
                                  | filter[lambda d: d["explicit"]]
                                  | map[lambda d: d["internal_id"]]
                                  | collect
                                  )
     def is_unnecessary_automatic_merge_assign(d):
-        return (d["cmd"] == "assign_value"
+        return (d["cmd"] == "assign"
                 and not d["explicit"]
                 and d["internal_id"] in aes_with_explicit_assigns)
 
     # make sure if multiple assignment commands exist for the same AE, that their values agree
     cmds = (cmds | group_by[get['cmd']]
             | map[match[
-                        (Is[first | equals["assign_value"]],   second | filter[Not[is_unnecessary_automatic_merge_assign]] | validate_and_compress_unique_assignment),
+                        (Is[first | equals["assign"]],   second | filter[Not[is_unnecessary_automatic_merge_assign]] | validate_and_compress_unique_assignment),
                         (Is[first | equals["merge"]],          second | combine_internal_ids_for_merges),
                         (Is[first | equals["terminate"]],      second | combine_terminates), 
                         (Any, second),                                 # Just pack things back in for other cmd types
@@ -891,7 +891,7 @@ def command_ordering_by_type(d_raes: dict) -> int:
         if isinstance(d_raes['rae_type'], AtomicEntityType): return 2
         if isinstance(d_raes['rae_type'], RelationType): return 3
         return 4                                            # there may be {'cmd': 'instantiate', 'rae_type': AET.Bool}
-    if d_raes['cmd'] == 'assign_value': return 5
+    if d_raes['cmd'] == 'assign': return 5
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Relation): return 6
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Entity): return 7
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], AtomicEntity): return 8
@@ -1079,7 +1079,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                 elif cmd['cmd'] == 'instantiate' and type(cmd['rae_type']) in {RelationType}:
                     zz = instantiate(to_ezefref(d_raes[cmd['source']]), cmd['rae_type'], to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
                 
-                elif cmd['cmd'] == 'assign_value':
+                elif cmd['cmd'] == 'assign':
                     this_id = cmd['internal_id']
                     zz = d_raes.get(this_id, None)
                     if zz is None:

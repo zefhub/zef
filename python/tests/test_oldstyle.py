@@ -81,17 +81,17 @@ class MyTestCase(unittest.TestCase):
         zs = g | now | all[ET.Person] | collect
         self.assertEqual(len(zs), 5)
 
-    def test_assign_value(self):
+    def test_assign(self):
         g = Graph()
         with Transaction(g):
             name = instantiate(AET.String, g)
             age =  instantiate(AET.Int, g)
 
-        assign_value(name, 'Lu\0na\nis\nhungry') | g | run
-        assign_value(age, 42) | g | run
+        assign(name, 'Lu\0na\nis\nhungry') | g | run
+        assign(age, 42) | g | run
         num = instantiate(AET.Int, g)
-        assign_value(name, 'Naomi') | g | run
-        assign_value(age, 43) | g | run
+        assign(name, 'Naomi') | g | run
+        assign(age, 43) | g | run
 
         name | terminate | g | run
 

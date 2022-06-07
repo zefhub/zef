@@ -47,7 +47,7 @@ class MyTestCase(unittest.TestCase):
         z_joe = r["joe"]
         r2 = [
             (r["joe"], RT.NickName, "Jay"),
-            r["joe"] | Out[RT.LastName] | assign_value["Smith"],
+            r["joe"] | Out[RT.LastName] | assign["Smith"],
         ] | transact[g] | run
 
         z2_joe = now(z_joe)

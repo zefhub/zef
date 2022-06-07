@@ -338,7 +338,7 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
             z_python_str = z_zef_fct | Out[RT.PythonSourceCode] | collect
             # only assign a new value if the contents changed
             if (value(z_python_str)) != s:
-                z_python_str | assign_value[s] | g | run
+                z_python_str | assign[s] | g | run
 
             # If docstring already exists; update it may be
             if len(z_zef_fct | Outs[RT.DocString] |collect) == 1:
@@ -348,7 +348,7 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
                     z_zef_fct | out_rel[RT.DocString] | terminate | g | run
                 # If Docstring was updated
                 elif docstring_maybe != (z_doctstring_str | value | collect):
-                    z_doctstring_str | assign_value[docstring_maybe] | collect
+                    z_doctstring_str | assign[docstring_maybe] | collect
             # Case where this function existed before introducting Docstring parsing
             else:
                 # If Docstring is defined attach it

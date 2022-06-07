@@ -81,10 +81,10 @@ class MyTestCase(unittest.TestCase):
         ae = AET.String | g | run
         self.assertEqual(value(ae), None)
 
-        ae | assign_value["word"] | g | run
+        ae | assign["word"] | g | run
         self.assertEqual(value(now(ae)), "word")
 
-        g | now | all[AET] | single | assign_value["single"] | g | run
+        g | now | all[AET] | single | assign["single"] | g | run
         self.assertEqual(value(now(ae)), "single")
 
 if __name__ == '__main__':

@@ -247,8 +247,8 @@ wrap_hash(internals.Delegate)
 # catch the case "AET.Float['abc'] <= 42.1"
 # For consistency, we use Lazy ZefOps as intermediate containers
 def leq_monkey_patching_ae(self, other):
-    from ._ops import assign_value, LazyValue
-    return LazyValue(self) | assign_value[other]
+    from ._ops import assign, LazyValue
+    return LazyValue(self) | assign[other]
     
 AtomicEntityType.__le__ = leq_monkey_patching_ae
 
@@ -274,11 +274,11 @@ AtomicEntityType.__le__ = leq_monkey_patching_ae
 # main.ZefRefs._repr_pretty_ = pprint_ZefRefs
 # main.EZefRefs._repr_pretty_ = pprint_ZefRefs
 
-def convert_to_assign_value(self, value):
-    from ._ops import assign_value
-    return self | assign_value[value]
-ZefRef.__le__ = convert_to_assign_value
-EZefRef.__le__ = convert_to_assign_value
+def convert_to_assign(self, value):
+    from ._ops import assign
+    return self | assign[value]
+ZefRef.__le__ = convert_to_assign
+EZefRef.__le__ = convert_to_assign
 
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):

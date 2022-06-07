@@ -290,8 +290,8 @@ class ZefOp:
     def __le__(self, other):
         # we want to allow for "AET.Float['some_name'] <= 42.1"
         # We convert the first expression to a "instantiated[AET.Float]['some_name']"
-        from ._ops import assign_value
-        return LazyValue(self) | assign_value[other]
+        from ._ops import assign
+        return LazyValue(self) | assign[other]
     
     def __ror__(self, other):
         if isinstance(other, TraversableABC):
@@ -879,8 +879,8 @@ class LazyValue:
         return self.lt_gt_lshift_rshift_behavior(other, RT.OutOutOld) 
 
     def __le__(self, value):
-        from ._ops import assign_value
-        return self | assign_value[value]
+        from ._ops import assign
+        return self | assign[value]
 
     def __iter__(self):
         return iter(self.evaluate(unpack_generator = False))

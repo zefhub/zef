@@ -26,13 +26,13 @@ class MyTestCase(unittest.TestCase):
 
         w = instantiate(ET.Worker, g)
 
-        assign_value(f, 'Fritz')
-        assign_value(f, 'Ninja')
+        assign(f, 'Fritz')
+        assign(f, 'Ninja')
 
         instantiate(w, RT.YearOfBirth, f, g)
-        assign_value(f, 'Ninja2')
-        assign_value(f, 'Ninja')
-        assign_value(f, 'Yolandi')
+        assign(f, 'Ninja2')
+        assign(f, 'Ninja')
+        assign(f, 'Yolandi')
 
 
         man = instantiate(ET.Manager, g)
