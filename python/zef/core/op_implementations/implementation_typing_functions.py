@@ -8329,11 +8329,12 @@ def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
     - operates on: ZefOp
     - used for: op usage
     """
+    extra_eval = lambda expr: eval(expr, globals(), {**VT.__dict__})
     tags_lines = tags(op) | split["\n"] | collect
     return (
         tags_lines 
         | filter[lambda l: "operates on" in l]
-        | map[split[":"] | last | trim[" "] | prepend["VT."] | attempt[eval][None]]
+        | map[split[":"] | last | trim[" "] | attempt[extra_eval][None]]
         | filter[lambda el: el != None]
         | collect
     )
