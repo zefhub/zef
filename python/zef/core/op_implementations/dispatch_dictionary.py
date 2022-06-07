@@ -295,4 +295,12 @@ _op_to_functions = {
         RT.Fields:             (fields_imp, None),
         RT.Apply:              (apply_imp, None),
         RT.SplitOnNext:        (split_on_next_imp, None),
+
+
+        RT.Examples:           (examples_imp, None),
+        RT.Signature:          (signature_imp, None),
+        RT.Tags:               (tags_imp, None),
+        RT.RelatedOps:         (related_ops_imp, None),
+        RT.OperatesOn:         (operates_on_imp, None), 
+        RT.UsedFor:            (used_for_imp, None),
 }

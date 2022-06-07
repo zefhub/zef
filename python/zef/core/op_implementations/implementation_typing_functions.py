@@ -8153,3 +8153,267 @@ def split_on_next_imp(s, el_to_split_on):
         return part1, wrapper()
 
     raise TypeError(f"expected a String or a List in `split_on_next`, got a {type(s)}")
+
+
+
+# ----------------------------- ops acting on op doctstring -----------------------------
+def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
+    """
+    Returns the examples portion of a docstring as a list of tuples mapping
+    example string to a possible output string.
+
+    It is able to handle multiline result, but not multine examples. This
+    will be later improved.
+
+    ---- Examples ----
+    >>> examples(to_snake_case)
+    ... [("'yaml-keyword' | to_snake_case", '"yaml_keyword"'),
+    ...    ("'TokenName' | to_snake_case", '"token_name"'),
+    ...    ("'external. data-with  UNUSUAL@characters' | to_snake_case",
+    ...    '"external_data_with_unusualcharacters"')]
+
+    ---- Signature ----
+    (ZefOp) -> List[Record[String | Nil]]
+
+    ---- Tags ----
+    - related zefop: tags
+    - related zefop: signature
+    - related zefop: related_ops
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    def parse_example(s):
+        s = s | trim[">>>"] | trim[" "] | collect
+        if len(s) == 0: return None
+
+        # ... <result line 1>
+        if s[:3] == "...":
+            result = s[3:] | trim[" "] | collect
+            return (None, result, "multi-result")
+
+        result = None
+        # >>> <example one-liner 1>       # => <result of the one-liner (a value)>
+        s = s.replace("# ->", "# =>").replace("=>", "# =>")
+        result_idx = s.find('# =>')
+        if result_idx != -1:
+            result = s[result_idx + 4:] | trim[" "] | collect
+            comment_idx = result.find('#')
+            if comment_idx != -1: result = result[:comment_idx] | trim[" "] | collect
+            s = s[:result_idx] | trim[" "] | collect
+        
+        # >>> <example one-liner 2>       # <comment on the behaviour (not a value)>
+        comment_idx = s.find('#')
+        if comment_idx != -1:
+            s = s[:comment_idx] | trim[" "] | collect
+            if len(s) == 0: return None
+        
+        return s, result
+
+    def process_examples(tups):
+        result = []
+        prev_result = ""
+        for t in reversed(list(tups)):
+            if t[-1] and t[-1] == "multi-result": 
+                prev_result = t[1] + "\n" + prev_result
+            elif not t[-1] and prev_result:
+                result.append((t[0], prev_result))
+                prev_result = ""
+            else:
+                result.append(t)
+        return result[::-1]
+
+
+    s = docstring(op) | split["\n"] | collect
+    example_idx = s.index("---- Examples ----")
+    return (
+        s 
+        | skip[example_idx + 1] 
+        | take_while[lambda l: l[:4] != "----"] 
+        | map[parse_example]
+        | filter[lambda l: l != None]
+        | func[process_examples]
+        | collect
+    )
+
+
+def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
+    """
+    Given the signature portion of a docstring is valid, returns back a List of
+    valid tuples of input to ouput consisting of ValueTypes.
+
+    ---- Examples ----
+    >>> signature(apply)
+    ... [((T, (T, T2)), T2), ((T, List[(T, T2)]), List[T2])]
+
+    >>> signature(schema)
+    ... [((Graph, Bool), List[EZefRef]), ((GraphSlice, Bool), List[ZefRef])]
+
+    ---- Signature ----
+    (ZefOp) -> List[Record[ValueType]]
+
+    ---- Tags ----
+    - related zefop: tags
+    - related zefop: examples
+    - related zefop: related_ops
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    def clean_and_eval(s):
+        s = s | replace['->'][','] | replace['=>'][','] | collect
+        commment_idx = s.find("#")
+        if commment_idx != -1: s = s[:commment_idx]
+        s = trim(s, ' ')
+
+        extra_eval = lambda expr: eval(expr, globals(), {**VT.__dict__})
+        try:
+            val_type = extra_eval(s)
+        except:
+            raise ValueError(f"The following '{s}'' signature is malformed and can't be parsed! Make sure all types present in the signature are valid ValueTypes")
+        return val_type
+
+
+    s = LazyValue(op) | docstring | split["\n"] | collect
+    try:
+        signature_idx = s.index("---- Signature ----")
+    except:
+        raise ValueError(f"The docstring for {op} is either malformed or missing a Signature section!")  from None
+    signature = (
+        s 
+        | skip[signature_idx + 1] 
+        | take_while[lambda l: l[:4] != "----"] 
+        | filter[lambda l: l != ""]
+        | map[clean_and_eval]
+        | map[tuple]
+        | collect
+    )
+    return signature
+
+
+def tags_imp(op: VT.ZefOp) -> VT.List[VT.String]:
+    """
+    Returns the tags portion of a docstring as a list of string.
+
+    ---- Examples ----
+    >>> tags(map)
+    ... ['used for: control flow',
+    ...  'used for: function application',
+    ...  'related zefop: apply_functions']
+
+    ---- Signature ----
+    (ZefOp) -> List[String]
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: related_ops
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    s = LazyValue(op) | docstring | split["\n"] | collect
+    try:
+        tags_idx = s.index("---- Tags ----")
+    except:
+        raise ValueError(f"The docstring for {op} is either malformed or missing a Tags section!") from None
+    tags = (
+        s 
+        | skip[tags_idx + 1] 
+        | take_while[lambda l: l[:4] != "----"] 
+        | map[replace['-'][''] | trim[' ']] 
+        | filter[lambda l: l != ""]
+        | collect
+    )
+    return tags
+
+def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
+    """
+    Extracts the related ops from the tags portion of the docstring of the op.
+    It returns back a list of ZefOp.
+
+    ---- Examples ----
+    >>> related_ops(to_snake_case)
+    ... [to_lower_case, to_upper_case, to_pascal_case, to_camel_case, to_kebab_case, to_screaming_snake_case]
+
+    ---- Signature ----
+    (ZefOp) -> List[ZefOp]
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: tags
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    tags_lines = tags(op) | split["\n"] | collect
+    return (
+        tags_lines 
+        | filter[lambda l: "related zefop" in l]
+        | map[split[":"] | last | trim[" "] | attempt[eval][None]]
+        | filter[lambda el: el != None]
+        | collect
+    )
+
+def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
+    """
+    Extracts the operates on Types from the tags portion of the docstring of the op.
+    It returns back a list of ValueTypes.
+
+    ---- Examples ----
+    >>> operates_on(blake3)
+    ... [String, Bytes]
+
+    ---- Signature ----
+    (ZefOp) -> List[ValueType]
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: tags
+    - related zefop: related_ops
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    extra_eval = lambda expr: eval(expr, globals(), {**VT.__dict__})
+    tags_lines = tags(op) | split["\n"] | collect
+    return (
+        tags_lines 
+        | filter[lambda l: "operates on" in l]
+        | map[split[":"] | last | trim[" "] | attempt[extra_eval][None]]
+        | filter[lambda el: el != None]
+        | collect
+    )
+
+def used_for_imp(op: VT.ZefOp) -> VT.List[VT.String]:
+    """
+    Extracts the used for from the tags portion of the docstring of the op.
+
+    ---- Examples ----
+    >>> used_for(append)   # => ["list manipulation", "string manipulation"]
+
+    ---- Signature ----
+    (ZefOp) -> List[String]
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: tags
+    - related zefop: related_ops
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    tags_lines = tags(op) | split["\n"] | collect
+    return (
+        tags_lines 
+        | filter[lambda l: "used for" in l]
+        | map[split[":"] | last | trim[" "]]
+        | collect
+    )
