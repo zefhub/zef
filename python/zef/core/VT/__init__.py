@@ -139,6 +139,10 @@ Time       = ValueType_(type_name='Time',       constructor_func=time_ctor)
 Error      = ValueType_(type_name='Error',      constructor_func=None)
 Image      = ValueType_(type_name='Image',      constructor_func=None)
 ValueType  = ValueType_(type_name='ValueType',  constructor_func=ValueType_)
+T          = ValueType_(type_name='T',  constructor_func=None)
+T1         = ValueType_(type_name='T1',  constructor_func=None)
+T2         = ValueType_(type_name='T2',  constructor_func=None)
+T3         = ValueType_(type_name='T3',  constructor_func=None)
 
 
 # QuantityInt= ValueType_(type_name='QuantityInt',constructor_func=None)
