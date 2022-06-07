@@ -109,7 +109,7 @@ def parse_partial_graphql(schema):
                                 t_def[f"_On{hook_name}"] = arg.value.value
                                 break
                         else:
-                            raise Exception(f"Unknown hook name {hook_name}")
+                            raise Exception(f"Unknown hook name {arg.name.value}")
                 else:
                     raise Exception(f"Don't know how to handle type directive @{directive.name.value}")
 

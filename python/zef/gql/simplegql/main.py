@@ -17,15 +17,18 @@
 # main equivalent.
 
 
+from ... import *
+from ...ops import *
+
+from .schema_file_parser import parse_partial_graphql, json_to_minimal_nodes
 
 def create_schema_graph(schema_string, hooks_string=None):
     g_schema = Graph()
     if hooks_string is not None:
         # Prep the schema graph with the hooks, so that the schema nodes can point directly at these
-        prepare_hooks(g_schema, args.hooks_file)
+        prepare_hooks(g_schema, hooks_string)
 
-    schema_gql = args.schema_file | read_file | run | get["content"] | collect
-    parsed_dict = parse_partial_graphql(schema_gql)
+    parsed_dict = parse_partial_graphql(schema_string)
     commands = json_to_minimal_nodes(parsed_dict, g_schema)
     r = commands | transact[g_schema] | run
     root = r["root"]
@@ -33,11 +36,21 @@ def create_schema_graph(schema_string, hooks_string=None):
     return root
 
 
-def prepare_hooks(graph, hooks_file):
-    with open(hooks_file) as f:
-        code = compile(f.read(), hooks_file, "exec")
+def prepare_hooks(graph, hooks_string):
+    # Note that we save the string to a temporary file, because @func requires
+    # getsource which cannot identify the source from inside an arbitrary
+    # string.
+    import tempfile, os
+    fd,path = tempfile.mkstemp(prefix="SimpleGQL_hooks_", suffix=".py")
+    try:
+        with open(fd, "w") as file:
+            file.write(hooks_string)
+        print(path)
+        code = compile(hooks_string, path, "exec")
         globs = {"g": graph}
         locs = {}
         exec(code, globs, locs)
+    finally:
+        os.unlink(path)
 
     # We could try and be fancy here with autodetection of names - but for the initial test let's just make the user do everything, including tagging nodes.

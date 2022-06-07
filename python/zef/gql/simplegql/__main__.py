@@ -29,7 +29,7 @@ parser.add_argument("--data-tag", type=str, metavar="data_tag", default=os.envir
 parser.add_argument("--port", type=int, default=int(os.environ.get("SIMPLEGQL_PORT", "443")))
 parser.add_argument("--bind", type=str, default=os.environ.get("SIMPLEGQL_BIND", "0.0.0.0"),
                     help="IP address to bind to.")
-parser.add_argument("--no-host-role", action="store_false", dest="host_role", default=(False if "SIMPLEGQL_NO_HOST_ROLE" in os.environ else None),
+parser.add_argument("--no-host-role", action="store_false", dest="host_role", default=(False if "SIMPLEGQL_NO_HOST_ROLE" in os.environ else True),
                     help="Whether the server should acquire host role on the data graph.")
 parser.add_argument("--create", action="store_true", default=(True if "SIMPLEGQL_CREATE" in os.environ else None),
                     help="If the data graph does not exist, then create a new blank graph.")
