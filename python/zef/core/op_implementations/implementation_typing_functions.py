@@ -174,7 +174,7 @@ def on_implementation(g, op):
     the very end.
 
     ---- Examples ----
-    >>> g | on[value_assigned[AET.String]]              # value_assigned[z3]['hello!']      c.f. with action: assign_value[z3]['hello!']
+    >>> g | on[assigned[AET.String]]                    # assigned[z3]['hello!']      c.f. with action: assign_value[z3]['hello!']
     >>> g | on[terminated[z2]]                          # terminated[z2], followed by completion_event
     >>> g | on[instantiated[ET.Foo]]                    # instantiated[z5]
     >>> 
@@ -237,13 +237,13 @@ def on_implementation(g, op):
         elif op_kind == RT.ValueAssigned:
             assert len(op_args) == 1
             aet_or_zr = op_args[0]
-            # Type 1: a specific zefref to an AET i.e on[value_assigned[zr_to_aet]]
+            # Type 1: a specific zefref to an AET i.e on[assigned[zr_to_aet]]
             if isinstance(aet_or_zr, ZefRef): 
-                sub_decl = sub_decl[internal.on_value_assignment][lambda x: LazyValue(value_assigned[x][x|value|collect]) | push[stream] | run]
+                sub_decl = sub_decl[internal.on_value_assignment][lambda x: LazyValue(assigned[x][x|value|collect]) | push[stream] | run]
                 sub = aet_or_zr | sub_decl
-            # Type 2: any AET.* i.e on[value_assigned[AET.String]]
+            # Type 2: any AET.* i.e on[assigned[AET.String]]
             elif isinstance(aet_or_zr, AtomicEntityType): 
-                def filter_func(root_node): root_node | frame | to_tx | value_assigned | filter[aet_or_zr] | map[lambda x: value_assigned[x][x|value|collect]] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): root_node | frame | to_tx | assigned | filter[aet_or_zr] | map[lambda x: assigned[x][x|value|collect]] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl        
         else:
@@ -3804,10 +3804,10 @@ def preceding_events_imp(x, filter_on=None):
     returns all events.
 
     ---- Examples ----
-    >>> my_graph_slice | events                  => [instantiated[z1], terminated[z3], value_assigned[z8][41][42] ]
-    >>> z_rae | events                          => [instantiated[z1], value_assigned[z8][41][42], terminated[z3]]
+    >>> my_graph_slice | events                  => [instantiated[z1], terminated[z3], assigned[z8][41][42] ]
+    >>> z_rae | events                          => [instantiated[z1], assigned[z8][41][42], terminated[z3]]
     >>> z_rae | events[Instantiated]            => [instantiated[z1]]
-    >>> z_rae | events[Instantiated | Assigned] => [instantiated[z1], value_assigned[z8][41][42]]
+    >>> z_rae | events[Instantiated | Assigned] => [instantiated[z1], assigned[z8][41][42]]
 
     ---- Signature ----
     Union[ZefRef[TX], EZefRef[TX]]  ->  List[ZefOp[Union[Instantiated[ZefRef], Terminated[ZefRef], ValueAssigned[ZefRef, T]]]]
@@ -3846,7 +3846,7 @@ def preceding_events_imp(x, filter_on=None):
                 prev_val = pyzefops.to_frame(zr, prev_tx) | value | collect     # Will fail if aet didn't exist at prev_tx
             except:
                 prev_val = None
-            return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+            return assigned[aet_at_frame][prev_val][value(aet_at_frame)]
 
         inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: instantiated[pyzefops.to_frame(zr, tx) ]] | collect
         val_assigns =  pyzefops.value_assignment_txs(zr) | map[make_val_as_from_tx] | collect
@@ -3871,7 +3871,7 @@ def events_imp(z_tx_or_rae, filter_on=None):
     returns all events.
 
     ---- Examples ----
-    >>> z_tx  | events                          => [instantiated[z1], terminated[z3], value_assigned[z8][41][42] ]
+    >>> z_tx  | events                          => [instantiated[z1], terminated[z3], assigned[z8][41][42] ]
 
 
     ---- Signature ----
@@ -3913,7 +3913,7 @@ def events_imp(z_tx_or_rae, filter_on=None):
                 prev_val = pyzefops.to_frame(aet, prev_tx) | value | collect   # Will fail if aet didn't exist at prev_tx
             except:
                 prev_val = None
-            return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+            return assigned[aet_at_frame][prev_val][value(aet_at_frame)]
 
         insts        = zr | pyzefops.instantiated   | map[lambda zz: instantiated[pyzefops.to_frame(zz, gs.tx) ]] | collect
         val_assigns  = zr | pyzefops.value_assigned | map[make_val_as_for_aet] | collect
@@ -5372,7 +5372,7 @@ def is_a_implementation(x, typ):
             return not is_a(x, typ.d['absorbed'][0])
 
         if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
-            map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
+            map_ = {"Instantiated": instantiated, "Assigned": assigned, "Terminated": terminated}
             def compare_absorbed(x, typ):
                 val_absorbed = absorbed(x)
                 typ_absorbed = absorbed(typ)
