@@ -7610,6 +7610,13 @@ def range_tp(op, curr_type):
 
 # -----------------------------Old Traversals-----------------------------
 def traverse_implementation(first_arg, *curried_args, func_only, func_multi, func_optional, func_RT, func_BT, traverse_direction):
+    translation_dict = {
+        "outout": "Out",
+        "out"  : "out_rel",
+        "inin": "In",
+        "in": "in_rel",
+    }
+    print(f"Old traversal style will be retired: use `{translation_dict[traverse_direction]}` instead. 🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱 ")
     if isinstance(first_arg, FlatRef):
         return traverse_flatref_imp(first_arg, curried_args, traverse_direction)
     elif isinstance(first_arg, FlatRefs):
