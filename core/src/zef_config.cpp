@@ -206,10 +206,12 @@ namespace zefDB {
             list_config();
 
             // Also check every entry in the file corresponds to something in the spec.
-            YAML::Node config = YAML::LoadFile(config_file_path().string());
-
-            recurse_validate("", config);
-        } catch(...) {
+            if(config_file_exists()) {
+                YAML::Node config = YAML::LoadFile(config_file_path().string());
+                recurse_validate("", config);
+            }
+        } catch(const std::exception & exc) {
+            std::cerr << "validate_config_file got an exception: " << exc.what() << std::endl;
             return false;
         }
 
