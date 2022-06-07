@@ -858,25 +858,37 @@ def internal_resolve_field(z, info, z_field):
     
     is_incoming = z_field | op_is_incoming | collect
     # This is a delegate
-    relation = z_field >> RT.GQL_Resolve_With | collect
-    is_triple = source(relation) != relation
+    if z_field | has_out[RT.GQL_Resolve_With] | collect:
+        relation = z_field >> RT.GQL_Resolve_With | collect
+        is_triple = source(relation) != relation
 
-    rt = RT(relation)
+        rt = RT(relation)
 
-    if is_triple:
+        if is_triple:
+            if is_incoming:
+                assert rae_type(z) == rae_type(target(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {target(relation)}"
+            else:
+                assert rae_type(z) == rae_type(source(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {source(relation)}"
+
         if is_incoming:
-            assert rae_type(z) == rae_type(target(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {target(relation)}"
+            opts = z << L[rt]
+            if is_triple:
+                opts = opts | filter[is_a[rae_type(source(relation))]]
         else:
-            assert rae_type(z) == rae_type(source(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {source(relation)}"
-
-    if is_incoming:
-        opts = z << L[rt]
-        if is_triple:
-            opts = opts | filter[is_a[rae_type(source(relation))]]
+            opts = z >> L[rt]
+            if is_triple:
+                opts = opts | filter[is_a[rae_type(target(relation))]]
+    elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
+        opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, info)
+        # This is to mimic the behaviour that people probably expect from a
+        # non-list resolver.
+        if type(opts) not in [list,tuple]:
+            if opts is None:
+                opts = []
+            else:
+                opts = [opts]
     else:
-        opts = z >> L[rt]
-        if is_triple:
-            opts = opts | filter[is_a[rae_type(target(relation))]]
+        raise Exception(f"Don't know how to resolve this field: {z_field}")
 
     # Auth filtering todo
     opts = opts | filter[pass_query_auth[target(z_field)][info]]
@@ -884,7 +896,11 @@ def internal_resolve_field(z, info, z_field):
     # We must convert final objects from AEs to python types.
     # if z_field | target | is_core_scalar | collect:
     if z_field | target | op_is_scalar | collect:
-        opts = opts | map[value]
+        # With a dynamic resolver, the items could also be values, so only apply value if they are ZefRefs
+        opts = opts | map[match[
+            (ZefRef, value),
+            (Any, identity)
+        ]]
 
     return opts
 

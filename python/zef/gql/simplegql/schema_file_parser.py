@@ -145,8 +145,10 @@ def parse_partial_graphql(schema):
                                 f_def["relation"] = (ET(args["source"]), RT(args["rt"]), ET(args["target"]))
                             else:
                                 f_def["relation"] = RT(args["rt"])
-                        elif v == "resolver":
-                            raise Exception("@resolver not yet implemented")
+                        elif v == "dynamic":
+                            args = parse_arguments_as_dict(directive.arguments)
+                            assert args.keys() == {"hook"}, "@dynamic must take a single argument, 'hook'"
+                            f_def["dynamic"] = args["hook"]
                         else:
                             raise Exception(f"Don't know how to handle directive @{v}")
         elif definition.kind == "enum_type_definition":
@@ -301,9 +303,11 @@ def json_to_minimal_nodes(json, g):
                         actions += [(Z[qual_name], RT(simple_capitalize(bool_key)), field[bool_key])]
                         del field[bool_key]
 
-                if "resolver" in field:
-                    raise NotImplementedError("TODO")
-                    del field["resolver"]
+                if "dynamic" in field:
+                    assert "relation" not in field, f"Can't give a relation with a dynamically resolved field: {field}"
+                    z_func = g[field["dynamic"]]
+                    actions += [(Z[qual_name], RT.GQL_FunctionResolver, z_func)]
+                    del field["dynamic"]
                 else:
                     if "relation" in field:
                         resolve_with = delegate_of(field["relation"])
