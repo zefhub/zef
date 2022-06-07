@@ -16,7 +16,6 @@ from .._core import RT
 from .implementation_typing_functions import * 
 from .yo import yo_implementation, yo_type_info
 from .graphviz import graphviz_imp, graphviz_tp
-from .func import call_implementation, call_type_info
 from .func import unpack_implementation, unpack_type_info
 
 _op_to_functions = {
@@ -271,7 +270,6 @@ _op_to_functions = {
         RT.ToScreamingSnakeCase:(to_screaming_snake_case_imp, to_screaming_snake_case_tp),
 
 
-        RT.Call:                (call_implementation, call_type_info),
         RT.Unpack:              (unpack_implementation, unpack_type_info),
 
         RT.MakeRequest:        (make_request_imp, make_request_tp),

@@ -16,23 +16,6 @@ from .._ops import *
 from .._core import *
 
 ##############################
-# * Call
-#----------------------------
-
-# Call implements the laziness part of the op chain. It's use on the user-facing
-# side is discouraged, although zef functions will be converted to call ops.
-
-def call_implementation(input, f, *args):
-    from typing import Generator, Iterable, Iterator
-    if isinstance(input, Generator) or isinstance(input, Iterator):
-        input = [i for i in input]
-    return f(input, *args)
-
-def call_type_info(op, curr_type):
-    # TODO
-    return VT.Any
-
-##############################
 # * Unpack
 #----------------------------
 

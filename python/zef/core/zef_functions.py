@@ -421,7 +421,7 @@ class LocalFunction:
         self.is_pure = is_pure
 
     def __getitem__(self, arg):
-        return call[self][arg]
+        return func[self][arg]
 
     def __call__(self, *args, **kwds):
         return self.func(*args, **kwds)
@@ -431,12 +431,12 @@ class LocalFunction:
         # i.e: @func
         #      def f(x): pass
         # f | map
-        return call[self] | other
+        return func[self] | other
 
     def __ror__(self, other):
         # Similar to ror behavior but pipes the other way
         # i.e: map | f
-        return other | call[self]
+        return other | func[self]
     
         
 
