@@ -8351,7 +8351,7 @@ def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
     - operates on: ZefOp
     - used for: op usage
     """
-    tags_lines = tags(op) | split["\n"] | collect
+    tags_lines = tags(op) | collect
     return (
         tags_lines 
         | filter[lambda l: "related zefop" in l]
@@ -8382,7 +8382,7 @@ def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
     - used for: op usage
     """
     extra_eval = lambda expr: eval(expr, globals(), {**VT.__dict__})
-    tags_lines = tags(op) | split["\n"] | collect
+    tags_lines = tags(op) | collect
     return (
         tags_lines 
         | filter[lambda l: "operates on" in l]
@@ -8410,7 +8410,7 @@ def used_for_imp(op: VT.ZefOp) -> VT.List[VT.String]:
     - operates on: ZefOp
     - used for: op usage
     """
-    tags_lines = tags(op) | split["\n"] | collect
+    tags_lines = tags(op) | collect
     return (
         tags_lines 
         | filter[lambda l: "used for" in l]
