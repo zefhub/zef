@@ -33,8 +33,10 @@ parser.add_argument("--no-host-role", action="store_false", dest="host_role", de
                     help="Whether the server should acquire host role on the data graph.")
 parser.add_argument("--create", action="store_true", default=(True if "SIMPLEGQL_CREATE" in os.environ else None),
                     help="If the data graph does not exist, then create a new blank graph.")
-parser.add_argument("--hooks", type=str, default=None, dest="hooks_file",
+parser.add_argument("--hooks", type=str, dest="hooks_file", default=os.environ.get("SIMPLEGQL_HOOKS_FILE", None),
                     help="If present, a python file containing the hooks to make available for the schema file")
+parser.add_argument("--init-hook", type=str, dest="init_hook", default=os.environ.get("SIMPLEGQL_INIT_HOOK", None),
+                    help="If present, a function in the hooks file to run on initialisation of the data graph")
 args = parser.parse_args()
 
 
@@ -75,6 +77,13 @@ Note that running without the host role is currently dangerous as mutations do n
 """) 
         raise SystemExit(3)
     log.info("Obtained host role on data graph")
+
+if args.init_hook is not None:
+    g_schema = Graph(root)
+    hook_func = g_schema | now | get[args.init_hook] | collect
+    hook_func(g_data)
+    log.info(f"Ran init hook: {args.init_hook}")
+    
 
 server_uuid = start_server(root, g_data, args.port, args.bind)
 

@@ -8,9 +8,12 @@ Breaking changes:
   
 Minor changes:
 
-- SimpleGQL: all main module arguments can be passed as environment variables,
-  e.g. instead of `--schema-file` you can use `SIMPLEGQL_SCHEMA_FILE`.
-  Commandline args take priority.
+- SimpleGQL:
+    - all main module arguments can be passed as environment variables,
+    e.g. instead of `--schema-file` you can use `SIMPLEGQL_SCHEMA_FILE`.
+    Commandline args take priority.
+    - `--init-hook` option to run a hook on every startup
+
 
 pyzef-0.15.6
 ============
