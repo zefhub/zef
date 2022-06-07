@@ -8157,18 +8157,23 @@ def split_on_next_imp(s, el_to_split_on):
 
 
 # ----------------------------- ops acting on op doctstring -----------------------------
-def examples_imp(op: VT.ZefOp) -> VT.String:
+def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
     """
-    Returns the examples portion of a docstring as a string.
-    This will be later improved to extract executable expressions from the examples and return them.
+    Returns the examples portion of a docstring as a list of tuples mapping
+    example string to a possible output string.
+
+    It is able to handle multiline result, but not multine examples. This
+    will be later improved.
 
     ---- Examples ----
     >>> examples(to_snake_case)
-    ... 'yaml-keyword' | to_snake_case   # => "yaml_keyword"
-    ... 'TokenName' | to_snake_case    # => "token_name"
+    ... [("'yaml-keyword' | to_snake_case", '"yaml_keyword"'),
+    ...    ("'TokenName' | to_snake_case", '"token_name"'),
+    ...    ("'external. data-with  UNUSUAL@characters' | to_snake_case",
+    ...    '"external_data_with_unusualcharacters"')]
 
     ---- Signature ----
-    (ZefOp) -> String
+    (ZefOp) -> List[Record[String | Nil]]
 
     ---- Tags ----
     - related zefop: tags
@@ -8179,21 +8184,58 @@ def examples_imp(op: VT.ZefOp) -> VT.String:
     - operates on: ZefOp
     - used for: op usage
     """
-    s = LazyValue(op) | docstring | split["\n"] | collect
-    try:
-        example_idx = s.index("---- Examples ----")
-    except:
-        raise ValueError(f"The docstring for {op} is either malformed or missing an Examples section!")  from None
-    examples = (
-        (s 
+    def parse_example(s):
+        s = s | trim[">>>"] | trim[" "] | collect
+        if len(s) == 0: return None
+
+        # ... <result line 1>
+        if s[:3] == "...":
+            result = s[3:] | trim[" "] | collect
+            return (None, result, "multi-result")
+
+        result = None
+        # >>> <example one-liner 1>       # => <result of the one-liner (a value)>
+        s = s.replace("# ->", "# =>").replace("=>", "# =>")
+        result_idx = s.find('# =>')
+        if result_idx != -1:
+            result = s[result_idx + 4:] | trim[" "] | collect
+            comment_idx = result.find('#')
+            if comment_idx != -1: result = result[:comment_idx] | trim[" "] | collect
+            s = s[:result_idx] | trim[" "] | collect
+        
+        # >>> <example one-liner 2>       # <comment on the behaviour (not a value)>
+        comment_idx = s.find('#')
+        if comment_idx != -1:
+            s = s[:comment_idx] | trim[" "] | collect
+            if len(s) == 0: return None
+        
+        return s, result
+
+    def process_examples(tups):
+        result = []
+        prev_result = ""
+        for t in reversed(list(tups)):
+            if t[-1] and t[-1] == "multi-result": 
+                prev_result = t[1] + "\n" + prev_result
+            elif not t[-1] and prev_result:
+                result.append((t[0], prev_result))
+                prev_result = ""
+            else:
+                result.append(t)
+        return result[::-1]
+
+
+    s = docstring(op) | split["\n"] | collect
+    example_idx = s.index("---- Examples ----")
+    return (
+        s 
         | skip[example_idx + 1] 
-        | take_while[lambda l: l[:4] != "----"] )
-        | filter[lambda l: l != ""]
-        | join["\n"] 
+        | take_while[lambda l: l[:4] != "----"] 
+        | map[parse_example]
+        | filter[lambda l: l != None]
+        | func[process_examples]
         | collect
     )
-
-    return examples
 
 
 def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
