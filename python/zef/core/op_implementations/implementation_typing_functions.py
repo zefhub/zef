@@ -8196,16 +8196,20 @@ def examples_imp(op: VT.ZefOp) -> VT.String:
     return examples
 
 
-def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.String]]:
+def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
     """
-    Returns the signature portion of a docstring as a list of tuples.
+    Given the signature portion of a docstring is valid, returns back a List of
+    valid tuples of input to ouput consisting of ValueTypes.
 
     ---- Examples ----
     >>> signature(apply)
-    ... [('(T,  (T', 'T2) )', 'T2'), ('(T, List[(T', 'T2)] )', 'List[T2]')]
+    ... [((T, (T, T2)), T2), ((T, List[(T, T2)]), List[T2])]
+
+    >>> signature(schema)
+    ... [((Graph, Bool), List[EZefRef]), ((GraphSlice, Bool), List[ZefRef])]
 
     ---- Signature ----
-    (ZefOp) -> List[Record[String]]
+    (ZefOp) -> List[Record[ValueType]]
 
     ---- Tags ----
     - related zefop: tags
@@ -8216,11 +8220,19 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.String]]:
     - operates on: ZefOp
     - used for: op usage
     """
-
-    def clean_signature(s):
+    def clean_and_eval(s):
+        s = s | replace['->'][','] | replace['=>'][','] | collect
         commment_idx = s.find("#")
         if commment_idx != -1: s = s[:commment_idx]
-        return s.strip()
+        s = trim(s, ' ')
+
+        extra_eval = lambda expr: eval(expr, globals(), {**VT.__dict__})
+        try:
+            val_type = extra_eval(s)
+        except:
+            raise ValueError(f"The following '{s}'' signature is malformed and can't be parsed! Make sure all types present in the signature are valid ValueTypes")
+        return val_type
+
 
     s = LazyValue(op) | docstring | split["\n"] | collect
     try:
@@ -8228,13 +8240,13 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.String]]:
     except:
         raise ValueError(f"The docstring for {op} is either malformed or missing a Signature section!")  from None
     signature = (
-    s 
-    | skip[signature_idx + 1] 
-    | take_while[lambda l: l[:4] != "----"] 
-    | filter[lambda l: l != ""]
-    | map[split["->"] | map[clean_signature]]
-    | map[tuple]
-    | collect
+        s 
+        | skip[signature_idx + 1] 
+        | take_while[lambda l: l[:4] != "----"] 
+        | filter[lambda l: l != ""]
+        | map[clean_and_eval]
+        | map[tuple]
+        | collect
     )
     return signature
 
