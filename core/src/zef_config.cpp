@@ -19,6 +19,16 @@
 
 namespace zefDB {
 
+    const ConfigItem config_spec[] = {
+        {"login.autoConnect", "auto", {"no", "auto", "always"}, "ZEFDB_LOGIN_AUTOCONNECT",
+         "Whether zefdb should automatically connect to ZefHub on start of the butler."},
+        {"butler.autoStart", true, {}, "ZEFDB_BUTLER_AUTOSTART",
+         "Whether the butler will automatically be started on import of the zefdb module."},
+        {"login.zefhubURL", "wss://hub.zefhub.io", {}, "ZEFHUB_URL",
+         "Which URL to connect to ZefHub."},
+    };
+    const int num_config_spec = sizeof(config_spec) / sizeof(ConfigItem);
+
     // Going to make this code trivially threadsafe by locking before each function call.
     std::recursive_mutex config_mutex;
 

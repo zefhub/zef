@@ -22,6 +22,7 @@
 #include <variant>
 #include <vector>
 #include <array>
+#include <algorithm>
 
 namespace zefDB {
 
@@ -41,17 +42,23 @@ namespace zefDB {
         // Environment variable to override config variable
         std::string env_var;
         std::string doc;
-    };
 
-    const ConfigItem config_spec[] = {
-        {"login.autoConnect", "auto", {"no", "auto", "always"}, "ZEFDB_LOGIN_AUTOCONNECT",
-         "Whether zefdb should automatically connect to ZefHub on start of the butler."},
-        {"butler.autoStart", true, {}, "ZEFDB_BUTLER_AUTOSTART",
-         "Whether the butler will automatically be started on import of the zefdb module."},
-        {"login.zefhubURL", "wss://hub.zefhub.io", {}, "ZEFHUB_URL",
-         "Which URL to connect to ZefHub."},
+        // Need this really specific constructor to avoid issues with const char * converting to bool instead of std::string
+        ConfigItem(const char * path, const char * default_value, std::vector<const char *> options, const char * env_var, const char * doc) :
+            path(path),
+            default_value(std::string(default_value)),
+            env_var(env_var),
+            doc(doc) {
+            std::transform(options.begin(), options.end(), std::back_inserter(this->options), [](const char * opt) { return std::string(opt); });
+        }
+
+        ConfigItem(std::string path, config_var_t default_value, std::vector<config_var_t> options, std::string env_var, std::string doc) :
+            path(path),
+            default_value(default_value),
+            options(options),
+            env_var(env_var),
+            doc(doc) {}
     };
-    const int num_config_spec = sizeof(config_spec) / sizeof(ConfigItem);
 
        
     LIBZEF_DLL_EXPORTED bool validate_config_file();
