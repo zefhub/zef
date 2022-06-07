@@ -100,7 +100,7 @@ _op_to_functions = {
         RT.O:               (o_implementation, o_type_info),
         RT.L:               (l_implementation, l_type_info),
         RT.Terminate:       (terminate_implementation, terminate_type_info),
-        RT.AssignValue:     (assign_value_imp, assign_value_tp),
+        RT.Assign:          (assign_imp, assign_tp),
         RT.ET:              (ET_implementation, ET_type_info),
         RT.RT:              (RT_implementation, RT_type_info),
         RT.AET:             (AET_implementation, AET_type_info),

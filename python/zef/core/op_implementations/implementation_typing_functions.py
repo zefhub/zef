@@ -174,7 +174,7 @@ def on_implementation(g, op):
     the very end.
 
     ---- Examples ----
-    >>> g | on[assigned[AET.String]]                    # assigned[z3]['hello!']      c.f. with action: assign_value[z3]['hello!']
+    >>> g | on[assigned[AET.String]]                    # assigned[z3]['hello!']      c.f. with action: assign[z3]['hello!']
     >>> g | on[terminated[z2]]                          # terminated[z2], followed by completion_event
     >>> g | on[instantiated[ET.Foo]]                    # instantiated[z5]
     >>> 
@@ -4354,7 +4354,7 @@ def fill_or_attach_implementation(z, rt, val):
     # from ...deprecated import zefops
     # return curry_args_in_zefop(zefops.fill_or_attach, args[0], args[1:])
     if has_out(z, rt):
-        return z | Out[rt] | assign_value[val] | collect
+        return z | Out[rt] | assign[val] | collect
     else:
         return (z, rt, val)
 
@@ -5748,12 +5748,12 @@ def terminate_implementation(z, *args):
 def terminate_type_info(op, curr_type):
     return curr_type
 
-def assign_value_imp(z, val):
+def assign_imp(z, val):
     # We need to keep the assign value as something that works in the GraphDelta
     # code. So we simply wrap everything up as a LazyValue and return that.
-    return LazyValue(z) | assign_value[val]
+    return LazyValue(z) | assign[val]
 
-def assign_value_tp(op, curr_type):
+def assign_tp(op, curr_type):
     return VT.Any
 
 def ET_implementation(z, *args):
