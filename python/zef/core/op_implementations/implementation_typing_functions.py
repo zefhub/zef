@@ -8251,20 +8251,18 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
     return signature
 
 
-def tags_imp(op: VT.ZefOp) -> VT.String:
+def tags_imp(op: VT.ZefOp) -> VT.List[VT.String]:
     """
-    Returns the tags portion of a docstring as string.
+    Returns the tags portion of a docstring as a list of string.
 
     ---- Examples ----
-    >>> tags(apply)
-    ... - related zefop: map
-    ... - related zefop: func
-    ... - related zefop: call
-    ... - used for: control flow
-    ... - used for: function application
+    >>> tags(map)
+    ... ['used for: control flow',
+    ...  'used for: function application',
+    ...  'related zefop: apply_functions']
 
     ---- Signature ----
-    (ZefOp) -> String
+    (ZefOp) -> List[String]
 
     ---- Tags ----
     - related zefop: signature
@@ -8284,8 +8282,8 @@ def tags_imp(op: VT.ZefOp) -> VT.String:
         s 
         | skip[tags_idx + 1] 
         | take_while[lambda l: l[:4] != "----"] 
+        | map[replace['-'][''] | trim[' ']] 
         | filter[lambda l: l != ""]
-        | join["\n"]
         | collect
     )
     return tags
