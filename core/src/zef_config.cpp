@@ -87,7 +87,7 @@ namespace zefDB {
         }
 
         if(config_file_exists()) {
-            YAML::Node config = YAML::LoadFile(config_file_path());
+            YAML::Node config = YAML::LoadFile(config_file_path().string());
             // TODO: What happens with a bad config file?
 
             for(auto section : split_path(key)) {
@@ -141,7 +141,7 @@ namespace zefDB {
         }
 
         try {
-            YAML::Node config = YAML::LoadFile(config_file_path());
+            YAML::Node config = YAML::LoadFile(config_file_path().string());
 
             auto sections = split_path(key);
             auto last = sections.end() - 1;
@@ -206,8 +206,7 @@ namespace zefDB {
             list_config();
 
             // Also check every entry in the file corresponds to something in the spec.
-            YAML::Node config = YAML::LoadFile(config_file_path());
-
+            YAML::Node config = YAML::LoadFile(config_file_path().string());
 
             recurse_validate("", config);
         } catch(...) {
