@@ -333,12 +333,3 @@ def json_to_minimal_nodes(json, g):
 
 
 
-# This is sort of not really part of this file but is the simplest place to put it
-def prepare_hooks(graph, hooks_file):
-    with open(hooks_file) as f:
-        code = compile(f.read(), hooks_file, "exec")
-        globs = {"g": graph}
-        locs = {}
-        exec(code, globs, locs)
-
-    # We could try and be fancy here with autodetection of names - but for the initial test let's just make the user do everything, including tagging nodes.
