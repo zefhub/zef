@@ -8351,17 +8351,15 @@ def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
         | collect
     )
 
-def used_for_imp(op: VT.ZefOp) -> VT.String:
+def used_for_imp(op: VT.ZefOp) -> VT.List[VT.String]:
     """
     Extracts the used for from the tags portion of the docstring of the op.
 
     ---- Examples ----
-    >>> used_for(append)
-    ... list manipulation
-    ... string manipulation
+    >>> used_for(append)   # => ["list manipulation", "string manipulation"]
 
     ---- Signature ----
-    (ZefOp) -> String
+    (ZefOp) -> List[String]
 
     ---- Tags ----
     - related zefop: signature
@@ -8377,6 +8375,5 @@ def used_for_imp(op: VT.ZefOp) -> VT.String:
         tags_lines 
         | filter[lambda l: "used for" in l]
         | map[split[":"] | last | trim[" "]]
-        | join["\n"]
         | collect
     )
