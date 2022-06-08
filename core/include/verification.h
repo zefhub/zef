@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "export_statement.h"
+
 #include "fwd_declarations.h"
 #include "zefDB_utils.h"
 #include "scalars.h"

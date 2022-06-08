@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "export_statement.h"
+
 #include "zefDB_utils.h"
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;

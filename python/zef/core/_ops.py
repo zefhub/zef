@@ -222,8 +222,6 @@ origin_rae      = make_zefop(RT.OriginRAE)
 has_out         = make_zefop(RT.HasOut)                # z1 | has_out[RT.Foo] use  (z1, RT.Foo, Z) | exists  /   (z, RT.Foo, RAE) | exists[g]  /   (z, RT.Foo, RAE) | exists[now(g)][single]
 has_in          = make_zefop(RT.HasIn)                 # z1 | has_in[RT.Foo]  use  (Z, RT.Foo, z1) | exists
 
-All             = make_zefop(RT.All)               # TODO: retire
-
 In              = make_zefop(RT.In)
 Ins             = make_zefop(RT.Ins)
 Out             = make_zefop(RT.Out)
@@ -235,11 +233,12 @@ out_rels        = make_zefop(RT.OutRels)
 
 
 is_zefref_promotable= make_zefop(RT.IsZefRefPromotable)  # Retire this. this is a old love level operator. We can use is_a[RAE] or an extended concept new.
-time_slice      = make_zefop(RT.TimeSlice)             # with the GraphSlice syntax it seems that we have been using time slices / txs mostly as a proxy for that. Given the data oriented approach, it seems a more consistent design to just use Int instead of time slices when we actually want a number?
+time_slice      = make_zefop(RT.TimeSlice)        
+graph_slice_index=make_zefop(RT.GraphSliceIndex) 
     
 instantiation_tx= make_zefop(RT.InstantiationTx)       # use tx[instantiated]
 termination_tx  = make_zefop(RT.TerminationTx)         # use tx[terminated]   
-relations       = make_zefop(RT.Relations)             # g | now | All[(z1, RT.Bar, z2)]   with pattern matching style any of the three args can also be replaced with a more general class
+relations       = make_zefop(RT.Relations)             # g | now | all[(z1, RT.Bar, z2)]   with pattern matching style any of the three args can also be replaced with a more general class
 relation        = make_zefop(RT.Relation)              # looking through our code base for use cases of this op, I don't think a separate operator is necessary. Just use the syntax above followed by ... | single. If required more often, it is much easier to add this in future than to remove it.
 unpack          = make_zefop(RT.Unpack)
 _any            = make_zefop(RT._Any)                  # used as a wildcard
@@ -305,7 +304,7 @@ zascii_to_schema = make_zefop(RT.ZasciiToSchema)
                 #       2) g_slice | contains[(z1, RT.Foo, z2)]
 # Syntax choices:   
 #       exists or contained_in?
-#       All or instances?    Also: my_delegate | All    or my_delegate | instances?
+#       All or instances?    Also: my_delegate | all    or my_delegate | instances?
 
 
 
@@ -344,6 +343,7 @@ field           = make_zefop(RT.Field)
 fields          = make_zefop(RT.Fields)
 apply           = make_zefop(RT.Apply)
 split_on_next   = make_zefop(RT.SplitOnNext)
+indexes_of      = make_zefop(RT.IndexesOf)
 
 
 
