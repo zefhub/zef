@@ -273,6 +273,7 @@ _op_to_functions = {
 
         RT.Call:                (call_implementation, call_type_info),
         RT.Unpack:              (unpack_implementation, unpack_type_info),
+        RT.IndexesOf:           (indexes_of_imp, None),
 
         RT.MakeRequest:        (make_request_imp, make_request_tp),
         RT.Blake3:             (blake3_imp, blake3_tp),

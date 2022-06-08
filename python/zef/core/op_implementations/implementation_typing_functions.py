@@ -8417,3 +8417,23 @@ def used_for_imp(op: VT.ZefOp) -> VT.List[VT.String]:
         | map[split[":"] | last | trim[" "]]
         | collect
     )
+
+
+
+
+def indexes_of_imp(v, ElType):
+    """
+    Given a list, returns the indexes of the elements which are of
+    a specified logic type / set.
+
+    ---- Signature ----
+    (List[Any], ValueType) -> List[Int]
+
+    ---- Examples ----
+    >>> me = ["foo", 5,"bar", "baz", 'bar'] | indexes_of[SetOf["bar",]] | c  # => [2, 4]
+
+    ---- Tags ----
+    operates on: List
+    """
+    return v | enumerate | filter[second | is_a[ElType]] | map[first] | collect
+
