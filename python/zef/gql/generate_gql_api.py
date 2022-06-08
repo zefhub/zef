@@ -31,15 +31,16 @@ def generate_resolvers_fcts(schema_root, resolvers_destination):
     from cogapp import Cog
     cog = Cog()
     cog.options.bReplace = True
+    optional = single_or[None]
 
-    z = schema_root >> O[RT.DefaultResolversList] | maybe_value | collect
+    z = schema_root | Outs[RT.DefaultResolversList] | optional | maybe_value | collect
     if z is None:
         default_resolvers_list = []
     else:
         default_resolvers_list = from_json(z)
         
         
-    z = schema_root >> O[RT.FallbackResolvers] | collect
+    z = schema_root | Outs[RT.FallbackResolvers] | optional | collect
     if z is None:
         fallback_resolvers = lambda *args,**kwds: ("return None #This means that no resolver is defined!", ["z", "ctx"])
     else:
@@ -48,7 +49,7 @@ def generate_resolvers_fcts(schema_root, resolvers_destination):
         exec(fallback_resolvers, d)
         fallback_resolvers = d["fallback_resolvers"]
 
-    additional_exec = schema_root >> O[RT.AdditionalExec] | value_or[""] | collect
+    additional_exec = schema_root | Outs[RT.AdditionalExec] | optional | value_or[""] | collect
 
     global_dict = {"schema_root": schema_root,
                    "default_resolvers_list": default_resolvers_list,

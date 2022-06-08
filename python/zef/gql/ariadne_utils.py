@@ -86,27 +86,28 @@ def handle_params(rt, params):
 
 
 def resolve_with(rt, bt, ft):
-    d_rt = rt >> RT(gqlify("resolve_with")) | collect
+    optional = single_or[None]
+    d_rt = rt | Out[RT(gqlify("resolve_with"))] | collect
     d_rt_name = str(RT(d_rt))
     is_list = is_a(ft, ET(gqlify("list")))
     if is_list:
-        bt = BT(ft >> RT.argument | to_ezefref | collect)
-    is_out = rt > RT(gqlify("resolve_with")) >> O[RT.IsOut] | value_or[True] | collect
+        bt = BT(ft | Out[RT.argument] | to_ezefref | collect)
+    is_out = rt | out_rel[RT(gqlify("resolve_with"))] | Outs[RT.IsOut] | optional | value_or[True] | collect
 
-    dir = ">>" if is_out else "<<"
+    dir = "Outs" if is_out else "Ins"
 
     if bt == BT.ATOMIC_ENTITY_NODE:
         if is_list:
-            return f'return (z {dir} L[RT.{d_rt_name}]) | map[value] | collect'
+            return f'return (z | {dir}[RT.{d_rt_name}]) | map[value] | collect'
         else:
-            return f'return (z {dir} O[RT.{d_rt_name}]) | maybe_value | collect'
+            return f'return (z | {dir}[RT.{d_rt_name}]) | optional | maybe_value | collect'
     else:
         if is_list:
             # return f'return (z >> L[RT.{d_rt_name}] | collect) , (z > L[RT.{d_rt_name}])| map[uid] | collect'
-            return f'return (z {dir} L[RT.{d_rt_name}] | collect)'
+            return f'return (z | {dir}[RT.{d_rt_name}] | collect)'
         else:
             # return f'return (z >> RT.{d_rt_name} | collect) , (z > RT.{d_rt_name})|uid | collect'
-            return f'return (z {dir} O[RT.{d_rt_name}] | collect)'
+            return f'return (z | {dir}[RT.{d_rt_name}] | optional | collect)'
 
 
 def resolve_with_script(rt):
