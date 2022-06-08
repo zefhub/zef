@@ -15,6 +15,9 @@
  */
 
 #pragma once
+
+#include "export_statement.h"
+
 #include <vector>
 #include <unordered_map>
 #include <functional>

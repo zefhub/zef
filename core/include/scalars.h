@@ -15,6 +15,9 @@
  */
 
 #pragma once
+
+#include "export_statement.h"
+
 //#include "graph.h"
 #include <ostream>
 #include <iostream>

@@ -389,7 +389,7 @@ namespace zefDB {
         // * Connections
 
         bool HasIn::operator() (const EZefRef uzr) const {
-            return std::visit(overload{
+            return std::visit(overloaded{
                     [](Sentinel x)->bool {throw std::runtime_error("has_in used without curried in relation"); return false; },
                     [&uzr](auto relation)->bool { 
                         return length(uzr < L[relation]) >= 1;
@@ -397,7 +397,7 @@ namespace zefDB {
                 }, relation);
         }
         bool HasIn::operator() (const ZefRef zr) const {
-            return std::visit(overload{
+            return std::visit(overloaded{
                     [](Sentinel x)->bool {throw std::runtime_error("has_in used without curried in relation"); return false; },
                     [&zr](auto relation)->bool { 
                         return length(zr < L[relation]) >= 1;
@@ -406,7 +406,7 @@ namespace zefDB {
         }
 
         bool HasOut::operator() (const EZefRef uzr) const {
-            return std::visit(overload{
+            return std::visit(overloaded{
                     [](Sentinel x)->bool {throw std::runtime_error("has_out used without curried in relation"); return false; },
                     [&uzr](auto relation)->bool { 
                         return length(uzr > L[relation]) >= 1;
@@ -414,7 +414,7 @@ namespace zefDB {
                 }, relation);
         }
         bool HasOut::operator() (const ZefRef zr) const {
-            return std::visit(overload{
+            return std::visit(overloaded{
                     [](Sentinel x)->bool {throw std::runtime_error("has_out used without curried in relation"); return false; },
                     [&zr](auto relation)->bool { 
                         return length(zr > L[relation]) >= 1;
@@ -791,14 +791,14 @@ namespace zefDB {
 			}
 
 			ZefRefs Without::operator() (const ZefRefs& original) const {
-                return std::visit(overload{
+                return std::visit(overloaded{
                         [](Sentinel x)->ZefRefs {throw std::runtime_error("without used without curried in ZefRefs"); },
                         [&original,this](ZefRefs zrs)->ZefRefs {return Without::operator()(original, zrs);},
                         [](EZefRefs x)->ZefRefs {throw std::runtime_error("without used between ZefRefs and EZefRefs"); }
                     }, removing);
 			}
 			EZefRefs Without::operator() (const EZefRefs& original) const {
-                return std::visit(overload{
+                return std::visit(overloaded{
                         [](Sentinel x)->EZefRefs {throw std::runtime_error("without used without curried in EZefRefs"); },
                         [&original,this](EZefRefs uzrs)->EZefRefs {return Without::operator()(original, uzrs);},
                         [](ZefRefs x)->EZefRefs {throw std::runtime_error("without used between EZefRefs and ZefRefs"); }
@@ -1513,7 +1513,7 @@ namespace zefDB {
         } else {
             if (!internals::has_delegate(BT(uzr))) throw std::runtime_error("Instances(zr) called for a blob type where no delegate exists.");
 
-            EZefRef ref_frame_tx = std::visit(overload{
+            EZefRef ref_frame_tx = std::visit(overloaded{
                     [](Sentinel x)->EZefRef {throw std::runtime_error("a reference frame has to be specified and curried into the 'instance' zefop when piping through a delegate EZefRef."); },
                     [](EZefRef tx)->EZefRef { return tx; },
                     [](ZefRef tx)->EZefRef { return tx | to_ezefref; },
@@ -1526,7 +1526,7 @@ namespace zefDB {
     ZefRefs Instances::operator() (const Graph& g) const {
         if (std::holds_alternative<Sentinel>(ref_frame_data)) throw std::runtime_error("g | Instances was called, but no reference frame was set in the latter op.");
 
-        EZefRef ref_frame_tx = std::visit(overload{
+        EZefRef ref_frame_tx = std::visit(overloaded{
                 [](Sentinel x)->EZefRef {throw std::runtime_error("g | Instances was called, but no reference frame was set in the latter op."); },
                 [](EZefRef tx)->EZefRef { return tx; },
                 [](ZefRef tx)->EZefRef { return tx | to_ezefref; },
@@ -1721,7 +1721,7 @@ namespace zefDB {
 				bool is_out_relation = (std::holds_alternative<OnInstantiation>(relation_direction) && std::get<OnInstantiation>(relation_direction).is_outgoing) ||
 					(std::holds_alternative<OnTermination>(relation_direction) && std::get<OnTermination>(relation_direction).is_outgoing);
 				bool is_instantiation = std::holds_alternative<OnInstantiation>(relation_direction);
-				RelationType relation_type = std::visit(overload{
+				RelationType relation_type = std::visit(overloaded{
 					[](OnInstantiation op)->RelationType {if (!bool(op.rt)) throw std::runtime_error("rel not set in OnInstantiation used in 'subscribe'"); return *op.rt; },
 					[](OnTermination op)->RelationType {if (!bool(op.rt)) throw std::runtime_error("rel not set in OnTermination used in 'subscribe'"); return *op.rt; },
 
@@ -1763,7 +1763,7 @@ namespace zefDB {
 						}
 					};
 
-					ZefRef monitored_rel_list_entity = std::visit(overload{
+					ZefRef monitored_rel_list_entity = std::visit(overloaded{
 						[&g_observables, &get_or_create_monitored_rel_list_entity](OnInstantiation op)->ZefRef { return get_or_create_monitored_rel_list_entity(*op.rt, op.is_outgoing); },
 						[&g_observables, &get_or_create_monitored_rel_list_entity](OnTermination op)->ZefRef { return get_or_create_monitored_rel_list_entity(*op.rt, op.is_outgoing); },
 						[&g_observables](auto x)->ZefRef { return g_observables[42] | now; } // never reached
@@ -2444,7 +2444,7 @@ namespace zefDB {
 			}
 			// the foreign (atomic)entity is not in this graph
 			GraphData& gd = target_graph.my_graph_data();
-			EZefRef new_foreign_entity_uzr = std::visit(overload{
+			EZefRef new_foreign_entity_uzr = std::visit(overloaded{
 				[&](EntityType et) {
 					EZefRef new_foreign_entity_uzr = internals::instantiate(BT.FOREIGN_ENTITY_NODE, gd);
 					reinterpret_cast<blobs_ns::FOREIGN_ENTITY_NODE*>(new_foreign_entity_uzr.blob_ptr)->entity_type = et;
@@ -4049,7 +4049,7 @@ namespace zefDB {
 
 		inline std::ostream& operator<< (std::ostream& o, AtomicTypeVariant atv) {
 			o << "<";
-			std::visit(overload{
+			std::visit(overloaded{
 				[&o](Sentinel x)->void { o << "not set"; },
 				[&o](TimeSlice x)->void { o << "TimeSlice specified: " << x.value; },
 				[&o](EZefRef x)->void { o << "EZefRef specified as ref tx: " << x; },
@@ -4278,7 +4278,7 @@ namespace zefDB {
 			GraphData& gd = *graph_data(my_atomic_entity);			
 			EZefRef ref_tx = std::holds_alternative<internals::Sentinel>(op.time_slice_override) ?
 				my_atomic_entity.tx :   // use the reference frame baked into the ZefRef if none is specified in the 'value' zefop
-				std::visit(overload{
+				std::visit(overloaded{
 					[&gd](internals::Sentinel ts)->EZefRef {return EZefRef(0, gd); },   // never used, but required for completion
 					[&gd](TimeSlice ts)->EZefRef {return tx[gd][ts]; },  // determine the tx event for the specified time slice here: before this it is not know for which graph the tx should be determined
 					[](EZefRef uzr)->EZefRef { return uzr; },   // if the tx is directly specified
@@ -4321,7 +4321,7 @@ namespace zefDB {
 				throw std::runtime_error("EZefRef | value.something called, but the specified return type does not agree with the type of the ATOMIC_ENTITY_NODE pointed to.");
 
 			GraphData& gd = *graph_data(my_atomic_entity);			
-			EZefRef ref_tx = std::visit(overload{
+			EZefRef ref_tx = std::visit(overloaded{
 					[&gd](internals::Sentinel ts)->EZefRef {throw std::runtime_error("Time slice info need to be set inside 'value' zefop when calling on a EZefRef"); return EZefRef(0, gd); },   // never used, but required for completion
 					[&gd](TimeSlice ts)->EZefRef {return tx[gd][ts]; },  // determine the tx event for the specified time slice here: before this it is not know for which graph the tx should be determined
 					[](EZefRef uzr)->EZefRef { return uzr; },   // if the tx is directly specified
