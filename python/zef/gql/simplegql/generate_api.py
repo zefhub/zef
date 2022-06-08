@@ -671,7 +671,11 @@ def resolve_delete(_, info, *, type_node, **params):
             if not ents | map[pass_delete_auth[type_node][info]] | all | collect:
                 raise ExtenalError("Auth check returned False")
 
-            [terminate[ent] for ent in ents] | transact[g] | run
+            post_checks = []
+            for ent in ents:
+                post_checks += [("remove", ent, type_node)]
+            actions = [terminate(ent) for ent in ents]
+            r = commit_with_post_checks(actions, post_checks, info)
 
             count = len(ents)
 
@@ -854,25 +858,37 @@ def internal_resolve_field(z, info, z_field):
     
     is_incoming = z_field | op_is_incoming | collect
     # This is a delegate
-    relation = z_field >> RT.GQL_Resolve_With | collect
-    is_triple = source(relation) != relation
+    if z_field | has_out[RT.GQL_Resolve_With] | collect:
+        relation = z_field >> RT.GQL_Resolve_With | collect
+        is_triple = source(relation) != relation
 
-    rt = RT(relation)
+        rt = RT(relation)
 
-    if is_triple:
+        if is_triple:
+            if is_incoming:
+                assert rae_type(z) == rae_type(target(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {target(relation)}"
+            else:
+                assert rae_type(z) == rae_type(source(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {source(relation)}"
+
         if is_incoming:
-            assert rae_type(z) == rae_type(target(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {target(relation)}"
+            opts = z << L[rt]
+            if is_triple:
+                opts = opts | filter[is_a[rae_type(source(relation))]]
         else:
-            assert rae_type(z) == rae_type(source(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {source(relation)}"
-
-    if is_incoming:
-        opts = z << L[rt]
-        if is_triple:
-            opts = opts | filter[is_a[rae_type(source(relation))]]
+            opts = z >> L[rt]
+            if is_triple:
+                opts = opts | filter[is_a[rae_type(target(relation))]]
+    elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
+        opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, info)
+        # This is to mimic the behaviour that people probably expect from a
+        # non-list resolver.
+        if type(opts) not in [list,tuple]:
+            if opts is None:
+                opts = []
+            else:
+                opts = [opts]
     else:
-        opts = z >> L[rt]
-        if is_triple:
-            opts = opts | filter[is_a[rae_type(target(relation))]]
+        raise Exception(f"Don't know how to resolve this field: {z_field}")
 
     # Auth filtering todo
     opts = opts | filter[pass_query_auth[target(z_field)][info]]
@@ -880,7 +896,11 @@ def internal_resolve_field(z, info, z_field):
     # We must convert final objects from AEs to python types.
     # if z_field | target | is_core_scalar | collect:
     if z_field | target | op_is_scalar | collect:
-        opts = opts | map[value]
+        # With a dynamic resolver, the items could also be values, so only apply value if they are ZefRefs
+        opts = opts | map[match[
+            (ZefRef, value),
+            (Any, identity)
+        ]]
 
     return opts
 
@@ -1060,7 +1080,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
                     else:
                         actions += [(z, rt, val)]
                 else:
-                    actions += [(maybe_prior_rel | target | collect) <= val]
+                    actions += [(maybe_prior_rel | target | assign_value[val] | collect)]
             else:
                 raise Exception("Updating non-scalars is TODO")
     
@@ -1077,11 +1097,11 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
             rels = z < L[rt]
         else:
             rels = z > L[rt]
-        actions += [terminate[rel] for rel in rels]
+        actions += [terminate(rel) for rel in rels]
 
         # Also delete scalars
         if z_field | target | op_is_scalar | collect:
-            actions += [terminate[target(rel)] for rel in rels]
+            actions += [terminate(target(rel)) for rel in rels]
 
     return actions, post_checks
 
@@ -1190,20 +1210,41 @@ def commit_with_post_checks(actions, post_checks, info):
                 if type(obj) == str:
                     obj = r[obj]
                 assert type(obj) == ZefRef
-                obj = now(obj)
+                obj = obj | in_frame[g | now | collect][allow_tombstone] | collect
                 type_name = {type_node >> O[RT.Name] | value_or[''] | collect}
 
                 if kind == "add":
+                    for z_func in type_node | Outs[RT.OnCreate]:
+                        try:
+                            func[z_func](obj)
+                        except:
+                            raise ExternalError(f"OnCreate hook for type_node of '{type_name}' threw an exception")
                     if not pass_add_auth(obj, type_node, info):
-                        raise Exception(f"Add auth check for type_node of '{type_name}' returned False")
+                        raise ExternalError(f"Add auth check for type_node of '{type_name}' returned False")
                 elif kind == "update":
+                    for z_func in type_node | Outs[RT.OnUpdate]:
+                        try:
+                            func[z_func](obj)
+                        except:
+                            raise ExternalError(f"OnUpdate hook for type_node of '{type_name}' threw an exception")
                     if not pass_post_update_auth(obj, type_node, info):
-                        raise Exception(f"Post-update auth check for type_node of '{type_name}' returned False")
+                        raise ExternalError(f"Post-update auth check for type_node of '{type_name}' returned False")
+                elif kind == "remove":
+                    for z_func in type_node | Outs[RT.OnRemove]:
+                        try:
+                            func[z_func](obj)
+                        except:
+                            raise ExternalError(f"OnRemove hook for type_node of '{type_name}' threw an exception")
+
+
         except Exception as exc:
             log.error("Aborting transaction",
                       exc_info=exc)
             from ...pyzef.internals import AbortTransaction
             AbortTransaction(g)
-            raise ExternalError("Mutation did not pass auth checks")
+            if type(exc) == ExternalError:
+                raise exc
+            else:
+                raise ExternalError("Unexpected error in auth check/hooks execution")
 
     return r
