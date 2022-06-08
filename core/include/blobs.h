@@ -15,13 +15,15 @@
  */
 
 #pragma once
+
+#include "export_statement.h"
+
 #include <ostream>
 #include <iomanip>      // std::setprecision
 #include <string_view>
 #include <optional>
 #include <variant>
 #include "constants.h"
-#include "export_statement.h"
 #include "range/v3/all.hpp"
 
 #include "fwd_declarations.h"

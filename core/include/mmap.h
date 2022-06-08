@@ -20,6 +20,7 @@
 #include "mmap_windows.h"
 #else
 
+#include "export_statement.h"
 
 #include <iostream>
 #include <vector>
@@ -42,7 +43,6 @@
 #include <shared_mutex>
 #include <atomic>
 
-#include "export_statement.h"
 #include "constants.h"
 #include "zefDB_utils.h"
 #include "uids.h"

@@ -15,6 +15,9 @@
  */
 
 #pragma once
+
+#include "export_statement.h"
+
 #include "blobs.h"
 #include <array>
 #include <variant>
@@ -23,12 +26,6 @@
 #include <initializer_list>
 
 namespace zefDB {
-	// ------- use variadic templates: see  https://www.bfilipek.com/2018/09/visit-variants.html--------------------------
-	// Is C++ really making it that difficult to do a bit of pattern matching below? 
-	template<class... Ts> struct overload : Ts... { using Ts::operator()...; };
-	template<class... Ts> overload(Ts...)->overload<Ts...>;
-
-
 
 	template <typename ScalarType, int TensorOrder>
 	struct Tensor {};

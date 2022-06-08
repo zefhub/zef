@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "export_statement.h"
+
 #include "fwd_declarations.h"
 #include "append_structures.h"
 #include "butler/threadsafe_map.h"

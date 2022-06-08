@@ -16,6 +16,11 @@
 
 #pragma once
 
+#cmakedefine LIBZEF_FORCE_ASSERTS
+#ifdef LIBZEF_FORCE_ASSERTS
+#undef NDEBUG
+#include <cassert>
+#endif
 
 #cmakedefine LIBZEF_STATIC
 #ifdef LIBZEF_STATIC

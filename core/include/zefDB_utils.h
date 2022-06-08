@@ -15,6 +15,9 @@
  */
 
 #pragma once
+
+#include "export_statement.h"
+
 #include <vector>
 #include <array>
 #include <unordered_map>
@@ -32,7 +35,6 @@
 #include "include_fs.h"
 
 // #include "fwd_declarations.h"
-#include "export_statement.h"
 #include "constants.h"
 
 #include "range/v3/all.hpp"

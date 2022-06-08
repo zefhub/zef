@@ -15,6 +15,9 @@
  */
 
 #pragma once
+
+#include "export_statement.h"
+
 #include <type_traits>  // std::is_same<T, animal>::value
 #include <unordered_map>
 #include <algorithm>
@@ -1907,7 +1910,7 @@ namespace zefDB {
                                  
 		inline EZefRefs InstancesEternal::operator() (const Graph& g) const {			
             // If the delegate doesn't exist, an exception will be thrown. Use this to return an empty list
-                return std::visit(overload{
+                return std::visit(overloaded{
                         [&g](Instances::Sentinel sent) { return internals::all_raes(g); },
                         [&g](auto tp) {
                             std::optional<EZefRef> temp = g | delegate[tp];

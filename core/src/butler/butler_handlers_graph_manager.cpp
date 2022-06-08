@@ -856,7 +856,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
     Graph target_g(*me.gd);
 
     // Do different things based on the payload.
-    std::visit(overload {
+    std::visit(overloaded {
             [&](MergeRequest::PayloadGraphDelta & payload) {
                 try {
                     // py::gil_scoped_acquire acquire;

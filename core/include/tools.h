@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "export_statement.h"
+
 #include <fstream>
 #include <functional>
 #include <variant>
