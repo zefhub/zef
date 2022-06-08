@@ -3720,6 +3720,30 @@ def time_slice_type_info(op, curr_type):
     return VT.TimeSlice
 
 
+# ---------------------------------------- graph_slice_index -----------------------------------------------
+
+def graph_slice_index_imp(gs: GraphSlice, *curried_args):
+    """ 
+    Returns the time slice as an Int for GraphSlice.
+    
+    Note: we may introduce z_tx | time_slice if we can find a convincing use case.
+    We're leaving it out for now, since this builds on the prior confusion
+    of identifying transactions themselves with time slice.
+    The new mental image is that reference frames are somewhat distinct from 
+    TXs and a time slice applies to a reference frame, not a TX directly.
+
+    ---- Examples ----
+    >>> my_graph_slice | graph_slice_index
+
+    ---- Signature ----
+    GraphSlice -> Int
+    """
+    if isinstance(gs, GraphSlice):
+        return int(pyzefops.time_slice(gs.tx))
+
+    raise TypeError(f"The 'graph_slice_index' ZefOp can only be used on GraphSlices. You may want to use the 'frame' or 'to_graph_slice' zefops")  
+
+
 
 # ---------------------------------------- next_tx -----------------------------------------------
 def next_tx_imp(z_tx):
