@@ -2189,7 +2189,26 @@ def add_tp(a, second, *args):
     
     
 #---------------------------------------- subtract -----------------------------------------------
-def subtract_imp(a, second=None):    
+def subtract_imp(a, second=None):
+    """
+    Binary operator to subtract two elements. Neither is a list.
+    If am operator is needed that can act on a tuple of length 2,
+    this can be wrapped in `unpack`.
+
+    ---- Examples ----
+    44 | subtract[2]               # => 42
+    (42, 10) | unpack[subtract]    # => 32
+
+    ---- Signature ----
+    (T1, T2) -> T1 | T2
+
+    ---- Tags ----
+    used for: maths
+    related zefop: add
+    related zefop: multiply
+    related zefop: divide
+    related zefop: unpack
+    """
     if second is None:
         assert len(a) == 2
         return a[0]-a[1]
