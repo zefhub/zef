@@ -83,7 +83,7 @@ def gql_enums(schema_node: ZefRef):
 @func
 def gql_types_dict(schema_node: ZefRef) -> dict:
     schema_node_checks(schema_node)
-    return {str(t >> RT.Name | value | collect) : t for t in schema_node | outs | target | filter[lambda x: x | BT | collect == BT.ENTITY_NODE] | collect}
+    return {str(t >> RT.Name | value | collect) : t for t in schema_node | Outs[RT]  | filter[lambda x: x | BT | collect == BT.ENTITY_NODE] | collect}
 
 @func
 def gql_fields_rt_dict(gql_type: ZefRef) -> dict:
@@ -94,7 +94,7 @@ def gql_fields_rt_dict(gql_type: ZefRef) -> dict:
 def gql_field_resolver(gql_field: ZefRef) -> ZefRef:
     gql_field_checks(gql_field)
     resolver_types = [RT.GQL_Resolve_with, RT.GQL_Resolve_with_intermediate, RT.GQL_Resolve_with_body, RT.GQL_Resolve_with_zcript]
-    resolvers = gql_field | outs | filter[lambda z: z | RT in resolver_types] | collect
+    resolvers = gql_field | Outs[RT] | filter[lambda z: z | RT in resolver_types] | collect
     if len(resolvers) != 1:
         raise Exception(f"There wasn't exactly one gql_resolver associated with field {gql_field}")
     return resolvers | only | collect
