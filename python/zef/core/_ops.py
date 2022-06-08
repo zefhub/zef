@@ -222,8 +222,6 @@ origin_rae      = make_zefop(RT.OriginRAE)
 has_out         = make_zefop(RT.HasOut)                # z1 | has_out[RT.Foo] use  (z1, RT.Foo, Z) | exists  /   (z, RT.Foo, RAE) | exists[g]  /   (z, RT.Foo, RAE) | exists[now(g)][single]
 has_in          = make_zefop(RT.HasIn)                 # z1 | has_in[RT.Foo]  use  (Z, RT.Foo, z1) | exists
 
-All             = make_zefop(RT.All)               # TODO: retire
-
 In              = make_zefop(RT.In)
 Ins             = make_zefop(RT.Ins)
 Out             = make_zefop(RT.Out)
