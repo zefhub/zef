@@ -1313,13 +1313,24 @@ def get_absorbed_id(obj):
     return obj | absorbed | single_or[None] | collect
 
 
+def equal_identity(a, b):
+    if type(a) != type(b):
+        return False
+
+    # Things that don't produce the same objectt even though their python objects
+    # are the same
+    if type(a) in [EntityType, RelationType, AtomicEntityType, ZefEnumValue]:
+        return False
+
+    return a == b
+
 # @func
 # def merge_no_overwrite(a,b):
 #     d = {**a}
 
 #     for k,v in b.items():
-#         if k in d and d[k] != v:
-#             raise Exception("The internal id '{k}' refers to multiple objects, including '{d[k]}' and '{v}'. This is ambiguous and not allowed.")
+#         if k in d and not equal_identity(d[k], v):
+#             raise Exception(f"The internal id '{k}' refers to multiple objects, including '{d[k]}' and '{v}'. This is ambiguous and not allowed.")
 #         d[k] = v
 #     return d
 
@@ -1327,8 +1338,8 @@ def get_absorbed_id(obj):
 def merge_no_overwrite(a,b):
     # This version is mutating because otherwise it's too slow
     for k,v in b.items():
-        if k in a and a[k] != v:
-            raise Exception("The internal id '{k}' refers to multiple objects, including '{a[k]}' and '{v}'. This is ambiguous and not allowed.")
+        if k in a and not equal_identity(a[k], v):
+            raise Exception(f"The internal id '{k}' refers to multiple objects, including '{a[k]!r}' and '{v!r}'. This is ambiguous and not allowed.")
         a[k] = v
     return a
 
