@@ -86,7 +86,6 @@ def parse_queryparams_et(params_et):
 def generate_fields(et, schema_out):
     for rt in (et | out_rels[RT(gqlify("field"))] | collect):
         nonnullable = check_nonnullable(rt)
-        print(rt)
         field_name = de_gqlify(value(rt | Out[ RT.Name]), False)
         field_return = rt | target | collect
         blob_type = BT(field_return | to_ezefref | collect)
