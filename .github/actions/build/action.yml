@@ -191,4 +191,6 @@ runs:
         echo should have echoed python path
         copy python\pyzef\build\Release\pyzef.* python\zef
         python3 python/tests/quick_start.py
-        python3 -mpytest python/tests
+        # Because of some strange weirdness, going to try unittest here instead of pytest
+        #python3 -mpytest python/tests
+        python3 -munittest discover -s python/tests
