@@ -197,8 +197,8 @@ def on_implementation(g, op):
 
 
     """
-    assert isinstance(op, ZefOp)
-    assert len(op.el_ops) == 1
+    assert isinstance(op, ValueType_)
+    assert len(absorbed(op)) == 1
     from ...pyzef import zefops as internal
     from ..fx import FX, Effect
 
@@ -206,26 +206,26 @@ def on_implementation(g, op):
     sub_decl = internal.subscribe[internal.keep_alive[True]]
     
     if isinstance(g, Graph):
-        op_kind = op.el_ops[0][0]
-        op_args = op.el_ops[0][1]        
-        if op_kind in {RT.Terminated,RT.Instantiated}:
-            selected_types = {RT.Terminated: (internal.on_termination, terminated), RT.Instantiated: (internal.on_instantiation, instantiated)}[op_kind]
+        op_kind = without_absorbed(op)
+        op_args = absorbed(op)      
+        if op_kind in {Instantiated, Terminated}:
+            selected_types = {Terminated: (internal.on_termination, terminated), Instantiated: (internal.on_instantiation, instantiated)}[op_kind]
             
             if not isinstance(op_args[0], tuple):
                 rae_or_zr = op_args[0]
                 # Type 1: a specific entity i.e on[terminated[zr]]  !! Cannot be on[instantiated[zr]] because doesnt logically make sense !!
                 if isinstance(rae_or_zr, ZefRef): 
-                    assert op_kind == RT.Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
-                    def filter_func(root_node): root_node | frame | to_tx  | terminated | filter[lambda x: to_ezefref(x) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(terminated[x]) | push[stream] | run ] 
+                    assert op_kind == Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
+                    def filter_func(root_node): root_node | frame | to_tx | events[Terminated] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl                
                 # Type 2: any RAE  i.e on[terminated[ET.Dog]] or on[instantiated[RT.owns]] 
                 elif type(rae_or_zr) in {AtomicEntityType, EntityType, RelationType}: 
-                    def filter_func(root_node): root_node | frame | to_tx | selected_types[1] | filter[lambda x: rae_type(x) == rae_or_zr] |  for_each[lambda x: LazyValue(selected_types[1][x]) | push[stream] | run ] 
+                    def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: rae_type(absorbed(x)[0]) == rae_or_zr] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl
                 else:
-                    raise Exception(f"Unhandled type in on[{selected_types[1]}] where the input was {rae_or_zr}")
+                    raise Exception(f"Unhandled type in on[{op_kind}] where the input was {rae_or_zr}")
 
             # Type 3: An instantiated or terminated relation outgoing or incoming from a specific zr 
             elif len(op_args[0]) == 3: 
@@ -234,16 +234,17 @@ def on_implementation(g, op):
                 sub = src | sub_decl            
             else:
                 raise Exception(f"Unhandled type in on[{selected_types[1]}] where the curried args were {op_args}")
-        elif op_kind == RT.ValueAssigned:
+        elif op_kind == Assigned:
             assert len(op_args) == 1
             aet_or_zr = op_args[0]
             # Type 1: a specific zefref to an AET i.e on[assigned[zr_to_aet]]
             if isinstance(aet_or_zr, ZefRef): 
-                sub_decl = sub_decl[internal.on_value_assignment][lambda x: LazyValue(assigned[x][x|value|collect]) | push[stream] | run]
-                sub = aet_or_zr | sub_decl
+                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(aet_or_zr)] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                sub_decl = sub_decl[filter_func]
+                sub = g | sub_decl
             # Type 2: any AET.* i.e on[assigned[AET.String]]
             elif isinstance(aet_or_zr, AtomicEntityType): 
-                def filter_func(root_node): root_node | frame | to_tx | assigned | filter[aet_or_zr] | map[lambda x: assigned[x][x|value|collect]] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: rae_type(absorbed(x)[0]) == aet_or_zr] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl        
         else:
