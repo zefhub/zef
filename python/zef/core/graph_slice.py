@@ -60,7 +60,7 @@ class GraphSlice:
         
         
     def __repr__(self):
-        return f"GraphSlice(graph_uid='{str(uid(Graph(self.tx)))}', time_slice={int(time_slice(self))})"
+        return f"GraphSlice(graph_uid='{str(uid(Graph(self.tx)))}', time_slice={graph_slice_index(self)})"
 
     def __eq__(self, other):        
         return (
@@ -73,7 +73,7 @@ class GraphSlice:
         """
         Returns the time slice as an integer
         """
-        return int(self | time_slice | collect)
+        return self | graph_slice_index | collect
 
     def __hash__(self):
         return hash(self.tx)

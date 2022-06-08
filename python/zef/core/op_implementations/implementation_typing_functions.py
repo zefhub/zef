@@ -3710,8 +3710,8 @@ def time_slice_implementation(gs: GraphSlice, *curried_args):
     ---- Signature ----
     GraphSlice -> TimeSlice
     """
-    #print(f"😔😔😔😔😔😔 RThis zefop will be deprecated. The TimeSlice data structure \
-    #      (which it returns) has been conceptually replaced with 'GraphSlice'.")
+    print(f"😔😔😔😔😔😔 RThis zefop will be deprecated. The TimeSlice data structure \
+         (which it returns) has been conceptually replaced with 'GraphSlice'.")
     if isinstance(gs, GraphSlice):
         return pyzefops.time_slice(gs.tx)
 
@@ -3726,19 +3726,24 @@ def time_slice_type_info(op, curr_type):
 
 def graph_slice_index_imp(gs: GraphSlice, *curried_args):
     """ 
-    Returns the time slice as an Int for GraphSlice.
+    Returns the index of a GraphSlice as an Int. 
     
-    Note: we may introduce z_tx | time_slice if we can find a convincing use case.
-    We're leaving it out for now, since this builds on the prior confusion
-    of identifying transactions themselves with time slice.
-    The new mental image is that reference frames are somewhat distinct from 
-    TXs and a time slice applies to a reference frame, not a TX directly.
+    Historical note: the GraphSlice data structure itself replaces 
+    what was previously the TimeSlice.
 
+    Historical note 2: There was initial confusion in conflating the 
+    transactions themselves with time slices / graph slices.
+    These are distinct concepts: TXs are sets of changes, 
+    i.e. events: "what happened?"
+    
+    GraphSlices are states: "What is?" They are also known as 
+    "reference frames"
+    
     ---- Examples ----
     >>> my_graph_slice | graph_slice_index
 
     ---- Signature ----
-    GraphSlice -> Int
+    (GraphSlice, ) -> Int
     """
     if isinstance(gs, GraphSlice):
         return int(pyzefops.time_slice(gs.tx))
@@ -3873,8 +3878,8 @@ def preceding_events_imp(x, filter_on=None):
         retirements = to_del | Ins[BT.DELEGATE_RETIREMENT_EDGE]
         if type(ezr) == ZefRef:
             gs = frame(ezr)
-            insts = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
-            retirements = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+            insts = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
+            retirements = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
 
         insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
         retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
@@ -3940,8 +3945,8 @@ def events_imp(z_tx_or_rae, filter_on=None):
         retirements = to_del | Ins[BT.DELEGATE_RETIREMENT_EDGE]
         if type(ezr) == ZefRef:
             gs = frame(ezr)
-            insts = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
-            retirements = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+            insts = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
+            retirements = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
 
         insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
         retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
@@ -4064,18 +4069,18 @@ def in_frame_imp(z, *args):
             # TODO: This should not be necessary in the future, as
             # events[Instantiated] should cover this and the following ROOT_NODE
             # case.
-            instantiation_ts = pyzefops.time_slice(z_obj)
+            instantiation_ind = int(pyzefops.time_slice(z_obj))
         elif BT(z_obj) == BT.ROOT_NODE:
             # TODO: It should also be possible to pass this to
             # events[Instantiated], as then the delegates of the root node can
             # also be handled seamlessly
-            instantiation_ts = TimeSlice(0)
+            instantiation_ind = 0
         else:
             # Note that 'first' is used here instead of 'single', as delegates
             # may have been brought back to life... but we only care about
             # casuality here, which corresponds to the very first instantiation.
-            instantiation_ts = z_obj | preceding_events[Instantiated] | first | absorbed | single | frame | time_slice | collect
-        if (time_slice(target_frame)) < instantiation_ts:
+            instantiation_ind = z_obj | preceding_events[Instantiated] | first | absorbed | single | frame | graph_slice_index | collect
+        if (graph_slice_index(target_frame)) < instantiation_ind:
             raise RuntimeError(f"Causality error: you cannot point to an object from a frame prior to its existence / the first time that frame learned about it.")            
         if not tombstone_allowed:
             if not exists_at(z_obj, target_frame):

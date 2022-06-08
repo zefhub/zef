@@ -215,13 +215,8 @@ def readable_datetime_from_tx_uzr(uzr_tx) -> str:
     uzr_tx = to_ezefref(uzr_tx)
     if index(uzr_tx) == root_node_blob_index():
         return '/'
-    return str(time_slice(to_graph_slice(uzr_tx))) + ': ' + str(uzr_tx | time | collect)
+    return f'GraphSlice {str(graph_slice_index(to_graph_slice(uzr_tx)))}: {str(uzr_tx | time | collect)}'
 
-    # time_stamp_here = unix_time(uzr_tx)
-    # return datetime.fromtimestamp(time_stamp_here)\
-    #     .astimezone(timezone(timedelta(hours=8)))\
-    #     .strftime(f"TimeSlice {fill_str_to_length(str(time_slice(uzr_tx).value), 6)} %d.%m.%Y %H:%M:%S (SG), {time_stamp_here}") \
-    #     if index(uzr_tx) != internals.root_node_blob_index() else "/"
 
 
 def eternalist_view(zr_or_uzr) -> str:
@@ -337,7 +332,7 @@ def timeline_view(zr_or_uzr) -> str:
             return (edge | instantiation_tx | time | collect) if edge_state == "Instantiated" else (edge | termination_tx | time | collect)
         return edge | source | time | collect
 
-    reference_tx_timeslice = time_slice(to_graph_slice(reference_tx))
+    reference_tx_gs_index = graph_slice_index(to_graph_slice(reference_tx))
     rel_ent_inst_edge = uzr | in_rel[BT.RAE_INSTANCE_EDGE]
     all_edges = [(e, "low_lvl", "") for e in rel_ent_inst_edge | in_rels[BT] | collect]
     add_directed_rt_to_list(uzr | in_rels[RT] | filter[lambda z: BT(z) != BT.RAE_INSTANCE_EDGE] | collect, "in")
@@ -348,7 +343,7 @@ def timeline_view(zr_or_uzr) -> str:
     # Loop over all edges and filter based on edge_type and on the reference_tx value
     for e in all_edges:
         edge, edge_type, edge_state = e
-        if edge_type == "low_lvl" and edge | source | to_graph_slice | time_slice | collect <= reference_tx_timeslice:
+        if edge_type == "low_lvl" and edge | source | to_graph_slice | graph_slice_index | collect <= reference_tx_gs_index:
             edge_description = (f"{fill_str_to_length(generate_low_level_description(edge), 65)}  "
                                 f"[{readable_datetime_from_tx_uzr(edge | source | collect)}]", edge)
             if BT(edge) == BT.TERMINATION_EDGE:
@@ -356,8 +351,8 @@ def timeline_view(zr_or_uzr) -> str:
             else:
                 descriptions_and_txs.append(edge_description)
         else:
-            if (edge_state == "Instantiated" and time_slice(edge | instantiation_tx | frame | collect) <= reference_tx_timeslice) or\
-                    (edge_state == "Terminated" and time_slice(edge | termination_tx | frame | collect) <= reference_tx_timeslice):
+            if (edge_state == "Instantiated" and graph_slice_index(edge | instantiation_tx | frame | collect) <= reference_tx_gs_index) or\
+                    (edge_state == "Terminated" and graph_slice_index(edge | termination_tx | frame | collect) <= reference_tx_gs_index):
                 descriptions_and_txs.append(
                     (f"{fill_str_to_length(generate_rt_description(edge, edge_type, edge_state), 54)}", edge))
 

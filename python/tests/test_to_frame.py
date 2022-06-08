@@ -28,13 +28,13 @@ class MyTestCase(unittest.TestCase):
         m4 = instantiate(ET.Machine, g)
 
         self.assertEqual(m4 | frame | collect, g | now | collect)
-        ts4 = m4 | frame | time_slice | collect
+        ts4 = m4 | frame | graph_slice_index | collect
 
         with Transaction(g) as ctx: 
             this_frame = frame(ctx)
             self.assertEqual(this_frame, g | now | collect)
-            self.assertEqual(ctx | to_graph_slice | time_slice | collect, g | now | time_slice | collect)
-            self.assertEqual(ctx | to_graph_slice | time_slice | func[int] | collect, int(ts4)+1)
+            self.assertEqual(ctx | to_graph_slice | graph_slice_index | collect, g | now | graph_slice_index | collect)
+            self.assertEqual(ctx | to_graph_slice | graph_slice_index | collect, ts4+1)
             
 
         mm1 = m1 | to_ezefref | to_frame[g | now|collect] | collect
