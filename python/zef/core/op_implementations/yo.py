@@ -395,8 +395,8 @@ def graph_info(g) -> str:
 ===================================== Seen from: {str(now())} =========================================
 ======================================================================================================================
 
-instantiation:          {readable_datetime_from_tx_uzr(g | All[TX] | first | collect) if length(g | All[TX] | collect) > 0 else "NA"}
-last change:            {readable_datetime_from_tx_uzr(g | All[TX] | last | collect)  if len(g | All[TX] | collect) > 0 else "NA"}
+instantiation:          {readable_datetime_from_tx_uzr(g | all[TX] | first | collect) if length(g | all[TX] | collect) > 0 else "NA"}
+last change:            {readable_datetime_from_tx_uzr(g | all[TX] | last | collect)  if len(g | all[TX] | collect) > 0 else "NA"}
 current tags:           {g.graph_data.tag_list}
 summary:                {simple_lengths(g)}
 size:                   {round((g.graph_data.write_head * 16) / 1E6, 3)}MB

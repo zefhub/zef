@@ -240,7 +240,7 @@ graph_slice_index=make_zefop(RT.GraphSliceIndex)
     
 instantiation_tx= make_zefop(RT.InstantiationTx)       # use tx[instantiated]
 termination_tx  = make_zefop(RT.TerminationTx)         # use tx[terminated]   
-relations       = make_zefop(RT.Relations)             # g | now | All[(z1, RT.Bar, z2)]   with pattern matching style any of the three args can also be replaced with a more general class
+relations       = make_zefop(RT.Relations)             # g | now | all[(z1, RT.Bar, z2)]   with pattern matching style any of the three args can also be replaced with a more general class
 relation        = make_zefop(RT.Relation)              # looking through our code base for use cases of this op, I don't think a separate operator is necessary. Just use the syntax above followed by ... | single. If required more often, it is much easier to add this in future than to remove it.
 call            = make_zefop(RT.Call)                  # useful now. But the "func[...]" syntax could replace this in future?
 unpack          = make_zefop(RT.Unpack)
@@ -307,7 +307,7 @@ zascii_to_schema = make_zefop(RT.ZasciiToSchema)
                 #       2) g_slice | contains[(z1, RT.Foo, z2)]
 # Syntax choices:   
 #       exists or contained_in?
-#       All or instances?    Also: my_delegate | All    or my_delegate | instances?
+#       All or instances?    Also: my_delegate | all    or my_delegate | instances?
 
 
 
