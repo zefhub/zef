@@ -2739,7 +2739,8 @@ namespace zefDB {
 
 			if (get<BlobType>(last_in_edge_on_scenario_node) == BlobType::TERMINATION_EDGE) return false;
             assert(get<BlobType>(last_in_edge_on_scenario_node) == BlobType::INSTANTIATION_EDGE
-                   || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE);
+                   || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE
+                   || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ORIGIN_RAE_EDGE);
             return true;
         }
 
