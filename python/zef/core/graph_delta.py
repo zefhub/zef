@@ -37,6 +37,8 @@ for t in [list, tuple]:
 
 
 
+import os
+gd_timing = "ZEFDB_GRAPH_DELTA_TIMING" in os.environ
 
 ##############################
 # * Description
@@ -139,12 +141,15 @@ def construct_commands(elements) -> list:
     # elements = elements | map[handle_dict | first] | concat | collect
     # Obtain all user IDs
     id_definitions = elements | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
-    # log.debug("Got id_definitions")
+    if gd_timing:
+        log.debug("Got id_definitions")
     # Check that nothing needs a user ID that wasn't provided
     elements | for_each[verify_input_el[id_definitions]]
-    # log.debug("Verified input_el")
+    if gd_timing:
+        log.debug("Verified input_el")
     elements | for_each[verify_relation_source_target[id_definitions]]
-    # log.debug("Verified relation_source_target")
+    if gd_timing:
+        log.debug("Verified relation_source_target")
 
     state_initial = {
         'user_expressions': tuple(elements),
@@ -165,7 +170,7 @@ def construct_commands(elements) -> list:
     # iterate until all user expressions and generated expressions have become commands
     state_final = (state_initial
                    | iterate[iteration_step[generate_id]]
-                   # | map[tap[make_debug_output()]]
+                   | (map[tap[make_debug_output()]] if gd_timing else identity)
                    | take_until[lambda s: len(s['user_expressions'])==0]
                    | last
                    | collect
@@ -818,7 +823,7 @@ def verify_and_compact_commands(cmds: tuple):
     state_final = (
         {"state": state_initial, "num_changed": -1}
         | iterate[resolve_dag_ordering_step] 
-        # | tap[make_debug_output()]
+        | (tap[make_debug_output()] if gd_timing else identity)
         | take_until[lambda s: s["num_changed"] == 0]
         # | tap[lambda x: print("After take_until")]
         | last
@@ -1064,11 +1069,12 @@ def perform_transaction_commands(commands: list, g: Graph):
             frame_now = GraphSlice(tx_now)
             d_raes['tx'] = tx_now
 
-            # next_print = now()+5*seconds
+            next_print = now()+5*seconds
             for i,cmd in enumerate(commands):
-                # if now() > next_print:
-                #     log.debug("Perform", i=i, total=len(commands))
-                #     next_print = now() + 5*seconds
+                if gd_timing:
+                    if now() > next_print:
+                        log.debug("Perform", i=i, total=len(commands))
+                        next_print = now() + 5*seconds
 
                 zz = None
                 
