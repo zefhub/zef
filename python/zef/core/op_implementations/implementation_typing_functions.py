@@ -3696,7 +3696,7 @@ def now_type_info(*args_tp):
 
 def time_slice_implementation(gs: GraphSlice, *curried_args):
     """ 
-    Returns the time slice as an Int for GraphSlice.
+    Returns the time slice as an special `TimeSlice` object for a given  GraphSlice.
     
     Note: we may introduce z_tx | time_slice if we can find a convincing use case.
     We're leaving it out for now, since this builds on the prior confusion
@@ -3708,8 +3708,10 @@ def time_slice_implementation(gs: GraphSlice, *curried_args):
     >>> my_graph_slice | time_slice
 
     ---- Signature ----
-    GraphSlice -> Int
+    GraphSlice -> TimeSlice
     """
+    #print(f"😔😔😔😔😔😔 RThis zefop will be deprecated. The TimeSlice data structure \
+    #      (which it returns) has been conceptually replaced with 'GraphSlice'.")
     if isinstance(gs, GraphSlice):
         return pyzefops.time_slice(gs.tx)
 
