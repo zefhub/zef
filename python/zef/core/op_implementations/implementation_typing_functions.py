@@ -81,15 +81,16 @@ def verify_zef_list(z_list: ZefRef):
     >>> <example one-liner 1>       # => <result of the one-liner (a value)>
     >>> <example one-liner 2>       # <comment on the behaviour (not a value)>
  
-    <description of following example>
+    >>> # <description of following example>
     >>> <example one-liner with multiline result>
-    ... <result line 1>
-    ... <result line 2>
+    <result line 1>
+    <result line 2>
  
-    <description of following example>
-    >>> <multiline example line 1>
-    >>> <multiline example line 2>
-    >>> <multiline example line 3>  # => <result of multiline example>
+    >>> # <description of following example>
+    >>> <multiline example line 1>    
+    ... <multiline example line 2>
+    ... <multiline example line 3>  
+    <result of multiline example>
  
     ---- Signature ----
     <method 1: input types as tuple> -> <output type>
@@ -398,14 +399,14 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
     additional args curried in.
 
     ---- Examples ----
-    # A) all passed in via a List of Lists (no args curried into concat op)
+    >>> # A) all passed in via a List of Lists (no args curried into concat op)
     >>> [
     ...     [1,2,3],                                    
     ...     ['a', 'b', 'c', 'd'],
     ... ] | concat                                      
     [1, 2, 3, 'a', 'b', 'c', 'd']
      
-    # B) One list piped in, other lists to concatenated curried into op
+    >>> # B) One list piped in, other lists to concatenated curried into op
     >>> [1,2,3] | concat[ (42,43) ][('a','b','c')]      # =>  [1, 2, 3, 42, 43, 'a', 'b', 'c']
 
     ---- Signature ----
@@ -4224,12 +4225,12 @@ def time_travel_imp(x, *args):
     remains contant.    
 
     ---- Examples ----
-    #       ---- relative time travel ----
+    >>> #       ---- relative time travel ----
     >>> zr | time_travel[-3]                    # how many time slices to move
     ... zr | time_travel[-3.5*units.seconds]  
     ... my_graph_slice | time_travel[-3]
      
-    #       ---- time travel to fixed time ----
+    >>> #       ---- time travel to fixed time ----
     >>> t1 = Time('October 20 2020 14:00 (+0100)')
     ... g | time_travel[t1]
     ... gs | time_travel[t1]
