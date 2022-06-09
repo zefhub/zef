@@ -23,7 +23,7 @@ from ..VT.value_type import ValueType_
 from .. import *
 from ..op_structs import type_spec
 from .._ops import zefop, add_tp
-from .. import _ops as ops
+from .. import _ops as zo
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
 from ..logger import log
 
@@ -1736,11 +1736,22 @@ def all(*args):
     from typing import Generator, Iterator   
     if isinstance(args[0], FlatGraph):
         return fg_all(*args)
-    if isinstance(args[0], ZefRef) and is_a[ET.ZEF_List](args[0]):
+    # if isinstance(args[0], ZefRef) and zo.is_a[ET.ZEF_List](args[0]):
+    #     z_list = args[0]
+    #     rels = z_list | zo.out_rels[RT.ZEF_ListElement] | zo.collect
+    #     first_el = rels | zo.attempt[zo.filter[lambda r: r | zo.in_rels[RT.ZEF_NextElement] | zo.length | zo.equals[0] | zo.collect] | zo.single | zo.collect][None] | zo.collect
+    #     return (x for x in first_el | zo.iterate[zo.attempt[lambda r: r | zo.Out[RT.ZEF_NextElement] | zo.collect][None]] | zo.take_while[zo.Not[zo.equals[None]]] | zo.map[zo.target])
+
+    if isinstance(args[0], ZefRef) and is_a(args[0], ET.ZEF_List):
         z_list = args[0]
-        rels = z_list | out_rels[RT.ZEF_ListElement] | collect
-        first_el = rels | attempt[filter[lambda r: r | in_rels[RT.ZEF_NextElement] | length | equals[0] | collect] | single | collect][None] | collect
-        return (x for x in first_el | iterate[attempt[lambda r: r | Out[RT.ZEF_NextElement] | collect][None]] | take_while[Not[equals[None]]] | map[target])
+        rels = out_rels(z_list, RT.ZEF_ListElement)
+        first_el = attempt(rels,
+                           lambda l: single(
+                               filter(l, lambda r: 0 == length(in_rels(r, RT.ZEF_NextElement)))),
+                           None)
+        return (target(x) for x in take_while(
+            iterate(first_el, lambda x: attempt( lambda r: Out(r, RT.ZEF_NextElement), None)),
+            lambda x: x is not None))
 
     if isinstance(args[0], GraphSlice):
         # TODO: We should probalby make slice | all return the delegates too to
