@@ -81,15 +81,16 @@ def verify_zef_list(z_list: ZefRef):
     >>> <example one-liner 1>       # => <result of the one-liner (a value)>
     >>> <example one-liner 2>       # <comment on the behaviour (not a value)>
  
-    <description of following example>
+    >>> # <description of following example>
     >>> <example one-liner with multiline result>
-    ... <result line 1>
-    ... <result line 2>
+    <result line 1>
+    <result line 2>
  
-    <description of following example>
-    >>> <multiline example line 1>
-    >>> <multiline example line 2>
-    >>> <multiline example line 3>  # => <result of multiline example>
+    >>> # <description of following example>
+    >>> <multiline example line 1>    
+    ... <multiline example line 2>
+    ... <multiline example line 3>  
+    <result of multiline example>
  
     ---- Signature ----
     <method 1: input types as tuple> -> <output type>
@@ -177,15 +178,15 @@ def on_implementation(g, op):
     >>> g | on[assigned[AET.String]]                    # assigned[z3]['hello!']      c.f. with action: assign[z3]['hello!']
     >>> g | on[terminated[z2]]                          # terminated[z2], followed by completion_event
     >>> g | on[instantiated[ET.Foo]]                    # instantiated[z5]
-    >>> 
-    >>> # listening for new relations
-    >>> # old syntax:  zz | subscribe[on_instantiation[outgoing][RT.Foo]][my_callback]       old syntax
+     
+    # listening for new relations
+    # old syntax:  zz | subscribe[on_instantiation[outgoing][RT.Foo]][my_callback]       old syntax
     >>> g | on[ instantiated[(zz, RT.Foo, Z)] ]         # Z matches on anything, i.e. takes on role of "_"
-    >>>
+    
     >>> One can also add more precise requirements
     >>> g | on[ instantiated[(zz, RT.Foo, ET.Bar)] ]    # an element "instantiated[z_rel]" is pushed into the stream. Instances are represented by a single ZefRef, types by a triple for relations
     >>> g | on[ terminated[(zz, RT.Foo, Z)] ]
-    >>>
+    
     >>> g | on[terminated[z_rel]]
 
     ---- Signature ----
@@ -268,7 +269,7 @@ def transpose_imp(iterable):
 
     ---- Examples ----
     >>> [ [2,3,4], [5,6,7] ]                    # => [ [2, 5], [3,6], [4,7] ]
-    >>> 
+     
     >>> # terminates upon the shortest one:
     >>> [ range(2, infinity), [5,6], [15,16,17] ]    # => [[2, 5, 15], [3, 6, 16]]
 
@@ -298,11 +299,12 @@ def match_imp(item, patterns):
 
     ---- Examples ----
     >>> -9 | match[
-    >>>     (Is[less_than[-10]], lambda x: f'it is a freezing {x} degrees'),
-    >>>     (Is[less_than[10]], lambda x: f'somewhat cold: {x} degrees'),
-    >>>     (Is[greater_than_or_equal[20]], lambda x: f'warm: {x}'),
-    >>>     (Any, lambda x: f'something else {x}'),
-    >>> ] | collect                            => 'somewhat cold: -9 degrees'
+    ...     (Is[less_than[-10]], lambda x: f'it is a freezing {x} degrees'),
+    ...     (Is[less_than[10]], lambda x: f'somewhat cold: {x} degrees'),
+    ...     (Is[greater_than_or_equal[20]], lambda x: f'warm: {x}'),
+    ...     (Any, lambda x: f'something else {x}'),
+    ... ] | collect                             
+    'somewhat cold: -9 degrees'
 
     ---- Arguments ----
     item: the incoming value
@@ -399,10 +401,11 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
     ---- Examples ----
     >>> # A) all passed in via a List of Lists (no args curried into concat op)
     >>> [
-    >>>     [1,2,3],                                    
-    >>>     ['a', 'b', 'c', 'd'],
-    >>> ] | concat                                      # =>  [1, 2, 3, 'a', 'b', 'c', 'd']
-    >>> 
+    ...     [1,2,3],                                    
+    ...     ['a', 'b', 'c', 'd'],
+    ... ] | concat                                      
+    [1, 2, 3, 'a', 'b', 'c', 'd']
+     
     >>> # B) One list piped in, other lists to concatenated curried into op
     >>> [1,2,3] | concat[ (42,43) ][('a','b','c')]      # =>  [1, 2, 3, 42, 43, 'a', 'b', 'c']
 
@@ -924,7 +927,8 @@ def update_imp(d: dict, k, fn):
     (to be consistent with "remove_at" for Lists and 
     disambiguate acting on the value)
 
-    {'a': 5, 'b': 6} | update['a'][add[10]]   # => {'a': 15, 'b': 6}
+    ---- Examples ----
+    >>> {'a': 5, 'b': 6} | update['a'][add[10]]   # => {'a': 15, 'b': 6}
 
     ---- Tags ----
     - related zefop: update_at
@@ -949,8 +953,9 @@ def remove_at_imp(v, *nn):
     as Python's list remove, searches for the first 
     occurrence of that value and removes it.
 
-    ['a', 'b', 'c'] | remove_at[1]       # => ['a', 'c']
-    ['a', 'b', 'c'] | remove_at[1][0]    # => ['c']
+    ---- Examples ----
+    >>> ['a', 'b', 'c'] | remove_at[1]       # => ['a', 'c']
+    >>> ['a', 'b', 'c'] | remove_at[1][0]    # => ['c']
 
     ---- Signature ----
     List[T] & Length[Z] -> List[T] & Length[Z-1]
@@ -978,9 +983,10 @@ def interleave_imp(v, first_curried_list_maybe=None, *args):
     ---- Examples ----
     >>> # Either called with a list of of lists (or equivalent for streams)
     >>> [
-    >>>     [1,2,3],
-    >>>     ['a', 'b', 'c', 'd']        
-    >>> ] | interleave          # =>  [1, 'a', 2, 'b', 3, 'c']
+    ...    [1,2,3],
+    ...    ['a', 'b', 'c', 'd']        
+    ... ] | interleave          
+    [1, 'a', 2, 'b', 3, 'c']
     >>> 
     >>> # or with other lists to interleave with being curried in
     >>> [1,2,3] | interleave[42 | repeat]       # => [1, 42, 2, 42, 3, 42]
@@ -4221,20 +4227,19 @@ def time_travel_imp(x, *args):
     ---- Examples ----
     >>> #       ---- relative time travel ----
     >>> zr | time_travel[-3]                    # how many time slices to move
-    >>> zr | time_travel[-3.5*units.seconds]  
-    >>> my_graph_slice | time_travel[-3]
-    >>> 
+    ... zr | time_travel[-3.5*units.seconds]  
+    ... my_graph_slice | time_travel[-3]
+     
     >>> #       ---- time travel to fixed time ----
     >>> t1 = Time('October 20 2020 14:00 (+0100)')
-    >>> g | time_travel[t1]
-    >>> gs | time_travel[t1]
-    >>> ezr | time_travel[t1]
-    >>> zr | time_travel[t1]
-    >>>
-    >>> ezr | time_travel[allow_tombstone][t1]
-    >>> zr | time_travel[allow_tombstone][-3]
-    >>> zr | time_travel[allow_tombstone][-3.5*units.seconds]
-    >>> zr | time_travel[allow_tombstone][t1]
+    ... g | time_travel[t1]
+    ... gs | time_travel[t1]
+    ... ezr | time_travel[t1]
+    ... zr | time_travel[t1]
+    ... ezr | time_travel[allow_tombstone][t1]
+    ... zr | time_travel[allow_tombstone][-3]
+    ... zr | time_travel[allow_tombstone][-3.5*units.seconds]
+    ... zr | time_travel[allow_tombstone][t1]
 
     ---- Signature ----
     (ZefRef, Int)                           -> Union[ZefRef, Nil]           # nil or error? What is the process / criterion?
@@ -5984,8 +5989,8 @@ def merge_imp(a, second=None, *args):
     https://clojuredocs.org/clojure.core/merge
 
     ---- Examples -----
-    [{'a': 1, 'b': 42}, {'a': 2, 'c': 43}] | merge          # => {'a': 2, 'b': 42, 'c': 43}
-    {'a': 1, 'b': 42} | merge[ {'a': 2, 'c': 43} ]
+    >>> [{'a': 1, 'b': 42}, {'a': 2, 'c': 43}] | merge          # => {'a': 2, 'b': 42, 'c': 43}
+    >>> {'a': 1, 'b': 42} | merge[ {'a': 2, 'c': 43} ]
 
     ---- Signature ----
     List[Dict]          -> Dict
@@ -6034,9 +6039,9 @@ def merge_with_imp(dict_or_list, merge_func, more_dict_or_list=None):
     Based on the Clojure operator https://clojuredocs.org/clojure.core/merge-with
 
     ---- Examples ----
-    {'a': 1, 'b': 2} | merge_with[add][{'a': 3}]                        # => {'a': 4, 'b': 2}
-    {'a': 1, 'b': 2} | merge_with[add][{'a': 3}, {'b': 10, 'c': 5}]     # => {'a': 4, 'b': 12, 'c': 5}    
-    [{'a': [1], 'b': [2]}, {'a': [3]}] | merge_with[concat]             # => {'a': [1, 2], 'b': [3]}
+    >>> {'a': 1, 'b': 2} | merge_with[add][{'a': 3}]                        # => {'a': 4, 'b': 2}
+    >>> {'a': 1, 'b': 2} | merge_with[add][{'a': 3}, {'b': 10, 'c': 5}]     # => {'a': 4, 'b': 12, 'c': 5}    
+    >>> [{'a': [1], 'b': [2]}, {'a': [3]}] | merge_with[concat]             # => {'a': [1, 2], 'b': [3]}
 
     ---- Signature ----
     (Dict[T1, T2], ((T2,T2)->T2), Dict[T1, T2]) -> Dict[T1, T2]
@@ -6069,9 +6074,9 @@ def to_clipboard_imp(x):
     an elementary type to the clipboard.
 
     ---- Examples ----
-    'hello' | to_clipboard                                  # returns an effect
-    my_zef_func | to_clipboard | run                        # copy a single zef function to the clipboard
-    g | now | all[ET.ZEF_Function] | to_clipboard | run     # copy all zef function on graph to clipboard
+    >>> 'hello' | to_clipboard                                  # returns an effect
+    >>> my_zef_func | to_clipboard | run                        # copy a single zef function to the clipboard
+    >>> g | now | all[ET.ZEF_Function] | to_clipboard | run     # copy all zef function on graph to clipboard
 
     ---- Signature ----
     String                          -> Effect
@@ -6235,7 +6240,7 @@ def read_file_imp(fname):
     the effect will contain a "content" key with the file's content.
 
     ---- Examples ----
-    "data.yaml" | read_file | run | get["content"] | from_yaml | collect
+    >>> "data.yaml" | read_file | run | get["content"] | from_yaml | collect
 
     ---- Signature ----
     VT.String -> VT.Effect
@@ -6257,7 +6262,7 @@ def load_file_imp(fname, format = None):
     the effect will contain a "content" key with the transformed object.
 
     ---- Examples ----
-    "data.yaml" | load_file | run | get["content"] | collect
+    >>> "data.yaml" | load_file | run | get["content"] | collect
 
     ---- Signature ----
     VT.String -> VT.Effect
@@ -6284,7 +6289,7 @@ def save_file_imp(content, fname, settings = {}):
     An example is for csv, we can pass a dict {"na_values": True} to keep NA values in the Pandas DF.
 
     ---- Examples ----
-    data_as_dict | save_file["data.yaml"] | run
+    >>> data_as_dict | save_file["data.yaml"] | run
     
     ---- Possible issues ---
     data_as_dict | to_yaml | save_file["data.yaml"] | run
@@ -6315,7 +6320,7 @@ def write_file_imp(content, fname):
     which must be passed to run.
     
     ---- Examples ----
-    "Hello" | write_file["data.txt"] | run
+    >>> "Hello" | write_file["data.txt"] | run
     
     ---- Signature ----
     (VT.Any, VT.String) -> VT.Effect
@@ -7991,10 +7996,10 @@ def schema_imp(x, include_edges=False):
     >>> g | schema[True] | graphviz          # Shows the schema of graph g.
     >>> g | now | schema[True] | graphviz    # Shows the schema of graph g in the current time slice.
 
-    # A blank graph already has one TX delegate node.
+    >>> # A blank graph already has one TX delegate node.
     >>> g = Graph()
-    >>> g | schema | collect
-    ... [<EZefRef #65 DELEGATE TX at slice=0>]
+    ... g | schema | collect
+    [<EZefRef #65 DELEGATE TX at slice=0>]
  
     ---- Signature ----
     (Graph, Bool) => List[EZefRef]
@@ -8067,8 +8072,8 @@ def field_imp(z, rt):
     (List[List[ZefRef]], RT) -> List[List[ZefRef]]
 
     ----Examples ----
-    >>> z1 | F.Name         # equivalent to z1 | Out[RT.Name] | value     if target is an AET
-    >>> z1 | F.FriendOf     # equivalent to z1 | Out[RT.Name]             if target is an ET or RT
+    >>> z1 | F.Name         # equivalent to z1 | Out[RT.Name] | value     # if target is an AET
+    >>> z1 | F.FriendOf     # equivalent to z1 | Out[RT.Name]             # if target is an ET or RT
 
     ---- Tags ----
     - related zefop: fields
@@ -8106,8 +8111,8 @@ def fields_imp(z, rt):
     (List[ZefRef], RT) -> List[List[ZefRef]]
 
     ----Examples ----
-    >>> z1 | F.Name         # equivalent to z1 | Out[RT.Name] | value     if target is an AET
-    >>> z1 | F.FriendOf     # equivalent to z1 | Out[RT.Name]             if target is an ET or RT
+    >>> z1 | F.Name         # equivalent to z1 | Out[RT.Name] | value     # if target is an AET
+    >>> z1 | F.FriendOf     # equivalent to z1 | Out[RT.Name]             # if target is an ET or RT
 
     ---- Tags ----
     - related zefop: field
@@ -8146,10 +8151,11 @@ def apply_imp(x, f):
 
     ---- Examples ----
     >>> 40 | apply[
-        add[1],
-        add[2],
-        String,
-    ]   # [41, 42, '40']
+    ...    add[1],
+    ...    add[2],
+    ...    String,
+    ... ]
+    (41, 42, '40')
     
     ---- Tags ----
     - related zefop: map
@@ -8218,10 +8224,10 @@ def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
 
     ---- Examples ----
     >>> examples(to_snake_case)
-    ... [("'yaml-keyword' | to_snake_case", '"yaml_keyword"'),
-    ...    ("'TokenName' | to_snake_case", '"token_name"'),
-    ...    ("'external. data-with  UNUSUAL@characters' | to_snake_case",
-    ...    '"external_data_with_unusualcharacters"')]
+    [("'yaml-keyword' | to_snake_case", '"yaml_keyword"'),
+    ("'TokenName' | to_snake_case", '"token_name"'),
+    ("'external. data-with  UNUSUAL@characters' | to_snake_case",
+    '"external_data_with_unusualcharacters"')]
 
     ---- Signature ----
     (ZefOp) -> List[Record[String | Nil]]
@@ -8236,42 +8242,70 @@ def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
     - used for: op usage
     """
     def parse_example(s):
-        s = s | trim[">>>"] | trim[" "] | collect
+        s = trim(s, " ")
+
+        # Case of empty lines
         if len(s) == 0: return None
 
-        # ... <result line 1>
-        if s[:3] == "...":
-            result = s[3:] | trim[" "] | collect
-            return (None, result, "multi-result")
+        # Case of comments
+        if s[0] == "#": raise ValueError(f"Comments aren't allowed on new-lines without >>> before them so not to be confused with an output that starts with #! {s}")
 
-        result = None
-        # >>> <example one-liner 1>       # => <result of the one-liner (a value)>
-        s = s.replace("# ->", "# =>").replace("=>", "# =>")
-        result_idx = s.find('# =>')
-        if result_idx != -1:
-            result = s[result_idx + 4:] | trim[" "] | collect
-            comment_idx = result.find('#')
-            if comment_idx != -1: result = result[:comment_idx] | trim[" "] | collect
-            s = s[:result_idx] | trim[" "] | collect
-        
-        # >>> <example one-liner 2>       # <comment on the behaviour (not a value)>
-        comment_idx = s.find('#')
-        if comment_idx != -1:
-            s = s[:comment_idx] | trim[" "] | collect
-            if len(s) == 0: return None
-        
-        return s, result
+        # ... <example one-liner 2>
+        if s[:3] == "...":
+            example = s[3:] | trim[" "] | collect
+            comment_idx = example.find('#')
+            if comment_idx != -1: example = example[:comment_idx] | trim[" "] | collect
+            return (example, None, "multi-example")
+
+        # case of example lines
+        if s[:3] == ">>>":
+            result = None
+            s = s | trim[">>>"] | trim[" "] | collect
+
+            # case of '>>>' only
+            if len(s) == 0: return None                 
+
+            # case of '>>> <example one-liner 1>       # => <result of the one-liner (a value)>'
+            s = s.replace("# ->", "# =>").replace("=>", "# =>") # TODO relax this later i.e make it break on malformation
+            result_idx = s.find('# =>')
+            if result_idx != -1:
+                result = s[result_idx + 4:] | trim[" "] | collect
+                comment_idx = result.find('#')
+                if comment_idx != -1: result = result[:comment_idx] | trim[" "] | collect
+                s = s[:result_idx] | trim[" "] | collect
+
+            # case of '>>> <example one-liner 2>       # <comment on the behaviour (not a value)>'
+            comment_idx = s.find('#')
+            if comment_idx != -1:
+                s = s[:comment_idx] | trim[" "] | collect
+                if len(s) == 0: return None
+
+            return s, result
+
+        # case of '(single line or multine output )'
+        else:
+            return (None, s, "multi-result")
 
     def process_examples(tups):
+        def join_if_not_empty(s1, s2):
+            if s2: return s1 + "\n" + s2
+            return s1
+
         result = []
-        prev_result = ""
+        curr_result = curr_example = ""
         for t in reversed(list(tups)):
             if t[-1] and t[-1] == "multi-result": 
-                prev_result = t[1] + "\n" + prev_result
-            elif not t[-1] and prev_result:
-                result.append((t[0], prev_result))
-                prev_result = ""
+                curr_result = join_if_not_empty(t[1], curr_result)
+                # curr_result = t[1] + "\n" + curr_result
+            elif t[-1] and t[-1] == "multi-example": 
+                curr_example = join_if_not_empty(t[0], curr_example)
+                # curr_example = t[0] + "\n" + curr_example
+            elif not t[-1]:
+                example = join_if_not_empty(t[0], curr_example)
+                result.append((example, curr_result))
+                curr_result = curr_example = ""
             else:
+                if curr_example or curr_result: raise ValueError(f"Malformed example. A multiline output or example contained also an inline comment. This isn't allowed! {t}")
                 result.append(t)
         return result[::-1]
 
@@ -8296,10 +8330,10 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
 
     ---- Examples ----
     >>> signature(apply)
-    ... [((T, (T, T2)), T2), ((T, List[(T, T2)]), List[T2])]
+    [((T, (T, T2)), T2), ((T, List[(T, T2)]), List[T2])]
 
     >>> signature(schema)
-    ... [((Graph, Bool), List[EZefRef]), ((GraphSlice, Bool), List[ZefRef])]
+    [((Graph, Bool), List[EZefRef]), ((GraphSlice, Bool), List[ZefRef])]
 
     ---- Signature ----
     (ZefOp) -> List[Record[ValueType]]
@@ -8350,9 +8384,9 @@ def tags_imp(op: VT.ZefOp) -> VT.List[VT.String]:
 
     ---- Examples ----
     >>> tags(map)
-    ... ['used for: control flow',
-    ...  'used for: function application',
-    ...  'related zefop: apply_functions']
+    ['used for: control flow',
+    'used for: function application',
+    'related zefop: apply_functions']
 
     ---- Signature ----
     (ZefOp) -> List[String]
@@ -8388,7 +8422,7 @@ def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
 
     ---- Examples ----
     >>> related_ops(to_snake_case)
-    ... [to_lower_case, to_upper_case, to_pascal_case, to_camel_case, to_kebab_case, to_screaming_snake_case]
+    [to_lower_case, to_upper_case, to_pascal_case, to_camel_case, to_kebab_case, to_screaming_snake_case]
 
     ---- Signature ----
     (ZefOp) -> List[ZefOp]
@@ -8418,7 +8452,7 @@ def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
 
     ---- Examples ----
     >>> operates_on(blake3)
-    ... [String, Bytes]
+    [String, Bytes]
 
     ---- Signature ----
     (ZefOp) -> List[ValueType]
