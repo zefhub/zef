@@ -20,6 +20,8 @@
 from ... import *
 from ...ops import *
 
+from zef.core.logger import log
+
 from .schema_file_parser import parse_partial_graphql, json_to_minimal_nodes
 
 def create_schema_graph(schema_string, hooks_string=None):
@@ -37,20 +39,41 @@ def create_schema_graph(schema_string, hooks_string=None):
 
 
 def prepare_hooks(graph, hooks_string):
-    # Note that we save the string to a temporary file, because @func requires
-    # getsource which cannot identify the source from inside an arbitrary
-    # string.
-    import tempfile, os
-    fd,path = tempfile.mkstemp(prefix="SimpleGQL_hooks_", suffix=".py")
-    try:
-        with open(fd, "w") as file:
-            file.write(hooks_string)
-        print(path)
-        code = compile(hooks_string, path, "exec")
-        globs = {"g": graph}
-        locs = {}
-        exec(code, globs, locs)
-    finally:
-        os.unlink(path)
+    with Transaction(graph):
+        # Note that we save the string to a temporary file, because @func requires
+        # getsource which cannot identify the source from inside an arbitrary
+        # string.
+        import tempfile, os
+        fd,path = tempfile.mkstemp(prefix="SimpleGQL_hooks_", suffix=".py")
+        try:
+            with open(fd, "w") as file:
+                file.write(hooks_string)
+            code = compile(hooks_string, path, "exec")
+            globs = {"g": graph}
+            locs = {}
+            exec(code, globs, locs)
+        finally:
+            os.unlink(path)
 
-    # We could try and be fancy here with autodetection of names - but for the initial test let's just make the user do everything, including tagging nodes.
+        # We could try and be fancy here with autodetection of names - but for the initial test let's just make the user do everything, including tagging nodes.
+
+        # Going to try autodetecting any zef functions on the graph
+        funcs = graph | now | all[ET.ZEF_Function] | collect
+
+        nodup_and_dup_funcs = (funcs
+                    | group_by[F.OriginalName]
+                    | group_by[second
+                                | length
+                                | greater_than_or_equal[2]]
+                            [[False,True]]
+                    | func[dict]
+                    | collect)
+
+        nodups = nodup_and_dup_funcs[False] | map[apply[first, second | single]] | collect
+        dups = nodup_and_dup_funcs[True] | map[first] | collect
+
+        if len(dups) > 0:
+            log.error("There are zef functions that have duplicate names on the schema graph. I can't autotag these functions and will ignore them.", dups=dups)
+
+        for name,z in nodups:
+            z | tag[name] | graph | run

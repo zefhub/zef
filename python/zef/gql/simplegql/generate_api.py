@@ -33,37 +33,41 @@ def is_core_scalar(z):
         is_a(z, AET.Bool)
     )
     
-assert_type = Assert[Or[is_a[ET.GQL_Type]][is_a[ET.GQL_Enum]][is_a[AET]]][lambda z: f"{z} is not a GQL type"]
+assert_type = Assert[is_a[ET.GQL_Type | ET.GQL_Enum | AET]][lambda z: f"{z} is not a GQL type"]
 assert_field = Assert[is_a[RT.GQL_Field]][lambda z: f"{z} is not a GQL field"]
 
-@func
-def single_or(itr, default):
-    itr = iter(itr)
-    try:
-        ret = next(itr)
-        try:
-            next(itr)
-            raise Exception("single_or detected more than one item in iterator")
-        except StopIteration:
-            return ret
-    except StopIteration:
-        return default
-        
-op_is_scalar = assert_type | Or[is_a[AET]][is_a[ET.GQL_Enum]]
-op_is_orderable = assert_type | Or[is_a[AET.Float]][is_a[AET.Int]][is_a[AET.Time]]
-op_is_summable = assert_type | Or[is_a[AET.Float]][is_a[AET.Int]]
-op_is_stringlike = assert_type | is_a[AET.String]
-op_is_list = assert_field >> O[RT.List] | value_or[False] | collect
-op_is_required = assert_field >> O[RT.Required] | value_or[False] | collect
-op_is_unique = assert_field >> O[RT.Unique] | value_or[False] | collect
-op_is_searchable = assert_field >> O[RT.Search] | value_or[False] | collect
-op_is_aggregable = assert_field | And[Not[op_is_list]][target | Or[op_is_orderable][op_is_summable]]
-op_is_incoming = assert_field >> O[RT.Incoming] | value_or[False] | collect
+optional = single_or[None]
 
-op_is_upfetch = assert_field >> O[RT.Upfetch] | value_or[False] | collect
-op_upfetch_field = (assert_type > L[RT.GQL_Field]
+@func
+def OutO(z, rt):
+    if z is None:
+        return None
+    return z | Outs[rt] | optional | collect
+
+@func
+def fvalue(z, rt, *args):
+    if len(args) == 0:
+        return z | Out[rt] | value | collect
+    else:
+        default, = args
+        return z | OutO[rt] | value_or[default] | collect
+
+        
+op_is_scalar = assert_type | is_a[AET | ET.GQL_Enum]
+op_is_orderable = assert_type | is_a[AET.Float | AET.Int | AET.Time]
+op_is_summable = assert_type | is_a[AET.Float | AET.Int]
+op_is_stringlike = assert_type | is_a[AET.String]
+op_is_list = assert_field | fvalue[RT.List][False] | collect
+op_is_required = assert_field | fvalue[RT.Required][False] | collect
+op_is_unique = assert_field | fvalue[RT.Unique][False] | collect
+op_is_searchable = assert_field | fvalue[RT.Search][False] | collect
+op_is_aggregable = assert_field | And[Not[op_is_list]][target | Or[op_is_orderable][op_is_summable]]
+op_is_incoming = assert_field | fvalue[RT.Incoming][False] | collect
+
+op_is_upfetch = assert_field | fvalue[RT.Upfetch][False] | collect
+op_upfetch_field = (assert_type | out_rels[RT.GQL_Field]
                     | filter[op_is_upfetch]
-                    | single_or[None]
+                    | optional
                     | collect)
 op_has_upfetch = op_upfetch_field | Not[equals[None]] | collect
 
@@ -90,8 +94,8 @@ def generate_resolvers_fcts(schema_root):
     TimeScalar.set_serializer(lambda t: datetime.datetime.fromtimestamp(t.seconds_since_1970).isoformat())
     TimeScalar.set_value_parser(Time)
 
-    for z_type in schema_root >> L[RT.GQL_Type]:
-        name = value(z_type >> RT.Name)
+    for z_type in schema_root | Outs[RT.GQL_Type]:
+        name = z_type | F.Name | collect
         Type = ObjectType(name)
         all_objects += [Type]
 
@@ -101,8 +105,8 @@ def generate_resolvers_fcts(schema_root):
         upfetch_field_schemas = []
         aggregate_outs = []
 
-        for z_field in z_type > L[RT.GQL_Field]:
-            field_name = z_field >> RT.Name | value | collect
+        for z_field in z_type | out_rels[RT.GQL_Field]:
+            field_name = z_field | F.Name | collect
             Type.set_field(field_name,
                             P(resolve_field, z_field=z_field))
 
@@ -121,7 +125,7 @@ def generate_resolvers_fcts(schema_root):
                 assert op_is_unique(z_field), "Upfetch field must be unique"
                 assert is_required, "Upfetch field must be required"
 
-            base_field_type = z_field | target >> RT.Name | value | collect
+            base_field_type = z_field | target | F.Name | collect
             if is_scalar:
                 base_ref_field_type = base_field_type
             else:
@@ -254,11 +258,11 @@ input Upfetch{name}Input {{
                 f"upfetch{name}(input: [Upfetch{name}Input!]!): Mutate{name}Response",
             ]
 
-    for z_enum in schema_root >> L[RT.GQL_Enum]:
-        name = value(z_enum >> RT.Name)
+    for z_enum in schema_root | Outs[RT.GQL_Enum]:
+        name = z_enum | F.Name | collect
 
         opts = {}
-        for z_opt in z_enum >> L[RT.GQL_Field]:
+        for z_opt in z_enum | Outs[RT.GQL_Field]:
             assert is_a(z_opt, AET.Enum(name))
             opt_en = value(z_opt)
             opts[opt_en.enum_value] = opt_en
@@ -274,7 +278,7 @@ input Upfetch{name}Input {{
         all_objects += [Enum]
 
     # Always generate the Int scalar type 
-    int_type = schema_root >> L[RT.GQL_CoreScalarType] | filter[is_a[AET.Int]] | single | collect
+    int_type = schema_root | Outs[RT.GQL_CoreScalarType][AET.Int] | single | collect
     if int_type not in [rae_type(x) for x in extra_filters.keys()]:
         extra_filters[int_type] = schema_generate_scalar_filter(int_type)
 
@@ -309,7 +313,7 @@ scalar DateTime
 #----------------------------------------------
 
 def schema_generate_list_params(z_type, extra_filters):
-    name = value(z_type >> RT.Name)
+    name = z_type | F.Name | collect
     if z_type not in extra_filters:
         extra_filters[z_type] = None
         extra_filters[z_type] = schema_generate_type_filter(z_type, extra_filters)
@@ -327,7 +331,7 @@ def schema_generate_list_params(z_type, extra_filters):
     return query_params
 
 def schema_generate_type_filter(z_type, extra_filters):
-    name = value(z_type >> RT.Name)
+    name = z_type | F.Name | collect
     fil_name = f"{name}Filter"
     list_fil_name = f"{name}FilterList"
     order_name = f"{name}Order"
@@ -347,10 +351,10 @@ def schema_generate_type_filter(z_type, extra_filters):
     # automatically generated "in"
     fields += [f"id: [ID!]"]
 
-    for field in z_type > L[RT.GQL_Field] | filter[op_is_searchable]:
-        field_name = value(field >> RT.Name)
+    for field in z_type | out_rels[RT.GQL_Field] | filter[op_is_searchable]:
+        field_name = field | F.Name | collect
         field_type = target(field)
-        field_type_name = value(field_type >> RT.Name)
+        field_type_name = field_type | F.Name | collect
         if is_a(field_type, AET.Bool):
             filter_name = Boolean
         else:
@@ -367,8 +371,8 @@ def schema_generate_type_filter(z_type, extra_filters):
         else:
             fields += [f"{field_name}: {filter_name}"]
 
-    for field in z_type > L[RT.GQL_Field] | filter[target | op_is_orderable]:
-        orderable_fields += [value(field >> RT.Name)]
+    for field in z_type | out_rels[RT.GQL_Field] | filter[target | op_is_orderable]:
+        orderable_fields += [field | F.Name | collect]
 
     fields = "\n\t".join(fields)
     orderable_fields = "\n\t".join(orderable_fields)
@@ -400,7 +404,7 @@ enum {orderable_name} {{
         
 
 def schema_generate_scalar_filter(z_node):
-    type_name = z_node >> RT.Name | value | collect
+    type_name = z_node | F.Name | collect
     fil_name = f"{type_name}Filter"
     list_fil_name = f"{type_name}FilterList"
 
@@ -456,7 +460,7 @@ def resolve_get(_, info, *, type_node, **params):
 
 def resolve_query(_, info, *, type_node, **params):
     g = info.context["g"]
-    ents = g | now | all[ET(type_node >> RT.GQL_Delegate | collect)]
+    ents = g | now | all[ET(type_node | Out[RT.GQL_Delegate] | collect)]
     ents = ents | filter[pass_query_auth[type_node][info]]
 
     ents = handle_list_params(ents, type_node, params, info)
@@ -474,7 +478,7 @@ def resolve_aggregate(_, info, *, type_node, **params):
     for z_field in type_node > L[RT.GQL_Field] | filter[op_is_aggregable]:
         vals = ents | map[lambda z: resolve_field(z, info, z_field=z_field)] | filter[Not[equals[None]]] | collect
 
-        field_name = z_field >> RT.Name | value | collect
+        field_name = z_field | F.Name | collect
 
         if op_is_orderable(z_field | target):
             if len(vals) == 0:
@@ -593,7 +597,7 @@ def resolve_upfetch(_, info, *, type_node, **params):
             updated_objs = []
 
             upfetch_field = op_upfetch_field(type_node)
-            field_name = upfetch_field >> RT.Name | value | collect
+            field_name = upfetch_field | F.Name | collect
 
             for item in params["input"]:
                 # Check the upfetch field to see if we already have this.
@@ -803,8 +807,8 @@ def scalar_comparison_op(sub):
     return this
                 
 def get_field_rel_by_name(z_type, name):
-    return (z_type > L[RT.GQL_Field]
-            | filter[Z >> RT.Name | value | equals[name]]
+    return (z_type | out_rels[RT.GQL_Field]
+            | filter[Z | F.Name | equals[name]]
             | first
             | collect)
 
@@ -859,7 +863,7 @@ def internal_resolve_field(z, info, z_field):
     is_incoming = z_field | op_is_incoming | collect
     # This is a delegate
     if z_field | has_out[RT.GQL_Resolve_With] | collect:
-        relation = z_field >> RT.GQL_Resolve_With | collect
+        relation = z_field | Out[RT.GQL_Resolve_With] | collect
         is_triple = source(relation) != relation
 
         rt = RT(relation)
@@ -871,11 +875,11 @@ def internal_resolve_field(z, info, z_field):
                 assert rae_type(z) == rae_type(source(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {source(relation)}"
 
         if is_incoming:
-            opts = z << L[rt]
+            opts = z | Ins[rt]
             if is_triple:
                 opts = opts | filter[is_a[rae_type(source(relation))]]
         else:
-            opts = z >> L[rt]
+            opts = z | Outs[rt]
             if is_triple:
                 opts = opts | filter[is_a[rae_type(target(relation))]]
     elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
@@ -922,7 +926,7 @@ def find_existing_entity_by_id(info, type_node, id):
     
     g = info.context["g"]
 
-    et = ET(type_node >> RT.GQL_Delegate | collect)
+    et = ET(type_node | Out[RT.GQL_Delegate] | collect)
     ent = g[uid(id)] | now | collect
     if not is_a(ent, et):
         return None
@@ -936,7 +940,7 @@ def find_existing_entity_by_field(info, type_node, z_field, val):
         raise Exception("Can't find an entity by a None field value")
 
     g = info.context["g"]
-    et = ET(type_node >> RT.GQL_Delegate | collect)
+    et = ET(type_node | Out[RT.GQL_Delegate] | collect)
 
     # Note: we filter out with query auth even though this may mean we return
     # None instead of the actual entity. The follow-up logic with an upfetch
@@ -945,8 +949,8 @@ def find_existing_entity_by_field(info, type_node, z_field, val):
     # failure point at the same location so we can determine what kind of error
     # to return and whether this will leak sensitive information.
     ent = (g | now | all[et] | filter[pass_query_auth[type_node][info]]
-           | filter[internal_resolve_field[info][z_field] | single_or[None] | equals[val]]
-           | single_or[None]
+           | filter[internal_resolve_field[info][z_field] | optional | equals[val]]
+           | optional
            | collect)
 
     return ent
@@ -957,17 +961,17 @@ def add_new_entity(info, type_node, params, name_gen):
     post_checks = []
 
     this = str(next(name_gen))
-    type_name = type_node >> RT.Name | value | collect
+    type_name = type_node | F.Name | collect
 
     post_checks += [("add", this, type_node)]
 
-    et = ET(type_node >> RT.GQL_Delegate | collect)
+    et = ET(type_node | Out[RT.GQL_Delegate] | collect)
     actions += [et[this]]
 
     # This should probably be cached
     field_mapping = {}
-    for z_field in type_node > L[RT.GQL_Field]:
-        field_name = value(z_field >> RT.Name)
+    for z_field in type_node | out_rels[RT.GQL_Field]:
+        field_name = z_field | F.Name | collect
         field_mapping[field_name] = z_field
         # Convenient spot to validate that required fields have been specified.
         if op_is_required(z_field):
@@ -978,15 +982,15 @@ def add_new_entity(info, type_node, params, name_gen):
     for key,val in params.items():
         # TODO: Validate that any unique field is not duplicated
         z_field = field_mapping[key]
-        field_name = value(z_field >> RT.Name)
-        rt = RT(z_field >> RT.GQL_Resolve_With | collect)
+        field_name = z_field | F.Name | collect
+        rt = RT(z_field | Out[RT.GQL_Resolve_With] | collect)
         if z_field | op_is_list | collect:
             if not isinstance(val, list):
                 raise Exception(f"Value should have been list but was {type(val)}")
 
         if z_field | target | op_is_scalar | collect:
             if op_is_unique(z_field):
-                others = info.context["g"] | now | all[et] | filter[Z >> O[rt] | value_or[None] | equals[val]] | func[set] | collect
+                others = info.context["g"] | now | all[et] | filter[fvalue[rt][None] | equals[val]] | func[set] | collect
                 if len(others) > 0:
                     log.error("Trying to add a new entity with unique field that conflicts with others", et=et, field=field_name, others=others)
                     raise ExternalError(f"Unique field '{field_name}' conflicts with existing items.")
@@ -1030,7 +1034,7 @@ def find_or_add_entity(val, info, target_node, params, name_gen):
     
 
 def update_entity(z, info, type_node, set_d, remove_d, name_gen):
-    type_name = type_node >> RT.Name | value | collect
+    type_name = type_node | F.Name | collect
 
     # Refuse to set and remove the same thing. Just too confusing to deal with
     assert(len(set(set_d.keys()).intersection(remove_d.keys())) == 0), "Can't have the same set/remove keys"
@@ -1048,31 +1052,31 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
 
     # This should probably be cached
     field_mapping = {}
-    for z_field in type_node > L[RT.GQL_Field]:
-        field_mapping[value(z_field >> RT.Name)] = z_field
+    for z_field in type_node | out_rels[RT.GQL_Field]:
+        field_mapping[z_field | F.Name | collect] = z_field
 
     for key,val in set_d.items():
         # TODO: Validate that any unique field is not duplicated
         z_field = field_mapping[key]
-        field_name = value(z_field >> RT.Name)
+        field_name = z_field | F.Name | collect
         # TODO: This should be able to distinguish based on the triple, not just the RT
-        rt = RT(z_field >> RT.GQL_Resolve_With | collect)
+        rt = RT(z_field | Out[RT.GQL_Resolve_With] | collect)
 
         if op_is_list(z_field):
             raise Exception(f"Updating list things is a todo (for z_field={z_field})")
         else:
             if op_is_unique(z_field):
-                et = ET(type_node >> RT.GQL_Delegate | collect)
-                others = info.context["g"] | now | all[et] | filter[Z >> O[rt] | value_or[None] | equals[val]] | collect
+                et = ET(type_node | Out[RT.GQL_Delegate] | collect)
+                others = info.context["g"] | now | all[et] | filter[fvalue[rt][None] | equals[val]] | collect
                 others = set(others) - {z}
                 if len(others) > 0:
                     log.error("Trying to modify entity with unique field that conflicts with others", z=z, et=et, field=field_name, others=others)
                     raise ExternalError(f"Unique field '{field_name}' conflicts with existing items.")
 
             if op_is_incoming(z_field):
-                maybe_prior_rel = z < O[rt] | collect
+                maybe_prior_rel = z | in_rels[rt] | optional | collect
             else:
-                maybe_prior_rel = z > O[rt] | collect
+                maybe_prior_rel = z | out_rels[rt] | optional | collect
             if z_field | target | op_is_scalar | collect:
                 if maybe_prior_rel is None:
                     if op_is_incoming(z_field):
@@ -1080,7 +1084,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
                     else:
                         actions += [(z, rt, val)]
                 else:
-                    actions += [(maybe_prior_rel | target | assign_value[val] | collect)]
+                    actions += [(maybe_prior_rel | target | assign[val] | collect)]
             else:
                 raise Exception("Updating non-scalars is TODO")
     
@@ -1088,15 +1092,15 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
         if val is not None:
             raise ExternalError("Remove vals need to be nil")
         z_field = field_mapping[key]
-        field_name = value(z_field >> RT.Name)
+        field_name = z_field | F.Name | collect
         if op_is_required(z_field):
             raise ExternalError(f"Not allowed to remove required field '{field_name}' on type '{type_name}'")
         # TODO: This should be able to distinguish based on the triple, not just the RT
-        rt = RT(z_field >> RT.GQL_Resolve_With | collect)
+        rt = RT(z_field | Out[RT.GQL_Resolve_With] | collect)
         if op_is_incoming(z_field):
-            rels = z < L[rt]
+            rels = z | in_rels[rt]
         else:
-            rels = z > L[rt]
+            rels = z | out_rels[rt]
         actions += [terminate(rel) for rel in rels]
 
         # Also delete scalars
@@ -1113,7 +1117,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
 def pass_auth_generic(z, schema_node, info, rt_list):
     to_call = None
     for rt in rt_list:
-        to_call = schema_node >> O[rt] | collect
+        to_call = schema_node | Outs[rt] | optional | collect
         if to_call is not None:
             break
     else:
@@ -1211,7 +1215,7 @@ def commit_with_post_checks(actions, post_checks, info):
                     obj = r[obj]
                 assert type(obj) == ZefRef
                 obj = obj | in_frame[g | now | collect][allow_tombstone] | collect
-                type_name = {type_node >> O[RT.Name] | value_or[''] | collect}
+                type_name = {type_node | fvalue[RT.Name][''] | collect}
 
                 if kind == "add":
                     for z_func in type_node | Outs[RT.OnCreate]:
