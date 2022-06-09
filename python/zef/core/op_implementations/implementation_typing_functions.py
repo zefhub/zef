@@ -8225,9 +8225,9 @@ def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
     ---- Examples ----
     >>> examples(to_snake_case)
     [("'yaml-keyword' | to_snake_case", '"yaml_keyword"'),
-       ("'TokenName' | to_snake_case", '"token_name"'),
-       ("'external. data-with  UNUSUAL@characters' | to_snake_case",
-       '"external_data_with_unusualcharacters"')]
+    ("'TokenName' | to_snake_case", '"token_name"'),
+    ("'external. data-with  UNUSUAL@characters' | to_snake_case",
+    '"external_data_with_unusualcharacters"')]
 
     ---- Signature ----
     (ZefOp) -> List[Record[String | Nil]]
@@ -8242,42 +8242,70 @@ def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
     - used for: op usage
     """
     def parse_example(s):
-        s = s | trim[">>>"] | trim[" "] | collect
+        s = trim(s, " ")
+
+        # Case of empty lines
         if len(s) == 0: return None
 
-        # ... <result line 1>
-        if s[:3] == "...":
-            result = s[3:] | trim[" "] | collect
-            return (None, result, "multi-result")
+        # Case of comments
+        if s[0] == "#": raise ValueError(f"Comments aren't allowed on new-lines without >>> before them so not to be confused with an output that starts with #! {s}")
 
-        result = None
-        # >>> <example one-liner 1>       # => <result of the one-liner (a value)>
-        s = s.replace("# ->", "# =>").replace("=>", "# =>")
-        result_idx = s.find('# =>')
-        if result_idx != -1:
-            result = s[result_idx + 4:] | trim[" "] | collect
-            comment_idx = result.find('#')
-            if comment_idx != -1: result = result[:comment_idx] | trim[" "] | collect
-            s = s[:result_idx] | trim[" "] | collect
-        
-        # >>> <example one-liner 2>       # <comment on the behaviour (not a value)>
-        comment_idx = s.find('#')
-        if comment_idx != -1:
-            s = s[:comment_idx] | trim[" "] | collect
-            if len(s) == 0: return None
-        
-        return s, result
+        # ... <example one-liner 2>
+        if s[:3] == "...":
+            example = s[3:] | trim[" "] | collect
+            comment_idx = example.find('#')
+            if comment_idx != -1: example = example[:comment_idx] | trim[" "] | collect
+            return (example, None, "multi-example")
+
+        # case of example lines
+        if s[:3] == ">>>":
+            result = None
+            s = s | trim[">>>"] | trim[" "] | collect
+
+            # case of '>>>' only
+            if len(s) == 0: return None                 
+
+            # case of '>>> <example one-liner 1>       # => <result of the one-liner (a value)>'
+            s = s.replace("# ->", "# =>").replace("=>", "# =>") # TODO relax this later i.e make it break on malformation
+            result_idx = s.find('# =>')
+            if result_idx != -1:
+                result = s[result_idx + 4:] | trim[" "] | collect
+                comment_idx = result.find('#')
+                if comment_idx != -1: result = result[:comment_idx] | trim[" "] | collect
+                s = s[:result_idx] | trim[" "] | collect
+
+            # case of '>>> <example one-liner 2>       # <comment on the behaviour (not a value)>'
+            comment_idx = s.find('#')
+            if comment_idx != -1:
+                s = s[:comment_idx] | trim[" "] | collect
+                if len(s) == 0: return None
+
+            return s, result
+
+        # case of '(single line or multine output )'
+        else:
+            return (None, s, "multi-result")
 
     def process_examples(tups):
+        def join_if_not_empty(s1, s2):
+            if s2: return s1 + "\n" + s2
+            return s1
+
         result = []
-        prev_result = ""
+        curr_result = curr_example = ""
         for t in reversed(list(tups)):
             if t[-1] and t[-1] == "multi-result": 
-                prev_result = t[1] + "\n" + prev_result
-            elif not t[-1] and prev_result:
-                result.append((t[0], prev_result))
-                prev_result = ""
+                curr_result = join_if_not_empty(t[1], curr_result)
+                # curr_result = t[1] + "\n" + curr_result
+            elif t[-1] and t[-1] == "multi-example": 
+                curr_example = join_if_not_empty(t[0], curr_example)
+                # curr_example = t[0] + "\n" + curr_example
+            elif not t[-1]:
+                example = join_if_not_empty(t[0], curr_example)
+                result.append((example, curr_result))
+                curr_result = curr_example = ""
             else:
+                if curr_example or curr_result: raise ValueError(f"Malformed example. A multiline output or example contained also an inline comment. This isn't allowed! {t}")
                 result.append(t)
         return result[::-1]
 
