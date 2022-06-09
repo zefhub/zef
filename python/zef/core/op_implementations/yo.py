@@ -21,7 +21,8 @@ from .._core import *
 from .. import internals
 from ..VT import TX,String, Instantiated, Terminated, Assigned
 
-def yo_implementation(x, display=True):
+@zefop
+def yo(x, display=True):
     import inspect
     from ..fx.fx_types import FXElement, _group_types
     from ..fx import _effect_handlers
@@ -90,7 +91,8 @@ def yo_implementation(x, display=True):
     else:
         return file.getvalue()
 
-def yo_type_info(op, curr_type):
+@add_tp
+def yo(op, curr_type):
     return String
 
 

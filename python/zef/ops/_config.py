@@ -19,7 +19,6 @@ __all__ = [
 
 import os
 import yaml
-from ..core.op_implementations.dispatch_dictionary import _op_to_functions
 from ..core import *
 from ..core._ops import *
 from ..pyzef import main as pymain
@@ -39,7 +38,8 @@ def list_config(filter):
     return d
 
 
-def config_implementation(payload, action):
+@zefop
+def config(payload, action):
     if action == KW.set:
         assert isinstance(payload, tuple)
         assert len(payload) == 2
@@ -55,10 +55,6 @@ def config_implementation(payload, action):
         raise NotImplementedError("Action {} not implemented".format(action))
 
 
-def config_typeinfo(v_tp):
+@add_tp
+def config(v_tp):
     return VT.Any
-
-
-_op_to_functions[RT.Config] = (config_implementation, config_typeinfo)
-
-config = ZefOp(((RT.Config, ()), ))

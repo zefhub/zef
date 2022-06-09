@@ -190,7 +190,6 @@ for t in [RelationType, internals.BlobType]:
 class OpLike(ABC):
     pass
 
-
 # this is used to circumvent the python '<' and '>' operator resolution rules
 _terrible_global_state = {}
 _call_0_args_translation = {
@@ -429,10 +428,12 @@ class ZefOp:
     def __call__(self, *args, **kwargs):
 
         if len(kwargs) > 0 and self.el_ops[0][0] == RT.Function:
-            from .op_implementations.dispatch_dictionary import _op_to_functions
+            from ._ops import _dispatch
             if len(args) > 1: extra = args[1:]
             else: extra = []
-            return _op_to_functions[self.el_ops[0][0]][0](args[0], *self.el_ops[0][1], *extra, **kwargs)
+            the_func,the_tp_func = _dispatch[self.el_ops[0][0]]
+            assert the_func is not None, f"Function for {op[0]} is not implemented"
+            return the_func(args[0], *self.el_ops[0][1], *extra, **kwargs)
 
         # now()
         if len(self.el_ops) == 1 and len(args) == 0:
@@ -667,7 +668,7 @@ class Awaitable:
         from rx import operators as rxops
         from rx.subject import Subject
         from rx.core import Observable
-        from .op_implementations.dispatch_dictionary import _op_to_functions
+        from ._ops import _dispatch
         from .fx import _state
         from ._ops import absorbed, only
 
@@ -680,9 +681,11 @@ class Awaitable:
         if isinstance(source, Subject) or isinstance(source, Observable):
             observable_chain = source
             for op in ops if kind == "Subscribe" else ops[:-1]:
-                observable_chain = _op_to_functions[op[0]][0](observable_chain,  *op[1])
+                the_func,the_tp_func = _dispatch[op[0]]
+                assert the_func is not None, f"Function for {op[0]} is not implemented"
+                observable_chain = the_func(observable_chain,  *op[1])
 
-                curr_type = VT.Awaitable[_op_to_functions[op[0]][1](op,  *absorbed(curr_type))]
+                curr_type = VT.Awaitable[the_tp_func(op,  *absorbed(curr_type))]
                 concrete_awaitable = ConcreteAwaitable(observable_chain, curr_type, concrete_awaitable.chain)
 
             if kind == "Subscribe":
@@ -915,7 +918,7 @@ class LazyValue:
         raise Exception("Shouldn't cast LazyValue to bool (this may change in the future to automatic evaluation)")
 
     def evaluate(self, unpack_generator = True):
-        from .op_implementations.dispatch_dictionary import _op_to_functions
+        from ._ops import _dispatch
         curr_value = self.initial_val
         
         # TODO: Type info has been disabled due to typespecing of long lists/sets/dicts which consumes
@@ -935,7 +938,9 @@ class LazyValue:
             if op[0] == RT.Run:  
                 from .fx.fx_types import _Effect_Class
                 if isinstance(curr_value, _Effect_Class): 
-                    curr_value = _op_to_functions[op[0]][0](curr_value)
+                    the_func,the_tp_func = _dispatch[op[0]]
+                    assert the_func is not None, f"Function for {op[0]} is not implemented"
+                    curr_value = the_func(curr_value)
                 elif len(op[1]) > 1: # i.e run[impure_func]
                     curr_value = op[1][1](curr_value)
                 else:
@@ -945,7 +950,9 @@ class LazyValue:
 
             # TODO Throw a panic here
             try:
-                curr_value = _op_to_functions[op[0]][0](curr_value,  *op[1])
+                the_func,the_tp_func = _dispatch[op[0]]
+                assert the_func is not None, f"Function for {op[0]} is not implemented"
+                curr_value = the_func(curr_value,  *op[1])
             except Exception as e:
                 raise RuntimeError(f"An Exception occured while evaluating '{self.initial_val} | {ZefOp(self.el_ops.el_ops)}'.\nThe exception occured while calling {op[0]} with ({curr_value,  *op[1]}). The exception was {e}") from e
             
@@ -1124,14 +1131,14 @@ def type_spec(obj, no_type_casting = False):
 
 
 def create_type_info(lazyval) -> list:
-    from .op_implementations.dispatch_dictionary import _op_to_functions
+    from ._ops import _dispatch
     curr_type = type_spec(lazyval.initial_val)
     type_transformation = [curr_type]
     for op in lazyval.el_ops.el_ops:
         if op[0] in {RT.Collect , RT. RT.Run}:
             pass
-        elif op[0] in _op_to_functions:
-            curr_type = _op_to_functions[op[0]][1](op, curr_type)
+        elif op[0] in _dispatch:
+            curr_type = _dispatch[op[0]][1](op, curr_type)
         else:
             raise NotImplementedError(f"{op[0]} isn't handled in create_type_info")
         

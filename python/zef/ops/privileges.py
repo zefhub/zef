@@ -23,7 +23,8 @@ __all__ = [
 from ..core import *
 from ..core._ops import *
 
-def privileges_implementation(user, action, privilege, target):
+@zefop
+def privileges(user, action, privilege, target):
     # This just creates the effect, the actual implementation of the privileges
     # is in the fx module.
 
@@ -52,15 +53,13 @@ def privileges_implementation(user, action, privilege, target):
         "target": target
     })
 
-def privileges_type_info(op, curr_type):
+@add_tp
+def privileges(op, curr_type):
     return VT.Effect
-from ..core.op_implementations.dispatch_dictionary import _op_to_functions
-_op_to_functions[RT.Privileges] = (privileges_implementation, privileges_type_info)
 
-privileges = make_zefop(RT.Privileges)
-
-grant = privileges[KW.grant]
-revoke = privileges[KW.revoke]
+from ..core import _ops
+grant = _ops.privileges[KW.grant]
+revoke = _ops.privileges[KW.revoke]
 
 login = Effect({"type": FX.ZefHub.Login})
 login_as_guest = Effect({"type": FX.ZefHub.Login, "auth_key": "GUEST"})

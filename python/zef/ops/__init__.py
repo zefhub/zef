@@ -12,26 +12,29 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ..core._ops import *
-from ..core._ops import _any
 from ..core import _ops, func
+
+from . import (
+    privileges as _privileges,
+    _config,
+    _values,
+    transactor_role
+)
+
+# This must happen last, as _ops has additions while we are importing submodules here.
+from ..core._ops import *
 
 import types
 lazy_all = [x for x in dir(_ops) if not x.startswith("_") and not isinstance(getattr(_ops, x), types.ModuleType)]
 
-from .privileges import *
-from ._config import config
+# __all__ = [
+#     # "_",
+#     "func",
+#     "value_or",
+#     "maybe_value",
+#     "config",
+# ] + privileges.__all__ + lazy_all + transactor_role.__all__
 
-from ._values import value_or, maybe_value
-# from ..tools.ops import _ 
+from .privileges import grant, revoke, login, login_as_guest, logout
 
-from .transactor_role import *
-
-__all__ = [
-    # "_",
-    "func",
-    "_any",
-    "value_or",
-    "maybe_value",
-    "config",
-] + privileges.__all__ + lazy_all + transactor_role.__all__
+__all__ = _privileges.__all__ + lazy_all

@@ -28,7 +28,6 @@ from .graph_slice import GraphSlice
 from .abstract_raes import Entity, Relation, AtomicEntity, TXNode, Root
 from .logger import log
 from .VT import Is, Any
-from ..core import allow_tombstone
 from abc import ABC
 class ListOrTuple(ABC):
     pass

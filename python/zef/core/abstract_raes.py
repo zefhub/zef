@@ -70,8 +70,8 @@ class Entity:
     This will become a zef value in future.
     """
     def __init__(self, x):
-        from ._ops import origin_uid
         if isinstance(x, ZefRef) or isinstance(x, EZefRef):
+            from ._ops import origin_uid
             assert BT(x)==BT.ENTITY_NODE
             self.d = {
                 'type': ET(x),
@@ -123,8 +123,8 @@ class AtomicEntity:
     This will become a zef value in future.
     """
     def __init__(self, x):
-        from ._ops import origin_uid
         if isinstance(x, ZefRef) or isinstance(x, EZefRef):
+            from ._ops import origin_uid
             assert BT(x)==BT.ATOMIC_ENTITY_NODE
             self.d = {
                 'type': AET(x),
@@ -167,8 +167,8 @@ class Relation:
     It will become a zef value in future.
     """
     def __init__(self, x):
-        from ._ops import origin_uid, rae_type, source, target
         if isinstance(x, ZefRef) or isinstance(x, EZefRef):
+            from ._ops import origin_uid, rae_type, source, target
             assert BT(x)==BT.RELATION_EDGE
             self.d = {
                 'type': (rae_type(source(x)), RT(x), rae_type(target(x))),
@@ -204,8 +204,8 @@ class TXNode:
     A value representation of an "abstract transaction".
     """
     def __init__(self, x):
-        from ._ops import origin_uid
         if isinstance(x, ZefRef) or isinstance(x, EZefRef):
+            from ._ops import origin_uid
             assert BT(x)==BT.TX_EVENT_NODE
             self.d = {
                 'uid': origin_uid(x),
@@ -245,8 +245,8 @@ class Root:
     A value representation of an "abstract root node".
     """
     def __init__(self, x):
-        from ._ops import origin_uid
         if isinstance(x, ZefRef) or isinstance(x, EZefRef):
+            from ._ops import origin_uid
             assert BT(x)==BT.ROOT_NODE
             self.d = {
                 'uid': origin_uid(x),

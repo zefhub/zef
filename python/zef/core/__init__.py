@@ -61,11 +61,11 @@ from . import internals
 from . import pure_utils
 from . import error
 from . import image
+from . import abstract_raes
 from . import op_structs
 from . import _ops
 from . import VT
 from . import zef_functions
-from . import abstract_raes
 from . import graph_delta
 from . import graph_slice
 from . import flat_graph
@@ -122,23 +122,6 @@ from .zef_functions import func
 from .op_structs import ZefOp, LazyValue
 
 from .serialization import serialize, deserialize
-
-
-# instantiating these here, since not all of the core has been
-# initialized when Python imports the abstract_raes module
-# and a circular import error occurs.
-please_instantiate = make_custom_entity(name_to_display='please_instantiate', predetermined_uid='783320c1c3de2610')
-please_terminate   = make_custom_entity(name_to_display='please_terminate', predetermined_uid='67cb88b71523f6d9')
-please_assign      = make_custom_entity(name_to_display='please_assign',    predetermined_uid='4d4a93522f75ed21')
-
-allow_tombstone    = make_custom_entity(name_to_display='allow_tombstone', predetermined_uid='6438364576748387')
-
-instantiated     = make_custom_entity(name_to_display='instantiated', predetermined_uid='60252a53a03086b7')
-terminated       = make_custom_entity(name_to_display='terminated', predetermined_uid='4f676154ffeb9dc8')
-assigned         = make_custom_entity(name_to_display='assigned', predetermined_uid='c31287dab677f38c')
-
-infinity           = make_custom_entity(name_to_display='infinity',    predetermined_uid='4906648460291096')
-nil                = make_custom_entity(name_to_display='nil',         predetermined_uid='1654670075329719') #| register_call_handler[f1] | run[execute] | get['entity'] | collect  # TODO
 
 
 # Implementations come last, so that they can make use of everything else

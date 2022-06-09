@@ -21,8 +21,9 @@ from ..VT.value_type import ValueType_
 
 # This is the only submodule that is allowed to do this. It can assume that everything else has been made available so that it functions as a "user" of the core module.
 from .. import *
-from ..op_structs import _call_0_args_translation, type_spec
-from .._ops import *
+from ..op_structs import type_spec
+from .._ops import zefop, add_tp
+from .. import _ops as ops
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
 from ..logger import log
 
@@ -126,7 +127,8 @@ _dummy = None
 
 #---------------------------- function ------------------------------------
 
-def function_imp(x0, func_repr, *args, **kwargs):
+@zefop
+def function(x0, func_repr, *args, **kwargs):
     """
     func_repr is of form (int, any)
     where the first integer encodes how the function is
@@ -144,14 +146,14 @@ def function_imp(x0, func_repr, *args, **kwargs):
     else:
         raise NotImplementedError('Zef Lambda expressions is not implemented yet.')
 
-
-
-def function_tp(op):
+@add_tp
+def function(op):
     return VT.Any
 
 
 #---------------------------- on ------------------------------------
-def on_implementation(g, op):
+@zefop
+def on(g, op):
     """
     Create an event stream based on the event type declared 
     in the parameters. This function itself is impure! It sets 
@@ -255,7 +257,8 @@ def on_implementation(g, op):
 
 #---------------------------------------- transpose -----------------------------------------------
 
-def transpose_imp(iterable):
+@zefop
+def transpose(iterable):
     """
     This operator is essentially the operation of transposition on a matrix
     that is infinite along one direction (vertical (m) for the 
@@ -286,12 +289,14 @@ def transpose_imp(iterable):
             return
 
 
-def transpose_tp(op, curr_type):
+@add_tp
+def transpose(op, curr_type):
     return VT.List
 
 
 #---------------------------------------- match -----------------------------------------------
-def match_imp(item, patterns):
+@zefop
+def match(item, patterns):
     """
     Given an item and a list of Tuples[predicate, output]. The item is checked
     sequentially on each predicate until one matches. If non-matches an exception is raised.
@@ -325,7 +330,8 @@ def match_imp(item, patterns):
     
 
 
-def match_tp(op, curr_type):
+@add_tp
+def match(op, curr_type):
     return VT.Any
 
 
@@ -333,7 +339,8 @@ def match_tp(op, curr_type):
 
 
 #---------------------------------------- peel -----------------------------------------------
-def peel_imp(el, *args):
+@zefop
+def peel(el, *args):
     from ..fx.fx_types import _Effect_Class
     if isinstance(el, ValueType_):
         return el.nested()
@@ -350,7 +357,8 @@ def peel_imp(el, *args):
         raise NotImplementedError(f"Tried to peel an unsupported type {type(el)}")
 
 
-def peel_tp(op, curr_type):
+@add_tp
+def peel(op, curr_type):
     if curr_type == VT.Effect:
         return VT.Dict[VT.String, VT.Any]
     elif curr_type in {VT.ZefOp, VT.LazyValue}:
@@ -360,7 +368,8 @@ def peel_tp(op, curr_type):
 
 
 #---------------------------------------- zip -----------------------------------------------
-def zip_imp(x, second=None, *args):
+@zefop
+def zip(x, second=None, *args):
     """
     can be used with allputs piped in via one tuple, 
     or other Lists to zip withbeing curried in.
@@ -383,14 +392,16 @@ def zip_imp(x, second=None, *args):
 
 
 
-def zip_tp(iterable_tp, other_iterable_tp):
+@add_tp
+def zip(iterable_tp, other_iterable_tp):
     return VT.List
 
 
 
 
 #---------------------------------------- concat -----------------------------------------------
-def concat_implementation(v, first_curried_list_maybe=None, *args):
+@zefop
+def concat(v, first_curried_list_maybe=None, *args):
     """
     Concatenate a list of lists (or streams).
     Can also be used to specify other lists to be concatenated as
@@ -444,7 +455,8 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
 
 
 
-def concat_type_info(op, curr_type):
+@add_tp
+def concat(op, curr_type):
     if curr_type in ref_types:
         curr_type = downing_d[curr_type]
     else:
@@ -457,7 +469,8 @@ def concat_type_info(op, curr_type):
 
 
 #---------------------------------------- prepend -----------------------------------------------
-def prepend_imp(v, item, *additional_items):
+@zefop
+def prepend(v, item, *additional_items):
     """ 
     Prepend an element to a list / observable.    
     Special overload for strings as well.
@@ -538,12 +551,14 @@ def prepend_imp(v, item, *additional_items):
         raise TypeError(f'prepend not implemented for type {type(v)}')
 
 
-def prepend_tp(op, curr_type):
+@add_tp
+def prepend(op, curr_type):
     return curr_type
 
 
 #---------------------------------------- append -----------------------------------------------
-def append_imp(v, item, *additional_items):
+@zefop
+def append(v, item, *additional_items):
     """ 
     Append an element to a list / observable.    
     Special overload for strings as well.
@@ -627,13 +642,15 @@ def append_imp(v, item, *additional_items):
         raise TypeError(f'append not implemented for type {type(v)}')
 
 
-def append_tp(op, curr_type):
+@add_tp
+def append(op, curr_type):
     return curr_type
 
 
 
 #---------------------------------------- get_in --------------------------------------------------
-def get_in_imp(d: dict, path, default_val=VT.Error):
+@zefop
+def get_in(d: dict, path, default_val=VT.Error):
     """
     Enable one-shot access to elements in nested dictionary
     by specifying path as a tuple of keys.
@@ -649,14 +666,16 @@ def get_in_imp(d: dict, path, default_val=VT.Error):
     return get_in_pure(d, path, default_val)
 
     
-def get_in_tp(d_tp, path_tp, default_val_tp):
+@add_tp
+def get_in(d_tp, path_tp, default_val_tp):
     return VT.Dict
 
 
 
 
 #---------------------------------------- insert_in -----------------------------------------------
-def insert_in_imp(d: dict, path, value):
+@zefop
+def insert_in(d: dict, path, value):
     """
     ---- Examples ----
     >>> {'a': 1, 'b': {'c': 1}} | insert_in[('b', 'd')][42]   # => {'a': 1, 'b': {'c': 1, 'd': 42}} 
@@ -674,14 +693,16 @@ def insert_in_imp(d: dict, path, value):
     return res
 
 
-def insert_in_tp(d_tp, path_tp, value_tp):
+@add_tp
+def insert_in(d_tp, path_tp, value_tp):
     return VT.Dict
 
 
 
 
 #---------------------------------------- remove_in -----------------------------------------------
-def remove_in_imp(d: dict, path):
+@zefop
+def remove_in(d: dict, path):
     """
     Given a dictionary and a tuple describing a path into the dictionary,
     this returns a new dictionary with the pointed to value removed.
@@ -711,14 +732,16 @@ def remove_in_imp(d: dict, path):
     return {k: change(k, v) for (k, v) in d.items() if not (is_last_step and k==path[0])}
 
 
-def remove_in_tp(d_tp, path_tp):
+@add_tp
+def remove_in(d_tp, path_tp):
     return VT.Dict
 
 
 
 
 #---------------------------------------- update_in -----------------------------------------------
-def update_in_imp(d: dict, path, func_to_update):
+@zefop
+def update_in(d: dict, path, func_to_update):
     """
     ---- Examples ----
     >>> {'a': 1, 'b': {'c': 1}} | update_in[('b', 'c')][add[1]]   # => {'a': 1, 'b': {'c': 2}} 
@@ -746,13 +769,15 @@ def update_in_imp(d: dict, path, func_to_update):
 
 
 
-def update_in_tp(d_tp, path_tp, func_to_update_tp):
+@add_tp
+def update_in(d_tp, path_tp, func_to_update_tp):
     return VT.Dict
 
 
 
 #---------------------------------------- update_at -----------------------------------------------
-def update_at_imp(v: list, n, f):
+@zefop
+def update_at(v: list, n, f):
     """
     Apply a specified function "f" to a specified position of 
     a list using the existing element "el" as function input.
@@ -818,14 +843,16 @@ def update_at_imp(v: list, n, f):
 
 
 
-def update_at_tp(op, curr_type):
+@add_tp
+def update_at(op, curr_type):
     return curr_type
 
     
 
 #---------------------------------------- insert_at -----------------------------------------------
 
-def insert_at_imp(v, n, new_value):
+@zefop
+def insert_at(v, n, new_value):
     """
     Insert a specified value at a specified position of 
     a list. A new list is returned, the input list is not mutated.
@@ -915,7 +942,8 @@ def insert_at_imp(v, n, new_value):
 
 
 #---------------------------------------- update -----------------------------------------------
-def update_imp(d: dict, k, fn):
+@zefop
+def update(d: dict, k, fn):
     """
     Change the value for a given key / index by applying a
     user provided function to the old value at that location.
@@ -943,7 +971,8 @@ def update_imp(d: dict, k, fn):
 
 
 #---------------------------------------- remove_at -----------------------------------------------
-def remove_at_imp(v, *nn):
+@zefop
+def remove_at(v, *nn):
     """
     Using "remove" based on indexes would be confusing,
     as Python's list remove, searches for the first 
@@ -969,7 +998,8 @@ def remove_at_imp(v, *nn):
 
 #---------------------------------------- interleave -----------------------------------------------
 
-def interleave_imp(v, first_curried_list_maybe=None, *args):
+@zefop
+def interleave(v, first_curried_list_maybe=None, *args):
     """
     Interleaves elements of an arbitrary number M of lists.
     Length of output is determined by the length of the 
@@ -1003,12 +1033,14 @@ def interleave_imp(v, first_curried_list_maybe=None, *args):
         return mi.interleave(*[v, first_curried_list_maybe, *args])
 
 
-def interleave_tp(v_tp):        #TODO
+@add_tp
+def interleave(v_tp):        #TODO
     return VT.List
 
 
 #---------------------------------------- interleave_longest -----------------------------------------------
-def interleave_longest_imp(v, first_curried_list_maybe=None, *args):
+@zefop
+def interleave_longest(v, first_curried_list_maybe=None, *args):
     """
     Interleaves elements of an arbitrary number M of lists.
     Length of output is determined by the length of the 
@@ -1041,7 +1073,8 @@ def interleave_longest_imp(v, first_curried_list_maybe=None, *args):
         return mi.interleave_longest(*[v, first_curried_list_maybe, *args])
 
 
-def interleave_longest_tp(v_tp):        #TODO
+@add_tp
+def interleave_longest(v_tp):        #TODO
     return VT.List
 
 
@@ -1049,7 +1082,8 @@ def interleave_longest_tp(v_tp):        #TODO
 
 
 #---------------------------------------- stride -----------------------------------------------
-def stride_imp(v, step: int):
+@zefop
+def stride(v, step: int):
     """
     Return a new list where only every nth 
     (specified by the stride step) is sampled.
@@ -1084,11 +1118,13 @@ def stride_imp(v, step: int):
     return wrapper()
 
 
-def stride_tp(v_tp, step_tp):
+@add_tp
+def stride(v_tp, step_tp):
     return VT.List
 
 #---------------------------------------- chunk -----------------------------------------------
-def chunk_imp(iterable, chunk_size: int):
+@zefop
+def chunk(iterable, chunk_size: int):
     """
     This one is tricky. We'll be opinionated and eagerly evaluate the 
     elements in each chunk, as the chunks are being asked for. The 
@@ -1155,12 +1191,14 @@ def chunk_imp(iterable, chunk_size: int):
             return
 
 
-def chunk_tp(v_tp, step_tp):
+@add_tp
+def chunk(v_tp, step_tp):
     return VT.List
 
 
 #---------------------------------------- insert -----------------------------------------------
-def sliding_imp(iterable, window_size: int, stride_step: int=1):
+@zefop
+def sliding(iterable, window_size: int, stride_step: int=1):
     """ 
     Given a list, return a list of internal lists of length "window_size".
     "stride_step" may be specified (optional) and determines how
@@ -1206,7 +1244,8 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
     
         
 
-def sliding_tp(v_tp, step_tp):
+@add_tp
+def sliding(v_tp, step_tp):
     return VT.List
 
 
@@ -1215,7 +1254,8 @@ def sliding_tp(v_tp, step_tp):
 
 
 #---------------------------------------- insert -----------------------------------------------
-def insert_imp(d: dict, key, val=None):
+@zefop
+def insert(d: dict, key, val=None):
     """
     Takes a dictionary / flatgraph together with something to insert
     and returns a new dictionary / flatgraph with that inserted.
@@ -1241,20 +1281,22 @@ def insert_imp(d: dict, key, val=None):
     if isinstance(d, FlatGraph):
         fg = d
         new_el = key
-        return fg_insert_imp(fg, new_el)
+        return fg_insert(fg, new_el)
     elif isinstance(d, dict):
         return {**d, key: val}
     else:
         return Error(f'"insert" zefop called with unhandled type d={d} key={key} val={val}')
 
 
-def insert_tp(input_arg0_tp, input_arg1_tp):
+@add_tp
+def insert(input_arg0_tp, input_arg1_tp):
     return VT.Dict
 
 
 
 #---------------------------------------- reverse_args -----------------------------------------------
-def reverse_args_imp(flow_arg, op, *args):
+@zefop
+def reverse_args(flow_arg, op, *args):
     """    
     Useful to transform one zefop into a new operator where
     the only difference is that the arguments are reversed.
@@ -1289,7 +1331,8 @@ def reverse_args_imp(flow_arg, op, *args):
 
 #---------------------------------------- insert_into -----------------------------------------------
 
-def insert_into_imp(key_val_pair, x):
+@zefop
+def insert_into(key_val_pair, x):
     """
     Unclear whether we need this. To insert a key value
     pair into a dictionary, one could cast to a dict and use merge.
@@ -1328,7 +1371,8 @@ def insert_into_imp(key_val_pair, x):
 
 
 #---------------------------------------- remove -----------------------------------------------
-def remove_imp(d: dict, key_to_remove: tuple):
+@zefop
+def remove(d: dict, key_to_remove: tuple):
     """
     Given a key and a dictionary, returns a new dictionary 
     with the key value pair removed.
@@ -1351,18 +1395,20 @@ def remove_imp(d: dict, key_to_remove: tuple):
     """
     if isinstance(d, FlatGraph):
         fg = d
-        return fg_remove_imp(fg, key_to_remove)
+        return fg_remove(fg, key_to_remove)
     return {p[0]: p[1] for p in d.items() if p[0] != key_to_remove}
 
 
-def remove_tp(input_arg0_tp, input_arg1_tp):
+@add_tp
+def remove(input_arg0_tp, input_arg1_tp):
     return VT.Dict
 
 
 
 
 #---------------------------------------- get -----------------------------------------------
-def get_imp(d, key, default=Error('Key not found in "get"')):
+@zefop
+def get(d, key, default=Error('Key not found in "get"')):
     """
     Typically used for key lookups, equivalent to '[]' operator.
     External function equivalent to Python's '__get__' method.
@@ -1389,7 +1435,7 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
     """
     from typing import Generator
     if isinstance(d, FlatGraph):
-        return fg_get_imp(d, key)
+        return fg_get(d, key)
     elif isinstance(d, dict):
         return d.get(key, default)
     elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator):
@@ -1402,11 +1448,13 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
     else:
         return Error(f"get called with unsupported type {type(d)}.")
 
-def get_tp(d_tp, key_tp):
+@add_tp
+def get(d_tp, key_tp):
     return VT.Any
 
 #---------------------------------------- get_field -----------------------------------------------
-def get_field_imp(obj, field):
+@zefop
+def get_field(obj, field):
     """
     Specific to python. Get the attribute of an object, equivalent to
     getattr(obj, field).
@@ -1426,12 +1474,14 @@ def get_field_imp(obj, field):
     """
     return getattr(obj, field)
 
-def get_field_tp(d_tp, key_tp):
+@add_tp
+def get_field(d_tp, key_tp):
     return VT.Any
 
 
 #---------------------------------------- enumerate -----------------------------------------------
-def enumerate_imp(v):
+@zefop
+def enumerate(v):
     """
     Given an iterable, returns an iterable of pairs where 
     the first is an incrementing integer starting at zero.
@@ -1453,13 +1503,15 @@ def enumerate_imp(v):
     return builtins.enumerate(v)
 
 
-def enumerate_tp(input_arg0_tp):
+@add_tp
+def enumerate(input_arg0_tp):
     return VT.List
 
 
 
 #---------------------------------------- items -----------------------------------------------
-def items_imp(d):
+@zefop
+def items(d):
     """
     Return the key-value pairs of a dictionary as a tuple.
 
@@ -1476,13 +1528,15 @@ def items_imp(d):
     return tuple(d.items())
 
 
-def items_tp(input_arg0_tp):
+@add_tp
+def items(input_arg0_tp):
     return VT.List
 
 
 
 #---------------------------------------- values -----------------------------------------------
-def values_imp(d):
+@zefop
+def values(d):
     """
     Return the values of a dictionary
 
@@ -1499,13 +1553,15 @@ def values_imp(d):
     return tuple(d.values())
 
 
-def values_tp(input_arg0_tp):
+@add_tp
+def values(input_arg0_tp):
     return VT.List
 
 
 
 #---------------------------------------- keys -----------------------------------------------
-def keys_imp(d):
+@zefop
+def keys(d):
     """
     Return the keys of a dictionary
 
@@ -1522,13 +1578,15 @@ def keys_imp(d):
     return tuple(d.keys())
 
 
-def keys_tp(input_arg0_tp):
+@add_tp
+def keys(input_arg0_tp):
     return VT.List
 
 
 
 #---------------------------------------- reverse -----------------------------------------------
-def reverse_imp(v):
+@zefop
+def reverse(v):
     """
     Reverse a list or equivalent structure.
 
@@ -1554,13 +1612,15 @@ def reverse_imp(v):
     return list(v)[::-1]
     
 
-def reverse_tp(op, curr_type):
+@add_tp
+def reverse(op, curr_type):
     return curr_type
 
 
 
 #---------------------------------------- cycle -----------------------------------------------
-def cycle_imp(iterable, n=None):
+@zefop
+def cycle(iterable, n=None):
     """
     Given a list, this wll produce another list loft the same structure
     that cycles thorugh all elements of the original list n times.
@@ -1585,46 +1645,54 @@ def cycle_imp(iterable, n=None):
 
 
 
-def cycle_tp(iterable_tp, n_tp):
+@add_tp
+def cycle(iterable_tp, n_tp):
     return iterable_tp
 
 
 
 #---------------------------------------- repeat -----------------------------------------------
-def repeat_imp(iterable, n=None):
+@zefop
+def repeat(iterable, n=None):
     import itertools
     if isinstance(iterable, Generator) or isinstance(iterable, Iterator): iterable = [i for i in iterable]
     return itertools.repeat(iterable) if n is None else itertools.repeat(iterable, n)
 
 
-def repeat_tp(iterable_tp, n_tp):
+@add_tp
+def repeat(iterable_tp, n_tp):
     return VT.List
 
 
 
 #---------------------------------------- contains -----------------------------------------------
-def contains_imp(x, el):
+@zefop
+def contains(x, el):
     return el in x    
                         
 
-def contains_tp(x_tp, el_tp):
+@add_tp
+def contains(x_tp, el_tp):
     return VT.Bool
 
 
 
 #---------------------------------------- contained_in -----------------------------------------------
-def contained_in_imp(x, el):
+@zefop
+def contained_in(x, el):
     if isinstance(x, Generator) or isinstance(x, Iterator): x = [i for i in x]
     return x in el
 
 
-def contained_in_tp(x_tp, el_tp):
+@add_tp
+def contained_in(x_tp, el_tp):
     return VT.Bool
 
 
 
 #---------------------------------------- all -----------------------------------------------
-def all_imp(*args):
+@zefop
+def all(*args):
     """
     The all op has two different behaviours:
 
@@ -1667,7 +1735,7 @@ def all_imp(*args):
     import builtins
     from typing import Generator, Iterator   
     if isinstance(args[0], FlatGraph):
-        return fg_all_imp(*args)
+        return fg_all(*args)
     if isinstance(args[0], ZefRef) and is_a[ET.ZEF_List](args[0]):
         z_list = args[0]
         rels = z_list | out_rels[RT.ZEF_ListElement] | collect
@@ -1747,13 +1815,15 @@ def all_imp(*args):
     # TODO: extend to awaitables
     return builtins.all(v)
             
-def all_tp(v_tp):
+@add_tp
+def all(v_tp):
     return VT.Any
 
 
          
 #---------------------------------------- any -----------------------------------------------
-def any_imp(v):
+@zefop
+def any(v):
     """ 
     Given a list of booleans: check whether any of them are true.
     Equivalent to the logical 'or' in propositional logic.
@@ -1772,14 +1842,16 @@ def any_imp(v):
     import builtins
     return builtins.any(v)
             
-def any_tp(v_tp):
+@add_tp
+def any(v_tp):
     return VT.Bool
 
 
 
 
 #---------------------------------------- join -----------------------------------------------
-def join_imp(list_of_strings: VT.List[VT.String], x=''):
+@zefop
+def join(list_of_strings: VT.List[VT.String], x=''):
     """ 
     join a list of strings with a binding character.
     >>> ['foo', 'bar'] | join['-']              # => 'foo-bar'
@@ -1787,13 +1859,15 @@ def join_imp(list_of_strings: VT.List[VT.String], x=''):
     return x.join(list_of_strings)
 
 
-def join_tp(v, x):
+@add_tp
+def join(v, x):
     return VT.String
 
 
 
 #---------------------------------------- trim_left -----------------------------------------------
-def trim_left_imp(v, el_to_trim):
+@zefop
+def trim_left(v, el_to_trim):
     if isinstance(v, str):        
         return v.lstrip(el_to_trim)
     def wrapper():
@@ -1810,13 +1884,15 @@ def trim_left_imp(v, el_to_trim):
     return wrapper()
 
 
-def trim_left_tp(v_tp, el_to_trim_tp):
+@add_tp
+def trim_left(v_tp, el_to_trim_tp):
     return v_tp
         
     
     
 #---------------------------------------- trim_right -----------------------------------------------
-def trim_right_imp(v, el_to_trim):
+@zefop
+def trim_right(v, el_to_trim):
     import itertools 
     if isinstance(v, str):
         return v.rstrip(el_to_trim)
@@ -1827,13 +1903,15 @@ def trim_right_imp(v, el_to_trim):
     return vv if ind==0 else vv[:-ind]
 
 
-def trim_right_tp(v_tp, el_to_trim_tp):
+@add_tp
+def trim_right(v_tp, el_to_trim_tp):
     return v_tp
         
         
 
 #---------------------------------------- trim -----------------------------------------------
-def trim_imp(v, el_to_trim):
+@zefop
+def trim(v, el_to_trim):
     import itertools 
     if isinstance(v, str):
         return v.strip(el_to_trim)
@@ -1845,22 +1923,26 @@ def trim_imp(v, el_to_trim):
     return vv[ind_left:] if ind_right==0 else vv[ind_left:-ind_right]
 
 
-def trim_tp(v_tp, el_to_trim_tp):
+@add_tp
+def trim(v_tp, el_to_trim_tp):
     return v_tp
         
 
 #---------------------------------------- tap -----------------------------------------------
-def tap_imp(x, fct):
+@zefop
+def tap(x, fct):
     fct(x)
     return x
         
 
-def tap_tp(v_tp, f):
+@add_tp
+def tap(v_tp, f):
     return v_tp
 
 
 #---------------------------------------- push -----------------------------------------------
-def push_imp(item: VT.Any, stream: VT.Stream):  # -> Union[Effect, Error]
+@zefop
+def push(item: VT.Any, stream: VT.Stream):  # -> Union[Effect, Error]
     """ 
     A pure operator that constructs an effect (a value)
     to push an element into a pushable stream.
@@ -1885,14 +1967,16 @@ def push_imp(item: VT.Any, stream: VT.Stream):  # -> Union[Effect, Error]
     raise RuntimeError('push must be called with a Stream pushable stream represented by a ZefRef[ET[PushableStream]] curried in.')
     
     
-def push_tp(op, curr_type):
+@add_tp
+def push(op, curr_type):
     return VT.Effect
 
 
 
 
 #---------------------------------------- cartesian_product -----------------------------------------------
-def cartesian_product_imp(x, second=None, *args):
+@zefop
+def cartesian_product(x, second=None, *args):
     """ 
     Note that Python's itertools calls this "product only", but 
     but that term is too overloaded, e.g. the 'multiply' operator.
@@ -1921,14 +2005,16 @@ def cartesian_product_imp(x, second=None, *args):
     return product( *(x, second, *args) )
 
 
-def cartesian_product_tp(a, second, *args):
+@add_tp
+def cartesian_product(a, second, *args):
     return VT.List
 
 
 
 
 #---------------------------------------- permutations -----------------------------------------------
-def permutations_imp(v, n=None):
+@zefop
+def permutations(v, n=None):
     """ 
     Given a list of items, return a list of lists with all 
     permutations lazily. Order within the returned combination 
@@ -1965,14 +2051,16 @@ def permutations_imp(v, n=None):
     return permutations(v, r=n)
 
 
-def permutations_tp(x):
+@add_tp
+def permutations(x):
     return VT.List[x]
 
 
 
 
 #---------------------------------------- combinations -----------------------------------------------
-def combinations_imp(v, n):
+@zefop
+def combinations(v, n):
     """
     Given a list of m elements, return all combinations
     of length n. Order within the returned combination 
@@ -1988,12 +2076,14 @@ def combinations_imp(v, n):
     return tuple(itertools.combinations(v, n))
 
 
-def combinations_tp(v, n):
+@add_tp
+def combinations(v, n):
     return VT.List
 
 
 #---------------------------------------- always -----------------------------------------------
-def always_imp(x, value, *args):
+@zefop
+def always(x, value, *args):
     """
     Regardless of the input, always return the curried in value.
 
@@ -2011,12 +2101,14 @@ def always_imp(x, value, *args):
     
     return value
 
-def always_tp(x):
+@add_tp
+def always(x):
     return VT.Any
 
 
 #---------------------------------------- absorbed -----------------------------------------------
-def absorbed_imp(x):
+@zefop
+def absorbed(x):
     """
     Extract the absorbed values from any absorbing type.
 
@@ -2060,7 +2152,8 @@ def absorbed_imp(x):
 
 
 #---------------------------------------- without_absorbed -----------------------------------------------
-def without_absorbed_imp(x):
+@zefop
+def without_absorbed(x):
     """
     Return the bare Type as if nothing had ever been absorbed.
 
@@ -2117,7 +2210,8 @@ def without_absorbed_imp(x):
 
 
 #---------------------------------------- sum -----------------------------------------------
-def sum_imp(v):
+@zefop
+def sum(v):
     """
     Sums up all elements in a List.
     Similar to the `add` zefop, but to be used in the case of a 
@@ -2138,7 +2232,8 @@ def sum_imp(v):
 
 
 #---------------------------------------- product -----------------------------------------------
-def product_imp(v):
+@zefop
+def product(v):
     """
     Multiplies up all elements in a List.
     Similar to the `multiply` zefop, but to be used in the case of a 
@@ -2159,7 +2254,8 @@ def product_imp(v):
 
 
 #---------------------------------------- add -----------------------------------------------
-def add_imp(a, second=None, *args):
+@zefop
+def add(a, second=None, *args):
     """
     Adds two elements. Neither is a list.
     Don't use this when summing up a list, use `sum`
@@ -2184,13 +2280,15 @@ def add_imp(a, second=None, *args):
     return reduce(lambda x, y: x + y, [a, second, *args])
     
     
-def add_tp(a, second, *args):
+@add_tp
+def add(a, second, *args):
     return VT.Any    
     
     
     
 #---------------------------------------- subtract -----------------------------------------------
-def subtract_imp(a, second=None):
+@zefop
+def subtract(a, second=None):
     """
     Binary operator to subtract two elements. Neither is a list.
     If am operator is needed that can act on a tuple of length 2,
@@ -2216,14 +2314,16 @@ def subtract_imp(a, second=None):
     return a-second
     
     
-def subtract_tp(a, second):
+@add_tp
+def subtract(a, second):
     return VT.Any    
     
     
     
 
 #---------------------------------------- multiply -----------------------------------------------
-def multiply_imp(a, second=None, *args):
+@zefop
+def multiply(a, second=None, *args):
     """ 
     Multiplies a list of numbers.
     We don't use 'product' to name this, as that term is too overloaded.
@@ -2235,19 +2335,22 @@ def multiply_imp(a, second=None, *args):
     return reduce(lambda x, y: x * y, [a, second, *args])
     
 
-def multiply_tp(a, second, *args):
+@add_tp
+def multiply(a, second, *args):
     return VT.Any
 
 
 #---------------------------------------- divide -----------------------------------------------
-def divide_imp(a, second=None):    
+@zefop
+def divide(a, second=None):    
     if second is None:
         assert len(a) == 2
         return a[0]/a[1]
     return a/second
     
     
-def divide_tp(a, second):
+@add_tp
+def divide(a, second):
     return VT.Any    
     
 
@@ -2255,7 +2358,8 @@ def divide_tp(a, second):
 
 
 #---------------------------------------- mean -----------------------------------------------
-def mean_imp(v):
+@zefop
+def mean(v):
     """
     Calculates the arithmetic mean of a given List / Set of numbers.
 
@@ -2268,12 +2372,14 @@ def mean_imp(v):
     return sum(v) / length(v)
 
 
-def mean_tp(op, curr_type):
+@add_tp
+def mean(op, curr_type):
     return VT.Any
 
 
 #---------------------------------------- variance -----------------------------------------------
-def variance_imp(v):
+@zefop
+def variance(v):
     """
     Calculates the variance of a given List / Set of numbers.
 
@@ -2287,30 +2393,36 @@ def variance_imp(v):
     return sum( (x*x for x in v) )/le - (sum(v)/le)**2
 
 
-def variance_tp(v):
+@add_tp
+def variance(v):
     return VT.Any
 
 
 #---------------------------------------- power -----------------------------------------------
-def power_imp(x, b):
+@zefop
+def power(x, b):
     return x**b
 
-def power_tp(op, curr_type):
+@add_tp
+def power(op, curr_type):
     return VT.Any
 
 
 #---------------------------------------- exponential -----------------------------------------------
-def exponential_imp(x):
+@zefop
+def exponential(x):
     import math
     return math.exp(x)
 
 
-def exponential_tp(x):
+@add_tp
+def exponential(x):
     return VT.Any
 
 
 #---------------------------------------- logarithm -----------------------------------------------
-def logarithm_imp(x, base=None):
+@zefop
+def logarithm(x, base=None):
     """ 
     base = None is synonymous with base = 2.718281828459045...
     """
@@ -2318,51 +2430,60 @@ def logarithm_imp(x, base=None):
     return (math.log(x) if base is None else math.log(x)/math.log(base))
 
 
-def logarithm_tp(x,base):
+@add_tp
+def logarithm(x,base):
     return VT.Any
 
 
 #---------------------------------------- max -----------------------------------------------
-def max_imp(*args):
+@zefop
+def max(*args):
     return builtins.max(*args)
     
     
-def max_tp(*args):
+@add_tp
+def max(*args):
     return VT.Any
     
     
     
 
 #---------------------------------------- max_by -----------------------------------------------
-def max_by_imp(v, max_by_function=None):
+@zefop
+def max_by(v, max_by_function=None):
     if max_by_function is None:
         raise RuntimeError(f'A function needs to be provided when using max_by. Called for v={v}')
     return builtins.max(v, key=max_by_function)
     
     
-def max_by_tp(v_tp, max_by_function_tp):
+@add_tp
+def max_by(v_tp, max_by_function_tp):
     return VT.Any
     
     
 #---------------------------------------- min -----------------------------------------------
-def min_imp(*args):
+@zefop
+def min(*args):
     return builtins.min(*args)
     
     
-def min_tp(a, second, *args):
+@add_tp
+def min(a, second, *args):
     return VT.Any
     
     
     
 
 #---------------------------------------- min_by -----------------------------------------------
-def min_by_imp(v, min_by_function=None):
+@zefop
+def min_by(v, min_by_function=None):
     if min_by_function is None:
         raise RuntimeError(f'A function needs to be provided when using min_by. Called for v={v}')
     return builtins.min(v, key=min_by_function)
     
     
-def min_by_tp(v_tp, min_by_function_tp):
+@add_tp
+def min_by(v_tp, min_by_function_tp):
     return VT.Any
     
     
@@ -2371,57 +2492,68 @@ def min_by_tp(v_tp, min_by_function_tp):
     
     
 #---------------------------------------- equals -----------------------------------------------
-def equals_imp(a, b):
+@zefop
+def equals(a, b):
     return a == b
     
     
-def equals_tp(a, b):
+@add_tp
+def equals(a, b):
     return VT.Bool
 
     
     
 #---------------------------------------- greater_than -----------------------------------------------
-def greater_than_imp(a, b):
+@zefop
+def greater_than(a, b):
     return a > b
     
     
-def greater_than_tp(a, b):
+@add_tp
+def greater_than(a, b):
     return VT.Bool    
     
     
     
 #---------------------------------------- less_than -----------------------------------------------
-def less_than_imp(a, b):
+@zefop
+def less_than(a, b):
     return a < b
     
     
-def less_than_tp(a, b):
+@add_tp
+def less_than(a, b):
     return VT.Bool 
 
 
     
 #---------------------------------------- larger_or_equal_than -----------------------------------------------
-def greater_than_or_equal_imp(a, b):
+@zefop
+def greater_than_or_equal(a, b):
     return a >= b
     
 
-def greater_than_or_equal_to(a, b):
+@add_tp
+def greater_than_or_equal(a, b):
     return VT.Bool 
 
 
     
 #---------------------------------------- less_or_equal_than -----------------------------------------------
-def less_than_or_equal_imp(a, b):
+@zefop
+def less_than_or_equal(a, b):
     return a <= b
 
 
-def less_than_or_equal_to(a, b):
+@add_tp
+def less_than_or_equal(a, b):
     return VT.Bool 
 
 
 
 #---------------------------------------- Not -----------------------------------------------
-def not_imp(x, pred_fct=lambda x: x):
+@zefop
+def Not(x, pred_fct=lambda x: x):
     """ 
     Takes a single predicate function and returns the negated predicate function.    
     """    
@@ -2429,13 +2561,15 @@ def not_imp(x, pred_fct=lambda x: x):
 
 
 
-def not_tp(a, b):
+@add_tp
+def Not(a, b):
     return VT.Bool 
 
 
 
 #---------------------------------------- And -----------------------------------------------
-def and_imp(x, *args):
+@zefop
+def And(x, *args):
     """
     This operator can be used in two ways:    
 
@@ -2486,14 +2620,16 @@ def and_imp(x, *args):
     return True
     
 
-def and_tp(x, *args):
+@add_tp
+def And(x, *args):
     return VT.Any
     
     
     
     
 #---------------------------------------- Or -----------------------------------------------
-def or_imp(x, *args):
+@zefop
+def Or(x, *args):
     """
     This operator can be used in two ways:    
 
@@ -2542,13 +2678,15 @@ def or_imp(x, *args):
     return False
     
 
-def or_tp(x, *args):
+@add_tp
+def Or(x, *args):
     return VT.Any
     
        
    
 #---------------------------------------- xor -----------------------------------------------
-def xor_imp(x, *args):
+@zefop
+def xor(x, *args):
     assert len(args) == 2
     f1, f2 = args
     res1, res2 = (f1(x), f2(x))
@@ -2557,7 +2695,8 @@ def xor_imp(x, *args):
     return res1 ^ res2   # xor for boolean values
     
 
-def xor_tp(x, *args):
+@add_tp
+def xor(x, *args):
     return VT.Any
     
        
@@ -2565,7 +2704,8 @@ def xor_tp(x, *args):
 
 
 #---------------------------------------- skip -----------------------------------------------
-def skip_imp(v, n: int):
+@zefop
+def skip(v, n: int):
     """
     Skip the first n elements of the sequence. 
     This can be done lazily.
@@ -2599,14 +2739,16 @@ def skip_imp(v, n: int):
         return cached[:n]
     
 
-def skip_tp(op, curr_type):
+@add_tp
+def skip(op, curr_type):
     return curr_type
 
 
 
 
 #---------------------------------------- scan -----------------------------------------------
-def scan_implementation(iterable, fct, initial_val=None):
+@zefop
+def scan(iterable, fct, initial_val=None):
     """
     An operator that take a list of values together with an initial state 
     an emits a sequence of resulting states.
@@ -2638,7 +2780,8 @@ def scan_implementation(iterable, fct, initial_val=None):
 
 
 
-def scan_type_info(op, curr_type):
+@add_tp
+def scan(op, curr_type):
     func = op[1][0]
     assert isfunction(func) or isinstance(func, ZefOp) or (isinstance(func, ZefRef) and ET(func) == ET.ZEF_Function)
     if not isfunction(func) and (isinstance(func, ZefRef) and ET(func) == ET.ZEF_Function): 
@@ -2652,7 +2795,8 @@ def scan_type_info(op, curr_type):
 
 
 #---------------------------------------- iterate -----------------------------------------------
-def iterate_implementation(x, f):
+@zefop
+def iterate(x, f):
     """for a homomorphism f and initial val x: [x, f(x), f(f(x)), ...].
     Inspired by the excellent talk by Joel Grus on functional Python.
     
@@ -2673,22 +2817,26 @@ def iterate_implementation(x, f):
     return itertools.accumulate(itertools.repeat(x), lambda fx, _: f(fx))
 
 
-def iterate_type_info(op, curr_type):
+@add_tp
+def iterate(op, curr_type):
     return VT.List
 
 
 
 #---------------------------------------- skip_while -----------------------------------------------
-def skip_while_imp(it, predicate):
+@zefop
+def skip_while(it, predicate):
     import itertools
     return itertools.dropwhile(predicate, it)
 
-def skip_while_tp(it_tp, pred_type):
+@add_tp
+def skip_while(it_tp, pred_type):
     return it_tp
 
 
 #---------------------------------------- take -----------------------------------------------
-def take_implementation(v, n):
+@zefop
+def take(v, n):
     """
     positive n: take n first items. Operates lazily and supports infinite iterators.
     negative n: take n last items. Must evaluate entire iterable, does not terminate 
@@ -2709,24 +2857,28 @@ def take_implementation(v, n):
             return vv[n:]
         
         
-def take_type_info(op, curr_type):
+@add_tp
+def take(op, curr_type):
     return curr_type
 
 
 
 #---------------------------------------- take_while -----------------------------------------------
-def take_while_imp(it, predicate):
+@zefop
+def take_while(it, predicate):
     import itertools
     return itertools.takewhile(predicate, it)
 
-def take_while_tp(it_tp, pred_type):
+@add_tp
+def take_while(it_tp, pred_type):
     return it_tp
 
 
 
 
 #---------------------------------------- take_until -----------------------------------------------
-def take_until_imp(it, predicate):
+@zefop
+def take_until(it, predicate):
     """ 
     Similar to take_while, but with negated predicate and 
     it includes the bounding element. Useful in some cases,
@@ -2745,14 +2897,16 @@ def take_until_imp(it, predicate):
             yield el
             break
 
-def take_until_tp(it_tp, pred_type):
+@add_tp
+def take_until(it_tp, pred_type):
     return it_tp
 
 
 
 
 #---------------------------------------- take_until -----------------------------------------------
-def take_while_pair_imp(iterable, binary_predicate):
+@zefop
+def take_while_pair(iterable, binary_predicate):
     """ use when termination of sequence depends on two successive elements.
     Generates items until the predicate function returns false for the first time.
     Emits both elements given to the predicate function upon the last call.
@@ -2788,14 +2942,16 @@ def take_while_pair_imp(iterable, binary_predicate):
 
 
 
-def take_while_pair_tp(it_tp, pred_type):
+@add_tp
+def take_while_pair(it_tp, pred_type):
     return it_tp
 
 
 
 
 #---------------------------------------- single -----------------------------------------------
-def single_imp(itr):
+@zefop
+def single(itr):
     """ 
     Return the element from a list containing a single element only.
 
@@ -2819,7 +2975,8 @@ def single_imp(itr):
         raise AssertionError("The passed iterable is longer than 1 element!")
 
 
-def single_tp(op, curr_type):
+@add_tp
+def single(op, curr_type):
     if curr_type in ref_types:
         curr_type = downing_d[curr_type]
     else:
@@ -2831,7 +2988,8 @@ def single_tp(op, curr_type):
 
 
 #---------------------------------------- single_or -----------------------------------------------
-def single_or_imp(itr, default):
+@zefop
+def single_or(itr, default):
     """ 
     Given an iterable which should contain either 0 or 1 elements and a default, return the element if it exists, otherwise return the default. Lists that are 2 or more elements long cause an Error
 
@@ -2854,13 +3012,15 @@ def single_or_imp(itr, default):
     except StopIteration:
         return default
 
-def single_or_tp(op, curr_type):
+@add_tp
+def single_or(op, curr_type):
     return VT.Any
 
 
 #---------------------------------------- first -----------------------------------------------
 
-def first_imp(iterable):
+@zefop
+def first(iterable):
     """
     Return the first element of a list.
 
@@ -2883,7 +3043,8 @@ def first_imp(iterable):
 
 
 
-def first_tp(op, curr_type):
+@add_tp
+def first(op, curr_type):
     if curr_type in ref_types:
         curr_type = downing_d[curr_type]
     else:
@@ -2898,7 +3059,8 @@ def first_tp(op, curr_type):
 
 #---------------------------------------- second -----------------------------------------------
 
-def second_imp(iterable):
+@zefop
+def second(iterable):
     """
     Return the second element of a list.
 
@@ -2921,7 +3083,8 @@ def second_imp(iterable):
         # raise ValueError("Iterable is not long enough to find a second element")
 
 
-def second_tp(op, curr_type):
+@add_tp
+def second(op, curr_type):
     if curr_type in ref_types:
         curr_type = downing_d[curr_type]
     else:
@@ -2936,7 +3099,8 @@ def second_tp(op, curr_type):
 
 #---------------------------------------- last -----------------------------------------------
 
-def last_imp(iterable):
+@zefop
+def last(iterable):
     """
     Return the last element of a list.
 
@@ -2963,7 +3127,8 @@ def last_imp(iterable):
         return item
 
 
-def last_tp(op, curr_type):
+@add_tp
+def last(op, curr_type):
     if curr_type in ref_types:
         curr_type = downing_d[curr_type]
     else:
@@ -2976,7 +3141,8 @@ def last_tp(op, curr_type):
 
 
 #---------------------------------------- frequencies -----------------------------------------------
-def frequencies_imp(v):
+@zefop
+def frequencies(v):
     from collections import defaultdict
     d = defaultdict(int)
     for el in v:
@@ -2984,22 +3150,26 @@ def frequencies_imp(v):
     return dict(d)
 
 
-def frequencies_tp(v_tp):
+@add_tp
+def frequencies(v_tp):
     return VT.Dict
 
 
 
 #---------------------------------------- Z -----------------------------------------------
-def Z_imp(z):
+@zefop
+def Z(z):
     return z
 
-def Z_tp(op, curr_type):
+@add_tp
+def Z(op, curr_type):
     assert curr_type in ref_types
     return curr_type
 
 
 #---------------------------------------- Root -----------------------------------------------
-def root_imp(x):
+@zefop
+def root(x):
     """
     Retrieve the root node for a Graph or Graph Slice.
 
@@ -3019,7 +3189,8 @@ def root_imp(x):
     raise Exception(f"Don't know how to find root of type {type(g)}")
 
 
-def root_tp(op, curr_type):
+@add_tp
+def root(op, curr_type):
     return None
 
 
@@ -3030,7 +3201,8 @@ def root_tp(op, curr_type):
 
 
 
-def sign_imp(x):
+@zefop
+def sign(x):
     """
     Utility function that returns the sign of a number (+1/-1).
     also: sign(0)=0
@@ -3044,14 +3216,16 @@ def sign_imp(x):
     raise ValueError()
 
 
-def sign_tp(op, curr_type):
+@add_tp
+def sign(op, curr_type):
     return VT.Int
 
 
 
 
 # --------------------------------------- If ------------------------------------------------
-def If_imp(x, pred, true_case_func, false_case_func):
+@zefop
+def If(x, pred, true_case_func, false_case_func):
     """
     Dispatches to one of two provided functions based on the boolean 
     result of the predicate function wrapped as a logic type, given
@@ -3090,7 +3264,8 @@ def If_imp(x, pred, true_case_func, false_case_func):
 
 
 # ------------------------------------------ attempt ---------------------------------------------
-def attempt_imp(x, op, alternative_value):
+@zefop
+def attempt(x, op, alternative_value):
     """
     Wrap an operator to catch errors. If anything goes wrong,
     return the user provided alternative value.
@@ -3124,13 +3299,15 @@ def attempt_imp(x, op, alternative_value):
         return alternative_value
 
 
-def attempt_tp(x_tp, op_tp, alternative_value_tp):
+@add_tp
+def attempt(x_tp, op_tp, alternative_value_tp):
     return VT.Any
 
 
 # ------------------------------------------ bypass ---------------------------------------------
 
-def bypass_imp(x, bypass_type, fct):
+@zefop
+def bypass(x, bypass_type, fct):
     """ 
     specify one or a tuple of types that will be bypassed. Otherwise the specified 
     function will be called and the result returned.
@@ -3152,7 +3329,8 @@ def bypass_imp(x, bypass_type, fct):
         )
 
 
-def bypass_tp(x, bypass_type, fct):
+@add_tp
+def bypass(x, bypass_type, fct):
     return VT.Any
 
 
@@ -3162,7 +3340,8 @@ def bypass_tp(x, bypass_type, fct):
 
 # ----------------------------------------- pattern ----------------------------------------------
 
-def pattern_imp(x, p):
+@zefop
+def pattern(x, p):
     """ 
     generates a predicate function given a parameterized pattern for
     dicts or list.
@@ -3187,7 +3366,6 @@ def pattern_imp(x, p):
     - related zefop: distinct_by
     """
     print(f"pattern will be retired: use `Pattern` and if a predicate is required `is_a[Pattern[...]]` instead. 🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱 ")
-    from zef.ops import _any
     class Sentinel:
         pass
     sentinel = Sentinel()      # make sure this doesn't match any value provided by the user
@@ -3224,14 +3402,16 @@ def pattern_imp(x, p):
     raise TypeError(f"types of x and p don't match in pattern: {x} of type {type(x)} and {p} of type {type(p)}")
     
 
-def pattern_tp(x, p):
+@add_tp
+def pattern(x, p):
     return VT.Bool
 
 
 
 # ---------------------------------------- distinct -----------------------------------------------
 
-def distinct_imp(v):
+@zefop
+def distinct(v):
     """
     Remove multiple occurrences of the same element (determined 
     via == comparison evaluating to True). Do this lazily, such 
@@ -3268,13 +3448,15 @@ def distinct_imp(v):
     return wrapper()
 
 
-def distinct_tp(x):
+@add_tp
+def distinct(x):
     return x
 
 
 # ---------------------------------------- distinct_by -----------------------------------------------
 
-def distinct_by_imp(v, fct):
+@zefop
+def distinct_by(v, fct):
     """
     Remove multiple occurrences of the same element determining equality
     after passing through the function passed in.    
@@ -3313,13 +3495,15 @@ def distinct_by_imp(v, fct):
     return wrapper()
 
 
-def distinct_by_tp(x):
+@add_tp
+def distinct_by(x):
     return x
 
 
 # ---------------------------------------- distinct -----------------------------------------------
 
-def is_distinct_imp(v):
+@zefop
+def is_distinct(v):
     """
     Used on an iterable / stream of values and
     returns a boolean indicating whether all
@@ -3349,13 +3533,15 @@ def is_distinct_imp(v):
 
 
 
-def is_distinct_tp(x):
+@add_tp
+def is_distinct(x):
     return VT.Bool
 
 
 # ---------------------------------------- distinct -----------------------------------------------
 
-def is_distinct_by_imp(v, fn):
+@zefop
+def is_distinct_by(v, fn):
     """
     Very similar to `is_distinct` zefop, but takes a user
     provided function `fn` to compare the equality testing with.
@@ -3383,7 +3569,8 @@ def is_distinct_by_imp(v, fn):
 
 
 
-def is_distinct_by_tp(x):
+@add_tp
+def is_distinct_by(x):
     return VT.Bool
 
 
@@ -3391,7 +3578,8 @@ def is_distinct_by_tp(x):
 
 
 # ---------------------------------------- replace -----------------------------------------------
-def replace_imp(collection, old_val, new_val):
+@zefop
+def replace(collection, old_val, new_val):
     """
     Replace any specified old value with a new value in a List.
     
@@ -3438,14 +3626,16 @@ def replace_imp(collection, old_val, new_val):
     raise TypeError('not implemented')
 
 
-def replace_tp(*args):
+@add_tp
+def replace(*args):
     return VT.Any
     
 
 
 
 # ----------------------------------------- shuffle ----------------------------------------------
-def shuffle_imp(collection, seed: int = None):
+@zefop
+def shuffle(collection, seed: int = None):
     """ 
     Shuffles the elements in a list. If a seed is
     provided, this is a pure function.
@@ -3472,14 +3662,16 @@ def shuffle_imp(collection, seed: int = None):
     return cpy
 
 
-def shuffle_tp(*args):
+@add_tp
+def shuffle(*args):
     return VT.Any
 
 
 
 
 # ---------------------------------------- slice -----------------------------------------------
-def slice_imp(v, start_end: tuple):
+@zefop
+def slice(v, start_end: tuple):
     """ 
     factor out python-style slicing: ...[5:8].
     Negative indexes count from the back.
@@ -3524,7 +3716,8 @@ def slice_imp(v, start_end: tuple):
 
 
 
-def slice_tp(*args):
+@add_tp
+def slice(*args):
     return VT.Any
 
 
@@ -3532,7 +3725,8 @@ def slice_tp(*args):
 
 # ---------------------------------------- split -----------------------------------------------
 
-def split_imp(collection, val):
+@zefop
+def split(collection, val):
     """ 
     Split a List into a List[List] based on the occurrence of val.
     The value that is split on is not contained in any of the output lists.
@@ -3562,14 +3756,16 @@ def split_imp(collection, val):
     return wrapper()
     
 
-def split_tp(*args):
+@add_tp
+def split(*args):
     return VT.Any
 
 
 
 
 # ------------------------------------------ split_if ---------------------------------------------
-def split_if_imp(v, split_function):
+@zefop
+def split_if(v, split_function):
     """ 
     Similar to split, but the user provides a predicate function 
     that determines the positions to split on.
@@ -3614,7 +3810,8 @@ def split_if_imp(v, split_function):
 
 # --------------------------------------- now ------------------------------------------------
 
-def now_implementation(*args):
+@zefop
+def now(*args):
     """
     Caution: impure!
     
@@ -3687,7 +3884,8 @@ def now_implementation(*args):
     raise TypeError(f'now called with unsuitable types: args={args}')
 
             
-def now_type_info(*args_tp):
+@add_tp
+def now(*args_tp):
     return VT.Any
 
 
@@ -3695,7 +3893,8 @@ def now_type_info(*args_tp):
 
 # ---------------------------------------- time_slice -----------------------------------------------
 
-def time_slice_implementation(gs: GraphSlice, *curried_args):
+@zefop
+def time_slice(gs: GraphSlice, *curried_args):
     """ 
     Returns the time slice as an special `TimeSlice` object for a given  GraphSlice.
     
@@ -3719,13 +3918,15 @@ def time_slice_implementation(gs: GraphSlice, *curried_args):
     raise TypeError(f"The 'time_slice' ZefOp can only be used on GraphSlices. Use 'frame | time_slice' or 'to_graph_slice | time_slice' ")  
 
 
-def time_slice_type_info(op, curr_type):
+@add_tp
+def time_slice(op, curr_type):
     return VT.TimeSlice
 
 
 # ---------------------------------------- graph_slice_index -----------------------------------------------
 
-def graph_slice_index_imp(gs: GraphSlice, *curried_args):
+@zefop
+def graph_slice_index(gs: GraphSlice, *curried_args):
     """ 
     Returns the index of a GraphSlice as an Int. 
     
@@ -3754,7 +3955,8 @@ def graph_slice_index_imp(gs: GraphSlice, *curried_args):
 
 
 # ---------------------------------------- next_tx -----------------------------------------------
-def next_tx_imp(z_tx):
+@zefop
+def next_tx(z_tx):
     """
     Given a ZefRef/EZefRef to a tx, move to the next tx.
     For a ZefRef with a reference frame, one cannot look 
@@ -3796,13 +3998,15 @@ def next_tx_imp(z_tx):
     raise TypeError(f'next_tx can only take ZefRef and EZefRef, got z_tx={z_tx} type(z_tx)={type(z_tx)}')
 
 
-def next_tx_tp(z_tp):
+@add_tp
+def next_tx(z_tp):
     return None
 
 
 
 # ---------------------------------------- previous_tx -----------------------------------------------
-def previous_tx_imp(z_tx):
+@zefop
+def previous_tx(z_tx):
     """
     Given a ZefRef/EZefRef to a tx, move to the previous tx.
     If one tries to go back from the very first tx, nil is 
@@ -3840,13 +4044,15 @@ def previous_tx_imp(z_tx):
     raise TypeError(f'previous_tx can only take ZefRef and EZefRef, got z_tx={z_tx} type(z_tx)={type(z_tx)}')
 
 
-def previous_tx_tp(z_tp):
+@add_tp
+def previous_tx(z_tp):
     return None
 
 
 # ----------------------------------------- preceding_events --------------------------------------------
 
-def preceding_events_imp(x, filter_on=None):
+@zefop
+def preceding_events(x, filter_on=None):
     """ 
     Given a TX as a (E)ZefRef, return all events that occurred in that TX.
     Given a ZefRef to a RAE, return all the events that happend on the RAE.
@@ -3905,7 +4111,7 @@ def preceding_events_imp(x, filter_on=None):
         termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[pyzefops.to_frame(zr, tx, True)]] | collect
         full_list = inst + val_assigns + termination 
 
-    if filter_on: return full_list | filter[lambda z: is_a_implementation(z, filter_on)] | collect
+    if filter_on: return full_list | filter[lambda z: is_a(z, filter_on)] | collect
     return full_list
 
 
@@ -3913,7 +4119,8 @@ def preceding_events_imp(x, filter_on=None):
 
 # ----------------------------------------- events --------------------------------------------
 
-def events_imp(z_tx_or_rae, filter_on=None):
+@zefop
+def events(z_tx_or_rae, filter_on=None):
     """ 
     Given a TX as a (E)ZefRef, return all events that occurred in that TX.
     Given a ZefRef to a RAE, return all the events that happend on the RAE.
@@ -3991,16 +4198,18 @@ def events_imp(z_tx_or_rae, filter_on=None):
         termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[pyzefops.to_frame(zr, tx, True)]] | collect
         full_list = inst + val_assigns + termination 
 
-    if filter_on: return full_list | filter[lambda z: is_a_implementation(z, filter_on)] | collect
+    if filter_on: return full_list | filter[lambda z: is_a(z, filter_on)] | collect
     return full_list
 
 
-def events_tp(x):
+@add_tp
+def events(x):
     return VT.List[VT.ZefOp]
 
 
 # ----------------------------------------- frame --------------------------------------------
-def frame_imp(x):
+@zefop
+def frame(x):
     """ 
     Extract the reference frame (subject) of a ZefRef.
     Return as a GraphSlice.
@@ -4017,12 +4226,14 @@ def frame_imp(x):
     return GraphSlice(pyzefops.tx(x))
 
 
-def frame_tp(x):
+@add_tp
+def frame(x):
     return VT.GraphSlice
 
 
 # ----------------------------------------- to_frame --------------------------------------------
-def in_frame_imp(z, *args):
+@zefop
+def in_frame(z, *args):
     """ 
     Represent a RAE in a specified reference frame.
     No changes are made to the graph and an error is returned if the operation is not possible,
@@ -4109,12 +4320,14 @@ def in_frame_imp(z, *args):
 
 
 
-def in_frame_tp(op, curr_type):
+@add_tp
+def in_frame(op, curr_type):
     return VT.Any
 
 
 # ----------------------------------------- discard_frame --------------------------------------------
-def discard_frame_imp(x):
+@zefop
+def discard_frame(x):
     """
     Given any kind of reference referring to a RAE,
     it returns the frame-independent representation.
@@ -4149,7 +4362,8 @@ def discard_frame_imp(x):
 
 
 # ----------------------------------------- to_graph_slice --------------------------------------------
-def to_graph_slice_imp(*args):
+@zefop
+def to_graph_slice(*args):
     """
     Return the object (tx pointed to by a ZefRef[TX]) as a GraphSlice.
     Works for ZefRef[TX] and EZefRef[TX] as well as (Graph, Time) pairs in both orders.
@@ -4164,13 +4378,15 @@ def to_graph_slice_imp(*args):
     return GraphSlice(*args)
 
 
-def to_graph_slice_tp(x):
+@add_tp
+def to_graph_slice(x):
     return VT.GraphSlice
 
 
 
 # ----------------------------------------- to_tx --------------------------------------------
-def to_tx_imp(x, t=None):
+@zefop
+def to_tx(x, t=None):
     """ 
     Given a GraphSlice (reference frame), return a ZefRef[TX] to the 
     transaction that led to this state.
@@ -4199,7 +4415,8 @@ def to_tx_imp(x, t=None):
     raise TypeError(f'"x | to_tx" can only be called for x being a GraphSlice or a Graph. x={x}')
 
 
-def to_tx_tp(x):
+@add_tp
+def to_tx(x):
     return VT.ZefRef        # TODO: can we specify VT.ZefRef[TX]?
 
 
@@ -4210,7 +4427,8 @@ def to_tx_tp(x):
 
 # ------------------------------------------ time_travel ---------------------------------------------
 
-def time_travel_imp(x, *args):
+@zefop
+def time_travel(x, *args):
     """
     Move the reference frame in time only.
     The temporal movement can absolute: p is a Time
@@ -4323,7 +4541,8 @@ def time_travel_imp(x, *args):
 
 
 
-def time_travel_tp(x, p):
+@add_tp
+def time_travel(x, p):
     return VT.Any
 
 
@@ -4331,7 +4550,8 @@ def time_travel_tp(x, p):
 
 
 
-def origin_uid_imp(z) -> EternalUID:
+@zefop
+def origin_uid(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
     if type(z) in [Entity, AtomicEntity, Relation, TXNode, Root]:
         return uid(z)
@@ -4356,12 +4576,14 @@ def origin_uid_imp(z) -> EternalUID:
         return z_or | target | to_ezefref | uid | collect
     
 
-def origin_uid_tp(x):
+@add_tp
+def origin_uid(x):
     return VT.String
     
 # ------------------------------------------ origin_rae ---------------------------------------------
 
-def origin_rae_imp(x):
+@zefop
+def origin_rae(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
     if type(x) in [Entity, AtomicEntity, Relation, TXNode, Root]:
         return x
@@ -4379,12 +4601,13 @@ def origin_rae_imp(x):
         elif BT(x) == BT.ROOT_NODE:
             return Root(x)
         raise Exception("Not a ZefRef that is a concrete RAE")
-    if is_a_implementation(x, Delegate):
+    if is_a(x, Delegate):
         return x
     raise Exception(f"Not a valid type for origin_rae: {type(x)}")
     
 
-def origin_rae_tp(x):
+@add_tp
+def origin_rae(x):
     return VT.Any
     
 
@@ -4401,7 +4624,8 @@ def origin_rae_tp(x):
 
 
 
-def fill_or_attach_implementation(z, rt, val):
+@zefop
+def fill_or_attach(z, rt, val):
     # from ...deprecated import zefops
     # return curry_args_in_zefop(zefops.fill_or_attach, args[0], args[1:])
     if has_out(z, rt):
@@ -4409,10 +4633,12 @@ def fill_or_attach_implementation(z, rt, val):
     else:
         return (z, rt, val)
 
-def fill_or_attach_type_info(op, curr_type):
+@add_tp
+def fill_or_attach(op, curr_type):
     return curr_type
 
-def assert_implementation(z, predicate=None, message=None):
+@zefop
+def Assert(z, predicate=None, message=None):
     if predicate is None:
         success = z
     else:
@@ -4434,10 +4660,12 @@ def assert_implementation(z, predicate=None, message=None):
 
     return z
 
-def assert_type_info(op, curr_type):
+@add_tp
+def Assert(op, curr_type):
     return curr_type
     
-def run_effect_implementation(eff):
+@zefop
+def run(eff):
     from ..fx import _effect_handlers
     from ..fx.fx_types import _Effect_Class
     
@@ -4455,16 +4683,19 @@ def run_effect_implementation(eff):
 
 
 
-def hasout_implementation(zr, rt):
+@zefop
+def has_out(zr, rt):
     return curry_args_in_zefop(pyzefops.has_out, zr, (rt,))
 
-def hasin_implementation(zr, rt):
+@zefop
+def has_in(zr, rt):
     return curry_args_in_zefop(pyzefops.has_in, zr, (rt,))
 
 
 
 # -------------------------------- apply_functions -------------------------------------------------
-def apply_functions_imp(x, fns):
+@zefop
+def apply_functions(x, fns):
     """ 
     Apply different functions to different elements in a list.
     The use case is similar to using Zef's map[f1,f2,f3] with multiple
@@ -4498,7 +4729,8 @@ def apply_functions_imp(x, fns):
 
 
 # -------------------------------- map -------------------------------------------------
-def map_implementation(v, f):
+@zefop
+def map(v, f):
     """
     Apply a pure function elementwise to each item of a collection.
     It can be used both for iterables and streams (observables).
@@ -4544,7 +4776,8 @@ def map_implementation(v, f):
 
    
 
-def reduce_implementation(iterable, fct, init):
+@zefop
+def reduce(iterable, fct, init):
     import functools
     return functools.reduce(fct, iterable, init)
 
@@ -4552,7 +4785,8 @@ def reduce_implementation(iterable, fct, init):
 # def group_by_implementation(first_arg, *curried_args):
 #     return (ops.group_by)(first_arg, *curried_args)
 
-def group_by_implementation(iterable, key_fct, categories=None):
+@zefop
+def group_by(iterable, key_fct, categories=None):
     """
     categories is optional and specifies additional keys/categories 
     to create, even if there are no occurrences. Passed as a list 
@@ -4578,10 +4812,12 @@ def group_by_implementation(iterable, key_fct, categories=None):
 
 
 
-def identity_implementation(x):
+@zefop
+def identity(x):
     return x
 
-def length_implementation(iterable):
+@zefop
+def length(iterable):
     if hasattr(iterable, "__len__"):
         return len(iterable)
     else:
@@ -4590,7 +4826,8 @@ def length_implementation(iterable):
 
 
 
-def nth_implementation(iterable, n):
+@zefop
+def nth(iterable, n):
     """
     Returns the nth element of an iterable or a stream.
     Using negative 'n' takes from the back with 'nth[-1]' being the last element.
@@ -4627,7 +4864,8 @@ def nth_implementation(iterable, n):
 
 
 #---------------------------------------- select_by_field -----------------------------------------------
-def select_keys_imp(d: dict, *keys: list):
+@zefop
+def select_keys(d: dict, *keys: list):
     """
     Given a dictionary, return a new dictionary containing 
     the same key value pairs, but for a specified subset of
@@ -4655,7 +4893,8 @@ def select_keys_imp(d: dict, *keys: list):
 
 
 #---------------------------------------- select_by_field -----------------------------------------------
-def modulo_imp(m: int, n: int):
+@zefop
+def modulo(m: int, n: int):
     """
     The modulo function.
 
@@ -4675,7 +4914,8 @@ def modulo_imp(m: int, n: int):
 
 
 #---------------------------------------- select_by_field -----------------------------------------------
-def filter_implementation(itr, pred):
+@zefop
+def filter(itr, pred):
     """
     Filters an iterable or stream lazily.
 
@@ -4711,7 +4951,8 @@ def filter_implementation(itr, pred):
 
 
 #---------------------------------------- select_by_field -----------------------------------------------
-def select_by_field_imp(zrs : Iterable[ZefRef], rt: RelationType, val):
+@zefop
+def select_by_field(zrs : Iterable[ZefRef], rt: RelationType, val):
     """An optimized equivalent of calling:
     zrs | filter[Z >> O[rt] | value_or[None] | equals[val]]
     although the case of val=None is not permitted.
@@ -4727,9 +4968,10 @@ def select_by_field_imp(zrs : Iterable[ZefRef], rt: RelationType, val):
     - related zefop: filter
     - related zefop: value    
     """
-    return pyzefops.select_by_field_impl(zrs, rt, val)
+    return pyzefops.select_by_field(zrs, rt, val)
 
-def select_by_field_tp(v_tp):
+@add_tp
+def select_by_field(v_tp):
     return VT.Any
 
 
@@ -4737,7 +4979,8 @@ def select_by_field_tp(v_tp):
 
 
 
-def sort_implementation(v, key_fct=None, reverse=False):
+@zefop
+def sort(v, key_fct=None, reverse=False):
     """
     An optional key function for sorting may be provided, e.g.
     list_of_strs | sort[len]
@@ -4756,7 +4999,8 @@ def sort_implementation(v, key_fct=None, reverse=False):
 
 
 
-def to_delegate_implementation(first_arg, *curried_args):
+@zefop
+def to_delegate(first_arg, *curried_args):
     if isinstance(first_arg, Delegate):
         if len(curried_args) == 0:
             return first_arg
@@ -4773,7 +5017,8 @@ def to_delegate_implementation(first_arg, *curried_args):
     raise Exception(f"Unknown type for to_delegate: {type(first_arg)}. Maybe you meant to write delegate_of?")
 
 
-def to_delegate_type_info(op, curr_type):
+@add_tp
+def to_delegate(op, curr_type):
     return None
 
 
@@ -4786,7 +5031,8 @@ def attempt_to_delegate(args):
     else:
         return Delegate(args)
 
-def delegate_of_implementation(x, arg1=None, arg2=None):
+@zefop
+def delegate_of(x, arg1=None, arg2=None):
     if isinstance(x, EZefRef) or isinstance(x, ZefRef):
         assert arg2 is None
         if arg1 is None:
@@ -4821,16 +5067,18 @@ def delegate_of_implementation(x, arg1=None, arg2=None):
             return to_delegate(d, g, create)
 
     # Fallback
-    return delegate_of_implementation(attempt_to_delegate(x), arg1, arg2)
+    return delegate_of(attempt_to_delegate(x), arg1, arg2)
 
-def delegate_of_type_info(op, curr_type):
+@add_tp
+def delegate_of(op, curr_type):
     return None
 
 
 
 
 #---------------------------------------- Out -----------------------------------------------
-def Out_imp(z, rt=VT.Any, target_filter= None):
+@zefop
+def Out(z, rt=VT.Any, target_filter= None):
     """
     Traverse along a unique outgoing relation to the
     thing attached to the target of that relation.
@@ -4860,7 +5108,7 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
     EZefRef -> EZefRef | Error
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "single")
+    if isinstance(z, FlatRef): return traverse_flatref(z, rt, "outout", "single")
     # if isinstance(rt, RelationType):
     #     try:
     #         return traverse_out_node(z, rt)
@@ -4885,7 +5133,7 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
     #     return Error(f'Invalid type "{rt}" specified in Out[...]')
     # res = target(out_rel_imp(z, rt))
     # if target_filter and not is_a_implementation(res, target_filter):
-    res = Outs_imp(z, rt, target_filter)
+    res = Outs(z, rt, target_filter)
     if len(res) != 1:
         raise Exception(f"Out didn't find a single target node that matched the [{rt}][{target_filter}] filter")
     return single(res)
@@ -4894,7 +5142,8 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
 
 
 #---------------------------------------- Outs -----------------------------------------------
-def Outs_imp(z, rt=None, target_filter = None):
+@zefop
+def Outs(z, rt=None, target_filter = None):
     """
     Traverse along all outgoing relation of the specified 
     type to the thing attached to the target of each relation.
@@ -4912,9 +5161,9 @@ def Outs_imp(z, rt=None, target_filter = None):
     EZefRef -> EZefRefs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
+    if isinstance(z, FlatRef): return traverse_flatref(z, rt, "outout", "multi")
 
-    res = out_rels_imp(z, rt) | map[target] | collect
+    res = out_rels(z, rt) | map[target] | collect
     if target_filter: 
         if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
         return res | filter[is_a[target_filter]] | collect
@@ -4922,7 +5171,8 @@ def Outs_imp(z, rt=None, target_filter = None):
 
 
 #---------------------------------------- In -----------------------------------------------
-def In_imp(z, rt=None, source_filter = None):
+@zefop
+def In(z, rt=None, source_filter = None):
     """
     Traverse along a unique Incoming relation to the
     thing attached to the source of that relation.
@@ -4942,16 +5192,17 @@ def In_imp(z, rt=None, source_filter = None):
     EZefRef -> EZefRef | Error
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
+    if isinstance(z, FlatRef): return traverse_flatref(z, rt, "inin", "single")
 
-    res = Ins_imp(z, rt, source_filter)
+    res = Ins(z, rt, source_filter)
     if len(res) != 1:
         raise Exception(f"In didn't find a single source node that matched the [{rt}][{source_filter}] filter")
     return single(res)
 
 
 #---------------------------------------- Ins -----------------------------------------------
-def Ins_imp(z, rt=None, source_filter = None):
+@zefop
+def Ins(z, rt=None, source_filter = None):
     """
     Traverse along all incoming relation of the specified 
     type to the thing attached to the source of each relation.
@@ -4969,9 +5220,9 @@ def Ins_imp(z, rt=None, source_filter = None):
     EZefRef -> EZefRefs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
+    if isinstance(z, FlatRef): return traverse_flatref(z, rt, "inin", "multi")
 
-    res = in_rels_imp(z, rt) | map[source] | collect
+    res = in_rels(z, rt) | map[source] | collect
     if source_filter: 
         if isinstance(source_filter, ZefOp): source_filter = Is[source_filter]
         return res | filter[is_a[source_filter]] | collect
@@ -4979,7 +5230,8 @@ def Ins_imp(z, rt=None, source_filter = None):
 
 
 #---------------------------------------- out_rel -----------------------------------------------
-def out_rel_imp(z, rt=None, target_filter = None):
+@zefop
+def out_rel(z, rt=None, target_filter = None):
     """
     Traverse onto a unique outgoing relation of the specified 
     type and return the relation (*NOT* the target).
@@ -4999,17 +5251,18 @@ def out_rel_imp(z, rt=None, target_filter = None):
     EZefRef -> EZefRef | Error
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "single")
+    if isinstance(z, FlatRef): return traverse_flatref(z, rt, "out", "single")
 
 
-    opts = out_rels_imp(z, rt, target_filter)
+    opts = out_rels(z, rt, target_filter)
     if len(opts) != 1:
         # TODO: hinting if problems occur goes here
         raise Exception("out_rel did not find a single edge. TODO hints here.")
     return single(opts)
 
 #---------------------------------------- out_rels -----------------------------------------------
-def out_rels_imp(z, rt=None, target_filter=None):
+@zefop
+def out_rels(z, rt=None, target_filter=None):
     """
     Traverse onto all outgoing relations of the specified 
     type and return the relations (it does NOT proceed 
@@ -5028,7 +5281,7 @@ def out_rels_imp(z, rt=None, target_filter=None):
     EZefRef -> EZefRefs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
+    if isinstance(z, FlatRef): return traverse_flatref(z, rt, "out", "multi")
 
     if rt == RT or rt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
@@ -5041,7 +5294,8 @@ def out_rels_imp(z, rt=None, target_filter=None):
 
 
 #---------------------------------------- in_rel -----------------------------------------------
-def in_rel_imp(z, rt=None, source_filter = None):
+@zefop
+def in_rel(z, rt=None, source_filter = None):
     """
     Traverse onto a unique incoming relation of the specified 
     type and return the relation (it does NOT proceed to the source).
@@ -5061,10 +5315,10 @@ def in_rel_imp(z, rt=None, source_filter = None):
     EZefRef -> EZefRef | Error
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "single")
+    if isinstance(z, FlatRef): return traverse_flatref(z, rt, "in", "single")
 
 
-    opts = in_rels_imp(z, rt, source_filter)
+    opts = in_rels(z, rt, source_filter)
     if len(opts) != 1:
         # TODO: hinting if problems occur goes here
         raise Exception("in_rel did not find a single edge. TODO hints here.")
@@ -5072,7 +5326,8 @@ def in_rel_imp(z, rt=None, source_filter = None):
 
 
 #---------------------------------------- in_rels -----------------------------------------------
-def in_rels_imp(z, rt=None, source_filter=None):
+@zefop
+def in_rels(z, rt=None, source_filter=None):
     """
     Traverse onto all incoming relations of the specified 
     type and return the relations (it does NOT proceed 
@@ -5091,7 +5346,7 @@ def in_rels_imp(z, rt=None, source_filter=None):
     EZefRef -> EZefRefs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "multi")
+    if isinstance(z, FlatRef): return traverse_flatref(z, rt, "in", "multi")
     if rt == RT or rt is None: res = pyzefops.ins(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt == BT: res = pyzefops.ins(z | to_ezefref | collect)
     else: res = pyzefops.traverse_in_edge_multi(z, rt)
@@ -5103,27 +5358,30 @@ def in_rels_imp(z, rt=None, source_filter=None):
 
 
 
-def source_implementation(zr, *curried_args):
+@zefop
+def source(zr, *curried_args):
     if isinstance(zr, FlatRef):
-        return fr_source_imp(zr)
+        return fr_source(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
     if is_a(zr, ET):
         raise Exception(f"Can't take the source of an entity (have {zr}), only relations have sources/targets")
     return (pyzefops.source)(zr, *curried_args)
 
-def target_implementation(zr):
+@zefop
+def target(zr):
     if isinstance(zr, FlatRef):
-        return fr_target_imp(zr)
+        return fr_target(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
     if is_a(zr, ET):
         raise Exception(f"Can't take the target of an entity (have {zr}), only relations have sources/targets")
     return pyzefops.target(zr)
 
-def value_implementation(zr, maybe_tx=None):
+@zefop
+def value(zr, maybe_tx=None):
     if isinstance(zr, FlatRef):
-        return fr_value_imp(zr)
+        return fr_value(zr)
     if maybe_tx is None:
         val = pyzefops.value(zr)
     elif isinstance(maybe_tx, GraphSlice):
@@ -5142,7 +5400,8 @@ def value_implementation(zr, maybe_tx=None):
     else:
         return val
 
-def time_implementation(x, *curried_args):
+@zefop
+def time(x, *curried_args):
     """
     Return the time of the object.
 
@@ -5157,16 +5416,19 @@ def time_implementation(x, *curried_args):
 
 
 
-def instantiation_tx_implementation(z):
+@zefop
+def instantiation_tx(z):
     return z | preceding_events[Instantiated] | single | absorbed | single | frame | to_tx | collect
 
-def termination_tx_implementation(z):
+@zefop
+def termination_tx(z):
     root_node = Graph(z)[42] 
     return z | preceding_events[Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
 
 
     
-def uid_implementation(arg):
+@zefop
+def uid(arg):
     if isinstance(arg, str):
         return to_uid(arg)
     if isinstance(arg, (Entity, AtomicEntity, TXNode, Root)):
@@ -5177,27 +5439,33 @@ def uid_implementation(arg):
         return arg
     return pyzefops.uid(arg)
 
-def base_uid_implementation(first_arg):
+@zefop
+def base_uid(first_arg):
     if isinstance(first_arg, EternalUID) or isinstance(first_arg, ZefRefUID):
         return (lambda x: x.blob_uid)(first_arg)
     if isinstance(first_arg, BaseUID):
         return first_arg
     return base_uid(uid(first_arg))
 
-def exists_at_implementation(first_arg, frame):
+@zefop
+def exists_at(first_arg, frame):
     assert isinstance(frame, GraphSlice)
     return (pyzefops.exists_at)(first_arg, frame.tx)
 
-def is_zefref_promotable_implementation(z):
+@zefop
+def is_zefref_promotable(z):
     return pyzefops.is_zefref_promotable(z)
 
-def to_ezefref_implementation(zr):
+@zefop
+def to_ezefref(zr):
     return pyzefops.to_ezefref(zr)
 
-def l_implementation(first_arg, curried_args):
+@zefop
+def l(first_arg, curried_args):
     return (pyzefops.L)(first_arg, *curried_args)
 
-def o_implementation(first_arg, curried_args):
+@zefop
+def o(first_arg, curried_args):
     """
     O[...]  is "optional", meaning it will return either 0,1 results.
     If the RT.Edge  exists it'll traverse that and return a ZefRef
@@ -5214,7 +5482,8 @@ def o_implementation(first_arg, curried_args):
 
 #---------------------------------------- value_type -----------------------------------------------
 # @register_zefop(RT.ZefType)
-def representation_type_imp(x):
+@zefop
+def representation_type(x):
     """
     Warning: this function is not complete and its behavior may change!!!!!!!!!!!
 
@@ -5278,7 +5547,8 @@ def representation_type_imp(x):
 
 
 
-def is_a_implementation(x, typ):
+@zefop
+def is_a(x, typ):
     """
 
     """
@@ -5577,16 +5847,20 @@ def _is_a_instance_delegate_generic(x, typ):
 
     return False
 
-def has_relation_implementation(z, *args):
+@zefop
+def has_relation(z, *args):
     return pyzefops.has_relation(z, *args)
 
-def relation_implementation(z, *args):
+@zefop
+def relation(z, *args):
     return pyzefops.relation(z, *args)
 
-def relations_implementation(z, *args):
+@zefop
+def relations(z, *args):
     return pyzefops.relations(z, *args)
 
-def rae_type_implementation(z):
+@zefop
+def rae_type(z):
     if isinstance(z, Entity):
         return z.d["type"]
     if isinstance(z, Relation):
@@ -5595,7 +5869,8 @@ def rae_type_implementation(z):
         return z.d["type"]
     return pymain.rae_type(z)
 
-def abstract_type_implementation(z):
+@zefop
+def abstract_type(z):
     # This is basically rae_type, but also including TXNode and Root
     if isinstance(z, TXNode):
         return BT.TX_EVENT_NODE
@@ -5611,14 +5886,15 @@ def abstract_type_implementation(z):
 
 #----------------------docstring------------------------- 
 
-def docstring_imp(a) -> str:
+@zefop
+def docstring(a) -> str:
     """
     Return the docstring for a given ZefOp or Zef Function.
         
     ---- Examples ----
     >>> docstring(nth)
     """
-    from zef.core.op_implementations.dispatch_dictionary import _op_to_functions
+    from .._ops import _dispatch
     import inspect
     if not isinstance(a, ZefOp):
         return Error('"docstring" can only be called on ZefOps')
@@ -5630,12 +5906,12 @@ def docstring_imp(a) -> str:
 
     if len(a.el_ops) == 1:
         if len(a.el_ops) == 1:
-            f = _op_to_functions[a.el_ops[0][0]][0]
+            f = _dispatch[a.el_ops[0][0]][0]
             doc = inspect.getdoc(f)
             doc = doc if doc else f"No docstring found for given {a}!"
             return doc
     else:
-        from zef.core.op_implementations.yo_ascii import make_op_chain_ascii_output
+        from .yo_ascii import make_op_chain_ascii_output
         return make_op_chain_ascii_output(a)
 
 
@@ -5645,14 +5921,15 @@ def docstring_imp(a) -> str:
 
 
 #---------------------- source_code------------------------- 
-def source_code_imp(a) -> str:
+@zefop
+def source_code(a) -> str:
     """
     Return the function body for a given ZefOp or Zef Function.
         
     ---- Examples ----
     >>> source_code(insert_at) | to_clipboard | run
     """
-    from zef.core.op_implementations.dispatch_dictionary import _op_to_functions
+    from .._ops import _dispatch
     import inspect
     if not isinstance(a, ZefOp):
         return Error('"source_code" can only be called on ZefOps')
@@ -5664,11 +5941,11 @@ def source_code_imp(a) -> str:
 
     if len(a.el_ops) == 1:
         if len(a.el_ops) == 1:
-            f = _op_to_functions[a.el_ops[0][0]][0]
+            f = _dispatch[a.el_ops[0][0]][0]
             body = inspect.getsource(f)
             return body if body else f"No function body found for given {a}!"
     else:
-        from zef.core.op_implementations.yo_ascii import make_op_chain_ascii_output
+        from .yo_ascii import make_op_chain_ascii_output
         return make_op_chain_ascii_output(a)
 
 
@@ -5677,7 +5954,8 @@ def source_code_imp(a) -> str:
 
 #----------------------Type Functions------------------------- 
 from inspect import isfunction, getfullargspec
-def map_type_info(op, curr_type):
+@add_tp
+def map(op, curr_type):
     func = op[1][0]
     from ..zef_functions import LocalFunction
     assert isfunction(func) or isinstance(func, ZefOp) or isinstance(func, LocalFunction) or (isinstance(func, ZefRef) and ET(func) == ET.ZEF_Function)
@@ -5688,7 +5966,8 @@ def map_type_info(op, curr_type):
     else:
         return VT.List[VT.Any]
 
-def reduce_type_info(op, curr_type):
+@add_tp
+def reduce(op, curr_type):
     func = op[1][0]
     assert isfunction(func) or isinstance(func, ZefOp) or (isinstance(func, ZefRef) and ET(func) == ET.ZEF_Function)
     if not isfunction(func) and (isinstance(func, ZefRef) and ET(func) == ET.ZEF_Function): 
@@ -5698,56 +5977,69 @@ def reduce_type_info(op, curr_type):
     else:
         return VT.List[VT.Any]
 
-def group_by_type_info(op, curr_type):
+@add_tp
+def group_by(op, curr_type):
     return VT.List[VT.Record[VT.Any]]
 
-def identity_type_info(op, curr_type):
+@add_tp
+def identity(op, curr_type):
     return curr_type
 
-def length_type_info(op, curr_type):
+@add_tp
+def length(op, curr_type):
     return VT.Int
 
 
 
-def nth_type_info(op, curr_type):
+@add_tp
+def nth(op, curr_type):
     try:
         curr_type = absorbed(curr_type)[0]
     except AttributeError as e:
         raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
     return curr_type
 
-def filter_type_info(op, curr_type):
+@add_tp
+def filter(op, curr_type):
     return curr_type
 
 
 
 
 
-def sort_type_info(op, curr_type):
+@add_tp
+def sort(op, curr_type):
     return curr_type
 
-def source_type_info(op, curr_type):
+@add_tp
+def source(op, curr_type):
     return curr_type
 
-def target_type_info(op, curr_type):
+@add_tp
+def target(op, curr_type):
     return curr_type
 
-def value_type_info(op, curr_type):
+@add_tp
+def value(op, curr_type):
     return VT.ValueType
 
-def time_type_info(op, curr_type):
+@add_tp
+def time(op, curr_type):
     return VT.Time
 
 
 
-def instantiation_tx_type_info(op, curr_type):
+@add_tp
+def instantiation_tx(op, curr_type):
     return VT.ZefRef
 
-def termination_tx_type_info(op, curr_type):
+@add_tp
+def termination_tx(op, curr_type):
     return VT.ZefRef
 
 
-def uid_type_info(op, curr_type):
+@add_tp
+def uid(op, curr_type):
     if curr_type == VT.Graph:
         return VT.BaseUID
     elif curr_type == VT.ZefRef:
@@ -5756,38 +6048,33 @@ def uid_type_info(op, curr_type):
         return VT.EternalUID
     return None
 
-def base_uid_type_info(op, curr_type):
+@add_tp
+def base_uid(op, curr_type):
     return VT.BaseUID
 
-def exists_at_type_info(op, curr_type):
+@add_tp
+def exists_at(op, curr_type):
     return VT.Bool
 
-def is_zefref_promotable_type_info(op, curr_type):
+@add_tp
+def is_zefref_promotable(op, curr_type):
     return VT.Bool
 
 
-def to_ezefref_type_info(op, curr_type):
+@add_tp
+def to_ezefref(op, curr_type):
     return VT.EZefRef
 
-def o_type_info(op, curr_type):
+@add_tp
+def o(op, curr_type):
     return curr_type
 
-def l_type_info(op, curr_type):
+@add_tp
+def l(op, curr_type):
     return curr_type
 
-def Out_type_info(op, curr_type):
-    return curr_type
-
-def In_type_info(op, curr_type):
-    return curr_type
-
-def OutOut_type_info(op, curr_type):
-    return curr_type
-
-def InIn_type_info(op, curr_type):
-    return curr_type
-
-def terminate_implementation(z, *args):
+@zefop
+def terminate(z, *args):
     # We need to keep terminate as something that works in the GraphDelta code.
     # So we simply wrap everything up as a LazyValue and return that.
     if len(args) == 1:
@@ -5796,71 +6083,91 @@ def terminate_implementation(z, *args):
         assert len(args) == 0
         return LazyValue(z) | terminate
 
-def terminate_type_info(op, curr_type):
+@add_tp
+def terminate(op, curr_type):
     return curr_type
 
-def assign_imp(z, val):
+@zefop
+def assign(z, val):
     # We need to keep the assign value as something that works in the GraphDelta
     # code. So we simply wrap everything up as a LazyValue and return that.
     return LazyValue(z) | assign[val]
 
-def assign_tp(op, curr_type):
+@add_tp
+def assign(op, curr_type):
     return VT.Any
 
-def ET_implementation(z, *args):
-    assert len(args) == 0 or args == (ET,)
-    return internals.ET(z)
+# @zefop
+# def ET(z, *args):
+#     assert len(args) == 0 or args == (ET,)
+#     return internals.ET(z)
 
-def ET_type_info(op, curr_type):
-    return VT.ET
+# @add_tp
+# def ET(op, curr_type):
+#     return VT.ET
 
-def RT_implementation(z, *args):
-    assert len(args) == 0 or args == (RT,)
-    return internals.RT(z)
+# @zefop
+# def RT(z, *args):
+#     assert len(args) == 0 or args == (RT,)
+#     return internals.RT(z)
 
-def RT_type_info(op, curr_type):
-    return VT.RT
+# @add_tp
+# def RT(op, curr_type):
+#     return VT.RT
 
-def BT_implementation(z, *args):
-    assert len(args) == 0 or args == (BT,)
-    return internals.BT(z)
+# @zefop
+# def BT(z, *args):
+#     assert len(args) == 0 or args == (BT,)
+#     return internals.BT(z)
 
-def BT_type_info(op, curr_type):
-    return VT.BT
+# @add_tp
+# def BT(op, curr_type):
+#     return VT.BT
 
-def AET_implementation(z, *args):
-    assert len(args) == 0 or args == (AET,)
-    return internals.AET(z)
+# @zefop
+# def AET(z, *args):
+#     assert len(args) == 0 or args == (AET,)
+#     return internals.AET(z)
 
-def AET_type_info(op, curr_type):
-    return VT.AET
+# @add_tp
+# def AET(op, curr_type):
+#     return VT.AET
 
-def is_a_type_info(op, curr_type):
+@add_tp
+def is_a(op, curr_type):
     return VT.Bool
 
-def has_relation_type_info(op, curr_type):
+@add_tp
+def has_relation(op, curr_type):
     return VT.Bool
 
-def relation_type_info(op, curr_type):
+@add_tp
+def relation(op, curr_type):
     return curr_type
 
-def relations_type_info(op, curr_type):
+@add_tp
+def relations(op, curr_type):
     return VT.Any
 
-def hasout_type_info(op, curr_type):
+@add_tp
+def has_out(op, curr_type):
     return VT.Bool
 
-def hasin_type_info(op, curr_type):
+@add_tp
+def has_in(op, curr_type):
     return VT.Bool
 
-def rae_type_type_info(op, curr_type):
+@add_tp
+def rae_type(op, curr_type):
     return VT.BT
 
-def abstract_type_type_info(op, curr_type):
+@add_tp
+def abstract_type(op, curr_type):
     return VT.BT
 
 
-def is_represented_as_implementation(arg, vt):
+@zefop
+def is_represented_as(arg, vt):
     if isinstance(arg, bool):
         return vt == VT.Bool
     
@@ -5873,10 +6180,12 @@ def is_represented_as_implementation(arg, vt):
     return Error(f"Is Represented As not implemented for {type(arg)}")
 
 
-def is_represented_as_type_info(op, curr_type):
+@add_tp
+def is_represented_as(op, curr_type):
     VT.Bool
 #---------------------------------------- tag -----------------------------------------------
-def tag_imp(x, tag_s: str, *args):
+@zefop
+def tag(x, tag_s: str, *args):
     """ 
     Create an effect to add a tag to either a Graph or a RAE.
 
@@ -5915,10 +6224,12 @@ def tag_imp(x, tag_s: str, *args):
     raise RuntimeError(f"Unknown type for tag: {type(x)}")
     
     
-def tag_tp(op, curr_type):
+@add_tp
+def tag(op, curr_type):
     return VT.Effect
 
-def untag_imp(x, tag: str):
+@zefop
+def untag(x, tag: str):
     """ 
     Create an effect to remove a tag from either a Graph or a RAE
 
@@ -5944,11 +6255,13 @@ def untag_imp(x, tag: str):
     raise RuntimeError(f"Unknown type for tag: {type(x)}")
     
     
-def untag_tp(op, curr_type):
+@add_tp
+def untag(op, curr_type):
     return VT.Effect
 
 #---------------------------------------- sync -----------------------------------------------
-def sync_imp(x: VT.Graph, sync_state: bool = True):
+@zefop
+def sync(x: VT.Graph, sync_state: bool = True):
     """ 
     Creates an effect to set the sync option on the graph. Defaults to enabling
     sync (sync_state=True) but can be set to False to disable sync.
@@ -5968,14 +6281,16 @@ def sync_imp(x: VT.Graph, sync_state: bool = True):
         'sync_state': sync_state,
     })
     
-def sync_tp(op, curr_type):
+@add_tp
+def sync(op, curr_type):
     return VT.Effect
 
 
 
 
 #---------------------------------------- merge -----------------------------------------------
-def merge_imp(a, second=None, *args):
+@zefop
+def merge(a, second=None, *args):
     """
     Merge a dictionaries: either one list of dicts or
     dicts as multiple args.
@@ -5999,7 +6314,7 @@ def merge_imp(a, second=None, *args):
     """
     from typing import Generator
     if isinstance(a, FlatGraph) and isinstance(second, FlatGraph):
-        return fg_merge_imp(a, second)
+        return fg_merge(a, second)
     elif second is None:
         assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, Generator)
         return {k: v for d in a for k, v in d.items()}
@@ -6014,7 +6329,8 @@ def merge_imp(a, second=None, *args):
         return dict(tmp_gen())
 
 
-def merge_tp(a, second=None, *args):
+@add_tp
+def merge(a, second=None, *args):
     return VT.Dict
 
 
@@ -6023,7 +6339,8 @@ def merge_tp(a, second=None, *args):
 
 #---------------------------------------- merge_with -----------------------------------------------
 
-def merge_with_imp(dict_or_list, merge_func, more_dict_or_list=None):
+@zefop
+def merge_with(dict_or_list, merge_func, more_dict_or_list=None):
     """ 
     Merge a list of maps, but give an operation to join the values 
     for matching keys.
@@ -6059,11 +6376,13 @@ def merge_with_imp(dict_or_list, merge_func, more_dict_or_list=None):
     return d_out
 
 
-def merge_with_tp(x):
+@add_tp
+def merge_with(x):
     return VT.Dict
 
 #---------------------------------------- to_clipboard -----------------------------------------------
-def to_clipboard_imp(x):
+@zefop
+def to_clipboard(x):
     """
     A shortcut function to create an effect that will copy
     an elementary type to the clipboard.
@@ -6101,12 +6420,14 @@ def to_clipboard_imp(x):
     })
 
 
-def to_clipboard_tp(x):
+@add_tp
+def to_clipboard(x):
     return VT.Effect
 
 
 #---------------------------------------- from_clipboard -----------------------------------------------
-def from_clipboard_imp():
+@zefop
+def from_clipboard():
     """
     A shortcut function to create an effect that will request
     the content of a clipboard to be copied
@@ -6116,15 +6437,15 @@ def from_clipboard_imp():
         'type': FX.Clipboard.CopyFrom,
     })
 
-_call_0_args_translation[RT.FromClipboard] = from_clipboard_imp
-
-def from_clipboard_tp(op, curr_type):
+@add_tp
+def from_clipboard(op, curr_type):
     return VT.Effect
 
 
 
 #---------------------------------------- text_art -----------------------------------------------
-def text_art_imp(s: str) -> str:
+@zefop
+def text_art(s: str) -> str:
     """ 
     convert a string to ascii art text
     Todo: add flag to select comment style
@@ -6140,11 +6461,13 @@ def text_art_imp(s: str) -> str:
     s2 = s.replace(' ', '   ')
     return add_comment(text2art(s2))
 
-def text_art_tp(x):
+@add_tp
+def text_art(x):
     return VT.String
 
 #---------------------------------------- to/from_json -----------------------------------------------
-def to_json_imp(v: VT.Any)-> VT.Dict:
+@zefop
+def to_json(v: VT.Any)-> VT.Dict:
     """ 
     Serializes python types,zef types,ops, and custom types to a JSON dictionary
 
@@ -6159,10 +6482,12 @@ def to_json_imp(v: VT.Any)-> VT.Dict:
     import json
     return json.dumps(serialize(v))
     
-def to_json_tp(op, curr_type):
+@add_tp
+def to_json(op, curr_type):
     return VT.Dict
 
-def from_json_imp(d: VT.Dict)-> VT.Any:
+@zefop
+def from_json(d: VT.Dict)-> VT.Any:
     """ 
     Deserializes a serialized object as a JSON dict back to the object.
 
@@ -6176,59 +6501,73 @@ def from_json_imp(d: VT.Dict)-> VT.Any:
     import json
     return deserialize(json.loads(d))
     
-def from_json_tp(op, curr_type):
+@add_tp
+def from_json(op, curr_type):
     return VT.Any
 
 
 #------------------------------------------yaml/toml---------------------------------------------
-def to_yaml_imp(v: VT.Any)-> VT.Dict:
+@zefop
+def to_yaml(v: VT.Any)-> VT.Dict:
     import yaml 
     return yaml.safe_dump(v)
     
-def to_yaml_tp(op, curr_type):
+@add_tp
+def to_yaml(op, curr_type):
     return VT.Dict
 
-def from_yaml_imp(d: VT.Dict)-> VT.Any:
+@zefop
+def from_yaml(d: VT.Dict)-> VT.Any:
     import yaml 
     return yaml.safe_load(d)
     
-def from_yaml_tp(op, curr_type):
+@add_tp
+def from_yaml(op, curr_type):
     return VT.Any
 
 
-def to_toml_imp(v: VT.Any)-> VT.Dict:
+@zefop
+def to_toml(v: VT.Any)-> VT.Dict:
     import toml
     return toml.dumps(v)
     
-def to_toml_tp(op, curr_type):
+@add_tp
+def to_toml(op, curr_type):
     return VT.Dict
 
-def from_toml_imp(d: VT.Dict)-> VT.Any:
+@zefop
+def from_toml(d: VT.Dict)-> VT.Any:
     import toml
     return toml.loads(d)
     
-def from_toml_tp(op, curr_type):
+@add_tp
+def from_toml(op, curr_type):
     return VT.Any
 
 
 #---------------------------------------- to/from_csv -----------------------------------------------
-def to_csv_imp(df: VT.DataFrame, settings = {}) -> VT.String:
+@zefop
+def to_csv(df: VT.DataFrame, settings = {}) -> VT.String:
     return df.to_csv(**settings)
     
-def to_csv_tp(op, curr_type):
+@add_tp
+def to_csv(op, curr_type):
     return VT.String
 
-def from_csv_imp(csv_str: VT.String, settings = {}) -> VT.DataFrame:
+@zefop
+def from_csv(csv_str: VT.String, settings = {}) -> VT.DataFrame:
     import pandas as pd
     import io
     return pd.read_csv(io.StringIO(csv_str, **settings))
     
-def from_csv_tp(op, curr_type):
+@add_tp
+def from_csv(op, curr_type):
     return VT.DataFrame
 
 
 #---------------------------------------- read/write file -----------------------------------------------
-def read_file_imp(fname):
+@zefop
+def read_file(fname):
     """Reads the file at the given `fname` returning its content as bytes.
     
     This operator produces an effect and must be passed to `run`. The output of
@@ -6246,10 +6585,12 @@ def read_file_imp(fname):
         'filename' : fname
     })
 
-def read_file_tp(op, curr_type):
+@add_tp
+def read_file(op, curr_type):
     return VT.Effect
 
-def load_file_imp(fname, format = None):
+@zefop
+def load_file(fname, format = None):
     """Reads the file at the given `fname` and parse its content based on the
     file extension.
     
@@ -6269,10 +6610,12 @@ def load_file_imp(fname, format = None):
         'format'   : format
     })
 
-def load_file_tp(op, curr_type):
+@add_tp
+def load_file(op, curr_type):
     return VT.Effect
 
-def save_file_imp(content, fname, settings = {}):
+@zefop
+def save_file(content, fname, settings = {}):
     """The counterpart to `load_file`. Takes the given `content` and writes it to the file at the filename `fname`. The content is converted based on the extension of the file.
     
     The options for content as described further in the `FX.LocalFile.Save` effect.
@@ -6302,11 +6645,13 @@ def save_file_imp(content, fname, settings = {}):
         'settings': settings,
     })
 
-def save_file_tp(op, curr_type):
+@add_tp
+def save_file(op, curr_type):
     return VT.Effect
 
 
-def write_file_imp(content, fname):
+@zefop
+def write_file(content, fname):
     """The counterpart to `read_file`. Takes the given `content` and writes it to the file at the filename `fname`. The content is converted based on the extension of the file.
     
     The options for content as described further in the `FX.LocalFile.Write` effect.
@@ -6327,11 +6672,13 @@ def write_file_imp(content, fname):
         'content': content,
     })
 
-def write_file_tp(op, curr_type):
+@add_tp
+def write_file(op, curr_type):
     return VT.Effect
 
 #---------------------------------------- dataframe to graph delta -----------------------------------------------
-def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.List:
+@zefop
+def pandas_to_gd(df: VT.DataFrame, mapping: VT.Dict) -> VT.List:
     """ 
     Takes a pandas dataframe and a mapping Dict and returns a list of commands.
 
@@ -6357,14 +6704,16 @@ def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.List:
     )
     return actions
 
-def pandas_to_gd_tp(op, curr_type):
+@add_tp
+def pandas_to_gd(op, curr_type):
     return VT.List
 
 
 
 
 #---------------------------------------- to_pipeline -----------------------------------------------
-def to_pipeline_imp(ops: list):
+@zefop
+def to_pipeline(ops: list):
     """ 
     Given a list of operators, return one operator by constructing
     an operator pipeline in that order.
@@ -6387,13 +6736,15 @@ def to_pipeline_imp(ops: list):
     return identity if len(ops) == 0 else (ops[1:] | reduce[lambda v, el: v | el][ops[0]] | collect)
 
 
-def to_pipeline_tp():
+@add_tp
+def to_pipeline():
     return VT.ZefOp
 
 
 
 #---------------------------------------- inject -----------------------------------------------
-def inject_imp(x, injectee):
+@zefop
+def inject(x, injectee):
     """
     Small helper function to inject the inflowing data via [...]
 
@@ -6412,14 +6763,16 @@ def inject_imp(x, injectee):
     return injectee[x]
 
 
-def inject_tp():
+@add_tp
+def inject():
     return VT.ZefOp
 
 
 
 #---------------------------------------- inject_list -----------------------------------------------
 
-def inject_list_imp(v, injectee):
+@zefop
+def inject_list(v, injectee):
     """
     Small helper function to inject a list of inflowing data 
     as multiple [...][...]...
@@ -6439,14 +6792,16 @@ def inject_list_imp(v, injectee):
     return v | reduce[lambda a, el: a[el]][injectee] | collect
 
 
-def inject_list_tp():
+@add_tp
+def inject_list():
     return VT.ZefOp
 
 
 
 
 #---------------------------------------- Zascii -----------------------------------------------
-def zascii_to_asg_imp(zascii_str: VT.String) -> VT.Dict:
+@zefop
+def zascii_to_asg(zascii_str: VT.String) -> VT.Dict:
     """ 
     Takes a zascii string and returns an asg dict.
 
@@ -6457,10 +6812,12 @@ def zascii_to_asg_imp(zascii_str: VT.String) -> VT.Dict:
     asg, _  = parse_zascii_to_asg(zascii_str)
     return asg
 
-def zascii_to_asg_tp(op, curr_type):
+@add_tp
+def zascii_to_asg(op, curr_type):
     return VT.Dict
 
-def zascii_to_schema_imp(zascii_str: VT.String) -> VT.GraphDelta:
+@zefop
+def zascii_to_schema(zascii_str: VT.String) -> VT.GraphDelta:
     """ 
     Takes a zascii string with a schema and returns a GraphDelta.
 
@@ -6469,12 +6826,14 @@ def zascii_to_schema_imp(zascii_str: VT.String) -> VT.GraphDelta:
     """
     pass
 
-def zascii_to_schema_tp(op, curr_type):
+@add_tp
+def zascii_to_schema(op, curr_type):
     return VT.GraphDelta
 
 
 #--------------------------------------------------------------------------------------
-def replace_at_imp(str_or_list, index, new_el):
+@zefop
+def replace_at(str_or_list, index, new_el):
     """ 
     Given a list replace element at an index with new_el.
     Given a string return a new string with element at index replaced with new_el.
@@ -6510,7 +6869,8 @@ def replace_at_imp(str_or_list, index, new_el):
 
 
 
-def replace_at_tp(op, curr_type):
+@add_tp
+def replace_at(op, curr_type):
     return VT.String
 
 
@@ -6518,7 +6878,8 @@ def replace_at_tp(op, curr_type):
 
 
 #---------------------------------------- floor -----------------------------------------------
-def floor_imp(x):
+@zefop
+def floor(x):
     """
     The mathematical floor function.
     Rounds down to the next smallest integer.
@@ -6542,7 +6903,8 @@ def floor_imp(x):
     return math.floor(x)
 
 #---------------------------------------- ceil -----------------------------------------------
-def ceil_imp(x):
+@zefop
+def ceil(x):
     """
     The mathematical ceil function.
     Rounds down to the next biggest integer.
@@ -6567,7 +6929,8 @@ def ceil_imp(x):
 
 
 #---------------------------------------- round -----------------------------------------------
-def round_imp(x):
+@zefop
+def round(x):
     """
     The mathematical round function.
     Rounds down to the next integer.
@@ -6595,7 +6958,8 @@ def round_imp(x):
 
 
 #---------------------------------------- pad_left -----------------------------------------------
-def pad_left_imp(s, target_length: int, pad_element=' '):
+@zefop
+def pad_left(s, target_length: int, pad_element=' '):
     """
     Pads a string to a specified length by inserting
     the pad_element on the left.
@@ -6626,7 +6990,8 @@ def pad_left_imp(s, target_length: int, pad_element=' '):
 
 
 #---------------------------------------- pad_right -----------------------------------------------
-def pad_right_imp(s, target_length: int, pad_element=' '):
+@zefop
+def pad_right(s, target_length: int, pad_element=' '):
     """
     Pads a string to a specified length by inserting
     the pad_element on the right.
@@ -6656,7 +7021,8 @@ def pad_right_imp(s, target_length: int, pad_element=' '):
 
 
 #---------------------------------------- pad_center -----------------------------------------------
-def pad_center_imp(s, target_length: int, pad_element=' '):
+@zefop
+def pad_center(s, target_length: int, pad_element=' '):
     """
     Pads a string to a specified length by inserting
     the pad_element on both sides, equally.
@@ -6695,20 +7061,23 @@ def pad_center_imp(s, target_length: int, pad_element=' '):
 #---------------------------------------- random_pick -----------------------------------------------
 
 
-def random_pick_imp(itr: VT.Any) -> VT.Any:
+@zefop
+def random_pick(itr: VT.Any) -> VT.Any:
     """ 
     Given a list, tuple, string: returns a random item from that iterable.
     """
     import random
     return random.SystemRandom().choice(itr)
 
-def random_pick_tp(op, curr_type):
+@add_tp
+def random_pick(op, curr_type):
     return VT.Any
 
 
 
 #---------------------------------------- int_to_alpha -----------------------------------------------
-def int_to_alpha_imp(n: int) -> str:
+@zefop
+def int_to_alpha(n: int) -> str:
     """
     Map an integer n to the nth letter of the alphabet.
     Always lower case.
@@ -6727,7 +7096,8 @@ def int_to_alpha_imp(n: int) -> str:
 
 
 #---------------------------------------- permute_to -----------------------------------------------
-def permute_to_imp(v, indices: VT.List[VT.Int]):
+@zefop
+def permute_to(v, indices: VT.List[VT.Int]):
     """
     given a input list, as well as a list of indices, 
     return the list of elements arranged according to the 
@@ -6745,13 +7115,15 @@ def permute_to_imp(v, indices: VT.List[VT.Int]):
 
 
 #---------------------------------------- is_alpha -----------------------------------------------
-def is_alpha_imp(s: VT.String) -> VT.Bool:
+@zefop
+def is_alpha(s: VT.String) -> VT.Bool:
     """ 
     Given a string return if it is only composed of Alphabet characters
     """
     return s.isalpha()
 
-def is_alpha_tp(op, curr_type):
+@add_tp
+def is_alpha(op, curr_type):
     return VT.Bool
 
 
@@ -6759,7 +7131,8 @@ def is_alpha_tp(op, curr_type):
 
 #---------------------------------------- is_numeric --------------------------------------------------
 
-def is_numeric_imp(x):
+@zefop
+def is_numeric(x):
     """
     Given a string, determine if all characters are numeric, i.e. string
     representations of integers.
@@ -6786,7 +7159,8 @@ def is_numeric_imp(x):
 
 #---------------------------------------- is_alpha_numeric --------------------------------------------
 
-def is_alpha_numeric_imp(x):
+@zefop
+def is_alpha_numeric(x):
     """
     Given a string, determine if all characters are numeric or 
     alphabetical letters. Any special symbols or characters 
@@ -6814,7 +7188,8 @@ def is_alpha_numeric_imp(x):
 
 
 #---------------------------------------- to_upper_case -----------------------------------------------
-def to_upper_case_imp(s: VT.String) -> VT.Bool:
+@zefop
+def to_upper_case(s: VT.String) -> VT.Bool:
     """ 
     Given a string, capitalize each character.
 
@@ -6836,14 +7211,16 @@ def to_upper_case_imp(s: VT.String) -> VT.Bool:
     """
     return s.upper()
 
-def to_upper_case_tp(op, curr_type):
+@add_tp
+def to_upper_case(op, curr_type):
     return VT.Bool
 
 
 
 
 #---------------------------------------- to_lower_case -----------------------------------------------
-def to_lower_case_imp(s: VT.String) -> VT.Bool:
+@zefop
+def to_lower_case(s: VT.String) -> VT.Bool:
     """ 
     Given a string, convert each character to lower case.
 
@@ -6866,13 +7243,15 @@ def to_lower_case_imp(s: VT.String) -> VT.Bool:
     """
     return s.lower()
 
-def to_lower_case_tp(op, curr_type):
+@add_tp
+def to_lower_case(op, curr_type):
     return VT.Bool
 
 
 #---------------------------------------- to_pascal_case -----------------------------------------------
 
-def to_pascal_case_imp(s: VT.String) -> VT.String:
+@zefop
+def to_pascal_case(s: VT.String) -> VT.String:
     """Convert a string to PascalCase style. Uses the caseconverter module.
     
     This is intended for use in producing variable names. It is also useful for
@@ -6899,12 +7278,14 @@ def to_pascal_case_imp(s: VT.String) -> VT.String:
     import caseconverter
     return caseconverter.pascalcase(s)
 
-def to_pascal_case_tp(op, curr_type):
+@add_tp
+def to_pascal_case(op, curr_type):
     return VT.String
 
 
 #---------------------------------------- to_camel_case -----------------------------------------------
-def to_camel_case_imp(s: VT.String) -> VT.String:
+@zefop
+def to_camel_case(s: VT.String) -> VT.String:
     """Convert a string to camelCase style. Uses the caseconverter module.
     
     This is intended for use in producing variable names.
@@ -6930,12 +7311,14 @@ def to_camel_case_imp(s: VT.String) -> VT.String:
     import caseconverter
     return caseconverter.camelcase(s)
 
-def to_camel_case_tp(op, curr_type):
+@add_tp
+def to_camel_case(op, curr_type):
     return VT.String
 
 
 #---------------------------------------- to_kebab_case -----------------------------------------------
-def to_kebab_case_imp(s: VT.String) -> VT.String:
+@zefop
+def to_kebab_case(s: VT.String) -> VT.String:
     """Convert a string to kebab-case style. Uses the caseconverter module.
     
     This is intended for use in producing variable names.
@@ -6961,12 +7344,14 @@ def to_kebab_case_imp(s: VT.String) -> VT.String:
     import caseconverter
     return caseconverter.kebabcase(s)
 
-def to_kebab_case_tp(op, curr_type):
+@add_tp
+def to_kebab_case(op, curr_type):
     return VT.String
 
 
 #---------------------------------------- to_snake_case -----------------------------------------------
-def to_snake_case_imp(s: VT.String) -> VT.String:
+@zefop
+def to_snake_case(s: VT.String) -> VT.String:
     """Convert a string to snake_case style. Uses the caseconverter module.
     
     This is intended for use in producing variable names.
@@ -6992,12 +7377,14 @@ def to_snake_case_imp(s: VT.String) -> VT.String:
     import caseconverter
     return caseconverter.snakecase(s)
 
-def to_snake_case_tp(op, curr_type):
+@add_tp
+def to_snake_case(op, curr_type):
     return VT.String
 
 
 #---------------------------------------- to_screaming_snake_case -----------------------------------------------
-def to_screaming_snake_case_imp(s: VT.String) -> VT.String:
+@zefop
+def to_screaming_snake_case(s: VT.String) -> VT.String:
     """Convert a string to SCREAMING_SNAKE_CASE style. Uses the caseconverter module.
     
     This is intended for use in producing variable names.
@@ -7023,10 +7410,12 @@ def to_screaming_snake_case_imp(s: VT.String) -> VT.String:
     import caseconverter
     return caseconverter.macrocase(s)
 
-def to_screaming_snake_case_tp(op, curr_type):
+@add_tp
+def to_screaming_snake_case(op, curr_type):
     return VT.String
 
-def make_request_imp(url, method='GET', params={}, data={}):
+@zefop
+def make_request(url, method='GET', params={}, data={}):
     return Effect({
             "type":     FX.HTTP.Request,
             "url":      url,
@@ -7035,12 +7424,14 @@ def make_request_imp(url, method='GET', params={}, data={}):
             "data":     data,
     })
 
-def make_request_tp(op, curr_type):
+@add_tp
+def make_request(op, curr_type):
     return VT.Effect
 
 
 #---------------------------------------- blake3 -----------------------------------------------
-def blake3_imp(obj) -> VT.String:
+@zefop
+def blake3(obj) -> VT.String:
     """
     Cryptographic hash function.
     Can be applied to strings and Bytes.
@@ -7067,11 +7458,13 @@ def blake3_imp(obj) -> VT.String:
     else:
         raise ValueError(f"Expected Bytes or Str but got {obj} instead.")
 
-def blake3_tp(op, curr_type):
+@add_tp
+def blake3(op, curr_type):
     return VT.String
 
 
-def value_hash_imp(obj) -> VT.String:
+@zefop
+def value_hash(obj) -> VT.String:
     """
     Cryptographic hash function using blake3 
     for non-str/bytes values including Zef Values.
@@ -7088,20 +7481,22 @@ def value_hash_imp(obj) -> VT.String:
     - operates on: Values
     """
     if isinstance(obj, dict): # Handle dict specially to fix key,value pair order.
-        return blake3_imp("dict" + str(sort(obj.items())))
+        return blake3("dict" + str(sort(obj.items())))
     try:
         from ..op_structs import type_spec
         type_str = str(type_spec(obj))
     except:
         type_str = str(type(obj))
-    return blake3_imp(type_str + str(obj))
+    return blake3(type_str + str(obj))
 
-def value_hash_tp(op, curr_type):
+@add_tp
+def value_hash(op, curr_type):
     return VT.String
 
 
 #-------------------------------ZEF LIST------------------------------------------
-def to_zef_list_imp(elements: list):
+@zefop
+def to_zef_list(elements: list):
     all_zef = elements | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
     if not all_zef: return Error("to_zef_list only takes ZefRef or EZefRef.")
     is_any_terminated = elements | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
@@ -7122,12 +7517,14 @@ def to_zef_list_imp(elements: list):
         rels_to_els
     ] | concat | collect
 
-def to_zef_list_tp(op, curr_type):
+@add_tp
+def to_zef_list(op, curr_type):
     return VT.List
 
 
 #-----------------------------FlatGraph Implementations-----------------------------------
-def fg_insert_imp(fg, new_el):
+@zefop
+def fg_insert(fg, new_el):
     from ..graph_delta import map_scalar_to_aet_type
     assert isinstance(fg, FlatGraph)
     new_fg = FlatGraph()
@@ -7308,7 +7705,8 @@ def fg_insert_imp(fg, new_el):
     new_fg.blobs = (*new_blobs,)
     return new_fg
 
-def fg_get_imp(fg, key):
+@zefop
+def fg_get(fg, key):
     kdict = fg.key_dict
     if type(key) in {ZefRef, EZefRef} and origin_uid(key) in kdict: return FlatRef(fg, kdict[origin_uid(key)])
     elif type(key) in {Entity, AtomicEntity} and key.d['uid'] in kdict: return FlatRef(fg, kdict[key.d['uid']])
@@ -7318,7 +7716,8 @@ def fg_get_imp(fg, key):
     else: raise KeyError(f"{key} isn't found in this FlatGraph!")
 
 
-def fg_remove_imp(fg, key):
+@zefop
+def fg_remove(fg, key):
     error = KeyError(f"{key} isn't found in this FlatGraph!")
     kdict = fg.key_dict
     if type(key) in {ZefRef, EZefRef}:  
@@ -7435,25 +7834,29 @@ def flatgraph_to_commands(fg):
 
 
 # ------------------------------FlatRef----------------------------------
-def fr_source_imp(fr):
+@zefop
+def fr_source(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
     assert isinstance(blob[1], RelationType), f"| source is only allowed for FlatRef of type RelationType, but {type(blob[1])} was passed!"
     return FlatRef(fr.fg, blob[4])
 
-def fr_target_imp(fr):
+@zefop
+def fr_target(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
     assert isinstance(blob[1], RelationType), f"| target is only allowed for FlatRef of type RelationType, but {type(blob[1])} was passed!"
     return FlatRef(fr.fg, blob[5])
 
-def fr_value_imp(fr):
+@zefop
+def fr_value(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
     assert isinstance(blob[1], AtomicEntityType), "Can only ask for the value of an AET"
     return blob[-1]
 
-def traverse_flatref_imp(fr, rt, direction, traverse_type):
+@zefop
+def traverse_flatref(fr, rt, direction, traverse_type):
     translation_dict = {
         "outout": "Out",
         "out"  : "out_rel",
@@ -7473,24 +7876,28 @@ def traverse_flatref_imp(fr, rt, direction, traverse_type):
     if traverse_type == "single": return FlatRef(fr.fg, specific_blobs[0][idx])
     return FlatRefs(fr.fg, specific_blobs | map[lambda b: b[idx]] | collect)
 
-def fr_outs_imp(fr):
+@zefop
+def fr_outs(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
     outs = blob[2] | filter[greater_than[-1]] | collect
     return FlatRefs(fr.fg, outs)
 
-def fr_ins_imp(fr):
+@zefop
+def fr_ins(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
     ins = blob[2] | filter[less_than[0]] | collect
     return FlatRefs(fr.fg, ins)
 
-def fr_ins_and_outs_imp(fr):
+@zefop
+def fr_ins_and_outs(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
     return FlatRefs(fr.fg, blob[2])
 
-def fg_all_imp(fg, selector=None):
+@zefop
+def fg_all(fg, selector=None):
     assert isinstance(fg, FlatGraph)
     if selector:
         selected_blobs = fg.blobs | filter[lambda b: is_a(b[1], selector)] | collect
@@ -7500,7 +7907,8 @@ def fg_all_imp(fg, selector=None):
 
 
 # -------------------------------- transact -------------------------------------------------
-def transact_imp(data, g, **kwargs):
+@zefop
+def transact(data, g, **kwargs):
     from typing import Generator
     from ..graph_delta import construct_commands
     if isinstance(data, FlatGraph):
@@ -7518,11 +7926,13 @@ def transact_imp(data, g, **kwargs):
             "commands":commands
     })    
 
-def transact_tp(op, curr_type):
+@add_tp
+def transact(op, curr_type):
     return VT.Effect
 
 
-def fg_merge_imp(fg1, fg2):
+@zefop
+def fg_merge(fg1, fg2):
     def idx_generator(n):
         def next_idx():
             nonlocal n
@@ -7585,7 +7995,8 @@ def fg_merge_imp(fg1, fg2):
 
 
 #-----------------------------Range----------------------------------------
-def range_imp(*args):
+@zefop
+def range(*args):
     """
     Introduce a separate operator from Python's range.
     
@@ -7655,12 +8066,13 @@ def range_imp(*args):
     return generator_wrapper2() if hi==infinity else generator_wrapper1()
 
 
-def range_tp(op, curr_type):
+@add_tp
+def range(op, curr_type):
     return None
 
 
 # -----------------------------Old Traversals-----------------------------
-def traverse_implementation(first_arg, *curried_args, func_only, func_multi, func_optional, func_RT, func_BT, traverse_direction):
+def traverse(first_arg, *curried_args, func_only, func_multi, func_optional, func_RT, func_BT, traverse_direction):
     translation_dict = {
         "outout": "Out",
         "out"  : "out_rel",
@@ -7669,9 +8081,9 @@ def traverse_implementation(first_arg, *curried_args, func_only, func_multi, fun
     }
     print(f"Old traversal style will be retired: use `{translation_dict[traverse_direction]}` instead. 🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱 ")
     if isinstance(first_arg, FlatRef):
-        return traverse_flatref_imp(first_arg, curried_args, traverse_direction)
+        return traverse_flatref(first_arg, curried_args, traverse_direction)
     elif isinstance(first_arg, FlatRefs):
-        return [traverse_flatref_imp(FlatRef(first_arg.fg, idx), curried_args, traverse_direction) for idx in first_arg.idxs]
+        return [traverse_flatref(FlatRef(first_arg.fg, idx), curried_args, traverse_direction) for idx in first_arg.idxs]
     
 
     spec = type_spec(first_arg)         # TODO: why is this called "spec"? Not sure which specification it refers to.
@@ -7703,7 +8115,7 @@ def out_rts(obj):
 def in_rts(obj):
     return pyzefops.filter(obj | pyzefops.ins, BT.RELATION_EDGE)
 from functools import partial
-OutOld_implementation = partial(traverse_implementation,
+OutOld_implementation = partial(traverse,
                              func_only=pyzefops.traverse_out_edge,
                              func_multi=pyzefops.traverse_out_edge_multi,
                              func_optional=pyzefops.traverse_out_edge_optional,
@@ -7711,7 +8123,7 @@ OutOld_implementation = partial(traverse_implementation,
                              func_BT=lambda zz: pyzefops.outs(pyzefops.to_ezefref(zz)),
                              traverse_direction="out",
                              )
-InOld_implementation = partial(traverse_implementation,
+InOld_implementation = partial(traverse,
                             func_only=pyzefops.traverse_in_edge,
                             func_multi=pyzefops.traverse_in_edge_multi,
                             func_optional=pyzefops.traverse_in_edge_optional,
@@ -7719,7 +8131,7 @@ InOld_implementation = partial(traverse_implementation,
                             func_BT=lambda zz: pyzefops.ins(pyzefops.to_ezefref(zz)),
                             traverse_direction="in",
                             )
-OutOutOld_implementation = partial(traverse_implementation,
+OutOutOld_implementation = partial(traverse,
                                 func_only=pyzefops.traverse_out_node,
                                 func_multi=pyzefops.traverse_out_node_multi,
                                 func_optional=pyzefops.traverse_out_node_optional,
@@ -7727,7 +8139,7 @@ OutOutOld_implementation = partial(traverse_implementation,
                                 func_BT=lambda zz: pyzefops.target(pyzefops.outs(pyzefops.to_ezefref(zz))),
                                 traverse_direction="outout",
                                 )
-InInOld_implementation = partial(traverse_implementation,
+InInOld_implementation = partial(traverse,
                               func_only=pyzefops.traverse_in_node,
                               func_multi=pyzefops.traverse_in_node_multi,
                               func_optional=pyzefops.traverse_in_node_optional,
@@ -7747,7 +8159,8 @@ InInOld_implementation = partial(traverse_implementation,
 
 
 
-def zstandard_compress_imp(x: bytes, compression_level=0.1) -> Bytes:
+@zefop
+def zstandard_compress(x: bytes, compression_level=0.1) -> Bytes:
     """
     Compress a Bytes value using ZStandard.
     The compression level can be specified optionally.
@@ -7774,7 +8187,8 @@ def zstandard_compress_imp(x: bytes, compression_level=0.1) -> Bytes:
 
 
 # ----------------------------- zstandard_decompress -----------------------------
-def zstandard_decompress_imp(x: Bytes) -> Bytes:
+@zefop
+def zstandard_decompress(x: Bytes) -> Bytes:
     """
     Decompress a Bytes value using ZStandard.
     
@@ -7799,7 +8213,8 @@ def zstandard_decompress_imp(x: Bytes) -> Bytes:
 
 
 # ----------------------------- to_bytes -----------------------------
-def to_bytes_imp(x: String) -> Bytes:
+@zefop
+def to_bytes(x: String) -> Bytes:
     """
     Convert a string to a ValueType Bytes using utf8 encoding.
     Python bytes are wrapped and Bytes are forwarded.
@@ -7822,7 +8237,8 @@ def to_bytes_imp(x: String) -> Bytes:
 
 
 # ----------------------------- utf8bytes_to_string -----------------------------
-def utf8bytes_to_string_imp(b: Bytes) -> String | VT.Error:
+@zefop
+def utf8bytes_to_string(b: Bytes) -> String | VT.Error:
     """
     Convert a Byes value that is a utf8 encoded string,
     return the string. Not all bytes values are valid utf8.
@@ -7844,7 +8260,8 @@ def utf8bytes_to_string_imp(b: Bytes) -> String | VT.Error:
 
 
 # ----------------------------- base64string_to_bytes -----------------------------
-def base64string_to_bytes_imp(s: str) -> Bytes | VT.Error:
+@zefop
+def base64string_to_bytes(s: str) -> Bytes | VT.Error:
     """
     Convert data that is in a valid base64 encoding as a string to bytes.
     Not all strings are valid base64 encoded strings.
@@ -7869,7 +8286,8 @@ def base64string_to_bytes_imp(s: str) -> Bytes | VT.Error:
 
 
 # ----------------------------- bytes_to_base64string -----------------------------
-def bytes_to_base64string_imp(b: Bytes) -> String:
+@zefop
+def bytes_to_base64string(b: Bytes) -> String:
     """
     Convert any bytes object into a base64 encoded string.
     
@@ -7893,7 +8311,8 @@ def bytes_to_base64string_imp(b: Bytes) -> String:
 
 
 # ----------------------------- is_between_imp -----------------------------
-def is_between_imp(x, lo, hi) -> Bool:
+@zefop
+def is_between(x, lo, hi) -> Bool:
     """
     Checks whether a specified value lies within the 
     specified range for some orderable data type.
@@ -7918,7 +8337,8 @@ def is_between_imp(x, lo, hi) -> Bool:
     return x>=lo and x<=hi
 
 
-def map_cat_imp(x, f):
+@zefop
+def map_cat(x, f):
     """ 
     Returns the flatten results of f applied to each item of x. Equivalent to:
     `x | map[f] | concat`.
@@ -7931,12 +8351,14 @@ def map_cat_imp(x, f):
     (Iterable, Function) => List
     """
     # This can be made more efficient
-    return concat_implementation(map_implementation(x, f))
+    return concat(map(x, f))
 
-def map_cat_tp(x):
+@add_tp
+def map_cat(x):
     return VT.List
 
-def without_imp(x, y):
+@zefop
+def without(x, y):
     """ 
     Returns the piped iterable without any items that are contained in the
     argument. As a special case, dictionaries are returned without any keys
@@ -7972,10 +8394,12 @@ def without_imp(x, y):
     else:
         return x | filter[Not[contained_in[y]]] | collect
 
-def without_tp(x):
+@add_tp
+def without(x):
     return VT.Any
 
-def schema_imp(x, include_edges=False):
+@zefop
+def schema(x, include_edges=False):
     """ 
     WARNING: the name/interface of this zefop is not stable and is likely to change in the future.
 
@@ -8024,11 +8448,12 @@ def schema_imp(x, include_edges=False):
                      | collect)
         return all_items | without[[g | root | collect]] | collect
     elif isinstance(x, GraphSlice):
-        return schema_imp(Graph(x), include_edges) | filter[exists_at[x]] | map[in_frame[x][allow_tombstone]] | collect
+        return schema(Graph(x), include_edges) | filter[exists_at[x]] | map[in_frame[x][allow_tombstone]] | collect
 
     return Error(f"Don't know how to handle type of {type(x)} in schema zefop")
 
-def schema_tp(x):
+@add_tp
+def schema(x):
     return VT.List
 
 
@@ -8130,7 +8555,8 @@ def fields_imp(z, rt):
 
 
 # ----------------------------- apply -----------------------------
-def apply_imp(x, f):
+@zefop
+def apply(x, f):
     """
     Very similar to func to apply a function
     to an input argument.
@@ -8166,7 +8592,8 @@ def apply_imp(x, f):
 
 
 # ----------------------------- split_on_next -----------------------------
-def split_on_next_imp(s, el_to_split_on):
+@zefop
+def split_on_next(s, el_to_split_on):
     """
     Split a List or a string at one point only
 
@@ -8208,7 +8635,8 @@ def split_on_next_imp(s, el_to_split_on):
 
 
 # ----------------------------- ops acting on op doctstring -----------------------------
-def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
+@zefop
+def examples(op: VT.ZefOp) -> VT.List[VT.Record]:
     """
     Returns the examples portion of a docstring as a list of tuples mapping
     example string to a possible output string.
@@ -8289,7 +8717,8 @@ def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
     )
 
 
-def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
+@zefop
+def signature(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
     """
     Given the signature portion of a docstring is valid, returns back a List of
     valid tuples of input to ouput consisting of ValueTypes.
@@ -8344,7 +8773,8 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
     return signature
 
 
-def tags_imp(op: VT.ZefOp) -> VT.List[VT.String]:
+@zefop
+def tags(op: VT.ZefOp) -> VT.List[VT.String]:
     """
     Returns the tags portion of a docstring as a list of string.
 
@@ -8381,7 +8811,8 @@ def tags_imp(op: VT.ZefOp) -> VT.List[VT.String]:
     )
     return tags
 
-def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
+@zefop
+def related_ops(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
     """
     Extracts the related ops from the tags portion of the docstring of the op.
     It returns back a list of ZefOp.
@@ -8411,7 +8842,8 @@ def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
         | collect
     )
 
-def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
+@zefop
+def operates_on(op: VT.ZefOp) -> VT.List[VT.ValueType]:
     """
     Extracts the operates on Types from the tags portion of the docstring of the op.
     It returns back a list of ValueTypes.
@@ -8442,7 +8874,8 @@ def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
         | collect
     )
 
-def used_for_imp(op: VT.ZefOp) -> VT.List[VT.String]:
+@zefop
+def used_for(op: VT.ZefOp) -> VT.List[VT.String]:
     """
     Extracts the used for from the tags portion of the docstring of the op.
 
@@ -8472,7 +8905,8 @@ def used_for_imp(op: VT.ZefOp) -> VT.List[VT.String]:
 
 
 
-def indexes_of_imp(v, ElType):
+@zefop
+def indexes_of(v, ElType):
     """
     Given a list, returns the indexes of the elements which are of
     a specified logic type / set.
