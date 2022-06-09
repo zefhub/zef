@@ -130,5 +130,5 @@ jobs:
           VERSION_STRING: ${{ steps.vars.outputs.tag }}
           DOWNLOAD_STRING: "`pip install zef==${{ steps.vars.outputs.tag }}`"
         run: |
-          cat "Alpha/dev release of PyPI wheels for version ${VERSION_STRING}" > release.body
+          echo "Alpha/dev release of PyPI wheels for version ${VERSION_STRING}" > release.body
           go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
