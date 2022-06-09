@@ -131,6 +131,8 @@ please_instantiate = make_custom_entity(name_to_display='please_instantiate', pr
 please_terminate   = make_custom_entity(name_to_display='please_terminate', predetermined_uid='67cb88b71523f6d9')
 please_assign      = make_custom_entity(name_to_display='please_assign',    predetermined_uid='4d4a93522f75ed21')
 
+allow_tombstone    = make_custom_entity(name_to_display='allow_tombstone', predetermined_uid='6438364576748387')
+
 instantiated     = make_custom_entity(name_to_display='instantiated', predetermined_uid='60252a53a03086b7')
 terminated       = make_custom_entity(name_to_display='terminated', predetermined_uid='4f676154ffeb9dc8')
 assigned         = make_custom_entity(name_to_display='assigned', predetermined_uid='c31287dab677f38c')

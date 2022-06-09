@@ -3641,7 +3641,7 @@ def now_implementation(*args):
     gs | now                                # latest graph slice
     z_zr_my_entity | now                    # ZefRef -> ZefRef:     fast forward to very latest reference frame at time of execution
     z_ezr_my_entity | now                   # EZefRef -> ZefRef:    fast forward to very latest reference frame at time of execution
-    z_ezr_my_entity[allow_tombstone] | now  # EZefRef -> ZefRef:    flag allows representing RAEs that were terminated.
+    z_ezr_my_entity | now[allow_tombstone]  # EZefRef -> ZefRef:    flag allows representing RAEs that were terminated.
 
     ---- Signature ----
     () -> Time
@@ -4065,7 +4065,7 @@ def in_frame_imp(z, *args):
     is_same_g = g_frame == Graph(zz)    # will be reused
     if is_same_g or origin_uid(zz).graph_uid == uid(g_frame):
         z_obj = to_ezefref(z) if is_same_g else g_frame[origin_uid(zz)]
-        # exit early if we are looking in a frame prior to the objects instantiation: this is not even allowed when allow_tombstone=True
+        # exit early if we are looking in a frame prior to the objects instantiation: this is not even allowed when allow_tombstone==True
         if BT(z_obj) == BT.TX_EVENT_NODE:
             # TODO: This should not be necessary in the future, as
             # events[Instantiated] should cover this and the following ROOT_NODE
