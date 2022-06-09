@@ -65,6 +65,9 @@ This custom structure may rearrange and parse terms.
 needed?
 """
 from ..error import Error
+from .._core import *
+from ..internals import *
+
 
 # For certain value types, the user may want to call e.g. Float(4.5).
 # This looks up the associated function 
@@ -84,6 +87,8 @@ class ValueType_:
                 _value_type_constructor_funcs[type_name] = constructor_func
             if get_item_func is not None:
                 _value_type_get_item_funcs[type_name] = get_item_func
+
+            self.allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
         
     def __repr__(self):
         return self.d['type_name'] + (
@@ -119,20 +124,32 @@ class ValueType_:
 
     def __or__(self, other):
         from ..op_structs import ZefOp
-        from zef.core import EntityType, RelationType, AtomicEntityType
-        if isinstance(other, (ValueType_, EntityType, RelationType, AtomicEntityType)):
+        if isinstance(other, self.allowed_types):
             return simplify_value_type(ValueType_(type_name='Union', absorbed=(self, other,)))
         elif isinstance(other, ZefOp):
             return other.__ror__(self)
         else:
             raise Exception(f'"ValueType_`s "|" called with unsupported type {type(other)}')
+
+    def __ror__(self, other):
+        # Is | commutative? Going to assume it isn't
+        if isinstance(other, self.allowed_types):
+            return simplify_value_type(ValueType_(type_name='Union', absorbed=(other, self,)))
+        else:
+            raise Exception(f'"ValueType_`s right-side "|" called with unsupported type {type(other)}')
     
     def __and__(self, other):
-        from zef.core import EntityType, RelationType, AtomicEntityType
-        if isinstance(other, (ValueType_, EntityType, RelationType, AtomicEntityType)):
+        if isinstance(other, self.allowed_types):
             return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(self, other,)))
         else:
             raise Exception(f'"ValueType_`s "&" called with unsupported type {type(other)}')
+
+    def __rand__(self, other):
+        # Is & commutative? Going to assume it isn't
+        if isinstance(other, self.allowed_types):
+            return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(other, self,)))
+        else:
+            raise Exception(f'"ValueType_`s right-side "&" called with unsupported type {type(other)}')
 
     def __invert__(self):
         return ValueType_(type_name='Complement', absorbed=(self,))

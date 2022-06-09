@@ -32,29 +32,31 @@ internals.DelegateTX.__hash__ = lambda self: hash(internals.DelegateTX)
 internals.DelegateRoot.__hash__ = lambda self: hash(internals.DelegateRoot)
 
 
-def or_for_EntityType(self, other):
+from ..pyzef.main import EntityType, RelationType
+from ..pyzef.internals import AtomicEntityType, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
+override_types = (EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+
+def or_for_types(self, other):
     from . import ValueType_
-    from zef.core import EntityType, RelationType, AtomicEntityType
-    from zef.core.internals import EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
-    allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+    allowed_types = (ValueType_,) + override_types
     if isinstance(other, allowed_types):
         return ValueType_(type_name='Union', absorbed=(self, other,))
 
     return NotImplemented
     
-def and_for_EntityType(self, other):
+def and_for_types(self, other):
     from . import ValueType_
-    from zef.core import EntityType, RelationType, AtomicEntityType
-    from zef.core.internals import EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
-    allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+    allowed_types = (ValueType_,) + override_types
     if isinstance(other, allowed_types):
         return ValueType_(type_name='Intersection', absorbed=(self, other,))
 
     return NotImplemented
 
-EntityType.__or__ = or_for_EntityType
-EntityType.__ror__ = or_for_EntityType
-EntityType.__and__ = and_for_EntityType
+for x in override_types:
+    x.__or__ = or_for_types
+    x.__ror__ = lambda x,y: or_for_types(y,x)
+    x.__and__ = and_for_types
+    x.__rand__ = lambda x,y: and_for_types(y,x)
 
 
 # FIXME: why do we need the standard list of timezones in the docstring for Time? Should just refer people to the TZ database. I have removed it for now.
