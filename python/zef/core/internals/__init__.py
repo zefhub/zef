@@ -104,7 +104,7 @@ from ...pyzef.internals import (
     wait_for_auth,
 )
 
-from ...pyzef.main import ZefRef
+from ...pyzef.main import ZefRef, zwitch
 
 # ----------------------------- monkey patch to allow dispatching on enums ---------------------------------------
 # For some reason we need to pass it through a lambda fct to get the bindings to work.
@@ -131,7 +131,7 @@ def safe_current_task():
 global_transaction_task = {}
 from contextlib import contextmanager
 @contextmanager
-def Transaction(g, wait=None):
+def Transaction(g, wait=None, rollback_empty=None):
     global global_transaction_task
     from ...pyzef.zefops import uid
 
@@ -150,10 +150,12 @@ def Transaction(g, wait=None):
             del global_transaction_task[uid(g)]
         else:
             global_transaction_task[uid(g)] = prev_val
+
         if wait is None:
-            FinishTransaction(g)
-        else:
-            FinishTransaction(g, wait)
+            wait = zwitch.default_wait_for_tx_finish()
+        if rollback_empty is None:
+            rollback_empty = zwitch.default_rollback_empty_tx()
+        FinishTransaction(g, wait, rollback_empty)
 
 
 

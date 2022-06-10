@@ -18,7 +18,7 @@ from zef.ops import *
 import zef
 
 class MyTestCase(unittest.TestCase):
-    def test_zefrefs_from_slices(self):
+    def test_partial_graphs_same(self):
         g = Graph()
 
         g_clones = []
@@ -41,6 +41,63 @@ class MyTestCase(unittest.TestCase):
             for j in range(i+1,len(g_clones)):
                 g_partial = zef.pyzef.internals.create_partial_graph(g_clones[j], g_clone_before_tx.graph_data.write_head)
                 self.assertEqual(g_clone_before_tx.hash(), g_partial.hash())
+
+    def test_abort_transaction(self):
+        g = Graph()
+
+        z = ET.Machine | g | run
+
+        before_hash = g.hash()
+
+        with Transaction(g):
+            z2 = ET.Machine | g | run
+            zef.pyzef.internals.AbortTransaction(g)
+        self.assertEqual(before_hash, g.hash())
+
+        with Transaction(g):
+            (z, RT.Something, 5) | g | run
+            zef.pyzef.internals.AbortTransaction(g)
+        self.assertEqual(before_hash, g.hash())
+
+        with Transaction(g):
+            z | terminate | g | run
+            zef.pyzef.internals.AbortTransaction(g)
+        self.assertEqual(before_hash, g.hash())
+
+        dz = delegate_of(z)
+        (dz, RT.Meta, 1) | g | run
+        before_hash = g.hash()
+
+        with Transaction(g):
+            (dz, RT.Something, 5) | g | run
+            zef.pyzef.internals.AbortTransaction(g)
+        self.assertEqual(before_hash, g.hash())
+
+        z,_,ae = (z, RT.Something, 1) | g | run
+        before_hash = g.hash()
+
+        with Transaction(g):
+            ae | assign[2] | g | run
+            zef.pyzef.internals.AbortTransaction(g)
+        self.assertEqual(before_hash, g.hash())
+
+    def test_empty_transaction(self):
+        g = Graph()
+
+        num_txs = len(g | all[TX] | collect)
+        before_read_head = g.graph_data.read_head
+
+        with Transaction(g, True, True):
+            pass
+
+        self.assertEqual(num_txs, len(g | all[TX] | collect))
+        self.assertEqual(before_read_head, g.graph_data.read_head)
+
+        with Transaction(g, True, False):
+            pass
+
+        self.assertEqual(True, num_txs < len(g | all[TX] | collect))
+        self.assertEqual(True, before_read_head < g.graph_data.read_head)
 
         
 

@@ -310,13 +310,6 @@ namespace zefDB {
         
         // After here, we should always destruct
         try {
-            // create a first transaction on a new graph. This layout allows us to assume that there always is a tx,
-            // which helps in various high level functions.
-            //
-            // Note: this is done here instead of in the GraphData constructor
-            // as creating a transaction will trigger the sync thread.
-            { auto my_tx = Transaction(*this); }
-
             if(sync)
                 this->sync();
         } catch(...) {
@@ -639,66 +632,70 @@ namespace zefDB {
         // However, the contract is that other threads should only read and use
         // blobs/edges up to read_head anyway so this would be redundant.
 
-        // TODO: Change this to be the inverse of apply_double_linking
-        std::unordered_set<blob_index> updated_last_blobs;
+        if(false) {
+            // TODO: Change this to be the inverse of apply_double_linking
+            std::unordered_set<blob_index> updated_last_blobs;
 
-        cur_index = constants::ROOT_NODE_blob_index;
-        while(cur_index < index_hi) {
-            EZefRef ezr{cur_index, gd};
-            int this_size = size_of_blob(ezr);
-            int new_last_blob = -1;
-            bool is_start_of_edges = false;
-            if(internals::has_edge_list(ezr)) {
-                visit_blob_with_edges([&](auto & x) {
-                    int this_last_blob_offset = -1;
-                    for(int i = 0; i < x.edges.local_capacity ; i++) {
-                        if(abs(x.edges.indices[i]) >= index_hi) {
-                            x.edges.indices[i] = 0;
+            cur_index = constants::ROOT_NODE_blob_index;
+            while(cur_index < index_hi) {
+                EZefRef ezr{cur_index, gd};
+                int this_size = size_of_blob(ezr);
+                int new_last_blob = -1;
+                bool is_start_of_edges = false;
+                if(internals::has_edge_list(ezr)) {
+                    visit_blob_with_edges([&](auto & x) {
+                        int this_last_blob_offset = -1;
+                        for(int i = 0; i < x.edges.local_capacity ; i++) {
+                            if(abs(x.edges.indices[i]) >= index_hi) {
+                                x.edges.indices[i] = 0;
+                                if(this_last_blob_offset == -1)
+                                    this_last_blob_offset = i;
+                            }
+                        }
+
+                        if(x.edges.indices[x.edges.local_capacity] >= index_hi) {
+                            x.edges.indices[x.edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
                             if(this_last_blob_offset == -1)
-                                this_last_blob_offset = i;
+                                this_last_blob_offset = x.edges.local_capacity;
                         }
-                    }
 
-                    if(x.edges.indices[x.edges.local_capacity] >= index_hi) {
-                        x.edges.indices[x.edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
-                        if(this_last_blob_offset == -1)
-                            this_last_blob_offset = x.edges.local_capacity;
-                    }
-
-                    if(this_last_blob_offset != -1) {
-                        if(this_last_blob_offset == 0)
-                            new_last_blob = 0;
-                        else {
-                            uintptr_t direct_ptr = (uintptr_t)&x.edges.indices[this_last_blob_offset];
-                            blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
-                            new_last_blob = blob_index_from_ptr(ptr);
+                        if(this_last_blob_offset != -1) {
+                            if(this_last_blob_offset == 0)
+                                new_last_blob = 0;
+                            else {
+                                uintptr_t direct_ptr = (uintptr_t)&x.edges.indices[this_last_blob_offset];
+                                blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
+                                new_last_blob = blob_index_from_ptr(ptr);
+                            }
                         }
-                    }
-                }, ezr);
+                    }, ezr);
 
-                if(new_last_blob != -1) {
-                    if(get<BlobType>(ezr) == BlobType::DEFERRED_EDGE_LIST_NODE) {
-                        auto def = (blobs_ns::DEFERRED_EDGE_LIST_NODE*)ezr.blob_ptr;
-                        // We only update if the source blob wasn't previously updated.
-                        if(updated_last_blobs.count(def->first_blob) == 0) {
-                            EZefRef orig_ezr{def->first_blob, gd};
-                            *internals::last_edge_holding_blob(orig_ezr) = new_last_blob;
-                            updated_last_blobs.insert(def->first_blob);
+                    if(new_last_blob != -1) {
+                        if(get<BlobType>(ezr) == BlobType::DEFERRED_EDGE_LIST_NODE) {
+                            auto def = (blobs_ns::DEFERRED_EDGE_LIST_NODE*)ezr.blob_ptr;
+                            // We only update if the source blob wasn't previously updated.
+                            if(updated_last_blobs.count(def->first_blob) == 0) {
+                                EZefRef orig_ezr{def->first_blob, gd};
+                                *internals::last_edge_holding_blob(orig_ezr) = new_last_blob;
+                                updated_last_blobs.insert(def->first_blob);
+                            } else {
+                                // If we get here something is weird - we are
+                                // removing items from a deferred edge list that
+                                // *must* be beyond the end of the index_hi.
+                                throw std::runtime_error("We should never get here!");
+                            }
                         } else {
-                            // If we get here something is weird - we are
-                            // removing items from a deferred edge list that
-                            // *must* be beyond the end of the index_hi.
-                            throw std::runtime_error("We should never get here!");
+                            *internals::last_edge_holding_blob(ezr) = new_last_blob;
                         }
-                    } else {
-                        *internals::last_edge_holding_blob(ezr) = new_last_blob;
+
+                        updated_last_blobs.insert(cur_index);
                     }
-
-                    updated_last_blobs.insert(cur_index);
                 }
-            }
 
-            cur_index += blob_index_size(ezr);
+                cur_index += blob_index_size(ezr);
+            }
+        } else {
+            internals::undo_double_linking(gd, index_hi, gd.write_head.load());
         }
 
         // Now blank out the memory above
@@ -951,12 +948,26 @@ namespace zefDB {
     void FinishTransaction(GraphData& gd) {
         FinishTransaction(gd, zwitch.default_wait_for_tx_finish());
     }
-
     void FinishTransaction(GraphData& gd, bool wait) {
+        FinishTransaction(gd, wait, zwitch.default_rollback_empty_tx());
+    }
+
+    void FinishTransaction(GraphData& gd, bool wait, bool rollback_empty_tx) {
         gd.number_of_open_tx_sessions--;
         // in case this was the last transaction that is closed, we want to mark the 
         // transcation node as complete: any write mod to the graph will trigger a new tx hereafter
         if (gd.number_of_open_tx_sessions == 0) {
+            if(rollback_empty_tx && gd.index_of_open_tx_node != 0) {
+                // The transaction is empty if the tx node is the last thing before the write head.
+                blob_index next_node = gd.index_of_open_tx_node + blob_index_size(EZefRef{gd.index_of_open_tx_node, gd});
+                if(next_node == gd.write_head.load()) {
+                    // We fake that we have the transaction still open just for AbortTransaction
+                    gd.number_of_open_tx_sessions++;
+                    AbortTransaction(gd);
+                    gd.number_of_open_tx_sessions--;
+                }
+            }
+
             if(gd.index_of_open_tx_node == 0) {
                 // If we get here, then the tx has been aborted, but we still need to unlock the GraphData for new transactions to start.
                 update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
@@ -1020,6 +1031,7 @@ namespace zefDB {
 
 
     Transaction::Transaction(GraphData & gd) : Transaction(gd, zwitch.default_wait_for_tx_finish()) {}
+    Transaction::Transaction(GraphData & gd, bool wait) : Transaction(gd, wait, zwitch.default_rollback_empty_tx()) {}
 
     void run_subscriptions(GraphData & gd, EZefRef transaction_uzr) {
         if(!gd.observables)
