@@ -110,6 +110,7 @@ namespace zefDB {
 
 
         LIBZEF_DLL_EXPORTED void apply_double_linking(GraphData& gd, blob_index start_index, blob_index end_index);
+        LIBZEF_DLL_EXPORTED void undo_double_linking(GraphData& gd, blob_index start_index, blob_index end_index);
         LIBZEF_DLL_EXPORTED void apply_actions_to_blob_range_only_key_dict(GraphData& gd, blob_index blob_index_lo, blob_index blob_index_hi);
 
 
