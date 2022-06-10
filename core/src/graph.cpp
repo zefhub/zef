@@ -310,13 +310,6 @@ namespace zefDB {
         
         // After here, we should always destruct
         try {
-            // create a first transaction on a new graph. This layout allows us to assume that there always is a tx,
-            // which helps in various high level functions.
-            //
-            // Note: this is done here instead of in the GraphData constructor
-            // as creating a transaction will trigger the sync thread.
-            { auto my_tx = Transaction(*this); }
-
             if(sync)
                 this->sync();
         } catch(...) {
@@ -955,12 +948,26 @@ namespace zefDB {
     void FinishTransaction(GraphData& gd) {
         FinishTransaction(gd, zwitch.default_wait_for_tx_finish());
     }
-
     void FinishTransaction(GraphData& gd, bool wait) {
+        FinishTransaction(gd, wait, zwitch.default_rollback_empty_tx());
+    }
+
+    void FinishTransaction(GraphData& gd, bool wait, bool rollback_empty_tx) {
         gd.number_of_open_tx_sessions--;
         // in case this was the last transaction that is closed, we want to mark the 
         // transcation node as complete: any write mod to the graph will trigger a new tx hereafter
         if (gd.number_of_open_tx_sessions == 0) {
+            if(rollback_empty_tx && gd.index_of_open_tx_node != 0) {
+                // The transaction is empty if the tx node is the last thing before the write head.
+                blob_index next_node = gd.index_of_open_tx_node + blob_index_size(EZefRef{gd.index_of_open_tx_node, gd});
+                if(next_node == gd.write_head.load()) {
+                    // We fake that we have the transaction still open just for AbortTransaction
+                    gd.number_of_open_tx_sessions++;
+                    AbortTransaction(gd);
+                    gd.number_of_open_tx_sessions--;
+                }
+            }
+
             if(gd.index_of_open_tx_node == 0) {
                 // If we get here, then the tx has been aborted, but we still need to unlock the GraphData for new transactions to start.
                 update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
@@ -1024,6 +1031,7 @@ namespace zefDB {
 
 
     Transaction::Transaction(GraphData & gd) : Transaction(gd, zwitch.default_wait_for_tx_finish()) {}
+    Transaction::Transaction(GraphData & gd, bool wait) : Transaction(gd, wait, zwitch.default_rollback_empty_tx()) {}
 
     void run_subscriptions(GraphData & gd, EZefRef transaction_uzr) {
         if(!gd.observables)

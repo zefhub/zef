@@ -58,6 +58,7 @@ namespace zefDB {
 
         DEFINE_FLAG(throw_on_zefrefs_no_tx, false);
         DEFINE_FLAG(default_wait_for_tx_finish, true);
+        DEFINE_FLAG(default_rollback_empty_tx, true);
         DEFINE_FLAG(write_thread_runs_subscriptions, false);
 
         Zwitch allow_dynamic_type_definitions(bool new_value) {
@@ -83,6 +84,7 @@ namespace zefDB {
             res["debug_times"] = str_to_bool(flag_debug_times);
             res["throw_on_zefrefs_no_tx"] = str_to_bool(flag_throw_on_zefrefs_no_tx);
             res["default_wait_for_tx_finish"] = str_to_bool(flag_default_wait_for_tx_finish);
+            res["default_rollback_empty_tx"] = str_to_bool(flag_default_rollback_empty_tx);
             res["write_thread_runs_subscriptions"] = str_to_bool(flag_write_thread_runs_subscriptions);
             return res;
         }

@@ -81,6 +81,24 @@ class MyTestCase(unittest.TestCase):
             zef.pyzef.internals.AbortTransaction(g)
         self.assertEqual(before_hash, g.hash())
 
+    def test_empty_transaction(self):
+        g = Graph()
+
+        num_txs = len(g | all[TX] | collect)
+        before_read_head = g.graph_data.read_head
+
+        with Transaction(g, True, True):
+            pass
+
+        self.assertEqual(num_txs, len(g | all[TX] | collect))
+        self.assertEqual(before_read_head, g.graph_data.read_head)
+
+        with Transaction(g, True, False):
+            pass
+
+        self.assertEqual(True, num_txs < len(g | all[TX] | collect))
+        self.assertEqual(True, before_read_head < g.graph_data.read_head)
+
         
 
 if __name__ == '__main__':
