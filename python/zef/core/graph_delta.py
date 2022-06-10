@@ -1178,6 +1178,25 @@ def perform_transaction_commands(commands: list, g: Graph):
                 for this_id in get_ids(cmd):
                     d_raes[this_id] = zz
 
+        # There is a weird edge case here - if a node is asked to be merged
+        # in, but already existed on the graph AND there were no changes,
+        # causing the transaction to be rolled-back, then the reference
+        # frame of the ZefRefs will be wrong.
+
+        # We check this by seeing if the index of the tx zefref is invalid.
+        if index(d_raes['tx']) > g.graph_data.read_head:
+            # Signal this by setting the tx to none (i.e. there was no tx)
+            d_raes['tx'] = None
+
+            # Update all ZefRefs to be in the latest frame instead of the previously created tx.
+            reset_frame = in_frame[now(g)][allow_tombstone]
+            for key,val in d_raes.items():
+                if key == 'tx': continue
+
+                # A terminated non-existent entity can return None
+                if val is not None:
+                    d_raes[key] = reset_frame(val)
+
     except Exception as exc:        
         raise RuntimeError(f"Error executing graph delta transaction exc={exc}") from exc
         
