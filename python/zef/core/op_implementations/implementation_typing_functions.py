@@ -1176,6 +1176,8 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
     many elements are taken forward in each step.
     Default stride_step if not specified otherwise: 1.
 
+    implementation follows Scala's, see https://stackoverflow.com/questions/32874419/scala-slidingn-n-vs-groupedn
+
     ---- Examples ----
     >>> range(5) | sliding[3]       # [(0, 1, 2), (1, 2, 3), (2, 3, 4)]
     >>> range(5) | sliding[3][2]    # [(0, 1, 2), (2, 3, 4)]
@@ -1188,8 +1190,6 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
     - related zefop: chunk
     - related zefop: slice
     - operates on: List
-
-    implementation follows Scala's, see https://stackoverflow.com/questions/32874419/scala-slidingn-n-vs-groupedn
     """
     it = iter(iterable)
     try:
@@ -4683,7 +4683,7 @@ def modulo_imp(m: int, n: int):
 
 
 #---------------------------------------- select_by_field -----------------------------------------------
-def filter_implementation(itr, pred):
+def filter_implementation(itr, pred_or_vt):
     """
     Filters an iterable or stream lazily.
 
@@ -4702,7 +4702,10 @@ def filter_implementation(itr, pred):
     - used for: control flow
     - operates on: List
     """
-    if isinstance(pred, ValueType_): pred = is_a[pred]
+    if isinstance(pred_or_vt, ValueType_): pred = is_a[pred_or_vt]
+    elif isinstance(pred_or_vt, set): pred = lambda x: x in pred_or_vt
+    else: pred = pred_or_vt
+    
     input_type = parse_input_type(type_spec(itr))
     if input_type == "tools":
         # As this is an intermediate, we return an explicit generator
@@ -6001,9 +6004,8 @@ def merge_imp(a, second=None, *args):
     (Dict, Dict, Dict)  -> Dict
 
     ---- Tags ----
-    * tool for: dictionaries
-    * similar: merge_with
-    ...
+    - operates on: Dict
+    - related zefop: merge_with
     """
     from typing import Generator
     if isinstance(a, FlatGraph) and isinstance(second, FlatGraph):
@@ -7063,6 +7065,7 @@ def blake3_imp(obj) -> VT.String:
 
     ---- Tags ----
     - used for: Cryptography
+    - used for: Hashing
     - operates on: String
     - operates on: Bytes
     """
@@ -7093,7 +7096,9 @@ def value_hash_imp(obj) -> VT.String:
 
     ---- Tags ----
     - used for: Cryptography
+    - used for: Hashing
     - operates on: Values
+    - operates on: Any
     """
     if isinstance(obj, dict): # Handle dict specially to fix key,value pair order.
         return blake3_imp("dict" + str(sort(obj.items())))
@@ -8403,20 +8408,21 @@ def tags_imp(op: VT.ZefOp) -> VT.List[VT.String]:
     - operates on: ZefOp
     - used for: op usage
     """
-    s = LazyValue(op) | docstring | split["\n"] | collect
     try:
-        tags_idx = s.index("---- Tags ----")
-    except:
-        raise ValueError(f"The docstring for {op} is either malformed or missing a Tags section!") from None
-    tags = (
-        s 
-        | skip[tags_idx + 1] 
-        | take_while[lambda l: l[:4] != "----"] 
-        | map[replace['-'][''] | trim[' ']] 
-        | filter[lambda l: l != ""]
+        return (LazyValue(op) 
+        | docstring 
+        | split["\n"]
+        | skip_while[Not[equals['---- Tags ----']]] 
+        | skip[1]
+        | take_while[lambda s: s[:4]!='----']
+        | map[trim_left['-']]
+        | filter[~SetOf('')]
+        | map[split[':'] | map[trim[' ']]]
         | collect
     )
-    return tags
+    except:
+        return []
+
 
 def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
     """
