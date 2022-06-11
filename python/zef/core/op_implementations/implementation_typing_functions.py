@@ -4113,6 +4113,38 @@ def previous_tx_tp(z_tp):
 
 # ----------------------------------------- preceding_events --------------------------------------------
 
+def instantiation_tx_for_low_level_blob(z):
+    if BT(z) in [BT.DELEGATE_INSTANTIATION_EDGE,
+                   BT.DELEGATE_RETIREMENT_EDGE,
+                   BT.INSTANTIATION_EDGE,
+                   BT.TERMINATION_EDGE,
+                   BT.ATOMIC_VALUE_ASSIGNMENT_EDGE,
+                   BT.ASSIGN_TAG_NAME_EDGE]:
+        # Any of these are low-level blobs that only have a single event of "instantiation" and whose source is the tx
+        return source(z)
+    elif BT(z) in [BT.ORIGIN_RAE_EDGE,
+                   BT.ORIGIN_GRAPH_EDGE,
+                   BT.FOREIGN_ENTITY_NODE,
+                   BT.FOREIGN_RELATION_EDGE,
+                   BT.FOREIGN_ATOMIC_ENTITY_NODE,
+                   BT.FOREIGN_GRAPH_NODE]:
+        raise TypeError(f"Can't yet determine events for this kind of blob: {BT(z)}")
+                   
+    # Special cases where there is a TX but it's a bit harder to get to
+    elif BT(z) == BT.TX_EVENT_NODE:
+        return z
+    elif BT(z) == BT.NEXT_TX_EDGE:
+        return target(z)
+    elif BT(z) == BT.ROOT_NODE:
+        # This is a little of an odd choice
+        return z | Out[BT.NEXT_TX_EDGE] | collect
+    elif BT(z) in [BT.RAE_INSTANCE_EDGE,
+                   BT.TO_DELEGATE_EDGE]:
+        # Need to get the first TX of all instantiation edges.
+        return z | target | preceding_events[Instantiated] | first | absorbed | single | frame | to_tx | collect
+
+    raise Exception("Not a low level blob we can get a simple tx for.")
+
 def preceding_events_imp(x, filter_on=None):
     """ 
     Given a TX as a (E)ZefRef, return all events that occurred in that TX.
@@ -4136,9 +4168,6 @@ def preceding_events_imp(x, filter_on=None):
     if isinstance(x, GraphSlice):
         return 'TODO!!!!!!!!!!!!!!!'
 
-    if BT(x) == BT.TX_EVENT_NODE:
-        raise TypeError(f"`preceding_events` can only be called on RAEs and GraphSlices and lists all relevant events form the past. It was called on a TX. You may be looking for the `events` operator, which lists all events that happened in a TX.")
-        
     if internals.is_delegate(x):
         ezr = to_ezefref(x)
         to_del = ezr | in_rel[BT.TO_DELEGATE_EDGE] | collect
@@ -4153,7 +4182,34 @@ def preceding_events_imp(x, filter_on=None):
         retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
         full_list = insts+retirements
 
-
+    elif BT(x) in [BT.DELEGATE_INSTANTIATION_EDGE,
+                   BT.DELEGATE_RETIREMENT_EDGE,
+                   BT.INSTANTIATION_EDGE,
+                   BT.TERMINATION_EDGE,
+                   BT.ATOMIC_VALUE_ASSIGNMENT_EDGE,
+                   BT.ASSIGN_TAG_NAME_EDGE]:
+        # Any of these are low-level blobs that only have a single event of "instantiation" and whose source is the tx
+        full_list = [instantiated[source(to_ezefref(x))]]
+    elif BT(x) in [BT.ORIGIN_RAE_EDGE,
+                   BT.ORIGIN_GRAPH_EDGE,
+                   BT.FOREIGN_ENTITY_NODE,
+                   BT.FOREIGN_RELATION_EDGE,
+                   BT.FOREIGN_ATOMIC_ENTITY_NODE,
+                   BT.FOREIGN_GRAPH_NODE]:
+        raise TypeError(f"Can't yet determine events for this kind of blob: {BT(x)}")
+                   
+    # Special cases where there is a TX but it's a bit harder to get to
+    elif BT(x) == BT.TX_EVENT_NODE:
+        full_list = [instantiated[to_ezefref(x)]]
+    elif BT(x) == BT.NEXT_TX_EDGE:
+        full_list = [instantiated[target(to_ezefref(x))]]
+    elif BT(x) == BT.ROOT_NODE:
+        # This is a little of an odd choice
+        full_list = [instantiated[x | to_ezefref | Out[BT.NEXT_TX_EDGE] | collect]]
+    elif BT(x) in [BT.RAE_INSTANCE_EDGE,
+                   BT.TO_DELEGATE_EDGE]:
+        # Need to get the first TX of all instantiation edges.
+        full_list = x | target | preceding_events[Instantiated] | take[1] | collect
     else:
         zr = x
 
@@ -4333,21 +4389,11 @@ def in_frame_imp(z, *args):
     if is_same_g or origin_uid(zz).graph_uid == uid(g_frame):
         z_obj = to_ezefref(z) if is_same_g else g_frame[origin_uid(zz)]
         # exit early if we are looking in a frame prior to the objects instantiation: this is not even allowed when allow_tombstone=True
-        if BT(z_obj) == BT.TX_EVENT_NODE:
-            # TODO: This should not be necessary in the future, as
-            # events[Instantiated] should cover this and the following ROOT_NODE
-            # case.
-            instantiation_ind = int(pyzefops.time_slice(z_obj))
-        elif BT(z_obj) == BT.ROOT_NODE:
-            # TODO: It should also be possible to pass this to
-            # events[Instantiated], as then the delegates of the root node can
-            # also be handled seamlessly
-            instantiation_ind = 0
-        else:
-            # Note that 'first' is used here instead of 'single', as delegates
-            # may have been brought back to life... but we only care about
-            # casuality here, which corresponds to the very first instantiation.
-            instantiation_ind = z_obj | preceding_events[Instantiated] | first | absorbed | single | frame | graph_slice_index | collect
+
+        # Note that 'first' is used here instead of 'single', as delegates
+        # may have been brought back to life... but we only care about
+        # casuality here, which corresponds to the very first instantiation.
+        instantiation_ind = z_obj | preceding_events[Instantiated] | first | absorbed | single | frame | graph_slice_index | collect
         if (graph_slice_index(target_frame)) < instantiation_ind:
             raise RuntimeError(f"Causality error: you cannot point to an object from a frame prior to its existence / the first time that frame learned about it.")            
         if not tombstone_allowed:
@@ -5454,9 +5500,30 @@ def base_uid_implementation(first_arg):
         return first_arg
     return base_uid(uid(first_arg))
 
-def exists_at_implementation(first_arg, frame):
+def exists_at_implementation(z, frame):
     assert isinstance(frame, GraphSlice)
-    return (pyzefops.exists_at)(first_arg, frame.tx)
+    if not internals.is_delegate(z) and BT(z) in [
+            BT.DELEGATE_INSTANTIATION_EDGE,
+            BT.DELEGATE_RETIREMENT_EDGE,
+            BT.INSTANTIATION_EDGE,
+            BT.TERMINATION_EDGE,
+            BT.ATOMIC_VALUE_ASSIGNMENT_EDGE,
+            BT.ASSIGN_TAG_NAME_EDGE,
+            BT.ORIGIN_RAE_EDGE,
+            BT.ORIGIN_GRAPH_EDGE,
+            BT.FOREIGN_ENTITY_NODE,
+            BT.FOREIGN_RELATION_EDGE,
+            BT.FOREIGN_ATOMIC_ENTITY_NODE,
+            BT.FOREIGN_GRAPH_NODE,
+            BT.TX_EVENT_NODE,
+            BT.NEXT_TX_EDGE,
+            BT.ROOT_NODE,
+            BT.RAE_INSTANCE_EDGE,
+            BT.TO_DELEGATE_EDGE]:
+        inst_tx = instantiation_tx_for_low_level_blob(to_ezefref(z))
+        return graph_slice_index(frame) >= graph_slice_index(inst_tx | to_graph_slice)
+    else:
+        return (pyzefops.exists_at)(z, frame.tx)
 
 def is_zefref_promotable_implementation(z):
     return pyzefops.is_zefref_promotable(z)
@@ -8295,7 +8362,7 @@ def schema_imp(x, include_edges=False):
     if isinstance(x, Graph):
         g = x
         if include_edges:
-            frontier_of = map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | map_cat[lambda x: (x, target(x))]
+            frontier_of = map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | map_cat[apply[identity, target]]
         else:
             frontier_of = map_cat[Outs[BT.TO_DELEGATE_EDGE]]
 
