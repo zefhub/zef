@@ -4189,7 +4189,7 @@ def preceding_events_imp(x, filter_on=None):
                    BT.ATOMIC_VALUE_ASSIGNMENT_EDGE,
                    BT.ASSIGN_TAG_NAME_EDGE]:
         # Any of these are low-level blobs that only have a single event of "instantiation" and whose source is the tx
-        full_list = [instantiated[source(to_ezefref(x))]]
+        full_list = [instantiated[pyzefops.to_frame(x, source(to_ezefref(x)), True)]]
     elif BT(x) in [BT.ORIGIN_RAE_EDGE,
                    BT.ORIGIN_GRAPH_EDGE,
                    BT.FOREIGN_ENTITY_NODE,
@@ -4200,12 +4200,12 @@ def preceding_events_imp(x, filter_on=None):
                    
     # Special cases where there is a TX but it's a bit harder to get to
     elif BT(x) == BT.TX_EVENT_NODE:
-        full_list = [instantiated[to_ezefref(x)]]
+        full_list = [instantiated[pyzefops.to_frame(x, to_ezefref(x), True)]]
     elif BT(x) == BT.NEXT_TX_EDGE:
-        full_list = [instantiated[target(to_ezefref(x))]]
+        full_list = [instantiated[pyzefops.to_frame(x, target(to_ezefref(x)), True)]]
     elif BT(x) == BT.ROOT_NODE:
         # This is a little of an odd choice
-        full_list = [instantiated[x | to_ezefref | Out[BT.NEXT_TX_EDGE] | collect]]
+        full_list = [instantiated[pyzefops.to_frame(x, x | to_ezefref | Out[BT.NEXT_TX_EDGE] | collect, True)]]
     elif BT(x) in [BT.RAE_INSTANCE_EDGE,
                    BT.TO_DELEGATE_EDGE]:
         # Need to get the first TX of all instantiation edges.
