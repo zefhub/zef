@@ -50,8 +50,7 @@ def prepare_hooks(graph, hooks_string):
                 file.write(hooks_string)
             code = compile(hooks_string, path, "exec")
             globs = {"g": graph}
-            locs = {}
-            exec(code, globs, locs)
+            exec(code, globs, globs)
         finally:
             os.unlink(path)
 
