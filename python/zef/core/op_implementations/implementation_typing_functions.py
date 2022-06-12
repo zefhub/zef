@@ -1287,8 +1287,8 @@ def reverse_args_imp(flow_arg, op, *args):
     ---- Tags ----
     - level: advanced
     - used for: control flow
-    - operates on: ZefOps
-    - operates on: Functions
+    - operates on: ZefOp
+    - operates on: Function
     - related zefop: func
     - related zefop: apply_functions
     """
@@ -2034,7 +2034,7 @@ def absorbed_imp(x):
     
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
     - related zefop: without_absorbed
     - related zefop: inject
     - related zefop: inject_list
@@ -2078,7 +2078,7 @@ def without_absorbed_imp(x):
     
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
     - related zefop: absorbed
     - related zefop: inject
     - related zefop: inject_list
@@ -3151,6 +3151,10 @@ def bypass_imp(x, bypass_type, fct):
 
     ---- Signature ----
     (List[T, T2], Type(T2), (T -> T3)) -> List[Union[T2, T3]]
+
+    ---- Tags ----
+    used for: control flow
+    operates on: ZefOp
     """
     type_tup = bypass_type if isinstance(bypass_type, tuple) else (bypass_type,)
     return if_then_else(
@@ -3189,7 +3193,8 @@ def pattern_imp(x, p):
     (Dict[T1, T2], Dict[Union[T1, _Any], Union[T2, _Any]]) -> Bool
 
     ---- Tags ----
-    - operates on: Dict, List
+    - operates on: List
+    - operates on: Dict
     - used for: control flow
     - related zefop: match
     - related zefop: match_apply
@@ -3257,7 +3262,8 @@ def distinct_imp(v):
     LazyValue[List[T]] -> LazyValue[List[T]]
 
     ---- Tags ----
-    - operates on: List, Stream
+    - operates on: Stream
+    - operates on: List
     - used for: list manipulation
     - related zefop: is_distinct
     - related zefop: distinct_by
@@ -3301,7 +3307,8 @@ def distinct_by_imp(v, fct):
     LazyValue[(List[T], (T->Any))] -> LazyValue[List[T]]
 
     ---- Tags ----
-    - operates on: List, Stream
+    - operates on: List
+    - operates on: Stream
     - used for: list manipulation
     - related zefop: is_distinct_by
     - related zefop: distinct
@@ -3348,7 +3355,8 @@ def is_distinct_imp(v):
     LazyValue[List[T]] -> Bool
 
     ---- Tags ----
-    - operates on: List, String
+    - operates on: String
+    - operates on: List
     - used for: set theory
     - related zefop: is_distinct_by
     - related zefop: distinct
@@ -3382,7 +3390,8 @@ def is_distinct_by_imp(v, fn):
     Stream[T], Callable -> Bool
 
     ---- Tags ----
-    - operates on: List, String
+    - operates on: String
+    - operates on: List
     - used for: set theory
     - related zefop: distinct_by
     - related zefop: is_distinct
@@ -3414,8 +3423,10 @@ def replace_imp(collection, old_val, new_val):
     String, Char, Char -> String
     
     ---- Tags ----
-    - operates on: List, String
+    - operates on: String
+    - operates on: List
     - used for: list manipulation
+    - used for: string manipulation
     - related zefop: replace_at
     - related zefop: insert_in
     - related zefop: insert
@@ -3593,7 +3604,8 @@ def split_if_imp(v, split_function):
     (List[T], T->Bool) -> List[List[T]]
 
     ---- Tags ----
-    - operates on: List, String
+    - operates on: List
+    - operates on: String
     - used for: list manipulation
     - used for: string manipulation
     - related zefop: split
@@ -4488,7 +4500,8 @@ def apply_functions_imp(x, fns):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Functions
+    - operates on: ZefOp
+    - operates on: Function
     - related zefop: func
     - related zefop: reverse_args
     - related zefop: map
@@ -6250,6 +6263,10 @@ def read_file_imp(fname):
     ---- Signature ----
     VT.String -> VT.Effect
 
+    ---- Tags ----
+    - related zefop: load_file
+    - used for: file io
+
     """
     return Effect({
         'type': FX.LocalFile.Read,
@@ -6271,6 +6288,10 @@ def load_file_imp(fname, format = None):
 
     ---- Signature ----
     VT.String -> VT.Effect
+
+    ---- Tags ----
+    - related zefop: read_file
+    - used for: file io
 
     """
     return Effect({
@@ -6384,7 +6405,7 @@ def to_pipeline_imp(ops: list):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
     - related zefop: inject
     - related zefop: inject_list
     - related zefop: absorbed
@@ -6412,7 +6433,7 @@ def inject_imp(x, injectee):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
     - related zefop: inject_list
     - related zefop: absorbed
     - related zefop: without_absorbed
@@ -6439,7 +6460,7 @@ def inject_list_imp(v, injectee):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
     - related zefop: inject
     - related zefop: absorbed
     - related zefop: without_absorbed
@@ -6489,9 +6510,20 @@ def replace_at_imp(str_or_list, index, new_el):
     Given a list replace element at an index with new_el.
     Given a string return a new string with element at index replaced with new_el.
     
+
+    ---- Examples ----
+    >>> ['a','b','c'] | replace_at[1]['x']    # => ['a','x','c']
+    >>> 'hello' | replace_at[1]['a'] | c      # 'hallo'
+
     ---- Signature ----
     (VT.String, VT.Int, VT.String) -> VT.String
     (VT.List, VT.Int, VT.Any) -> VT.List
+
+    ---- Tags ----
+    - related zefop: replace
+    - used for: list manipulation
+    - operates on: String
+    - operates on: List
     
     """
     from typing import Generator
