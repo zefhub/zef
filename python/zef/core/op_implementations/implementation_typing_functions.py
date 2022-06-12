@@ -3650,7 +3650,6 @@ def slice_imp(v, start_end: tuple):
     - related zefop: last
     - related zefop: nth    
     """
-    print(type(v))
     from typing import Generator
     import itertools
     assert isinstance(start_end, tuple)
