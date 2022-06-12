@@ -2381,6 +2381,24 @@ def min_by_tp(v_tp, min_by_function_tp):
     
 #---------------------------------------- equals -----------------------------------------------
 def equals_imp(a, b):
+    """
+    Binary operator equivalent to calling "==", but can be chained.
+   
+    ---- Examples ----
+    >>> 42 | equals[42]     # => True
+    >>> 42 | Not[equals][41]     # => True
+    >>> equals('a', 'a')     # => True
+
+    ---- Signature ----
+    (T, T) -> Bool
+
+    ---- Tags ----
+    used for: logic
+    
+    related zefop: Not
+    related zefop: greater_than
+    related zefop: less_than
+    """
     return a == b
     
     
@@ -2391,6 +2409,24 @@ def equals_tp(a, b):
     
 #---------------------------------------- greater_than -----------------------------------------------
 def greater_than_imp(a, b):
+    """
+    Binary operator equivalent to calling ">", but can be chained.
+   
+    ---- Examples ----
+    >>> 42 | greater_than[41]     # => True
+    >>> 42 | greater_than[42]     # => False
+    
+    ---- Signature ----
+    (T, T) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: maths    
+    related zefop: Not
+    related zefop: equals
+    related zefop: less_than
+    related zefop: greater_than_or_equal
+    """
     return a > b
     
     
@@ -2401,6 +2437,24 @@ def greater_than_tp(a, b):
     
 #---------------------------------------- less_than -----------------------------------------------
 def less_than_imp(a, b):
+    """
+    Binary operator equivalent to calling "<", but can be chained.
+   
+    ---- Examples ----
+    >>> 41 | less_than[42]     # => True
+    >>> 42 | less_than[42]     # => False
+    
+    ---- Signature ----
+    (T, T) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: maths    
+    related zefop: Not
+    related zefop: equals
+    related zefop: greater_than
+    related zefop: less_than_or_equal
+    """
     return a < b
     
     
@@ -2409,8 +2463,26 @@ def less_than_tp(a, b):
 
 
     
-#---------------------------------------- larger_or_equal_than -----------------------------------------------
+#---------------------------------------- greater_than_or_equal -----------------------------------------------
 def greater_than_or_equal_imp(a, b):
+    """
+    Binary operator equivalent to calling ">=", but can be chained.
+   
+    ---- Examples ----
+    >>> 43 | greater_than_or_equal[42]     # => True
+    >>> 42 | greater_than_or_equal[42]     # => True
+    
+    ---- Signature ----
+    (T, T) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: maths    
+    related zefop: Not
+    related zefop: equals
+    related zefop: greater_than
+    related zefop: less_than_or_equal
+    """
     return a >= b
     
 
@@ -2419,8 +2491,26 @@ def greater_than_or_equal_to(a, b):
 
 
     
-#---------------------------------------- less_or_equal_than -----------------------------------------------
+#---------------------------------------- less_than_or_equal -----------------------------------------------
 def less_than_or_equal_imp(a, b):
+    """
+    Binary operator equivalent to calling ">=", but can be chained.
+   
+    ---- Examples ----
+    >>> 41 | less_than_or_equal[42]     # => True
+    >>> 42 | less_than_or_equal[42]     # => True
+    
+    ---- Signature ----
+    (T, T) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: maths    
+    related zefop: Not
+    related zefop: equals
+    related zefop: greater_than_or_equal
+    related zefop: less_than
+    """
     return a <= b
 
 
@@ -2432,8 +2522,25 @@ def less_than_or_equal_to(a, b):
 #---------------------------------------- Not -----------------------------------------------
 def not_imp(x, pred_fct=lambda x: x):
     """ 
-    Takes a single predicate function and returns the negated predicate function.    
-    """    
+    A logic combinator: takes a single predicate function 
+    (with any signature) and returns the negated predicate 
+    function with the same signature.
+    
+    ---- Examples ----
+    >>> 41 | Not[equals][42]     # => True
+    
+    ---- Signature ----
+    (T, T->Bool) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: function composition
+    operates on: predicate function
+    related zefop: Not
+    related zefop: Or
+    related zefop: And
+    related zefop: xor
+    """
     return not pred_fct(x)
 
 
@@ -2468,7 +2575,8 @@ def and_imp(x, *args):
 
     ---- Tags ----
     used for: logic
-    used for: predicated
+    used for: predicate
+    operates on: predicate function
     related zefop: Or
     related zefop: Not
     related: Intersection
@@ -2524,7 +2632,8 @@ def or_imp(x, *args):
 
     ---- Tags ----
     used for: logic
-    used for: predicated
+    used for: predicate
+    operates on: predicate function
     related zefop: Or
     related zefop: Not
     related: Intersection
@@ -2558,6 +2667,26 @@ def or_tp(x, *args):
    
 #---------------------------------------- xor -----------------------------------------------
 def xor_imp(x, *args):
+    """ 
+    A logic combinator: takes two predicate functions
+    (with the same signature) and returns one predicate 
+    function with the same signature.
+    
+    ---- Examples ----
+    >>> 41 | xor[p1][p2]
+    
+    ---- Signature ----
+    (T, T->Bool, T->Bool) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: function composition
+    operates on: predicate function
+    related zefop: Not
+    related zefop: Or
+    related zefop: And
+    related zefop: xor
+    """
     assert len(args) == 2
     f1, f2 = args
     res1, res2 = (f1(x), f2(x))
