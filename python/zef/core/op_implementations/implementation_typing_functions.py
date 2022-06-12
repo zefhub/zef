@@ -3692,6 +3692,16 @@ def split_imp(collection, val):
 
     ---- Signature ----
     (List[T], T) -> List[List[T]]
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: split_left
+    - related zefop: split_right
+    - related zefop: split_if
+    - related zefop: trim
     """
     if isinstance(collection, str):
         return collection.split(val)
@@ -3715,6 +3725,93 @@ def split_tp(*args):
     return VT.Any
 
 
+# ---------------------------------------- split_left -----------------------------------------------
+def split_left_imp(v, val):
+    """ 
+    Split a List into a List[List] based on the occurrence of val.
+    In contrast to `split`, it adds the element to split on to the
+    following sublist - i.e. it splits on the left side.
+    
+    ---- Examples ----
+    >>> 'abcdeabfb' | split_left['b']            # => ['a', 'bcdea', 'bf', 'b']
+    >>> [0,1,6,2,3,4,2,] | split_left[2]         # => [[0, 1, 6], [2, 3, 4], [2]]    
+
+    ---- Signature ----
+    (List[T], T) -> List[List[T]]
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: split
+    - related zefop: split_right
+    - related zefop: split_if
+    - related zefop: trim
+    """
+    if isinstance(v, str):
+        return split_left_imp(iter(v), val) | map[concat] | collect
+
+    def wrapper():
+        it = iter(v)
+        try:
+            next_val = next(it)
+            while True:
+                s = []
+                s.append(next_val)
+                next_val = next(it)
+                while next_val != val:                
+                    s.append(next_val)
+                    next_val = next(it)                    
+                yield s
+        except StopIteration:
+            if s!=[]: yield s
+            return
+    return wrapper()
+
+
+# ---------------------------------------- split_right -----------------------------------------------
+def split_right_imp(v, val):
+    """ 
+    Split a List into a List[List] based on the occurrence of val.
+    In contrast to `split`, it adds the element to split on to the
+    left sublist - i.e. it splits on the right side.
+    
+    ---- Examples ----
+    >>> 'abcdeabfb' | split_right['b']            # => ['ab', 'cdeab', 'fb']
+    >>> [0,1,6,2,3,4,2,] | split_right[2]         # => [[0, 1, 6, 2], [3, 4, 2]]    
+
+    ---- Signature ----
+    (List[T], T) -> List[List[T]]
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: split
+    - related zefop: split_left
+    - related zefop: split_if
+    - related zefop: trim
+    """
+    if isinstance(v, str):
+        return split_right_imp(iter(v), val) | map[concat] | collect
+
+    def wrapper():
+        it = iter(v)
+        try:
+            while True:
+                s = []
+                next_val = next(it)
+                s.append(next_val)
+                while next_val != val:                
+                    next_val = next(it)                    
+                    s.append(next_val)
+                yield s
+        except StopIteration:
+            if s!=[]: yield s
+            return
+    return wrapper()
 
 
 # ------------------------------------------ split_if ---------------------------------------------

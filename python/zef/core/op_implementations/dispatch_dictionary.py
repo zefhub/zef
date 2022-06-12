@@ -178,6 +178,8 @@ _op_to_functions = {
         RT.Shuffle:         (shuffle_imp, shuffle_tp),
         RT.Slice:           (slice_imp, slice_tp),
         RT.Split:           (split_imp, split_tp),
+        RT.SplitLeft:       (split_left_imp, None),
+        RT.SplitRight:      (split_right_imp, None),
         RT.SplitIf:         (split_if_imp, None),
         RT.Graphviz:        (graphviz_imp, graphviz_tp),
         
