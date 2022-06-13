@@ -230,9 +230,28 @@ def on_implementation(g, op):
 
             # Type 3: An instantiated or terminated relation outgoing or incoming from a specific zr 
             elif len(op_args[0]) == 3: 
-                src, rt, _ = op_args[0] # TODO don't ignore matching on the Target! To be implemented!
-                sub_decl = sub_decl[selected_types[0][internal.outgoing][rt]][lambda x: LazyValue(selected_types[1][x]) | push[stream] | run] # TODO: is it always outgoing?
-                sub = src | sub_decl            
+                src, rt, trgt = op_args[0] 
+                # sub_decl = sub_decl[selected_types[0][internal.outgoing][rt]][lambda x: LazyValue(selected_types[1][x]) | push[stream] | run] # TODO: is it always outgoing?
+                # sub = src | sub_decl         
+                def triple_filter(z):    
+                    def src_or_trgt_filter(rae, rae_filter):
+                        if isinstance(rae_filter, ZefRef):
+                            return to_ezefref(rae) == to_ezefref(rae_filter)
+                        elif isinstance(rae_filter, (EntityType, AtomicEntityType, RelationType)):
+                            return rae_type(rae) == rae_filter
+                        elif isinstance(rae_filter, ValueType_):
+                            return is_a(rae, rae_filter)
+                        else:
+                            raise ValueError(f"Expected source or target filters to be ZefRef, RaeType, or ValueType but got {type(rae_filter)} instead.")
+
+                    # First check on the RT itself
+                    if rae_type(z) != rt: return False
+                    # Checks on both source and target
+                    return src_or_trgt_filter(source(z), src) and src_or_trgt_filter(target(z), trgt)
+
+                def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: triple_filter(absorbed(x)[0])] | for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                sub_decl = sub_decl[filter_func]
+                sub = g | sub_decl              
             else:
                 raise Exception(f"Unhandled type in on[{selected_types[1]}] where the curried args were {op_args}")
         elif op_kind == Assigned:
