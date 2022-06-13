@@ -299,6 +299,7 @@ def match_imp(item, patterns):
 
     ---- Examples ----
     >>> -9 | match[
+    ...     ({24, 42}, lambda x: f'a very special temperature'),
     ...     (Is[less_than[-10]], lambda x: f'it is a freezing {x} degrees'),
     ...     (Is[less_than[10]], lambda x: f'somewhat cold: {x} degrees'),
     ...     (Is[greater_than_or_equal[20]], lambda x: f'warm: {x}'),
@@ -1670,7 +1671,7 @@ def all_imp(*args):
     (GraphLike, Type) -> List[EZefRef]
  
     ---- Tags ----
-    - used for: predicates
+    - used for: predicate
     """
 
     import builtins
@@ -3836,6 +3837,7 @@ def split_if_imp(v, split_function):
     - related zefop: split
     - related zefop: concat
     - related zefop: trim
+    - used for: predicate
     """
     if isinstance(v, str):
         return v | func[tuple] | split_if[split_function] | map[join] | collect
