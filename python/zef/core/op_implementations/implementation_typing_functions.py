@@ -1768,6 +1768,13 @@ def all_imp(*args):
         z, = args
         assert internals.is_delegate(z)
         return z | pyzefops.instances
+
+    import types
+    if isinstance(args[0], types.ModuleType):
+        assert len(args) == 2
+        assert isinstance(args[1], ValueType_)
+        list_of_module_values = [args[0].__dict__[x] for x in dir(args[0]) if not x.startswith("_") and not isinstance(getattr(args[0], x), types.ModuleType)]
+        return list_of_module_values | filter[args[1]] | collect
     
     # once we're here, we interpret it like the Python "all"
     v = args[0]
