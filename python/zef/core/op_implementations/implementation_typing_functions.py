@@ -8664,15 +8664,15 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
     return signature
 
 
-def tags_imp(op: VT.ZefOp) -> VT.List[VT.String]:
+def tags_imp(op: VT.ZefOp) -> VT.List:
     """
-    Returns the tags portion of a docstring as a list of string.
+    Returns the tags portion of a docstring as a list of list of strings.
 
     ---- Examples ----
     >>> tags(map)
-    ['used for: control flow',
-    'used for: function application',
-    'related zefop: apply_functions']
+    [['used for', 'control flow'],
+    ['used for', 'function application'],
+    ['related zefop', 'apply_functions']]
 
     ---- Signature ----
     (ZefOp) -> List[String]
@@ -8705,7 +8705,7 @@ def tags_imp(op: VT.ZefOp) -> VT.List[VT.String]:
 def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
     """
     Extracts the related ops from the tags portion of the docstring of the op.
-    It returns back a list of ZefOp.
+    It returns back a list of ZefOp. It also discards invalid ZefOps.
 
     ---- Examples ----
     >>> related_ops(to_snake_case)
@@ -8723,11 +8723,12 @@ def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
     - operates on: ZefOp
     - used for: op usage
     """
+    from ... import ops
     tags_lines = tags(op) | collect
     return (
         tags_lines 
-        | filter[lambda l: "related zefop" in l]
-        | map[split[":"] | last | trim[" "] | attempt[eval][None]]
+        | filter[first |equals["related zefop"]]
+        | map[second | func[lambda s: ops.__dict__.get(s, None)]]
         | filter[lambda el: el != None]
         | collect
     )
@@ -8735,7 +8736,7 @@ def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
 def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
     """
     Extracts the operates on Types from the tags portion of the docstring of the op.
-    It returns back a list of ValueTypes.
+    It returns back a list of ValueTypes. It also discards invalid ValueTypes.
 
     ---- Examples ----
     >>> operates_on(blake3)
@@ -8753,12 +8754,11 @@ def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
     - operates on: ZefOp
     - used for: op usage
     """
-    extra_eval = lambda expr: eval(expr, globals(), {**VT.__dict__})
     tags_lines = tags(op) | collect
     return (
         tags_lines 
-        | filter[lambda l: "operates on" in l]
-        | map[split[":"] | last | trim[" "] | attempt[extra_eval][None]]
+        | filter[first |equals["operates on"]]
+        | map[second | func[lambda s: VT.__dict__.get(s, None)]]
         | filter[lambda el: el != None]
         | collect
     )
@@ -8785,8 +8785,8 @@ def used_for_imp(op: VT.ZefOp) -> VT.List[VT.String]:
     tags_lines = tags(op) | collect
     return (
         tags_lines 
-        | filter[lambda l: "used for" in l]
-        | map[split[":"] | last | trim[" "]]
+        | filter[first |equals["used for"]]
+        | map[second]
         | collect
     )
 
