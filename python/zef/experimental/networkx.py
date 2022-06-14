@@ -401,11 +401,14 @@ class ProxyEdgeView:
             direction_override = Direction.OUTGOING
         else:
             direction_override = self.dg.direction
+
+        # We do this to speed up the lookups
+        node_set = set(self.dg.node_mapping)
         out = (self.dg.node_mapping
-                 | map[lambda x: x.z]
+                 | map[get_field["z"]]
                  | map[all_edges_with_end[self.dg.rts][direction_override]]
                  | concat
-                 | filter[second | func[ZefRef_to_node_ref] | contained_in[self.dg.node_mapping]]
+                 | filter[second | func[ZefRef_to_node_ref] | contained_in[node_set]]
                  | map[first]
                  | map[ZefRef_to_edge_ref[self.dg.direction]])
         if self.dataview:
