@@ -8609,20 +8609,19 @@ def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
     )
 
 
-def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
+def signature_imp(op: VT.ZefOp) -> VT.List[VT.String]:
     """
-    Given the signature portion of a docstring is valid, returns back a List of
-    valid tuples of input to ouput consisting of ValueTypes.
+    Given the signature portion of a docstring is valid, returns back a List of Strings.
 
     ---- Examples ----
     >>> signature(apply)
-    [((T, (T, T2)), T2), ((T, List[(T, T2)]), List[T2])]
+    ['(T,  (T->T2) ) -> T2', '(T, List[(T->T2)] ) -> List[T2]']
 
     >>> signature(schema)
-    [((Graph, Bool), List[EZefRef]), ((GraphSlice, Bool), List[ZefRef])]
+    ['(Graph, Bool) -> List[EZefRef]', '(GraphSlice, Bool) -> List[ZefRef]']
 
     ---- Signature ----
-    (ZefOp) -> List[Record[ValueType]]
+    (ZefOp) -> List[String]
 
     ---- Tags ----
     - related zefop: tags
@@ -8634,17 +8633,16 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
     - used for: op usage
     """
     def clean_and_eval(s):
-        s = s | replace['->'][','] | replace['=>'][','] | collect
+        s = s | replace['=>']['->'] | collect
         commment_idx = s.find("#")
         if commment_idx != -1: s = s[:commment_idx]
-        s = trim(s, ' ')
-
-        extra_eval = lambda expr: eval(expr, globals(), {**VT.__dict__})
-        try:
-            val_type = extra_eval(s)
-        except:
-            raise ValueError(f"The following '{s}'' signature is malformed and can't be parsed! Make sure all types present in the signature are valid ValueTypes")
-        return val_type
+        return s | trim[' '] | join | collect
+        # extra_eval = lambda expr: eval(expr, globals(), {**VT.__dict__})
+        # try:
+            # val_type = extra_eval(s)
+        # except:
+            # raise ValueError(f"The following '{s}'' signature is malformed and can't be parsed! Make sure all types present in the signature are valid ValueTypes")
+        # return val_type
 
 
     s = LazyValue(op) | docstring | split["\n"] | collect
@@ -8658,7 +8656,6 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.Record[VT.ValueType]]:
         | take_while[lambda l: l[:4] != "----"] 
         | filter[lambda l: l != ""]
         | map[clean_and_eval]
-        | map[tuple]
         | collect
     )
     return signature
