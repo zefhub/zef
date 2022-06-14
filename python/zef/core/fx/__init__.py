@@ -16,10 +16,6 @@ from .fx_types import FX, Effect
 
 from .state import _state
 
-from .graph_transactions import (
-    graph_transaction_handler,
-)
-
 
 # from .http import (
 #     http_start_server_handler,
@@ -86,6 +82,7 @@ from .sync import (
 from .graph import (
     graph_take_transactor_role_handler,
     graph_release_transactor_role_handler,
+    graph_transaction_handler
 )
 
 
@@ -104,8 +101,6 @@ from .local_file import (
 
 # note the ".d" to access the tuple of Strings!
 _effect_handlers = {
-    FX.TX.Transact.d: graph_transaction_handler,
-    
     FX.HTTP.StartServer.d: http_start_server_handler,
     FX.HTTP.StopServer.d: http_stop_server_handler,
     FX.HTTP.SendResponse.d: http_send_response_handler,
@@ -140,7 +135,9 @@ _effect_handlers = {
     FX.Graph.Sync.d: graph_sync_handler,
     FX.Graph.TakeTransactorRole.d: graph_take_transactor_role_handler,
     FX.Graph.ReleaseTransactorRole.d: graph_release_transactor_role_handler,
+    FX.Graph.Transact.d: graph_transaction_handler,
 
+    
     FX.Clipboard.CopyTo.d: clipboard_copy_to_handler,
     FX.Clipboard.CopyFrom.d: clipboard_copy_from_handler,
 

@@ -7811,7 +7811,7 @@ def transact_imp(data, g, **kwargs):
         raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
 
     return Effect({
-            "type": FX.TX.Transact,
+            "type": FX.Graph.Transact,
             "target_graph": g,
             "commands":commands
     })    

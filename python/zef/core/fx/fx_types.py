@@ -50,11 +50,6 @@ class FXElement():
 
 
 
-class _TX_Class():
-    _name = "TX"
-    Transact = FXElement(('TX', 'Transact'))
-
-
 class _HTTP_Class():
     _name = "HTTP"
     StartServer = FXElement(('HTTP', 'StartServer'))
@@ -116,6 +111,7 @@ class _Graph_Class():
     Sync = FXElement(('Graph', 'Sync'))
     TakeTransactorRole = FXElement(('Graph', 'TakeTransactorRole'))
     ReleaseTransactorRole = FXElement(('Graph', 'ReleaseTransactorRole'))
+    Transact = FXElement(('Graph', 'Transact'))
     # Or does it make more sense to write FX.Tag.Graph? Tagging of RAEs definitely belongs into a GraphDelta / graph tx though
 
 class _Stream_Class():
@@ -163,7 +159,6 @@ class _RAE_Class():
 
 
 class _FX_Class:
-    TX = _TX_Class()
     HTTP = _HTTP_Class()
     Websocket = _Websocket_Class()
     Subprocess = _Subprocess_Class()
@@ -182,7 +177,7 @@ class _FX_Class:
 
 FX = _FX_Class()
 
-_group_types = [ _Clipboard_Class,_FX_Class,_GraphQL_Class,_Graph_Class,_HTTP_Class,_LocalFile_Class,_Privileges_Class,_S3_Class,_Stream_Class,_TX_Class,_Websocket_Class,_ZefHub_Class,_ZefUI_Class]
+_group_types = [ _Clipboard_Class,_FX_Class,_GraphQL_Class,_Graph_Class,_HTTP_Class,_LocalFile_Class,_Privileges_Class,_S3_Class,_Stream_Class,_Websocket_Class,_ZefHub_Class,_ZefUI_Class]
 #---------------------------------------------------------------------------------------
 
 _warn_did_not_run = True
