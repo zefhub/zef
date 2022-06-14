@@ -189,4 +189,18 @@ Complement     = ValueType_(type_name='Complement',          constructor_func=No
 RP             = ValueType_(type_name='RP',                  constructor_func=None,             get_item_func=rp_getitem)
 HasValue       = ValueType_(type_name='HasValue',            constructor_func=None)
 
+def operates_on_ctor(x):
+    from .._ops import operates_on, contains
+    return Is[operates_on | contains[x]]
 
+def related_ops_ctor(x):
+    from .._ops import related_ops, contains
+    return Is[related_ops | contains[x]]
+
+def used_for_ctor(x):
+    from .._ops import used_for, contains
+    return Is[used_for | contains[x]]
+
+OperatesOn     = ValueType_(type_name='OperatesOn',   constructor_func = operates_on_ctor,  get_item_func = operates_on_ctor)
+RelatedOps     = ValueType_(type_name='RelatedOps',   constructor_func = related_ops_ctor,  get_item_func = related_ops_ctor)
+UsedFor        = ValueType_(type_name='UsedFor',      constructor_func = used_for_ctor, get_item_func =used_for_ctor)

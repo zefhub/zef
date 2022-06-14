@@ -99,6 +99,7 @@ from .VT import (
     List,
     Dict,
     Set,
+    Stream,
     ValueType,
     Instantiated, 
     Terminated, 
@@ -112,6 +113,10 @@ from .VT import (
     RP,
     HasValue,
     Pattern,
+
+    RelatedOps,
+    UsedFor,
+    OperatesOn
     )
 from .VT.value_type import ValueType_
 
