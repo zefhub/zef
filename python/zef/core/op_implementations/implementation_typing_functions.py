@@ -4714,12 +4714,7 @@ def origin_rae_tp(x):
 
 
 def fill_or_attach_implementation(z, rt, val):
-    # from ...deprecated import zefops
-    # return curry_args_in_zefop(zefops.fill_or_attach, args[0], args[1:])
-    if has_out(z, rt):
-        return z | Out[rt] | assign[val] | collect
-    else:
-        return (z, rt, val)
+    return LazyValue(z) | fill_or_attach[rt][val]
 
 def fill_or_attach_type_info(op, curr_type):
     return curr_type
