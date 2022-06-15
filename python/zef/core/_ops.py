@@ -296,8 +296,8 @@ to_screaming_snake_case = make_zefop(RT.ToScreamingSnakeCase)
 make_request  = make_zefop(RT.MakeRequest)
 
 
-zascii_to_asg    = make_zefop(RT.ZasciiToAsg)
-zascii_to_schema = make_zefop(RT.ZasciiToSchema)
+zascii_to_asg     = make_zefop(RT.ZasciiToAsg)
+zascii_to_actions = make_zefop(RT.ZasciiToActions)
 
                 # Syntax????????????????? 
                 # has_relation(z1, RT.Foo, z2)      replaced by 
