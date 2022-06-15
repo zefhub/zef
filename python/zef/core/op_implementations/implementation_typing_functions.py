@@ -6736,6 +6736,19 @@ def zascii_to_asg_imp(zascii_str: VT.String) -> VT.Dict:
 
     ---- Signature ----
     (VT.String) -> VT.Dict
+
+    ---- Examples ----
+    >>> s = \"""
+    >>>                   RT.RatingScore
+    >>>   ET.Dropdown─────────────────────────►1.0
+    >>>   \"""
+    >>> zascii_to_asg(s)
+
+
+    ---- Tags ----
+    - used for: parsing ascii
+    - operates on: String
+    - related zefop: zascii_to_flatgraph
     """
     from ...deprecated.tools.zascii import parse_zascii_to_asg
     asg, _  = parse_zascii_to_asg(zascii_str)
@@ -6744,17 +6757,81 @@ def zascii_to_asg_imp(zascii_str: VT.String) -> VT.Dict:
 def zascii_to_asg_tp(op, curr_type):
     return VT.Dict
 
-def zascii_to_schema_imp(zascii_str: VT.String) -> VT.GraphDelta:
+def zascii_to_flatgraph_imp(zascii_str: VT.String) -> VT.FlatGraph:
     """ 
-    Takes a zascii string with a schema and returns a GraphDelta.
+    Takes a zascii string representing a Graph and returns a FlatGraph containing all the RAEs 
+    appearing in the string.
+
+    ---- Examples ----
+    >>> s = \"""
+    >>>                   RT.RatingScore
+    >>>   ET.Dropdown─────────────────────────►1.0
+    >>>   \"""
+    >>> zascii_to_flatgraph(s)
+    FlatGraph(
+    (temp_id_0002=>0)
+    (temp_id_0003=>1)
+    (temp_id_0004=>2)
+    -------
+    (0, ET.Dropdown, [2], None)
+    (1, AET.Float, [-2], None, 1.0)
+    (2, RT.RatingScore, [], None, 0, 1)
+    )
 
     ---- Signature ----
-    (VT.String) -> VT.GraphDelta
-    """
-    pass
+    (VT.String) -> VT.FlatGraph
 
-def zascii_to_schema_tp(op, curr_type):
-    return VT.GraphDelta
+    ---- Tags ----
+    - used for: parsing ascii
+    - operates on: String
+    - related zefop: zascii_to_asg
+    """
+    from ...core.internals import is_any_UID
+
+    asg = zascii_to_asg_imp(zascii_str)
+
+    aet_mapping = {'Float': AET.Float, 'Int': AET.Int, 'Bool': AET.Bool, 'String': AET.String}
+    scalar_types_for_aets = {'Float', 'Int', 'Bool', 'String'}
+    elements = list(asg.items())
+    filter_with_temp_id =filter[lambda p: not is_any_UID(p[1].get('existing_uid', ''))]
+
+    def ensure_valid_aet_type(d: dict):
+        if d[1]['value'] not in scalar_types_for_aets: raise TypeError(f'An AET type "AET.{d.get("value", None)}" is not a parsable AET type')
+        return d
+
+    ets = (elements 
+    | filter[lambda p: p[1]['type'] == 'ET'] 
+    | filter_with_temp_id
+    | map[lambda p: ET(p[1]['value'])[p[0]]]
+    | collect
+    )
+
+    aets = (elements 
+    | filter[lambda p: p[1]['type'] == 'AET'] 
+    | filter_with_temp_id
+    | map[lambda p: ensure_valid_aet_type(p)]
+    | map[lambda p: aet_mapping[p[1]['value']][p[0]]]
+    | collect
+    )
+
+    aets_from_vals = (elements 
+    | filter[lambda p: p[1]['type'] in scalar_types_for_aets]
+    | filter_with_temp_id
+    | map[lambda p: aet_mapping[p[1]['type']][p[0]] <= p[1]['value']]
+    | collect
+    )
+
+    rels = (elements 
+    | filter[lambda p: p[1]['type'] == 'Edge']
+    | filter_with_temp_id
+    | map[lambda p: (Z[p[1]['source']], RT(asg[p[1]['labeled_by']]['value'])[p[0]], Z[p[1]['target']])]
+    | collect
+    )    
+    actions = ets + aets + aets_from_vals + rels
+    return FlatGraph(actions)
+
+def zascii_to_flatgraph_tp(op, curr_type):
+    return VT.FlatGraph
 
 
 #--------------------------------------------------------------------------------------

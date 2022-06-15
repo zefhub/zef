@@ -249,7 +249,7 @@ _op_to_functions = {
         RT.InjectList:          (inject_list_imp, inject_list_tp),
 
         RT.ZasciiToAsg:         (zascii_to_asg_imp, zascii_to_asg_tp),
-        RT.ZasciiToActions:     (zascii_to_actions_imp, zascii_to_actions_tp),
+        RT.ZasciiToFlatGraph:   (zascii_to_flatgraph_imp, zascii_to_flatgraph_tp,),
 
         RT.ReplaceAt:           (replace_at_imp, replace_at_tp),
         RT.RandomPick:          (random_pick_imp, random_pick_tp),
