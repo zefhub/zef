@@ -18,6 +18,13 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+
+#include "nlohmann/json.hpp"
+using json = nlohmann::json;
+
+#include <jwt-cpp/jwt.h>
+#include "jwt-cpp/traits/nlohmann-json/traits.h"
+
 // I want to not have to use this:
 #include "high_level_api.h"
 #include "synchronization.h"
@@ -1624,6 +1631,52 @@ namespace zefDB {
                     refresh_token = j["refresh_token"].get<std::string>();
                 }
             }
+        }
+
+        std::string Butler::who_am_i() {
+            std::string name;
+
+            std::optional<std::string> key_string = load_forced_zefhub_key();
+            if(key_string) {
+                if(*key_string == constants::zefhub_guest_key) {
+                    name = "GUEST via forced key";
+                } else {
+                    // This is  duplicated with get_firebase_refresh_token_email which is annoying
+                    int colon = key_string->find(':');
+                    name = key_string->substr(0,colon) + " via forced key";
+                }
+            } else if(!have_auth_credentials()) {
+                name = "";
+            } else {
+                if(have_logged_in_as_guest) {
+                    name = "GUEST via login prompt";
+                } else {
+                    auto credentials_file = zefdb_config_path() / "credentials";
+                    if(!std::filesystem::exists(credentials_file)) {
+                        name = "";
+                    } else {
+                        std::ifstream file(credentials_file);
+                        json j = json::parse(file);
+                        refresh_token = j["refresh_token"].get<std::string>();
+                        std::string token = get_firebase_token_refresh_token(refresh_token);
+                        using traits = jwt::traits::nlohmann_json;
+                        auto decoded = jwt::decode<traits>(token);
+                        name = decoded.get_payload_claim("email").to_json();
+
+                        auto firebase_field = decoded.get_payload_claim("firebase").to_json();
+                        if(firebase_field.contains("sign_in_provider"))
+                            name += " through firebase provider: " + firebase_field["sign_in_provider"].get<std::string>();
+                    }
+                }
+            }
+
+            if(connection_authed)
+                name += " (CONNECTED)";
+            else if(fatal_connection_error)
+                name += " (CONNECITON ERROR)";
+            else
+                name += " (DISCONNECTED)";
+            return name;
         }
 
         Butler::header_list_t Butler::prepare_send_headers(void) {

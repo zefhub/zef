@@ -3722,6 +3722,7 @@ namespace zefDB {
                         EZefRef new_z = internals::instantiate(BT.TX_EVENT_NODE, gd);
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
                         internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        z = new_z;
                     } else
                         return {};
                 } else {
@@ -3746,6 +3747,7 @@ namespace zefDB {
                         EZefRef new_z = internals::instantiate(BT.ROOT_NODE, gd);
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
                         internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        z = new_z;
                     } else
                         return {};
                 } else {

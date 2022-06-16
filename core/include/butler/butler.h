@@ -273,6 +273,7 @@ namespace zefDB {
             // wait_for_auth: will start_connection if not already connected
             bool wait_for_auth(std::chrono::duration<double> timeout=std::chrono::seconds(-1));
             void determine_refresh_token();
+            std::string who_am_i();
             // ensure_auth_credentials: if no credentials will pop up browser
             void ensure_auth_credentials();
             std::optional<std::string> load_forced_zefhub_key();

@@ -155,7 +155,7 @@ def graphviz_imp(zz, *flags):
                 if v is None: return 'None'
                 elif isinstance(v, str): return f'"{v}"' if len(v) < 20 else f'"{v[:18]}..."'
                 else: return str(v)
-            val_maybe = '' if isinstance(z, EZefRef) else (f"\n▷{val_to_str(z)}")
+            val_maybe = (f"\n▷{val_to_str(z)}") if isinstance(z, ZefRef) and not internals.is_delegate(z) else ''
             return f"AET.{AET(z)}{val_maybe}"        
         if BT(z)==BT.RELATION_EDGE:
             return f"RT.{str(RT(z))}"        

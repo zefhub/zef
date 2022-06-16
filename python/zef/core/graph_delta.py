@@ -172,6 +172,7 @@ def construct_commands(elements) -> list:
                    | iterate[iteration_step[generate_id]]
                    | (map[tap[make_debug_output()]] if gd_timing else identity)
                    | take_until[lambda s: len(s['user_expressions'])==0]
+                   # | map[tap[print]]
                    | last
                    | collect
                    )
@@ -248,6 +249,8 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
         elif is_a(x.el_ops, terminate):
             return
         elif is_a(x.el_ops, tag):
+            return
+        elif is_a(x.el_ops, fill_or_attach):
             return
         raise Exception(f"A LazyValue must have come from (x | assign), (x | terminate) or (x | tag) only. Got {x}")
 
@@ -396,6 +399,8 @@ def dispatch_cmds_for(expr, gen_id):
             return cmds_for_lv_assign(expr, gen_id)
         elif is_a(expr.el_ops, terminate):
             return cmds_for_lv_terminate(expr)
+        elif is_a(expr.el_ops, fill_or_attach):
+            return cmds_for_lv_fill_or_attach(expr, gen_id)
         elif is_a(expr.el_ops, tag):
             return cmds_for_lv_tag(expr, gen_id)
         else:
@@ -551,6 +556,30 @@ def cmds_for_lv_terminate(x):
 
     return (), [cmd]
 
+def cmds_for_lv_fill_or_attach(x, gen_id):
+    assert isinstance(x, LazyValue)
+
+    assert len(x | peel | collect) == 2
+    source,op = x | peel | collect
+
+    # assert is_a(source, ZefOp) and is_a(source, Z), f"fill_or_attach reached cmd creation with an incorrect input type: {source}"
+    assert is_a(op, fill_or_attach)
+    rt,val = LazyValue(op) | absorbed | collect
+    assert type(rt) == RelationType
+
+    if type(val) in scalar_types:
+        iid,exprs = realise_single_node(source, gen_id)
+
+        cmd = {
+            'cmd': 'fill_or_attach', 
+            'source_id': iid,
+            'rt': rt,
+            'value': val
+        }
+        return exprs, [cmd]
+    else:
+        return cmds_for_tuple((source, rt, val), gen_id)
+
 def cmds_for_delegate(x):                            
     internal_ids = []
     a_id = get_absorbed_id(x)
@@ -704,15 +733,12 @@ def realise_single_node(x, gen_id):
     # Now this is a check for whether we are an assign
     if isinstance(x, LazyValue):
         target,op = x | peel | collect
-        if is_a(op, assign):
+        if is_a(op, terminate) or is_a(op, tag):
+            iid = origin_uid(target)
+            exprs = [x]
+        elif is_a(op, assign) or is_a(op, fill_or_attach):
             iid,exprs = realise_single_node(target, gen_id)
             exprs = exprs + [LazyValue(Z[iid]) | op]
-        elif is_a(op, terminate):
-            iid = origin_uid(target)
-            exprs = [x]
-        elif is_a(op, tag):
-            iid = origin_uid(target)
-            exprs = [x]
         else:
             raise Exception(f"Don't understand LazyValue type: {op}")
     elif isinstance(x, EntityType) or isinstance(x, AtomicEntityType):
@@ -758,13 +784,10 @@ def realise_single_node(x, gen_id):
         for k,v in sub_d.items():
             if isinstance(v, list):
                 for e in v:
-                    target_iid, target_exprs = realise_single_node(e, gen_id)
-                    exprs.extend(target_exprs)
-                    exprs.append((Z[iid], k, Z[target_iid]))
+                    assert type(e) not in scalar_types, "Can't have multiple scalars attached in a dictionary"
+                    exprs.append((Z[iid], k, e))
             else:
-                target_iid, target_exprs = realise_single_node(v, gen_id)
-                exprs.extend(target_exprs)
-                exprs.append((Z[iid], k, Z[target_iid]))
+                exprs.append(Z[iid] | fill_or_attach[k][v])
     else:
         raise TypeError(f'in GraphDelta encode step: for type(x)={type(x)}')
 
@@ -792,6 +815,9 @@ def verify_and_compact_commands(cmds: tuple):
     cmds = (cmds | group_by[get['cmd']]
             | map[match[
                         (Is[first | equals["assign"]],   second | filter[Not[is_unnecessary_automatic_merge_assign]] | validate_and_compress_unique_assignment),
+                # TODO: Validate fill_or_attach assignments - but note that
+                # these could also conflict with regular assignments but it's
+                # hard to tell that without playing out the assignments first.
                         (Is[first | equals["merge"]],          second | combine_internal_ids_for_merges),
                         (Is[first | equals["terminate"]],      second | combine_terminates), 
                         (Any, second),                                 # Just pack things back in for other cmd types
@@ -825,7 +851,7 @@ def verify_and_compact_commands(cmds: tuple):
         | iterate[resolve_dag_ordering_step] 
         | (tap[make_debug_output()] if gd_timing else identity)
         | take_until[lambda s: s["num_changed"] == 0]
-        # | tap[lambda x: print("After take_until")]
+        # | map[tap[print]]
         | last
         | get["state"]
         | collect
@@ -897,6 +923,7 @@ def command_ordering_by_type(d_raes: dict) -> int:
         if isinstance(d_raes['rae_type'], RelationType): return 3
         return 4                                            # there may be {'cmd': 'instantiate', 'rae_type': AET.Bool}
     if d_raes['cmd'] == 'assign': return 5
+    if d_raes['cmd'] == 'fill_or_attach': return 5.5
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Relation): return 6
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Entity): return 7
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], AtomicEntity): return 8
@@ -1095,6 +1122,27 @@ def perform_transaction_commands(commands: list, g: Graph):
                         if zz | value | collect != cmd['value']:
                             # print("Assigning value of ", cmd['value'], "to a", AET(z))
                             internals.assign_value_imp(zz, cmd['value'])
+                    zz = now(zz)
+
+                elif cmd['cmd'] == 'fill_or_attach':
+                    # zz = most_recent_rae_on_graph(uid(cmd['origin_rae']), g)
+                    zz = d_raes.get(cmd['source_id'], None)
+                    if zz is None:
+                        raise KeyError(f"fill_or_attach called with unknown source {cmd['source']}")
+                    opts = zz | Outs[cmd['rt']] | collect
+                    aet = map_scalar_to_aet_type[type(cmd['value'])](cmd['value'])
+                    if len(opts) == 2:
+                        raise Exception(f"Can't fill_or_attach to {zz} because it has two or more relations of kind {rt}")
+                    elif len(opts) == 1:
+                        ae = single(opts)
+                        if aet != rae_type(ae):
+                            raise Exception(f"Can't fill or attach {ae} because it is the wrong type for value {cmd['value']}")
+                        if value(ae) != cmd['value']:
+                            internals.assign_value_imp(ae, cmd['value'])
+                    else:
+                        ae = instantiate(aet, g)
+                        internals.assign_value_imp(ae, cmd['value'])
+                        rel = instantiate(zz, cmd['rt'], ae, g)
                     zz = now(zz)
                     
                 elif cmd['cmd'] == 'merge':

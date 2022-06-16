@@ -95,6 +95,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
         auto butler = Butler::get_butler();
         butler->stop_connection();
     }, py::call_guard<py::gil_scoped_release>());
+
+    internals_submodule.def("who_am_i", []() {
+        auto butler = Butler::get_butler();
+        return butler->who_am_i();
+    }, py::call_guard<py::gil_scoped_release>());
         
 
 	internals_submodule.def("is_any_UID", &is_any_UID);

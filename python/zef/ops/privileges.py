@@ -18,6 +18,7 @@ __all__ = [
     "login",
     "login_as_guest",
     "logout",
+    "who_am_i",
 ]
 
 from ..core import *
@@ -69,3 +70,5 @@ logout = Effect({"type": FX.ZefHub.Logout})
 login._been_run = True
 login_as_guest._been_run = True
 logout._been_run = True
+
+from ..pyzef.internals import who_am_i

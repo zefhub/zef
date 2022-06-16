@@ -392,12 +392,16 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
             z_ed | terminate | g | run
 
         def add_binding(z_fct: ZefRef, name: str, z_attached_fct):                    
-            z_rel = (instantiate(z_fct | to_ezefref | collect, RT.Binding, z_attached_fct | to_ezefref | collect, g) 
-                    | fill_or_attach[RT.Name, name] 
-                    | fill_or_attach[RT.UseTimeSlice, str(base_uid(z_attached_fct | frame | to_tx))]        # the zef function passed in by the user may be pointing to an earlier 
-                    | collect
-                    # TODO: this should directly point at the transaction once zefDB allows attaching RTs to txs. This is just a hack for now !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                    )
+            # z_rel = (instantiate(z_fct | to_ezefref | collect, RT.Binding, z_attached_fct | to_ezefref | collect, g) 
+            #         | fill_or_attach[RT.Name, name] 
+            #         | fill_or_attach[RT.UseTimeSlice, str(base_uid(z_attached_fct | frame | to_tx))]        # the zef function passed in by the user may be pointing to an earlier 
+            #         | collect
+            #         # TODO: this should directly point at the transaction once zefDB allows attaching RTs to txs. This is just a hack for now !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            #         )
+            z = instantiate(z_fct | to_ezefref | collect, RT.Binding, z_attached_fct | to_ezefref | collect, g) 
+            [z | fill_or_attach[RT.Name][name],
+             z | fill_or_attach[RT.UseTimeSlice][str(base_uid(z_attached_fct | frame | to_tx))]
+             ] | transact[g] | run
 
         list(bindings_to_remove.items()) | for_each[lambda p: remove_binding(z_zef_fct, *p)]
         list(bindings_to_add.items()) | for_each[lambda p: add_binding(z_zef_fct, *p)]

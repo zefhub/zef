@@ -205,8 +205,10 @@ namespace zefDB {
                 recurse_validate(new_path, item.second);
             }
         } else {
-            // We only care about the path, not the value in it.
-            get_spec(parent_path);
+            // If the path is "" then this is likely that the config file is empty.
+            if(parent_path != "")
+                // We only care about the path, not the value in it.
+                get_spec(parent_path);
         }
     };
 
