@@ -5451,6 +5451,16 @@ def exists_at_implementation(z, frame):
     return (pyzefops.exists_at)(z, frame.tx)
 
 def first_tx_for_low_level_blob(z):
+    # Delegate detection comes first, as several of the other things below can
+    # be delegates and would need their own logic.
+    if internals.is_delegate(z):
+        # Chronological order is mandatory so we find the first instantiation edge
+        return first_tx_for_low_level_blob(z | in_rel[BT.TO_DELEGATE_EDGE] | collect)
+    elif BT(z) in [BT.ENTITY_NODE,
+                   BT.RELATION_EDGE,
+                   BT.ATOMIC_ENTITY_NODE]:
+        # Chronological order is mandatory so we find the first instantiation edge
+        return first_tx_for_low_level_blob(z | in_rel[BT.RAE_INSTANCE_EDGE] | collect)
     if BT(z) in [BT.DELEGATE_INSTANTIATION_EDGE,
                    BT.DELEGATE_RETIREMENT_EDGE,
                    BT.INSTANTIATION_EDGE,
@@ -5480,14 +5490,6 @@ def first_tx_for_low_level_blob(z):
     elif BT(z) == BT.TO_DELEGATE_EDGE:
         # Need to get the first TX of all instantiation edges.
         return z | Ins[BT.DELEGATE_INSTANTIATION_EDGE] | first | collect
-    elif BT(z) in [BT.ENTITY_NODE,
-                   BT.RELATION_EDGE,
-                   BT.ATOMIC_ENTITY_NODE]:
-        # Chronological order is mandatory so we find the first instantiation edge
-        if internals.is_delegate(z):
-            return first_tx_for_low_level_blob(z | in_rel[BT.TO_DELEGATE_EDGE] | collect)
-        else:
-            return first_tx_for_low_level_blob(z | in_rel[BT.RAE_INSTANCE_EDGE] | collect)
 
     raise Exception("Not a low level blob we can get a simple tx for.")
 
@@ -8440,7 +8442,7 @@ def blueprint_imp(x, include_edges=False):
                      | last
                      | first
                      | collect)
-        return all_items | without[[g | root | collect]] | collect
+        return all_items | without[[g | root | collect] + (g | root | out_rels[BT.TO_DELEGATE_EDGE] | collect)] | collect
     elif isinstance(x, GraphSlice):
         rae_satisfies = match[
             (Delegate, exists_at[x]),
