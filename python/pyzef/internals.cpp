@@ -384,24 +384,6 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	// internals_submodule.def("process_zm_tasks", [](){ tasks::apply_immediate_updates_from_zm(); }, py::call_guard<py::gil_scoped_release>());
 
 
-    py::class_<DelegateEntity>(internals_submodule, "DelegateEntity", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<EntityType>(), py::call_guard<py::gil_scoped_release>())
-		.def_readonly("et", &DelegateEntity::et)
-        .def("__repr__", [](const DelegateEntity & d) { return to_str(d); })
-		.def("__eq__", &DelegateEntity::operator==, py::is_operator())
-        ;
-    py::class_<DelegateAtomicEntity>(internals_submodule, "DelegateAtomicEntity", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<AtomicEntityType>(), py::call_guard<py::gil_scoped_release>())
-		.def_readonly("aet", &DelegateAtomicEntity::aet)
-        .def("__repr__", [](const DelegateAtomicEntity & d) { return to_str(d); })
-		.def("__eq__", &DelegateAtomicEntity::operator==, py::is_operator())
-        ;
-    py::class_<DelegateRelationGroup>(internals_submodule, "DelegateRelationGroup", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<RelationType>(), py::call_guard<py::gil_scoped_release>())
-		.def_readonly("rt", &DelegateRelationGroup::rt)
-        .def("__repr__", [](const DelegateRelationGroup & d) { return to_str(d); })
-		.def("__eq__", &DelegateRelationGroup::operator==, py::is_operator())
-        ;
     py::class_<DelegateTX>(internals_submodule, "DelegateTX", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<>(), py::call_guard<py::gil_scoped_release>())
         .def("__repr__", [](const DelegateTX & d) { return to_str(d); })
@@ -422,9 +404,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
         ;
 
     py::class_<Delegate>(internals_submodule, "Delegate", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>(), py::dynamic_attr())
-        .def(py::init<int,DelegateEntity>(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<int,DelegateAtomicEntity>(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<int,DelegateRelationGroup>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<int,EntityType>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<int,AtomicEntityType>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<int,RelationType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateTX>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateRoot>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateRelationTriple>(), py::call_guard<py::gil_scoped_release>())
@@ -432,6 +414,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
         .def(py::init<AtomicEntityType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<RelationType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<Delegate,RelationType,Delegate>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<Delegate>(), py::call_guard<py::gil_scoped_release>())
 		.def_readonly("order", &Delegate::order)
 		.def_readonly("item", &Delegate::item)
         .def("__repr__", [](const Delegate & d) { return to_str(d); })

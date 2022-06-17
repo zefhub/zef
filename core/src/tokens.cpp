@@ -798,35 +798,26 @@ namespace zefDB {
     }
 
     Delegate delegate_of(EntityType et) {
-        return Delegate{1, DelegateEntity{et}};
+        return Delegate{1, et};
     }
     Delegate delegate_of(AtomicEntityType aet) {
-        return Delegate{1, DelegateAtomicEntity{aet}};
+        return Delegate{1, aet};
     }
     Delegate delegate_of(RelationType rt) {
-        return Delegate{1, DelegateRelationGroup{rt}};
+        return Delegate{1, rt};
     }
     Delegate delegate_of(const Delegate & d) {
         return Delegate{d.order+1, d.item};
     }
 
-    std::ostream & operator<<(std::ostream & o, const DelegateEntity & d) {
-        return o << "d" << d.et;
-    }
-    std::ostream & operator<<(std::ostream & o, const DelegateAtomicEntity & d) {
-        return o << "d" << d.aet;
-    }
-    std::ostream & operator<<(std::ostream & o, const DelegateRelationGroup & d) {
-        return o << "d" << d.rt;
-    }
     std::ostream & operator<<(std::ostream & o, const DelegateTX & d) {
-        return o << "dTX";
+        return o << "TX";
     }
     std::ostream & operator<<(std::ostream & o, const DelegateRoot & d) {
-        return o << "dRoot";
+        return o << "Root";
     }
     std::ostream & operator<<(std::ostream & o, const DelegateRelationTriple & d) {
-        o << "{" << *d.source << ">" << "d" << d.rt << ">" << *d.target << "}";
+        o << "{" << *d.source << ">" << d.rt << ">" << *d.target << "}";
         return o;
     }
 

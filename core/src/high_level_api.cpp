@@ -3584,17 +3584,17 @@ namespace zefDB {
             return temp | only;
         }
 
-        std::optional<EZefRef> delegate_to_ezr(const DelegateEntity & d, int order, Graph g, bool create) {
+        std::optional<EZefRef> delegate_to_ezr(const EntityType & et, int order, Graph g, bool create) {
             auto & gd = g.my_graph_data();
             EZefRef root{constants::ROOT_NODE_blob_index, gd};
             EZefRef z = root;
             for(int i = 0 ; i < order ; i++) {
-                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), d.et);
+                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), et);
                 if(length(opts) == 0) {
                     if(create) {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef new_z = internals::instantiate(BT.ENTITY_NODE, gd);
-                        get<blobs_ns::ENTITY_NODE>(new_z).entity_type = d.et;
+                        get<blobs_ns::ENTITY_NODE>(new_z).entity_type = et;
                         get<blobs_ns::ENTITY_NODE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
                         internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
@@ -3609,17 +3609,17 @@ namespace zefDB {
             return z;
         }
 
-        std::optional<EZefRef> delegate_to_ezr(const DelegateAtomicEntity & d, int order, Graph g, bool create) {
+        std::optional<EZefRef> delegate_to_ezr(const AtomicEntityType & aet, int order, Graph g, bool create) {
             auto & gd = g.my_graph_data();
             EZefRef root{constants::ROOT_NODE_blob_index, gd};
             EZefRef z = root;
             for(int i = 0 ; i < order ; i++) {
-                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), d.aet);
+                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), aet);
                 if(length(opts) == 0) {
                     if(create) {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef new_z = internals::instantiate(BT.ATOMIC_ENTITY_NODE, gd);
-                        get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).my_atomic_entity_type = d.aet;
+                        get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).my_atomic_entity_type = aet;
                         get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
                         internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
@@ -3638,18 +3638,18 @@ namespace zefDB {
             return (z <= RT) && (source(z) == z) && (target(z) == z);
         }
 
-        std::optional<EZefRef> delegate_to_ezr(const DelegateRelationGroup & d, int order, Graph g, bool create) {
+        std::optional<EZefRef> delegate_to_ezr(const RelationType & rt, int order, Graph g, bool create) {
             auto & gd = g.my_graph_data();
             EZefRef root{constants::ROOT_NODE_blob_index, gd};
             EZefRef z = root;
             for(int i = 0 ; i < order ; i++) {
-                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), d.rt);
+                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), rt);
                 opts = filter(opts, is_delegate_relation_group);
                 if(length(opts) == 0) {
                     if(create) {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef new_z = internals::instantiate(BT.RELATION_EDGE, gd);
-                        get<blobs_ns::RELATION_EDGE>(new_z).relation_type = d.rt;
+                        get<blobs_ns::RELATION_EDGE>(new_z).relation_type = rt;
                         get<blobs_ns::RELATION_EDGE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         get<blobs_ns::RELATION_EDGE>(new_z).source_node_index = index(new_z);
                         get<blobs_ns::RELATION_EDGE>(new_z).target_node_index = index(new_z);
@@ -3675,7 +3675,7 @@ namespace zefDB {
             std::optional<EZefRef> d_src = delegate_to_ezr(*(d.source), g, create, 1);
             std::optional<EZefRef> d_trg = delegate_to_ezr(*(d.target), g, create, 1);
 
-            auto rel_group = delegate_to_ezr(DelegateRelationGroup{d.rt}, 1, g, create);
+            auto rel_group = delegate_to_ezr(d.rt, 1, g, create);
             if(!rel_group)
                 return {};
             EZefRef z = *rel_group;
@@ -3810,11 +3810,11 @@ namespace zefDB {
                 // Note: we may end up with order 0 at the end here - this is
                 // acceptable, and means this is an instance!
                 if(ezr <= ET)
-                    return Delegate{order, DelegateEntity{ET(ezr)}};
+                    return Delegate{order, ET(ezr)};
                 if(ezr <= AET)
-                    return Delegate{order, DelegateAtomicEntity{AET(ezr)}};
+                    return Delegate{order, AET(ezr)};
                 if(ezr <= RT)
-                    return Delegate{order, DelegateRelationGroup{RT(ezr)}};
+                    return Delegate{order, RT(ezr)};
                 if(BT(ezr) == BT.TX_EVENT_NODE)
                     return Delegate{order, DelegateTX{}};
                 if(BT(ezr) == BT.ROOT_NODE)
