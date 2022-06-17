@@ -183,9 +183,6 @@ namespace zefDB {
             }
         }
 
-        void verify_double_linking_partial() {
-        }
-
         void undo_double_linking(GraphData& gd, blob_index start_index, blob_index end_index) {
             // Cache whether the prior blob has been handled.
             std::unordered_set<blob_index> handled_nodes;

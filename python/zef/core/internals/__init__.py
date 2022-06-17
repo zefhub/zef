@@ -104,6 +104,10 @@ from ...pyzef.internals import (
     wait_for_auth,
 )
 
+from ...pyzef.verification import (
+    verify_graph
+)
+
 from ...pyzef.main import ZefRef, zwitch
 
 # ----------------------------- monkey patch to allow dispatching on enums ---------------------------------------
