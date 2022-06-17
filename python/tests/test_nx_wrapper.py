@@ -50,9 +50,9 @@ class MyTestCase(unittest.TestCase):
 
 
         dg = ProxyGraph(now(g), ET.Person, RT.Knows)
-        self.assertEqual(set(dg.nodes) | map[lambda x: x.z] | func[set] | collect,
+        self.assertEqual(set(dg.nodes) | func[set] | collect,
                          set(g | now | all[ET.Person] | collect))
-        self.assertEqual(set(dg.edges) | map[map[lambda x: x.z] | func[tuple]] | func[set] | collect,
+        self.assertEqual(set(dg.edges) | func[set] | collect,
                          set([(r["alex"], r["bob"]),
                               (r["alex"], r["zach"])]))
         self.assertEqual(dg[r["alex"]][r["bob"]]["From"], "University")

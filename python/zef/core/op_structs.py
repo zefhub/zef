@@ -311,7 +311,7 @@ class ZefOp:
             return LazyValue(other) | self
         # This is just for a bit of help for users to understand what's going on
         elif isinstance(other, Iterable):
-            raise TypeError("An arbitrary iterable will not be automatically converted to a LazyValue when being piped into a ZefOp. This is because it cannot be determined if it is a stateful iterator (e.g. a generator or a file object) or a stateless iterable (e.g. a list or a range() object).\n\nIf you know your iterable is immutable, then wrap the iterable in `LazyValue`, that is use `LazyValue(itr) | zefop` instead of `itr | zefop`.\n\nIf your iterable is an iterator that mutates on iteration you should either\n\ta) first wrap it in a caching mechanism (TODO make this available in zef: not available in any external library that I can see) or\n\tb) make its content available as a Stream, e.g. TODO.")
+            raise TypeError(f"An arbitrary iterable (we saw {type(other)}) will not be automatically converted to a LazyValue when being piped into a ZefOp. This is because it cannot be determined if it is a stateful iterator (e.g. a generator or a file object) or a stateless iterable (e.g. a list or a range() object).\n\nIf you know your iterable is immutable, then wrap the iterable in `LazyValue`, that is use `LazyValue(itr) | zefop` instead of `itr | zefop`.\n\nIf your iterable is an iterator that mutates on iteration you should either\n\ta) first wrap it in a caching mechanism (TODO make this available in zef: not available in any external library that I can see) or\n\tb) make its content available as a Stream, e.g. TODO.")
 
         return NotImplemented
         

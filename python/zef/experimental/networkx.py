@@ -67,6 +67,11 @@ def ZefRef_to_node_ref(z):
     return z
 
 @func
+def node_ref_to_ZefRef(x):
+    # return x.z
+    return x
+
+@func
 def ZefRef_to_edge_ref(z, direction):
     src_ref = ZefRef_to_node_ref(source(z))
     trg_ref = ZefRef_to_node_ref(target(z))
@@ -412,7 +417,7 @@ class ProxyEdgeView:
         # We do this to speed up the lookups
         node_set = set(self.dg.node_mapping)
         out = (self.dg.node_mapping
-                 | map[get_field["z"]]
+                 | map[node_ref_to_ZefRef]
                  | map[all_edges_with_end[self.dg.rts][direction_override]]
                  | concat
                  | filter[second | func[ZefRef_to_node_ref] | contained_in[node_set]]
