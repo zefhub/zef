@@ -23,19 +23,19 @@ class Direction(Enum):
     INCOMING = 3
 
 # This class needs to tie in with ZefRef_to_node_ref
-class NodeRef:
-    def __init__(self, z):
-        assert isinstance(z, ZefRef)
-        self.z = z
+# class NodeRef:
+#     def __init__(self, z):
+#         assert isinstance(z, ZefRef)
+#         self.z = z
 
-    def __repr__(self):
-        return f"Node(#{index(self.z)})"
-    def __eq__(self, other):
-        if not isinstance(other, NodeRef):
-            return NotImplemented
-        return self.z == other.z
-    def __hash__(self):
-        return hash(self.z)
+#     def __repr__(self):
+#         return f"Node(#{index(self.z)})"
+#     def __eq__(self, other):
+#         if not isinstance(other, NodeRef):
+#             return NotImplemented
+#         return self.z == other.z
+#     def __hash__(self):
+#         return hash(self.z)
 
 # This class needs to tie in with ZefRef_to_edge_ref
 # class EdgeRef:
@@ -63,7 +63,8 @@ def ZefRef_to_node_ref(z):
     # anything that fits into g[x], this consistency here should provide a
     # better fit for algorithms that do comparisons, etc...
     # return index(z)
-    return NodeRef(z)
+    # return NodeRef(z)
+    return z
 
 @func
 def ZefRef_to_edge_ref(z, direction):
@@ -138,9 +139,13 @@ class ProxyGraph:
         if isinstance(self.node_filter, tuple):
             raise Exception("Don't pass a tuple to ProxyGraph as the node_filter")
 
+        if isinstance(self.node_filter, set):
+            # This is a special case that I think will later not be needed
+            self.node_filter = list(self.node_filter)
+
         if isinstance(self.node_filter, list):
-            if isinstance(self.node_filter[0], NodeRef):
-                return self.node_filter
+            # if isinstance(self.node_filter[0], NodeRef):
+            #     return self.node_filter
             if isinstance(self.node_filter[0], ZefRef):
                 return [ZefRef_to_node_ref(x) for x in self.node_filter]
             raise TypeError("Can't understand node_filter")
@@ -223,8 +228,10 @@ class ProxyGraph:
 
         # Returns a view from a node which is the first half of an edge query.
         resolved = None
-        if isinstance(item, NodeRef):
-            resolved = item.z
+        if False:
+            pass
+        # elif isinstance(item, NodeRef):
+        #     resolved = item.z
         elif isinstance(item, (str,int)) or is_a(item, uid):
             resolved = self.gs[item]
         elif isinstance(item, ZefRef):
