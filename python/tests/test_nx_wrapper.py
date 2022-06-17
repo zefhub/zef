@@ -81,7 +81,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(nx.node_connectivity(ug_sg), 0)
 
         nx.k_components(ug)
-        nx.k_components(dg2.to_undirected())
+        nx.k_components(dg2.to_undirected().to_native())
 
         # Can't work - tries to construct a graph itself
         # nx.maximum_branching(dg)

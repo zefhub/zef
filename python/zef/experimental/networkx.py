@@ -149,6 +149,8 @@ class ProxyGraph:
             self.node_filter = list(self.node_filter)
 
         if isinstance(self.node_filter, list):
+            if len(self.node_filter) == 0:
+                return []
             # if isinstance(self.node_filter[0], NodeRef):
             #     return self.node_filter
             if isinstance(self.node_filter[0], ZefRef):
@@ -223,8 +225,9 @@ class ProxyGraph:
 
     def number_of_nodes(self):
         return len(self.nodes)
-    def number_of_edges(self, u, v):
-        raise NotImplementedError("Need this for multigraphs")
+    def number_of_edges(self, u=None, v=None):
+        # raise NotImplementedError("Need this for multigraphs")
+        assert u is None and v is None, "TODO for multigraphs"
         return len(self.edges)
 
     def __getitem__(self, item):
@@ -488,6 +491,10 @@ class ProxyAtlasView:
         return iter(lazy)
     def __len__(self):
         return length(iter(self))
+    def keys(self):
+        return iter(self)
+    def items(self):
+        return ((x, self[x]) for x in self.keys())
 
     def __getitem__(self, other):
         # The other is a node itself, so we need to look it up and then find the
