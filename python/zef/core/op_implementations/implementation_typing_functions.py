@@ -668,6 +668,14 @@ def get_in_imp(d: dict, path, default_val=VT.Error):
     ---- Examples ----
     >>> {'a': 1, 'b': {'c': 1}} | get_in[('b', 'c')]   # => 1
     >>> {'a': 1, 'b': {'c': 1}} | get_in[('b', 'wrong_key')][42]   # => 42
+
+    ---- Tags ----
+    - related zefop: get
+    - related zefop: remove_in
+    - related zefop: update_in
+    - related zefop: insert_in
+    - related zefop: get_in
+    - operates on: Dict
     """
     assert isinstance(path, list) or isinstance(path, tuple)
 
@@ -684,8 +692,18 @@ def get_in_tp(d_tp, path_tp, default_val_tp):
 #---------------------------------------- insert_in -----------------------------------------------
 def insert_in_imp(d: dict, path, value):
     """
+    Create a new dicitonary from an old one by inserting one value
+    for a given nested path.
+
     ---- Examples ----
     >>> {'a': 1, 'b': {'c': 1}} | insert_in[('b', 'd')][42]   # => {'a': 1, 'b': {'c': 1, 'd': 42}} 
+  
+    ---- Tags ----
+    - related zefop: insert
+    - related zefop: get_in
+    - related zefop: remove_in
+    - related zefop: update_in
+    - operates on: Dict
     """
     assert isinstance(path, list) or isinstance(path, tuple)
     res = {**d}    
@@ -746,6 +764,13 @@ def remove_in_tp(d_tp, path_tp):
 #---------------------------------------- update_in -----------------------------------------------
 def update_in_imp(d: dict, path, func_to_update):
     """
+    Given a dictionary, a tuple describing a path into
+    the dictionary and an update function, 
+    this returns a new dictionary with the element point to
+    replaced with the value obtained by applying the update 
+    function to the previous element.
+    The original dictionary is not mutated.
+
     ---- Examples ----
     >>> {'a': 1, 'b': {'c': 1}} | update_in[('b', 'c')][add[1]]   # => {'a': 1, 'b': {'c': 2}} 
 
@@ -1320,9 +1345,16 @@ def reverse_args_imp(flow_arg, op, *args):
 
 def insert_into_imp(key_val_pair, x):
     """
-    Unclear whether we need this. To insert a key value
-    pair into a dictionary, one could cast to a dict and use merge.
-    But this may be shorter.
+    For Dicts:
+    Given a dictionary as a curried in argument and the key 
+    value pair as the data flow argument, return a new dictionary
+    with the inserted value.
+
+    For Lists:
+    the dataflow argument is a tuple (pos, val), where
+    val will be inserted into the given list at position pos.    
+    For Lists this operator is equivalent to insert_at,
+    but with the argument oder flipped.
 
     This function could also be used on Lists. 
     
@@ -1331,6 +1363,15 @@ def insert_into_imp(key_val_pair, x):
 
     ---- Signature ----
     ((T1, T2), Dict[T3][T4]) -> Dict[T1|T3][T2|T4]
+
+    ---- Tags ----
+    - level: advanced
+    - operates on: Dict
+    - operates on: List
+    - related zefop: insert
+    - related zefop: insert_at
+    - related zefop: merge
+    - related zefop: apply_functions
 
     # TODO: make this work: (10, 'a') | insert_into[range(10) | map[add[100]]] | take[5] | c
 
@@ -1452,6 +1493,7 @@ def get_field_imp(obj, field):
     
     ---- Tags ----
     - related zefop: get
+    - operates on: Python objects
     """
     return getattr(obj, field)
 
@@ -1477,6 +1519,7 @@ def enumerate_imp(v):
     - used for: list manipulation
     - used for: string manipulation
     - used for: lazy transformation
+    - operates on: List
     """
     import builtins
     return builtins.enumerate(v)
@@ -1501,6 +1544,7 @@ def items_imp(d):
     ---- Tags ----
     - used for: dict manipulation
     - used for: list manipulation
+    - operates on: Dict
     """
     return tuple(d.items())
 
@@ -1523,7 +1567,7 @@ def values_imp(d):
 
     ---- Tags ----
     - used for: dict manipulation
-    - used for: list manipulation
+    - operates on: Dict
     """
     return tuple(d.values())
 
@@ -1546,7 +1590,7 @@ def keys_imp(d):
 
     ---- Tags ----
     - used for: dict manipulation
-    - used for: list manipulation
+    - operates on: Dict
     """
     return tuple(d.keys())
 
@@ -1573,6 +1617,7 @@ def reverse_imp(v):
     ---- Tags ----
     - used for: list manipulation
     - used for: stream manipulation
+    - operates on: List
     """
     from typing import Generator
     if isinstance(v, Generator): return (tuple(v))[::-1]
@@ -1594,8 +1639,17 @@ def cycle_imp(iterable, n=None):
     Given a list, this wll produce another list loft the same structure
     that cycles thorugh all elements of the original list n times.
     
-    e.g. [2,3] | cycle[3]  -> [2,3,2,3,2,3]
-    cycle[None]:     means never terminate
+    ---- Examples ----
+    >>> [2,3] | cycle[3]  # => [2,3,2,3,2,3]
+    >>> [2,3] | cycle     # => [2,3,2,3,2,3,...    # never terminates
+
+    ---- Signature ----
+    (List[T], Int) -> List[T]
+
+    ---- Tags ----
+    - used for: list manipulation
+    - used for: stream manipulation
+    - operates on: List
     """
     if n==0:
         return
@@ -1621,6 +1675,18 @@ def cycle_tp(iterable_tp, n_tp):
 
 #---------------------------------------- repeat -----------------------------------------------
 def repeat_imp(iterable, n=None):
+    """
+    Repeat an element a given number of times 
+    None (default) means infinite).
+
+    ---- Examples ----
+    >>> 42 | repeat[3]    # => [42,42,42]
+    >>> (1,'a') | repeat  # => [(1,'a'), (1,'a'), ...]    # infinite sequence
+
+    ---- Tags ----
+    - related zefop: cycle
+    - operates on: Any
+    """
     import itertools
     if isinstance(iterable, Generator) or isinstance(iterable, Iterator): iterable = [i for i in iterable]
     return itertools.repeat(iterable) if n is None else itertools.repeat(iterable, n)
@@ -1633,6 +1699,23 @@ def repeat_tp(iterable_tp, n_tp):
 
 #---------------------------------------- contains -----------------------------------------------
 def contains_imp(x, el):
+    """
+    Check whether an element is in a given
+    set or iterable. Operator for of Python's
+    `in`.
+
+    ---- Examples ----
+    >>> {42, 43} | contains[42]         # => 42
+    >>> g | contains[my_entity_ref]     # => 
+
+    ---- Tags ----
+    - related zefop: contained_in
+    - operates on: List
+    - operates on: Set
+    - operates on: Dict
+    - operates on: Graph
+    - operates on: FlatGraph
+    """
     return el in x    
                         
 
@@ -1817,8 +1900,18 @@ def any_tp(v_tp):
 #---------------------------------------- join -----------------------------------------------
 def join_imp(list_of_strings: VT.List[VT.String], x=''):
     """ 
-    join a list of strings with a binding character.
+    Join a list of strings with a binding character.
+
+    ---- Examples ----
     >>> ['foo', 'bar'] | join['-']              # => 'foo-bar'
+
+    ---- Signature ----    
+    (List[String], String) -> String
+
+    ---- Tags ----
+    - related zefop: concat
+    - related zefop: insert_at
+    - operates on: String
     """
     return x.join(list_of_strings)
 
@@ -1830,6 +1923,26 @@ def join_tp(v, x):
 
 #---------------------------------------- trim_left -----------------------------------------------
 def trim_left_imp(v, el_to_trim):
+    """
+    Removes all contiguous occurrences of a specified 
+    element / character from the left side of a list / string.
+
+    ---- Examples ----
+    >>> '..hello..' | trim_left['.']            # => ['hello..']
+
+    ---- Signature ----
+    (List[T], T) -> List[T]
+    (String, String) -> String
+
+    ---- Tags ----
+    - related zefop: trim
+    - related zefop: trim_right
+    - related zefop: split
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    """
     if isinstance(v, str):        
         return v.lstrip(el_to_trim)
     def wrapper():
@@ -1853,6 +1966,26 @@ def trim_left_tp(v_tp, el_to_trim_tp):
     
 #---------------------------------------- trim_right -----------------------------------------------
 def trim_right_imp(v, el_to_trim):
+    """
+    Removes all contiguous occurrences of a specified 
+    element / character from the right side of a list / string.
+
+    ---- Examples ----
+    >>> '..hello..' | trim_right['.']            # => ['..hello']
+
+    ---- Signature ----
+    (List[T], T) -> List[T]
+    (String, String) -> String
+
+    ---- Tags ----
+    - related zefop: trim
+    - related zefop: trim_left
+    - related zefop: split
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    """
     import itertools 
     if isinstance(v, str):
         return v.rstrip(el_to_trim)
@@ -1870,6 +2003,26 @@ def trim_right_tp(v_tp, el_to_trim_tp):
 
 #---------------------------------------- trim -----------------------------------------------
 def trim_imp(v, el_to_trim):
+    """
+    Removes all contiguous occurrences of a specified 
+    element / character from both sides of a list / string.
+
+    ---- Examples ----
+    >>> '..hello..' | trim['.']            # => ['..hello']
+
+    ---- Signature ----
+    (List[T], T) -> List[T]
+    (String, String) -> String
+
+    ---- Tags ----
+    - related zefop: trim_left
+    - related zefop: trim_right
+    - related zefop: split
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    """
     import itertools 
     if isinstance(v, str):
         return v.strip(el_to_trim)
@@ -1887,6 +2040,23 @@ def trim_tp(v_tp, el_to_trim_tp):
 
 #---------------------------------------- tap -----------------------------------------------
 def tap_imp(x, fct):
+    """
+    An operator mostly used for debugging and testing
+    purposes: allows inserting an impure function into
+    a pipeline.
+    In contrast to apply/map it is not the output of
+    provided function which is forwarded, but the original 
+    input. It is therefore ever only of any use to
+    insert an impure function into tap, since the return 
+    value is discarded.
+
+    ---- Examples ----
+    >>> 41 | add[1] | tap[print] | multiply[2] | collect    # prints 42 and the expression returns 84
+
+    ---- Tags ----
+    - used for: debugging
+    - related zefop: apply
+    """
     fct(x)
     return x
         
@@ -2187,6 +2357,7 @@ def product_imp(v):
     ---- Tags ----
     used for: maths
     operates on: List
+    related zefop: cartesian_product
     related zefop: multiply
     related zefop: sum
     """
@@ -2195,7 +2366,7 @@ def product_imp(v):
 
 
 #---------------------------------------- add -----------------------------------------------
-def add_imp(a, second=None, *args):
+def add_imp(a, b):
     """
     Adds two elements. Neither is a list.
     Don't use this when summing up a list, use `sum`
@@ -2209,15 +2380,16 @@ def add_imp(a, second=None, *args):
 
     ---- Tags ----
     used for: maths
+    operates on: Int
+    operates on: Float
     related zefop: sum
     related zefop: subtract
     related zefop: multiply
     related zefop: divide
     """
-    from functools import reduce
-    if second is None:
+    if type(a) in {list, tuple} or type(b) in {list, tuple}:
         raise TypeError(f"`add` is a binary operator, i.e. always takes two arguments. If you want to sum up all elements in a list, use `sum`")
-    return reduce(lambda x, y: x + y, [a, second, *args])
+    return a+b
     
     
 def add_tp(a, second, *args):
@@ -2226,7 +2398,7 @@ def add_tp(a, second, *args):
     
     
 #---------------------------------------- subtract -----------------------------------------------
-def subtract_imp(a, second=None):
+def subtract_imp(a, b):
     """
     Binary operator to subtract two elements. Neither is a list.
     If am operator is needed that can act on a tuple of length 2,
@@ -2241,15 +2413,16 @@ def subtract_imp(a, second=None):
 
     ---- Tags ----
     used for: maths
+    operates on: Int
+    operates on: Float
     related zefop: add
     related zefop: multiply
     related zefop: divide
     related zefop: unpack
     """
-    if second is None:
-        assert len(a) == 2
-        return a[0]-a[1]
-    return a-second
+    if type(a) in {list, tuple} or type(b) in {list, tuple}:
+        raise TypeError(f"`subtract` is a binary operator, i.e. always takes two arguments.")
+    return a-b
     
     
 def subtract_tp(a, second):
@@ -2261,9 +2434,24 @@ def subtract_tp(a, second):
 #---------------------------------------- multiply -----------------------------------------------
 def multiply_imp(a, second=None, *args):
     """ 
-    Multiplies a list of numbers.
-    We don't use 'product' to name this, as that term is too overloaded.
-    e.g. in Python itertools this denotes the Cartesian product.
+    Binary operator only. For a list of numbers, use `product`.
+
+    ---- Examples ----
+    >>> 2 | multiply[3]    # => 6
+
+    ---- Signature ----
+    (Int, Int) - > Int
+    (Float, Float) - > Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: Int
+    operates on: Float
+    related zefop: product
+    related zefop: add
+    related zefop: divide
+    related zefop: subtract
+    related zefop: unpack
     """
     from functools import reduce
     if second is None:
@@ -2277,10 +2465,31 @@ def multiply_tp(a, second, *args):
 
 #---------------------------------------- divide -----------------------------------------------
 def divide_imp(a, second=None):    
-    if second is None:
-        assert len(a) == 2
-        return a[0]/a[1]
-    return a/second
+    """
+    Binary operator to divide two elements. Neither is a list.
+    If am operator is needed that can act on a tuple of length 2,
+    this can be wrapped in `unpack`.
+
+    ---- Examples ----
+    10 | divide[2]                # => 5
+    (10, 2) | divide[subtract]    # => 5
+
+    ---- Signature ----
+    (T1, T2) -> Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: Int
+    operates on: Float
+    related zefop: add
+    related zefop: multiply
+    related zefop: add
+    related zefop: subtract
+    related zefop: unpack
+    """
+    if type(a) in {list, tuple} or type(b) in {list, tuple}:
+        raise TypeError(f"`subtract` is a binary operator, i.e. always takes two arguments.")
+    return a-b
     
     
 def divide_tp(a, second):
@@ -2294,12 +2503,21 @@ def divide_tp(a, second):
 def mean_imp(v):
     """
     Calculates the arithmetic mean of a given List / Set of numbers.
+   
+    ---- Examples ----
+    >>> [3,7,20] | mean    # => 10
 
     ---- Signature ----
     List[Int] -> Float
     Set[Int] -> Float
     List[Float] -> Float
     Set[Float] -> Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: List    
+    operates on: Set
+    related zefop: variance
     """
     return sum(v) / length(v)
 
@@ -2313,11 +2531,20 @@ def variance_imp(v):
     """
     Calculates the variance of a given List / Set of numbers.
 
+    ---- Examples ----
+    >>> [-1,0,1] | variance    # => 0.6666..
+
     ---- Signature ----
     List[Int] -> Float
     Set[Int] -> Float
     List[Float] -> Float
     Set[Float] -> Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: List    
+    operates on: Set
+    related zefop: mean
     """
     le = length(v)
     return sum( (x*x for x in v) )/le - (sum(v)/le)**2
@@ -2329,6 +2556,23 @@ def variance_tp(v):
 
 #---------------------------------------- power -----------------------------------------------
 def power_imp(x, b):
+    """
+    Take the first argument to the power (exponential) of the second argument.
+   
+    ---- Examples ----
+    >>> 2 | power[8]    # => 256
+
+    ---- Signature ----
+    (Int, Int) -> Int
+    (Float | Int, Float | Int) -> Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: Int    
+    operates on: Float    
+    related zefop: exponential
+    related zefop: multiply
+    """
     return x**b
 
 def power_tp(op, curr_type):
@@ -2337,6 +2581,22 @@ def power_tp(op, curr_type):
 
 #---------------------------------------- exponential -----------------------------------------------
 def exponential_imp(x):
+    """
+    Take the first argument to the power of the second argument.
+   
+    ---- Examples ----
+    >>> 2 | exponential[8]    # => 256
+
+    ---- Signature ----
+    (Float, Float) -> Float
+
+    ---- Tags ----
+    used for: maths
+    
+    related zefop: logarithm
+    related zefop: power
+    related zefop: multiply
+    """
     import math
     return math.exp(x)
 
@@ -2347,8 +2607,25 @@ def exponential_tp(x):
 
 #---------------------------------------- logarithm -----------------------------------------------
 def logarithm_imp(x, base=None):
-    """ 
+    """
+    Take the logarithm, optionally specify the base.
     base = None is synonymous with base = 2.718281828459045...
+   
+    ---- Examples ----
+    >>> 10 | logarithm         # => 2.302585092994046
+    >>> 100 | logarithm[10]    # => 2
+
+    ---- Signature ----
+    (Float, Float) -> Float
+
+    ---- Tags ----
+    used for: maths    
+    related zefop: exponential
+    related zefop: power
+    related zefop: multiply
+    """
+    """ 
+    
     """
     import math
     return (math.log(x) if base is None else math.log(x)/math.log(base))
