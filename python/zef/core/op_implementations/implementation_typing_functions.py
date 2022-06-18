@@ -7149,6 +7149,7 @@ def zascii_to_flatgraph_imp(zascii_str: VT.String) -> VT.FlatGraph:
     | map[lambda p: aet_mapping[p[1]['type']][p[0]] <= p[1]['value']]
     | collect
     )
+    ids = {absorbed(x)[0] for x in ets + aets}.union({absorbed(x.initial_val)[0] for x in aets_from_vals})
 
     rels = (elements 
     | filter[lambda p: p[1]['type'] == 'Edge']
@@ -7156,7 +7157,15 @@ def zascii_to_flatgraph_imp(zascii_str: VT.String) -> VT.FlatGraph:
     | map[lambda p: (Z[p[1]['source']], RT(asg[p[1]['labeled_by']]['value'])[p[0]], Z[p[1]['target']])]
     | collect
     )    
-    actions = ets + aets + aets_from_vals + rels
+    sorted_rels = []
+    while rels:
+        for r in rels:
+            if absorbed(r[0])[0] in ids and absorbed(r[2])[0] in ids:
+                sorted_rels.append(r)
+                ids.add(absorbed(r[1])[0])
+                rels.remove(r)
+
+    actions = ets + aets + aets_from_vals + sorted_rels
     return FlatGraph(actions)
 
 def zascii_to_flatgraph_tp(op, curr_type):
