@@ -2305,6 +2305,13 @@ def without_absorbed_imp(x):
             new_kw = Keyword(x.value)
             return new_kw
 
+    elif isinstance(x, Delegate):
+        if '_absorbed' not in x.__dict__:
+            return x
+        else:
+            new_delegate = Delegate(x.order, x.item)
+            return new_delegate
+
     elif isinstance(x, ZefOp):
         if len(x.el_ops) != 1: 
             return Error(f'"without_absorbed_imp" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on x={x}')
