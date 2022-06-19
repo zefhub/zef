@@ -5085,25 +5085,31 @@ def map_implementation(v, f):
 
 
 
-   
+# -------------------------------- reduce -------------------------------------------------
+ 
 
 def reduce_implementation(iterable, fct, init):
     import functools
     return functools.reduce(fct, iterable, init)
 
 
-# def group_by_implementation(first_arg, *curried_args):
-#     return (ops.group_by)(first_arg, *curried_args)
 
+# -------------------------------- reduce -------------------------------------------------
 def group_by_implementation(iterable, key_fct, categories=None):
     """
     categories is optional and specifies additional keys/categories 
-    to create, even if there are no occurrences. Passed as a list 
-    [True, False]
+    to create, even if there are no occurrences. The categories can
+    be implicitly inferred from the data or explicitly specified 
+    (useful for dispatch and allowing for empty catergories).
+
+    ---- Examples ----
+    >>> range(10) | group_by[modulo[3]]   # => [(0, [0, 3, 6, 9]), (1, [1, 4, 7]), (2, [2, 5, 8])]
     
     ---- Tags ----
     - used for: control flow
-    - operates on: List    
+    - operates on: List
+    - operates on: Stream
+    - related zefop: group
     """        
     # map to list first in case the generator state changes
     from collections import defaultdict
@@ -5120,11 +5126,40 @@ def group_by_implementation(iterable, key_fct, categories=None):
     return [(k, d[k]) for k in (d.keys() if categories is None else categories)]    
 
 
+# -------------------------------- identity -------------------------------------------------
 
 def identity_implementation(x):
+    """
+    The identity function: always returns the input argument
+
+    ---- Examples ----
+    >>> 42 | identity     # => 42
+
+    ---- Tags ----
+    operates on: Any
+    used for: function composition
+    """
     return x
 
+
+# -------------------------------- length -------------------------------------------------
 def length_implementation(iterable):
+    """
+    Zef's version of the length function.
+    Similar to Python's `len` and sometimes
+    called `count` in other languages.
+
+    ---- Examples ----
+    >>> ['a', 'b', 'c'] | length     # => 3
+
+    ---- Signature ----
+    (List[T]) -> Int
+
+    ---- Tags ----
+    related zefop: count
+    operates on: List
+    operates on: Stream
+    """
     if hasattr(iterable, "__len__"):
         return len(iterable)
     else:
@@ -5133,11 +5168,15 @@ def length_implementation(iterable):
 
 
 
+# -------------------------------- nth -------------------------------------------------
 def nth_implementation(iterable, n):
     """
     Returns the nth element of an iterable or a stream.
-    Using negative 'n' takes from the back with 'nth[-1]' being the last element.
-    An Error value is returned if the index is out of bounds.
+    Using negative 'n' takes from the back with 'nth[-1]' 
+    being the last element. An Error value is returned if 
+    the index is out of bounds.
+    This is sometimes called 'get` in other languages, but
+    we want to distinguish it from key lookup.
     Note: this uses a zero-indexed convention.
 
     ---- Examples ----
