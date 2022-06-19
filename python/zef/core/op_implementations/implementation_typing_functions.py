@@ -7172,6 +7172,68 @@ def zascii_to_flatgraph_tp(op, curr_type):
     return VT.FlatGraph
 
 
+def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
+    from ...core.internals import is_any_UID
+    asg = zascii_to_asg(zascii_str)
+
+    aet_mapping = {'Float': AET.Float, 'Int': AET.Int, 'Bool': AET.Bool, 'String': AET.String}
+    scalar_types_for_aets = {'Float', 'Int', 'Bool', 'String'}
+    elements = list(asg.items())
+    filter_with_temp_id =filter[lambda p: not is_any_UID(p[1].get('existing_uid', ''))]
+
+    def ensure_valid_aet_type(d: dict):
+        if d[1]['value'] not in scalar_types_for_aets: raise TypeError(f'An AET type "AET.{d.get("value", None)}" is not a parsable AET type')
+        return d
+
+    ets = (elements 
+    | filter[lambda p: p[1]['type'] == 'ET'] 
+    | filter_with_temp_id
+    | map[lambda p: ET(p[1]['value'])[p[0]]]
+    | collect
+    )
+
+    aets = (elements 
+    | filter[lambda p: p[1]['type'] == 'AET'] 
+    | filter_with_temp_id
+    | map[lambda p: ensure_valid_aet_type(p)]
+    | map[lambda p: aet_mapping[p[1]['value']][p[0]]]
+    | collect
+    )
+
+    aets_without_vals = (elements 
+    | filter[lambda p: p[1]['type'] in scalar_types_for_aets]
+    | filter_with_temp_id
+    | map[lambda p: aet_mapping[p[1]['type']][p[0]] ]
+    | collect
+    )
+
+    id_to_rae = {absorbed(x)[0]: x for x in ets + aets + aets_without_vals}
+
+    rels = (elements 
+    | filter[lambda p: p[1]['type'] == 'Edge']
+    | filter_with_temp_id
+    | map[lambda p: (Z[p[1]['source']], RT(asg[p[1]['labeled_by']]['value'])[p[0]], Z[p[1]['target']])]
+    | collect
+    )    
+
+    sorted_rels = []
+    while rels:
+        for r in rels:
+            if absorbed(r[0])[0] in id_to_rae and absorbed(r[2])[0] in id_to_rae:
+                sorted_rels.append(r)
+                id_to_rae[absorbed(r[1])[0]] = r[1]
+                rels.remove(r)
+                
+    def add_to_dict_and_return_rt(p):
+        return (id_to_rae[absorbed(p[0])[0]],p[1], id_to_rae[absorbed(p[2])[0]])
+
+    rels = sorted_rels | map[add_to_dict_and_return_rt] | collect
+    actions = ets + aets + aets_without_vals + rels
+    return actions
+
+def zascii_to_blueprint_fg_tp(op, curr_type):
+    return VT.FlatGraph
+
 #--------------------------------------------------------------------------------------
 def replace_at_imp(str_or_list, index, new_el):
     """ 

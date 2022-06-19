@@ -299,6 +299,7 @@ make_request  = make_zefop(RT.MakeRequest)
 
 zascii_to_asg       = make_zefop(RT.ZasciiToAsg)
 zascii_to_flatgraph = make_zefop(RT.ZasciiToFlatGraph)
+zascii_to_blueprint_fg = make_zefop(RT.ZasciiToBlueprintFg)
 
                 # Syntax????????????????? 
                 # has_relation(z1, RT.Foo, z2)      replaced by 

@@ -251,6 +251,7 @@ _op_to_functions = {
 
         RT.ZasciiToAsg:         (zascii_to_asg_imp, zascii_to_asg_tp),
         RT.ZasciiToFlatGraph:   (zascii_to_flatgraph_imp, zascii_to_flatgraph_tp,),
+        RT.ZasciiToBlueprintFg:  (zascii_to_blueprint_fg_imp, zascii_to_blueprint_fg_tp),
 
         RT.ReplaceAt:           (replace_at_imp, replace_at_tp),
         RT.RandomPick:          (random_pick_imp, random_pick_tp),
