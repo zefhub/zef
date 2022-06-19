@@ -7904,6 +7904,8 @@ def to_zef_list_tp(op, curr_type):
 #-----------------------------FlatGraph Implementations-----------------------------------
 def fg_insert_imp(fg, new_el):
     from ..graph_delta import map_scalar_to_aet_type
+    from ...pyzef.internals import DelegateRelationTriple
+
     assert isinstance(fg, FlatGraph)
     new_fg = FlatGraph()
     new_blobs, new_key_dict = [*fg.blobs], {**fg.key_dict}
@@ -8018,6 +8020,31 @@ def fg_insert_imp(fg, new_el):
             idx = common_logic(origin_rae(new_el))
             if isinstance(new_blobs[idx][1], AtomicEntityType) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))
+        elif isinstance(new_el, Delegate):
+            if isinstance(new_el.item, DelegateRelationTriple):
+                if new_el in new_key_dict:
+                    idx = new_key_dict[new_el]
+                else:
+                    src, rt, trgt = new_el.item.source, new_el.item.rt, new_el.item.target
+                    src_idx = common_logic(src)
+                    trgt_idx = common_logic(trgt)
+                    idx = next_idx()
+
+                    new_blobs.append((idx, new_el, [], None, src_idx, trgt_idx))
+                    if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
+                    if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
+                    new_key_dict[Delegate(0, rt)] = idx
+                    new_key_dict[new_el] = idx
+            else:
+                internal_id = new_el | absorbed | attempt[single][None] | collect
+                new_el = new_el | without_absorbed | collect
+                if new_el in new_key_dict:
+                    idx = new_key_dict[new_el]
+                else:
+                    idx = next_idx()
+                    if internal_id: new_key_dict[internal_id] = idx
+                    new_key_dict[new_el] = idx
+                    new_blobs.append((idx, new_el, [], None))
         else:
             idx = None
         return idx
@@ -8034,7 +8061,7 @@ def fg_insert_imp(fg, new_el):
         return ent_idx
 
     def _insert_single(new_el):
-        if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val}:
+        if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val, Delegate}:
             common_logic(new_el)
         elif isinstance(new_el, tuple) and len(new_el) == 3:
             src, rt, trgt = new_el
