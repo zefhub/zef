@@ -22,13 +22,6 @@ project(ZefCore CXX)
 #########################
 # customizable variables
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  if(NOT WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -rdynamic -ggdb -g")
-    add_definitions(-DDEBUG)
-  endif()
-endif()
-
 option(LOCAL_ZEFTYPES "Disable getting zeftypes from zefhub" FALSE)
 option(ZEFDB_ALLOW_NO_TLS "Allow insecure websockets for ZefHub connections" TRUE)
 option(ZEFDB_TEST_NO_MMAP_CHECKS "Test for mmap slowness" FALSE)
@@ -160,17 +153,18 @@ endif()
 
 set_target_properties(zef PROPERTIES
   CXX_STANDARD 17
-  COMPILE_DEFINITIONS
-  "DOCTEST_CONFIG_DISABLE;BUILDING_LIBZEF"
   CXX_VISIBILITY_PRESET hidden
   # This is apparently something that needs a check for all compilers, so will disable for now.
   # INTERPROCEDURAL_OPTIMIZATION ON
   # PUBLIC_HEADER "${HEADERS}"
   )
-# if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-#   set_target_properties(zef PROPERTIES
-#     CXX_VISIBILITY_PRESET default)
-# endif()
+target_compile_definitions(zef PRIVATE DOCTEST_CONFIG_DISABLE BUILDING_LIBZEF)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  if(NOT WIN32)
+    target_compile_definitions(zef PRIVATE DEBUG)
+    target_compile_options(zef PRIVATE -rdynamic -ggdb -g)
+  endif()
+endif()
 
 if(ZEFDB_ALLOW_NO_TLS)
   target_compile_definitions(zef PUBLIC ZEFDB_ALLOW_NO_TLS)
