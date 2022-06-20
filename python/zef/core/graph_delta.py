@@ -403,6 +403,8 @@ def dispatch_cmds_for(expr, gen_id):
             return cmds_for_lv_terminate(expr)
         elif is_a(expr.el_ops, set_field):
             return cmds_for_lv_set_field(expr, gen_id)
+        elif is_a(expr.el_ops, fill_or_attach):
+            return cmds_for_complex_expr(expr, gen_id)
         elif is_a(expr.el_ops, tag):
             return cmds_for_lv_tag(expr, gen_id)
         else:
@@ -451,7 +453,7 @@ def cmds_for_complex_expr(x, gen_id):
     return exprs, []
 
 def cmds_for_initial_Z(expr):
-    assert LazyValue(expr) | first | is_a[Z] | collect
+    assert LazyValue(expr) | first | And[is_a[ZefOp]][is_a[Z]] | collect
 
     expr = LazyValue(LazyValue(expr) | first | collect) | (LazyValue(expr) | skip[1] | to_pipeline | collect)
     return (expr,), ()

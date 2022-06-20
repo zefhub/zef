@@ -155,5 +155,18 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(r["joe"], g | now | get["secret"] | collect)
         self.assertEqual(z | now | collect, g | now | get["first"] | collect)
 
+    def test_dictionary(self):
+        g = Graph()
+
+        y = ET.Person | g | run
+        z = {ET.Person: {
+            RT.Name: "Joe",
+            RT.Supervisor: y
+        }} | g | run
+
+        self.assertEqual(z | Out[RT.Supervisor] | origin_rae | collect,
+                         y | origin_rae | collect)
+        self.assertEqual(z | F.Name | collect, "Joe")
+
 if __name__ == '__main__':
     unittest.main()
