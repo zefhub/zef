@@ -576,7 +576,7 @@ def cmds_for_lv_set_field(x, gen_id):
     cmd = {
         'cmd': 'set_field', 
         'source_id': iid,
-        'rt': rt,
+        'rt': LazyValue(rt) | without_absorbed | collect,
     }
 
     if type(assignment) in scalar_types:
@@ -585,6 +585,10 @@ def cmds_for_lv_set_field(x, gen_id):
         target_iid,target_exprs = realise_single_node(assignment, gen_id)
         cmd['target_id'] = target_iid
         exprs.extend(target_exprs)
+
+    if LazyValue(rt) | absorbed | collect != ():
+        cmd['internal_id'] = LazyValue(rt) | absorbed | single | collect
+
     return exprs, [cmd]
 
 def cmds_for_delegate(x):                            
