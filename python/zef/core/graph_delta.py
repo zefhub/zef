@@ -961,15 +961,35 @@ def resolve_dag_ordering_step(arg: dict)->dict:
     # arg is "state" + "num_changed"
     state = arg["state"]
     ids = state['known_ids']        
+    input = state['input']
     
     def can_be_executed(cmd):        
-        if cmd['cmd'] == 'instantiate' and isinstance(cmd['rae_type'], RelationType) and (cmd['source'] not in ids or cmd['target'] not in ids):
-            return False
-        if cmd['cmd'] == 'merge' and isinstance(cmd['origin_rae'], Relation) and (cmd['origin_rae'].d["uids"][0] not in ids or cmd['origin_rae'].d["uids"][2] not in ids):
-            return False
-        if cmd['cmd'] == 'terminate' and any(get_id(cmd) in get_ids(other) for other in state['input'] if other['cmd'] != 'terminate'):
-            return False
-        return True        
+        if cmd['cmd'] == 'instantiate':
+            # If we are creating an RT, wait until both source/target exist
+            return not isinstance(cmd['rae_type'], RelationType) or (cmd['source'] in ids and cmd['target'] in ids)
+        if cmd['cmd'] == 'merge':
+            # If the merge is of a relation, we need both source and target to exist already
+            return not isinstance(cmd['origin_rae'], Relation) or (cmd['origin_rae'].d["uids"][0] not in ids or cmd['origin_rae'].d["uids"][2] not in ids)
+        if cmd['cmd'] == 'terminate':
+            # Don't terminate if there an upcoming operation that will create this item
+            return all(get_id(cmd) not in get_ids(other) for other in input if other['cmd'] != 'terminate')
+        if cmd['cmd'] == 'assign':
+            # The object to be assigned needs to exist.
+            return get_id(cmd) in ids
+        if cmd['cmd'] == 'fill_or_attach':
+            # This is where things get tricky - the behaviour of fill_or_attach
+            # can change if there is another command that creates a relation of
+            # the same type.
+            #
+            # TODO: this properly! I can see issues with assignments to the same
+            # object via different IDs causing massive headaches here. Need to
+            # consider aliasing and also consider multiple fill_or_attach commands.
+            #
+            # For now, just make sure the source is alive and run with that.
+            return cmd['source_id'] in ids
+        if cmd['cmd'] == 'tag':
+            return get_id(cmd) in ids
+        raise Exception(f"Don't know how to decide DAG ordering for command {cmd['cmd']}")
     (_,can), (_,cannot) = state['input'] | group_by[can_be_executed][[True, False]] | collect
     return {
         "state": {
@@ -1125,24 +1145,45 @@ def perform_transaction_commands(commands: list, g: Graph):
                     zz = now(zz)
 
                 elif cmd['cmd'] == 'fill_or_attach':
-                    # zz = most_recent_rae_on_graph(uid(cmd['origin_rae']), g)
-                    zz = d_raes.get(cmd['source_id'], None)
-                    if zz is None:
-                        raise KeyError(f"fill_or_attach called with unknown source {cmd['source']}")
-                    opts = zz | Outs[cmd['rt']] | collect
-                    aet = map_scalar_to_aet_type[type(cmd['value'])](cmd['value'])
-                    if len(opts) == 2:
-                        raise Exception(f"Can't fill_or_attach to {zz} because it has two or more relations of kind {rt}")
-                    elif len(opts) == 1:
-                        ae = single(opts)
-                        if aet != rae_type(ae):
-                            raise Exception(f"Can't fill or attach {ae} because it is the wrong type for value {cmd['value']}")
-                        if value(ae) != cmd['value']:
-                            internals.assign_value_imp(ae, cmd['value'])
+                    z_source = d_raes.get(cmd['source_id'], None)
+                    if z_source is None:
+                        raise KeyError(f"fill_or_attach called with unknown source {cmd['source_id']}")
+
+                    if 'value' in cmd:
+                        # AET path
+                        aet = map_scalar_to_aet_type[type(cmd['value'])](cmd['value'])
                     else:
-                        ae = instantiate(aet, g)
-                        internals.assign_value_imp(ae, cmd['value'])
-                        rel = instantiate(zz, cmd['rt'], ae, g)
+                        # Entity path
+                        z_target = d_raes.get(cmd['target_id'], None)
+                        if z_target is None:
+                            raise KeyError("fill_or_attach called with entity that is not known {cmd['target_id']}")
+
+                    opts = z_source | out_rels[cmd['rt']] | collect
+                    if len(opts) == 2:
+                        raise Exception(f"Can't fill_or_attach to {z_source} because it has two or more relations of kind {rt}")
+                    elif len(opts) == 1:
+                        zz = single(opts)
+                        if 'value' in cmd:
+                            # AE path - overwrite value
+                            ae = target(zz)
+                            if aet != rae_type(ae):
+                                raise Exception(f"Can't fill or attach {ae} because it is the wrong type for value {cmd['value']}")
+                            if value(ae) != cmd['value']:
+                                internals.assign_value_imp(ae, cmd['value'])
+                        else:
+                            # Entity path - replace the relation
+                            internals.terminate_imp(zz)
+                            zz = instantiate(z_source, cmd['rt'], z_target, g)
+                    else:
+                        if 'value' in cmd:
+                            # AE path
+                            ae = instantiate(aet, g)
+                            internals.assign_value_imp(ae, cmd['value'])
+                            zz = instantiate(z_source, cmd['rt'], ae, g)
+                        else:
+                            # Entity path
+                            zz = instantiate(z_source, cmd['rt'], z_target, g)
+                    # This zz is the relation that connects the source/target
                     zz = now(zz)
                     
                 elif cmd['cmd'] == 'merge':
