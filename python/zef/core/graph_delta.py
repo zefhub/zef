@@ -252,7 +252,9 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
             return
         elif is_a(x.el_ops, fill_or_attach):
             return
-        raise Exception(f"A LazyValue must have come from (x | assign), (x | terminate) or (x | tag) only. Got {x}")
+        elif is_a(x.el_ops, set_field):
+            return
+        raise Exception(f"A LazyValue must have come from (x | assign), (x | terminate), (x | fill_or_attach) or (x | tag) only. Got {x}")
 
     # Note: just is_a(x, Z) will also mean ZefRefs will be hit
     elif is_a(x, ZefOp) and is_a(x, Z):
@@ -399,8 +401,8 @@ def dispatch_cmds_for(expr, gen_id):
             return cmds_for_lv_assign(expr, gen_id)
         elif is_a(expr.el_ops, terminate):
             return cmds_for_lv_terminate(expr)
-        elif is_a(expr.el_ops, fill_or_attach):
-            return cmds_for_lv_fill_or_attach(expr, gen_id)
+        elif is_a(expr.el_ops, set_field):
+            return cmds_for_lv_set_field(expr, gen_id)
         elif is_a(expr.el_ops, tag):
             return cmds_for_lv_tag(expr, gen_id)
         else:
@@ -556,29 +558,32 @@ def cmds_for_lv_terminate(x):
 
     return (), [cmd]
 
-def cmds_for_lv_fill_or_attach(x, gen_id):
+def cmds_for_lv_set_field(x, gen_id):
     assert isinstance(x, LazyValue)
 
     assert len(x | peel | collect) == 2
     source,op = x | peel | collect
 
     # assert is_a(source, ZefOp) and is_a(source, Z), f"fill_or_attach reached cmd creation with an incorrect input type: {source}"
-    assert is_a(op, fill_or_attach)
-    rt,val = LazyValue(op) | absorbed | collect
+    assert is_a(op, set_field)
+    rt,assignment = LazyValue(op) | absorbed | collect
     assert type(rt) == RelationType
 
-    if type(val) in scalar_types:
-        iid,exprs = realise_single_node(source, gen_id)
+    iid,exprs = realise_single_node(source, gen_id)
 
-        cmd = {
-            'cmd': 'fill_or_attach', 
-            'source_id': iid,
-            'rt': rt,
-            'value': val
-        }
-        return exprs, [cmd]
+    cmd = {
+        'cmd': 'set_field', 
+        'source_id': iid,
+        'rt': rt,
+    }
+
+    if type(assignment) in scalar_types:
+        cmd['value'] = assignment 
     else:
-        return cmds_for_tuple((source, rt, val), gen_id)
+        target_iid,target_exprs = realise_single_node(assignment, gen_id)
+        cmd['target_id'] = target_iid
+        exprs.extend(target_exprs)
+    return exprs, [cmd]
 
 def cmds_for_delegate(x):                            
     internal_ids = []
@@ -736,7 +741,18 @@ def realise_single_node(x, gen_id):
         if is_a(op, terminate) or is_a(op, tag):
             iid = origin_uid(target)
             exprs = [x]
-        elif is_a(op, assign) or is_a(op, fill_or_attach):
+        elif is_a(op, assign):
+            iid,exprs = realise_single_node(target, gen_id)
+            exprs = exprs + [LazyValue(Z[iid]) | op]
+        elif is_a(op, fill_or_attach):
+            # fill_or_attach behaviour is now basically set_field except when the target is not a value
+            iid,exprs = realise_single_node(target, gen_id)
+            rt,assignment = LazyValue(op) | absorbed | collect
+            if type(assignment) in scalar_types:
+                exprs = exprs + [LazyValue(Z[iid]) | set_field[rt][assignment]]
+            else:
+                exprs = exprs + [(Z[iid], rt, assignment)]
+        elif is_a(op, set_field):
             iid,exprs = realise_single_node(target, gen_id)
             exprs = exprs + [LazyValue(Z[iid]) | op]
         else:
@@ -783,11 +799,12 @@ def realise_single_node(x, gen_id):
         exprs = entity_exprs
         for k,v in sub_d.items():
             if isinstance(v, list):
-                for e in v:
-                    assert type(e) not in scalar_types, "Can't have multiple scalars attached in a dictionary"
-                    exprs.append((Z[iid], k, e))
+                # for e in v:
+                #     assert type(e) not in scalar_types, "Can't have multiple scalars attached in a dictionary"
+                #     exprs.append((Z[iid], k, e))
+                raise Exception("Not allowed to use lists inside of a dictionary syntax anymore")
             else:
-                exprs.append(Z[iid] | fill_or_attach[k][v])
+                exprs.append(Z[iid] | set_field[k][v])
     else:
         raise TypeError(f'in GraphDelta encode step: for type(x)={type(x)}')
 
@@ -923,7 +940,7 @@ def command_ordering_by_type(d_raes: dict) -> int:
         if isinstance(d_raes['rae_type'], RelationType): return 3
         return 4                                            # there may be {'cmd': 'instantiate', 'rae_type': AET.Bool}
     if d_raes['cmd'] == 'assign': return 5
-    if d_raes['cmd'] == 'fill_or_attach': return 5.5
+    if d_raes['cmd'] == 'set_field': return 5.5
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Relation): return 6
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Entity): return 7
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], AtomicEntity): return 8
@@ -976,14 +993,14 @@ def resolve_dag_ordering_step(arg: dict)->dict:
         if cmd['cmd'] == 'assign':
             # The object to be assigned needs to exist.
             return get_id(cmd) in ids
-        if cmd['cmd'] == 'fill_or_attach':
-            # This is where things get tricky - the behaviour of fill_or_attach
+        if cmd['cmd'] == 'set_field':
+            # This is where things get tricky - the behaviour of set_field
             # can change if there is another command that creates a relation of
             # the same type.
             #
             # TODO: this properly! I can see issues with assignments to the same
             # object via different IDs causing massive headaches here. Need to
-            # consider aliasing and also consider multiple fill_or_attach commands.
+            # consider aliasing and also consider multiple set_field commands.
             #
             # For now, just make sure the source is alive and run with that.
             return cmd['source_id'] in ids
@@ -1144,10 +1161,10 @@ def perform_transaction_commands(commands: list, g: Graph):
                             internals.assign_value_imp(zz, cmd['value'])
                     zz = now(zz)
 
-                elif cmd['cmd'] == 'fill_or_attach':
+                elif cmd['cmd'] == 'set_field':
                     z_source = d_raes.get(cmd['source_id'], None)
                     if z_source is None:
-                        raise KeyError(f"fill_or_attach called with unknown source {cmd['source_id']}")
+                        raise KeyError(f"set_field called with unknown source {cmd['source_id']}")
 
                     if 'value' in cmd:
                         # AET path
@@ -1156,11 +1173,11 @@ def perform_transaction_commands(commands: list, g: Graph):
                         # Entity path
                         z_target = d_raes.get(cmd['target_id'], None)
                         if z_target is None:
-                            raise KeyError("fill_or_attach called with entity that is not known {cmd['target_id']}")
+                            raise KeyError("set_field called with entity that is not known {cmd['target_id']}")
 
                     opts = z_source | out_rels[cmd['rt']] | collect
                     if len(opts) == 2:
-                        raise Exception(f"Can't fill_or_attach to {z_source} because it has two or more relations of kind {rt}")
+                        raise Exception(f"Can't set_field to {z_source} because it has two or more relations of kind {rt}")
                     elif len(opts) == 1:
                         zz = single(opts)
                         if 'value' in cmd:
@@ -1172,7 +1189,8 @@ def perform_transaction_commands(commands: list, g: Graph):
                                 internals.assign_value_imp(ae, cmd['value'])
                         else:
                             # Entity path - replace the relation
-                            internals.terminate_imp(zz)
+                            from ..pyzef import zefops as pyzefops
+                            pyzefops.terminate(zz)
                             zz = instantiate(z_source, cmd['rt'], z_target, g)
                     else:
                         if 'value' in cmd:

@@ -107,6 +107,7 @@ _op_to_functions = {
         RT.AET:             (AET_implementation, AET_type_info),
         RT.BT:              (BT_implementation, BT_type_info),
         RT.FillOrAttach:    (fill_or_attach_implementation, fill_or_attach_type_info),
+        RT.SetField:        (set_field_implementation, set_field_type_info),
         RT.Assert:          (assert_implementation, assert_type_info),
         RT.HasOut:          (hasout_implementation, hasout_type_info),
         RT.HasIn:           (hasin_implementation, hasin_type_info),
