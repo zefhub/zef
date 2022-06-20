@@ -25,6 +25,7 @@ _op_to_functions = {
         RT.Reduce:         (reduce_implementation, reduce_type_info),
         RT.Scan:           (scan_implementation, scan_type_info),
         RT.GroupBy:        (group_by_implementation, group_by_type_info),
+        RT.Group:          (group_imp, None),
         RT.Transpose:      (transpose_imp, transpose_tp),
         RT.Frequencies:    (frequencies_imp, frequencies_tp),
         RT.Iterate:        (iterate_implementation, iterate_type_info),

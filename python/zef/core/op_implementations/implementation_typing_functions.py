@@ -5094,7 +5094,7 @@ def reduce_implementation(iterable, fct, init):
 
 
 
-# -------------------------------- reduce -------------------------------------------------
+# -------------------------------- group_by -------------------------------------------------
 def group_by_implementation(iterable, key_fct, categories=None):
     """
     categories is optional and specifies additional keys/categories 
@@ -5124,6 +5124,62 @@ def group_by_implementation(iterable, key_fct, categories=None):
     for k, v in zip(keys, my_list):
         d[k].append(v)
     return [(k, d[k]) for k in (d.keys() if categories is None else categories)]    
+
+
+
+# -------------------------------- group -------------------------------------------------
+def group_imp(v, f=lambda x: x):
+    """
+    Examine successive elements in a List and return 
+    a lazy list of lists: the given function f maps 
+    the elements within each sublist map onto the 
+    same value, i.e. the splitting occurs where mapped
+    elements differ.
+
+    ---- Examples ----
+    >>> ['a','a','a','b','b','c','a', 'a'] | group      # => [('a', 'a', 'a'), ('b', 'b'), ('c',), ('a', 'a')]
+    >>> [2,4,6,1,3,2,5,7,9,10] | group[lambda x: x%2]   # => [(2, 4, 6), (1, 3), (2,), (5, 7, 9), (10,)]
+
+    ---- Signature ----
+    (List[T], (T)->T2) -> List[List[T]]
+    
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: group_by
+    - related zefop: chunk
+    """
+    def wrapper():        
+        it = iter(v)
+        current_list = []
+        try:
+            last_val = next(it)
+            last_f_val = f(last_val)
+            while True:
+                current_list = [last_val]
+                while True:                    
+                    val = next(it)
+                    f_val = f(val)
+                    if f_val != last_f_val:
+                        yield tuple(current_list)
+                        last_val = val
+                        last_f_val = f_val
+                        break
+                    current_list.append(val)
+                    last_val = val
+                    last_f_val = f_val
+        except StopIteration:
+            if current_list != []:
+                yield tuple(current_list)
+            return
+
+    return wrapper()
+
+
+
+
 
 
 # -------------------------------- identity -------------------------------------------------
