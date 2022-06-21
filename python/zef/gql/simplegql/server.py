@@ -28,10 +28,10 @@ from zef.core.logger import log
 def resolve_token(context, request):
     root = context["z_gql_root"]
 
-    header = root >> RT.AuthHeader | value | collect
-    aud = root >> RT.AuthAudience | value | collect
-    namespace = root >> O[RT.AuthNamespace] | value_or[None] | collect
-    algo = root >> RT.AuthAlgo | value | collect
+    header = root | F.AuthHeader | collect
+    aud = root | F.AuthAudience | collect
+    namespace = root | Outs[RT.AuthNamespace] | single_or[None] | value_or[None] | collect
+    algo = root | F.AuthAlgo | collect
 
     import jwt
     import base64
@@ -56,7 +56,7 @@ def resolve_token(context, request):
                                  algorithms=[algo],
                                  audience=aud)
     elif algo == "HS256":
-        psk = root >> RT.AuthPresharedKey | value | collect
+        psk = root | F.AuthPresharedKey | collect
         auth_result = jwt.decode(token, psk, algorithms=[algo],
                                  audience=aud)
     else:
@@ -75,7 +75,7 @@ def query(request, context):
     if root | has_out[RT.AuthHeader] | collect:
         try:
             auth_context = resolve_token(context, request)
-            if auth_context is None and not (root >> O[RT.AuthPublic] | value_or[True] | collect):
+            if auth_context is None and not (root | Outs[RT.AuthPublic] | single_or[None] | value_or[True] | collect):
                 raise Exception("No auth and public is False.")
         except Exception as exc:
             log.error("Auth failed", exc_info=exc)
@@ -114,13 +114,14 @@ def start_server(z_gql_root,
                  g_data,
                  port=443,
                  bind_address="0.0.0.0",
+                 logging=True,
                  ):
 
     schema,objects = generate_resolvers_fcts(z_gql_root)
     ari_schema = make_executable_schema(schema, objects)
 
-    import logging
-    logger = logging.getLogger("ariadne").disabled = True
+    from logging import getLogger
+    logger = getLogger("ariadne").disabled = True
     log.debug("Disabled ariadne logging")
     
     context = {
@@ -130,7 +131,7 @@ def start_server(z_gql_root,
     }
 
     if z_gql_root | has_out[RT.AuthJWKURL] | collect:
-        url = z_gql_root >> RT.AuthJWKURL | value | collect
+        url = z_gql_root | F.AuthJWKURL | collect
 
         from jwt import PyJWKClient
         context["jwk_client"] = PyJWKClient(url)
@@ -144,7 +145,7 @@ def start_server(z_gql_root,
                                            fallback_not_found,
                                             send_response]]
                       | subscribe[run]),
-        'logging': True,
+        'logging': logging,
         'bind_address': bind_address,
     }) | run
     if is_a(http_r, Error):
