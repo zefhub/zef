@@ -74,7 +74,7 @@ class MyTestCase(unittest.TestCase):
         nx.node_connectivity(ug, list(dg.nodes)[1], list(dg.nodes)[2])
         nx.node_connectivity(dg, list(dg.nodes)[1], list(dg.nodes)[2])
 
-        last_two = [r["bob"], r["zach"]]
+        last_two = {r["bob"], r["zach"]}
         dg_sg = dg.subgraph(last_two)
         ug_sg = ug.subgraph(last_two)
         self.assertEqual(nx.node_connectivity(ug), 1)

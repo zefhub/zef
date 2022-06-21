@@ -100,9 +100,9 @@ class ProxyGraph:
     def _lazy_node_refs(self):
         if type(self.node_filter) == set:
             # This is an optimisation that will hopefully not be needed later on
-            return iter(self.node_filter)
+            return self.node_filter
         else:
-            return self.gs | all[self.node_filter] | collect
+            return self.gs | all[self.node_filter]
 
     def _in_node_filter(self, node):
         if type(self.node_filter) == set:
@@ -205,7 +205,7 @@ class ProxyGraph:
     def __iter__(self):
         return iter(self._lazy_node_refs())
     def __len__(self):
-        return len(self._lazy_node_refs())
+        return length(self._lazy_node_refs())
     def nbunch_iter(self, nbunch=None):
         if nbunch is None:
             return iter(self)
@@ -309,9 +309,9 @@ class ProxyNodeView:
     #     raise NotImplementedError()
 
     def __iter__(self):
-        return iter(self.dg._lazy_node_refs())
+        return iter(self.dg)
     def __len__(self):
-        return len(self.dg._lazy_node_refs())
+        return len(self.dg)
 
     def items(self):
         for n in self:
@@ -372,7 +372,7 @@ class ProxyEdgeView:
         else:
             direction_override = self.dg.direction
 
-        out = (self.dg._lazy_node_refs()
+        out = (LazyValue(self.dg._lazy_node_refs())
                  | map_cat[all_edges_with_end[self.dg.rts][direction_override]]
                  | filter[second | func[self.dg._in_node_filter]]
                  | map[first]
