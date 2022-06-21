@@ -7179,6 +7179,7 @@ def zascii_to_asg_imp(zascii_str: VT.String) -> VT.Dict:
     - used for: parsing ascii
     - operates on: String
     - related zefop: zascii_to_flatgraph
+    - related zefop: zascii_to_blueprint_fg
     """
     from ...deprecated.tools.zascii import parse_zascii_to_asg
     asg, _  = parse_zascii_to_asg(zascii_str)
@@ -7215,6 +7216,7 @@ def zascii_to_flatgraph_imp(zascii_str: VT.String) -> VT.FlatGraph:
     - used for: parsing ascii
     - operates on: String
     - related zefop: zascii_to_asg
+    - related zefop: zascii_to_blueprint_fg
     """
     from ...core.internals import is_any_UID
 
@@ -7274,6 +7276,35 @@ def zascii_to_flatgraph_tp(op, curr_type):
 
 
 def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
+    """ 
+    Takes a zascii string representing a Graph Blueprint and returns a FlatGraph containing all the delegates 
+    appearing in the string.
+
+    ---- Examples ----
+    >>> s = \"""
+    >>>                   RT.RatingScore
+    >>>   ET.Dropdown─────────────────────────►AET.Int
+    >>>   \"""
+    >>> zascii_to_blueprint_fg(s)
+    FlatGraph(
+    (D1(ET.Dropdown)=>0)
+    (D1(AET.Int)=>1)
+    (D1({D1(ET.Dropdown)>RT.RatingScore>D1(AET.Int)})=>2)
+    -------
+    (0, D1(ET.Dropdown), [2], None)
+    (1, D1(AET.Int), [-2], None)
+    (2, D1({D1(ET.Dropdown)>RT.RatingScore>D1(AET.Int)}), [], None, 0, 1)
+    )    
+
+    ---- Signature ----
+    (VT.String) -> VT.FlatGraph
+
+    ---- Tags ----
+    - used for: parsing ascii
+    - operates on: String
+    - related zefop: zascii_to_asg
+    - related zefop: zascii_to_flatgraph
+    """
     from ...core.internals import is_any_UID
     asg = zascii_to_asg(zascii_str)
 
