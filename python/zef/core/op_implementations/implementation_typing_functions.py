@@ -8367,6 +8367,8 @@ def flatgraph_to_commands(fg):
                     return aet[value_hash(b[-1])] <= (b[-1])
                 else:
                     return AET.Serialized[value_hash(b[-1])] <= to_json(b[-1])
+        elif isinstance(b[1], Delegate):
+            return b[1]
 
         raise NotImplementedError(f"Unhandled type in dispatching {b}")
 
