@@ -19,7 +19,7 @@ from functional import seq
 from ..internals import is_delegate, root_node_blob_index, BlobType
 from .._core import *
 from .. import internals
-from ..VT import TX,String, Instantiated, Terminated, Assigned
+from ..VT import TX,String, Instantiated, Terminated, Assigned, Is
 
 def yo_implementation(x, display=True):
     import inspect
@@ -415,9 +415,9 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
         return (f"       [{fill_str_to_length(str(f'{total} total, {alive} alive] '), 30)}"
                 f"({triple[0]!r}, {triple[1]!r}, {triple[2]!r})\n")
 
+    # TODO find correct alive instances for RT
     def find_alive_count_of_triple(triple: Tuple[str]) -> int:
         d_top = delegate_of(triple[1], g)
-
         return (d_top
          | Outs[BT.TO_DELEGATE_EDGE]
          | filter[And[source | rae_type | equals[triple[0]]]
@@ -427,28 +427,34 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
          | collect)
 
     def find_triples_of_rt(rt: str) -> str:
-        return "".join(
-            seq([(rae_type(z | source | collect), rae_type(z), rae_type(z | target | collect)) for z in
-                bl | filter[is_a[RT(rt)]] | filter[lambda z: not internals.is_delegate(z)]])
-            .group_by(lambda x: x)
-            .map(lambda x: (x[0], len(x[1]), find_alive_count_of_triple(x[0])))
-            .map(triple_string_view)
-        )
-    # TODO find correct alive instances for RT
-    return "".join(
-        seq([z for z in bl | filter[is_a[bt_filter]] | filter[lambda z: not internals.is_delegate(z)]])
-        .group_by(lambda z: zr_type(z))
-        .map(lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect)))
-        .map(lambda x: aet_et_rt_string_view(x) + find_triples_of_rt(
-            x[0][3:]) if bt_filter == BT.RELATION_EDGE else aet_et_rt_string_view(x))
+        rt = RT(rt)
+        return (
+            grouped_triples
+            | filter[lambda x: x[0][1] == rt]
+            # | map[lambda x: (x[0], len(x[1]), find_alive_count_of_triple(x[0]))]
+            | map[lambda x: (x[0], len(x[1]), len(x[1]))]
+            | map[triple_string_view]
+            | join[""]
+            | collect
+            )
+
+    filtered_blobs = bl | filter[lambda b: is_a(b, bt_filter) and not is_a(b, Delegate)]
+    if bt_filter == BT.RELATION_EDGE:
+        grouped_triples = filtered_blobs | map[lambda z: (rae_type(z | source | collect), rae_type(z), rae_type(z | target | collect))] | group_by[lambda x: x] | collect
+    else: grouped_triples = None
+
+    return (
+        [z for z in filtered_blobs]
+        | group_by[zr_type]
+        | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect))]
+        | map[lambda x: aet_et_rt_string_view(x) + find_triples_of_rt(
+            x[0][3:]) if bt_filter == BT.RELATION_EDGE else aet_et_rt_string_view(x)]
+        | join[""]
+        | collect
     )
-
-
 # +\
 # indent_lines(relations_view(zr_or_uzr)) + "\n" +\
 # indent_lines(timeline_view(zr_or_uzr))
-
-
 # def src_dst_info(uzr) -> str:
 #     return f"""
 #     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Source and Target ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
