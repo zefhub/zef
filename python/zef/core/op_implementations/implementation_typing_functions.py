@@ -7301,6 +7301,7 @@ def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
     | collect
     )
 
+    # Don't include the values, could be changes in the future to point to instances
     aets_without_vals = (elements 
     | filter[lambda p: p[1]['type'] in scalar_types_for_aets]
     | filter_with_temp_id
@@ -7317,6 +7318,7 @@ def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
     | collect
     )    
 
+    # TopoSort the RTs
     sorted_rels = []
     while rels:
         for r in rels:
@@ -7324,13 +7326,22 @@ def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
                 sorted_rels.append(r)
                 id_to_rae[absorbed(r[1])[0]] = r[1]
                 rels.remove(r)
-                
+    
     def add_to_dict_and_return_rt(p):
-        return (id_to_rae[absorbed(p[0])[0]],p[1], id_to_rae[absorbed(p[2])[0]])
+        source = id_to_rae[absorbed(p[0])[0]]
+        if not is_a(source, Delegate): source = delegate_of(source)
+
+        target = id_to_rae[absorbed(p[2])[0]]
+        if not is_a(target, Delegate): target = delegate_of(target)
+
+        rt_del = delegate_of((source, p[1], target))
+        id_to_rae[absorbed(p[1])[0]] = rt_del
+        return rt_del
+
 
     rels = sorted_rels | map[add_to_dict_and_return_rt] | collect
-    actions = ets + aets + aets_without_vals + rels
-    return actions
+    dels = [delegate_of(x) for x in ets + aets + aets_without_vals] + rels
+    return FlatGraph(dels)
 
 def zascii_to_blueprint_fg_tp(op, curr_type):
     return VT.FlatGraph
@@ -8134,7 +8145,6 @@ def fg_insert_imp(fg, new_el):
                     new_blobs.append((idx, new_el, [], None, src_idx, trgt_idx))
                     if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
                     if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
-                    new_key_dict[Delegate(0, rt)] = idx
                     new_key_dict[new_el] = idx
             else:
                 internal_id = new_el | absorbed | attempt[single][None] | collect
