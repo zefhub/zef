@@ -345,7 +345,7 @@ def match_imp(item, patterns):
                 else is_a(item, tp)
                 ): return f_to_apply(item)
         except Exception as e:            
-            raise RuntimeError(f'\nError within `match` zefop case predicate: `{tp}`  `applying function: {f_to_apply}`: {e}')
+            raise RuntimeError(f'\nError within `match` zefop case predicate: `{tp}`  `applying function: {f_to_apply}`: {e}') from e
     raise RuntimeError(f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
     
 
@@ -2057,6 +2057,9 @@ def tap_imp(x, fct):
     - used for: debugging
     - related zefop: apply
     """
+    # As we can receive a generator, we need to collect it up first before continuing
+    if isinstance(x, Generator):
+        x = list(x)
     fct(x)
     return x
         
