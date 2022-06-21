@@ -180,28 +180,28 @@ testString: ""
         # Test querying with filters
         r = do_query(jwt_user1, 'query { queryTransaction(filter: {id: "' + trans_id + '"} ) { id } }')
         assert_no_error(r)
-        self.assertEquals(len(r.json()["data"]["queryTransaction"]), 1)
+        self.assertEqual(len(r.json()["data"]["queryTransaction"]), 1)
 
         r = do_query(jwt_user1, 'query { queryTransaction(filter: {user: {testEnum: {eq: ABC}, testDynamic: {eq: "dynamic"}}}) { id } }')
         assert_no_error(r)
-        self.assertEquals(len(r.json()["data"]["queryTransaction"]), 1)
+        self.assertEqual(len(r.json()["data"]["queryTransaction"]), 1)
 
         r = do_query(jwt_user1, 'query { queryTransaction(filter: {user: {testEnum: {eq: DEF}}}) { id } }')
         assert_no_error(r)
-        self.assertEquals(len(r.json()["data"]["queryTransaction"]), 0)
+        self.assertEqual(len(r.json()["data"]["queryTransaction"]), 0)
 
         r = do_query(jwt_user1, 'query { queryTransaction(filter: {amount: {lt: 1}}) { id } }')
         assert_no_error(r)
-        self.assertEquals(len(r.json()["data"]["queryTransaction"]), 0)
+        self.assertEqual(len(r.json()["data"]["queryTransaction"]), 0)
 
         r = do_query(jwt_user1, 'query { queryTransaction(filter: {amount: {gt: 1}}) { id } }')
         assert_no_error(r)
-        self.assertEquals(len(r.json()["data"]["queryTransaction"]), 1)
+        self.assertEqual(len(r.json()["data"]["queryTransaction"]), 1)
 
         r = do_query(jwt_user1, 'query { queryUser(filter: {transactions: {any: {amount: {gt: 1}}}}) { id transactions(filter: {amount: {lt: 1}}) { id } } }')
         assert_no_error(r)
-        self.assertEquals(len(r.json()["data"]["queryUser"]), 1)
-        self.assertEquals(len(r.json()["data"]["queryUser"][0]["transactions"]), 0)
+        self.assertEqual(len(r.json()["data"]["queryUser"]), 1)
+        self.assertEqual(len(r.json()["data"]["queryUser"][0]["transactions"]), 0)
 
 
 if __name__ == '__main__':
