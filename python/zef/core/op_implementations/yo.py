@@ -374,13 +374,19 @@ def timeline_view(zr_or_uzr) -> str:
 
 def graph_info(g) -> str:
     bl = blobs(g)
+    grouped_by_bts =  dict(
+        bl 
+        | group_by[BT] 
+        | filter[lambda x: x[0] in {BT.TX_EVENT_NODE, BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}] 
+        | collect
+    )
 
     def simple_lengths(g) -> str:
         return (f"{g.graph_data.write_head} blobs, "
-                + str(length(bl | filter[is_a[BT.TX_EVENT_NODE]])) + " TXs, "
-                + str(length(bl | filter[is_a[BT.ENTITY_NODE]])) + " ETs, "
-                + str(length(bl | filter[is_a[BT.ATOMIC_ENTITY_NODE]])) + " AETs, "
-                + str(length(bl | filter[is_a[BT.RELATION_EDGE]])) + " RTs"
+                + str(length(grouped_by_bts[BT.TX_EVENT_NODE])) + " TXs, "
+                + str(length(grouped_by_bts[BT.ENTITY_NODE])) + " ETs, "
+                + str(length(grouped_by_bts[BT.ATOMIC_ENTITY_NODE])) + " AETs, "
+                + str(length(grouped_by_bts[BT.RELATION_EDGE])) + " RTs"
                 )
 
     from builtins import round
@@ -397,11 +403,11 @@ summary:                {simple_lengths(g)}
 size:                   {round((g.graph_data.write_head * 16) / 1E6, 3)}MB
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Atomic Entities ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{type_summary_view(bl, g, BT.ATOMIC_ENTITY_NODE)}
+{type_summary_view(grouped_by_bts[BT.ATOMIC_ENTITY_NODE], g, BT.ATOMIC_ENTITY_NODE)}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Entities ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{type_summary_view(bl, g, BT.ENTITY_NODE)}
+{type_summary_view(grouped_by_bts[BT.ENTITY_NODE], g, BT.ENTITY_NODE)}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  Relations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{type_summary_view(bl, g, BT.RELATION_EDGE)}
+{type_summary_view(grouped_by_bts[BT.RELATION_EDGE], g, BT.RELATION_EDGE)}
 """
 
 
@@ -438,7 +444,7 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
             | collect
             )
 
-    filtered_blobs = bl | filter[lambda b: is_a(b, bt_filter) and not is_a(b, Delegate)]
+    filtered_blobs = bl | filter[lambda b: not is_a(b, Delegate)]
     if bt_filter == BT.RELATION_EDGE:
         grouped_triples = filtered_blobs | map[lambda z: (rae_type(z | source | collect), rae_type(z), rae_type(z | target | collect))] | group_by[lambda x: x] | collect
     else: grouped_triples = None
