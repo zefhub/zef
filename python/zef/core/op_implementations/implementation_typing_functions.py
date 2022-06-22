@@ -5005,10 +5005,9 @@ def run_effect_implementation(eff):
     # as a key in the receipt
 
     
-    if not isinstance(eff, _Effect_Class):
-        raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run an Effect.")
-    handler = _effect_handlers[eff.d['type'].d]
-    eff._been_run = True
+    if not isinstance(eff, dict):
+        raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run a wish, which are represented as dictionaries.")
+    handler = _effect_handlers[eff['type'].d]
     return handler(eff)
 
 
