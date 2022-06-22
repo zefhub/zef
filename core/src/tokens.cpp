@@ -812,12 +812,17 @@ namespace zefDB {
 
     void show_wrapper(std::ostream & o, const Delegate & d, bool outer) {
         if(outer || d.order > 0)
-            o << "D" << d.order << "(";
-        std::visit([&](auto & x) {
-            o << x;
-        }, d.item);
-        if(outer || d.order > 0)
-            o << ")";
+            o << "D" << d.order;
+        std::visit(overloaded {
+                [&](const DelegateRelationTriple & x) {
+                    o << x;
+                },
+                [&](auto & x) {
+                    if(outer || d.order > 0)
+                        o << "(" << x << ")";
+                    else
+                        o << x;
+                }}, d.item);
     }
 
     std::ostream & operator<<(std::ostream & o, const DelegateTX & d) {
