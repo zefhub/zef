@@ -157,6 +157,19 @@ runs:
         pip3 install -r python/requirements.txt
         pip3 install -r python/tests/requirements_tests.txt
 
+
+    - name: Run crashing test
+      shell: bash
+      env:
+        ZEFHUB_AUTH_KEY: GUEST
+      run: |
+        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        python3 -mpytest python/tests/rem_test_http.py
+        python3 -mpytest python/tests/rem_test_simplegql.py
+        python3 -mpytest python/tests/rem_*.py
+        python3 -mpytest python/tests/*.py
+        echo "After"
+
     - name: Check no created tokens
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash
@@ -174,8 +187,6 @@ runs:
         ZEFHUB_AUTH_KEY: GUEST
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
-        echo $PYTHONPATH
-        echo should have echoed python path
         python3 python/tests/quick_start.py
         python3 -mpytest python/tests
 
@@ -187,8 +198,6 @@ runs:
         ZEFHUB_AUTH_KEY: GUEST
       run: |
         set "PYTHONPATH=%GITHUB_WORKSPACE%/python;%PYTHONPATH%"
-        echo %PYTHONPATH%
-        echo should have echoed python path
         copy python\pyzef\build\Release\pyzef.* python\zef
         python3 python/tests/quick_start.py
         # Because of some strange weirdness, going to try unittest here instead of pytest
