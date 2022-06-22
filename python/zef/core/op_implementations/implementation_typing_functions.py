@@ -7371,20 +7371,37 @@ def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
                 id_to_rae[absorbed(r[1])[0]] = r[1]
                 rels.remove(r)
     
-    def add_to_dict_and_return_rt(p):
-        source = id_to_rae[absorbed(p[0])[0]]
-        if not is_a(source, Delegate): source = delegate_of(source)
+    instance_rep = Delegate
 
-        target = id_to_rae[absorbed(p[2])[0]]
-        if not is_a(target, Delegate): target = delegate_of(target)
+    def get_label(p):
+        return LazyValue(p) | absorbed | single_or[None] | collect
 
-        rt_del = delegate_of((source, p[1], target))
-        id_to_rae[absorbed(p[1])[0]] = rt_del
-        return rt_del
+    @func
+    def get_template_representation(p, id_lookup):
+        label = result = None
+        if type(p) == EntityType or type(p) == AtomicEntityType:
+            result = instance_rep(p)
+            label = get_label(p)
+        elif type(p) == tuple:
+            s = get_item(p[0], id_lookup)
+            t = get_item(p[2], id_lookup)
+            result = instance_rep(s, p[1], t)
+            label = get_label(p[1])
 
+        if label is not None:
+            id_lookup[label] = result
+        return result
 
-    rels = sorted_rels | map[add_to_dict_and_return_rt] | collect
-    dels = [delegate_of(x) for x in ets + aets + aets_without_vals] + rels
+    def get_item(x, id_lookup):
+        if type(x) == ZefOp and is_a(x, Z):
+            return id_lookup[get_label(x)]
+        if type(x) == Delegate:
+            return x
+        return instance_rep(x)
+    
+    items = concat([ets + aets + aets_without_vals + sorted_rels])
+    reps = items | map[get_template_representation[id_to_rae]] | collect
+    dels = reps | map[delegate_of] | collect
     return FlatGraph(dels)
 
 def zascii_to_blueprint_fg_tp(op, curr_type):
@@ -8181,7 +8198,7 @@ def fg_insert_imp(fg, new_el):
                 if new_el in new_key_dict:
                     idx = new_key_dict[new_el]
                 else:
-                    src, rt, trgt = new_el.item.source, new_el.item.rt, new_el.item.target
+                    src, rt, trgt = source(new_el), new_el.item.rt, target(new_el)
                     src_idx = common_logic(src)
                     trgt_idx = common_logic(trgt)
                     idx = next_idx()
