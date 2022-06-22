@@ -810,6 +810,16 @@ namespace zefDB {
         return Delegate{d.order+1, d.item};
     }
 
+    void show_wrapper(std::ostream & o, const Delegate & d, bool outer) {
+        if(outer || d.order > 0)
+            o << "D" << d.order << "(";
+        std::visit([&](auto & x) {
+            o << x;
+        }, d.item);
+        if(outer || d.order > 0)
+            o << ")";
+    }
+
     std::ostream & operator<<(std::ostream & o, const DelegateTX & d) {
         return o << "TX";
     }
@@ -817,16 +827,16 @@ namespace zefDB {
         return o << "Root";
     }
     std::ostream & operator<<(std::ostream & o, const DelegateRelationTriple & d) {
-        o << "{" << *d.source << ">" << d.rt << ">" << *d.target << "}";
+        o << "{";
+        show_wrapper(o, *d.source, false);
+        o << "," << d.rt << ",";
+        show_wrapper(o, *d.target, false);
+        o << "}";
         return o;
     }
 
     std::ostream & operator<<(std::ostream & o, const Delegate & d) {
-        o << "D" << d.order << "(";
-        std::visit([&](auto & x) {
-            o << x;
-        }, d.item);
-        o << ")";
+        show_wrapper(o, d, true);
         return o;
     }
 
