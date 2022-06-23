@@ -216,11 +216,14 @@ namespace zefDB {
 
             if(zwitch.developer_output())
                 std::cerr << "Going to close all graph manager queues" << std::endl;
-            for(auto data : butler->graph_manager_list) {
-                try {
-                    data->queue.set_closed(false);
-                } catch(const std::exception & e) {
-                    std::cerr << "Exception while trying to close queue for graph manager thread: " << e.what() << std::endl;
+            {
+                std::lock_guard lock(butler->graph_manager_list_mutex);
+                for(auto data : butler->graph_manager_list) {
+                    try {
+                        data->queue.set_closed(false);
+                    } catch(const std::exception & e) {
+                        std::cerr << "Exception while trying to close queue for graph manager thread: " << e.what() << std::endl;
+                    }
                 }
             }
             if(zwitch.developer_output())
