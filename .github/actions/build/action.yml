@@ -174,8 +174,6 @@ runs:
         ZEFHUB_AUTH_KEY: GUEST
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
-        echo $PYTHONPATH
-        echo should have echoed python path
         python3 python/tests/quick_start.py
         python3 -mpytest python/tests
 
@@ -187,8 +185,6 @@ runs:
         ZEFHUB_AUTH_KEY: GUEST
       run: |
         set "PYTHONPATH=%GITHUB_WORKSPACE%/python;%PYTHONPATH%"
-        echo %PYTHONPATH%
-        echo should have echoed python path
         copy python\pyzef\build\Release\pyzef.* python\zef
         python3 python/tests/quick_start.py
         # Because of some strange weirdness, going to try unittest here instead of pytest
