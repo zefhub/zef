@@ -1474,7 +1474,11 @@ namespace zefDB {
             if(gtd->gd != nullptr) {
                 // This doesn't need to be synchronised, as only this thread cares about it. It is only used to "disable" ~Graph inside of this function.
                 // If keep_alive, then get rid of that now
+                if(zwitch.developer_output())
+                    std::cerr << "About to reset the keep alive" << std::endl;
                 gtd->keep_alive_g.reset();
+                if(zwitch.developer_output())
+                    std::cerr << "Reset the keep alive" << std::endl;
                 gtd->gd->started_destructing = true;
                 if(!gtd->queue._closed)
                     gtd->queue.set_closed();
