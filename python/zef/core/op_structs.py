@@ -228,7 +228,6 @@ def is_python_scalar_type(o):
     return type(o) in {str, bytes, int, bool, float, type(None)}
 
 def is_supported_value(o):
-    from .fx.fx_types import _Effect_Class
     from .VT import ValueType_
     from . import  GraphSlice
     from types import GeneratorType
@@ -238,7 +237,7 @@ def is_supported_value(o):
     from ..core.bytes import Bytes_
     from types import ModuleType
     if is_python_scalar_type(o): return True
-    if type(o) in {set, range, GeneratorType, list, tuple, dict, _Effect_Class, ValueType_, GraphSlice, Time, Image, Bytes_, _ErrorType, Keyword, ModuleType}: return True
+    if type(o) in {set, range, GeneratorType, list, tuple, dict, ValueType_, GraphSlice, Time, Image, Bytes_, _ErrorType, Keyword, ModuleType}: return True
     return False
 
 def is_supported_zef_value(o):
@@ -933,9 +932,8 @@ class LazyValue:
 
         for op in self.el_ops.el_ops: 
             if op[0] == RT.Collect: continue
-            if op[0] == RT.Run:  
-                from .fx.fx_types import _Effect_Class
-                if isinstance(curr_value, _Effect_Class): 
+            if op[0] == RT.Run:
+                if isinstance(curr_value, dict): 
                     curr_value = _op_to_functions[op[0]][0](curr_value)
                 elif len(op[1]) > 1: # i.e run[impure_func]
                     curr_value = op[1][1](curr_value)
@@ -1092,7 +1090,6 @@ def type_spec_tuple(obj):
 
 def type_spec(obj, no_type_casting = False):
     from .VT import ValueType_
-    from .fx.fx_types import _Effect_Class
     from . import GraphSlice
     from rx.subject import Subject
     from rx.core import Observable
@@ -1115,7 +1112,6 @@ def type_spec(obj, no_type_casting = False):
         Time:                       VT.Time,  
         Subject:                    VT.Awaitable,
         Observable:                 VT.Awaitable,
-        _Effect_Class:              VT.Effect,
         GraphSlice:                 VT.GraphSlice,
     }.get(t, lambda o: ValueType_(type(o).__name__, 0))
     try:

@@ -12,10 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fx_types import _Effect_Class
 from ...pyzef.internals import login, login_manual, logout
 
-def zefhub_login_handler(eff: _Effect_Class):
+def zefhub_login_handler(eff: dict):
     jupyter_shell = False
     try:
         import IPython
@@ -68,7 +67,7 @@ Disclaimer: any ETs, RTs, ENs, and KWs that you query will be stored with ZefHub
         return {"success": True,
                 "comments": comments}
 
-def zefhub_logout_handler(eff: _Effect_Class):
+def zefhub_logout_handler(eff: dict):
     logout()
     print("Warning, after logging out all graphs will have been unloaded. Any accesses of a ZefRef")
     print("referencing these old graphs will cause a segmentation fault!")
