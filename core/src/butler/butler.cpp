@@ -193,6 +193,15 @@ namespace zefDB {
             }
         }
         void stop_butler() {
+            // This is to prevent multiple threads attacking this function at
+            // the same time.
+            static std::atomic<bool> _running = false;
+            bool was_running = _running.exchange(true);
+            if(was_running) {
+                std::cerr << "Tried to run two 'stop_butler' at once." << std::endl;
+                return;
+            }
+
             if(zwitch.developer_output()) {
                 std::cerr << "stop_butler was called" << std::endl;
             }
