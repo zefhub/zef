@@ -24,7 +24,7 @@ from .op_structs import ZefOp, CollectingOp, SubscribingOp, ForEachingOp, LazyVa
 from .abstract_raes import Entity, Relation, AtomicEntity
 from .error import _ErrorType, Error
 from .image import Image
-from .fx.fx_types import FXElement, Effect
+from .fx.fx_types import _Effect_Class, FXElement, Effect
 from .flat_graph import FlatGraph, FlatRef, FlatRefs
 from ..pyzef import internals as pyinternals
 
@@ -106,7 +106,6 @@ def deserialize_internal(v):
     This function is the recursive core of the deserialization, where the
     objects are not wrapped in the serialization header.
     """
-    from .logger import log
     if isinstance(v, dict) and "_zeftype" in v:
         v = deserialization_mapping[v["_zeftype"]](v)
     elif isinstance(v, dict):
@@ -238,6 +237,9 @@ def serialize_zeftypes(z) -> dict:
     elif isinstance(z, _ErrorType):
         return {"_zeftype": "ErrorType", "type": z.name, "args": serialize_list(z.args)}
 
+    elif isinstance(z, _Effect_Class):
+        return {"_zeftype": "Effect", "internal_dict": serialize_dict(z.d)}
+    
     elif isinstance(z, FXElement):
         return {"_zeftype": "FXElement", "elements": [e for e in z.d]}
 
@@ -458,6 +460,7 @@ serialization_mapping[Relation] = serialize_zeftypes
 serialization_mapping[AtomicEntity] = serialize_zeftypes
 serialization_mapping[_ErrorType] = serialize_zeftypes
 serialization_mapping[Image] = serialize_zeftypes
+serialization_mapping[_Effect_Class] = serialize_zeftypes
 serialization_mapping[FXElement] = serialize_zeftypes
 serialization_mapping[Delegate] = serialize_delegate
 serialization_mapping[FlatGraph] = serialize_flatgraph_or_flatref

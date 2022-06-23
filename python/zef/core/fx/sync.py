@@ -13,13 +13,8 @@
 # limitations under the License.
 
 from .fx_types import Effect
-from ..error import Error
 
 def graph_sync_handler(eff: Effect):
-    try:
-        from ...pyzef.main import sync
-        sync(eff["graph"], eff["sync_state"])
-        return {}
-    except Exception as e:
-        return Error(f'executing FX.Graph.Sync for effect {eff}:\n{repr(e)}')
-
+    from ...pyzef.main import sync
+    sync(eff.d["graph"], eff.d["sync_state"])
+    return {}

@@ -14,7 +14,7 @@
 
 
 #=============================================================================== HTTP Server handlers =========================================================================================================
-from .fx_types import Effect, FX
+from .fx_types import Effect, FX, _Effect_Class
 from uuid import uuid4
 from .._ops import *
 from ..error import Error
@@ -107,11 +107,11 @@ class Handler(BaseHTTPRequestHandler):
 
 
 
-def http_start_server_handler(eff: dict):
+def http_start_server_handler(eff: Effect):
     """[summary]
 
     Args:
-        eff : {
+        eff (Effect): {
             "type": FX.HTTP.StartServer,
             "port": 5000, (default = 5000)
             "bind_address": "0.0.0.0", (default = "localhost")
@@ -127,22 +127,20 @@ def http_start_server_handler(eff: dict):
     pushable_stream = None
     server = None
     thread = None
+
     try:
         open_requests = {}
         pushable_stream = Effect({'type': FX.Stream.CreatePushableStream}) | run
         server_uuid = str(uid(pushable_stream.stream_ezefref))
-        if eff.get('pipe_into', None) is not None:
-            pushable_stream | eff['pipe_into']
-        port = eff.get('port', 5000)
-        bind_address = eff.get('bind_address', "localhost")
-        do_logging = eff.get('logging', True)
+        if eff.d['pipe_into'] is not None: pushable_stream | eff.d['pipe_into']
+        port = eff.d.get('port', 5000)
+        bind_address = eff.d.get('bind_address', "localhost")
+        do_logging = eff.d.get('logging', True)
 
-        zef_locals = {
-            "open_requests": open_requests,
-            "stream" : pushable_stream,
-            "server_uuid": server_uuid,
-            "port": port
-        }
+        zef_locals = {"open_requests": open_requests,
+                    "stream" : pushable_stream,
+                    "server_uuid": server_uuid,
+                    "port": port}
 
         server = OurHTTPServer((bind_address, port), Handler, do_logging=do_logging)
         zef_locals["server"] = server
@@ -159,20 +157,23 @@ def http_start_server_handler(eff: dict):
         log.debug(f"http_server started", uuid=server_uuid, port=port, bind_address=bind_address)
         return zef_locals
     except Exception as exc:
-        raise RuntimeError(f'Error starting HTTP server: in FX.HTTP.StartServer handler: {exc}')
+        # Cleanup
+        # TODO:
+
+        return Error(exc)
         
 
 
-def http_stop_server_handler(eff: dict):
-    d = _effects_processes[eff["server_uuid"]]
+def http_stop_server_handler(eff: Effect):
+    d = _effects_processes[eff.d["server_uuid"]]
     d["server"].shutdown()
     d["server"].server_close()
     d["thread"].join()
-    log.debug("http server stopped", uuid=eff["server_uuid"])
+    log.debug("http server stopped", uuid=eff.d["server_uuid"])
     return {}
     
 
-def http_send_request_handler(eff: dict):
+def http_send_request_handler(eff: Effect):
     """[summary]
 
     Args:
@@ -186,10 +187,10 @@ def http_send_request_handler(eff: dict):
     """
     # TODO needs more testing and improvements
     import requests
-    request_url = eff['url']
-    request_method = eff.get('method', 'GET')
-    request_data = eff.get('data', {})
-    request_params = eff.get('params', {})
+    request_url = eff.d['url']
+    request_method = eff.d.get('method', 'GET')
+    request_data = eff.d.get('data', {})
+    request_params = eff.d.get('params', {})
 
     method_dict =  {'GET': requests.get, 'POST': requests.post, 'PUT': requests.put, 'DELETE': requests.delete, 'HEAD': requests.head}
     request_obj = method_dict[request_method]
@@ -198,21 +199,21 @@ def http_send_request_handler(eff: dict):
     return {"response_text": response.text, "response_status": response.status_code}
     
 def http_send_response_handler(eff: Effect):
-    d = eff
+    d = eff.d
     if "server_uuid" not in d:
         # TODO: register this on ProcessLogger
         return Error(f"An FX.HTTP.SendResponse event must contain a 'server_uuid' field. This was not the case for eff={eff}")
 
-    d = _effects_processes[eff["server_uuid"]]
-    future = d["open_requests"][eff["request_id"]]
+    d = _effects_processes[eff.d["server_uuid"]]
+    future = d["open_requests"][eff.d["request_id"]]
 
-    msg = eff.get("response", "")
+    msg = eff.d.get("response", "")
     assert msg is None or isinstance(msg, str) or isinstance(msg, bytes)
     if isinstance(msg, str):
         msg = msg.encode("utf-8")
 
-    status = eff.get("status", 200)
-    headers = eff.get("headers", {})
+    status = eff.d.get("status", 200)
+    headers = eff.d.get("headers", {})
     import copy
     headers = copy.deepcopy(headers)
 
@@ -315,8 +316,9 @@ source | map[middleware_worker[seq_of_funcs]] | run
             return None
         if isinstance(cur, dict):
             continue
+        # Why the hell is an Effect actually _Effect_Class??
         # if isinstance(cur, Effect):
-        if isinstance(cur, dict):
+        if isinstance(cur, _Effect_Class):
             return cur
 
         raise Exception(f"Unusual type in middleware_runner: {type(func)}")

@@ -14,39 +14,38 @@
 
 from .fx_types import Effect
 
-def graph_take_transactor_role_handler(eff: dict):
+def graph_take_transactor_role_handler(eff: Effect):
     from ...pyzef.main import make_primary
-    make_primary(eff["graph"], True)
+    make_primary(eff.d["graph"], True)
     return {}
 
-def graph_release_transactor_role_handler(eff: dict):
+def graph_release_transactor_role_handler(eff: Effect):
     from ...pyzef.main import make_primary
-    make_primary(eff["graph"], False)
+    make_primary(eff.d["graph"], False)
     return {}
 
-def graph_transaction_handler(eff: dict):
+def graph_transaction_handler(eff: Effect):
     """[summary]
 
     Args:
-        eff (dict): {
+        eff (Effect): Effect({
             "type": FX.Graph.Transact,
             "target_graph": g1,
             "commands": list_of_commands
-        }
+        })
     """
 
     from ..graph_delta import perform_transaction_commands, filter_temporary_ids, unpack_receipt
 
-    if eff["target_graph"].graph_data.is_primary_instance:
-        receipt = perform_transaction_commands(eff['commands'], eff['target_graph'])
+    if eff.d["target_graph"].graph_data.is_primary_instance:
+        receipt = perform_transaction_commands(eff.d['commands'], eff.d['target_graph'])
     else:
         from ..overrides import merge
-        receipt = merge(eff["commands"], eff["target_graph"])
+        receipt = merge(eff.d["commands"], eff.d["target_graph"])
     
     # we need to forward this if it is in the effect
-    if 'unpacking_template' in eff:
-        return unpack_receipt(eff['unpacking_template'], receipt)
+    if 'unpacking_template' in eff.d:
+        return unpack_receipt(eff.d['unpacking_template'], receipt)
 
     receipt = filter_temporary_ids(receipt)
     return receipt
-    
