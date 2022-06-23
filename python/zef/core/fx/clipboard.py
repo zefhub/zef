@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fx_types import Effect
 
 
 # taken from zef function
@@ -71,7 +70,7 @@ from .fx_types import Effect
 
 
 
-def clipboard_copy_to_handler(eff: Effect):
+def clipboard_copy_to_handler(eff: dict):
     """ 
     sample effect:
     {
@@ -87,7 +86,7 @@ def clipboard_copy_to_handler(eff: Effect):
         clipboard functionality. E.g. 'pip3 install pyperclip'
         """
         raise RuntimeError(err)
-    val = eff.d['value']
+    val = eff['value']
     if type(val) in {str, float, int, bool}:
         pyperclip.copy(str(val))
     else:
@@ -96,7 +95,7 @@ def clipboard_copy_to_handler(eff: Effect):
 
 
 
-def clipboard_copy_from_handler(eff: Effect):
+def clipboard_copy_from_handler(eff: dict):
     """ 
     For now with pyperclip, images can't be pasted
     {
