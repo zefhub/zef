@@ -142,7 +142,7 @@ namespace zefDB {
             std::atomic_bool wspp_in_control = false;
             bool last_was_failure = false;
             std::chrono::time_point<std::chrono::steady_clock> last_connect_time;
-            bool should_stop = false;
+            std::atomic_bool should_stop = false;
             std::chrono::duration<double> ping_interval = std::chrono::seconds(15);
             int allowed_silent_failures = 0;
 
