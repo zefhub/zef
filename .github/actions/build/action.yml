@@ -166,8 +166,14 @@ runs:
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         python3 python/tests/rem_test_simplegql.py
         python3 python/tests/rem_test_http.py
-        python3 python/tests/rem_*.py
-        python3 python/tests/*.py
+        for a in python/tests/rem_*.py ; do
+          echo $a
+          python3 a
+        done
+        for a in python3 python/tests/test_*.py
+         echo $a
+         python3 a
+        done
         echo "After"
 
     - name: Check no created tokens
