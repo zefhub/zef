@@ -176,6 +176,18 @@ namespace zefDB {
             debug_time_print("start of open_handler");
             update(locker, connected, true);
             last_connect_time = std::chrono::steady_clock::now();
+            if(should_stop) {
+                visit_endpoint([this,&hdl](auto & endpoint) {
+                    auto con = endpoint->get_con_from_hdl(hdl);
+                    if(con) {
+                        std::error_code ec;
+                        con->close(websocketpp::close::status::going_away, "", ec);
+                        if(ec) 
+                            std::cout << "> Closing connection error (in open_handler): " << ec.message() << std::endl;
+                    }
+                });
+                return;
+            }
             send_ping();
 
             debug_time_print("going to run outside_open_handler");
@@ -383,6 +395,8 @@ namespace zefDB {
                 update(locker, [&]() {
                     if(should_stop) {
                         con->close(websocketpp::close::status::going_away, "", ec);
+                        if(ec) 
+                            std::cout << "> Closing connection error (in start_connection): " << ec.message() << std::endl;
                     } else {
                         atomic_store(&ptr_con, con);
                     }
@@ -405,6 +419,8 @@ namespace zefDB {
                     if(con) {
                         std::error_code ec;
                         con->close(websocketpp::close::status::going_away, "", ec);
+                        if(ec)
+                            std::cout << "> Closing connection error: " << ec.message() << std::endl;
                         con.reset();
                     }
                 }, _con);
@@ -424,6 +440,8 @@ namespace zefDB {
 
                 std::error_code ec;
                 con->close(websocketpp::close::status::going_away, "", ec);
+                if(ec)
+                    std::cout << "> Closing connection error (in restart): " << ec.message() << std::endl;
                 con.reset();
                 update(locker, [&]() {
                     connected = false;
