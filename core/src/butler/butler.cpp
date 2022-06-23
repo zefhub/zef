@@ -1532,7 +1532,9 @@ namespace zefDB {
                 gtd->debug_last_action = "Before destructing GraphData";
                 gtd->gd->~GraphData();
                 gtd->debug_last_action = "Destructed GraphData";
+                std::cerr << "About to destroy mmap" << std::endl;
                 MMap::destroy_mmap((void*)gtd->gd);
+                std::cerr << "Did destroy mmap" << std::endl;
                 gtd->debug_last_action = "Cleaned up mmap";
             }
                 

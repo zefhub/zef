@@ -134,6 +134,7 @@ namespace zefDB {
 
     GraphData::~GraphData() { 
         // TODO: This check should be replaced with something more obvious - is this combination equivalent to "is subscribed"?
+        std::cerr << "In ~GraphData" << std::endl;
         if (should_sync && is_primary_instance && !Butler::butler_is_master) {
             if(!in_sync()) {
                 std::cerr << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" << std::endl;
@@ -145,6 +146,7 @@ namespace zefDB {
                 std::cerr << "@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@" << std::endl;
             }
         }
+        std::cerr << "End of ~GraphData" << std::endl;
     }
 
  
