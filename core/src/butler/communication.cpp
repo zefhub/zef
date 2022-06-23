@@ -480,6 +480,8 @@ namespace zefDB {
         void PersistentConnection::manager_runner() {
             try {
                 while(true) {
+                    if(zwitch.zefhub_communication_output())
+                        std::cerr << "MR: before wait_pred" << std::endl;
                     // wait_same(locker, wspp_in_control, false, ping_interval);
                     wait_pred(locker, [this]() { return !wspp_in_control || should_stop; });
 
@@ -488,6 +490,8 @@ namespace zefDB {
 
                     // This is how we test whether we should ping, or if we've
                     // actually lost the connection and need to reconnect.
+                    if(zwitch.zefhub_communication_output())
+                        std::cerr << "MR: before send_ping" << std::endl;
                     if(wspp_in_control) {
                         visit_con([this](auto & con) {
                             if(con)
@@ -512,10 +516,14 @@ namespace zefDB {
                     }
                     // std::cerr << "Trying to connect" << std::endl;
 
-                    wspp_in_control = true;
+                    update(locker, wspp_in_control, true);
+                    if(zwitch.zefhub_communication_output())
+                        std::cerr << "MR: before start_connection" << std::endl;
                     start_connection();
                 }
 
+                if(zwitch.zefhub_communication_output())
+                    std::cerr << "MR: before stop_perpetual" << std::endl;
                 visit_endpoint([this](auto & endpoint) {
                     if(endpoint)
                         endpoint->stop_perpetual();
@@ -524,8 +532,12 @@ namespace zefDB {
                 // between this and the last close. So do it again now. (the
                 // last time, con may have been empty, if start_connection was
                 // halfway through its thing)
+                if(zwitch.zefhub_communication_output())
+                    std::cerr << "MR: before close" << std::endl;
                 close();
 
+                if(zwitch.zefhub_communication_output())
+                    std::cerr << "MR: ws join" << std::endl;
                 ws_thread->join();
                 ws_thread.reset();
             }
