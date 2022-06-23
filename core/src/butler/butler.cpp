@@ -223,13 +223,16 @@ namespace zefDB {
                     std::cerr << "Exception while trying to close queue for graph manager thread: " << e.what() << std::endl;
                 }
             }
-            // std::cerr << "Going to wait on graph manager threads" << std::endl;
+            if(zwitch.developer_output())
+                std::cerr << "Going to wait on graph manager threads" << std::endl;
             std::vector<std::shared_ptr<Butler::GraphTrackingData>> saved_list;
             {
                 std::lock_guard lock(butler->graph_manager_list_mutex);
                 saved_list = butler->graph_manager_list;
             }
 
+            if(zwitch.developer_output())
+                std::cerr << "Number of graphs to wait for: " << saved_list.size() << std::endl;
             for(auto data : saved_list) {
                 auto extra_print = [&data]() {
                     std::cerr << "Last action was: " << data->debug_last_action << std::endl;
@@ -254,7 +257,11 @@ namespace zefDB {
                 };
                 long_wait_or_kill(*data->managing_thread, data->return_value, data->uid, extra_print);
             }
-            butler->graph_manager_list.clear();
+            // Lock and keep locked for the remainder now
+            {
+                std::lock_guard lock(butler->graph_manager_list_mutex);
+                butler->graph_manager_list.clear();
+            }
             if(zwitch.developer_output())
                 std::cerr << "Removing local process graph" << std::endl;
             butler->local_process_graph.reset();
