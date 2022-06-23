@@ -170,7 +170,7 @@ runs:
           echo $a
           python3 $a
         done
-        for a in python3 python/tests/test_*.py
+        for a in python3 python/tests/test_*.py ; do
          echo $a
          python3 $a
         done
