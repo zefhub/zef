@@ -262,6 +262,8 @@ namespace zefDB {
             if(zwitch.developer_output())
                 std::cerr << "Stopping network" << std::endl;
             butler->network.stop_running();
+            if(zwitch.developer_output())
+                std::cerr << "Clear waiting tasks" << std::endl;
             butler->waiting_tasks.clear();
 
             if(zwitch.developer_output())

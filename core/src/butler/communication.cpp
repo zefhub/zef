@@ -338,6 +338,8 @@ namespace zefDB {
 
         void PersistentConnection::start_connection() {
             create_endpoint();
+            if(should_stop)
+                return;
 
             connected = false;
             visit_endpoint([this](auto & endpoint) {
@@ -478,7 +480,8 @@ namespace zefDB {
         void PersistentConnection::manager_runner() {
             try {
                 while(true) {
-                    wait_same(locker, wspp_in_control, false, ping_interval);
+                    // wait_same(locker, wspp_in_control, false, ping_interval);
+                    wait_pred(locker, [this]() { return !wspp_in_control || should_stop; });
 
                     if(should_stop)
                         break;
