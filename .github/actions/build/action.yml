@@ -179,12 +179,13 @@ runs:
       shell: bash
       env:
         ZEFHUB_AUTH_KEY: GUEST
+        ZEFDB_DEVELOPER_OUTPUT: 1
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
-        python3 -mpytest python/tests/rem_test_simplegql.py
-        python3 -mpytest python/tests/rem_test_http.py
-        python3 -mpytest python/tests/rem_*.py
-        python3 -mpytest python/tests/*.py
+        python3 python/tests/rem_test_simplegql.py
+        python3 python/tests/rem_test_http.py
+        python3 python/tests/rem_*.py
+        python3 python/tests/*.py
         echo "After"
 
     - name: Check no created tokens
@@ -200,7 +201,8 @@ runs:
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash
       env:
-        ZEFDB_QUIET: YES
+        # ZEFDB_QUIET: YES
+        ZEFDB_DEVELOPER_OUTPUT: 1
         ZEFHUB_AUTH_KEY: GUEST
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
