@@ -125,7 +125,10 @@ namespace zefDB {
 
 
         void PersistentConnection::fail_handler(websocketpp::connection_hdl hdl) {
-            visit_con([this](auto & con) {
+            visit_endpoint([this,&hdl](auto & endpoint) {
+                auto con = endpoint->get_con_from_hdl(hdl);
+                if(!con)
+                    return;
                 auto ec = con->get_ec();
                 int response_code = con->get_response_code();
                 if(response_code == 401) {
@@ -175,14 +178,16 @@ namespace zefDB {
             last_connect_time = std::chrono::steady_clock::now();
             send_ping();
 
+            debug_time_print("going to run outside_open_handler");
             if (outside_open_handler) {
                 outside_open_handler();
             }
             debug_time_print("end of open_handler");
         };
         void PersistentConnection::close_handler(websocketpp::connection_hdl hdl) {
-            visit_con([this](auto & con) {
-            if(con) {
+            visit_endpoint([this,&hdl](auto & endpoint) {
+                auto con = endpoint->get_con_from_hdl(hdl);
+                if(con) {
                     auto ec = con->get_ec();
                     if(ec) {
                         if(zwitch.developer_output()) {
@@ -192,13 +197,19 @@ namespace zefDB {
                         last_was_failure = true;
                     }
                 }
-            con.reset();
-            update(locker, [&]() {
-                connected = false;
-                wspp_in_control = false;
-            });
-            if (outside_close_handler)
-                outside_close_handler(false);
+                update(locker, [&]() {
+                    connected = false;
+                    wspp_in_control = false;
+                    // This is getting the shared pointer on our object, not
+                    // that of websocketpp. This might not be necessary if we
+                    // make sure to use connected instead of _con to determine
+                    // connection state.
+                    std::visit([&](auto & con) {
+                        con.reset();
+                    }, _con);
+                });
+                if (outside_close_handler)
+                    outside_close_handler(false);
             });
         }
         void PersistentConnection::message_handler_tls(websocketpp::connection_hdl hdl, base_client_tls_t::message_ptr msg) {
@@ -294,22 +305,21 @@ namespace zefDB {
                     throw std::runtime_error("Unknown protocol for uri: " + uri);
                 }
                 
-                std::visit([this](auto & endpoint) {
 #else
                 endpoint = std::make_shared<base_client_t>();
 #endif
-                endpoint->clear_access_channels(websocketpp::log::alevel::all);
-                endpoint->clear_error_channels(websocketpp::log::elevel::all);
-                endpoint->init_asio();
-                endpoint->start_perpetual();
-                endpoint->set_fail_handler(std::bind(&PersistentConnection::fail_handler, this, std::placeholders::_1));
-                endpoint->set_pong_timeout_handler(std::bind(&PersistentConnection::pong_timeout_handler, this, std::placeholders::_1, std::placeholders::_2));
-                endpoint->set_pong_handler(std::bind(&PersistentConnection::pong_handler, this, std::placeholders::_1, std::placeholders::_2));
-                endpoint->set_open_handler(std::bind(&PersistentConnection::open_handler, this, std::placeholders::_1));
-                endpoint->set_close_handler(std::bind(&PersistentConnection::close_handler, this, std::placeholders::_1));
-#if ZEFDB_ALLOW_NO_TLS
-                }, endpoint);
-#endif
+
+                visit_endpoint([this](auto & endpoint) {
+                    endpoint->clear_access_channels(websocketpp::log::alevel::all);
+                    endpoint->clear_error_channels(websocketpp::log::elevel::all);
+                    endpoint->init_asio();
+                    endpoint->start_perpetual();
+                    endpoint->set_fail_handler(std::bind(&PersistentConnection::fail_handler, this, std::placeholders::_1));
+                    endpoint->set_pong_timeout_handler(std::bind(&PersistentConnection::pong_timeout_handler, this, std::placeholders::_1, std::placeholders::_2));
+                    endpoint->set_pong_handler(std::bind(&PersistentConnection::pong_handler, this, std::placeholders::_1, std::placeholders::_2));
+                    endpoint->set_open_handler(std::bind(&PersistentConnection::open_handler, this, std::placeholders::_1));
+                    endpoint->set_close_handler(std::bind(&PersistentConnection::close_handler, this, std::placeholders::_1));
+                });
 
 #if ZEFDB_ALLOW_NO_TLS
                 std::visit(overloaded{
@@ -323,13 +333,11 @@ namespace zefDB {
                             endpoint->set_message_handler(std::bind(&PersistentConnection::message_handler_notls, this, std::placeholders::_1, std::placeholders::_2));
                         }
                     }, endpoint);
+#endif
 
-                std::visit([this](auto & endpoint) {
-#endif
+                visit_endpoint([this](auto & endpoint) {
                     ws_thread = std::make_unique<std::thread>(&std::remove_reference<decltype(endpoint)>::type::element_type::run, endpoint.get());
-#if ZEFDB_ALLOW_NO_TLS
-                }, endpoint);
-#endif
+                });
             } catch(const std::exception & exc) {
                 std::cerr << "Bad error while trying to setup the websocket++ endpoint:" << exc.what() << std::endl;
                 return;
@@ -338,8 +346,6 @@ namespace zefDB {
 
         void PersistentConnection::start_connection() {
             create_endpoint();
-            if(should_stop)
-                return;
 
             connected = false;
             visit_endpoint([this](auto & endpoint) {
@@ -480,6 +486,8 @@ namespace zefDB {
 
         void PersistentConnection::send_ping() {
             visit_con([this](auto & con) {
+                if(!con)
+                    return;
                 auto duration = std::chrono::steady_clock::now().time_since_epoch();
                 long long now = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
                 std::error_code ec;
@@ -507,10 +515,7 @@ namespace zefDB {
                     if(zwitch.zefhub_communication_output())
                         std::cerr << "MR: before send_ping" << std::endl;
                     if(wspp_in_control) {
-                        visit_con([this](auto & con) {
-                            if(con)
-                                send_ping();
-                        });
+                        send_ping();
                         continue;
                     }
 
