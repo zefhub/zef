@@ -178,6 +178,7 @@ namespace zefDB {
             if (outside_open_handler) {
                 outside_open_handler();
             }
+            debug_time_print("end of open_handler");
         };
         void PersistentConnection::close_handler(websocketpp::connection_hdl hdl) {
             visit_con([this](auto & con) {
@@ -377,7 +378,7 @@ namespace zefDB {
 
         void PersistentConnection::close(bool failure) {
             visit_con([this,failure](auto & con) {
-                should_stop = true;
+                update(locker, should_stop, true);
                 if(con) {
                     std::error_code ec;
                     con->close(websocketpp::close::status::going_away, "", ec);
