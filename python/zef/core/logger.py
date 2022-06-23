@@ -24,7 +24,7 @@ log = structlog.wrap_logger(None,
         # structlog.stdlib.PositionalArgumentsFormatter(),
         structlog.processors.TimeStamper(fmt="iso"),
         # The following only does anything if exc_info is passed as a keyword
-        structlog.processors.format_exc_info,
+        # structlog.processors.format_exc_info,
         structlog.processors.UnicodeDecoder(),
         structlog.dev.ConsoleRenderer(colors=True),
     ]

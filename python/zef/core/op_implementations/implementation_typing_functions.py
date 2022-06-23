@@ -345,7 +345,7 @@ def match_imp(item, patterns):
                 else is_a(item, tp)
                 ): return f_to_apply(item)
         except Exception as e:            
-            raise RuntimeError(f'\nError within `match` zefop case predicate: `{tp}`  `applying function: {f_to_apply}`: {e}')
+            raise RuntimeError(f'\nError within `match` zefop case predicate: `{tp}`  `applying function: {f_to_apply}`: {e}') from e
     raise RuntimeError(f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
     
 
@@ -2057,6 +2057,9 @@ def tap_imp(x, fct):
     - used for: debugging
     - related zefop: apply
     """
+    # As we can receive a generator, we need to collect it up first before continuing
+    if isinstance(x, Generator):
+        x = list(x)
     fct(x)
     return x
         
@@ -5753,6 +5756,11 @@ def source_implementation(zr, *curried_args):
         return fr_source_imp(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
+    if isinstance(zr, Delegate):
+        from ...pyzef.internals import DelegateRelationTriple
+        if not isinstance(zr.item, DelegateRelationTriple):
+            raise Exception(f"Can't take the source of a non-relation-triple Delegate ({zr})")
+        return Delegate(zr.order + zr.item.source.order, zr.item.source.item)
     if is_a(zr, ET):
         raise Exception(f"Can't take the source of an entity (have {zr}), only relations have sources/targets")
     return (pyzefops.source)(zr, *curried_args)
@@ -5762,6 +5770,11 @@ def target_implementation(zr):
         return fr_target_imp(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
+    if isinstance(zr, Delegate):
+        from ...pyzef.internals import DelegateRelationTriple
+        if not isinstance(zr.item, DelegateRelationTriple):
+            raise Exception(f"Can't take the target of a non-relation-triple Delegate ({zr})")
+        return Delegate(zr.order + zr.item.target.order, zr.item.target.item)
     if is_a(zr, ET):
         raise Exception(f"Can't take the target of an entity (have {zr}), only relations have sources/targets")
     return pyzefops.target(zr)
@@ -7356,20 +7369,37 @@ def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
                 id_to_rae[absorbed(r[1])[0]] = r[1]
                 rels.remove(r)
     
-    def add_to_dict_and_return_rt(p):
-        source = id_to_rae[absorbed(p[0])[0]]
-        if not is_a(source, Delegate): source = delegate_of(source)
+    instance_rep = Delegate
 
-        target = id_to_rae[absorbed(p[2])[0]]
-        if not is_a(target, Delegate): target = delegate_of(target)
+    def get_label(p):
+        return LazyValue(p) | absorbed | single_or[None] | collect
 
-        rt_del = delegate_of((source, p[1], target))
-        id_to_rae[absorbed(p[1])[0]] = rt_del
-        return rt_del
+    @func
+    def get_template_representation(p, id_lookup):
+        label = result = None
+        if type(p) == EntityType or type(p) == AtomicEntityType:
+            result = instance_rep(p)
+            label = get_label(p)
+        elif type(p) == tuple:
+            s = get_item(p[0], id_lookup)
+            t = get_item(p[2], id_lookup)
+            result = instance_rep(s, p[1], t)
+            label = get_label(p[1])
 
+        if label is not None:
+            id_lookup[label] = result
+        return result
 
-    rels = sorted_rels | map[add_to_dict_and_return_rt] | collect
-    dels = [delegate_of(x) for x in ets + aets + aets_without_vals] + rels
+    def get_item(x, id_lookup):
+        if type(x) == ZefOp and is_a(x, Z):
+            return id_lookup[get_label(x)]
+        if type(x) == Delegate:
+            return x
+        return instance_rep(x)
+    
+    items = concat([ets + aets + aets_without_vals + sorted_rels])
+    reps = items | map[get_template_representation[id_to_rae]] | collect
+    dels = reps | map[delegate_of] | collect
     return FlatGraph(dels)
 
 def zascii_to_blueprint_fg_tp(op, curr_type):
@@ -8166,7 +8196,7 @@ def fg_insert_imp(fg, new_el):
                 if new_el in new_key_dict:
                     idx = new_key_dict[new_el]
                 else:
-                    src, rt, trgt = new_el.item.source, new_el.item.rt, new_el.item.target
+                    src, rt, trgt = source(new_el), new_el.item.rt, target(new_el)
                     src_idx = common_logic(src)
                     trgt_idx = common_logic(trgt)
                     idx = next_idx()

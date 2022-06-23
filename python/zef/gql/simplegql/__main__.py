@@ -14,7 +14,7 @@
 
 from ... import *
 from ...ops import *
-from .main import create_schema_graph, prepare_hooks
+from .main import create_schema_graph
 from .server import start_server
 
 from zef.core.logger import log

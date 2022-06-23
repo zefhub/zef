@@ -421,7 +421,6 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
         return (f"       [{fill_str_to_length(str(f'{total} total, {alive} alive] '), 30)}"
                 f"({triple[0]!r}, {triple[1]!r}, {triple[2]!r})\n")
 
-    # TODO find correct alive instances for RT
     def find_alive_count_of_triple(triple: Tuple[str]) -> int:
         d_top = delegate_of(triple[1], g)
         return (d_top
@@ -432,17 +431,24 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
          | sum
          | collect)
 
-    def find_triples_of_rt(rt: str) -> str:
+    def rt_block_view(rt: str, total_count: int) -> str:
         rt = RT(rt)
-        return (
+        total_alive = 0
+        def find_triple_count_and_inc(trip):
+            nonlocal total_alive
+            alive = find_alive_count_of_triple(trip)
+            total_alive += alive
+            return alive
+
+        triples_str_views = (
             grouped_triples
             | filter[lambda x: x[0][1] == rt]
-            # | map[lambda x: (x[0], len(x[1]), find_alive_count_of_triple(x[0]))]
-            | map[lambda x: (x[0], len(x[1]), len(x[1]))]
+            | map[lambda x: (x[0], len(x[1]), find_triple_count_and_inc(x[0]))]
             | map[triple_string_view]
             | join[""]
             | collect
-            )
+        )
+        return aet_et_rt_string_view((repr(rt), total_count, total_alive)) + triples_str_views
 
     filtered_blobs = bl | filter[lambda b: not is_a(b, Delegate)]
     if bt_filter == BT.RELATION_EDGE:
@@ -453,8 +459,7 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
         [z for z in filtered_blobs]
         | group_by[zr_type]
         | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect))]
-        | map[lambda x: aet_et_rt_string_view(x) + find_triples_of_rt(
-            x[0][3:]) if bt_filter == BT.RELATION_EDGE else aet_et_rt_string_view(x)]
+        | map[lambda x: rt_block_view(x[0][3:], x[1]) if bt_filter == BT.RELATION_EDGE else aet_et_rt_string_view(x)]
         | join[""]
         | collect
     )

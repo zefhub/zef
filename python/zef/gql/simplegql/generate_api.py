@@ -1187,6 +1187,10 @@ def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
         log.error("auth_field helper got an exception, assuming failure of auth")
         return False
 
+    if val is None:
+        # This is something we can't query on, so therefore the query has failed.
+        return False
+
     if auth == "query":
         func = pass_query_auth
     elif auth == "add":
