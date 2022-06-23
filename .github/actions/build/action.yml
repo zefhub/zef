@@ -168,11 +168,11 @@ runs:
         python3 python/tests/rem_test_http.py
         for a in python/tests/rem_*.py ; do
           echo $a
-          python3 a
+          python3 $a
         done
         for a in python3 python/tests/test_*.py
          echo $a
-         python3 a
+         python3 $a
         done
         echo "After"
 
