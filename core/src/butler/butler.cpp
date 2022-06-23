@@ -179,6 +179,13 @@ namespace zefDB {
             }
         }
         void stop_butler() {
+            // This is to prevent multiple threads attacking this function at
+            // the same time.
+            static std::atomic<bool> _running = false;
+            bool was_running = _running.exchange(true);
+            if(was_running)
+                return;
+
             if(zwitch.developer_output()) {
                 std::cerr << "stop_butler was called" << std::endl;
             }
@@ -193,20 +200,26 @@ namespace zefDB {
 
             if(zwitch.developer_output())
                 std::cerr << "Going to close all graph manager queues" << std::endl;
-            for(auto data : butler->graph_manager_list) {
-                try {
-                    data->queue.set_closed(false);
-                } catch(const std::exception & e) {
-                    std::cerr << "Exception while trying to close queue for graph manager thread: " << e.what() << std::endl;
+            {
+                std::lock_guard lock(butler->graph_manager_list_mutex);
+                for(auto data : butler->graph_manager_list) {
+                    try {
+                        data->queue.set_closed(false);
+                    } catch(const std::exception & e) {
+                        std::cerr << "Exception while trying to close queue for graph manager thread: " << e.what() << std::endl;
+                    }
                 }
             }
-            // std::cerr << "Going to wait on graph manager threads" << std::endl;
+            if(zwitch.developer_output())
+                std::cerr << "Going to wait on graph manager threads" << std::endl;
             std::vector<std::shared_ptr<Butler::GraphTrackingData>> saved_list;
             {
                 std::lock_guard lock(butler->graph_manager_list_mutex);
                 saved_list = butler->graph_manager_list;
             }
 
+            if(zwitch.developer_output())
+                std::cerr << "Number of graphs to wait for: " << saved_list.size() << std::endl;
             for(auto data : saved_list) {
                 auto extra_print = [&data]() {
                     std::cerr << "Last action was: " << data->debug_last_action << std::endl;
@@ -231,7 +244,11 @@ namespace zefDB {
                 };
                 long_wait_or_kill(*data->managing_thread, data->return_value, data->uid, extra_print);
             }
-            butler->graph_manager_list.clear();
+            // Lock and keep locked for the remainder now
+            {
+                std::lock_guard lock(butler->graph_manager_list_mutex);
+                butler->graph_manager_list.clear();
+            }
             if(zwitch.developer_output())
                 std::cerr << "Removing local process graph" << std::endl;
             butler->local_process_graph.reset();
@@ -239,6 +256,8 @@ namespace zefDB {
             if(zwitch.developer_output())
                 std::cerr << "Stopping network" << std::endl;
             butler->network.stop_running();
+            if(zwitch.developer_output())
+                std::cerr << "Clear waiting tasks" << std::endl;
             butler->waiting_tasks.clear();
 
             if(zwitch.developer_output())
@@ -1460,7 +1479,11 @@ namespace zefDB {
             if(gtd->gd != nullptr) {
                 // This doesn't need to be synchronised, as only this thread cares about it. It is only used to "disable" ~Graph inside of this function.
                 // If keep_alive, then get rid of that now
+                if(zwitch.developer_output())
+                    std::cerr << "About to reset the keep alive" << std::endl;
                 gtd->keep_alive_g.reset();
+                if(zwitch.developer_output())
+                    std::cerr << "Reset the keep alive" << std::endl;
                 gtd->gd->started_destructing = true;
                 if(!gtd->queue._closed)
                     gtd->queue.set_closed();

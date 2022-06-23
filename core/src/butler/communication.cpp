@@ -125,9 +125,10 @@ namespace zefDB {
 
 
         void PersistentConnection::fail_handler(websocketpp::connection_hdl hdl) {
-#if ZEFDB_ALLOW_NO_TLS
-            std::visit([this](auto & con) {
-#endif
+            visit_endpoint([this,&hdl](auto & endpoint) {
+                auto con = endpoint->get_con_from_hdl(hdl);
+                if(!con)
+                    return;
                 auto ec = con->get_ec();
                 int response_code = con->get_response_code();
                 if(response_code == 401) {
@@ -148,9 +149,7 @@ namespace zefDB {
                 });
                 if (outside_close_handler)
                     outside_close_handler(true);
-#if ZEFDB_ALLOW_NO_TLS
-            }, con);
-#endif
+            });
         }
         void PersistentConnection::pong_timeout_handler(websocketpp::connection_hdl hdl, std::string s) {
             if(zwitch.zefhub_communication_output()) {
@@ -177,6 +176,18 @@ namespace zefDB {
             debug_time_print("start of open_handler");
             update(locker, connected, true);
             last_connect_time = std::chrono::steady_clock::now();
+            if(should_stop) {
+                visit_endpoint([this,&hdl](auto & endpoint) {
+                    auto con = endpoint->get_con_from_hdl(hdl);
+                    if(con) {
+                        std::error_code ec;
+                        con->close(websocketpp::close::status::going_away, "", ec);
+                        if(ec) 
+                            std::cout << "> Closing connection error (in open_handler): " << ec.message() << std::endl;
+                    }
+                });
+                return;
+            }
             send_ping();
 
             if (outside_open_handler) {
@@ -184,11 +195,9 @@ namespace zefDB {
             }
         };
         void PersistentConnection::close_handler(websocketpp::connection_hdl hdl) {
-                // std::cerr << "Closed" << std::endl;
-#if ZEFDB_ALLOW_NO_TLS
-            std::visit([this](auto & con) {
-#endif
-            if(con) {
+            visit_endpoint([this,&hdl](auto & endpoint) {
+                auto con = endpoint->get_con_from_hdl(hdl);
+                if(con) {
                     auto ec = con->get_ec();
                     if(ec) {
                         if(zwitch.developer_output()) {
@@ -198,16 +207,20 @@ namespace zefDB {
                         last_was_failure = true;
                     }
                 }
-            con.reset();
-            update(locker, [&]() {
-                connected = false;
-                wspp_in_control = false;
+                update(locker, [&]() {
+                    connected = false;
+                    wspp_in_control = false;
+                    // This is getting the shared pointer on our object, not
+                    // that of websocketpp. This might not be necessary if we
+                    // make sure to use connected instead of _con to determine
+                    // connection state.
+                    std::visit([&](auto & con) {
+                        con.reset();
+                    }, _con);
+                });
+                if (outside_close_handler)
+                    outside_close_handler(false);
             });
-            if (outside_close_handler)
-                outside_close_handler(false);
-#if ZEFDB_ALLOW_NO_TLS
-            }, con);
-#endif
         }
         void PersistentConnection::message_handler_tls(websocketpp::connection_hdl hdl, base_client_tls_t::message_ptr msg) {
                 outside_message_handler(msg->get_payload());
@@ -289,33 +302,34 @@ namespace zefDB {
                 if(uri.find("ws://") == 0) {
                     // endpoint.emplace<client_notls_t>();
                     endpoint = std::make_shared<base_client_notls_t>();
+                    _con = base_client_notls_t::connection_ptr(nullptr);
                     if(zwitch.zefhub_communication_output())
                         std::cerr << "Using no TLS" << std::endl;
                 } else if(uri.find("wss://") == 0) {
                     // endpoint.emplace<client_tls_t>();
                     endpoint = std::make_shared<base_client_tls_t>();
+                    _con = base_client_tls_t::connection_ptr(nullptr);
                     if(zwitch.zefhub_communication_output())
                         std::cerr << "Using TLS" << std::endl;
                 } else {
                     throw std::runtime_error("Unknown protocol for uri: " + uri);
                 }
                 
-                std::visit([this](auto & endpoint) {
 #else
                 endpoint = std::make_shared<base_client_t>();
 #endif
-                endpoint->clear_access_channels(websocketpp::log::alevel::all);
-                endpoint->clear_error_channels(websocketpp::log::elevel::all);
-                endpoint->init_asio();
-                endpoint->start_perpetual();
-                endpoint->set_fail_handler(std::bind(&PersistentConnection::fail_handler, this, std::placeholders::_1));
-                endpoint->set_pong_timeout_handler(std::bind(&PersistentConnection::pong_timeout_handler, this, std::placeholders::_1, std::placeholders::_2));
-                endpoint->set_pong_handler(std::bind(&PersistentConnection::pong_handler, this, std::placeholders::_1, std::placeholders::_2));
-                endpoint->set_open_handler(std::bind(&PersistentConnection::open_handler, this, std::placeholders::_1));
-                endpoint->set_close_handler(std::bind(&PersistentConnection::close_handler, this, std::placeholders::_1));
-#if ZEFDB_ALLOW_NO_TLS
-                }, endpoint);
-#endif
+
+                visit_endpoint([this](auto & endpoint) {
+                    endpoint->clear_access_channels(websocketpp::log::alevel::all);
+                    endpoint->clear_error_channels(websocketpp::log::elevel::all);
+                    endpoint->init_asio();
+                    endpoint->start_perpetual();
+                    endpoint->set_fail_handler(std::bind(&PersistentConnection::fail_handler, this, std::placeholders::_1));
+                    endpoint->set_pong_timeout_handler(std::bind(&PersistentConnection::pong_timeout_handler, this, std::placeholders::_1, std::placeholders::_2));
+                    endpoint->set_pong_handler(std::bind(&PersistentConnection::pong_handler, this, std::placeholders::_1, std::placeholders::_2));
+                    endpoint->set_open_handler(std::bind(&PersistentConnection::open_handler, this, std::placeholders::_1));
+                    endpoint->set_close_handler(std::bind(&PersistentConnection::close_handler, this, std::placeholders::_1));
+                });
 
 #if ZEFDB_ALLOW_NO_TLS
                 std::visit(overloaded{
@@ -329,13 +343,11 @@ namespace zefDB {
                             endpoint->set_message_handler(std::bind(&PersistentConnection::message_handler_notls, this, std::placeholders::_1, std::placeholders::_2));
                         }
                     }, endpoint);
+#endif
 
-                std::visit([this](auto & endpoint) {
-#endif
+                visit_endpoint([this](auto & endpoint) {
                     ws_thread = std::make_unique<std::thread>(&std::remove_reference<decltype(endpoint)>::type::element_type::run, endpoint.get());
-#if ZEFDB_ALLOW_NO_TLS
-                }, endpoint);
-#endif
+                });
             } catch(const std::exception & exc) {
                 std::cerr << "Bad error while trying to setup the websocket++ endpoint:" << exc.what() << std::endl;
                 return;
@@ -346,75 +358,82 @@ namespace zefDB {
             create_endpoint();
 
             connected = false;
-#if ZEFDB_ALLOW_NO_TLS
-            std::visit([this](auto & endpoint) {
-#endif
-            std::error_code ec;
-            auto con = endpoint->get_connection(uri, ec);
-            if (ec) {
-                std::cout << "> Connect initialization error: " << ec.message() << std::endl;
-                throw std::runtime_error("Couldn't create connection for websocket++"); 
-            }
-            if(prepare_headers_func)
-                for(auto & item : (*prepare_headers_func)())
-                    con->append_header(item.first, item.second);
+            visit_endpoint([this](auto & endpoint) {
+                std::error_code ec;
+                auto con = endpoint->get_connection(uri, ec);
+                if (ec) {
+                    std::cout << "> Connect initialization error: " << ec.message() << std::endl;
+                    throw std::runtime_error("Couldn't create connection for websocket++"); 
+                }
+                if(prepare_headers_func)
+                    for(auto & item : (*prepare_headers_func)())
+                        con->append_header(item.first, item.second);
 
-            debug_time_print("before endpoint connect");
-            // This is a case that can be hit in quick scripts, and if left out
-            // will still allow the client to exit, but very slowly. I'm not
-            // sure what takes so long, it seems like a timeout but I don't know
-            // where it is. This check here can't hurt and seems reasonable.
-            if(should_stop)
-                return;
-            endpoint->connect(con);
-            this->con = con;
+                debug_time_print("before endpoint connect");
+                endpoint->connect(con);
+                // This is a little tricky - we should probably have put the
+                // endpoint and the connection in the same variant to be able to
+                // access this with type guarantees. As it is, nesting std::visits
+                // will form the 2x2 product of all type combinations.
 #if ZEFDB_ALLOW_NO_TLS
-            }, endpoint);
+                // This type manipulation needs an example. If the
+                // visit_endpoint above is called with auto&=client_tls_t&, then
+                // this type manipulation will get us
+                // base_client_tls_t::connection_ptr
+                auto & ptr_con = std::get<typename std::remove_reference_t<decltype(endpoint)>::element_type::connection_ptr>(_con);
+#else
+                auto & ptr_con = _con;
 #endif
+                update(locker, [&]() {
+                    if(should_stop) {
+                        con->close(websocketpp::close::status::going_away, "", ec);
+                        if(ec) 
+                            std::cout << "> Closing connection error (in start_connection): " << ec.message() << std::endl;
+                    } else {
+                        atomic_store(&ptr_con, con);
+                    }
+                });
+            });
         }
 
         void PersistentConnection::close(bool failure) {
-#if ZEFDB_ALLOW_NO_TLS
-            std::visit([this,failure](auto & con) {
-#endif
+            update(locker, [&]() {
                 should_stop = true;
-                if(con) {
-                    std::error_code ec;
-                    con->close(websocketpp::close::status::going_away, "", ec);
-                    con.reset();
-                }
+                std::visit([&](auto & con) {
+                    if(con) {
+                        std::error_code ec;
+                        con->close(websocketpp::close::status::going_away, "", ec);
+                        if(ec)
+                            std::cout << "> Closing connection error: " << ec.message() << std::endl;
+                        con.reset();
+                    }
+                }, _con);
 
-                update(locker, [&]() {
-                    connected = false;
-                    wspp_in_control = false;
-                    // Note: don't reset this to false, because the user might call
-                    // this after a real failure that they didn't know about.
-                    if (failure)
-                        last_was_failure = failure;
-                });
-#if ZEFDB_ALLOW_NO_TLS
-            }, con);
-#endif
-            }
+                connected = false;
+                wspp_in_control = false;
+                // Note: don't reset this to false, because the user might call
+                // this after a real failure that they didn't know about.
+                if (failure)
+                    last_was_failure = failure;
+            });
+        }
         void PersistentConnection::restart(bool failure) {
-#if ZEFDB_ALLOW_NO_TLS
-            std::visit([&](auto & con) {
-#endif
+            visit_con([&](auto & con) {
                 if(!con)
                     return;
 
                 std::error_code ec;
                 con->close(websocketpp::close::status::going_away, "", ec);
+                if(ec)
+                    std::cout << "> Closing connection error (in restart): " << ec.message() << std::endl;
                 con.reset();
                 update(locker, [&]() {
                     connected = false;
                     wspp_in_control = false;
                     last_was_failure = failure;
                 });
-#if ZEFDB_ALLOW_NO_TLS
-            }, con);
-#endif
-            }
+            });
+        }
 
             //////////////////////////////////////////
             // * Utility extensions
@@ -435,9 +454,7 @@ namespace zefDB {
                 if(should_stop)
                     return;
 
-#if ZEFDB_ALLOW_NO_TLS
-                std::visit([this,&msg,&opcode](auto & con) {
-#endif
+                visit_con([this,&msg,&opcode](auto & con) {
                 if(con) {
                             std::error_code ec = con->send(msg, opcode);
                             if (ec) {
@@ -450,9 +467,7 @@ namespace zefDB {
                                 }
                             }
                 }
-#if ZEFDB_ALLOW_NO_TLS
-            }, con);
-#endif
+                });
             }
 
         void PersistentConnection::start_running() {
@@ -472,9 +487,9 @@ namespace zefDB {
 
 
         void PersistentConnection::send_ping() {
-#if ZEFDB_ALLOW_NO_TLS
-            std::visit([this](auto & con) {
-#endif
+            visit_con([this](auto & con) {
+                if(!con)
+                    return;
                 auto duration = std::chrono::steady_clock::now().time_since_epoch();
                 long long now = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();
                 std::error_code ec;
@@ -483,15 +498,13 @@ namespace zefDB {
                     std::cerr << "Error sending ping: " << ec.message() << std::endl;
                     // throw std::runtime_error("Error sending ping: " + ec.message());
                 }
-#if ZEFDB_ALLOW_NO_TLS
-            }, con);
-#endif
+            });
         }
 
         void PersistentConnection::manager_runner() {
             try {
                 while(true) {
-                    wait_same(locker, wspp_in_control, false, ping_interval);
+                    wait_pred(locker, [this]() { return !wspp_in_control || should_stop; });
 
                     if(should_stop)
                         break;
@@ -499,15 +512,7 @@ namespace zefDB {
                     // This is how we test whether we should ping, or if we've
                     // actually lost the connection and need to reconnect.
                     if(wspp_in_control) {
-#if ZEFDB_ALLOW_NO_TLS
-                        std::visit([this](auto & con) {
-#endif
-                            if(con) {
-                                send_ping();
-                            }
-#if ZEFDB_ALLOW_NO_TLS
-                        }, con);
-#endif
+                        send_ping();
                         continue;
                     }
 
@@ -527,17 +532,14 @@ namespace zefDB {
                     }
                     // std::cerr << "Trying to connect" << std::endl;
 
-                    wspp_in_control = true;
+                    update(locker, wspp_in_control, true);
                     start_connection();
                 }
 
-#if ZEFDB_ALLOW_NO_TLS
-                std::visit([this](auto & endpoint) {
-#endif
-                    endpoint->stop_perpetual();
-#if ZEFDB_ALLOW_NO_TLS
-                }, endpoint);
-#endif
+                visit_endpoint([this](auto & endpoint) {
+                    if(endpoint)
+                        endpoint->stop_perpetual();
+                });
                 // We may have created a new connection in the intermediate time
                 // between this and the last close. So do it again now. (the
                 // last time, con may have been empty, if start_connection was
@@ -553,13 +555,9 @@ namespace zefDB {
                 }
 
                 should_stop = true;
-#if ZEFDB_ALLOW_NO_TLS
-                std::visit([this](auto & endpoint) {
-#endif
+                visit_endpoint([this](auto & endpoint) {
                     endpoint->stop_perpetual();
-#if ZEFDB_ALLOW_NO_TLS
-                }, endpoint);
-#endif
+                });
                 ws_thread->join();
                 ws_thread.reset();
             }
