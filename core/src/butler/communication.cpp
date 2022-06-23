@@ -344,6 +344,8 @@ namespace zefDB {
             connected = false;
             visit_endpoint([this](auto & endpoint) {
                 std::error_code ec;
+                if(zwitch.zefhub_communication_output())
+                    std::cerr << "SC: before get new connection" << std::endl;
                 auto con = endpoint->get_connection(uri, ec);
                 if (ec) {
                     std::cout << "> Connect initialization error: " << ec.message() << std::endl;
@@ -354,12 +356,8 @@ namespace zefDB {
                         con->append_header(item.first, item.second);
 
                 debug_time_print("before endpoint connect");
-                // This is a case that can be hit in quick scripts, and if left out
-                // will still allow the client to exit, but very slowly. I'm not
-                // sure what takes so long, it seems like a timeout but I don't know
-                // where it is. This check here can't hurt and seems reasonable.
-                if(should_stop)
-                    return;
+                if(zwitch.zefhub_communication_output())
+                    std::cerr << "SC: before connect" << std::endl;
                 endpoint->connect(con);
                 // This is a little tricky - we should probably have put the
                 // endpoint and the connection in the same variant to be able to
@@ -374,27 +372,43 @@ namespace zefDB {
 #else
                 auto & ptr_con = _con;
 #endif
-                atomic_store(&ptr_con, con);
+                if(zwitch.zefhub_communication_output())
+                    std::cerr << "SC: before store con ptr" << std::endl;
+                update(locker, [&]() {
+                    if(should_stop) {
+                        con->close(websocketpp::close::status::going_away, "", ec);
+                    } else {
+                        atomic_store(&ptr_con, con);
+                    }
+                });
             });
         }
 
         void PersistentConnection::close(bool failure) {
-            visit_con([this,failure](auto & con) {
-                update(locker, should_stop, true);
-                if(con) {
-                    std::error_code ec;
-                    con->close(websocketpp::close::status::going_away, "", ec);
-                    con.reset();
-                }
+            // visit_con([this,failure](auto & con) {
+            //     update(locker, should_stop, true);
+            //     if(con) {
+            //         std::error_code ec;
+            //         con->close(websocketpp::close::status::going_away, "", ec);
+            //         con.reset();
+            //     }
+            // });
+            update(locker, [&]() {
+                should_stop = true;
+                std::visit([&](auto & con) {
+                    if(con) {
+                        std::error_code ec;
+                        con->close(websocketpp::close::status::going_away, "", ec);
+                        con.reset();
+                    }
+                }, _con);
 
-                update(locker, [&]() {
-                    connected = false;
-                    wspp_in_control = false;
-                    // Note: don't reset this to false, because the user might call
-                    // this after a real failure that they didn't know about.
-                    if (failure)
-                        last_was_failure = failure;
-                });
+                connected = false;
+                wspp_in_control = false;
+                // Note: don't reset this to false, because the user might call
+                // this after a real failure that they didn't know about.
+                if (failure)
+                    last_was_failure = failure;
             });
         }
         void PersistentConnection::restart(bool failure) {
