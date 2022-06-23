@@ -157,24 +157,6 @@ runs:
         pip3 install -r python/requirements.txt
         pip3 install -r python/tests/requirements_tests.txt
 
-    - name: Separate running crashing tests
-      shell: bash
-      env:
-        ZEFHUB_AUTH_KEY: GUEST
-      run: |
-        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
-        python3 -mpytest python/tests/rem_test_http.py
-        echo "After"
-
-    - name: Separate running crashing tests 2
-      shell: bash
-      env:
-        ZEFHUB_AUTH_KEY: GUEST
-      run: |
-        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
-        python3 -mpytest python/tests/rem_test_simplegql.py
-        echo "After"
-
     - name: Run crashing test
       shell: bash
       env:
