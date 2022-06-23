@@ -14,7 +14,6 @@
 
 from .._core import *
 from .._ops import *
-
 from ...pyzef.admins import add_right, remove_right
 
 def main_implementation(privilege, target, action, user):
@@ -28,7 +27,7 @@ def main_implementation(privilege, target, action, user):
         raise NotImplementedError("TODO: handle targets other than graphs")
 
     assert isinstance(user, str), "Users need to be strings at the moment"
-    # This is to allow groups as well as users but is only temrporary while we're using strings.
+    # This is to allow groups as well as users but is only temporary while we're using strings.
     if ':' not in user:
         s_subject = "user:" + user
     else:
@@ -56,31 +55,31 @@ def main_implementation(privilege, target, action, user):
     return ret
 
 def privileges_grantview_handler(eff: dict):
-    return main_implementation(KW.view, eff.d["target"], KW.grant, eff.d["user"])
+    return main_implementation(KW.view, eff["target"], KW.grant, eff["user"])
 
 def privileges_grantappend_handler(eff: dict):
-    return main_implementation(KW.append, eff.d["target"], KW.grant, eff.d["user"])
+    return main_implementation(KW.append, eff["target"], KW.grant, eff["user"])
 
 def privileges_granthost_handler(eff: dict):
-    return main_implementation(KW.host, eff.d["target"], KW.grant, eff.d["user"])
+    return main_implementation(KW.host, eff["target"], KW.grant, eff["user"])
 
 def privileges_grantdiscover_handler(eff: dict):
-    return main_implementation(KW.discover, eff.d["target"], KW.grant, eff.d["user"])
+    return main_implementation(KW.discover, eff["target"], KW.grant, eff["user"])
 
 def privileges_grantmodifyrights_handler(eff: dict):
-    return main_implementation(KW.modify_rights, eff.d["target"], KW.grant, eff.d["user"])
+    return main_implementation(KW.modify_rights, eff["target"], KW.grant, eff["user"])
 
 def privileges_revokeview_handler(eff: dict):
-    return main_implementation(KW.view, eff.d["target"], KW.revoke, eff.d["user"])
+    return main_implementation(KW.view, eff["target"], KW.revoke, eff["user"])
 
 def privileges_revokeappend_handler(eff: dict):
-    return main_implementation(KW.append, eff.d["target"], KW.revoke, eff.d["user"])
+    return main_implementation(KW.append, eff["target"], KW.revoke, eff["user"])
 
 def privileges_revokehost_handler(eff: dict):
-    return main_implementation(KW.host, eff.d["target"], KW.revoke, eff.d["user"])
+    return main_implementation(KW.host, eff["target"], KW.revoke, eff["user"])
 
 def privileges_revokediscover_handler(eff: dict):
-    return main_implementation(KW.discover, eff.d["target"], KW.revoke, eff.d["user"])
+    return main_implementation(KW.discover, eff["target"], KW.revoke, eff["user"])
 
 def privileges_revokemodifyrights_handler(eff: dict):
-    return main_implementation(KW.modify_rights, eff.d["target"], KW.revoke, eff.d["user"])
+    return main_implementation(KW.modify_rights, eff["target"], KW.revoke, eff["user"])
