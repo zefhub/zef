@@ -102,7 +102,38 @@ namespace zefDB {
 
             std::unique_ptr<std::thread> ws_thread;
             client_t endpoint;
-            conn_t con;
+            // Note that con can be modified from the main thread or the ws
+            // thread. Hence it should be locked behind atomic accesses. But
+            // since this is a variant<shared_ptr> nesting, we are not going to
+            // atomically lock the variant mutation. The variant mutation should
+            // happen only once, when the endpoint is created. Thenafter it'll
+            // be only shared_ptr accesses to be locked behind atomic accesses.
+            //
+            // The utility func visit_con is handy for this
+            conn_t _con;
+
+            template<class FUNC>
+            auto visit_con(const FUNC & f) {
+#if ZEFDB_ALLOW_NO_TLS
+                std::visit([this, &f](auto & _con) {
+#endif
+                    auto con = atomic_load(&_con);
+                    return f(con);
+#if ZEFDB_ALLOW_NO_TLS
+                }, _con);
+#endif
+            }
+
+            template<class FUNC>
+            auto visit_endpoint(const FUNC & f) {
+#if ZEFDB_ALLOW_NO_TLS
+                std::visit([this, &f](auto & endpoint) {
+#endif
+                    return f(endpoint);
+#if ZEFDB_ALLOW_NO_TLS
+                }, endpoint);
+#endif
+            }
             
             ////////
             // Managing vars
