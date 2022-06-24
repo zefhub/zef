@@ -23,10 +23,14 @@ runs:
   using: 'composite'
   steps:
 
+    - name: Setup compiler on windows
+      if: ${{ startsWith(inputs.os, 'windows') }}
+      uses: microsoft/setup-msbuild@v1.1
+
     ########
     # Python
 
-    - name: Setup python on linux
+    - name: Setup python on linux and windows
       if: ${{ !startsWith(inputs.os, 'macos') }}
       uses: actions/setup-python@v2
       with:
