@@ -67,7 +67,6 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     auto response = butler.wait_on_zefhub_message<GenericZefHubResponse>(j);
     if(zwitch.graph_event_output())
         std::cerr << "Got response: " << response.j << std::endl;
-    int msg_version = response.j["msg_version"].get<int>();
 
     if(!response.generic.success) {
         me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
@@ -80,6 +79,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         return;
     }
 
+    int msg_version = response.j["msg_version"].get<int>();
     bool hash_agreed;
     if(msg_version <= 2)
         hash_agreed = true;
@@ -762,6 +762,10 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
             }
                 
             if(!me.gd->in_sync()) {
+                if(me.gd->error_state != GraphData::ErrorState::OK) {
+                    msg->promise.set_value(GenericResponse{false, "Graph is in invalid state"});
+                    return;
+                }
                 // The only reason we get here should be because another
                 // thread is writing to the graph and the read/write
                 // heads are out of sync.
@@ -786,6 +790,25 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, SetKeep
         me.keep_alive_g.reset();
     }
     msg->promise.set_value(GenericResponse{true});
+}
+
+template<>
+void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, ForceUnsubscribe & content, Butler::msg_ptr & msg) {
+    if(me.gd->error_state != GraphData::ErrorState::OK) {
+        msg->promise.set_value(GenericResponse{false, "Graph is in error state"});
+        return;
+    }
+
+    me.gd->currently_subscribed = false;
+
+    if(!me.gd->should_sync) {
+        std::cerr << "We didn't want to be subscribed anyway." << std::endl;
+        return;
+    }
+    
+    do_reconnect(*this, me);
+    
+    msg->promise.set_value(GenericResponse(true));
 }
 
 template<>

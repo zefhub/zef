@@ -45,8 +45,13 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED void break_graph(Graph&g, blob_index index, int style);
 
         inline bool verify_graph(Graph&g) {
+            try {
             return (verify_graph_double_linking(g)
                     && verify_chronological_instantiation_order(g));
+            } catch(const std::exception & e) {
+                std::cerr << "Verification failed with: " << e.what() << std::endl;
+                return false;
+            }
         }
 	}
 }

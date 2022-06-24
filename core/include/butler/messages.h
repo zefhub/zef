@@ -164,6 +164,10 @@ namespace zefDB {
             UpdatePayload payload;
         };
 
+        struct ForceUnsubscribe {
+            std::string graph_uid;
+        };
+
         struct MergeRequest {
             struct PayloadGraphDelta {
                 // TODO: Currently this is got from python as a python object, but will later be a native C object.
@@ -248,6 +252,7 @@ namespace zefDB {
             NewTransactionCreated,
             Reconnected,
             Disconnected,
+            ForceUnsubscribe,
             NewGraph,
             LocalGraph,
             LoadGraph,
@@ -299,6 +304,7 @@ namespace zefDB {
         CREATE_NAME_STRING(TokenQuery)
         CREATE_NAME_STRING(Reconnected)
         CREATE_NAME_STRING(Disconnected)
+        CREATE_NAME_STRING(ForceUnsubscribe)
         CREATE_NAME_STRING(NewGraph)
         CREATE_NAME_STRING(LocalGraph)
         CREATE_NAME_STRING(LoadGraph)
