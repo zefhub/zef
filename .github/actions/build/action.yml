@@ -26,8 +26,8 @@ runs:
     - name: Setup compiler on windows
       if: ${{ startsWith(inputs.os, 'windows') }}
       uses: microsoft/setup-msbuild@v1.1
-      with:
-        vs-version: '[16,17)'
+      # with:
+      #   vs-version: '[16,17)'
 
     - name: Force CMAKE_GENERATOR on windows
       if: ${{ startsWith(inputs.os, 'windows') }}
