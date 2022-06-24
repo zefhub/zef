@@ -58,6 +58,9 @@ python3 -m pip install -qr python/requirements.txt || exit 1
 
     if [ -n "$CMAKE_GENERATOR" ] ; then
         CMAKE_ARGS="-j $np"
+    elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]] ; then
+        # Leave the default for CMAKE_GENERATOR so that appropriate MSVC is selected
+        CMAKE_ARGS="-j $np"
     elif which ninja > /dev/null ; then
         export CMAKE_GENERATOR=Ninja
         CMAKE_ARGS=""
