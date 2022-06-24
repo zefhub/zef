@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fx_types import Effect
 
 
 # taken from zef function
@@ -69,14 +68,45 @@ from .fx_types import Effect
 # to_clipboard = ToClipboard()
 
 
+from .fx_types import Effect
+from ..error import Error
 
 
-def clipboard_copy_to_handler(eff: Effect):
+def clipboard_copy_to_handler(eff: dict):
     """ 
     sample effect:
     {
         'type': FX.Clipboard.CopyTo,
         'value': 'hello',
+    }
+    """    
+    try:
+        import pyperclip
+    except:
+        err = """
+        please install pyperclip if you want to use the copy to/from
+        clipboard functionality. E.g. 'pip3 install pyperclip'
+        """
+        raise RuntimeError(err)
+    try:
+        val = eff['value']
+        if type(val) in {str, float, int, bool}:
+            pyperclip.copy(str(val))
+        else:
+            raise RuntimeError(f"copying a type type(val)={type(val)} to the clipboard is not supported. Value: {val}")
+        return {}
+    except Exception as e:
+        return Error(f'executing FX.Clipboard.CopyTo for effect {eff}:\n{repr(e)}')
+
+
+
+
+
+def clipboard_copy_from_handler(eff: dict):
+    """ 
+    For now with pyperclip, images can't be pasted
+    {
+        'type': FX.Clipboard.CopyFrom,
     }
     """
     try:
@@ -87,25 +117,11 @@ def clipboard_copy_to_handler(eff: Effect):
         clipboard functionality. E.g. 'pip3 install pyperclip'
         """
         raise RuntimeError(err)
-    val = eff.d['value']
-    if type(val) in {str, float, int, bool}:
-        pyperclip.copy(str(val))
-    else:
-        raise RuntimeError(f"copying a type type(val)={type(val)} to the clipboard is not supported. Value: {val}")
-    return {}
 
+    try:
+        val = pyperclip.paste()
+        return {'value': val}
+    except Exception as e:
+        return Error(f'executing FX.Clipboard.CopyFrom for effect {eff}:\n{repr(e)}')
 
-
-def clipboard_copy_from_handler(eff: Effect):
-    """ 
-    For now with pyperclip, images can't be pasted
-    {
-        'type': FX.Clipboard.CopyFrom,
-    }
-    """
-    import pyperclip
-    val = pyperclip.paste()
-    return {
-        'value': val
-    }
 

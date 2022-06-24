@@ -615,6 +615,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		;
 
 	internals_submodule.def("StartTransactionReturnTx", [](Graph& g)->ZefRef { return StartTransactionReturnTx(g); }, py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("FinishTransaction", py::overload_cast<Graph&,bool,bool,bool>(&FinishTransaction), py::arg("g"), py::arg("wait"), py::arg("rollback_empty"), py::arg("check_schema"), py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("FinishTransaction", py::overload_cast<Graph&,bool,bool>(&FinishTransaction), py::arg("g"), py::arg("wait"), py::arg("rollback_empty"), py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("FinishTransaction", py::overload_cast<Graph&,bool>(&FinishTransaction), py::arg("g"), py::arg("wait"), py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("FinishTransaction", py::overload_cast<Graph&>(&FinishTransaction), py::arg("g"), py::call_guard<py::gil_scoped_release>());
@@ -747,4 +748,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     internals_submodule.def("register_merge_handler", &Butler::register_merge_handler);
     internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&Butler::remove_merge_handler));
+
+    internals_submodule.def("register_schema_validator", &Butler::register_schema_validator);
+    internals_submodule.add_object("_cleanup_schema_validator", py::capsule(&Butler::remove_schema_validator));
 }

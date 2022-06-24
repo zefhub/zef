@@ -138,8 +138,6 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
         .def("default_wait_for_tx_finish", py::overload_cast<bool>(&Zwitch::default_wait_for_tx_finish))
         .def("default_rollback_empty_tx", py::overload_cast<>(&Zwitch::default_rollback_empty_tx, py::const_))
         .def("default_rollback_empty_tx", py::overload_cast<bool>(&Zwitch::default_rollback_empty_tx))
-        .def("write_thread_runs_subscriptions", py::overload_cast<>(&Zwitch::write_thread_runs_subscriptions, py::const_))
-        .def("write_thread_runs_subscriptions", py::overload_cast<bool>(&Zwitch::write_thread_runs_subscriptions))
 		.def("as_dict", &Zwitch::as_dict)
 		;
 	main_module.attr("zwitch") = &zwitch;  // expose this singleton

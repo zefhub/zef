@@ -36,8 +36,8 @@ def stream_create_pushable_stream_handler(eff: Effect):
 
 
 def stream_push_handler(eff: Effect):   # -> Union[Nil, Error]
-    assert 'stream' in eff.d
-    s = eff.d['stream']
+    assert 'stream' in eff
+    s = eff['stream']
     z_stream = s.stream_ezefref
     assert isinstance(s, Awaitable)
     streams = _state['streams']
@@ -45,7 +45,7 @@ def stream_push_handler(eff: Effect):   # -> Union[Nil, Error]
         raise RuntimeError(f'in push effect handler: associated stream not found in fx._state["streams"]')
     
     # TODO: check that type of item agrees if stream is typed!!!!!!!!!!!!!!!!!!
-    streams[z_stream].on_next(eff.d['item'])
+    streams[z_stream].on_next(eff['item'])
     return None
 
 

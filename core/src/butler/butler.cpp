@@ -1336,7 +1336,7 @@ namespace zefDB {
                                   return me.please_stop
                                       || (network.connected && me.gd->should_sync
                                           && (me.gd->sync_head == 0 || (me.gd->sync_head < me.gd->read_head.load())))
-                                      || (!zwitch.write_thread_runs_subscriptions() && me.gd->latest_complete_tx > me.gd->manager_tx_head.load());
+                                      || (me.gd->latest_complete_tx > me.gd->manager_tx_head.load());
                               });
                                   
                     if(me.please_stop)
@@ -1346,46 +1346,43 @@ namespace zefDB {
                     // not set. TODO: In the future, probably indicate the
                     // difference between "anytime" subs and "in reaction to
                     // updates" subs.
-                    if(!me.gd->is_primary_instance ||
-                       !zwitch.write_thread_runs_subscriptions()) {
-                        blob_index target_complete_tx = me.gd->latest_complete_tx;
-                        while(!me.please_stop
-                              && target_complete_tx > me.gd->manager_tx_head) {
-                            // Do one tx at a time until we have nothing left to do.
+                    blob_index target_complete_tx = me.gd->latest_complete_tx;
+                    while(!me.please_stop
+                            && target_complete_tx > me.gd->manager_tx_head) {
+                        // Do one tx at a time until we have nothing left to do.
 
-                            // First check for subscriptions
-                            EZefRef last_tx{me.gd->manager_tx_head, *me.gd};
-                            if(!(last_tx | has_out[BT.NEXT_TX_EDGE])) {
-                                std::cerr << "guid: " << me.uid << std::endl;
-                                std::cerr << "write_head: " << me.gd->write_head.load() << std::endl;
-                                std::cerr << "read_head: " << me.gd->read_head.load() << std::endl;
-                                std::cerr << "latest_complete_tx: " << me.gd->latest_complete_tx.load() << std::endl;
-                                std::cerr << "manager_tx_head: " << me.gd->manager_tx_head.load() << std::endl;
-                                throw std::runtime_error("Big problem in sync thread, could not find BT.NEXT_TX_EDGE from last_tx");
-                            }
-                            EZefRef this_tx = last_tx >> BT.NEXT_TX_EDGE;
-
-                            try {
-                                run_subscriptions(*me.gd, this_tx);
-                            } catch(...) {
-                                std::cerr << "There was a failure in the run_subscriptions part of the sync thread." << std::endl;
-                                throw;
-                            }
-
-                            // TODO:
-                            // TODO:
-                            // TODO:
-                            // TODO: We probably need to save off this
-                            // manager_tx_head, so that premature exits can be
-                            // picked up from later. This is especially relevant
-                            // for the tokens.
-                            // TODO:
-                            // TODO:
-                            // TODO:
-                            update(me.gd->heads_locker, me.gd->manager_tx_head, index(this_tx));
+                        // First check for subscriptions
+                        EZefRef last_tx{me.gd->manager_tx_head, *me.gd};
+                        if(!(last_tx | has_out[BT.NEXT_TX_EDGE])) {
+                            std::cerr << "guid: " << me.uid << std::endl;
+                            std::cerr << "write_head: " << me.gd->write_head.load() << std::endl;
+                            std::cerr << "read_head: " << me.gd->read_head.load() << std::endl;
+                            std::cerr << "latest_complete_tx: " << me.gd->latest_complete_tx.load() << std::endl;
+                            std::cerr << "manager_tx_head: " << me.gd->manager_tx_head.load() << std::endl;
+                            throw std::runtime_error("Big problem in sync thread, could not find BT.NEXT_TX_EDGE from last_tx");
                         }
-                        internals::execute_queued_fcts(*me.gd);
+                        EZefRef this_tx = last_tx >> BT.NEXT_TX_EDGE;
+
+                        try {
+                            run_subscriptions(*me.gd, this_tx);
+                        } catch(...) {
+                            std::cerr << "There was a failure in the run_subscriptions part of the sync thread." << std::endl;
+                            throw;
+                        }
+
+                        // TODO:
+                        // TODO:
+                        // TODO:
+                        // TODO: We probably need to save off this
+                        // manager_tx_head, so that premature exits can be
+                        // picked up from later. This is especially relevant
+                        // for the tokens.
+                        // TODO:
+                        // TODO:
+                        // TODO:
+                        update(me.gd->heads_locker, me.gd->manager_tx_head, index(this_tx));
                     }
+                    internals::execute_queued_fcts(*me.gd);
 
                     if(me.gd->error_state != GraphData::ErrorState::OK)
                         throw std::runtime_error("Sync worker for graph detected invalid state and is aborting");
@@ -2120,6 +2117,7 @@ namespace zefDB {
         // * External handlers
 
 
+        // ** Merge handler
         std::optional<std::function<merge_handler_t>> merge_handler;
         json pass_to_merge_handler(Graph g, const json & payload) {
             if(!merge_handler)
@@ -2138,6 +2136,25 @@ namespace zefDB {
             if(!merge_handler)
                 std::cerr << "Warning, no merge_handler registered to be removed." << std::endl;
             merge_handler.reset();
+        }
+
+        // ** Schema validator
+        std::optional<std::function<schema_validator_t>> schema_validator;
+        void pass_to_schema_validator(ZefRef tx) {
+            if(schema_validator)
+                (*schema_validator)(tx);
+        }
+
+        void register_schema_validator(std::function<schema_validator_t> func) {
+            if(schema_validator)
+                throw std::runtime_error("schema_validator has already been registered.");
+            schema_validator = func;
+        }
+
+        void remove_schema_validator() {
+            if(!schema_validator)
+                std::cerr << "Warning, no schema_validator registered to be removed." << std::endl;
+            schema_validator.reset();
         }
     }
 }

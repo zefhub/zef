@@ -475,9 +475,11 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED ZefRef StartTransactionReturnTx(GraphData& gd) ;
     inline ZefRef StartTransactionReturnTx(Graph & g) { return StartTransactionReturnTx(g.my_graph_data()); }
 
+    LIBZEF_DLL_EXPORTED void FinishTransaction(GraphData& gd, bool wait, bool rollback_empty_tx, bool check_schema);
     LIBZEF_DLL_EXPORTED void FinishTransaction(GraphData& gd, bool wait, bool rollback_empty_tx);
     LIBZEF_DLL_EXPORTED void FinishTransaction(GraphData& gd, bool wait);
     LIBZEF_DLL_EXPORTED void FinishTransaction(GraphData& gd) ;
+    inline void FinishTransaction(Graph & g, bool wait, bool rollback_empty_tx, bool check_schema) { FinishTransaction(g.my_graph_data(), wait, rollback_empty_tx, check_schema); }
     inline void FinishTransaction(Graph & g, bool wait, bool rollback_empty_tx) { FinishTransaction(g.my_graph_data(), wait, rollback_empty_tx); }
     inline void FinishTransaction(Graph & g, bool wait) { FinishTransaction(g.my_graph_data(), wait); }
     inline void FinishTransaction(Graph & g) { FinishTransaction(g.my_graph_data()); }
@@ -494,6 +496,7 @@ namespace zefDB {
 		// bool this_transaction_already_unregistered_from_graph = false;
         bool wait;
         bool rollback_empty;
+        bool check_schema;
 			
 		Transaction() = delete;
 		Transaction(const Transaction&) = delete;
@@ -501,19 +504,22 @@ namespace zefDB {
         // The default behaviour is based on zwitch so we have to do things the long-winded way here.
 		Transaction(GraphData& gd);
 		Transaction(GraphData& gd, bool wait);
-		Transaction(GraphData& gd, bool wait, bool rollback_empty) :
+		Transaction(GraphData& gd, bool wait, bool rollback_empty);
+		Transaction(GraphData& gd, bool wait, bool rollback_empty, bool check_schema) :
         wait(wait),
-        rollback_empty(rollback_empty) {
+        rollback_empty(rollback_empty),
+        check_schema(check_schema) {
             StartTransaction(gd);
             graph_data_that_i_am_marking.blob_ptr = &gd;
 		}
 		Transaction(Graph& g) : Transaction(g.my_graph_data()) {}
 		Transaction(Graph& g, bool wait) : Transaction(g.my_graph_data(), wait) {}
 		Transaction(Graph& g, bool wait, bool rollback_empty) : Transaction(g.my_graph_data(), wait, rollback_empty) {}
+		Transaction(Graph& g, bool wait, bool rollback_empty, bool check_schema) : Transaction(g.my_graph_data(), wait, rollback_empty, check_schema) {}
 		~Transaction() {
             GraphData& gd = *(GraphData*)graph_data_that_i_am_marking.blob_ptr;
 			try {
-				FinishTransaction(gd, wait, rollback_empty);
+				FinishTransaction(gd, wait, rollback_empty, check_schema);
 			}
 			catch (const std::exception& exc) {
 				std::cerr << "Error occurred on Transaction closing: " << exc.what() << "\n";
