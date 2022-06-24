@@ -41,7 +41,7 @@ jobs:
     needs: test-code
     runs-on: ubuntu-20.04
     steps:
-      dummy:
+      - name: dummy
         run: |
           echo Nothing to see here
         
