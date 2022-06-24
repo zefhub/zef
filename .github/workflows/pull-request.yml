@@ -36,3 +36,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
+
+  all-passed:
+    needs: test-code
+    name: All PR tests passed
