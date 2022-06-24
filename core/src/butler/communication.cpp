@@ -15,7 +15,7 @@
 #include "butler/communication.h"
 #include "zwitch.h"
 
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
 #include <wincrypt.h>
 #endif
 
@@ -217,7 +217,7 @@ namespace zefDB {
                 outside_message_handler(msg->get_payload());
             }
 
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
         void add_windows_root_certs(ssl_context_ptr & ctx) {
             HCERTSTORE hStore = CertOpenSystemStore(0, "ROOT");
             if(hStore == NULL)
@@ -253,7 +253,7 @@ namespace zefDB {
                                  asio::ssl::context::single_dh_use);
 
 
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
                 add_windows_root_certs(ctx);
 #else
                 ctx->set_default_verify_paths();

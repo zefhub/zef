@@ -16,7 +16,7 @@
 
 #pragma once
 
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
 #include "mmap_windows.h"
 #else
 
@@ -388,7 +388,7 @@ namespace zefDB {
 #else
         inline void ensure_or_alloc_range(void * ptr, size_t size) {
 #endif
-#ifndef _MSC_VER
+#ifndef ZEF_WIN32
             // This is a very dirty hack to ensure we never alloc something too small
             if(size < blobs_ns::max_basic_blob_size) {
                 std::cerr << "Warning! Tried to ensure a mem range that is smaller than max_basic_blob_size!" << std::endl;

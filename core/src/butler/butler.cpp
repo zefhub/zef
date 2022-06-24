@@ -72,7 +72,7 @@ namespace zefDB {
         }
 
         void terminate_handler() {
-#ifndef _MSC_VER
+#ifndef ZEF_WIN32
             void *trace_elems[20];
             int trace_elem_count(backtrace( trace_elems, 20 ));
             char **stack_syms(backtrace_symbols( trace_elems, trace_elem_count ));
@@ -1800,7 +1800,7 @@ namespace zefDB {
             }
 
             // Old location for fallback
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
             env = std::getenv("LOCALAPPDATA");
 #else
             env = std::getenv("HOME");
@@ -2011,7 +2011,7 @@ namespace zefDB {
             if (env != nullptr)
                 return std::filesystem::path(std::string(env)) / upstream_name;
 
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
             char * home = std::getenv("LOCALAPPDATA");
 #else
             char * home = std::getenv("HOME");
@@ -2056,7 +2056,7 @@ namespace zefDB {
             if (env != nullptr)
                 return std::string(env);
 
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
             env = std::getenv("LOCALAPPDATA");
 #else
             env = std::getenv("HOME");

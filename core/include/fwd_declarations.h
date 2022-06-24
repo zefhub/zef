@@ -33,7 +33,7 @@
 
 
 // Will just not deal with stack traces on windows
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
 inline void print_backtrace_force(int fd=2) {}
 inline void print_backtrace(int fd=2) {}
 #else
