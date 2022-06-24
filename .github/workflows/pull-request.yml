@@ -38,5 +38,11 @@ jobs:
           os: ${{ matrix.os }}
 
   all-passed:
-    needs: test-code
     name: All PR tests passed
+    needs: test-code
+    runs-on: ubuntu-20.04
+    steps:
+      dummy:
+        run: |
+          echo Nothing to see here
+        
