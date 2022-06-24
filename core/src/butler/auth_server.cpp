@@ -27,7 +27,7 @@ using json = nlohmann::json;
 #include "zwitch.h"
 
 
-#if defined(_MSC_VER)
+#if defined(ZEF_WIN32)
     std::filesystem::path find_libzef_path() {
         char* path = std::getenv("LIBZEF_AUTH_HTML_PATH");
         if (zefDB::zwitch.developer_output())

@@ -16,7 +16,7 @@
 
 #pragma once
 
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
 #include "mmap_windows.h"
 #else
 
@@ -388,7 +388,7 @@ namespace zefDB {
 #else
         inline void ensure_or_alloc_range(void * ptr, size_t size) {
 #endif
-#ifndef _MSC_VER
+#ifndef ZEF_WIN32
             // We don't do the following check anymore, as there are cases where a single blob_index-size ensure is needed.
 
             // // This is a very dirty hack to ensure we never alloc something too small

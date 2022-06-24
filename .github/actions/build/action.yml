@@ -23,9 +23,9 @@ runs:
   using: 'composite'
   steps:
 
-    - name: Setup compiler on windows
-      if: ${{ startsWith(inputs.os, 'windows') }}
-      uses: microsoft/setup-msbuild@v1.1
+    # - name: Setup compiler on windows
+    #   if: ${{ startsWith(inputs.os, 'windows') }}
+    #   uses: microsoft/setup-msbuild@v1.1
 
     ########
     # Python
