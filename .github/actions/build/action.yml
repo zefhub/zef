@@ -176,7 +176,8 @@ runs:
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash
       env:
-        ZEFDB_QUIET: YES
+        # ZEFDB_QUIET: YES
+        ZEFDB_DEVELOPER_OUTPUT: YES
         ZEFHUB_AUTH_KEY: GUEST
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
