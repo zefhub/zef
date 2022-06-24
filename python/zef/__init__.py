@@ -52,3 +52,4 @@ import atexit
 def _stop_butler():
     from . import pyzef
     pyzef.internals.stop_butler()
+    print("Python has called stop_butler")
