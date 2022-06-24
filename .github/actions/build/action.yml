@@ -172,12 +172,23 @@ runs:
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         bash scripts/assert_no_created_tokens.sh
 
+    - name: Run developer output python tests linux/macos
+      if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
+      shell: bash
+      env:
+        ZEFDB_DEVELOPER_OUTPUT: YES
+        ZEFHUB_AUTH_KEY: GUEST
+      run: |
+        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        for a in python/tests/test*.py ; do
+          python3 $a 
+        done
+
     - name: Run python tests linux/macos
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash
       env:
-        # ZEFDB_QUIET: YES
-        ZEFDB_DEVELOPER_OUTPUT: YES
+        ZEFDB_QUIET: YES
         ZEFHUB_AUTH_KEY: GUEST
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
