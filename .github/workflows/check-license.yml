@@ -1,4 +1,7 @@
+name: Check license
+
 on: workflow_call
+
 jobs:
   check-license:
     runs-on: "ubuntu-20.04"
