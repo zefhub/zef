@@ -29,13 +29,6 @@ runs:
       with:
         vs-version: '17'
 
-    - name: Force CMAKE_GENERATOR on windows
-      if: ${{ startsWith(inputs.os, 'windows') }}
-      shell: bash
-      run: |
-        cmake --help
-        echo "CMAKE_GENERATOR=Visual Studio 17 2022" >> $GITHUB_ENV
-
     ########
     # Python
 
