@@ -181,6 +181,9 @@ runs:
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         for a in python/tests/test*.py ; do
+          echo
+          echo
+          echo $a
           python3 $a 
         done
 
