@@ -53,7 +53,9 @@ python3 -m pip install -qr python/requirements.txt || exit 1
     [ -d build ] || mkdir build || exit 1
     cd build
 
-    if which ninja > /dev/null ; then
+    if [ -n "$CMAKE_GENERATOR" ] ; then
+        CMAKE_ARGS="-j $np"
+    elif which ninja > /dev/null ; then
         export CMAKE_GENERATOR=Ninja
         CMAKE_ARGS=""
     else
