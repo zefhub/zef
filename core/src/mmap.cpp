@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "export_statement.h"
+
 #ifdef ZEF_WIN32
 #include "mmap_windows.cpp"
 #else
