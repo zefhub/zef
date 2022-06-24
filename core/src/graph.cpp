@@ -944,6 +944,10 @@ namespace zefDB {
     }
 
     void FinishTransaction(GraphData& gd, bool wait, bool rollback_empty_tx) {
+        FinishTransaction(gd, wait, rollback_empty_tx, true);
+    }
+
+    void FinishTransaction(GraphData& gd, bool wait, bool rollback_empty_tx, bool check_schema) {
         gd.number_of_open_tx_sessions--;
         // in case this was the last transaction that is closed, we want to mark the 
         // transcation node as complete: any write mod to the graph will trigger a new tx hereafter
@@ -953,7 +957,7 @@ namespace zefDB {
                     update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
                 });
                 
-                if(gd.index_of_open_tx_node != 0) {
+                if(check_schema && gd.index_of_open_tx_node != 0) {
                     EZefRef ezr_tx{gd.index_of_open_tx_node, gd};
                     ZefRef ctx{ezr_tx, ezr_tx};
                     // We fake that we have the transaction still open just for AbortTransaction
@@ -1030,6 +1034,7 @@ namespace zefDB {
 
     Transaction::Transaction(GraphData & gd) : Transaction(gd, zwitch.default_wait_for_tx_finish()) {}
     Transaction::Transaction(GraphData & gd, bool wait) : Transaction(gd, wait, zwitch.default_rollback_empty_tx()) {}
+    Transaction::Transaction(GraphData & gd, bool wait, bool rollback_empty) : Transaction(gd, wait, rollback_empty, true) {}
 
     void run_subscriptions(GraphData & gd, EZefRef transaction_uzr) {
         if(!gd.observables)

@@ -137,7 +137,7 @@ def safe_current_task():
 global_transaction_task = {}
 from contextlib import contextmanager
 @contextmanager
-def Transaction(g, wait=None, rollback_empty=None):
+def Transaction(g, wait=None, rollback_empty=None, check_schema=None):
     global global_transaction_task
     from ...pyzef.zefops import uid
 
@@ -161,7 +161,9 @@ def Transaction(g, wait=None, rollback_empty=None):
             wait = zwitch.default_wait_for_tx_finish()
         if rollback_empty is None:
             rollback_empty = zwitch.default_rollback_empty_tx()
-        FinishTransaction(g, wait, rollback_empty)
+        if check_schema is None:
+            check_schema = True
+        FinishTransaction(g, wait, rollback_empty, check_schema)
 
 
 

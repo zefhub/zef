@@ -3712,14 +3712,21 @@ def distinct_imp(v):
     - related zefop: distinct_by
     """
     observed = set()
+    unhashable = []
     it = iter(v)
+    from typing import Hashable
     def wrapper():
         try:
             while True:
                 el = next(it)
-                if el not in observed:
-                    observed.add(el)
-                    yield el
+                if isinstance(el, Hashable):
+                    if el not in observed:
+                        observed.add(el)
+                        yield el
+                else:
+                    if el not in unhashable:
+                        unhashable.append(el)
+                        yield el
         except StopIteration:
             return
 
