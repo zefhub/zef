@@ -1008,7 +1008,7 @@ namespace zefDB {
             // Let's check in this thread - here at least we should be able to see the next tx edge
             EZefRef debug_tx{manager_tx, gd};
             if(!(debug_tx | has_out[BT.NEXT_TX_EDGE])) {
-                std::cerr << "guid: " << me.uid << std::endl;
+                std::cerr << "guid: " << uid(gd) << std::endl;
                 std::cerr << "CAN'T SEE NEXT_TX_EDGE EVEN FROM WITHIN FINISH TRANSACTION!!!!" << std::endl;
             }
 
