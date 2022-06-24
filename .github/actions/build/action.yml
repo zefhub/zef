@@ -172,6 +172,27 @@ runs:
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         bash scripts/assert_no_created_tokens.sh
 
+    - name: Try to catch segfault core dump
+      if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
+      shell: bash
+      env:
+        ZEFDB_DEVELOPER_OUTPUT: YES
+        ZEFHUB_AUTH_KEY: GUEST
+      run: |
+        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        for a in python/tests/test*.py ; do
+          echo
+          echo
+          echo $a
+          set +e
+          ulimit -c unlimited
+          python3 $a 
+          if [[ "$?" == "139" ]] ; then
+            echo "backtrace ; quit" > gdb_commands
+            gdb $(which python3) core -x gdb_commands
+          fi
+        done
+
     - name: Run developer output python tests linux/macos
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash

@@ -75,9 +75,10 @@ python3 -m pip install -qr python/requirements.txt || exit 1
         CMAKE_ARGS="-j $np"
     fi
     # The -DPython3_EXECUTABLE seems necessary here for github CI
-    cmake .. -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release} -DCMAKE_PREFIX_PATH=$(realpath ../../../core) -DPython3_EXECUTABLE=$(which python3) -DLIBZEF_STATIC=TRUE -DLIBZEF_FORCE_ASSERTS=TRUE || exit 1
+    export CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Debug}
+    cmake .. -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_PREFIX_PATH=$(realpath ../../../core) -DPython3_EXECUTABLE=$(which python3) -DLIBZEF_STATIC=TRUE -DLIBZEF_FORCE_ASSERTS=TRUE || exit 1
 
-    cmake --build . --config Release $CMAKE_ARGS || exit 1
+    cmake --build . --config ${CMAKE_BUILD_TYPE} $CMAKE_ARGS || exit 1
 ) || exit 1
 
 ln -fs $(realpath python/pyzef/build/pyzef.* --relative-to=python/zef) python/zef/
