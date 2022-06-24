@@ -23,9 +23,17 @@ runs:
   using: 'composite'
   steps:
 
-    # - name: Setup compiler on windows
-    #   if: ${{ startsWith(inputs.os, 'windows') }}
-    #   uses: microsoft/setup-msbuild@v1.1
+    - name: Setup compiler on windows
+      if: ${{ startsWith(inputs.os, 'windows') }}
+      uses: microsoft/setup-msbuild@v1.1
+      with:
+        vs-version: '[16,17)'
+
+    - name: Force CMAKE_GENERATOR on windows
+      if: ${{ startsWith(inputs.os, 'windows') }}
+      run: |
+        cmake --help
+        echo "CMAKE_GENERATOR=Visual Studio 16 2019" >> $GITHUB_ENV
 
     ########
     # Python
