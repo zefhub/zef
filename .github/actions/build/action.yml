@@ -172,6 +172,12 @@ runs:
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         bash scripts/assert_no_created_tokens.sh
 
+    - name: install gdb from homebrew
+      if: ${{ startsWith(inputs.os, 'macos') }}
+      shell: bash
+      run: |
+        brew install gdb || echo "Would have errored"
+
     - name: Try to catch segfault core dump
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash
