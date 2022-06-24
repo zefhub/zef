@@ -359,11 +359,11 @@ def match_tp(op, curr_type):
 
 #---------------------------------------- peel -----------------------------------------------
 def peel_imp(el, *args):
-    from ..fx.fx_types import _Effect_Class
     if isinstance(el, ValueType_):
         return el.nested()
-    elif isinstance(el, _Effect_Class):
-        return el.d
+    elif isinstance(el, dict):
+        print('deprecation warning: `peel` called on a dictionary. This probably was an Effect before and is no longer needed.')
+        return el
     elif isinstance(el, ZefOp):
         # TODO !!!!!!!!!!!!! Change this to always return elementary ZefOps and to use list(el) to get current behavior
         if len(el.el_ops) > 1:
@@ -4997,7 +4997,6 @@ def assert_type_info(op, curr_type):
     
 def run_effect_implementation(eff):
     from ..fx import _effect_handlers
-    from ..fx.fx_types import _Effect_Class
     
     # if we create the effect with short hand notation, e.g. (ET.Dog, ET.Person | g | run)
     # we want to directly unpack the instances in the same structure as the types that went in
@@ -5005,10 +5004,9 @@ def run_effect_implementation(eff):
     # as a key in the receipt
 
     
-    if not isinstance(eff, _Effect_Class):
-        raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run an Effect.")
-    handler = _effect_handlers[eff.d['type'].d]
-    eff._been_run = True
+    if not isinstance(eff, dict):
+        raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run a wish, which are represented as dictionaries.")
+    handler = _effect_handlers[eff['type'].d]
     return handler(eff)
 
 

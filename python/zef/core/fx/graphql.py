@@ -26,25 +26,24 @@ from ..logger import log
 
 def graphql_start_server_handler(eff: Effect):
     """Example
-    Effect({
+    {
         "type": FX.GraphQL.StartServer,
         "port": 5001, (default=5000) 
         "schema_root": z_schema,
         "path": "/gql", (default="/gql")
         "playground_path": "/", (default=None)
         "open_browser": False (default=False)
-    }) | run
+    } | run
     """
 
-    eff_d = eff.d
 
     from ...gql.generate_gql_api import make_api
-    schema = make_api(eff_d.pop('schema_root'))
-    port = eff_d.pop("port", 5000)
+    schema = make_api(eff['schema_root'])
+    port = eff.get("port", 5000)
 
-    gql_path = eff_d.pop("path", "/gql")
-    playground_path = eff_d.pop("playground_path", None)
-    open_browser = eff_d.pop("open_browser", False)
+    gql_path = eff.get("path", "/gql")
+    playground_path = eff.get("playground_path", None)
+    open_browser = eff.get("open_browser", False)
 
     if not gql_path.startswith("/"):
         raise Exception("GQL path must start with /")
@@ -64,13 +63,14 @@ def graphql_start_server_handler(eff: Effect):
             body = body.replace("ZEF_GQL_PATH", gql_path)
             req["response_body"] = body
         elif req["path"] == gql_path:
-            success,result = graphql_sync(schema, json.loads(req["request_body"]))
+            success, result = graphql_sync(schema, json.loads(req["request_body"]))
             req["response_body"] = json.dumps(result)
         return req
 
-    logging = eff_d.pop("logging", False)
+
+    logging = eff.get("logging", False)
     http_r = Effect({
-        **eff_d,
+        **eff,     # Verify that this is ok after change: the dict was mutated previously (using pop). There may be more key-value pairs in there now.
         'type': FX.HTTP.StartServer,
         'port': port,
         # 'pipe_into': map[resolve_gql_query] | subscribe[run]
@@ -91,13 +91,11 @@ def graphql_start_server_handler(eff: Effect):
     return http_r
     
     
-def graphql_stop_server_handler(eff: Effect):
-    new_d = dict(eff.d)
-    new_d["type"] = FX.HTTP.StopServer
-    return run(Effect(new_d))
+def graphql_stop_server_handler(eff: dict):    
+    return run({**eff, 'type': FX.HTTP.StopServer})
 
     
-def graphql_start_playground_handler(eff: Effect):
+def graphql_start_playground_handler(eff: dict):
     """Example
     Effect({
         "type": FX.GraphQL.StartPlayground,
@@ -107,34 +105,31 @@ def graphql_start_playground_handler(eff: Effect):
         "playground_path": "/", (default="/")
         "open_browser": True (default=True)
     }) | run
-    """
-    
-    schema = eff.d['schema_root']
-    port = eff.d.get("port", 5000)
+    """   
+    schema = eff['schema_root']
+    port = eff.get("port", 5000)
 
-    gql_path = eff.d.get("path", "/gql")
-    playground_path = eff.d.get("playground_path", "/") # It is required!
-    open_browser = eff.d.get("open_browser", True)
+    gql_path = eff.get("path", "/gql")
+    playground_path = eff.get("playground_path", "/") # It is required!
+    open_browser = eff.get("open_browser", True)
 
     if not gql_path.startswith("/"):
         raise Exception("GQL path must start with /")
     if not playground_path.startswith("/"):
         raise Exception("Playground path must start with /")
 
-    http_r = Effect({
+    http_r = {
         "type": FX.GraphQL.StartServer,
         "port": port,
         "schema_root": schema,
         "path": gql_path,
         "playground_path": playground_path,
         "open_browser": open_browser,
-    }) | run
-
+    } | run
+    
     return http_r
     
     
-def graphql_stop_playground_handler(eff: Effect):
-    new_d = dict(eff.d)
-    new_d["type"] = FX.HTTP.StopServer
-    return run(Effect(new_d))
+def graphql_stop_playground_handler(eff: dict):    
+    return run({**eff, 'type': FX.HTTP.StopServer})
     

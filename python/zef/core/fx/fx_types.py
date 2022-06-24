@@ -179,46 +179,12 @@ FX = _FX_Class()
 
 _group_types = [ _Clipboard_Class,_FX_Class,_GraphQL_Class,_Graph_Class,_HTTP_Class,_LocalFile_Class,_Privileges_Class,_S3_Class,_Stream_Class,_Websocket_Class,_ZefHub_Class,_ZefUI_Class]
 #---------------------------------------------------------------------------------------
-
-_warn_did_not_run = True
-
-class _Effect_Class:
-    def __init__(self, d: dict):
-        # TODO: Add checks that this is a valid effect
-        self.d = d
-        self._been_run = False
-        
-    def __repr__(self):
-        return f"Effect({self.d})"
-
-    def __del__(self):
-        if not _warn_did_not_run:
-            return
-        if not self._been_run:
-            import logging
-            # import traceback
-            # traceback.print_stack()
-            logging.warning(f"Effect of type {self.d.get('type')} was garbage collected without being run. Set {__name__}._warn_did_not_run to False to disable this warning.")
-
-    def __call__(self):
-        raise TypeError("Effects are not callable. Please use `eff | run` instead.")
-
-    def __iter__(self):
-        """ 
-        Allow casting to dictionaries: just return the internal
-        dictionary. An effect is a thin wrapper around a dictionary
-        with the constructor allowing initial checking of requirements.
-        
-        Equivalent to "peel"
-        """
-        return iter(self.d.items())
-
     
 
 # just a function, since Effect will just become a value.
 # same syntax as a regular constructor and equivalent to to_effect.
 # The latter is the more usual option to use in the context of piping
-def Effect(*args, **kwargs):
+def Effect(*args, **kwargs) -> dict:
     """
     Effects can be constructed via keyword arguments
     or by passing in a dictionary.
@@ -231,8 +197,8 @@ def Effect(*args, **kwargs):
         assert len(kwargs) == 0
         assert len(args) == 1
         assert isinstance(args[0], dict)
-        return _Effect_Class(args[0])
+        return args[0]
 
     else:
-        return _Effect_Class(kwargs)
+        return kwargs
 
