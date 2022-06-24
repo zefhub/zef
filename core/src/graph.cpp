@@ -976,12 +976,13 @@ namespace zefDB {
             bool can_run_subs = gd.latest_complete_tx == gd.last_run_subscriptions.load();
             gd.latest_complete_tx = gd.index_of_open_tx_node;
             gd.index_of_open_tx_node = 0;
-			
-            // Unlike the write_head, we need to inform any listeners if the read_head changes.
-            update(gd.heads_locker, gd.read_head, gd.write_head.load());  // the zefscription manager can send out updates up to this pointer (not including)		
+
             // TODO: This might not be the right place.
             auto & info = MMap::info_from_blobs(&gd);
             MMap::flush_mmap(info, gd.write_head);
+			
+            // Unlike the write_head, we need to inform any listeners if the read_head changes.
+            update(gd.heads_locker, gd.read_head, gd.write_head.load());  // the zefscription manager can send out updates up to this pointer (not including)		
 
 
             // Note: we have to give up the lock on the thread, as we could
