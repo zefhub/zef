@@ -32,8 +32,8 @@ from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
 
-zef_types = {VT.Graph, VT.ZefRef, VT.EZefRef}
-ref_types = {VT.ZefRef, VT.EZefRef}
+zef_types = [VT.Graph, VT.ZefRef, VT.EZefRef]
+ref_types = [VT.ZefRef, VT.EZefRef]
 
 
 #--utils---

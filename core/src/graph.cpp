@@ -824,40 +824,31 @@ namespace zefDB {
 
         // Mutually exclusive access to transactions, based on thread id.
         // std::thread::id() works as the "unset" value in this case.
-        if(zwitch.write_thread_runs_subscriptions()) {
-            // Any thread can take this over
-            auto this_id = std::this_thread::get_id();
+        auto this_id = std::this_thread::get_id();
+        if(this_id == gd.sync_thread_id) {
+            // If we are here, then we are the manager running subscriptions. We
+            // only need to take the write role.
             update_when_ready(gd.open_tx_thread_locker,
                             gd.open_tx_thread,
                             std::thread::id(),
                             this_id);
         } else {
-            auto this_id = std::this_thread::get_id();
-            if(this_id == gd.sync_thread_id) {
-                // If we are here, then we are the manager running subscriptions. We
-                // only need to take the write role.
+            // We are a client, we need to wait for the manager to have caught
+            // up and no-one else is writing.
+
+            // Note: the two things we check are actually accessed using
+            // different locks. This is a little weird... and might be
+            // problematic?
+            while(gd.latest_complete_tx != gd.manager_tx_head.load()
+                || gd.open_tx_thread != this_id) {
+                // Give up the open_tx_thread if we stole it before the manager can catch up.
+                if(gd.open_tx_thread == this_id)
+                    update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
+                wait_pred(gd.heads_locker, [&]() { return gd.latest_complete_tx.load() == gd.manager_tx_head; });
                 update_when_ready(gd.open_tx_thread_locker,
                                 gd.open_tx_thread,
                                 std::thread::id(),
                                 this_id);
-            } else {
-                // We are a client, we need to wait for the manager to have caught
-                // up and no-one else is writing.
-
-                // Note: the two things we check are actually accessed using
-                // different locks. This is a little weird... and might be
-                // problematic?
-                while(gd.latest_complete_tx != gd.manager_tx_head.load()
-                    || gd.open_tx_thread != this_id) {
-                    // Give up the open_tx_thread if we stole it before the manager can catch up.
-                    if(gd.open_tx_thread == this_id)
-                        update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
-                    wait_pred(gd.heads_locker, [&]() { return gd.latest_complete_tx.load() == gd.manager_tx_head; });
-                    update_when_ready(gd.open_tx_thread_locker,
-                                    gd.open_tx_thread,
-                                    std::thread::id(),
-                                    this_id);
-                }
             }
         }
                           
@@ -957,58 +948,65 @@ namespace zefDB {
         // in case this was the last transaction that is closed, we want to mark the 
         // transcation node as complete: any write mod to the graph will trigger a new tx hereafter
         if (gd.number_of_open_tx_sessions == 0) {
-            if(rollback_empty_tx && gd.index_of_open_tx_node != 0) {
-                // The transaction is empty if the tx node is the last thing before the write head.
-                blob_index next_node = gd.index_of_open_tx_node + blob_index_size(EZefRef{gd.index_of_open_tx_node, gd});
-                if(next_node == gd.write_head.load()) {
+            {
+                RAII_CallAtEnd call_at_end([&]() {
+                    update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
+                });
+                
+                if(gd.index_of_open_tx_node != 0) {
+                    EZefRef ezr_tx{gd.index_of_open_tx_node, gd};
+                    ZefRef ctx{ezr_tx, ezr_tx};
                     // We fake that we have the transaction still open just for AbortTransaction
                     gd.number_of_open_tx_sessions++;
-                    AbortTransaction(gd);
+                    try {
+                        Butler::pass_to_schema_validator(ctx);
+                    } catch(const std::exception & e) {
+                        std::cerr << "Exception in schema_validator: " << e.what() << std::endl;
+                        AbortTransaction(Graph(ctx));
+                        gd.number_of_open_tx_sessions--;
+                        throw std::runtime_error(std::string("Schema validation failed: ") + e.what());
+                    }
                     gd.number_of_open_tx_sessions--;
                 }
+
+                if(rollback_empty_tx && gd.index_of_open_tx_node != 0) {
+                    // The transaction is empty if the tx node is the last thing before the write head.
+                    blob_index next_node = gd.index_of_open_tx_node + blob_index_size(EZefRef{gd.index_of_open_tx_node, gd});
+                    if(next_node == gd.write_head.load()) {
+                        // We fake that we have the transaction still open just for AbortTransaction
+                        gd.number_of_open_tx_sessions++;
+                        AbortTransaction(gd);
+                        gd.number_of_open_tx_sessions--;
+                    }
+                }
+
+                // If we have been aborted, then don't continue for the rest of the logic
+                if(gd.index_of_open_tx_node == 0)
+                    return;
+
+                bool can_run_subs = gd.latest_complete_tx == gd.last_run_subscriptions.load();
+                gd.latest_complete_tx = gd.index_of_open_tx_node;
+                gd.index_of_open_tx_node = 0;
+
+                // Unlike the write_head, we need to inform any listeners if the read_head changes.
+                update(gd.heads_locker, gd.read_head, gd.write_head.load());  // the zefscription manager can send out updates up to this pointer (not including)		
+                // TODO: This might not be the right place.
+                auto & info = MMap::info_from_blobs(&gd);
+                MMap::flush_mmap(info, gd.write_head);
             }
 
-            if(gd.index_of_open_tx_node == 0) {
-                // If we get here, then the tx has been aborted, but we still need to unlock the GraphData for new transactions to start.
-                update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
-                return;
-            }
-            bool can_run_subs = gd.latest_complete_tx == gd.last_run_subscriptions.load();
-            gd.latest_complete_tx = gd.index_of_open_tx_node;
-            gd.index_of_open_tx_node = 0;
-			
-            // Unlike the write_head, we need to inform any listeners if the read_head changes.
-            update(gd.heads_locker, gd.read_head, gd.write_head.load());  // the zefscription manager can send out updates up to this pointer (not including)		
-            // TODO: This might not be the right place.
-            auto & info = MMap::info_from_blobs(&gd);
-            MMap::flush_mmap(info, gd.write_head);
-
-
-            // Note: we have to give up the lock on the thread, as we could
-            // block waiting for the msg_queue of the graph manager in the next
-            // lines.
-            update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
+            // Note: we have to give up the lock on the thread by this point, as
+            // we could block waiting for the msg_queue of the graph manager in
+            // the next lines.
 
             auto butler = Butler::get_butler();
             // False is because we don't want to wait for response
             butler->msg_push(Messages::NewTransactionCreated{Graph(gd), gd.latest_complete_tx}, false);
 
-            if(zwitch.write_thread_runs_subscriptions()) {
-                if (!can_run_subs) 
-                    return;
-                while(gd.last_run_subscriptions.load() < gd.latest_complete_tx) {
-                    EZefRef last_tx{gd.last_run_subscriptions, gd};
-                    EZefRef this_tx = last_tx >> BT.NEXT_TX_EDGE;
-                    run_subscriptions(gd, this_tx);
-                    update(gd.heads_locker, gd.last_run_subscriptions, index(this_tx));
-                }
-                internals::execute_queued_fcts(gd);
-            } else {
-                // Wait if requested and we aren't running subscriptions.
-                if(std::this_thread::get_id() != gd.sync_thread_id) {
-                    if(wait) {
-                        wait_pred(gd.heads_locker, [&]() { return gd.latest_complete_tx.load() == gd.manager_tx_head; });
-                    }
+            // Wait if requested and we aren't running subscriptions.
+            if(std::this_thread::get_id() != gd.sync_thread_id) {
+                if(wait) {
+                    wait_pred(gd.heads_locker, [&]() { return gd.latest_complete_tx.load() == gd.manager_tx_head; });
                 }
             }
         }

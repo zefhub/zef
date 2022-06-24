@@ -122,6 +122,8 @@ BlobType.__str__ = lambda self: repr(self).split(':')[0][10:]   # strip away the
 from .rel_ent_classes import ET, RT, EN, AET
 from .merges import register_merge_handler
 register_merge_handler()
+from .schema import register_schema_validator
+register_schema_validator()
 
 BT = BlobTypeStruct()
 

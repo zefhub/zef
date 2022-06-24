@@ -27,6 +27,7 @@ from .image import Image
 from .fx.fx_types import _Effect_Class, FXElement, Effect
 from .flat_graph import FlatGraph, FlatRef, FlatRefs
 from ..pyzef import internals as pyinternals
+from .VT import ValueType_
 
 ##############################
 # * Definition
@@ -278,6 +279,15 @@ def serialize_zefops(k_type, ops):
 
     return {"_zeftype": k_type, "el_ops": serialized_ops}
 
+def serialize_valuetype(vt):
+    # Super dodgy version just to get something off the ground for now
+    return {
+        "_zeftype": "ValueType",
+        "type_name": vt.d["type_name"],
+        "absorbed": serialize_internal(vt.d["absorbed"])
+    }
+
+
 
 def deserialize_tuple(json_d: dict) -> tuple:
     return tuple(deserialize_internal(el) for el in json_d["items"])
@@ -433,6 +443,17 @@ def deserialize_zefops(ops):
 
     return deserialized_ops
 
+def deserialize_valuetype(d):
+    # Super dodgy version just to get something off the ground for now
+
+    # Look for the same typename
+    from . import VT
+    for var in dir(VT):
+        item = getattr(VT, var)
+        if isinstance(item, ValueType_) and item.d["type_name"] == d["type_name"]:
+            absorbed = deserialize_internal(d["absorbed"])
+            return ValueType_(type_name=d["type_name"], absorbed=absorbed)
+    raise Exception(f"Couldn't find a ValueType of type '{d['type_name']}'")
 
 serialization_mapping[ZefRef] = serialize_zeftypes
 # serialization_mapping[ZefRefs] = serialize_zeftypes
@@ -469,6 +490,7 @@ serialization_mapping[FlatRefs] = serialize_flatgraph_or_flatref
 serialization_mapping[pyinternals.DelegateTX] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRoot] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRelationTriple] = serialize_delegate
+serialization_mapping[ValueType_] = serialize_valuetype
 
 
 deserialization_mapping["dict"] = deserialize_dict
@@ -506,3 +528,4 @@ deserialization_mapping["Delegate"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateTX"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateRoot"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateRelationTriple"] = deserialize_delegate
+deserialization_mapping["ValueType"] = deserialize_valuetype
