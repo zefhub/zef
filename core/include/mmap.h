@@ -16,11 +16,11 @@
 
 #pragma once
 
+#include "export_statement.h"
+
 #ifdef ZEF_WIN32
 #include "mmap_windows.h"
 #else
-
-#include "export_statement.h"
 
 #include <iostream>
 #include <vector>
