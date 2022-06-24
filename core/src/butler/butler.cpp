@@ -281,9 +281,14 @@ namespace zefDB {
             // the butler shared_ptr. I'm not sure why this is the case though,
             // because we have already joined the thread.
             butler->thread.reset();
-            if(zwitch.developer_output())
+            if(zwitch.developer_output()) {
                 std::cerr << "Finished stopping butler" << std::endl;
+                std::cerr << "While stopping shared_ptr has use_count: " << butler.use_count() << std::endl;
+            }
+            std::weak_ptr<Butler> weak(butler);
             butler.reset();
+            if(zwitch.developer_output())
+                std::cerr << "Reset butler shared ptr: " << weak.use_count() << std::endl;
         }
 
 
