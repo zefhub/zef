@@ -193,7 +193,7 @@ runs:
           set +e
           ulimit -c unlimited
 
-          lldb --batch --one-line "run" --one-line-on-crash "thread backtrace all" -- python $a
+          lldb --batch --one-line "run" --one-line-on-crash "thread backtrace all" -- $(which python3) $a
           exit 1
           # python3 $a 
           # if [[ "$?" == "139" ]] ; then
