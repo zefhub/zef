@@ -192,15 +192,21 @@ runs:
           echo $a
           set +e
           ulimit -c unlimited
-          python3 $a 
-          if [[ "$?" == "139" ]] ; then
-            echo "ls /cores"
-            ls /cores
-            echo "ls"
-            ls
-            echo "backtrace ; quit" > lldb_commands
-            lldb --core core --source lldb_commands
-          fi
+
+          lldb --batch --one-line "run" --one-line-on-crash "thread backtrace all" -- python $a
+          exit 1
+          # python3 $a 
+          # if [[ "$?" == "139" ]] ; then
+          #   echo "ls /cores"
+          #   ls /cores
+          #   echo "ls"
+          #   ls
+          #   file core
+          #   # echo "backtrace ; quit" > lldb_commands
+          #   # lldb --core core --source lldb_commands
+          #   echo "thread backtrace all"
+          #   exit 1
+          # fi
         done
 
     - name: Run developer output python tests linux/macos
