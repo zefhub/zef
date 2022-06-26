@@ -172,11 +172,11 @@ runs:
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         bash scripts/assert_no_created_tokens.sh
 
-    - name: install gdb from homebrew
-      if: ${{ startsWith(inputs.os, 'macos') }}
-      shell: bash
-      run: |
-        brew install gdb || echo "Would have errored"
+    # - name: install gdb from homebrew
+    #   if: ${{ startsWith(inputs.os, 'macos') }}
+    #   shell: bash
+    #   run: |
+    #     brew install gdb || echo "Would have errored"
 
     - name: Try to catch segfault core dump
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
@@ -194,8 +194,12 @@ runs:
           ulimit -c unlimited
           python3 $a 
           if [[ "$?" == "139" ]] ; then
-            echo "backtrace ; quit" > gdb_commands
-            gdb $(which python3) core -x gdb_commands
+            echo "ls /cores"
+            ls /cores
+            echo "ls"
+            ls
+            echo "backtrace ; quit" > lldb_commands
+            lldb --core core --source lldb_commands
           fi
         done
 
