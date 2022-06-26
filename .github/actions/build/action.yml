@@ -194,7 +194,7 @@ runs:
           ulimit -c unlimited
 
           # lldb --batch --one-line "run" --one-line-on-crash "thread backtrace all" -- $(which python3) $a
-          echo "settings set target.process.stop-on-exec false ; run" > lldb_commands
+          echo "settings set target.process.stop-on-exec false\nrun" > lldb_commands
           lldb --batch --source lldb_commands --one-line-on-crash "thread backtrace all" -- $(which python3) $a
           exit 1
           # python3 $a 
