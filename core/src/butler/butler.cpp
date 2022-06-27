@@ -32,7 +32,7 @@ namespace zefDB {
 #include "butler_handlers_ws.cpp"
 
         //////////////////////////////////////////////////////////
-        // * Butler lifecycle managment
+        // * Butler lifecycle management
 
         std::shared_ptr<Butler> butler;
         bool butler_is_master = false;
@@ -72,7 +72,7 @@ namespace zefDB {
         }
 
         void terminate_handler() {
-#ifndef _MSC_VER
+#ifndef ZEF_WIN32
             void *trace_elems[20];
             int trace_elem_count(backtrace( trace_elems, 20 ));
             char **stack_syms(backtrace_symbols( trace_elems, trace_elem_count ));
@@ -131,7 +131,7 @@ namespace zefDB {
 #endif
 
             if(!butler_registered_thread_exiter) {
-                on_thread_exit(&stop_butler);
+                on_thread_exit("stop_butler", &stop_butler);
                 butler_registered_thread_exiter = true;
             }
 
@@ -179,12 +179,20 @@ namespace zefDB {
             }
         }
         void stop_butler() {
+            // This is to prevent multiple threads attacking this function at
+            // the same time.
+            static std::atomic<bool> _running = false;
+            bool was_running = _running.exchange(true);
+            if(was_running)
+                return;
+
             if(zwitch.developer_output()) {
                 std::cerr << "stop_butler was called" << std::endl;
             }
 
             if (!butler) {
                 std::cerr << "Butler wasn't running." << std::endl;
+                _running = false;
                 return;
             }
 
@@ -251,6 +259,8 @@ namespace zefDB {
             if(zwitch.developer_output())
                 std::cerr << "Finished stopping butler" << std::endl;
             butler.reset();
+
+            _running = false;
         }
 
 
@@ -1800,7 +1810,7 @@ namespace zefDB {
             }
 
             // Old location for fallback
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
             env = std::getenv("LOCALAPPDATA");
 #else
             env = std::getenv("HOME");
@@ -2056,7 +2066,7 @@ namespace zefDB {
             if (env != nullptr)
                 return std::string(env);
 
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
             env = std::getenv("LOCALAPPDATA");
 #else
             env = std::getenv("HOME");

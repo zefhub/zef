@@ -538,7 +538,7 @@ namespace zefDB {
             if(errno != ENOMEM)
                 throw std::runtime_error("Some other kind of error other than can't enlarge mapping.");
             return false;
-#elif defined(_MSC_VER)
+#elif defined(ZEF_WIN32)
             // TODO: this might be possible with AWE but will have to investigate that more thoroughly before launching into an implementation.
             return false;
 #else
@@ -571,7 +571,7 @@ namespace zefDB {
             if(new_ptr == MAP_FAILED)
                 throw std::runtime_error("Unable to remap and enlarge memory.");
             return new_ptr;
-#elif defined(_MSC_VER)
+#elif defined(ZEF_WIN32)
             void * new_ptr = WindowsMMap(fd, 0, new_size, nullptr);
             if (fd == 0) {
                 memcpy(new_ptr, old_ptr, old_size);

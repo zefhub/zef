@@ -952,10 +952,62 @@ namespace zefDB {
         // in case this was the last transaction that is closed, we want to mark the 
         // transcation node as complete: any write mod to the graph will trigger a new tx hereafter
         if (gd.number_of_open_tx_sessions == 0) {
-            if(gd.index_of_open_tx_node == 0) {
-                // If we get here, then the tx has been aborted, but we still need to unlock the GraphData for new transactions to start.
-                update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
-                return;
+            blob_index manager_tx = 0;
+            {
+                RAII_CallAtEnd call_at_end([&]() {
+                    update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
+                });
+                
+                if(check_schema && gd.index_of_open_tx_node != 0) {
+                    EZefRef ezr_tx{gd.index_of_open_tx_node, gd};
+                    ZefRef ctx{ezr_tx, ezr_tx};
+                    // We fake that we have the transaction still open just for AbortTransaction
+                    gd.number_of_open_tx_sessions++;
+                    try {
+                        Butler::pass_to_schema_validator(ctx);
+                    } catch(const std::exception & e) {
+                        std::cerr << "Exception in schema_validator: " << e.what() << std::endl;
+                        AbortTransaction(Graph(ctx));
+                        gd.number_of_open_tx_sessions--;
+                        throw std::runtime_error(std::string("Schema validation failed: ") + e.what());
+                    }
+                    gd.number_of_open_tx_sessions--;
+                }
+
+                if(rollback_empty_tx && gd.index_of_open_tx_node != 0) {
+                    // The transaction is empty if the tx node is the last thing before the write head.
+                    blob_index next_node = gd.index_of_open_tx_node + blob_index_size(EZefRef{gd.index_of_open_tx_node, gd});
+                    if(next_node == gd.write_head.load()) {
+                        // We fake that we have the transaction still open just for AbortTransaction
+                        gd.number_of_open_tx_sessions++;
+                        AbortTransaction(gd);
+                        gd.number_of_open_tx_sessions--;
+                    }
+                }
+
+                // If we have been aborted, then don't continue for the rest of the logic
+                if(gd.index_of_open_tx_node == 0)
+                    return;
+
+
+                // TODO: This might not be the right place.
+                auto & info = MMap::info_from_blobs(&gd);
+                MMap::flush_mmap(info, gd.write_head);
+
+                // Unlike the write_head, we need to inform any listeners if the read_head changes.
+                // update(gd.heads_locker, gd.read_head, gd.write_head.load());  // the zefscription manager can send out updates up to this pointer (not including)		
+                update(gd.heads_locker, [&]() {
+                    gd.read_head = gd.write_head.load();
+                    gd.latest_complete_tx = gd.index_of_open_tx_node;
+                    gd.index_of_open_tx_node = 0;
+                    manager_tx = gd.manager_tx_head;
+                });
+            }
+            // Let's check in this thread - here at least we should be able to see the next tx edge
+            EZefRef debug_tx{manager_tx, gd};
+            if(!(debug_tx | has_out[BT.NEXT_TX_EDGE])) {
+                std::cerr << "guid: " << uid(gd) << std::endl;
+                std::cerr << "CAN'T SEE NEXT_TX_EDGE EVEN FROM WITHIN FINISH TRANSACTION!!!!" << std::endl;
             }
             bool can_run_subs = gd.latest_complete_tx == gd.last_run_subscriptions.load();
             gd.latest_complete_tx = gd.index_of_open_tx_node;

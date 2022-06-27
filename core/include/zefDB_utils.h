@@ -307,18 +307,22 @@ namespace zefDB {
     }
 
     // Stealing from StackOverflow: https://stackoverflow.com/questions/20112221/invoking-a-function-automatically-on-stdthread-exit-in-c11
-    inline void on_thread_exit(std::function<void()> func) {
+    inline void on_thread_exit(std::string name, std::function<void()> func) {
         thread_local struct ThreadExiter {
-            std::deque<std::function<void()>> callbacks;
+            std::deque<std::pair<std::string, std::function<void()>>> callbacks;
 
             ~ThreadExiter() {
-                for (auto &callback: callbacks) {
+                for (auto &p: callbacks) {
+                    auto & name = std::get<0>(p);
+                    auto & callback = std::get<1>(p);
+                    // std::cerr << "Going to call one callback: " << name << std::endl;
                     callback();
+                    // std::cerr << "Finished calling callback: " << name << std::endl;
                 }
             }
         } exiter;
 
-        exiter.callbacks.emplace_front(std::move(func));
+        exiter.callbacks.emplace_front(name, std::move(func));
     }
 
 }
