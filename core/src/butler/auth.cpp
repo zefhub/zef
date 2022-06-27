@@ -37,10 +37,10 @@ namespace zefDB {
 
             easy_handle = curl_easy_init();
 
-            on_thread_exit("curl_cleanup", []() {
-                curl_easy_cleanup(easy_handle);
-                curl_global_cleanup();
-            });
+            // on_thread_exit("curl_cleanup", []() {
+            //     curl_easy_cleanup(easy_handle);
+            //     curl_global_cleanup();
+            // });
 
             done = true;
         }
