@@ -182,56 +182,56 @@ runs:
     #   run: |
     #     brew install gdb || echo "Would have errored"
 
-    - name: Try to catch segfault core dump
-      if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
-      shell: bash
-      env:
-        ZEFDB_DEVELOPER_OUTPUT: YES
-        ZEFHUB_AUTH_KEY: GUEST
-      run: |
-        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
-        for a in python/tests/test*.py ; do
-          echo
-          echo
-          echo $a
-          set +e
-          ulimit -c unlimited
+    # - name: Try to catch segfault core dump
+    #   if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
+    #   shell: bash
+    #   env:
+    #     ZEFDB_DEVELOPER_OUTPUT: YES
+    #     ZEFHUB_AUTH_KEY: GUEST
+    #   run: |
+    #     export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+    #     for a in python/tests/test*.py ; do
+    #       echo
+    #       echo
+    #       echo $a
+    #       set +e
+    #       ulimit -c unlimited
 
-          # lldb --batch --one-line "run" --one-line-on-crash "thread backtrace all" -- $(which python3) $a
-          # echo "settings set target.process.stop-on-exec false\nrun" > lldb_commands
-          echo "settings set target.process.stop-on-exec false" > lldb_commands
-          echo "run" >> lldb_commands
-          echo "thread backtrace all" >> lldb_commands
-          lldb --batch --source lldb_commands --one-line-on-crash "thread backtrace all" -- $(which python3) $a
-          exit 1
-          # python3 $a 
-          # if [[ "$?" == "139" ]] ; then
-          #   echo "ls /cores"
-          #   ls /cores
-          #   echo "ls"
-          #   ls
-          #   file core
-          #   # echo "backtrace ; quit" > lldb_commands
-          #   # lldb --core core --source lldb_commands
-          #   echo "thread backtrace all"
-          #   exit 1
-          # fi
-        done
+    #       # lldb --batch --one-line "run" --one-line-on-crash "thread backtrace all" -- $(which python3) $a
+    #       # echo "settings set target.process.stop-on-exec false\nrun" > lldb_commands
+    #       echo "settings set target.process.stop-on-exec false" > lldb_commands
+    #       echo "run" >> lldb_commands
+    #       echo "thread backtrace all" >> lldb_commands
+    #       lldb --batch --source lldb_commands --one-line-on-crash "thread backtrace all" -- $(which python3) $a
+    #       exit 1
+    #       # python3 $a 
+    #       # if [[ "$?" == "139" ]] ; then
+    #       #   echo "ls /cores"
+    #       #   ls /cores
+    #       #   echo "ls"
+    #       #   ls
+    #       #   file core
+    #       #   # echo "backtrace ; quit" > lldb_commands
+    #       #   # lldb --core core --source lldb_commands
+    #       #   echo "thread backtrace all"
+    #       #   exit 1
+    #       # fi
+    #     done
 
-    - name: Run developer output python tests linux/macos
-      if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
-      shell: bash
-      env:
-        ZEFDB_DEVELOPER_OUTPUT: YES
-        ZEFHUB_AUTH_KEY: GUEST
-      run: |
-        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
-        for a in python/tests/test*.py ; do
-          echo
-          echo
-          echo $a
-          python3 $a 
-        done
+    # - name: Run developer output python tests linux/macos
+    #   if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
+    #   shell: bash
+    #   env:
+    #     ZEFDB_DEVELOPER_OUTPUT: YES
+    #     ZEFHUB_AUTH_KEY: GUEST
+    #   run: |
+    #     export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+    #     for a in python/tests/test*.py ; do
+    #       echo
+    #       echo
+    #       echo $a
+    #       python3 $a 
+    #     done
 
     - name: Run python tests linux/macos
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}

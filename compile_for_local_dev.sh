@@ -75,7 +75,7 @@ python3 -m pip install -qr python/requirements.txt || exit 1
         CMAKE_ARGS="-j $np"
     fi
     # The -DPython3_EXECUTABLE seems necessary here for github CI
-    export CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Debug}
+    export CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE:-Release}
     cmake .. -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} -DCMAKE_PREFIX_PATH=$(realpath ../../../core) -DPython3_EXECUTABLE=$(which python3) -DLIBZEF_STATIC=TRUE -DLIBZEF_FORCE_ASSERTS=TRUE || exit 1
 
     cmake --build . --config ${CMAKE_BUILD_TYPE} $CMAKE_ARGS || exit 1

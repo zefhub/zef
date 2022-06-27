@@ -38,12 +38,12 @@ namespace zefDB {
     struct CurlGlobal {
         CurlGlobal() {
             std::cerr << "About to do curl global init" << std::endl;
-            // curl_global_init(CURL_GLOBAL_ALL);
+            curl_global_init(CURL_GLOBAL_ALL);
         }
 
         ~CurlGlobal() {
             std::cerr << "About to do curl cleanup" << std::endl;
-            // curl_global_cleanup();
+            curl_global_cleanup();
         }
     };
 
