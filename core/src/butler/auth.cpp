@@ -29,25 +29,40 @@ using json = nlohmann::json;
 #include "butler/auth.h"
 
 namespace zefDB {
-    CURL* initialise_curl() {
-        thread_local bool done = false;
-        thread_local CURL* easy_handle;
-        if(!done) {
+
+    // Curl has all kinds of warnings about thread safety. We try and avoid
+    // these issues by setting curl up as early as possible (on load of library)
+    //
+    // Note that curl easy handles need to be thread local so they don't go into
+    // CurlGlobal.
+    struct CurlGlobal {
+        CurlGlobal() {
             curl_global_init(CURL_GLOBAL_ALL);
-
-            easy_handle = curl_easy_init();
-
-            on_thread_exit([]() {
-                curl_easy_cleanup(easy_handle);
-                curl_global_cleanup();
-            });
-
-            done = true;
         }
 
+        ~CurlGlobal() {
+            curl_global_cleanup();
+        }
+    };
+
+    static CurlGlobal curl_global;
+
+    CURL* initialise_curl() {
+        thread_local CURL* easy_handle;
+        thread_local bool done = false;
+        if(!done) {
+            easy_handle = curl_easy_init();
+            // Suppressing warnings?
+            auto temp = easy_handle;
+            on_thread_exit("curl_cleanup", [temp]() {
+                curl_easy_cleanup(easy_handle);
+            });
+            done = true;
+        }
         curl_easy_reset(easy_handle);
         return easy_handle;
     }
+
     size_t _curl_write_data(void * curl_buffer, size_t size, size_t nmemb, void * userp) {
         std::string & buf = *(std::string*)userp;
         assert(size == 1);
