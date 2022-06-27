@@ -206,6 +206,8 @@ def http_send_response_handler(eff: Effect):
     d = _effects_processes[eff["server_uuid"]]
     future = d["open_requests"][eff["request_id"]]
 
+    if "response" not in eff:
+        print(f"Warning: FX.HTTP.SendResponse wish did not contain 'response' field. This is probably an error. Received wish: {eff}")
     msg = eff.get("response", "")
     assert msg is None or isinstance(msg, str) or isinstance(msg, bytes)
     if isinstance(msg, str):
