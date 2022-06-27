@@ -50,7 +50,9 @@ def graphviz_imp(zz, *flags):
     if isinstance(zz, FlatGraph): 
         g = Graph()
         zz | transact[g] | run 
+        contains_del = any([is_a(b[1], Delegate) for b in zz.blobs])
         zz = g | now | all[RAE] | collect
+        if contains_del: zz = zz + (g | blueprint[True] | collect)
     from functools import lru_cache
     try:
         import graphviz
