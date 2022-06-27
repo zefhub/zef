@@ -193,6 +193,7 @@ namespace zefDB {
             }
         }
         void stop_butler() {
+            std::cerr << "Start of stop_butler" << std::endl;
             // This is to prevent multiple threads attacking this function at
             // the same time.
             static std::atomic<bool> _running = false;

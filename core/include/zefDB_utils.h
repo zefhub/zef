@@ -326,6 +326,7 @@ namespace zefDB {
                     auto & callback = std::get<1>(p);
                     std::cerr << "Going to call one callback: " << name << std::endl;
                     callback();
+                    std::cerr << "Finished calling callback: " << name << std::endl;
                 }
             }
         } exiter;
