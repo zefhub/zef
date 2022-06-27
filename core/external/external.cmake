@@ -147,7 +147,7 @@ else()
   if(APPLE)
     # Brew on macos doesn't link these things in by default to not shadow the main macos openssl 
     execute_process(
-      COMMAND brew --prefix openssl
+      COMMAND brew --prefix openssl@1.1
       RESULT_VARIABLE BREW_RESULT
       OUTPUT_VARIABLE BREW_OPENSSL_PATH
       OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -155,6 +155,7 @@ else()
       message(STATUS "Adding '${BREW_OPENSSL_PATH}' to cmake prefix path")
       list(APPEND CMAKE_PREFIX_PATH ${BREW_OPENSSL_PATH})
     endif()
+    message(STATUS "Brew prefix check result was: ${BREW_RESULT}")
   endif()
 
   find_package(OpenSSL QUIET)
@@ -181,6 +182,7 @@ else()
     if(NOT OPENSSL_FOUND)
       if (APPLE AND DEFINED BREW_OPENSSL_PATH)
         set(OPENSSL_OTHER_SEARCH_PATH "${BREW_OPENSSL_PATH}")
+        message(STAUS "Going to use extra openssl_other_search_path")
       endif()
       find_library(OPENSSL_LIBRARIES ssl PATHS ${OPENSSL_OTHER_SEARCH_PATH})
       find_path(OPENSSL_INCLUDE_DIR openssl/ssl.h PATHS ${OPENSSL_OTHER_SEARCH_PATH})
