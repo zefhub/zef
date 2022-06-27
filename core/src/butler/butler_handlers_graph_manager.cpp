@@ -179,7 +179,7 @@ int resolve_memory_style(int mem_style, bool synced) {
     }
     if(mem_style == MMap::MMAP_STYLE_FILE_BACKED) {
         // TODO: Check if we have filesystem access here.
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
         // Until support is there, need to force anonymous.
         mem_style = MMap::MMAP_STYLE_ANONYMOUS;
 #endif

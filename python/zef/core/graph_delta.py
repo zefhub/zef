@@ -107,8 +107,9 @@ main.Graph.__ror__ = dispatch_ror_graph
 ##############################
 # * GraphDelta construction
 #----------------------------
-def construct_commands(elements) -> list:
-    generate_id = make_generate_id()    # keeps an internal counter        
+def construct_commands(elements, generate_id=None) -> list:
+    if generate_id is None:
+        generate_id = make_generate_id()    # keeps an internal counter        
 
     # First extract any nested GraphDeltas commands out
     # Note: using native python filtering as the evaluation engine is too slow
@@ -1111,7 +1112,7 @@ def encode(xx):
         return iid
 
     step_res = step(xx, False)
-    return step_res, construct_commands(gd_exprs)
+    return step_res, construct_commands(gd_exprs, gen_id)
 
 
 def unpack_receipt(unpacking_template, receipt: dict):
