@@ -189,7 +189,7 @@ def graphviz_imp(zz, *flags):
 
     def nice_style(z):
         if BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE}:
-            return '' if internals.is_delegate(z) else 'filled'
+            return 'dashed' if internals.is_delegate(z) else 'filled'
         else:
             return ''
     
@@ -208,8 +208,9 @@ def graphviz_imp(zz, *flags):
         # ------- hacky / dirty way for now: just try going to source / target and swallow error if anything fails :| --------
         try:
             col = edge_colors[index(z)]   # this was determined above
-            G.edge(str(index(z | source | collect)), str(index(z)), color=col, dir="back", arrowtail="dot")
-            G.edge(str(index(z)), str(index(z | target | collect)), color=col, dir="forward", arrowhead="normal")
+            additional = {"style": "dashed"} if is_a(z, Delegate) else {}
+            G.edge(str(index(z | source | collect)), str(index(z)), color=col, dir="back", arrowtail="dot", **additional)
+            G.edge(str(index(z)), str(index(z | target | collect)), color=col, dir="forward", arrowhead="normal", **additional)
         except Exception as e:
             #print(f"add_gv_edges failed for {z} e={e}")
             pass
