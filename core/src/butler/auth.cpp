@@ -29,25 +29,42 @@ using json = nlohmann::json;
 #include "butler/auth.h"
 
 namespace zefDB {
-    CURL* initialise_curl() {
-        thread_local bool done = false;
-        thread_local CURL* easy_handle;
-        if(!done) {
-            curl_global_init(CURL_GLOBAL_ALL);
 
-            easy_handle = curl_easy_init();
-
-            // on_thread_exit("curl_cleanup", []() {
-            //     curl_easy_cleanup(easy_handle);
-            //     curl_global_cleanup();
-            // });
-
-            done = true;
+    // Curl has all kinds of warnings about thread safety. We try and avoid
+    // these issues by setting curl up as early as possible (on load of library)
+    //
+    // Note that curl easy handles need to be thread local so they don't go into
+    // CurlGlobal.
+    struct CurlGlobal {
+        CurlGlobal() {
+            std::cerr << "About to do curl global init" << std::endl;
+            // curl_global_init(CURL_GLOBAL_ALL);
         }
 
+        ~CurlGlobal() {
+            std::cerr << "About to do curl cleanup" << std::endl;
+            // curl_global_cleanup();
+        }
+    };
+
+    static CurlGlobal curl_global;
+
+    CURL* initialise_curl() {
+        std::cerr << "Tried to do initialise_curl but we are going to deliberately fail" << std::endl;
+        throw std::runtime_error("Failing on purpose");
+        thread_local CURL* easy_handle;
+        thread_local done = false;
+        if(!done) {
+            easy_handle = curl_easy_init();
+            on_thread_exit([&easy_handle]() {
+                curl_easy_cleanup(easy_handle);
+            });
+            done = true;
+        }
         curl_easy_reset(easy_handle);
         return easy_handle;
     }
+
     size_t _curl_write_data(void * curl_buffer, size_t size, size_t nmemb, void * userp) {
         std::string & buf = *(std::string*)userp;
         assert(size == 1);
