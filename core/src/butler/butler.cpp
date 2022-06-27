@@ -40,7 +40,7 @@ namespace zefDB {
 #include "butler_handlers_ws.cpp"
 
         //////////////////////////////////////////////////////////
-        // * Butler lifecycle managment
+        // * Butler lifecycle management
 
         std::shared_ptr<Butler> butler;
         bool butler_is_master = false;
@@ -142,7 +142,7 @@ namespace zefDB {
 #endif
 
             if(!butler_registered_thread_exiter) {
-                on_thread_exit(&stop_butler);
+                on_thread_exit("stop_butler", &stop_butler);
                 butler_registered_thread_exiter = true;
             }
 
