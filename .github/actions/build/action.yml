@@ -197,6 +197,7 @@ runs:
           # echo "settings set target.process.stop-on-exec false\nrun" > lldb_commands
           echo "settings set target.process.stop-on-exec false" > lldb_commands
           echo "run" >> lldb_commands
+          echo "thread backtrace all" >> lldb_commands
           lldb --batch --source lldb_commands --one-line-on-crash "thread backtrace all" -- $(which python3) $a
           exit 1
           # python3 $a 

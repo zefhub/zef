@@ -207,6 +207,7 @@ namespace zefDB {
 
             if (!butler) {
                 std::cerr << "Butler wasn't running." << std::endl;
+                _running = false;
                 return;
             }
 
@@ -290,6 +291,8 @@ namespace zefDB {
             butler.reset();
             if(zwitch.developer_output())
                 std::cerr << "Reset butler shared ptr: " << weak.use_count() << std::endl;
+
+            _running = false;
         }
 
 
