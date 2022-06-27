@@ -120,8 +120,6 @@ runs:
         brew --prefix
         echo
         brew --prefix openssl@1.1
-        echo
-        brew list openssl@1.1
 
     # Only do the make if the C++ files and their deps have changed. These deps
     # are everything inside of core, but also things like the tokens files from
