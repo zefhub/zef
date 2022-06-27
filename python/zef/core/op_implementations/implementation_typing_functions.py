@@ -9003,7 +9003,12 @@ def blueprint_imp(x, include_edges=False):
                      | last
                      | first
                      | collect)
-        return all_items | without[[g | root | collect] + (g | root | out_rels[BT.TO_DELEGATE_EDGE] | collect)] | collect
+
+        all_equal = sliding[2] | map[unpack[equals]] | all
+        is_delegate_rel_group = BT.RELATION_EDGE & Is[apply[identity, source, target] | all_equal]
+        trim_items = [g | root | collect] + (all_items | filter[is_delegate_rel_group] | collect)
+
+        return all_items | without[trim_items | apply[identity, map_cat[out_rels[BT.TO_DELEGATE_EDGE]]] | concat | collect] | collect
     elif isinstance(x, GraphSlice):
         rae_satisfies = match[
             (Delegate, exists_at[x]),
