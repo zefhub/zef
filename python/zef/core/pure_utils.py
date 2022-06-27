@@ -12,14 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fx_types import Effect
-from ..error import Error
 
-def graph_sync_handler(eff: Effect):
-    try:
-        from ...pyzef.main import sync
-        sync(eff["graph"], eff["sync_state"])
-        return {}
-    except Exception as e:
-        return Error(f'executing FX.Graph.Sync for effect {eff}:\n{repr(e)}')
 
+def get_in_pure(d, path, default_val):
+    if len(path) == 0: return d
+    if type(d) != dict: return default_val
+    return get_in_pure(d.get(path[0], default_val), path[1:], default_val)

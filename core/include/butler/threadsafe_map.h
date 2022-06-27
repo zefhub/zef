@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "export_statement.h"
+
 #include <unordered_map>
 #include <shared_mutex>
 #include <mutex>

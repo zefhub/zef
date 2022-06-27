@@ -49,7 +49,7 @@ def gqlify(s):
 # data utils
 def parse_list_et_gql(list_et):
     aet_values = []
-    arguments = list_et >> L[RT.argument] | collect
+    arguments = list_et | Outs[RT.argument] | collect
     for arg in arguments:
         if BT(arg) == BT.ENTITY_NODE:
             return ""
@@ -66,13 +66,13 @@ def parse_list_et_gql(list_et):
 
 # ariadne utils
 def handle_params(rt, params):
-    if length(rt >> L[RT(gqlify("queryParams"))]) > 0:
-        for param in rt > L[RT(gqlify("queryParams"))]:
-            param_name = de_gqlify(str(param >> RT.Name | value | collect), False)
+    if length(rt | Outs[RT(gqlify("queryParams"))]) > 0:
+        for param in rt | out_rels[RT(gqlify("queryParams"))]:
+            param_name = de_gqlify(str(param | Out[ RT.Name] | value | collect), False)
             if BT(param | target | collect) == BT.ATOMIC_ENTITY_NODE:
                 aet_type = str(AET(param | target | collect))
                 aet_value = param | target | value | collect
-                if length(param >> L[RT(gqlify("nonNullable"))]) > 0:
+                if length(param | Outs[RT(gqlify("nonNullable"))]) > 0:
                     params.append(f"{param_name}")
                 else:
                     params.append(f"{param_name} = {aet_value}")
@@ -86,38 +86,39 @@ def handle_params(rt, params):
 
 
 def resolve_with(rt, bt, ft):
-    d_rt = rt >> RT(gqlify("resolve_with")) | collect
+    optional = single_or[None]
+    d_rt = rt | Out[RT(gqlify("resolve_with"))] | collect
     d_rt_name = str(RT(d_rt))
     is_list = is_a(ft, ET(gqlify("list")))
     if is_list:
-        bt = BT(ft >> RT.argument | to_ezefref | collect)
-    is_out = rt > RT(gqlify("resolve_with")) >> O[RT.IsOut] | value_or[True] | collect
+        bt = BT(ft | Out[RT.argument] | to_ezefref | collect)
+    is_out = rt | out_rel[RT(gqlify("resolve_with"))] | Outs[RT.IsOut] | optional | value_or[True] | collect
 
-    dir = ">>" if is_out else "<<"
+    dir = "Outs" if is_out else "Ins"
 
     if bt == BT.ATOMIC_ENTITY_NODE:
         if is_list:
-            return f'return (z {dir} L[RT.{d_rt_name}]) | map[value] | collect'
+            return f'return (z | {dir}[RT.{d_rt_name}]) | map[value] | collect'
         else:
-            return f'return (z {dir} O[RT.{d_rt_name}]) | maybe_value | collect'
+            return f'return (z | {dir}[RT.{d_rt_name}]) | optional | maybe_value | collect'
     else:
         if is_list:
             # return f'return (z >> L[RT.{d_rt_name}] | collect) , (z > L[RT.{d_rt_name}])| map[uid] | collect'
-            return f'return (z {dir} L[RT.{d_rt_name}] | collect)'
+            return f'return (z | {dir}[RT.{d_rt_name}] | collect)'
         else:
             # return f'return (z >> RT.{d_rt_name} | collect) , (z > RT.{d_rt_name})|uid | collect'
-            return f'return (z {dir} O[RT.{d_rt_name}] | collect)'
+            return f'return (z | {dir}[RT.{d_rt_name}] | optional | collect)'
 
 
 def resolve_with_script(rt):
-    zef_script = rt >> RT(gqlify("resolve_with_script"))
+    zef_script = rt | Out[ RT(gqlify("resolve_with_script"))]
     script = f'g["{zef_script | uid | collect}"] | now | collect'
     return f'zef_script = {script} ; return zef_execute(zef_script, z=z)'
 
 def resolve_with_func(rt):
-    z_func = rt >> RT(gqlify("resolve_with_func"))
+    z_func = rt | Out[ RT(gqlify("resolve_with_func"))]
 
-    extra = rt >> L[RT(gqlify("queryParams"))] >> RT.Name | value | map[lambda s: de_gqlify(s,False)] | collect
+    extra = rt | Outs[RT(gqlify("queryParams"))] | Out[ RT.Name] | value | map[lambda s: de_gqlify(s,False)] | collect
     param_names = {"z", "ctx", "g", *extra}
 
     dict_create = '{' + ', '.join(f"'{key}': {key}" for key in param_names) + '}'
@@ -128,14 +129,14 @@ def resolve_with_func(rt):
     '''
 
 def resolve_with_intermediate(rt):
-    d_rt = rt >> RT(gqlify("resolve_with_intermediate"))
+    d_rt = rt | Out[ RT(gqlify("resolve_with_intermediate"))]
     d_rt_name = str(RT(d_rt))
-    return f'return (z > RT.{d_rt_name}), (z > RT.{d_rt_name})|uid | collect'
+    return f'return (z | out_rel[RT.{d_rt_name})], (z | out_rel[RT.{d_rt_name})] |uid | collect'
 
 
 def resolve_with_zef_function(rt):
-    zef_function_uid = str(rt >> RT(gqlify("resolve_with_zef_function")) | uid | collect)
-    params = rt > L[RT(gqlify("queryParams"))] >> RT.Name | value | map[lambda s: de_gqlify(s,False)] | collect
+    zef_function_uid = str(rt | Out[ RT(gqlify("resolve_with_zef_function"))] | uid | collect)
+    params = rt | out_rels[RT(gqlify("queryParams"))] | map[Out[ RT.Name] | value] | map[lambda s: de_gqlify(s,False)] | collect
     defaults = ', '.join(f"{key} = {key}" for key in {"z", "ctx", "g"})
     params = ', '.join(i for i in params) + "," if len(params) != 0 else ""
     return f'return g["{zef_function_uid}"]({params}{defaults} )'
@@ -158,24 +159,24 @@ def create_function_body(ot, ft, bt, rt, fn, fallback_resolvers):
     params = handle_params(rt, default_params)
     # TODO (Cleanup) might consider making these as well customer specific
     # Resolve_With relations have highest priority
-    if length(rt >> L[RT(gqlify("resolve_with"))]) > 0:
+    if length(rt | Outs[RT(gqlify("resolve_with"))]) > 0:
         return resolve_with_wrapper(resolve_with(rt, bt, ft)), params
 
-    elif length(rt >> L[RT(gqlify("resolve_with_script"))]) > 0:
+    elif length(rt | Outs[RT(gqlify("resolve_with_script"))]) > 0:
         return resolve_with_wrapper(resolve_with_script(rt)), params
 
-    elif length(rt >> L[RT(gqlify("resolve_with_zef_function"))]) > 0:
+    elif length(rt | Outs[RT(gqlify("resolve_with_zef_function"))]) > 0:
         return resolve_with_wrapper(resolve_with_zef_function(rt)), params
 
-    elif length(rt >> L[RT(gqlify("resolve_with_func"))]) > 0:
+    elif length(rt | Outs[RT(gqlify("resolve_with_func"))]) > 0:
         return resolve_with_wrapper(resolve_with_func(rt)), params
 
-    elif length(rt >> L[RT(gqlify("resolve_with_intermediate"))]) > 0:
+    elif length(rt | Outs[RT(gqlify("resolve_with_intermediate"))]) > 0:
         return resolve_with_wrapper(resolve_with_intermediate(rt)), params
 
-    elif length(rt >> L[RT(gqlify("resolve_with_body"))]) > 0:
-        # return (rt >> RT(gqlify("resolve_with_body")) | value | collect), params
-        return resolve_with_wrapper(rt >> RT(gqlify("resolve_with_body")) | value | collect), params
+    elif length(rt | Outs[RT(gqlify("resolve_with_body"))]) > 0:
+        # return (rt | Out[ RT(gqlify("resolve_with_body")) | value | collect), params
+        return resolve_with_wrapper(rt | Out[ RT(gqlify("resolve_with_body"))] | value | collect), params
 
     return fallback_resolvers(ot, ft, bt, rt, fn), default_params
 
@@ -199,10 +200,10 @@ def generate_object_resolver(object_type, field_name, rt, fn_body, params, cog):
 
 
 def generate_enum_resolver(e, cog):
-    enum_name = de_gqlify(str(e >> RT.Name | value | collect), True)
+    enum_name = de_gqlify(str(e | Out[ RT.Name ]| value | collect), True)
     cog.outl(f'{enum_name} = EnumType("{enum_name}", {"{"}')
     i = -1
-    for f in (e >> L[RT(gqlify("field"))]):
+    for f in (e | Outs[RT(gqlify("field"))]):
         i += 1
         en_value = (f | value).enum_value
 
@@ -212,13 +213,13 @@ def generate_enum_resolver(e, cog):
 
 
 def generate_interface_resolver(i, cog):
-    interface_name = de_gqlify(str(i >> RT.Name | value | collect), True)
+    interface_name = de_gqlify(str(i | Out[ RT.Name ]| value | collect), True)
     cog.outl(f'{interface_name} = InterfaceType("{interface_name}")')
     cog.outl(f'@{interface_name}.type_resolver')
     cog.outl(f'def resolve_{interface_name}_type_resolver(obj, *_):')
     cog.outl(f'#TODO make sure that those names are consistent with your Data Graph type name')
-    for t in (i << L[RT(gqlify("implements"))]):
-        object_name = de_gqlify(str(t >> RT.Name | value | collect), True)
+    for t in (i |  Ins[RT(gqlify("implements"))]):
+        object_name = de_gqlify(str(t | Out[ RT.Name ]| value | collect), True)
         cog.outl(f'    if str(ET(obj)) == "{object_name}":')
         cog.outl(f'        return "{object_name}"')
     cog.outl(f'    if str(ET(obj)) == "Step":')
@@ -232,19 +233,19 @@ def generate_all(global_dict, cog):
     default_resolvers_list = global_dict["default_resolvers_list"]
     fallback_resolvers = global_dict["fallback_resolvers"]
     object_types = []
-    types = root >> L[RT(gqlify("type"))]
-    interfaces = root >> L[RT(gqlify("interface"))]
+    types = root | Outs[RT(gqlify("type"))]
+    interfaces = root | Outs[RT(gqlify("interface"))]
 
     for t in types:
-        object_type = de_gqlify(str(t >> RT.Name | value | collect), True)
+        object_type = de_gqlify(str(t | Out[ RT.Name ]| value | collect), True)
         # Don't generate resolvers for function in this list
         if object_type in default_resolvers_list:
             continue
         object_types.append(object_type)
         initialize_object_type(object_type, cog)
 
-        for rt in (t > L[RT(gqlify("field"))]):
-            field_name = de_gqlify(str(rt >> RT.Name | value | collect), False)
+        for rt in (t | out_rels[RT(gqlify("field"))]):
+            field_name = de_gqlify(str(rt | Out[ RT.Name] | value | collect), False)
             field_type = (rt | target | to_ezefref | collect)
             fn_body, params = create_function_body(object_type, field_type, BT(field_type), rt, field_name, fallback_resolvers)
             generate_object_resolver(object_type, field_name, rt, fn_body, params, cog)

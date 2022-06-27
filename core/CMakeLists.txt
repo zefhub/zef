@@ -22,17 +22,11 @@ project(ZefCore CXX)
 #########################
 # customizable variables
 
-if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-  if(NOT WIN32)
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -rdynamic -ggdb -g")
-    add_definitions(-DDEBUG)
-  endif()
-endif()
-
 option(LOCAL_ZEFTYPES "Disable getting zeftypes from zefhub" FALSE)
 option(ZEFDB_ALLOW_NO_TLS "Allow insecure websockets for ZefHub connections" TRUE)
 option(ZEFDB_TEST_NO_MMAP_CHECKS "Test for mmap slowness" FALSE)
 option(LIBZEF_PYZEF_BUNDLED "libzef is going to be bundled together with pyzef, which means putting files in different places." FALSE)
+option(LIBZEF_FORCE_ASSERTS "Make asserts happen regardless of debug/release build" FALSE)
 
 # When bundling for pyzef we default to bundling everything else.
 cmake_dependent_option(LIBZEF_STATIC "Compile as a static library rather than a dynamically linked library" FALSE "NOT LIBZEF_PYZEF_BUNDLED" TRUE)
@@ -78,6 +72,7 @@ set(SOURCES
     src/zefref.cpp
     src/uids.cpp
     src/from_json.cpp
+    src/zef_config.cpp
 
     src/butler/butler.cpp
     src/butler/butler_zefhub.cpp
@@ -140,6 +135,7 @@ if(CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9)
 endif()
 
 target_link_libraries(zef PUBLIC nlohmann_json::nlohmann_json)
+target_link_libraries(zef PRIVATE yaml-cpp::yaml-cpp)
 target_link_libraries(zef PUBLIC phmap)
 target_link_libraries(zef PUBLIC range-v3)
 target_link_libraries(zef PRIVATE doctest)
@@ -157,17 +153,18 @@ endif()
 
 set_target_properties(zef PROPERTIES
   CXX_STANDARD 17
-  COMPILE_DEFINITIONS
-  "DOCTEST_CONFIG_DISABLE;BUILDING_LIBZEF"
   CXX_VISIBILITY_PRESET hidden
   # This is apparently something that needs a check for all compilers, so will disable for now.
   # INTERPROCEDURAL_OPTIMIZATION ON
   # PUBLIC_HEADER "${HEADERS}"
   )
-# if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-#   set_target_properties(zef PROPERTIES
-#     CXX_VISIBILITY_PRESET default)
-# endif()
+target_compile_definitions(zef PRIVATE DOCTEST_CONFIG_DISABLE BUILDING_LIBZEF)
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  if(NOT WIN32)
+    target_compile_definitions(zef PRIVATE DEBUG)
+    target_compile_options(zef PRIVATE -rdynamic -ggdb -g)
+  endif()
+endif()
 
 if(ZEFDB_ALLOW_NO_TLS)
   target_compile_definitions(zef PUBLIC ZEFDB_ALLOW_NO_TLS)

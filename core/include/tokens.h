@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "export_statement.h"
+
 #include "fwd_declarations.h"
 #include "append_structures.h"
 #include "butler/threadsafe_map.h"
@@ -438,27 +440,6 @@ namespace zefDB {
 
     // Note: a delegate of "order 0" is a representation of an instance.
 
-    struct LIBZEF_DLL_EXPORTED DelegateEntity {
-        EntityType et;
-        bool operator==(const DelegateEntity & other) const {
-            return et == other.et;
-        }
-    };
-    LIBZEF_DLL_EXPORTED std::ostream & operator<<(std::ostream & o, const DelegateEntity & d);
-    struct LIBZEF_DLL_EXPORTED DelegateAtomicEntity {
-        AtomicEntityType aet;
-        bool operator==(const DelegateAtomicEntity & other) const {
-            return aet == other.aet;
-        }
-    };
-    LIBZEF_DLL_EXPORTED std::ostream & operator<<(std::ostream & o, const DelegateAtomicEntity & d);
-    struct LIBZEF_DLL_EXPORTED DelegateRelationGroup {
-        RelationType rt;
-        bool operator==(const DelegateRelationGroup & other) const {
-            return rt == other.rt;
-        }
-    };
-    LIBZEF_DLL_EXPORTED std::ostream & operator<<(std::ostream & o, const DelegateRelationGroup & d);
     struct LIBZEF_DLL_EXPORTED DelegateTX {
         bool operator==(const DelegateTX & other) const { return true; }
     };
@@ -485,19 +466,22 @@ namespace zefDB {
     struct LIBZEF_DLL_EXPORTED Delegate {
         int order;
         using var_t = std::variant<
-            DelegateEntity,
-            DelegateAtomicEntity,
-            DelegateRelationGroup,
+            EntityType,
+            AtomicEntityType,
+            RelationType,
+
             DelegateRelationTriple,
             DelegateTX,
             DelegateRoot
             >;
         var_t item;
         Delegate(int order, var_t item) : order(order), item(item) {}
-        Delegate(EntityType et) : order(0), item(DelegateEntity{et}) {}
-        Delegate(AtomicEntityType aet) : order(0), item(DelegateAtomicEntity{aet}) {}
-        Delegate(RelationType rt) : order(0), item(DelegateRelationGroup{rt}) {}
+        Delegate(EntityType et) : order(0), item(et) {}
+        Delegate(AtomicEntityType aet) : order(0), item(aet) {}
+        Delegate(RelationType rt) : order(0), item(rt) {}
         Delegate(Delegate source, RelationType rt, Delegate target) : order(0), item(DelegateRelationTriple{rt,source,target}) {}
+        Delegate(const Delegate& other) = default;
+        Delegate(Delegate&& other) = default;
 
         bool operator==(const Delegate & other) const {
             bool same_item = std::visit([&](auto & left, auto & right) -> bool {

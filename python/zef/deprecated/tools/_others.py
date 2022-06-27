@@ -487,20 +487,17 @@ def collect_subgraph(z_start, rels: List[Dict]):
 ##############################
 # * timeit
 #----------------------------
-def timeit(f):
+def timeit(f, runs=10000):
     """use as decorator on any fct for a very simple print output measuring the execution duration"""
     def wrapped(*args, **kwargs):
         import time
-        t0=time.time()
-        res = f(*args, **kwargs)
-        t1=time.time()
-        print(f"zefdb.timeit - duration for single run: {t1-t0} seconds")
+        t0=time.perf_counter()
+        for _ in range(runs):
+            res = f(*args, **kwargs)
+        t1=time.perf_counter()
+        print(f"zef.timeit - duration for {runs} runs: {t1-t0} seconds")
         return res
     return wrapped
-
-
-
-
 
 
 

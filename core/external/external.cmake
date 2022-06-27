@@ -147,13 +147,15 @@ else()
   if(APPLE)
     # Brew on macos doesn't link these things in by default to not shadow the main macos openssl 
     execute_process(
-      COMMAND brew --prefix openssl
+      COMMAND brew --prefix openssl@1.1
       RESULT_VARIABLE BREW_RESULT
       OUTPUT_VARIABLE BREW_OPENSSL_PATH
       OUTPUT_STRIP_TRAILING_WHITESPACE)
     if (BREW_RESULT EQUAL 0 AND EXISTS "${BREW_OPENSSL_PATH}")
+      message(STATUS "Adding '${BREW_OPENSSL_PATH}' to cmake prefix path")
       list(APPEND CMAKE_PREFIX_PATH ${BREW_OPENSSL_PATH})
     endif()
+    message(STATUS "Brew prefix check result was: ${BREW_RESULT}")
   endif()
 
   find_package(OpenSSL QUIET)
@@ -178,8 +180,12 @@ else()
       endif()
     endif()
     if(NOT OPENSSL_FOUND)
-      find_library(OPENSSL_LIBRARIES ssl)
-      find_path(OPENSSL_INCLUDE_DIR openssl/ssl.h)
+      if (APPLE AND DEFINED BREW_OPENSSL_PATH)
+        set(OPENSSL_OTHER_SEARCH_PATH "${BREW_OPENSSL_PATH}")
+        message(STAUS "Going to use extra openssl_other_search_path")
+      endif()
+      find_library(OPENSSL_LIBRARIES ssl PATHS ${OPENSSL_OTHER_SEARCH_PATH})
+      find_path(OPENSSL_INCLUDE_DIR openssl/ssl.h PATHS ${OPENSSL_OTHER_SEARCH_PATH})
       if(OPENSSL_LIBRARIES AND OPENSSL_INCLUDE_DIR)
         set(OPENSSL_FOUND TRUE)
         message(STATUS "Found openssl with find_library and find_path")
@@ -217,6 +223,22 @@ ManualFetchContent_MakeAvailable(nlohmann_json)
 # set(nlohmann_json_DIR ${nlohmann_json_SOURCE_DIR} CACHE PATH "" FORCE)
 
 create_license_file("nlohmann_json" ${nlohmann_json_SOURCE_DIR}/LICENSE.MIT NO "This library bundles Niels Lohmann's JSON library (https://github.com/nlohmann/json)\n\nFrom distribution point of (https://github.com/ArthurSonzogni/nlohmann_json_cmake_fetchcontent).\n\nThe full text of the nlohmann_json license follows below.\n\n")
+
+# * yaml-cpp
+message(STATUS "External: yaml-cpp")
+
+FetchContent_Declare(yaml-cpp
+  GIT_REPOSITORY https://github.com/jbeder/yaml-cpp
+  GIT_TAG yaml-cpp-0.7.0
+  GIT_SHALLOW ON
+  UPDATE_COMMAND "")
+
+ManualFetchContent_MakeAvailable(yaml-cpp)
+set_target_properties(yaml-cpp PROPERTIES
+  POSITION_INDEPENDENT_CODE ON)
+
+create_license_file("yaml-cpp" ${LAST_SOURCE_DIR}/LICENSE NO "This library bundles the yaml-cpp library (https://github.com/jbeder/yaml-cpp)\n\nThe full text of the yaml-cpp license follows below.\n\n")
+
 
 # * asio
 

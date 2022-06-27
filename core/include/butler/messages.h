@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "export_statement.h"
+
 #include "fwd_declarations.h"
 #include "constants.h"
 #include "graph.h"

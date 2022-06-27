@@ -24,9 +24,10 @@ from .op_structs import ZefOp, CollectingOp, SubscribingOp, ForEachingOp, LazyVa
 from .abstract_raes import Entity, Relation, AtomicEntity
 from .error import _ErrorType, Error
 from .image import Image
-from .fx.fx_types import _Effect_Class, FXElement, Effect
+from .fx.fx_types import FXElement, Effect
 from .flat_graph import FlatGraph, FlatRef, FlatRefs
 from ..pyzef import internals as pyinternals
+from .VT import ValueType_
 
 ##############################
 # * Definition
@@ -106,6 +107,7 @@ def deserialize_internal(v):
     This function is the recursive core of the deserialization, where the
     objects are not wrapped in the serialization header.
     """
+    from .logger import log
     if isinstance(v, dict) and "_zeftype" in v:
         v = deserialization_mapping[v["_zeftype"]](v)
     elif isinstance(v, dict):
@@ -237,9 +239,6 @@ def serialize_zeftypes(z) -> dict:
     elif isinstance(z, _ErrorType):
         return {"_zeftype": "ErrorType", "type": z.name, "args": serialize_list(z.args)}
 
-    elif isinstance(z, _Effect_Class):
-        return {"_zeftype": "Effect", "internal_dict": serialize_dict(z.d)}
-    
     elif isinstance(z, FXElement):
         return {"_zeftype": "FXElement", "elements": [e for e in z.d]}
 
@@ -248,19 +247,13 @@ def serialize_zeftypes(z) -> dict:
 
 def serialize_delegate(z) -> dict:
     if isinstance(z, Delegate):
-        return {"_zeftype": "Delegate", "order": z.order, "item": serialize_delegate(z.item)}
-    elif isinstance(z, pyinternals.DelegateEntity):
-        return {"_zeftype": "DelegateEntity", "et": z.et}
-    elif isinstance(z, pyinternals.DelegateAtomicEntity):
-        return {"_zeftype": "DelegateAtomicEntity", "aet": z.aet}
-    elif isinstance(z, pyinternals.DelegateRelationGroup):
-        return {"_zeftype": "DelegateRelationGroup", "rt": z.rt}
+        return {"_zeftype": "Delegate", "order": z.order, "item": serialize_internal(z.item)}
     elif isinstance(z, pyinternals.DelegateTX):
         return {"_zeftype": "DelegateTX"}
     elif isinstance(z, pyinternals.DelegateRoot):
         return {"_zeftype": "DelegateRoot"}
     elif isinstance(z, pyinternals.DelegateRelationTriple):
-        return {"_zeftype": "DelegateRelationTriple", "rt": z.rt, "source": serialize_delegate(z.source), "target": serialize_delegate(z.target)}
+        return {"_zeftype": "DelegateRelationTriple", "rt": z.rt, "source": serialize_internal(z.source), "target": serialize_internal(z.target)}
 
     raise NotImplementedError(f"{z} not a delegate")
 
@@ -283,6 +276,15 @@ def serialize_zefops(k_type, ops):
         serialized_ops.append({"op": op_rt, "curried_ops": serialized_subops})
 
     return {"_zeftype": k_type, "el_ops": serialized_ops}
+
+def serialize_valuetype(vt):
+    # Super dodgy version just to get something off the ground for now
+    return {
+        "_zeftype": "ValueType",
+        "type_name": vt.d["type_name"],
+        "absorbed": serialize_internal(vt.d["absorbed"])
+    }
+
 
 
 def deserialize_tuple(json_d: dict) -> tuple:
@@ -413,19 +415,13 @@ def deserialize_zeftypes(z) -> dict:
 
 def deserialize_delegate(d) -> dict:
     if d['_zeftype'] == "Delegate":
-        return Delegate(d["order"], deserialize_delegate(d["item"]))
-    elif d['_zeftype'] == "DelegateEntity":
-        return pyinternals.DelegateEntity(d["et"])
-    elif d['_zeftype'] == "DelegateAtomicEntity":
-        return pyinternals.DelegateAtomicEntity(d["aet"])
-    elif d['_zeftype'] == "DelegateRelationGroup":
-        return pyinternals.DelegateRelationGroup(d["rt"])
+        return Delegate(d["order"], deserialize_internal(d["item"]))
     elif d['_zeftype'] == "DelegateTX":
         return pyinternals.DelegateTX()
     elif d['_zeftype'] == "DelegateRoot":
         return pyinternals.DelegateRoot()
     elif d['_zeftype'] == "DelegateRelationTriple":
-        return pyinternals.DelegateRelationTriple(d["rt"], deserialize_delegate(d["source"]), deserialize_delegate(d["target"]))
+        return pyinternals.DelegateRelationTriple(d["rt"], deserialize_internal(d["source"]), deserialize_internal(d["target"]))
 
     raise NotImplementedError(f"{d} not a serialized delegate")
 
@@ -445,6 +441,17 @@ def deserialize_zefops(ops):
 
     return deserialized_ops
 
+def deserialize_valuetype(d):
+    # Super dodgy version just to get something off the ground for now
+
+    # Look for the same typename
+    from . import VT
+    for var in dir(VT):
+        item = getattr(VT, var)
+        if isinstance(item, ValueType_) and item.d["type_name"] == d["type_name"]:
+            absorbed = deserialize_internal(d["absorbed"])
+            return ValueType_(type_name=d["type_name"], absorbed=absorbed)
+    raise Exception(f"Couldn't find a ValueType of type '{d['type_name']}'")
 
 serialization_mapping[ZefRef] = serialize_zeftypes
 # serialization_mapping[ZefRefs] = serialize_zeftypes
@@ -472,18 +479,15 @@ serialization_mapping[Relation] = serialize_zeftypes
 serialization_mapping[AtomicEntity] = serialize_zeftypes
 serialization_mapping[_ErrorType] = serialize_zeftypes
 serialization_mapping[Image] = serialize_zeftypes
-serialization_mapping[_Effect_Class] = serialize_zeftypes
 serialization_mapping[FXElement] = serialize_zeftypes
 serialization_mapping[Delegate] = serialize_delegate
 serialization_mapping[FlatGraph] = serialize_flatgraph_or_flatref
 serialization_mapping[FlatRef] = serialize_flatgraph_or_flatref
 serialization_mapping[FlatRefs] = serialize_flatgraph_or_flatref
-serialization_mapping[pyinternals.DelegateEntity] = serialize_delegate
-serialization_mapping[pyinternals.DelegateAtomicEntity] = serialize_delegate
-serialization_mapping[pyinternals.DelegateRelationGroup] = serialize_delegate
 serialization_mapping[pyinternals.DelegateTX] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRoot] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRelationTriple] = serialize_delegate
+serialization_mapping[ValueType_] = serialize_valuetype
 
 
 deserialization_mapping["dict"] = deserialize_dict
@@ -518,9 +522,7 @@ deserialization_mapping["FlatGraph"] = deserialize_zeftypes
 deserialization_mapping["FlatRef"] = deserialize_zeftypes
 deserialization_mapping["FlatRefs"] = deserialize_zeftypes
 deserialization_mapping["Delegate"] = deserialize_delegate
-deserialization_mapping["pyinternals.DelegateEntity"] = deserialize_delegate
-deserialization_mapping["pyinternals.DelegateAtomicEntity"] = deserialize_delegate
-deserialization_mapping["pyinternals.DelegateRelationGroup"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateTX"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateRoot"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateRelationTriple"] = deserialize_delegate
+deserialization_mapping["ValueType"] = deserialize_valuetype

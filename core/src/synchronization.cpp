@@ -183,7 +183,67 @@ namespace zefDB {
             }
         }
 
-        void verify_double_linking_partial() {
+        void undo_double_linking(GraphData& gd, blob_index start_index, blob_index end_index) {
+            // Cache whether the prior blob has been handled.
+            std::unordered_set<blob_index> handled_nodes;
+
+            blob_index cur_index = start_index;
+			while (cur_index < end_index) {
+                EZefRef ezr{cur_index,gd};
+
+                if(has_source_target_node(ezr)) {
+                    blob_index src = source_node_index(ezr);
+                    blob_index trg = target_node_index(ezr);
+
+                    for(blob_index orig_indx : {src, trg}) {
+                        if(orig_indx < start_index && handled_nodes.find(orig_indx) == handled_nodes.end()) {
+                            // Find the original blob and the latest deferred edge
+                            // list in the original section
+                            EZefRef orig_ezr{orig_indx, gd};
+
+                            EZefRef subseq_ezr = orig_ezr;
+
+                            blob_index * subseq_index;
+                            while(true) {
+                                subseq_index = subsequent_deferred_edge_list_index(subseq_ezr);
+                                if(*subseq_index == blobs_ns::sentinel_subsequent_index)
+                                    break;
+                                if(*subseq_index > start_index)
+                                    break;
+                                subseq_ezr = EZefRef{*subseq_index, gd};
+                            }
+
+                            // We remove all edges past the first one which is new.
+                            blob_index * list_start = edge_indexes(subseq_ezr);
+                            blob_index * new_point = list_start;
+                            while(abs(*new_point) < start_index)
+                                new_point++;
+
+                            int num = local_edge_indexes_capacity(subseq_ezr);
+                            // Does this need a sizeof?
+                            int new_ind = (new_point - list_start);
+                            memset(new_point, 0, (num - new_ind)*sizeof(blob_index));
+
+                            // Also remove any deferred edge list (no need to check, just always do it)
+                            *subseq_index = blobs_ns::sentinel_subsequent_index;
+
+                            // And finally update the last_blob
+                            blob_index * last_blob = internals::last_edge_holding_blob(orig_ezr);
+                            if(new_point == list_start)
+                                *last_blob = 0;
+                            else {
+                                uintptr_t direct_ptr = (uintptr_t)new_point;
+                                blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
+                                *last_blob = blob_index_from_ptr(ptr);
+                            }
+
+                            handled_nodes.insert(src);
+                        }
+                    }
+                }
+
+                cur_index += blob_index_size(ezr);
+            }
         }
 
         void apply_action_blob(GraphData& gd, EZefRef uzr_to_blob, bool fill_caches) {

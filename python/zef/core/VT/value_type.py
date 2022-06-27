@@ -65,22 +65,30 @@ This custom structure may rearrange and parse terms.
 needed?
 """
 from ..error import Error
+from .._core import *
+from ..internals import *
+
+
 # For certain value types, the user may want to call e.g. Float(4.5).
 # This looks up the associated function 
 _value_type_constructor_funcs = {}
+_value_type_get_item_funcs = {}
 
 class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name: str, absorbed=(), constructor_func=None):
+    def __init__(self, type_name: str, absorbed=(), constructor_func=None, get_item_func=None):
             self.d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
             }
             if constructor_func is not None:
                 _value_type_constructor_funcs[type_name] = constructor_func
+            if get_item_func is not None:
+                _value_type_get_item_funcs[type_name] = get_item_func
 
+            self.allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
         
     def __repr__(self):
         return self.d['type_name'] + (
@@ -98,7 +106,11 @@ class ValueType_:
 
 
     def __getitem__(self, x):
-        return ValueType_(self.d["type_name"], absorbed=(*self.d['absorbed'], x))
+        try:
+            f = _value_type_get_item_funcs[self.d["type_name"]]
+            return f(x)
+        except KeyError:
+            return ValueType_(self.d["type_name"], absorbed=(*self.d['absorbed'], x))
 
 
     def __eq__(self, other):
@@ -112,105 +124,55 @@ class ValueType_:
 
     def __or__(self, other):
         from ..op_structs import ZefOp
-        from zef.core import EntityType, RelationType, AtomicEntityType
-        if isinstance(other, (ValueType_, EntityType, RelationType, AtomicEntityType)):
+        if isinstance(other, self.allowed_types):
             return simplify_value_type(ValueType_(type_name='Union', absorbed=(self, other,)))
         elif isinstance(other, ZefOp):
             return other.__ror__(self)
         else:
             raise Exception(f'"ValueType_`s "|" called with unsupported type {type(other)}')
+
+    def __ror__(self, other):
+        # Is | commutative? Going to assume it isn't
+        if isinstance(other, self.allowed_types):
+            return simplify_value_type(ValueType_(type_name='Union', absorbed=(other, self,)))
+        else:
+            raise Exception(f'"ValueType_`s right-side "|" called with unsupported type {type(other)}')
     
     def __and__(self, other):
-        from zef.core import EntityType, RelationType, AtomicEntityType
-        if isinstance(other, (ValueType_, EntityType, RelationType, AtomicEntityType)):
+        if isinstance(other, self.allowed_types):
             return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(self, other,)))
         else:
             raise Exception(f'"ValueType_`s "&" called with unsupported type {type(other)}')
+
+    def __rand__(self, other):
+        # Is & commutative? Going to assume it isn't
+        if isinstance(other, self.allowed_types):
+            return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(other, self,)))
+        else:
+            raise Exception(f'"ValueType_`s right-side "&" called with unsupported type {type(other)}')
 
     def __invert__(self):
         return ValueType_(type_name='Complement', absorbed=(self,))
     
 
-
-
-class UnionClass:
-    def __getitem__(self, x):
-        from ..op_structs import ZefOp
-        if isinstance(x, tuple):
-            return ValueType_(type_name='Union', absorbed=x)
-        elif isinstance(x, ValueType_):
-            return ValueType_(type_name='Union', absorbed=(x,))
-        elif isinstance(x, ZefOp):
-            return ValueType_(type_name='Union', absorbed=(x,))
-        else:
-            raise Exception(f'"Union[...]" called with unsupported type {type(x)}')
-            
-
-class IntersectionClass:
-    def __getitem__(self, x):
-        from ..op_structs import ZefOp
-        if isinstance(x, tuple):
-            return ValueType_(type_name='Intersection', absorbed=x)
-        elif isinstance(x, ValueType_):
-            return ValueType_(type_name='Intersection', absorbed=(x,))
-        elif isinstance(x, ZefOp):
-            return ValueType_(type_name='Intersection', absorbed=(x,))
-        else:
-            raise Exception(f'"Intersection[...]" called with unsupported type {type(x)}')
-            
-
-
-class ComplementClass:
-    def __getitem__(self, x):
-        if isinstance(x, ValueType_):
-            return ValueType_(type_name='Complement', absorbed=(x,))
-        else:
-            raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
-   
-
-class IsClass:
-    def __getitem__(self, x):
-        from ..op_structs import ZefOp
-        if isinstance(x, tuple):
-            return ValueType_(type_name='Is', absorbed=x)
-        elif isinstance(x, ValueType_):
-            return ValueType_(type_name='Is', absorbed=(x,))
-        elif isinstance(x, ZefOp):
-            return ValueType_(type_name='Is', absorbed=(x,))
-        else:
-            raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
-         
-
-class SetOfClass:
-    def __getitem__(self, x):
-        # TODO: make sure that x is a zef value. No other python objects that we can't serialize etc.
-        return ValueType_(type_name='SetOf', absorbed=(x, ))
-    def __call__(self, *x):
-        """
-        calling SetOf(5,6,7) is a more convenient shorthand notation than 
-        SetOf[5][6][7]. But the former expression evaluates to the latter.
-
-        We can't use `SetOf[5,6,7]` here, since Python's treatment of
-        the [...] operator converts this to a tuple `SetOf[(5,6,7)]`,
-        which itself is a valid expression.
-        """
-        return ValueType_(type_name='SetOf', absorbed = x)
-
-
-
 def make_distinct(v):
     """
     utility function to replace the 'distinct'
     zefop and preserve order.
-    Writing this on a plane and can't use zefops,
-    since I forgot the environment variable to
-    allow offline mode.
     """
     seen = set()
     for el in v:
-        if el not in seen:
+        if isinstance(el, set):
+            # we can't import the following at the top of file or even outside this if
+            # block: this function executes upon import of zef and leads to 
+            # circular dependencies. We do really want to use the value_hash zefop though.
+            from ..op_implementations.implementation_typing_functions import value_hash
+            h = value_hash(el)
+        else:
+            h = el
+        if h not in seen:
             yield el
-            seen.add(el)
+            seen.add(h)
 
 
 def simplify_value_type(x):

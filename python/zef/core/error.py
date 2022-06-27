@@ -31,6 +31,9 @@ class _ErrorType():
     def __eq__(self, other):
         if not isinstance(other, _ErrorType): return False
         return self.name == other.name and self.args == other.args
+
+    def __bool__(self):
+        return False
     
 
 class _Error:

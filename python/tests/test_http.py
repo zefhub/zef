@@ -21,7 +21,7 @@ class MyTestCase(unittest.TestCase):
         from zef.core.fx.http import send_response, permit_cors, middleware, middleware_worker, fallback_not_found, route
         port = 4990
         payload = b"successful test"
-        eff = Effect({
+        eff = {
             'type': FX.HTTP.StartServer,
             # We hope that this is not taken by anything else for this test...
             'port': port,
@@ -31,7 +31,7 @@ class MyTestCase(unittest.TestCase):
                                                 send_response]]
                           | subscribe[run]),
             'bind_address': "localhost",
-        })
+        }
 
         eff_resp = eff | run
 
@@ -43,10 +43,10 @@ class MyTestCase(unittest.TestCase):
         r = requests.get(f"http://localhost:{port}")
         self.assertEqual(r.status_code, 404)
 
-        Effect({
+        {
             "type": FX.HTTP.StopServer,
             "server_uuid": eff_resp["server_uuid"],
-        }) | run
+        } | run
 
 if __name__ == '__main__':
     unittest.main()

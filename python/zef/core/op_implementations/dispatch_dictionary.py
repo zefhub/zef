@@ -16,7 +16,6 @@ from .._core import RT
 from .implementation_typing_functions import * 
 from .yo import yo_implementation, yo_type_info
 from .graphviz import graphviz_imp, graphviz_tp
-from .func import call_implementation, call_type_info
 from .func import unpack_implementation, unpack_type_info
 
 _op_to_functions = {
@@ -26,6 +25,7 @@ _op_to_functions = {
         RT.Reduce:         (reduce_implementation, reduce_type_info),
         RT.Scan:           (scan_implementation, scan_type_info),
         RT.GroupBy:        (group_by_implementation, group_by_type_info),
+        RT.Group:          (group_imp, None),
         RT.Transpose:      (transpose_imp, transpose_tp),
         RT.Frequencies:    (frequencies_imp, frequencies_tp),
         RT.Iterate:        (iterate_implementation, iterate_type_info),
@@ -36,7 +36,6 @@ _op_to_functions = {
         RT.TakeWhilePair:  (take_while_pair_imp, take_while_pair_tp),
         RT.TakeUntil:      (take_until_imp, take_until_tp),
         RT.SkipWhile:      (skip_while_imp, skip_while_tp),
-        RT.Drop :          (drop_imp, drop_tp),
         RT.Skip :          (skip_imp, skip_tp),
         RT.Nth:            (nth_implementation, nth_type_info),
         RT.Filter:         (filter_implementation, filter_type_info),
@@ -58,6 +57,7 @@ _op_to_functions = {
         RT.Sort:            (sort_implementation, sort_type_info),
         RT.Now:             (now_implementation, now_type_info),
         RT.Events:          (events_imp, events_tp),
+        RT.PrecedingEvents: (preceding_events_imp, None),
         RT.ToDelegate:      (to_delegate_implementation, to_delegate_type_info),
         RT.DelegateOf:      (delegate_of_implementation, delegate_of_type_info),
         
@@ -75,20 +75,15 @@ _op_to_functions = {
         RT.OutOld:             (OutOld_implementation, None),
         RT.OutOutOld:          (OutOutOld_implementation, None),
         
-        RT.InsOld:          (ins_implementation_old, ins_type_info),
-        RT.OutsOld:         (outs_implementation_old, outs_type_info),
-        RT.InsAndOutsOld:   (ins_and_outs_implementation_old, ins_and_outs_type_info),
         RT.Source:          (source_implementation, source_type_info),
         RT.Target:          (target_implementation, target_type_info),
         RT.Value:           (value_implementation, None),
         RT.Time:            (time_implementation, time_type_info),
         RT.TimeSlice:       (time_slice_implementation, time_slice_type_info),
-        RT.Tx:              (tx_imp, tx_tp),
         RT.NextTX:          (next_tx_imp, next_tx_tp),
         RT.PreviousTX:      (previous_tx_imp, previous_tx_tp),
         RT.InstantiationTx: (instantiation_tx_implementation, instantiation_tx_type_info),                              # TODO: retire
         RT.TerminationTx:   (termination_tx_implementation, termination_tx_type_info),                            # TODO: retire
-        RT.Instances:       (instances_implementation, instances_type_info),
         RT.Uid:             (uid_implementation, uid_type_info),
         RT.Frame:           (frame_imp, frame_tp),
         RT.DiscardFrame:    (discard_frame_imp, None),
@@ -96,6 +91,7 @@ _op_to_functions = {
         RT.OriginUid:       (origin_uid_imp, origin_uid_tp),
         RT.OriginRAE:       (origin_rae_imp, origin_rae_tp),
         RT.ExistsAt:        (exists_at_implementation, exists_at_type_info),
+        RT.AwareOf:         (aware_of_implementation, None),
         RT.IsZefRefPromotable:(is_zefref_promotable_implementation, is_zefref_promotable_type_info),
         RT.InFrame:         (in_frame_imp, in_frame_tp),
         RT.ToGraphSlice:    (to_graph_slice_imp, to_graph_slice_tp),
@@ -105,12 +101,13 @@ _op_to_functions = {
         RT.O:               (o_implementation, o_type_info),
         RT.L:               (l_implementation, l_type_info),
         RT.Terminate:       (terminate_implementation, terminate_type_info),
-        RT.AssignValue:     (assign_value_imp, assign_value_tp),
+        RT.Assign:          (assign_imp, assign_tp),
         RT.ET:              (ET_implementation, ET_type_info),
         RT.RT:              (RT_implementation, RT_type_info),
         RT.AET:             (AET_implementation, AET_type_info),
         RT.BT:              (BT_implementation, BT_type_info),
         RT.FillOrAttach:    (fill_or_attach_implementation, fill_or_attach_type_info),
+        RT.SetField:        (set_field_implementation, set_field_type_info),
         RT.Assert:          (assert_implementation, assert_type_info),
         RT.HasOut:          (hasout_implementation, hasout_type_info),
         RT.HasIn:           (hasin_implementation, hasin_type_info),
@@ -140,7 +137,7 @@ _op_to_functions = {
         RT.RaeType:         (rae_type_implementation, rae_type_type_info),
         RT.AbstractType:    (abstract_type_implementation, abstract_type_type_info),
         RT.Root:            (root_imp, root_tp),
-        RT.Schema:          (schema_imp, schema_tp),
+        RT.Blueprint:       (blueprint_imp, None),
         RT.Z:               (Z_imp, Z_tp),
         RT.Docstring:       (docstring_imp, None),
         RT.SourceCode:      (source_code_imp, None),
@@ -173,8 +170,6 @@ _op_to_functions = {
         RT.Yo:              (yo_implementation, yo_type_info),
         
         RT.Sign:            (sign_imp, sign_tp),
-        RT.IfThenElse:      (if_then_else_imp, if_then_else_tp),
-        RT.IfThenElseApply:      (if_then_else_apply_imp, if_then_else_apply_tp),
         RT.Attempt:         (attempt_imp, attempt_tp),
         RT.Bypass:          (bypass_imp, bypass_tp),
         RT.Pattern:         (pattern_imp, pattern_tp),
@@ -186,6 +181,8 @@ _op_to_functions = {
         RT.Shuffle:         (shuffle_imp, shuffle_tp),
         RT.Slice:           (slice_imp, slice_tp),
         RT.Split:           (split_imp, split_tp),
+        RT.SplitLeft:       (split_left_imp, None),
+        RT.SplitRight:      (split_right_imp, None),
         RT.SplitIf:         (split_if_imp, None),
         RT.Graphviz:        (graphviz_imp, graphviz_tp),
         
@@ -223,7 +220,6 @@ _op_to_functions = {
         RT.Xor:                 (xor_imp, xor_tp),
         RT.Peel:                (peel_imp, peel_tp),
         RT.Match:               (match_imp, match_tp),
-        RT.MatchApply:          (match_apply_imp, match_apply_tp),
 
         RT.Sync:                (sync_imp, sync_tp),
         RT.Tag:                 (tag_imp, tag_tp),
@@ -256,11 +252,11 @@ _op_to_functions = {
         RT.InjectList:          (inject_list_imp, inject_list_tp),
 
         RT.ZasciiToAsg:         (zascii_to_asg_imp, zascii_to_asg_tp),
-        RT.ZasciiToScehma:      (zascii_to_schema_imp, zascii_to_schema_tp),
+        RT.ZasciiToFlatGraph:   (zascii_to_flatgraph_imp, zascii_to_flatgraph_tp,),
+        RT.ZasciiToBlueprintFg:  (zascii_to_blueprint_fg_imp, zascii_to_blueprint_fg_tp),
 
         RT.ReplaceAt:           (replace_at_imp, replace_at_tp),
         RT.RandomPick:          (random_pick_imp, random_pick_tp),
-        RT.PadToLength:         (pad_to_length_imp, pad_to_length_tp),
         RT.PadLeft:             (pad_left_imp, None),
         RT.PadRight:            (pad_right_imp, None),
         RT.PadCenter:           (pad_center_imp, None),
@@ -280,11 +276,13 @@ _op_to_functions = {
         RT.ToScreamingSnakeCase:(to_screaming_snake_case_imp, to_screaming_snake_case_tp),
 
 
-        RT.Call:                (call_implementation, call_type_info),
         RT.Unpack:              (unpack_implementation, unpack_type_info),
+        RT.IndexesOf:           (indexes_of_imp, None),
+        RT.GraphSliceIndex:     (graph_slice_index_imp, None),
 
         RT.MakeRequest:        (make_request_imp, make_request_tp),
         RT.Blake3:             (blake3_imp, blake3_tp),
+        RT.ValueHash:          (value_hash_imp, value_hash_tp),
         RT.ToZefList:          (to_zef_list_imp, to_zef_list_tp),
         RT.Transact:           (transact_imp, transact_tp),
 
@@ -299,4 +297,16 @@ _op_to_functions = {
         RT.BytesToBase64string:(bytes_to_base64string_imp, None),
         RT.IsBetween:          (is_between_imp, None),
         RT.If:                 (If_imp, None),
+        RT.Field:              (field_imp, None),
+        RT.Fields:             (fields_imp, None),
+        RT.Apply:              (apply_imp, None),
+        RT.SplitOnNext:        (split_on_next_imp, None),
+
+
+        RT.Examples:           (examples_imp, None),
+        RT.Signature:          (signature_imp, None),
+        RT.Tags:               (tags_imp, None),
+        RT.RelatedOps:         (related_ops_imp, None),
+        RT.OperatesOn:         (operates_on_imp, None), 
+        RT.UsedFor:            (used_for_imp, None),
 }

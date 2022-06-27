@@ -50,9 +50,9 @@ class MyTestCase(unittest.TestCase):
 
 
         dg = ProxyGraph(now(g), ET.Person, RT.Knows)
-        self.assertEqual(set(dg.nodes) | map[lambda x: x.z] | func[set] | collect,
+        self.assertEqual(set(dg.nodes) | func[set] | collect,
                          set(g | now | all[ET.Person] | collect))
-        self.assertEqual(set(dg.edges) | map[map[lambda x: x.z] | func[tuple]] | func[set] | collect,
+        self.assertEqual(set(dg.edges) | func[set] | collect,
                          set([(r["alex"], r["bob"]),
                               (r["alex"], r["zach"])]))
         self.assertEqual(dg[r["alex"]][r["bob"]]["From"], "University")
@@ -74,14 +74,14 @@ class MyTestCase(unittest.TestCase):
         nx.node_connectivity(ug, list(dg.nodes)[1], list(dg.nodes)[2])
         nx.node_connectivity(dg, list(dg.nodes)[1], list(dg.nodes)[2])
 
-        last_two = [r["bob"], r["zach"]]
+        last_two = {r["bob"], r["zach"]}
         dg_sg = dg.subgraph(last_two)
         ug_sg = ug.subgraph(last_two)
         self.assertEqual(nx.node_connectivity(ug), 1)
         self.assertEqual(nx.node_connectivity(ug_sg), 0)
 
         nx.k_components(ug)
-        nx.k_components(dg2.to_undirected())
+        nx.k_components(dg2.to_undirected().to_native())
 
         # Can't work - tries to construct a graph itself
         # nx.maximum_branching(dg)

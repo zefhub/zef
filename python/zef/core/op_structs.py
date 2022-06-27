@@ -78,7 +78,7 @@ Further chaining possible.
 ********************************* Expect Operator *********************************
 Introduce the 'expect' operator?
 In C++ one may consider making it templated.
-my_zefop | expect[Int] | ...
+my_zefop | ensureInt] | ...
 Will throw if during evaluation a value of a different type passes through.
 Can be used as an important tool by the runtime operator introspector, e.g.
 if no types can be inferred due to missing type annotations in functions.
@@ -135,7 +135,7 @@ my_lazy_value | collect          # we are free to also choose the same lazy eval
 
 
 my_op1 = (
- expect[Awaitable[Dict]]
+ ensureAwaitable[Dict]]
  | map[my_f]
  | merge
  | group_by[get_value['type']]
@@ -228,7 +228,6 @@ def is_python_scalar_type(o):
     return type(o) in {str, bytes, int, bool, float, type(None)}
 
 def is_supported_value(o):
-    from .fx.fx_types import _Effect_Class
     from .VT import ValueType_
     from . import  GraphSlice
     from types import GeneratorType
@@ -236,8 +235,9 @@ def is_supported_value(o):
     from .error import _ErrorType
     from ..pyzef.main import Keyword
     from ..core.bytes import Bytes_
+    from types import ModuleType
     if is_python_scalar_type(o): return True
-    if type(o) in {set, range, GeneratorType, list, tuple, dict, _Effect_Class, ValueType_, GraphSlice, Time, Image, Bytes_, _ErrorType, Keyword}: return True
+    if type(o) in {set, range, GeneratorType, list, tuple, dict, ValueType_, GraphSlice, Time, Image, Bytes_, _ErrorType, Keyword, ModuleType}: return True
     return False
 
 def is_supported_zef_value(o):
@@ -290,8 +290,8 @@ class ZefOp:
     def __le__(self, other):
         # we want to allow for "AET.Float['some_name'] <= 42.1"
         # We convert the first expression to a "instantiated[AET.Float]['some_name']"
-        from ._ops import assign_value
-        return LazyValue(self) | assign_value[other]
+        from ._ops import assign
+        return LazyValue(self) | assign[other]
     
     def __ror__(self, other):
         if isinstance(other, TraversableABC):
@@ -310,7 +310,7 @@ class ZefOp:
             return LazyValue(other) | self
         # This is just for a bit of help for users to understand what's going on
         elif isinstance(other, Iterable):
-            raise TypeError("An arbitrary iterable will not be automatically converted to a LazyValue when being piped into a ZefOp. This is because it cannot be determined if it is a stateful iterator (e.g. a generator or a file object) or a stateless iterable (e.g. a list or a range() object).\n\nIf you know your iterable is immutable, then wrap the iterable in `LazyValue`, that is use `LazyValue(itr) | zefop` instead of `itr | zefop`.\n\nIf your iterable is an iterator that mutates on iteration you should either\n\ta) first wrap it in a caching mechanism (TODO make this available in zef: not available in any external library that I can see) or\n\tb) make its content available as a Stream, e.g. TODO.")
+            raise TypeError(f"An arbitrary iterable (we saw {type(other)}) will not be automatically converted to a LazyValue when being piped into a ZefOp. This is because it cannot be determined if it is a stateful iterator (e.g. a generator or a file object) or a stateless iterable (e.g. a list or a range() object).\n\nIf you know your iterable is immutable, then wrap the iterable in `LazyValue`, that is use `LazyValue(itr) | zefop` instead of `itr | zefop`.\n\nIf your iterable is an iterator that mutates on iteration you should either\n\ta) first wrap it in a caching mechanism (TODO make this available in zef: not available in any external library that I can see) or\n\tb) make its content available as a Stream, e.g. TODO.")
 
         return NotImplemented
         
@@ -879,8 +879,8 @@ class LazyValue:
         return self.lt_gt_lshift_rshift_behavior(other, RT.OutOutOld) 
 
     def __le__(self, value):
-        from ._ops import assign_value
-        return self | assign_value[value]
+        from ._ops import assign
+        return self | assign[value]
 
     def __iter__(self):
         return iter(self.evaluate(unpack_generator = False))
@@ -932,9 +932,8 @@ class LazyValue:
 
         for op in self.el_ops.el_ops: 
             if op[0] == RT.Collect: continue
-            if op[0] == RT.Run:  
-                from .fx.fx_types import _Effect_Class
-                if isinstance(curr_value, _Effect_Class): 
+            if op[0] == RT.Run:
+                if isinstance(curr_value, dict): 
                     curr_value = _op_to_functions[op[0]][0](curr_value)
                 elif len(op[1]) > 1: # i.e run[impure_func]
                     curr_value = op[1][1](curr_value)
@@ -1091,7 +1090,6 @@ def type_spec_tuple(obj):
 
 def type_spec(obj, no_type_casting = False):
     from .VT import ValueType_
-    from .fx.fx_types import _Effect_Class
     from . import GraphSlice
     from rx.subject import Subject
     from rx.core import Observable
@@ -1114,7 +1112,6 @@ def type_spec(obj, no_type_casting = False):
         Time:                       VT.Time,  
         Subject:                    VT.Awaitable,
         Observable:                 VT.Awaitable,
-        _Effect_Class:              VT.Effect,
         GraphSlice:                 VT.GraphSlice,
     }.get(t, lambda o: ValueType_(type(o).__name__, 0))
     try:

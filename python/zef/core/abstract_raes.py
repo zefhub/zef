@@ -149,8 +149,8 @@ class AtomicEntity:
         return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid']
 
     def __le__(self, value):
-        from ._ops import assign_value
-        return self | assign_value[value]
+        from ._ops import assign
+        return self | assign[value]
     
     def __hash__(self):
         return hash(self.d['uid'])

@@ -136,8 +136,8 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
         .def("throw_on_zefrefs_no_tx", py::overload_cast<bool>(&Zwitch::throw_on_zefrefs_no_tx))
         .def("default_wait_for_tx_finish", py::overload_cast<>(&Zwitch::default_wait_for_tx_finish, py::const_))
         .def("default_wait_for_tx_finish", py::overload_cast<bool>(&Zwitch::default_wait_for_tx_finish))
-        .def("write_thread_runs_subscriptions", py::overload_cast<>(&Zwitch::write_thread_runs_subscriptions, py::const_))
-        .def("write_thread_runs_subscriptions", py::overload_cast<bool>(&Zwitch::write_thread_runs_subscriptions))
+        .def("default_rollback_empty_tx", py::overload_cast<>(&Zwitch::default_rollback_empty_tx, py::const_))
+        .def("default_rollback_empty_tx", py::overload_cast<bool>(&Zwitch::default_rollback_empty_tx))
 		.def("as_dict", &Zwitch::as_dict)
 		;
 	main_module.attr("zwitch") = &zwitch;  // expose this singleton
@@ -591,7 +591,9 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	main_module.def("tag", py::overload_cast<EZefRef,const std::string,bool>(&tag), py::call_guard<py::gil_scoped_release>(), "Add a name tag / key_dict entry to for a specific ZefRef:  tag(my_z, 'my_favorite_zefref')", "z"_a, "name_tag"_a, "force_if_name_tags_other_rel_ent"_a=false);
 
 	verification_submodule.def("verify_graph_double_linking", verification::verify_graph_double_linking, "Check that node/edge linking is consistent for the indexes.");
+	verification_submodule.def("verify_chronological_instantiation_order", verification::verify_chronological_instantiation_order, "Check that RAEs and delegates have a correct chronological instantiation order.");
 	verification_submodule.def("break_graph", verification::break_graph, "Internal use checks");
+	verification_submodule.def("verify_graph", verification::verify_graph, "Internal use checks");
 
 	admins_submodule.def("add_user", [](std::string username, std::string key) { zefDB::user_management("add_user", username, "", key);});
 	admins_submodule.def("reset_user_key", [](std::string username, std::string key) { zefDB::user_management("reset_user_key", username, "", key);});
@@ -638,6 +640,12 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
             
         .def("__int__", [](TimeSlice self) {return self.value; })   // allow casting to int in python:      m = int(my_time_slice)
         ;
+
+
+    main_module.def("get_config_var", &get_config_var, py::call_guard<py::gil_scoped_release>(), "Get a variable with defaults/override resolution from the config.", py::arg("key"));
+    main_module.def("set_config_var", &set_config_var, py::call_guard<py::gil_scoped_release>(), "Set a variable in the config.", py::arg("key"), py::arg("value"));
+    main_module.def("list_config", &list_config, py::call_guard<py::gil_scoped_release>(), "List the config including all default/environment set variables.", py::arg("filter")="");
+    main_module.def("validate_config_file", &validate_config_file, py::call_guard<py::gil_scoped_release>(), "Ensure the config file and environment overrides have sensible values.");
 
 
 

@@ -100,6 +100,14 @@ set_target_properties(pyzef
     PROPERTIES
     CXX_STANDARD 17)
 
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+  if(NOT WIN32)
+    target_compile_definitions(pyzef PRIVATE DEBUG)
+    target_compile_options(pyzef PRIVATE -rdynamic -ggdb -g)
+  endif()
+endif()
+
+
 # target_include_directories (pyzef PUBLIC ${RANGE_INCLUDE_DIRS})
 
 # if(UNIX AND NOT APPLE)

@@ -41,11 +41,11 @@ class MyTestCase(unittest.TestCase):
         sub4 = z | subscribe[on_termination[outgoing][RT.Map]][lambda x: OnTerm(x, on_rel_list)]
         sub5 = z | subscribe[on_termination[outgoing][RT.Value]][lambda x: OnTerm(x, on_rel_list)]
 
-        z | assign_value[1] | g | run
-        z | assign_value[2] | g | run
-        z | assign_value[3] | g | run
-        z | assign_value[4] | g | run
-        z | assign_value[5] | g | run
+        z | assign[1] | g | run
+        z | assign[2] | g | run
+        z | assign[3] | g | run
+        z | assign[4] | g | run
+        z | assign[5] | g | run
 
         (z, RT.Map, 1) | g | run
         (z, RT.Map, 2) | g | run

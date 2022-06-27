@@ -19,11 +19,11 @@ from .ariadne_utils import gqlify, de_gqlify
 
 def parse_list_et(list_et):
     aet_values = []
-    arguments = list_et >> L[RT.argument] | collect
+    arguments = list_et | Outs[RT.argument] | collect
     at = ""
     for arg in arguments:
         if BT(arg) == BT.ENTITY_NODE:
-            return "", de_gqlify(value(arg >> RT.Name), True)
+            return "", de_gqlify(value(arg | Out[ RT.Name]), True)
         else:
             aet_type = str(AET(arg | to_ezefref | collect))
             at = aet_type
@@ -40,24 +40,24 @@ def parse_list_et(list_et):
 
 def check_nonnullable(param):
     nonnullable = ""
-    if length(param > L[RT(gqlify("nonNullable"))]) > 0:
+    if length(param | out_rels[RT(gqlify("nonNullable"))]) > 0:
         nonnullable = "!"
     return nonnullable
 
 
 def check_implements(param):
     implements = ""
-    if length(param > L[RT(gqlify("implements"))]) > 0:
-        interface_name = de_gqlify(value(param >> RT(gqlify("implements")) >> RT.Name), True)
+    if length(param | out_rels[RT(gqlify("implements"))]) > 0:
+        interface_name = de_gqlify(value(param | Out[ RT(gqlify("implements"))] | Out[ RT.Name]), True)
         implements = f"implements {interface_name}"
     return implements
 
 
 def parse_queryparams_et(params_et):
     returned_list = []
-    if length(params_et >> L[RT(gqlify("queryParams"))]) > 0:
-        for param in params_et > L[RT(gqlify("queryParams"))] | collect:
-            param_name = de_gqlify(value(param >> RT.Name), False)
+    if length(params_et | Outs[RT(gqlify("queryParams"))]) > 0:
+        for param in params_et | out_rels[RT(gqlify("queryParams"))] | collect:
+            param_name = de_gqlify(value(param | Out[ RT.Name]), False)
             nonnullable = check_nonnullable(param)
             if BT(param | target | collect) == BT.ATOMIC_ENTITY_NODE:
                 aet_type = str(AET(param | target | collect))
@@ -75,7 +75,7 @@ def parse_queryparams_et(params_et):
                         aet_values = " = " + aet_values
                     returned_list.append(f"{param_name}: [{et_type}]{nonnullable}{aet_values}")
                 else:
-                    et_type = de_gqlify(value(((param | target) >> RT.Name)), True)
+                    et_type = de_gqlify(value(((param | target) | Out[ RT.Name])), True)
                     returned_list.append(f"{param_name}: {et_type}{nonnullable}")
 
         return returned_list
@@ -84,9 +84,9 @@ def parse_queryparams_et(params_et):
 
 
 def generate_fields(et, schema_out):
-    for rt in (et > L[RT(gqlify("field"))] | collect):
+    for rt in (et | out_rels[RT(gqlify("field"))] | collect):
         nonnullable = check_nonnullable(rt)
-        field_name = de_gqlify(value(rt >> RT.Name), False)
+        field_name = de_gqlify(value(rt | Out[ RT.Name]), False)
         field_return = rt | target | collect
         blob_type = BT(field_return | to_ezefref | collect)
         query_params = parse_queryparams_et(rt)
@@ -115,13 +115,13 @@ def generate_fields(et, schema_out):
                     aet_values = " = " + aet_values
                 schema_out += f'  {field_name}{inject_params(query_params)}: [{et_type}]{nonnullable}{aet_values}\n'
             else:
-                schema_out += f'  {field_name}{inject_params(query_params)}: {de_gqlify(value(field_return >> RT.Name),True)}{nonnullable}\n'
+                schema_out += f'  {field_name}{inject_params(query_params)}: {de_gqlify(value(field_return | Out[ RT.Name]),True)}{nonnullable}\n'
     schema_out += "}\n"
     return schema_out
 
 
 def generate_enum_values(en, schema_out):
-    for field in (en >> L[RT(gqlify("field"))] | collect):
+    for field in (en | Outs[RT(gqlify("field"))] | collect):
         en_value = (field | value).enum_value
         schema_out += f'  {en_value}\n'
     schema_out += "}\n"
@@ -129,35 +129,35 @@ def generate_enum_values(en, schema_out):
 
 
 def generate_api_schema_string(schema_root):
-    types = schema_root >> L[RT(gqlify("type"))] | collect
-    inputs = schema_root >> L[RT(gqlify("input"))] | collect
-    interfaces = schema_root >> L[RT(gqlify("interface"))] | collect
-    scalars = schema_root >> L[RT(gqlify("scalar"))] | collect
-    enums = schema_root >> L[RT(gqlify("enum"))] | collect
+    types = schema_root | Outs[RT(gqlify("type"))] | collect
+    inputs = schema_root | Outs[RT(gqlify("input"))] | collect
+    interfaces = schema_root | Outs[RT(gqlify("interface"))] | collect
+    scalars = schema_root | Outs[RT(gqlify("scalar"))] | collect
+    enums = schema_root | Outs[RT(gqlify("enum"))] | collect
 
     schema_out = ""
     for et in types:
         implements = check_implements(et)
-        object_type = de_gqlify(value(et >> RT.Name), True)
+        object_type = de_gqlify(value(et | Out[ RT.Name]), True)
         schema_out += f'type {object_type} {implements} {"{"}\n'
         schema_out = generate_fields(et, schema_out)
 
     for et in inputs:
-        object_type = de_gqlify(value(et >> RT.Name), True)
+        object_type = de_gqlify(value(et | Out[ RT.Name]), True)
         schema_out += f'input {object_type} {"{"}\n'
         schema_out = generate_fields(et, schema_out)
 
     for et in interfaces:
-        object_type = de_gqlify(value(et >> RT.Name), True)
+        object_type = de_gqlify(value(et | Out[ RT.Name]), True)
         schema_out += f'interface {object_type} {"{"}\n'
         schema_out = generate_fields(et, schema_out)
 
     for et in scalars:
-        object_type = de_gqlify(value(et >> RT.Name), True)
+        object_type = de_gqlify(value(et | Out[ RT.Name]), True)
         schema_out += f'scalar {object_type}\n'
 
     for et in enums:
-        object_type = de_gqlify(value(et >> RT.Name), True)
+        object_type = de_gqlify(value(et | Out[ RT.Name]), True)
         schema_out += f'enum {object_type} {"{"}\n'
         schema_out = generate_enum_values(et, schema_out)
 

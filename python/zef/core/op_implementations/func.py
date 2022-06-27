@@ -16,29 +16,33 @@ from .._ops import *
 from .._core import *
 
 ##############################
-# * Call
-#----------------------------
-
-# Call implements the laziness part of the op chain. It's use on the user-facing
-# side is discouraged, although zef functions will be converted to call ops.
-
-def call_implementation(input, f, *args):
-    from typing import Generator, Iterable, Iterator
-    if isinstance(input, Generator) or isinstance(input, Iterator):
-        input = [i for i in input]
-    return f(input, *args)
-
-def call_type_info(op, curr_type):
-    # TODO
-    return VT.Any
-
-##############################
 # * Unpack
 #----------------------------
 
 def unpack_implementation(inputs, f):
+    """
+    used to wrap an zefop or a function. If the function
+    takes multiple arguments, it is converted into a function
+    that takes one tuple or list as a single argument.
+    This list is unpacked into the function arguments.
+
+    ---- Signature ----
+    (Tuple[T1, T2, ...], Func[T1, T2, ...][T] ) -> T
+
+    ---- Examples ----
+    >>> (42, 10) | unpack[subtract]      # => 32
+
+
+    ---- Tags ----
+    used for: control flow
+    related zefop: reverse_args
+    """
+    from typing import Generator
     if isinstance(inputs, tuple) or isinstance(inputs, list):
         return f(*inputs)
+    if isinstance(inputs, Generator):
+        return f(*tuple(inputs))
+
     elif isinstance(inputs, dict):
         # if this has wrapped a call[...] then we need to unpack the function
         # inside of it, as call itself does not handle kwargs

@@ -178,6 +178,57 @@ namespace zefDB {
 			return true;
 		}
 
+
+        bool verify_chronological_instantiation_order(Graph g) {
+			GraphData& gd = g.my_graph_data();
+
+            blob_index cur_index = internals::root_node_blob_index();
+			while (cur_index < gd.write_head) {
+                EZefRef uzr{cur_index,gd};
+
+                if(get<BlobType>(uzr) == BlobType::RAE_INSTANCE_EDGE) {
+                    TimeSlice last_ts(0);
+                    auto all_edges = ins_and_outs(uzr);
+                    for (auto edge_uzr : all_edges) {
+                        if(get<BlobType>(edge_uzr) == BlobType::INSTANTIATION_EDGE ||
+                           get<BlobType>(edge_uzr) == BlobType::TERMINATION_EDGE) {
+                            EZefRef tx_uzr = source(edge_uzr);
+                            auto & tx_node = get<blobs_ns::TX_EVENT_NODE>(tx_uzr);
+                            if(tx_node.time_slice < last_ts) {
+                                std::cerr << "Chronological order is bad for blob: " << cur_index << std::endl;
+                                return false;
+                            }
+
+                            last_ts = tx_node.time_slice;
+                        }
+                    }
+                } else if(get<BlobType>(uzr) == BlobType::TO_DELEGATE_EDGE) {
+                    TimeSlice last_ts(0);
+                    auto all_edges = ins_and_outs(uzr);
+                    for (auto edge_uzr : all_edges) {
+                        if(get<BlobType>(edge_uzr) == BlobType::DELEGATE_INSTANTIATION_EDGE ||
+                           get<BlobType>(edge_uzr) == BlobType::DELEGATE_RETIREMENT_EDGE) {
+                            EZefRef tx_uzr = source(edge_uzr);
+                            auto & tx_node = get<blobs_ns::TX_EVENT_NODE>(tx_uzr);
+                            if(tx_node.time_slice < last_ts) {
+                                std::cerr << "Chronological order is bad for blob: " << cur_index << std::endl;
+                                return false;
+                            }
+
+                            last_ts = tx_node.time_slice;
+                        }
+                    }
+                }
+
+                cur_index += blob_index_size(uzr);
+            }
+            
+            return true;
+        }
+
+
+        // This was for some kind of testing
+
         void break_graph(Graph&g, blob_index index, int style) {
             EZefRef ezr = g[index];
             if(style == 1) {
@@ -192,6 +243,28 @@ namespace zefDB {
                 visit_blob_with_edges([](auto & x) {
                     x.edges.indices[0] = 42;
                 }, ezr);
+            } else if(style == 4) {
+                // Find a RAE instance that has been terminated and flip it
+                if(get<BlobType>(ezr) != BlobType::RAE_INSTANCE_EDGE)
+                    throw std::runtime_error("Index needs to be for a RAE_INSTANCE_EDGE");
+
+                auto all_edges = ins_and_outs(ezr);
+                int num_inst_term = 0;
+                for(auto edge_ezr : all_edges) {
+                    if(get<BlobType>(edge_ezr) == BlobType::INSTANTIATION_EDGE ||
+                        get<BlobType>(edge_ezr) == BlobType::TERMINATION_EDGE) {
+                        num_inst_term++;
+                    }
+                }
+                if(num_inst_term < 2)
+                    throw std::runtime_error("RAE needs two inst/terms");
+
+                visit_blob_with_edges([](auto & x) {
+                    blob_index temp = x.edges.indices[1];
+                    x.edges.indices[1] = x.edges.indices[0];
+                    x.edges.indices[0] = temp;
+                }, ezr);
+
             } else {
                 throw std::runtime_error("Don't know style");
             }

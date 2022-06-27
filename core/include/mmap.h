@@ -16,10 +16,11 @@
 
 #pragma once
 
-#ifdef _MSC_VER
+#include "export_statement.h"
+
+#ifdef ZEF_WIN32
 #include "mmap_windows.h"
 #else
-
 
 #include <iostream>
 #include <vector>
@@ -42,7 +43,6 @@
 #include <shared_mutex>
 #include <atomic>
 
-#include "export_statement.h"
 #include "constants.h"
 #include "zefDB_utils.h"
 #include "uids.h"
@@ -388,16 +388,18 @@ namespace zefDB {
 #else
         inline void ensure_or_alloc_range(void * ptr, size_t size) {
 #endif
-#ifndef _MSC_VER
-            // This is a very dirty hack to ensure we never alloc something too small
-            if(size < blobs_ns::max_basic_blob_size) {
-                std::cerr << "Warning! Tried to ensure a mem range that is smaller than max_basic_blob_size!" << std::endl;
-                // Can't use print_backtrace here due to cyclic deps.
-                void *array[50];
-                size_t size;
-                size = backtrace(array, 50);
-                backtrace_symbols_fd(array, size, 1);
-            }
+#ifndef ZEF_WIN32
+            // We don't do the following check anymore, as there are cases where a single blob_index-size ensure is needed.
+
+            // // This is a very dirty hack to ensure we never alloc something too small
+            // if(size < blobs_ns::max_basic_blob_size) {
+            //     std::cerr << "Warning! Tried to ensure a mem range that is smaller than max_basic_blob_size!" << std::endl;
+            //     // Can't use print_backtrace here due to cyclic deps.
+            //     void *array[50];
+            //     size_t size;
+            //     size = backtrace(array, 50);
+            //     backtrace_symbols_fd(array, size, 1);
+            // }
 #endif
             
             MMapAllocInfo& info = info_from_blob(ptr);

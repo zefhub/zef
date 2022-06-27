@@ -18,6 +18,7 @@
 
 #pragma once
 
+#include "export_statement.h"
 
 #include "fwd_declarations.h"
 #include "zefDB_utils.h"
@@ -41,3 +42,4 @@
 #include "butler/butler_zefhub.h"
 
 #include "from_json.h"
+#include "zef_config.h"

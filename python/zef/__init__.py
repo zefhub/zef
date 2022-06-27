@@ -41,7 +41,7 @@ if os.environ.get("ZEFDB_DEVELOPER_CIRCULAR_IMPORTS", "FALSE") == "TRUE":
 # Putting this into a function to avoid polluting namespace
 def _autostart_behaviour():
     auto_start = ops.config("butler.autoStart", KW.get)
-    if auto_start == "true":
+    if auto_start:
         core.internals.initialise_butler()
 
 _autostart_behaviour()

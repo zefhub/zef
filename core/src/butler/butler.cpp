@@ -18,9 +18,17 @@
 #include <algorithm>
 #include <chrono>
 #include <fstream>
+
+#include "nlohmann/json.hpp"
+using json = nlohmann::json;
+
+#include <jwt-cpp/jwt.h>
+#include "jwt-cpp/traits/nlohmann-json/traits.h"
+
 // I want to not have to use this:
 #include "high_level_api.h"
 #include "synchronization.h"
+#include "zef_config.h"
 
 namespace zefDB {
     bool initialised_python_core = false;
@@ -32,7 +40,7 @@ namespace zefDB {
 #include "butler_handlers_ws.cpp"
 
         //////////////////////////////////////////////////////////
-        // * Butler lifecycle managment
+        // * Butler lifecycle management
 
         std::shared_ptr<Butler> butler;
         bool butler_is_master = false;
@@ -72,7 +80,7 @@ namespace zefDB {
         }
 
         void terminate_handler() {
-#ifndef _MSC_VER
+#ifndef ZEF_WIN32
             void *trace_elems[20];
             int trace_elem_count(backtrace( trace_elems, 20 ));
             char **stack_syms(backtrace_symbols( trace_elems, trace_elem_count ));
@@ -96,12 +104,15 @@ namespace zefDB {
         }   
 
         void initialise_butler() {
-            initialise_butler(get_default_zefhub_uri());
+            initialise_butler(std::get<std::string>(get_config_var("login.zefhubURL")));
         }
         void initialise_butler(std::string zefhub_uri) {
 #ifdef DEBUG
             internals::static_checks();
 #endif
+            if(!validate_config_file()) {
+                std::cerr << "WARNING: config options are invalid..." << std::endl;
+            }
             
             if(zwitch.zefhub_communication_output())
                 std::cerr << "Will use uri=" << zefhub_uri << " when later connecting to ZefHub" << std::endl;
@@ -131,14 +142,14 @@ namespace zefDB {
 #endif
 
             if(!butler_registered_thread_exiter) {
-                on_thread_exit(&stop_butler);
+                on_thread_exit("stop_butler", &stop_butler);
                 butler_registered_thread_exiter = true;
             }
 
             if(butler->want_upstream_connection()) {
                 // Lock this behind the if check, as we can get into trouble
                 // with python circular deps.
-                auto auto_connect = get_auto_connect();
+                std::string auto_connect = std::get<std::string>(get_config_var("login.autoConnect"));
                 if(auto_connect == "always" ||
                    (auto_connect == "auto" && butler->have_auth_credentials()))
                     butler->start_connection();
@@ -162,7 +173,10 @@ namespace zefDB {
                         std::cerr << "Thread taking a long time to shutdown... " << name << std::endl;
                         if(extra_print)
                             (*extra_print)();
-                        status = future.wait_for(std::chrono::seconds(10));
+                        if(check_env_bool("ZEFDB_DEVELOPER_THREAD_LONGWAIT"))
+                            status = future.wait_for(std::chrono::seconds(10000));
+                        else
+                            status = future.wait_for(std::chrono::seconds(10));
                         if (status == std::future_status::timeout) {
                             std::cerr << "Gave up on waiting for thread: " << name << std::endl;
                             thread.detach();
@@ -179,12 +193,21 @@ namespace zefDB {
             }
         }
         void stop_butler() {
+            std::cerr << "Start of stop_butler" << std::endl;
+            // This is to prevent multiple threads attacking this function at
+            // the same time.
+            static std::atomic<bool> _running = false;
+            bool was_running = _running.exchange(true);
+            if(was_running)
+                return;
+
             if(zwitch.developer_output()) {
                 std::cerr << "stop_butler was called" << std::endl;
             }
 
             if (!butler) {
                 std::cerr << "Butler wasn't running." << std::endl;
+                _running = false;
                 return;
             }
 
@@ -193,20 +216,26 @@ namespace zefDB {
 
             if(zwitch.developer_output())
                 std::cerr << "Going to close all graph manager queues" << std::endl;
-            for(auto data : butler->graph_manager_list) {
-                try {
-                    data->queue.set_closed(false);
-                } catch(const std::exception & e) {
-                    std::cerr << "Exception while trying to close queue for graph manager thread: " << e.what() << std::endl;
+            {
+                std::lock_guard lock(butler->graph_manager_list_mutex);
+                for(auto data : butler->graph_manager_list) {
+                    try {
+                        data->queue.set_closed(false);
+                    } catch(const std::exception & e) {
+                        std::cerr << "Exception while trying to close queue for graph manager thread: " << e.what() << std::endl;
+                    }
                 }
             }
-            // std::cerr << "Going to wait on graph manager threads" << std::endl;
+            if(zwitch.developer_output())
+                std::cerr << "Going to wait on graph manager threads" << std::endl;
             std::vector<std::shared_ptr<Butler::GraphTrackingData>> saved_list;
             {
                 std::lock_guard lock(butler->graph_manager_list_mutex);
                 saved_list = butler->graph_manager_list;
             }
 
+            if(zwitch.developer_output())
+                std::cerr << "Number of graphs to wait for: " << saved_list.size() << std::endl;
             for(auto data : saved_list) {
                 auto extra_print = [&data]() {
                     std::cerr << "Last action was: " << data->debug_last_action << std::endl;
@@ -231,7 +260,11 @@ namespace zefDB {
                 };
                 long_wait_or_kill(*data->managing_thread, data->return_value, data->uid, extra_print);
             }
-            butler->graph_manager_list.clear();
+            // Lock and keep locked for the remainder now
+            {
+                std::lock_guard lock(butler->graph_manager_list_mutex);
+                butler->graph_manager_list.clear();
+            }
             if(zwitch.developer_output())
                 std::cerr << "Removing local process graph" << std::endl;
             butler->local_process_graph.reset();
@@ -239,6 +272,8 @@ namespace zefDB {
             if(zwitch.developer_output())
                 std::cerr << "Stopping network" << std::endl;
             butler->network.stop_running();
+            if(zwitch.developer_output())
+                std::cerr << "Clear waiting tasks" << std::endl;
             butler->waiting_tasks.clear();
 
             if(zwitch.developer_output())
@@ -251,6 +286,8 @@ namespace zefDB {
             if(zwitch.developer_output())
                 std::cerr << "Finished stopping butler" << std::endl;
             butler.reset();
+
+            _running = false;
         }
 
 
@@ -1298,7 +1335,7 @@ namespace zefDB {
                                   return me.please_stop
                                       || (network.connected && me.gd->should_sync
                                           && (me.gd->sync_head == 0 || (me.gd->sync_head < me.gd->read_head.load())))
-                                      || (!zwitch.write_thread_runs_subscriptions() && me.gd->latest_complete_tx > me.gd->manager_tx_head.load());
+                                      || (me.gd->latest_complete_tx > me.gd->manager_tx_head.load());
                               });
                                   
                     if(me.please_stop)
@@ -1308,46 +1345,43 @@ namespace zefDB {
                     // not set. TODO: In the future, probably indicate the
                     // difference between "anytime" subs and "in reaction to
                     // updates" subs.
-                    if(!me.gd->is_primary_instance ||
-                       !zwitch.write_thread_runs_subscriptions()) {
-                        blob_index target_complete_tx = me.gd->latest_complete_tx;
-                        while(!me.please_stop
-                              && target_complete_tx > me.gd->manager_tx_head) {
-                            // Do one tx at a time until we have nothing left to do.
+                    blob_index target_complete_tx = me.gd->latest_complete_tx;
+                    while(!me.please_stop
+                            && target_complete_tx > me.gd->manager_tx_head) {
+                        // Do one tx at a time until we have nothing left to do.
 
-                            // First check for subscriptions
-                            EZefRef last_tx{me.gd->manager_tx_head, *me.gd};
-                            if(!(last_tx | has_out[BT.NEXT_TX_EDGE])) {
-                                std::cerr << "guid: " << me.uid << std::endl;
-                                std::cerr << "write_head: " << me.gd->write_head.load() << std::endl;
-                                std::cerr << "read_head: " << me.gd->read_head.load() << std::endl;
-                                std::cerr << "latest_complete_tx: " << me.gd->latest_complete_tx.load() << std::endl;
-                                std::cerr << "manager_tx_head: " << me.gd->manager_tx_head.load() << std::endl;
-                                throw std::runtime_error("Big problem in sync thread, could not find BT.NEXT_TX_EDGE from last_tx");
-                            }
-                            EZefRef this_tx = last_tx >> BT.NEXT_TX_EDGE;
-
-                            try {
-                                run_subscriptions(*me.gd, this_tx);
-                            } catch(...) {
-                                std::cerr << "There was a failure in the run_subscriptions part of the sync thread." << std::endl;
-                                throw;
-                            }
-
-                            // TODO:
-                            // TODO:
-                            // TODO:
-                            // TODO: We probably need to save off this
-                            // manager_tx_head, so that premature exits can be
-                            // picked up from later. This is especially relevant
-                            // for the tokens.
-                            // TODO:
-                            // TODO:
-                            // TODO:
-                            update(me.gd->heads_locker, me.gd->manager_tx_head, index(this_tx));
+                        // First check for subscriptions
+                        EZefRef last_tx{me.gd->manager_tx_head, *me.gd};
+                        if(!(last_tx | has_out[BT.NEXT_TX_EDGE])) {
+                            std::cerr << "guid: " << me.uid << std::endl;
+                            std::cerr << "write_head: " << me.gd->write_head.load() << std::endl;
+                            std::cerr << "read_head: " << me.gd->read_head.load() << std::endl;
+                            std::cerr << "latest_complete_tx: " << me.gd->latest_complete_tx.load() << std::endl;
+                            std::cerr << "manager_tx_head: " << me.gd->manager_tx_head.load() << std::endl;
+                            throw std::runtime_error("Big problem in sync thread, could not find BT.NEXT_TX_EDGE from last_tx");
                         }
-                        internals::execute_queued_fcts(*me.gd);
+                        EZefRef this_tx = last_tx >> BT.NEXT_TX_EDGE;
+
+                        try {
+                            run_subscriptions(*me.gd, this_tx);
+                        } catch(...) {
+                            std::cerr << "There was a failure in the run_subscriptions part of the sync thread." << std::endl;
+                            throw;
+                        }
+
+                        // TODO:
+                        // TODO:
+                        // TODO:
+                        // TODO: We probably need to save off this
+                        // manager_tx_head, so that premature exits can be
+                        // picked up from later. This is especially relevant
+                        // for the tokens.
+                        // TODO:
+                        // TODO:
+                        // TODO:
+                        update(me.gd->heads_locker, me.gd->manager_tx_head, index(this_tx));
                     }
+                    internals::execute_queued_fcts(*me.gd);
 
                     if(me.gd->error_state != GraphData::ErrorState::OK)
                         throw std::runtime_error("Sync worker for graph detected invalid state and is aborting");
@@ -1460,7 +1494,11 @@ namespace zefDB {
             if(gtd->gd != nullptr) {
                 // This doesn't need to be synchronised, as only this thread cares about it. It is only used to "disable" ~Graph inside of this function.
                 // If keep_alive, then get rid of that now
+                if(zwitch.developer_output())
+                    std::cerr << "About to reset the keep alive" << std::endl;
                 gtd->keep_alive_g.reset();
+                if(zwitch.developer_output())
+                    std::cerr << "Reset the keep alive" << std::endl;
                 gtd->gd->started_destructing = true;
                 if(!gtd->queue._closed)
                     gtd->queue.set_closed();
@@ -1502,7 +1540,9 @@ namespace zefDB {
                     std::cerr << "Unloading graph: " << gtd->uid << std::endl;
                     // std::cerr << "Heads: sync: " << gtd->gd->sync_head.load() << ", read: " << gtd->gd->read_head.load() << ", write: " << gtd->gd->write_head.load() << std::endl;
                 }
+                gtd->debug_last_action = "Before destructing GraphData";
                 gtd->gd->~GraphData();
+                gtd->debug_last_action = "Destructed GraphData";
                 MMap::destroy_mmap((void*)gtd->gd);
                 gtd->debug_last_action = "Cleaned up mmap";
             }
@@ -1535,30 +1575,6 @@ namespace zefDB {
         ////////////////////////////////////////////////
         // * Connection management
 
-        std::string get_auto_connect() {
-            // if(!initialised_python_core) {
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "C library wants to call into python module before it has finished loading. Specifically, it wants to determine the \"login.autoConnect\" value. Going to return \"auto\" to avoid creating a circular dependency." << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     std::cerr << "WARNING!!!" << std::endl;
-            //     return "auto";
-            // }
-                
-            // py::gil_scoped_acquire acquire;
-            // auto get_config = py::module_::import("zef.ops._config").attr("get_config");
-            // return get_config("login.autoConnect").cast<std::string>();
-
-            // TODO: reimplement config into C
-            return "auto";
-        }
-
         bool Butler::want_upstream_connection() {
             if(network.uri == "")
                 return false;
@@ -1567,7 +1583,7 @@ namespace zefDB {
             if(network.is_running())
                 return true;
 
-            std::string auto_connect = get_auto_connect();
+            std::string auto_connect = std::get<std::string>(get_config_var("login.autoConnect"));
 
             if(auto_connect == "auto" && have_auth_credentials())
                 return true;
@@ -1641,6 +1657,52 @@ namespace zefDB {
             }
         }
 
+        std::string Butler::who_am_i() {
+            std::string name;
+
+            std::optional<std::string> key_string = load_forced_zefhub_key();
+            if(key_string) {
+                if(*key_string == constants::zefhub_guest_key) {
+                    name = "GUEST via forced key";
+                } else {
+                    // This is  duplicated with get_firebase_refresh_token_email which is annoying
+                    int colon = key_string->find(':');
+                    name = key_string->substr(0,colon) + " via forced key";
+                }
+            } else if(!have_auth_credentials()) {
+                name = "";
+            } else {
+                if(have_logged_in_as_guest) {
+                    name = "GUEST via login prompt";
+                } else {
+                    auto credentials_file = zefdb_config_path() / "credentials";
+                    if(!std::filesystem::exists(credentials_file)) {
+                        name = "";
+                    } else {
+                        std::ifstream file(credentials_file);
+                        json j = json::parse(file);
+                        refresh_token = j["refresh_token"].get<std::string>();
+                        std::string token = get_firebase_token_refresh_token(refresh_token);
+                        using traits = jwt::traits::nlohmann_json;
+                        auto decoded = jwt::decode<traits>(token);
+                        name = decoded.get_payload_claim("email").to_json();
+
+                        auto firebase_field = decoded.get_payload_claim("firebase").to_json();
+                        if(firebase_field.contains("sign_in_provider"))
+                            name += " through firebase provider: " + firebase_field["sign_in_provider"].get<std::string>();
+                    }
+                }
+            }
+
+            if(connection_authed)
+                name += " (CONNECTED)";
+            else if(fatal_connection_error)
+                name += " (CONNECITON ERROR)";
+            else
+                name += " (DISCONNECTED)";
+            return name;
+        }
+
         Butler::header_list_t Butler::prepare_send_headers(void) {
             determine_refresh_token();
             decltype(network)::header_list_t headers;
@@ -1666,8 +1728,7 @@ namespace zefDB {
             if(network.is_running())
                 return;
 
-            // TODO: Look this up
-            std::string auto_connect = get_auto_connect();
+            std::string auto_connect = std::get<std::string>(get_config_var("login.autoConnect"));
             if(have_auth_credentials() || auto_connect == "always")
                 // Note: in the case of already having credentials,
                 // ensure_auth_credentials, will make sure the credentials are
@@ -1764,20 +1825,6 @@ namespace zefDB {
             return name;
         }
 
-        std::string get_default_zefhub_uri() {
-            char * env = std::getenv("ZEFHUB_URL");
-            if (env != nullptr)
-                return std::string(env);
-
-            // TODO: Load from file
-            
-            // return "http://localhost:5001";
-            // return "wss://hub.zefhub.com";
-            // return "wss://hubv2.zefhub.com";
-            return "wss://hub.zefhub.io";
-        }
-
-
         //////////////////////////////
         // * Credentials
 
@@ -1800,7 +1847,7 @@ namespace zefDB {
             }
 
             // Old location for fallback
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
             env = std::getenv("LOCALAPPDATA");
 #else
             env = std::getenv("HOME");
@@ -2011,13 +2058,7 @@ namespace zefDB {
             if (env != nullptr)
                 return std::filesystem::path(std::string(env)) / upstream_name;
 
-#ifdef _MSC_VER
-            char * home = std::getenv("LOCALAPPDATA");
-#else
-            char * home = std::getenv("HOME");
-#endif
-            std::filesystem::path path(home);
-            path /= ".zef";
+            std::filesystem::path path = zefdb_config_path();
             path /= "graphs";
             path /= upstream_name;
             return path;
@@ -2056,7 +2097,7 @@ namespace zefDB {
             if (env != nullptr)
                 return std::string(env);
 
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
             env = std::getenv("LOCALAPPDATA");
 #else
             env = std::getenv("HOME");
@@ -2075,6 +2116,7 @@ namespace zefDB {
         // * External handlers
 
 
+        // ** Merge handler
         std::optional<std::function<merge_handler_t>> merge_handler;
         json pass_to_merge_handler(Graph g, const json & payload) {
             if(!merge_handler)
@@ -2093,6 +2135,25 @@ namespace zefDB {
             if(!merge_handler)
                 std::cerr << "Warning, no merge_handler registered to be removed." << std::endl;
             merge_handler.reset();
+        }
+
+        // ** Schema validator
+        std::optional<std::function<schema_validator_t>> schema_validator;
+        void pass_to_schema_validator(ZefRef tx) {
+            if(schema_validator)
+                (*schema_validator)(tx);
+        }
+
+        void register_schema_validator(std::function<schema_validator_t> func) {
+            if(schema_validator)
+                throw std::runtime_error("schema_validator has already been registered.");
+            schema_validator = func;
+        }
+
+        void remove_schema_validator() {
+            if(!schema_validator)
+                std::cerr << "Warning, no schema_validator registered to be removed." << std::endl;
+            schema_validator.reset();
         }
     }
 }

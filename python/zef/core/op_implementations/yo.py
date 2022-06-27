@@ -19,7 +19,7 @@ from functional import seq
 from ..internals import is_delegate, root_node_blob_index, BlobType
 from .._core import *
 from .. import internals
-from ..VT import TX,String, Instantiated, Terminated, Assigned
+from ..VT import TX,String, Instantiated, Terminated, Assigned, Is
 
 def yo_implementation(x, display=True):
     import inspect
@@ -215,13 +215,8 @@ def readable_datetime_from_tx_uzr(uzr_tx) -> str:
     uzr_tx = to_ezefref(uzr_tx)
     if index(uzr_tx) == root_node_blob_index():
         return '/'
-    return str(time_slice(to_graph_slice(uzr_tx))) + ': ' + str(uzr_tx | time | collect)
+    return f'GraphSlice {str(graph_slice_index(to_graph_slice(uzr_tx)))}: {str(uzr_tx | time | collect)}'
 
-    # time_stamp_here = unix_time(uzr_tx)
-    # return datetime.fromtimestamp(time_stamp_here)\
-    #     .astimezone(timezone(timedelta(hours=8)))\
-    #     .strftime(f"TimeSlice {fill_str_to_length(str(time_slice(uzr_tx).value), 6)} %d.%m.%Y %H:%M:%S (SG), {time_stamp_here}") \
-    #     if index(uzr_tx) != internals.root_node_blob_index() else "/"
 
 
 def eternalist_view(zr_or_uzr) -> str:
@@ -337,7 +332,7 @@ def timeline_view(zr_or_uzr) -> str:
             return (edge | instantiation_tx | time | collect) if edge_state == "Instantiated" else (edge | termination_tx | time | collect)
         return edge | source | time | collect
 
-    reference_tx_timeslice = time_slice(to_graph_slice(reference_tx))
+    reference_tx_gs_index = graph_slice_index(to_graph_slice(reference_tx))
     rel_ent_inst_edge = uzr | in_rel[BT.RAE_INSTANCE_EDGE]
     all_edges = [(e, "low_lvl", "") for e in rel_ent_inst_edge | in_rels[BT] | collect]
     add_directed_rt_to_list(uzr | in_rels[RT] | filter[lambda z: BT(z) != BT.RAE_INSTANCE_EDGE] | collect, "in")
@@ -348,7 +343,7 @@ def timeline_view(zr_or_uzr) -> str:
     # Loop over all edges and filter based on edge_type and on the reference_tx value
     for e in all_edges:
         edge, edge_type, edge_state = e
-        if edge_type == "low_lvl" and edge | source | to_graph_slice | time_slice | collect <= reference_tx_timeslice:
+        if edge_type == "low_lvl" and edge | source | to_graph_slice | graph_slice_index | collect <= reference_tx_gs_index:
             edge_description = (f"{fill_str_to_length(generate_low_level_description(edge), 65)}  "
                                 f"[{readable_datetime_from_tx_uzr(edge | source | collect)}]", edge)
             if BT(edge) == BT.TERMINATION_EDGE:
@@ -356,8 +351,8 @@ def timeline_view(zr_or_uzr) -> str:
             else:
                 descriptions_and_txs.append(edge_description)
         else:
-            if (edge_state == "Instantiated" and time_slice(edge | instantiation_tx | frame | collect) <= reference_tx_timeslice) or\
-                    (edge_state == "Terminated" and time_slice(edge | termination_tx | frame | collect) <= reference_tx_timeslice):
+            if (edge_state == "Instantiated" and graph_slice_index(edge | instantiation_tx | frame | collect) <= reference_tx_gs_index) or\
+                    (edge_state == "Terminated" and graph_slice_index(edge | termination_tx | frame | collect) <= reference_tx_gs_index):
                 descriptions_and_txs.append(
                     (f"{fill_str_to_length(generate_rt_description(edge, edge_type, edge_state), 54)}", edge))
 
@@ -379,13 +374,19 @@ def timeline_view(zr_or_uzr) -> str:
 
 def graph_info(g) -> str:
     bl = blobs(g)
+    grouped_by_bts =  dict(
+        bl 
+        | group_by[BT] 
+        | filter[lambda x: x[0] in {BT.TX_EVENT_NODE, BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}] 
+        | collect
+    )
 
     def simple_lengths(g) -> str:
         return (f"{g.graph_data.write_head} blobs, "
-                + str(length(bl | filter[is_a[BT.TX_EVENT_NODE]])) + " TXs, "
-                + str(length(bl | filter[is_a[BT.ENTITY_NODE]])) + " ETs, "
-                + str(length(bl | filter[is_a[BT.ATOMIC_ENTITY_NODE]])) + " AETs, "
-                + str(length(bl | filter[is_a[BT.RELATION_EDGE]])) + " RTs"
+                + str(length(grouped_by_bts[BT.TX_EVENT_NODE])) + " TXs, "
+                + str(length(grouped_by_bts[BT.ENTITY_NODE])) + " ETs, "
+                + str(length(grouped_by_bts[BT.ATOMIC_ENTITY_NODE])) + " AETs, "
+                + str(length(grouped_by_bts[BT.RELATION_EDGE])) + " RTs"
                 )
 
     from builtins import round
@@ -395,18 +396,18 @@ def graph_info(g) -> str:
 ===================================== Seen from: {str(now())} =========================================
 ======================================================================================================================
 
-instantiation:          {readable_datetime_from_tx_uzr(g | All[TX] | first | collect) if length(g | All[TX] | collect) > 0 else "NA"}
-last change:            {readable_datetime_from_tx_uzr(g | All[TX] | last | collect)  if len(g | All[TX] | collect) > 0 else "NA"}
+instantiation:          {readable_datetime_from_tx_uzr(g | all[TX] | first | collect) if length(g | all[TX] | collect) > 0 else "NA"}
+last change:            {readable_datetime_from_tx_uzr(g | all[TX] | last | collect)  if len(g | all[TX] | collect) > 0 else "NA"}
 current tags:           {g.graph_data.tag_list}
 summary:                {simple_lengths(g)}
 size:                   {round((g.graph_data.write_head * 16) / 1E6, 3)}MB
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Atomic Entities ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{type_summary_view(bl, g, BT.ATOMIC_ENTITY_NODE)}
+{type_summary_view(grouped_by_bts[BT.ATOMIC_ENTITY_NODE], g, BT.ATOMIC_ENTITY_NODE)}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Entities ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{type_summary_view(bl, g, BT.ENTITY_NODE)}
+{type_summary_view(grouped_by_bts[BT.ENTITY_NODE], g, BT.ENTITY_NODE)}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  Relations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{type_summary_view(bl, g, BT.RELATION_EDGE)}
+{type_summary_view(grouped_by_bts[BT.RELATION_EDGE], g, BT.RELATION_EDGE)}
 """
 
 
@@ -422,7 +423,6 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
 
     def find_alive_count_of_triple(triple: Tuple[str]) -> int:
         d_top = delegate_of(triple[1], g)
-
         return (d_top
          | Outs[BT.TO_DELEGATE_EDGE]
          | filter[And[source | rae_type | equals[triple[0]]]
@@ -431,29 +431,41 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
          | sum
          | collect)
 
-    def find_triples_of_rt(rt: str) -> str:
-        return "".join(
-            seq([(rae_type(z | source | collect), rae_type(z), rae_type(z | target | collect)) for z in
-                bl | filter[is_a[RT(rt)]] | filter[lambda z: not internals.is_delegate(z)]])
-            .group_by(lambda x: x)
-            .map(lambda x: (x[0], len(x[1]), find_alive_count_of_triple(x[0])))
-            .map(triple_string_view)
+    def rt_block_view(rt: str, total_count: int) -> str:
+        rt = RT(rt)
+        total_alive = 0
+        def find_triple_count_and_inc(trip):
+            nonlocal total_alive
+            alive = find_alive_count_of_triple(trip)
+            total_alive += alive
+            return alive
+
+        triples_str_views = (
+            grouped_triples
+            | filter[lambda x: x[0][1] == rt]
+            | map[lambda x: (x[0], len(x[1]), find_triple_count_and_inc(x[0]))]
+            | map[triple_string_view]
+            | join[""]
+            | collect
         )
-    # TODO find correct alive instances for RT
-    return "".join(
-        seq([z for z in bl | filter[is_a[bt_filter]] | filter[lambda z: not internals.is_delegate(z)]])
-        .group_by(lambda z: zr_type(z))
-        .map(lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect)))
-        .map(lambda x: aet_et_rt_string_view(x) + find_triples_of_rt(
-            x[0][3:]) if bt_filter == BT.RELATION_EDGE else aet_et_rt_string_view(x))
+        return aet_et_rt_string_view((repr(rt), total_count, total_alive)) + triples_str_views
+
+    filtered_blobs = bl | filter[lambda b: not is_a(b, Delegate)]
+    if bt_filter == BT.RELATION_EDGE:
+        grouped_triples = filtered_blobs | map[lambda z: (rae_type(z | source | collect), rae_type(z), rae_type(z | target | collect))] | group_by[lambda x: x] | collect
+    else: grouped_triples = None
+
+    return (
+        [z for z in filtered_blobs]
+        | group_by[zr_type]
+        | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect))]
+        | map[lambda x: rt_block_view(x[0][3:], x[1]) if bt_filter == BT.RELATION_EDGE else aet_et_rt_string_view(x)]
+        | join[""]
+        | collect
     )
-
-
 # +\
 # indent_lines(relations_view(zr_or_uzr)) + "\n" +\
 # indent_lines(timeline_view(zr_or_uzr))
-
-
 # def src_dst_info(uzr) -> str:
 #     return f"""
 #     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Source and Target ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

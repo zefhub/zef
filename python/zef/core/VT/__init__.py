@@ -41,11 +41,80 @@ def decimal_ctor(*args, **kwargs):
     # return core.bytes.Bytes_(*args, **kwargs)
     return Decimal_(*args, **kwargs)
 
-# def error_ctor(*args, **kwargs):
-#     from ... import core
-#     return core.error._Error.Error(*args, **kwargs)
 
 
+def union_getitem(x):
+    from ..op_structs import ZefOp
+    if isinstance(x, tuple):
+        return ValueType_(type_name='Union', absorbed=x)
+    elif isinstance(x, ValueType_):
+        return ValueType_(type_name='Union', absorbed=(x,))
+    elif isinstance(x, ZefOp):
+        return ValueType_(type_name='Union', absorbed=(x,))
+    else:
+        raise Exception(f'"Union[...]" called with unsupported type {type(x)}')
+
+def intersection_getitem(x):
+    from ..op_structs import ZefOp
+    if isinstance(x, tuple):
+        return ValueType_(type_name='Intersection', absorbed=x)
+    elif isinstance(x, ValueType_):
+        return ValueType_(type_name='Intersection', absorbed=(x,))
+    elif isinstance(x, ZefOp):
+        return ValueType_(type_name='Intersection', absorbed=(x,))
+    else:
+        raise Exception(f'"Intersection[...]" called with unsupported type {type(x)}')
+
+def complement_getitem(x):
+    if isinstance(x, ValueType_):
+        return ValueType_(type_name='Complement', absorbed=(x,))
+    else:
+        raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
+
+def is_getitem(x):
+    from typing import Callable
+    from ..op_structs import ZefOp
+    from .. import func
+    if isinstance(x, tuple):
+        return ValueType_(type_name='Is', absorbed=x)
+    elif isinstance(x, ValueType_):
+        return ValueType_(type_name='Is', absorbed=(x,))
+    elif isinstance(x, ZefOp):
+        return ValueType_(type_name='Is', absorbed=(x,))
+    elif isinstance(x, Callable):
+        return ValueType_(type_name='Is', absorbed=(func[x],))
+    else:
+        raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
+
+
+
+def setof_ctor(*args):
+    """
+    Can be called with either SetOf[5,6,7] or SetOf(5,6,7).
+    When calling with square brackets, a tuple must always be 
+    passed implicitly or explicitly.
+    SetOf[42] is NOT valid
+    SetOf[(42,)] is valid
+    SetOf[42,] is valid    
+    SetOf[42, 43] is valid    
+    """
+    return ValueType_(type_name='SetOf', absorbed = (args, ))
+
+
+
+def setof_getitem(x):
+    if not isinstance(x, tuple):
+        raise TypeError(f"`SetOf[...]` must be called with a tuple, either explicitly or implicitly. e.g. SetOf[3,4], SetOf[(3,4)]. When wrapping one value, use SetOf[42,]. It was called with {x}. ")
+    return ValueType_(type_name='SetOf', absorbed=(x, ))
+
+
+
+
+def rp_getitem(x):
+    if not isinstance(x, tuple) or len(x)!=3:
+        raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got x={x}")
+    return ValueType_(type_name='RP', absorbed=(x,))
+      
 
 Nil        = ValueType_(type_name='Nil',        constructor_func=None)
 Any        = ValueType_(type_name='Any',        constructor_func=None)
@@ -70,6 +139,10 @@ Time       = ValueType_(type_name='Time',       constructor_func=time_ctor)
 Error      = ValueType_(type_name='Error',      constructor_func=None)
 Image      = ValueType_(type_name='Image',      constructor_func=None)
 ValueType  = ValueType_(type_name='ValueType',  constructor_func=ValueType_)
+T          = ValueType_(type_name='T',  constructor_func=None)
+T1         = ValueType_(type_name='T1',  constructor_func=None)
+T2         = ValueType_(type_name='T2',  constructor_func=None)
+T3         = ValueType_(type_name='T3',  constructor_func=None)
 
 
 # QuantityInt= ValueType_(type_name='QuantityInt',constructor_func=None)
@@ -101,17 +174,33 @@ GraphDelta = ValueType_(type_name='GraphDelta', constructor_func=None)
 Query      = ValueType_(type_name='Query',      constructor_func=None) 
 DeltaQuery = ValueType_(type_name='DeltaQuery', constructor_func=None) 
 Effect     = ValueType_(type_name='Effect',     constructor_func=None) 
-DataFrame  = ValueType_(type_name='DataFrame', constructor_func=None)     
+DataFrame  = ValueType_(type_name='DataFrame',  constructor_func=None)     
 # EZefRefs   = ValueType_(type_name='EZefRefs', constructor_func=None)     
 # EZefRefss  = ValueType_(type_name='EZefRefss', constructor_func=None)     
 # ZefRefs    = ValueType_(type_name='ZefRefs', constructor_func=None)     
 # ZefRefss   = ValueType_(type_name='ZefRefss', constructor_func=None)     
 
+Pattern        = ValueType_(type_name='Pattern',             constructor_func=None)
+Union          = ValueType_(type_name='Union',               constructor_func=None,             get_item_func=union_getitem)
+Intersection   = ValueType_(type_name='Intersection',        constructor_func=None,             get_item_func=intersection_getitem)
+Is             = ValueType_(type_name='Is',                  constructor_func=None,             get_item_func=is_getitem)
+SetOf          = ValueType_(type_name='SetOf',               constructor_func=setof_ctor,       get_item_func=setof_getitem)
+Complement     = ValueType_(type_name='Complement',          constructor_func=None,             get_item_func=complement_getitem)
+RP             = ValueType_(type_name='RP',                  constructor_func=None,             get_item_func=rp_getitem)
+HasValue       = ValueType_(type_name='HasValue',            constructor_func=None)
 
-Pattern = ValueType_(type_name='Pattern', constructor_func=None)
-# These are special classes: using them with [...] returns a ValueType_ though
-Union = UnionClass()
-Intersection = IntersectionClass()
-Is = IsClass()
-SetOf = SetOfClass()
-Complement = ComplementClass()
+def operates_on_ctor(x):
+    from .._ops import operates_on, contains
+    return Is[operates_on | contains[x]]
+
+def related_ops_ctor(x):
+    from .._ops import related_ops, contains
+    return Is[related_ops | contains[x]]
+
+def used_for_ctor(x):
+    from .._ops import used_for, contains
+    return Is[used_for | contains[x]]
+
+OperatesOn     = ValueType_(type_name='OperatesOn',   constructor_func = operates_on_ctor,  get_item_func = operates_on_ctor)
+RelatedOps     = ValueType_(type_name='RelatedOps',   constructor_func = related_ops_ctor,  get_item_func = related_ops_ctor)
+UsedFor        = ValueType_(type_name='UsedFor',      constructor_func = used_for_ctor, get_item_func =used_for_ctor)

@@ -22,53 +22,10 @@ class Direction(Enum):
     OUTGOING = 2
     INCOMING = 3
 
-# This class needs to tie in with ZefRef_to_node_ref
-class NodeRef:
-    def __init__(self, z):
-        assert isinstance(z, ZefRef)
-        self.z = z
-
-    def __repr__(self):
-        return f"Node(#{index(self.z)})"
-    def __eq__(self, other):
-        if not isinstance(other, NodeRef):
-            return NotImplemented
-        return self.z == other.z
-    def __hash__(self):
-        return hash(self.z)
-
-# This class needs to tie in with ZefRef_to_edge_ref
-# class EdgeRef:
-#     def __init__(self, z):
-#         assert isinstance(z, ZefRef)
-#         self.z = z
-
-#     def __repr__(self):
-#         src = source(self.z)
-#         trg = target(self.z)
-#         return f"Edge(#{index(src)} -> #{index(trg)})"
-
-#     def __eq__(self, other):
-#         if not isinstance(other, EdgeRef):
-#             return NotImplemented
-#         return self.z == other.z
-
-#     def __hash__(self):
-#         return hash(self.z)
-
-@func
-def ZefRef_to_node_ref(z):
-    # Here we provide a consistent "name" for a ZefRef to library functions that
-    # use the ProxyGraph. Even though we allow users to provide pretty much
-    # anything that fits into g[x], this consistency here should provide a
-    # better fit for algorithms that do comparisons, etc...
-    # return index(z)
-    return NodeRef(z)
-
 @func
 def ZefRef_to_edge_ref(z, direction):
-    src_ref = ZefRef_to_node_ref(source(z))
-    trg_ref = ZefRef_to_node_ref(target(z))
+    src_ref = source(z)
+    trg_ref = target(z)
     if direction == Direction.INCOMING:
         return (trg_ref, src_ref)
     elif direction == Direction.OUTGOING:
@@ -80,7 +37,6 @@ def ZefRef_to_edge_ref(z, direction):
             return (src_ref, trg_ref)
         else:
             return (trg_ref, src_ref)
-    # return EdgeRef(z)
 
 @func
 def all_edges(z, rt, direction):
@@ -123,9 +79,16 @@ class ProxyGraph:
         self.include_type_as_field = include_type_as_field
         assert not multigraph, "Currently no multigraph support"
 
+        if isinstance(self.node_filter, tuple):
+            raise Exception("Don't pass a tuple to ProxyGraph as the node_filter")
+
+        if isinstance(self.node_filter, list):
+            # This is a special case that I think will later not be needed
+            self.node_filter = set(self.node_filter)
+
         # On creation, we make a consistent mapping of indices, just so we can
         # be sure this won't change in the future.
-        self.node_mapping = self._all_node_refs()
+        # self.node_mapping = self._all_node_refs()
 
         if self.undirected:
             self.direction = Direction.BOTH
@@ -134,18 +97,19 @@ class ProxyGraph:
         else:
             self.direction = Direction.OUTGOING
         
-    def _all_node_refs(self):
-        if isinstance(self.node_filter, tuple):
-            raise Exception("Don't pass a tuple to ProxyGraph as the node_filter")
-
-        if isinstance(self.node_filter, list):
-            if isinstance(self.node_filter[0], NodeRef):
-                return self.node_filter
-            if isinstance(self.node_filter[0], ZefRef):
-                return [ZefRef_to_node_ref(x) for x in self.node_filter]
-            raise TypeError("Can't understand node_filter")
+    def _lazy_node_refs(self):
+        if type(self.node_filter) == set:
+            # This is an optimisation that will hopefully not be needed later on
+            return self.node_filter
         else:
-            return self.gs | all[self.node_filter] | func[list] | map[ZefRef_to_node_ref] | collect
+            return self.gs | all[self.node_filter]
+
+    def _in_node_filter(self, node):
+        if type(self.node_filter) == set:
+            # This is an optimisation that will hopefully not be needed later on
+            return node in self.node_filter
+        else:
+            return node | is_a[self.node_filter] | collect
 
     @property
     def nodes(self):
@@ -213,8 +177,9 @@ class ProxyGraph:
 
     def number_of_nodes(self):
         return len(self.nodes)
-    def number_of_edges(self, u, v):
-        raise NotImplementedError("Need this for multigraphs")
+    def number_of_edges(self, u=None, v=None):
+        # raise NotImplementedError("Need this for multigraphs")
+        assert u is None and v is None, "TODO for multigraphs"
         return len(self.edges)
 
     def __getitem__(self, item):
@@ -223,8 +188,10 @@ class ProxyGraph:
 
         # Returns a view from a node which is the first half of an edge query.
         resolved = None
-        if isinstance(item, NodeRef):
-            resolved = item.z
+        if False:
+            pass
+        # elif isinstance(item, NodeRef):
+        #     resolved = item.z
         elif isinstance(item, (str,int)) or is_a(item, uid):
             resolved = self.gs[item]
         elif isinstance(item, ZefRef):
@@ -236,14 +203,13 @@ class ProxyGraph:
         return ProxyAtlasView(resolved, self)
 
     def __iter__(self):
-        return iter(self.node_mapping)
+        return iter(self._lazy_node_refs())
     def __len__(self):
-        return len(self.node_mapping)
+        return length(self._lazy_node_refs())
     def nbunch_iter(self, nbunch=None):
         if nbunch is None:
             return iter(self)
-        nbunch = [ZefRef_to_node_ref(self[x].z) for x in nbunch]
-        return iter(set(nbunch) & set(self.node_mapping))
+        return (z for z in set(nbunch) if self._in_node_filter(x))
         
 
     # Graph properties
@@ -256,11 +222,15 @@ class ProxyGraph:
     # TODO:
     # has_edge
     # adjacency
+    # size
+
     def order(self):
         return self.number_of_nodes()
-    # size
-    # subgraph - this could be done with an explicit node list, rather than ets
+
     def subgraph(self, nodes):
+        if type(nodes) != set:
+            raise Exception("Subgraph requires a set. In the future it will be possible to consider the union of query types.")
+
         return ProxyGraph(self.gs,
                            nodes,
                            self.rts,
@@ -272,7 +242,7 @@ class ProxyGraph:
                            
     def reverse(self):
         return ProxyGraph(self.gs,
-                           self.node_mapping,
+                           self.node_filter,
                            self.rts,
                            undirected=self.undirected,
                            multigraph=self.multigraph,
@@ -282,7 +252,7 @@ class ProxyGraph:
 
     def to_undirected(self):
         return ProxyGraph(self.gs,
-                           self.node_mapping,
+                           self.node_filter,
                            self.rts,
                            undirected=True,
                            multigraph=self.multigraph,
@@ -292,7 +262,7 @@ class ProxyGraph:
 
     def to_directed(self):
         return ProxyGraph(self.gs,
-                           self.node_mapping,
+                           self.node_filter,
                            self.rts,
                            undirected=False,
                            multigraph=self.multigraph,
@@ -339,9 +309,9 @@ class ProxyNodeView:
     #     raise NotImplementedError()
 
     def __iter__(self):
-        return iter(self.dg.node_mapping)
+        return iter(self.dg)
     def __len__(self):
-        return len(self.dg.node_mapping)
+        return len(self.dg)
 
     def items(self):
         for n in self:
@@ -401,11 +371,10 @@ class ProxyEdgeView:
             direction_override = Direction.OUTGOING
         else:
             direction_override = self.dg.direction
-        out = (self.dg.node_mapping
-                 | map[lambda x: x.z]
-                 | map[all_edges_with_end[self.dg.rts][direction_override]]
-                 | concat
-                 | filter[second | func[ZefRef_to_node_ref] | contained_in[self.dg.node_mapping]]
+
+        out = (LazyValue(self.dg._lazy_node_refs())
+                 | map_cat[all_edges_with_end[self.dg.rts][direction_override]]
+                 | filter[second | func[self.dg._in_node_filter]]
                  | map[first]
                  | map[ZefRef_to_edge_ref[self.dg.direction]])
         if self.dataview:
@@ -462,17 +431,21 @@ class ProxyAtlasView:
         self.dg = dg
 
     def __repr__(self):
-        return f"AtlasView({ZefRef_to_node_ref(self.z)})"
+        return f"AtlasView({self.z})"
     def _repr_pretty_(self, p, cycle):
         p.text(str(self))
 
     def __iter__(self):
         # This returns the neighbors, not the edges
         # all_edges_with_end returns a tuple with (rel,ent)
-        lazy = self.z | all_edges_with_end[self.dg.rts][self.dg.direction] | map[second] | map[ZefRef_to_node_ref] | filter[contained_in[self.dg.node_mapping]]
+        lazy = self.z | all_edges_with_end[self.dg.rts][self.dg.direction] | map[second] | filter[self.dg._in_node_filter]
         return iter(lazy)
     def __len__(self):
         return length(iter(self))
+    def keys(self):
+        return iter(self)
+    def items(self):
+        return ((x, self[x]) for x in self.keys())
 
     def __getitem__(self, other):
         # The other is a node itself, so we need to look it up and then find the

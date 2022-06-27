@@ -15,6 +15,9 @@
  */
 
 #pragma once
+
+#include "export_statement.h"
+
 #include <vector>
 #include <array>
 #include <unordered_map>
@@ -32,7 +35,6 @@
 #include "include_fs.h"
 
 // #include "fwd_declarations.h"
-#include "export_statement.h"
 #include "constants.h"
 
 #include "range/v3/all.hpp"
@@ -263,6 +265,21 @@ namespace zefDB {
         ~RAII_CallAtEnd() { func(); }
     };
 
+    inline bool parse_string_bool(std::string s) {
+        if(s == "0" ||
+           s == "NO" ||
+           s == "no" ||
+           s == "FALSE" ||
+           s == "false")
+            return false;
+        if(s == "1" ||
+           s == "YES" ||
+           s == "yes" ||
+           s == "TRUE" ||
+           s == "true")
+            return true;
+        throw std::runtime_error("Unknown string to convert to bool: '" + s + "'");
+    }
     inline bool check_env_bool(const char * var, bool default_val=false) {
         char * env = std::getenv(var);
         if(env == nullptr)
@@ -272,20 +289,11 @@ namespace zefDB {
         if(s_env == "")
             return default_val;
 
-        if(s_env == "0" ||
-           s_env == "NO" ||
-           s_env == "no" ||
-           s_env == "FALSE" ||
-           s_env == "false")
-            return false;
-        else if(s_env == "1" ||
-                s_env == "YES" ||
-                s_env == "yes" ||
-                s_env == "TRUE" ||
-                s_env == "true")
-            return true;
-        else
+        try {
+            return parse_string_bool(s_env);
+        } catch(...) {
             std::cerr << "Warning, found value for environment variable " << var << "='" << s_env << "' but was not recognised. Value should be one of 0, 1, NO, YES, FALSE, TRUE." << std::endl;
+        }
 
         return default_val;
     }
@@ -307,18 +315,22 @@ namespace zefDB {
     }
 
     // Stealing from StackOverflow: https://stackoverflow.com/questions/20112221/invoking-a-function-automatically-on-stdthread-exit-in-c11
-    inline void on_thread_exit(std::function<void()> func) {
+    inline void on_thread_exit(std::string name, std::function<void()> func) {
         thread_local struct ThreadExiter {
-            std::deque<std::function<void()>> callbacks;
+            std::deque<std::pair<std::string, std::function<void()>>> callbacks;
 
             ~ThreadExiter() {
-                for (auto &callback: callbacks) {
+                for (auto &p: callbacks) {
+                    auto & name = std::get<0>(p);
+                    auto & callback = std::get<1>(p);
+                    // std::cerr << "Going to call one callback: " << name << std::endl;
                     callback();
+                    // std::cerr << "Finished calling callback: " << name << std::endl;
                 }
             }
         } exiter;
 
-        exiter.callbacks.emplace_front(std::move(func));
+        exiter.callbacks.emplace_front(name, std::move(func));
     }
 
 }

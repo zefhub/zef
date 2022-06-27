@@ -24,37 +24,36 @@ main.QuantityInt.__hash__ = lambda self: hash((self.value, self.unit))
 main.Time.__hash__ = lambda self: hash(self.seconds_since_1970)
 
 internals.Delegate.__hash__ = lambda self: hash((self.order, self.item))
-internals.DelegateEntity.__hash__ = lambda self: hash(self.et)
-internals.DelegateAtomicEntity.__hash__ = lambda self: hash(self.aet)
-internals.DelegateRelationGroup.__hash__ = lambda self: hash(self.rt)
 internals.DelegateRelationTriple.__hash__ = lambda self: hash((self.rt, self.source, self.target))
 internals.DelegateTX.__hash__ = lambda self: hash(internals.DelegateTX)
 internals.DelegateRoot.__hash__ = lambda self: hash(internals.DelegateRoot)
 
 
-def or_for_EntityType(self, other):
+from ..pyzef.main import EntityType, RelationType
+from ..pyzef.internals import AtomicEntityType, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
+override_types = (EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+
+def or_for_types(self, other):
     from . import ValueType_
-    from zef.core import EntityType, RelationType, AtomicEntityType
-    from zef.core.internals import EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
-    allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+    allowed_types = (ValueType_,) + override_types
     if isinstance(other, allowed_types):
         return ValueType_(type_name='Union', absorbed=(self, other,))
 
     return NotImplemented
     
-def and_for_EntityType(self, other):
+def and_for_types(self, other):
     from . import ValueType_
-    from zef.core import EntityType, RelationType, AtomicEntityType
-    from zef.core.internals import EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
-    allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+    allowed_types = (ValueType_,) + override_types
     if isinstance(other, allowed_types):
         return ValueType_(type_name='Intersection', absorbed=(self, other,))
 
     return NotImplemented
 
-EntityType.__or__ = or_for_EntityType
-EntityType.__ror__ = or_for_EntityType
-EntityType.__and__ = and_for_EntityType
+for x in override_types:
+    x.__or__ = or_for_types
+    x.__ror__ = lambda x,y: or_for_types(y,x)
+    x.__and__ = and_for_types
+    x.__rand__ = lambda x,y: and_for_types(y,x)
 
 
 # FIXME: why do we need the standard list of timezones in the docstring for Time? Should just refer people to the TZ database. I have removed it for now.
@@ -247,8 +246,8 @@ wrap_hash(internals.Delegate)
 # catch the case "AET.Float['abc'] <= 42.1"
 # For consistency, we use Lazy ZefOps as intermediate containers
 def leq_monkey_patching_ae(self, other):
-    from ._ops import assign_value, instantiated, LazyValue
-    return LazyValue(self) | assign_value[other]
+    from ._ops import assign, LazyValue
+    return LazyValue(self) | assign[other]
     
 AtomicEntityType.__le__ = leq_monkey_patching_ae
 
@@ -274,11 +273,11 @@ AtomicEntityType.__le__ = leq_monkey_patching_ae
 # main.ZefRefs._repr_pretty_ = pprint_ZefRefs
 # main.EZefRefs._repr_pretty_ = pprint_ZefRefs
 
-def convert_to_assign_value(self, value):
-    from ._ops import assign_value
-    return self | assign_value[value]
-ZefRef.__le__ = convert_to_assign_value
-EZefRef.__le__ = convert_to_assign_value
+def convert_to_assign(self, value):
+    from ._ops import assign
+    return self | assign[value]
+ZefRef.__le__ = convert_to_assign
+EZefRef.__le__ = convert_to_assign
 
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):

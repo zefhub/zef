@@ -389,7 +389,7 @@ namespace zefDB {
         // * Connections
 
         bool HasIn::operator() (const EZefRef uzr) const {
-            return std::visit(overload{
+            return std::visit(overloaded{
                     [](Sentinel x)->bool {throw std::runtime_error("has_in used without curried in relation"); return false; },
                     [&uzr](auto relation)->bool { 
                         return length(uzr < L[relation]) >= 1;
@@ -397,7 +397,7 @@ namespace zefDB {
                 }, relation);
         }
         bool HasIn::operator() (const ZefRef zr) const {
-            return std::visit(overload{
+            return std::visit(overloaded{
                     [](Sentinel x)->bool {throw std::runtime_error("has_in used without curried in relation"); return false; },
                     [&zr](auto relation)->bool { 
                         return length(zr < L[relation]) >= 1;
@@ -406,7 +406,7 @@ namespace zefDB {
         }
 
         bool HasOut::operator() (const EZefRef uzr) const {
-            return std::visit(overload{
+            return std::visit(overloaded{
                     [](Sentinel x)->bool {throw std::runtime_error("has_out used without curried in relation"); return false; },
                     [&uzr](auto relation)->bool { 
                         return length(uzr > L[relation]) >= 1;
@@ -414,7 +414,7 @@ namespace zefDB {
                 }, relation);
         }
         bool HasOut::operator() (const ZefRef zr) const {
-            return std::visit(overload{
+            return std::visit(overloaded{
                     [](Sentinel x)->bool {throw std::runtime_error("has_out used without curried in relation"); return false; },
                     [&zr](auto relation)->bool { 
                         return length(zr > L[relation]) >= 1;
@@ -791,14 +791,14 @@ namespace zefDB {
 			}
 
 			ZefRefs Without::operator() (const ZefRefs& original) const {
-                return std::visit(overload{
+                return std::visit(overloaded{
                         [](Sentinel x)->ZefRefs {throw std::runtime_error("without used without curried in ZefRefs"); },
                         [&original,this](ZefRefs zrs)->ZefRefs {return Without::operator()(original, zrs);},
                         [](EZefRefs x)->ZefRefs {throw std::runtime_error("without used between ZefRefs and EZefRefs"); }
                     }, removing);
 			}
 			EZefRefs Without::operator() (const EZefRefs& original) const {
-                return std::visit(overload{
+                return std::visit(overloaded{
                         [](Sentinel x)->EZefRefs {throw std::runtime_error("without used without curried in EZefRefs"); },
                         [&original,this](EZefRefs uzrs)->EZefRefs {return Without::operator()(original, uzrs);},
                         [](ZefRefs x)->EZefRefs {throw std::runtime_error("without used between EZefRefs and ZefRefs"); }
@@ -1413,7 +1413,7 @@ namespace zefDB {
         EZefRef latest_tx = operator()(g) | to_ezefref;
                 if (!is_promotable_to_zefref(uzr, latest_tx)) throw std::runtime_error("Zefop 'now' called on EZefRef that cannot be promoted to a ZefRef.");
 
-				if (!zefOps::exists_at[latest_tx](uzr))
+				if (!imperative::exists_at_now(uzr))
 					throw std::runtime_error("'now(EZefRef)' called on a EZefRef that does not exist at the latest time slice. You can opt in to allow representing terminated RAEs by providing the flag 'z | now[allow_tombstone]' ");
 
 				return ZefRef(uzr, latest_tx);
@@ -1513,7 +1513,7 @@ namespace zefDB {
         } else {
             if (!internals::has_delegate(BT(uzr))) throw std::runtime_error("Instances(zr) called for a blob type where no delegate exists.");
 
-            EZefRef ref_frame_tx = std::visit(overload{
+            EZefRef ref_frame_tx = std::visit(overloaded{
                     [](Sentinel x)->EZefRef {throw std::runtime_error("a reference frame has to be specified and curried into the 'instance' zefop when piping through a delegate EZefRef."); },
                     [](EZefRef tx)->EZefRef { return tx; },
                     [](ZefRef tx)->EZefRef { return tx | to_ezefref; },
@@ -1526,7 +1526,7 @@ namespace zefDB {
     ZefRefs Instances::operator() (const Graph& g) const {
         if (std::holds_alternative<Sentinel>(ref_frame_data)) throw std::runtime_error("g | Instances was called, but no reference frame was set in the latter op.");
 
-        EZefRef ref_frame_tx = std::visit(overload{
+        EZefRef ref_frame_tx = std::visit(overloaded{
                 [](Sentinel x)->EZefRef {throw std::runtime_error("g | Instances was called, but no reference frame was set in the latter op."); },
                 [](EZefRef tx)->EZefRef { return tx; },
                 [](ZefRef tx)->EZefRef { return tx | to_ezefref; },
@@ -1721,7 +1721,7 @@ namespace zefDB {
 				bool is_out_relation = (std::holds_alternative<OnInstantiation>(relation_direction) && std::get<OnInstantiation>(relation_direction).is_outgoing) ||
 					(std::holds_alternative<OnTermination>(relation_direction) && std::get<OnTermination>(relation_direction).is_outgoing);
 				bool is_instantiation = std::holds_alternative<OnInstantiation>(relation_direction);
-				RelationType relation_type = std::visit(overload{
+				RelationType relation_type = std::visit(overloaded{
 					[](OnInstantiation op)->RelationType {if (!bool(op.rt)) throw std::runtime_error("rel not set in OnInstantiation used in 'subscribe'"); return *op.rt; },
 					[](OnTermination op)->RelationType {if (!bool(op.rt)) throw std::runtime_error("rel not set in OnTermination used in 'subscribe'"); return *op.rt; },
 
@@ -1763,7 +1763,7 @@ namespace zefDB {
 						}
 					};
 
-					ZefRef monitored_rel_list_entity = std::visit(overload{
+					ZefRef monitored_rel_list_entity = std::visit(overloaded{
 						[&g_observables, &get_or_create_monitored_rel_list_entity](OnInstantiation op)->ZefRef { return get_or_create_monitored_rel_list_entity(*op.rt, op.is_outgoing); },
 						[&g_observables, &get_or_create_monitored_rel_list_entity](OnTermination op)->ZefRef { return get_or_create_monitored_rel_list_entity(*op.rt, op.is_outgoing); },
 						[&g_observables](auto x)->ZefRef { return g_observables[42] | now; } // never reached
@@ -2248,25 +2248,7 @@ namespace zefDB {
 
 
 		bool is_terminated(EZefRef my_rel_ent) {
- 			assert_is_this_a_rae(my_rel_ent);
-			EZefRef this_re_ent_inst = get_RAE_INSTANCE_EDGE(my_rel_ent);
-			blob_index last_index = internals::last_set_edge_index(this_re_ent_inst);
-			EZefRef last_in_edge_on_scenario_node(last_index, *graph_data(my_rel_ent));
-
-			if (get<BlobType>(last_in_edge_on_scenario_node) == BlobType::TERMINATION_EDGE) return true;
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-            // TODO: Turn this assert back on later.
-			// assert( // check that the other incoming edges are of reasonable type (i.e. expected to be incoming on scenario edge)
-			// 	get<BlobType>(last_in_edge_on_scenario_node) == BlobType::INSTANTIATION_EDGE ||
-			// 	get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE
-			// );
-			return false;
+            return !imperative::exists_at_now(my_rel_ent);
 		}
 
 
@@ -2462,7 +2444,7 @@ namespace zefDB {
 			}
 			// the foreign (atomic)entity is not in this graph
 			GraphData& gd = target_graph.my_graph_data();
-			EZefRef new_foreign_entity_uzr = std::visit(overload{
+			EZefRef new_foreign_entity_uzr = std::visit(overloaded{
 				[&](EntityType et) {
 					EZefRef new_foreign_entity_uzr = internals::instantiate(BT.FOREIGN_ENTITY_NODE, gd);
 					reinterpret_cast<blobs_ns::FOREIGN_ENTITY_NODE*>(new_foreign_entity_uzr.blob_ptr)->entity_type = et;
@@ -2621,22 +2603,21 @@ namespace zefDB {
             auto & gd = g.my_graph_data();
             LockGraphData lock{&gd};
 
-            TimeSlice latest = time_slice(now(g));
-            if(!exists_at(uzr, latest))
+            if(!exists_at_now(uzr))
                 throw std::runtime_error("Delegate is already retired");
             
             for(auto & parent : uzr >> L[BT.TO_DELEGATE_EDGE]) {
-                if(exists_at(parent, latest))
+                if(exists_at_now(parent))
                     throw std::runtime_error("Can't retire a delegate when it has a parent higher-order delegate.");
             }
 
             for(auto & rel : uzr | ins_and_outs) {
-                if(BT(rel) == BT.RELATION_EDGE && exists_at(rel, latest))
+                if(BT(rel) == BT.RELATION_EDGE && exists_at_now(rel))
                     throw std::runtime_error("Can't retire a delegate when it is the source/target of another instance/delegate.");
             }
 
             for(auto & instance : (uzr < BT.TO_DELEGATE_EDGE) >> L[BT.RAE_INSTANCE_EDGE]) {
-                if(exists_at(instance, latest))
+                if(exists_at_now(instance))
                     throw std::runtime_error("Can't retire a delegate when it has existing instances.");
             }
 
@@ -2724,6 +2705,46 @@ namespace zefDB {
 		bool exists_at(ZefRef zr, ZefRef tx) {
             return exists_at(zr.blob_uzr, tx);
         }
+
+        //////////////////////////////
+        // * exists_at_now
+
+        // This is an optimised version that uses only the latest edge in the
+        // RAE_INSTANCE_EDGE or TO_DELEGATE_EDGE in order to determine whether
+        // the RAE/delegate is alive.
+        //
+        // This relies on the instantiations/terminations being sorted chronologically.
+		bool exists_at_now(EZefRef uzr) {
+            if(is_delegate(uzr)) {
+                EZefRef to_del = internals::get_TO_DELEGATE_EDGE(uzr);
+                EZefRef last_edge(internals::last_set_edge_index(to_del), *graph_data(uzr));
+
+                if (get<BlobType>(last_edge) == BlobType::DELEGATE_RETIREMENT_EDGE) return false;
+                assert(get<BlobType>(last_edge) == BlobType::DELEGATE_INSTANTIATION_EDGE
+                       || get<BlobType>(last_edge) == BlobType::RAE_INSTANCE_EDGE);
+                return true;
+            }
+
+            if(get<BlobType>(uzr) == BlobType::ROOT_NODE)
+                return true;
+
+            if(get<BlobType>(uzr) == BlobType::TX_EVENT_NODE)
+                return true;
+
+            // For RAEs
+            internals::assert_is_this_a_rae(uzr);
+			EZefRef this_re_ent_inst = internals::get_RAE_INSTANCE_EDGE(uzr);
+			blob_index last_index = internals::last_set_edge_index(this_re_ent_inst);
+			EZefRef last_in_edge_on_scenario_node(last_index, *graph_data(uzr));
+
+			if (get<BlobType>(last_in_edge_on_scenario_node) == BlobType::TERMINATION_EDGE) return false;
+            assert(get<BlobType>(last_in_edge_on_scenario_node) == BlobType::INSTANTIATION_EDGE
+                   || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE
+                   || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ORIGIN_RAE_EDGE
+                   || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ASSIGN_TAG_NAME_EDGE);
+            return true;
+        }
+
 
         //////////////////////////////
         // * to_frame
@@ -3563,17 +3584,17 @@ namespace zefDB {
             return temp | only;
         }
 
-        std::optional<EZefRef> delegate_to_ezr(const DelegateEntity & d, int order, Graph g, bool create) {
+        std::optional<EZefRef> delegate_to_ezr(const EntityType & et, int order, Graph g, bool create) {
             auto & gd = g.my_graph_data();
             EZefRef root{constants::ROOT_NODE_blob_index, gd};
             EZefRef z = root;
             for(int i = 0 ; i < order ; i++) {
-                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), d.et);
+                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), et);
                 if(length(opts) == 0) {
                     if(create) {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef new_z = internals::instantiate(BT.ENTITY_NODE, gd);
-                        get<blobs_ns::ENTITY_NODE>(new_z).entity_type = d.et;
+                        get<blobs_ns::ENTITY_NODE>(new_z).entity_type = et;
                         get<blobs_ns::ENTITY_NODE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
                         internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
@@ -3588,17 +3609,17 @@ namespace zefDB {
             return z;
         }
 
-        std::optional<EZefRef> delegate_to_ezr(const DelegateAtomicEntity & d, int order, Graph g, bool create) {
+        std::optional<EZefRef> delegate_to_ezr(const AtomicEntityType & aet, int order, Graph g, bool create) {
             auto & gd = g.my_graph_data();
             EZefRef root{constants::ROOT_NODE_blob_index, gd};
             EZefRef z = root;
             for(int i = 0 ; i < order ; i++) {
-                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), d.aet);
+                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), aet);
                 if(length(opts) == 0) {
                     if(create) {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef new_z = internals::instantiate(BT.ATOMIC_ENTITY_NODE, gd);
-                        get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).my_atomic_entity_type = d.aet;
+                        get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).my_atomic_entity_type = aet;
                         get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
                         internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
@@ -3617,18 +3638,18 @@ namespace zefDB {
             return (z <= RT) && (source(z) == z) && (target(z) == z);
         }
 
-        std::optional<EZefRef> delegate_to_ezr(const DelegateRelationGroup & d, int order, Graph g, bool create) {
+        std::optional<EZefRef> delegate_to_ezr(const RelationType & rt, int order, Graph g, bool create) {
             auto & gd = g.my_graph_data();
             EZefRef root{constants::ROOT_NODE_blob_index, gd};
             EZefRef z = root;
             for(int i = 0 ; i < order ; i++) {
-                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), d.rt);
+                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), rt);
                 opts = filter(opts, is_delegate_relation_group);
                 if(length(opts) == 0) {
                     if(create) {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef new_z = internals::instantiate(BT.RELATION_EDGE, gd);
-                        get<blobs_ns::RELATION_EDGE>(new_z).relation_type = d.rt;
+                        get<blobs_ns::RELATION_EDGE>(new_z).relation_type = rt;
                         get<blobs_ns::RELATION_EDGE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         get<blobs_ns::RELATION_EDGE>(new_z).source_node_index = index(new_z);
                         get<blobs_ns::RELATION_EDGE>(new_z).target_node_index = index(new_z);
@@ -3654,7 +3675,7 @@ namespace zefDB {
             std::optional<EZefRef> d_src = delegate_to_ezr(*(d.source), g, create, 1);
             std::optional<EZefRef> d_trg = delegate_to_ezr(*(d.target), g, create, 1);
 
-            auto rel_group = delegate_to_ezr(DelegateRelationGroup{d.rt}, 1, g, create);
+            auto rel_group = delegate_to_ezr(d.rt, 1, g, create);
             if(!rel_group)
                 return {};
             EZefRef z = *rel_group;
@@ -3701,6 +3722,7 @@ namespace zefDB {
                         EZefRef new_z = internals::instantiate(BT.TX_EVENT_NODE, gd);
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
                         internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        z = new_z;
                     } else
                         return {};
                 } else {
@@ -3725,6 +3747,7 @@ namespace zefDB {
                         EZefRef new_z = internals::instantiate(BT.ROOT_NODE, gd);
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
                         internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        z = new_z;
                     } else
                         return {};
                 } else {
@@ -3755,13 +3778,12 @@ namespace zefDB {
                 } else 
                     return {};
             } else {
-                auto ts = time_slice(now(g));
-                if(!exists_at(*res, ts)) {
+                if(!exists_at_now(*res)) {
                     if(create) {
                         // Assign new instantiation edges all the way down.
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef cur_d = *res;
-                        while(!exists_at(cur_d, ts)) {
+                        while(!exists_at_now(cur_d)) {
                             internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, cur_d < BT.TO_DELEGATE_EDGE, gd);
                             cur_d = cur_d << BT.TO_DELEGATE_EDGE;
                         }
@@ -3788,11 +3810,11 @@ namespace zefDB {
                 // Note: we may end up with order 0 at the end here - this is
                 // acceptable, and means this is an instance!
                 if(ezr <= ET)
-                    return Delegate{order, DelegateEntity{ET(ezr)}};
+                    return Delegate{order, ET(ezr)};
                 if(ezr <= AET)
-                    return Delegate{order, DelegateAtomicEntity{AET(ezr)}};
+                    return Delegate{order, AET(ezr)};
                 if(ezr <= RT)
-                    return Delegate{order, DelegateRelationGroup{RT(ezr)}};
+                    return Delegate{order, RT(ezr)};
                 if(BT(ezr) == BT.TX_EVENT_NODE)
                     return Delegate{order, DelegateTX{}};
                 if(BT(ezr) == BT.ROOT_NODE)
@@ -4031,7 +4053,7 @@ namespace zefDB {
 
 		inline std::ostream& operator<< (std::ostream& o, AtomicTypeVariant atv) {
 			o << "<";
-			std::visit(overload{
+			std::visit(overloaded{
 				[&o](Sentinel x)->void { o << "not set"; },
 				[&o](TimeSlice x)->void { o << "TimeSlice specified: " << x.value; },
 				[&o](EZefRef x)->void { o << "EZefRef specified as ref tx: " << x; },
@@ -4260,7 +4282,7 @@ namespace zefDB {
 			GraphData& gd = *graph_data(my_atomic_entity);			
 			EZefRef ref_tx = std::holds_alternative<internals::Sentinel>(op.time_slice_override) ?
 				my_atomic_entity.tx :   // use the reference frame baked into the ZefRef if none is specified in the 'value' zefop
-				std::visit(overload{
+				std::visit(overloaded{
 					[&gd](internals::Sentinel ts)->EZefRef {return EZefRef(0, gd); },   // never used, but required for completion
 					[&gd](TimeSlice ts)->EZefRef {return tx[gd][ts]; },  // determine the tx event for the specified time slice here: before this it is not know for which graph the tx should be determined
 					[](EZefRef uzr)->EZefRef { return uzr; },   // if the tx is directly specified
@@ -4303,7 +4325,7 @@ namespace zefDB {
 				throw std::runtime_error("EZefRef | value.something called, but the specified return type does not agree with the type of the ATOMIC_ENTITY_NODE pointed to.");
 
 			GraphData& gd = *graph_data(my_atomic_entity);			
-			EZefRef ref_tx = std::visit(overload{
+			EZefRef ref_tx = std::visit(overloaded{
 					[&gd](internals::Sentinel ts)->EZefRef {throw std::runtime_error("Time slice info need to be set inside 'value' zefop when calling on a EZefRef"); return EZefRef(0, gd); },   // never used, but required for completion
 					[&gd](TimeSlice ts)->EZefRef {return tx[gd][ts]; },  // determine the tx event for the specified time slice here: before this it is not know for which graph the tx should be determined
 					[](EZefRef uzr)->EZefRef { return uzr; },   // if the tx is directly specified

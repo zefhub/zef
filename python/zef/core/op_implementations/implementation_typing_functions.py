@@ -32,8 +32,8 @@ from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
 
-zef_types = {VT.Graph, VT.ZefRef, VT.EZefRef}
-ref_types = {VT.ZefRef, VT.EZefRef}
+zef_types = [VT.Graph, VT.ZefRef, VT.EZefRef]
+ref_types = [VT.ZefRef, VT.EZefRef]
 
 
 #--utils---
@@ -81,15 +81,16 @@ def verify_zef_list(z_list: ZefRef):
     >>> <example one-liner 1>       # => <result of the one-liner (a value)>
     >>> <example one-liner 2>       # <comment on the behaviour (not a value)>
  
-    <description of following example>
+    >>> # <description of following example>
     >>> <example one-liner with multiline result>
-    ... <result line 1>
-    ... <result line 2>
+    <result line 1>
+    <result line 2>
  
-    <description of following example>
-    >>> <multiline example line 1>
-    >>> <multiline example line 2>
-    >>> <multiline example line 3>  # => <result of multiline example>
+    >>> # <description of following example>
+    >>> <multiline example line 1>    
+    ... <multiline example line 2>
+    ... <multiline example line 3>  
+    <result of multiline example>
  
     ---- Signature ----
     <method 1: input types as tuple> -> <output type>
@@ -174,18 +175,18 @@ def on_implementation(g, op):
     the very end.
 
     ---- Examples ----
-    >>> g | on[value_assigned[AET.String]]              # value_assigned[z3]['hello!']      c.f. with action: assign_value[z3]['hello!']
+    >>> g | on[assigned[AET.String]]                    # assigned[z3]['hello!']      c.f. with action: assign[z3]['hello!']
     >>> g | on[terminated[z2]]                          # terminated[z2], followed by completion_event
     >>> g | on[instantiated[ET.Foo]]                    # instantiated[z5]
-    >>> 
-    >>> # listening for new relations
-    >>> # old syntax:  zz | subscribe[on_instantiation[outgoing][RT.Foo]][my_callback]       old syntax
+     
+    # listening for new relations
+    # old syntax:  zz | subscribe[on_instantiation[outgoing][RT.Foo]][my_callback]       old syntax
     >>> g | on[ instantiated[(zz, RT.Foo, Z)] ]         # Z matches on anything, i.e. takes on role of "_"
-    >>>
+    
     >>> One can also add more precise requirements
     >>> g | on[ instantiated[(zz, RT.Foo, ET.Bar)] ]    # an element "instantiated[z_rel]" is pushed into the stream. Instances are represented by a single ZefRef, types by a triple for relations
     >>> g | on[ terminated[(zz, RT.Foo, Z)] ]
-    >>>
+    
     >>> g | on[terminated[z_rel]]
 
     ---- Signature ----
@@ -197,8 +198,8 @@ def on_implementation(g, op):
 
 
     """
-    assert isinstance(op, ZefOp)
-    assert len(op.el_ops) == 1
+    assert isinstance(op, ValueType_)
+    assert len(absorbed(op)) == 1
     from ...pyzef import zefops as internal
     from ..fx import FX, Effect
 
@@ -206,44 +207,64 @@ def on_implementation(g, op):
     sub_decl = internal.subscribe[internal.keep_alive[True]]
     
     if isinstance(g, Graph):
-        op_kind = op.el_ops[0][0]
-        op_args = op.el_ops[0][1]        
-        if op_kind in {RT.Terminated,RT.Instantiated}:
-            selected_types = {RT.Terminated: (internal.on_termination, terminated), RT.Instantiated: (internal.on_instantiation, instantiated)}[op_kind]
+        op_kind = without_absorbed(op)
+        op_args = absorbed(op)      
+        if op_kind in {Instantiated, Terminated}:
+            selected_types = {Terminated: (internal.on_termination, terminated), Instantiated: (internal.on_instantiation, instantiated)}[op_kind]
             
             if not isinstance(op_args[0], tuple):
                 rae_or_zr = op_args[0]
                 # Type 1: a specific entity i.e on[terminated[zr]]  !! Cannot be on[instantiated[zr]] because doesnt logically make sense !!
                 if isinstance(rae_or_zr, ZefRef): 
-                    assert op_kind == RT.Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
-                    def filter_func(root_node): root_node | frame | to_tx  | terminated | filter[lambda x: to_ezefref(x) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(terminated[x]) | push[stream] | run ] 
+                    assert op_kind == Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
+                    def filter_func(root_node): root_node | frame | to_tx | events[Terminated] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl                
                 # Type 2: any RAE  i.e on[terminated[ET.Dog]] or on[instantiated[RT.owns]] 
                 elif type(rae_or_zr) in {AtomicEntityType, EntityType, RelationType}: 
-                    def filter_func(root_node): root_node | frame | to_tx | selected_types[1] | filter[lambda x: rae_type(x) == rae_or_zr] |  for_each[lambda x: LazyValue(selected_types[1][x]) | push[stream] | run ] 
+                    def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: rae_type(absorbed(x)[0]) == rae_or_zr] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl
                 else:
-                    raise Exception(f"Unhandled type in on[{selected_types[1]}] where the input was {rae_or_zr}")
+                    raise Exception(f"Unhandled type in on[{op_kind}] where the input was {rae_or_zr}")
 
             # Type 3: An instantiated or terminated relation outgoing or incoming from a specific zr 
             elif len(op_args[0]) == 3: 
-                src, rt, _ = op_args[0] # TODO don't ignore matching on the Target! To be implemented!
-                sub_decl = sub_decl[selected_types[0][internal.outgoing][rt]][lambda x: LazyValue(selected_types[1][x]) | push[stream] | run] # TODO: is it always outgoing?
-                sub = src | sub_decl            
+                src, rt, trgt = op_args[0] 
+                # sub_decl = sub_decl[selected_types[0][internal.outgoing][rt]][lambda x: LazyValue(selected_types[1][x]) | push[stream] | run] # TODO: is it always outgoing?
+                # sub = src | sub_decl         
+                def triple_filter(z):    
+                    def src_or_trgt_filter(rae, rae_filter):
+                        if isinstance(rae_filter, ZefRef):
+                            return to_ezefref(rae) == to_ezefref(rae_filter)
+                        elif isinstance(rae_filter, (EntityType, AtomicEntityType, RelationType)):
+                            return rae_type(rae) == rae_filter
+                        elif isinstance(rae_filter, ValueType_):
+                            return is_a(rae, rae_filter)
+                        else:
+                            raise ValueError(f"Expected source or target filters to be ZefRef, RaeType, or ValueType but got {type(rae_filter)} instead.")
+
+                    # First check on the RT itself
+                    if rae_type(z) != rt: return False
+                    # Checks on both source and target
+                    return src_or_trgt_filter(source(z), src) and src_or_trgt_filter(target(z), trgt)
+
+                def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: triple_filter(absorbed(x)[0])] | for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                sub_decl = sub_decl[filter_func]
+                sub = g | sub_decl              
             else:
                 raise Exception(f"Unhandled type in on[{selected_types[1]}] where the curried args were {op_args}")
-        elif op_kind == RT.ValueAssigned:
+        elif op_kind == Assigned:
             assert len(op_args) == 1
             aet_or_zr = op_args[0]
-            # Type 1: a specific zefref to an AET i.e on[value_assigned[zr_to_aet]]
+            # Type 1: a specific zefref to an AET i.e on[assigned[zr_to_aet]]
             if isinstance(aet_or_zr, ZefRef): 
-                sub_decl = sub_decl[internal.on_value_assignment][lambda x: LazyValue(value_assigned[x][x|value|collect]) | push[stream] | run]
-                sub = aet_or_zr | sub_decl
-            # Type 2: any AET.* i.e on[value_assigned[AET.String]]
+                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(aet_or_zr)] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                sub_decl = sub_decl[filter_func]
+                sub = g | sub_decl
+            # Type 2: any AET.* i.e on[assigned[AET.String]]
             elif isinstance(aet_or_zr, AtomicEntityType): 
-                def filter_func(root_node): root_node | frame | to_tx | value_assigned | filter[aet_or_zr] | map[lambda x: value_assigned[x][x|value|collect]] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: rae_type(absorbed(x)[0]) == aet_or_zr] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl        
         else:
@@ -267,7 +288,7 @@ def transpose_imp(iterable):
 
     ---- Examples ----
     >>> [ [2,3,4], [5,6,7] ]                    # => [ [2, 5], [3,6], [4,7] ]
-    >>> 
+     
     >>> # terminates upon the shortest one:
     >>> [ range(2, infinity), [5,6], [15,16,17] ]    # => [[2, 5, 15], [3, 6, 16]]
 
@@ -297,11 +318,13 @@ def match_imp(item, patterns):
 
     ---- Examples ----
     >>> -9 | match[
-    >>>     (Is[less_than[-10]], lambda x: f'it is a freezing {x} degrees'),
-    >>>     (Is[less_than[10]], lambda x: f'somewhat cold: {x} degrees'),
-    >>>     (Is[greater_than_or_equal[20]], lambda x: f'warm: {x}'),
-    >>>     (Any, lambda x: f'something else {x}'),
-    >>> ] | collect                            => 'somewhat cold: -9 degrees'
+    ...     ({24, 42}, lambda x: f'a very special temperature'),
+    ...     (Is[less_than[-10]], lambda x: f'it is a freezing {x} degrees'),
+    ...     (Is[less_than[10]], lambda x: f'somewhat cold: {x} degrees'),
+    ...     (Is[greater_than_or_equal[20]], lambda x: f'warm: {x}'),
+    ...     (Any, lambda x: f'something else {x}'),
+    ... ] | collect                             
+    'somewhat cold: -9 degrees'
 
     ---- Arguments ----
     item: the incoming value
@@ -317,9 +340,12 @@ def match_imp(item, patterns):
     """
     for tp, f_to_apply in patterns:
         try:
-            if is_a(item, tp): return f_to_apply(item)
+            if( (item in tp) 
+                if isinstance(tp, set)    # if a set is passed in: check membership directly
+                else is_a(item, tp)
+                ): return f_to_apply(item)
         except Exception as e:            
-            raise RuntimeError(f'\nError within `match` zefop case predicate: `{tp}`  `applying function: {f_to_apply}`: {e}')
+            raise RuntimeError(f'\nError within `match` zefop case predicate: `{tp}`  `applying function: {f_to_apply}`: {e}') from e
     raise RuntimeError(f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
     
 
@@ -331,47 +357,13 @@ def match_tp(op, curr_type):
 
 
 
-
-def match_apply_imp(item, patterns):
-    """
-    This is apply version of match operator. Where the pattern tuple's second item contains a function to be applied
-    on the inputed item.
-
-    ---- Examples ----
-    >>> -9 | match[
-    >>>     (less_than[-10], add[10]),
-    >>>     (less_than[0], multiply[2]),
-    >>>     (greater_than_or_equal[0], add[1]),
-    >>> ] | collect                            => -18
-
-    ---- Arguments ----
-    item: the incoming value
-    patterns: (T, T) -> Bool
-
-    ---- Signature ----
-    (T, (T->Any)) -> T
-
-    ---- Tags ----
-    - used for: control flow
-    - used for: logic
-    - used for: function application
-    """
-    for pred, applied_func in patterns:
-        if pred(item):
-            assert callable(applied_func)
-            return applied_func(item)
-    raise RuntimeError(f'None of the specified patterns matched for value {item} in "match operator": pattern: {patterns}')
-    
-
-def match_apply_tp(op, curr_type):
-    return VT.Any
 #---------------------------------------- peel -----------------------------------------------
 def peel_imp(el, *args):
-    from ..fx.fx_types import _Effect_Class
     if isinstance(el, ValueType_):
         return el.nested()
-    elif isinstance(el, _Effect_Class):
-        return el.d
+    elif isinstance(el, dict):
+        print('deprecation warning: `peel` called on a dictionary. This probably was an Effect before and is no longer needed.')
+        return el
     elif isinstance(el, ZefOp):
         # TODO !!!!!!!!!!!!! Change this to always return elementary ZefOps and to use list(el) to get current behavior
         if len(el.el_ops) > 1:
@@ -432,10 +424,11 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
     ---- Examples ----
     >>> # A) all passed in via a List of Lists (no args curried into concat op)
     >>> [
-    >>>     [1,2,3],                                    
-    >>>     ['a', 'b', 'c', 'd'],
-    >>> ] | concat                                      # =>  [1, 2, 3, 'a', 'b', 'c', 'd']
-    >>> 
+    ...     [1,2,3],                                    
+    ...     ['a', 'b', 'c', 'd'],
+    ... ] | concat                                      
+    [1, 2, 3, 'a', 'b', 'c', 'd']
+     
     >>> # B) One list piped in, other lists to concatenated curried into op
     >>> [1,2,3] | concat[ (42,43) ][('a','b','c')]      # =>  [1, 2, 3, 42, 43, 'a', 'b', 'c']
 
@@ -675,11 +668,19 @@ def get_in_imp(d: dict, path, default_val=VT.Error):
     ---- Examples ----
     >>> {'a': 1, 'b': {'c': 1}} | get_in[('b', 'c')]   # => 1
     >>> {'a': 1, 'b': {'c': 1}} | get_in[('b', 'wrong_key')][42]   # => 42
+
+    ---- Tags ----
+    - related zefop: get
+    - related zefop: remove_in
+    - related zefop: update_in
+    - related zefop: insert_in
+    - related zefop: get_in
+    - operates on: Dict
     """
     assert isinstance(path, list) or isinstance(path, tuple)
-    if len(path) == 0: return d
-    if type(d) != dict: return default_val
-    return get_in(d.get(path[0], default_val), path[1:], default_val)
+
+    from ..pure_utils import get_in_pure
+    return get_in_pure(d, path, default_val)
 
     
 def get_in_tp(d_tp, path_tp, default_val_tp):
@@ -691,8 +692,18 @@ def get_in_tp(d_tp, path_tp, default_val_tp):
 #---------------------------------------- insert_in -----------------------------------------------
 def insert_in_imp(d: dict, path, value):
     """
+    Create a new dicitonary from an old one by inserting one value
+    for a given nested path.
+
     ---- Examples ----
     >>> {'a': 1, 'b': {'c': 1}} | insert_in[('b', 'd')][42]   # => {'a': 1, 'b': {'c': 1, 'd': 42}} 
+  
+    ---- Tags ----
+    - related zefop: insert
+    - related zefop: get_in
+    - related zefop: remove_in
+    - related zefop: update_in
+    - operates on: Dict
     """
     assert isinstance(path, list) or isinstance(path, tuple)
     res = {**d}    
@@ -753,6 +764,13 @@ def remove_in_tp(d_tp, path_tp):
 #---------------------------------------- update_in -----------------------------------------------
 def update_in_imp(d: dict, path, func_to_update):
     """
+    Given a dictionary, a tuple describing a path into
+    the dictionary and an update function, 
+    this returns a new dictionary with the element point to
+    replaced with the value obtained by applying the update 
+    function to the previous element.
+    The original dictionary is not mutated.
+
     ---- Examples ----
     >>> {'a': 1, 'b': {'c': 1}} | update_in[('b', 'c')][add[1]]   # => {'a': 1, 'b': {'c': 2}} 
 
@@ -957,7 +975,8 @@ def update_imp(d: dict, k, fn):
     (to be consistent with "remove_at" for Lists and 
     disambiguate acting on the value)
 
-    {'a': 5, 'b': 6} | update['a'][add[10]]   # => {'a': 15, 'b': 6}
+    ---- Examples ----
+    >>> {'a': 5, 'b': 6} | update['a'][add[10]]   # => {'a': 15, 'b': 6}
 
     ---- Tags ----
     - related zefop: update_at
@@ -982,8 +1001,9 @@ def remove_at_imp(v, *nn):
     as Python's list remove, searches for the first 
     occurrence of that value and removes it.
 
-    ['a', 'b', 'c'] | remove_at[1]       # => ['a', 'c']
-    ['a', 'b', 'c'] | remove_at[1][0]    # => ['c']
+    ---- Examples ----
+    >>> ['a', 'b', 'c'] | remove_at[1]       # => ['a', 'c']
+    >>> ['a', 'b', 'c'] | remove_at[1][0]    # => ['c']
 
     ---- Signature ----
     List[T] & Length[Z] -> List[T] & Length[Z-1]
@@ -1011,9 +1031,10 @@ def interleave_imp(v, first_curried_list_maybe=None, *args):
     ---- Examples ----
     >>> # Either called with a list of of lists (or equivalent for streams)
     >>> [
-    >>>     [1,2,3],
-    >>>     ['a', 'b', 'c', 'd']        
-    >>> ] | interleave          # =>  [1, 'a', 2, 'b', 3, 'c']
+    ...    [1,2,3],
+    ...    ['a', 'b', 'c', 'd']        
+    ... ] | interleave          
+    [1, 'a', 2, 'b', 3, 'c']
     >>> 
     >>> # or with other lists to interleave with being curried in
     >>> [1,2,3] | interleave[42 | repeat]       # => [1, 42, 2, 42, 3, 42]
@@ -1200,6 +1221,8 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
     many elements are taken forward in each step.
     Default stride_step if not specified otherwise: 1.
 
+    implementation follows Scala's, see https://stackoverflow.com/questions/32874419/scala-slidingn-n-vs-groupedn
+
     ---- Examples ----
     >>> range(5) | sliding[3]       # [(0, 1, 2), (1, 2, 3), (2, 3, 4)]
     >>> range(5) | sliding[3][2]    # [(0, 1, 2), (2, 3, 4)]
@@ -1212,8 +1235,6 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
     - related zefop: chunk
     - related zefop: slice
     - operates on: List
-
-    implementation follows Scala's, see https://stackoverflow.com/questions/32874419/scala-slidingn-n-vs-groupedn
     """
     it = iter(iterable)
     try:
@@ -1311,8 +1332,8 @@ def reverse_args_imp(flow_arg, op, *args):
     ---- Tags ----
     - level: advanced
     - used for: control flow
-    - operates on: ZefOps
-    - operates on: Functions
+    - operates on: ZefOp
+    - operates on: Function
     - related zefop: func
     - related zefop: apply_functions
     """
@@ -1324,9 +1345,16 @@ def reverse_args_imp(flow_arg, op, *args):
 
 def insert_into_imp(key_val_pair, x):
     """
-    Unclear whether we need this. To insert a key value
-    pair into a dictionary, one could cast to a dict and use merge.
-    But this may be shorter.
+    For Dicts:
+    Given a dictionary as a curried in argument and the key 
+    value pair as the data flow argument, return a new dictionary
+    with the inserted value.
+
+    For Lists:
+    the dataflow argument is a tuple (pos, val), where
+    val will be inserted into the given list at position pos.    
+    For Lists this operator is equivalent to insert_at,
+    but with the argument oder flipped.
 
     This function could also be used on Lists. 
     
@@ -1335,6 +1363,15 @@ def insert_into_imp(key_val_pair, x):
 
     ---- Signature ----
     ((T1, T2), Dict[T3][T4]) -> Dict[T1|T3][T2|T4]
+
+    ---- Tags ----
+    - level: advanced
+    - operates on: Dict
+    - operates on: List
+    - related zefop: insert
+    - related zefop: insert_at
+    - related zefop: merge
+    - related zefop: apply_functions
 
     # TODO: make this work: (10, 'a') | insert_into[range(10) | map[add[100]]] | take[5] | c
 
@@ -1456,6 +1493,7 @@ def get_field_imp(obj, field):
     
     ---- Tags ----
     - related zefop: get
+    - operates on: Python objects
     """
     return getattr(obj, field)
 
@@ -1481,6 +1519,7 @@ def enumerate_imp(v):
     - used for: list manipulation
     - used for: string manipulation
     - used for: lazy transformation
+    - operates on: List
     """
     import builtins
     return builtins.enumerate(v)
@@ -1505,6 +1544,7 @@ def items_imp(d):
     ---- Tags ----
     - used for: dict manipulation
     - used for: list manipulation
+    - operates on: Dict
     """
     return tuple(d.items())
 
@@ -1527,7 +1567,7 @@ def values_imp(d):
 
     ---- Tags ----
     - used for: dict manipulation
-    - used for: list manipulation
+    - operates on: Dict
     """
     return tuple(d.values())
 
@@ -1550,7 +1590,7 @@ def keys_imp(d):
 
     ---- Tags ----
     - used for: dict manipulation
-    - used for: list manipulation
+    - operates on: Dict
     """
     return tuple(d.keys())
 
@@ -1577,6 +1617,7 @@ def reverse_imp(v):
     ---- Tags ----
     - used for: list manipulation
     - used for: stream manipulation
+    - operates on: List
     """
     from typing import Generator
     if isinstance(v, Generator): return (tuple(v))[::-1]
@@ -1598,8 +1639,17 @@ def cycle_imp(iterable, n=None):
     Given a list, this wll produce another list loft the same structure
     that cycles thorugh all elements of the original list n times.
     
-    e.g. [2,3] | cycle[3]  -> [2,3,2,3,2,3]
-    cycle[None]:     means never terminate
+    ---- Examples ----
+    >>> [2,3] | cycle[3]  # => [2,3,2,3,2,3]
+    >>> [2,3] | cycle     # => [2,3,2,3,2,3,...    # never terminates
+
+    ---- Signature ----
+    (List[T], Int) -> List[T]
+
+    ---- Tags ----
+    - used for: list manipulation
+    - used for: stream manipulation
+    - operates on: List
     """
     if n==0:
         return
@@ -1625,6 +1675,18 @@ def cycle_tp(iterable_tp, n_tp):
 
 #---------------------------------------- repeat -----------------------------------------------
 def repeat_imp(iterable, n=None):
+    """
+    Repeat an element a given number of times 
+    None (default) means infinite).
+
+    ---- Examples ----
+    >>> 42 | repeat[3]    # => [42,42,42]
+    >>> (1,'a') | repeat  # => [(1,'a'), (1,'a'), ...]    # infinite sequence
+
+    ---- Tags ----
+    - related zefop: cycle
+    - operates on: Any
+    """
     import itertools
     if isinstance(iterable, Generator) or isinstance(iterable, Iterator): iterable = [i for i in iterable]
     return itertools.repeat(iterable) if n is None else itertools.repeat(iterable, n)
@@ -1637,6 +1699,23 @@ def repeat_tp(iterable_tp, n_tp):
 
 #---------------------------------------- contains -----------------------------------------------
 def contains_imp(x, el):
+    """
+    Check whether an element is in a given
+    set or iterable. Operator for of Python's
+    `in`.
+
+    ---- Examples ----
+    >>> {42, 43} | contains[42]         # => 42
+    >>> g | contains[my_entity_ref]     # => 
+
+    ---- Tags ----
+    - related zefop: contained_in
+    - operates on: List
+    - operates on: Set
+    - operates on: Dict
+    - operates on: Graph
+    - operates on: FlatGraph
+    """
     return el in x    
                         
 
@@ -1694,7 +1773,7 @@ def all_imp(*args):
     (GraphLike, Type) -> List[EZefRef]
  
     ---- Tags ----
-    - used for: predicates
+    - used for: predicate
     """
 
     import builtins
@@ -1772,6 +1851,13 @@ def all_imp(*args):
         z, = args
         assert internals.is_delegate(z)
         return z | pyzefops.instances
+
+    import types
+    if isinstance(args[0], types.ModuleType):
+        assert len(args) == 2
+        assert isinstance(args[1], ValueType_)
+        list_of_module_values = [args[0].__dict__[x] for x in dir(args[0]) if not x.startswith("_") and not isinstance(getattr(args[0], x), types.ModuleType)]
+        return list_of_module_values | filter[args[1]] | collect
     
     # once we're here, we interpret it like the Python "all"
     v = args[0]
@@ -1814,8 +1900,18 @@ def any_tp(v_tp):
 #---------------------------------------- join -----------------------------------------------
 def join_imp(list_of_strings: VT.List[VT.String], x=''):
     """ 
-    join a list of strings with a binding character.
+    Join a list of strings with a binding character.
+
+    ---- Examples ----
     >>> ['foo', 'bar'] | join['-']              # => 'foo-bar'
+
+    ---- Signature ----    
+    (List[String], String) -> String
+
+    ---- Tags ----
+    - related zefop: concat
+    - related zefop: insert_at
+    - operates on: String
     """
     return x.join(list_of_strings)
 
@@ -1827,6 +1923,26 @@ def join_tp(v, x):
 
 #---------------------------------------- trim_left -----------------------------------------------
 def trim_left_imp(v, el_to_trim):
+    """
+    Removes all contiguous occurrences of a specified 
+    element / character from the left side of a list / string.
+
+    ---- Examples ----
+    >>> '..hello..' | trim_left['.']            # => ['hello..']
+
+    ---- Signature ----
+    (List[T], T) -> List[T]
+    (String, String) -> String
+
+    ---- Tags ----
+    - related zefop: trim
+    - related zefop: trim_right
+    - related zefop: split
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    """
     if isinstance(v, str):        
         return v.lstrip(el_to_trim)
     def wrapper():
@@ -1850,6 +1966,26 @@ def trim_left_tp(v_tp, el_to_trim_tp):
     
 #---------------------------------------- trim_right -----------------------------------------------
 def trim_right_imp(v, el_to_trim):
+    """
+    Removes all contiguous occurrences of a specified 
+    element / character from the right side of a list / string.
+
+    ---- Examples ----
+    >>> '..hello..' | trim_right['.']            # => ['..hello']
+
+    ---- Signature ----
+    (List[T], T) -> List[T]
+    (String, String) -> String
+
+    ---- Tags ----
+    - related zefop: trim
+    - related zefop: trim_left
+    - related zefop: split
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    """
     import itertools 
     if isinstance(v, str):
         return v.rstrip(el_to_trim)
@@ -1867,6 +2003,26 @@ def trim_right_tp(v_tp, el_to_trim_tp):
 
 #---------------------------------------- trim -----------------------------------------------
 def trim_imp(v, el_to_trim):
+    """
+    Removes all contiguous occurrences of a specified 
+    element / character from both sides of a list / string.
+
+    ---- Examples ----
+    >>> '..hello..' | trim['.']            # => ['..hello']
+
+    ---- Signature ----
+    (List[T], T) -> List[T]
+    (String, String) -> String
+
+    ---- Tags ----
+    - related zefop: trim_left
+    - related zefop: trim_right
+    - related zefop: split
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    """
     import itertools 
     if isinstance(v, str):
         return v.strip(el_to_trim)
@@ -1884,6 +2040,26 @@ def trim_tp(v_tp, el_to_trim_tp):
 
 #---------------------------------------- tap -----------------------------------------------
 def tap_imp(x, fct):
+    """
+    An operator mostly used for debugging and testing
+    purposes: allows inserting an impure function into
+    a pipeline.
+    In contrast to apply/map it is not the output of
+    provided function which is forwarded, but the original 
+    input. It is therefore ever only of any use to
+    insert an impure function into tap, since the return 
+    value is discarded.
+
+    ---- Examples ----
+    >>> 41 | add[1] | tap[print] | multiply[2] | collect    # prints 42 and the expression returns 84
+
+    ---- Tags ----
+    - used for: debugging
+    - related zefop: apply
+    """
+    # As we can receive a generator, we need to collect it up first before continuing
+    if isinstance(x, Generator):
+        x = list(x)
     fct(x)
     return x
         
@@ -2058,7 +2234,7 @@ def absorbed_imp(x):
     
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
     - related zefop: without_absorbed
     - related zefop: inject
     - related zefop: inject_list
@@ -2102,7 +2278,7 @@ def without_absorbed_imp(x):
     
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
     - related zefop: absorbed
     - related zefop: inject
     - related zefop: inject_list
@@ -2131,6 +2307,13 @@ def without_absorbed_imp(x):
         else:
             new_kw = Keyword(x.value)
             return new_kw
+
+    elif isinstance(x, Delegate):
+        if '_absorbed' not in x.__dict__:
+            return x
+        else:
+            new_delegate = Delegate(x.order, x.item)
+            return new_delegate
 
     elif isinstance(x, ZefOp):
         if len(x.el_ops) != 1: 
@@ -2184,6 +2367,7 @@ def product_imp(v):
     ---- Tags ----
     used for: maths
     operates on: List
+    related zefop: cartesian_product
     related zefop: multiply
     related zefop: sum
     """
@@ -2192,7 +2376,7 @@ def product_imp(v):
 
 
 #---------------------------------------- add -----------------------------------------------
-def add_imp(a, second=None, *args):
+def add_imp(a, b):
     """
     Adds two elements. Neither is a list.
     Don't use this when summing up a list, use `sum`
@@ -2206,16 +2390,16 @@ def add_imp(a, second=None, *args):
 
     ---- Tags ----
     used for: maths
+    operates on: Int
+    operates on: Float
     related zefop: sum
     related zefop: subtract
     related zefop: multiply
     related zefop: divide
     """
-    from functools import reduce
-    if second is None:
-        print(f"Warning: add was used for list {a}. This use will be deprecated: use `sum` here.")
-        return reduce(lambda x, y: x + y, a)
-    return reduce(lambda x, y: x + y, [a, second, *args])
+    if type(a) in {list, tuple} or type(b) in {list, tuple}:
+        raise TypeError(f"`add` is a binary operator, i.e. always takes two arguments. If you want to sum up all elements in a list, use `sum`")
+    return a+b
     
     
 def add_tp(a, second, *args):
@@ -2224,11 +2408,31 @@ def add_tp(a, second, *args):
     
     
 #---------------------------------------- subtract -----------------------------------------------
-def subtract_imp(a, second=None):    
-    if second is None:
-        assert len(a) == 2
-        return a[0]-a[1]
-    return a-second
+def subtract_imp(a, b):
+    """
+    Binary operator to subtract two elements. Neither is a list.
+    If am operator is needed that can act on a tuple of length 2,
+    this can be wrapped in `unpack`.
+
+    ---- Examples ----
+    44 | subtract[2]               # => 42
+    (42, 10) | unpack[subtract]    # => 32
+
+    ---- Signature ----
+    (T1, T2) -> T1 | T2
+
+    ---- Tags ----
+    used for: maths
+    operates on: Int
+    operates on: Float
+    related zefop: add
+    related zefop: multiply
+    related zefop: divide
+    related zefop: unpack
+    """
+    if type(a) in {list, tuple} or type(b) in {list, tuple}:
+        raise TypeError(f"`subtract` is a binary operator, i.e. always takes two arguments.")
+    return a-b
     
     
 def subtract_tp(a, second):
@@ -2240,9 +2444,24 @@ def subtract_tp(a, second):
 #---------------------------------------- multiply -----------------------------------------------
 def multiply_imp(a, second=None, *args):
     """ 
-    Multiplies a list of numbers.
-    We don't use 'product' to name this, as that term is too overloaded.
-    e.g. in Python itertools this denotes the Cartesian product.
+    Binary operator only. For a list of numbers, use `product`.
+
+    ---- Examples ----
+    >>> 2 | multiply[3]    # => 6
+
+    ---- Signature ----
+    (Int, Int) - > Int
+    (Float, Float) - > Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: Int
+    operates on: Float
+    related zefop: product
+    related zefop: add
+    related zefop: divide
+    related zefop: subtract
+    related zefop: unpack
     """
     from functools import reduce
     if second is None:
@@ -2256,10 +2475,31 @@ def multiply_tp(a, second, *args):
 
 #---------------------------------------- divide -----------------------------------------------
 def divide_imp(a, second=None):    
-    if second is None:
-        assert len(a) == 2
-        return a[0]/a[1]
-    return a/second
+    """
+    Binary operator to divide two elements. Neither is a list.
+    If am operator is needed that can act on a tuple of length 2,
+    this can be wrapped in `unpack`.
+
+    ---- Examples ----
+    10 | divide[2]                # => 5
+    (10, 2) | divide[subtract]    # => 5
+
+    ---- Signature ----
+    (T1, T2) -> Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: Int
+    operates on: Float
+    related zefop: add
+    related zefop: multiply
+    related zefop: add
+    related zefop: subtract
+    related zefop: unpack
+    """
+    if type(a) in {list, tuple} or type(b) in {list, tuple}:
+        raise TypeError(f"`subtract` is a binary operator, i.e. always takes two arguments.")
+    return a-b
     
     
 def divide_tp(a, second):
@@ -2273,12 +2513,21 @@ def divide_tp(a, second):
 def mean_imp(v):
     """
     Calculates the arithmetic mean of a given List / Set of numbers.
+   
+    ---- Examples ----
+    >>> [3,7,20] | mean    # => 10
 
     ---- Signature ----
     List[Int] -> Float
     Set[Int] -> Float
     List[Float] -> Float
     Set[Float] -> Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: List    
+    operates on: Set
+    related zefop: variance
     """
     return sum(v) / length(v)
 
@@ -2292,11 +2541,20 @@ def variance_imp(v):
     """
     Calculates the variance of a given List / Set of numbers.
 
+    ---- Examples ----
+    >>> [-1,0,1] | variance    # => 0.6666..
+
     ---- Signature ----
     List[Int] -> Float
     Set[Int] -> Float
     List[Float] -> Float
     Set[Float] -> Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: List    
+    operates on: Set
+    related zefop: mean
     """
     le = length(v)
     return sum( (x*x for x in v) )/le - (sum(v)/le)**2
@@ -2308,6 +2566,23 @@ def variance_tp(v):
 
 #---------------------------------------- power -----------------------------------------------
 def power_imp(x, b):
+    """
+    Take the first argument to the power (exponential) of the second argument.
+   
+    ---- Examples ----
+    >>> 2 | power[8]    # => 256
+
+    ---- Signature ----
+    (Int, Int) -> Int
+    (Float | Int, Float | Int) -> Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: Int    
+    operates on: Float    
+    related zefop: exponential
+    related zefop: multiply
+    """
     return x**b
 
 def power_tp(op, curr_type):
@@ -2316,6 +2591,22 @@ def power_tp(op, curr_type):
 
 #---------------------------------------- exponential -----------------------------------------------
 def exponential_imp(x):
+    """
+    Take the first argument to the power of the second argument.
+   
+    ---- Examples ----
+    >>> 2 | exponential[8]    # => 256
+
+    ---- Signature ----
+    (Float, Float) -> Float
+
+    ---- Tags ----
+    used for: maths
+    
+    related zefop: logarithm
+    related zefop: power
+    related zefop: multiply
+    """
     import math
     return math.exp(x)
 
@@ -2326,8 +2617,25 @@ def exponential_tp(x):
 
 #---------------------------------------- logarithm -----------------------------------------------
 def logarithm_imp(x, base=None):
-    """ 
+    """
+    Take the logarithm, optionally specify the base.
     base = None is synonymous with base = 2.718281828459045...
+   
+    ---- Examples ----
+    >>> 10 | logarithm         # => 2.302585092994046
+    >>> 100 | logarithm[10]    # => 2
+
+    ---- Signature ----
+    (Float, Float) -> Float
+
+    ---- Tags ----
+    used for: maths    
+    related zefop: exponential
+    related zefop: power
+    related zefop: multiply
+    """
+    """ 
+    
     """
     import math
     return (math.log(x) if base is None else math.log(x)/math.log(base))
@@ -2387,6 +2695,24 @@ def min_by_tp(v_tp, min_by_function_tp):
     
 #---------------------------------------- equals -----------------------------------------------
 def equals_imp(a, b):
+    """
+    Binary operator equivalent to calling "==", but can be chained.
+   
+    ---- Examples ----
+    >>> 42 | equals[42]     # => True
+    >>> 42 | Not[equals][41]     # => True
+    >>> equals('a', 'a')     # => True
+
+    ---- Signature ----
+    (T, T) -> Bool
+
+    ---- Tags ----
+    used for: logic
+    
+    related zefop: Not
+    related zefop: greater_than
+    related zefop: less_than
+    """
     return a == b
     
     
@@ -2397,6 +2723,24 @@ def equals_tp(a, b):
     
 #---------------------------------------- greater_than -----------------------------------------------
 def greater_than_imp(a, b):
+    """
+    Binary operator equivalent to calling ">", but can be chained.
+   
+    ---- Examples ----
+    >>> 42 | greater_than[41]     # => True
+    >>> 42 | greater_than[42]     # => False
+    
+    ---- Signature ----
+    (T, T) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: maths    
+    related zefop: Not
+    related zefop: equals
+    related zefop: less_than
+    related zefop: greater_than_or_equal
+    """
     return a > b
     
     
@@ -2407,6 +2751,24 @@ def greater_than_tp(a, b):
     
 #---------------------------------------- less_than -----------------------------------------------
 def less_than_imp(a, b):
+    """
+    Binary operator equivalent to calling "<", but can be chained.
+   
+    ---- Examples ----
+    >>> 41 | less_than[42]     # => True
+    >>> 42 | less_than[42]     # => False
+    
+    ---- Signature ----
+    (T, T) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: maths    
+    related zefop: Not
+    related zefop: equals
+    related zefop: greater_than
+    related zefop: less_than_or_equal
+    """
     return a < b
     
     
@@ -2415,8 +2777,26 @@ def less_than_tp(a, b):
 
 
     
-#---------------------------------------- larger_or_equal_than -----------------------------------------------
+#---------------------------------------- greater_than_or_equal -----------------------------------------------
 def greater_than_or_equal_imp(a, b):
+    """
+    Binary operator equivalent to calling ">=", but can be chained.
+   
+    ---- Examples ----
+    >>> 43 | greater_than_or_equal[42]     # => True
+    >>> 42 | greater_than_or_equal[42]     # => True
+    
+    ---- Signature ----
+    (T, T) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: maths    
+    related zefop: Not
+    related zefop: equals
+    related zefop: greater_than
+    related zefop: less_than_or_equal
+    """
     return a >= b
     
 
@@ -2425,8 +2805,26 @@ def greater_than_or_equal_to(a, b):
 
 
     
-#---------------------------------------- less_or_equal_than -----------------------------------------------
+#---------------------------------------- less_than_or_equal -----------------------------------------------
 def less_than_or_equal_imp(a, b):
+    """
+    Binary operator equivalent to calling ">=", but can be chained.
+   
+    ---- Examples ----
+    >>> 41 | less_than_or_equal[42]     # => True
+    >>> 42 | less_than_or_equal[42]     # => True
+    
+    ---- Signature ----
+    (T, T) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: maths    
+    related zefop: Not
+    related zefop: equals
+    related zefop: greater_than_or_equal
+    related zefop: less_than
+    """
     return a <= b
 
 
@@ -2438,8 +2836,25 @@ def less_than_or_equal_to(a, b):
 #---------------------------------------- Not -----------------------------------------------
 def not_imp(x, pred_fct=lambda x: x):
     """ 
-    Takes a single predicate function and returns the negated predicate function.    
-    """    
+    A logic combinator: takes a single predicate function 
+    (with any signature) and returns the negated predicate 
+    function with the same signature.
+    
+    ---- Examples ----
+    >>> 41 | Not[equals][42]     # => True
+    
+    ---- Signature ----
+    (T, T->Bool) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: function composition
+    operates on: predicate function
+    related zefop: Not
+    related zefop: Or
+    related zefop: And
+    related zefop: xor
+    """
     return not pred_fct(x)
 
 
@@ -2474,7 +2889,8 @@ def and_imp(x, *args):
 
     ---- Tags ----
     used for: logic
-    used for: predicated
+    used for: predicate
+    operates on: predicate function
     related zefop: Or
     related zefop: Not
     related: Intersection
@@ -2530,7 +2946,8 @@ def or_imp(x, *args):
 
     ---- Tags ----
     used for: logic
-    used for: predicated
+    used for: predicate
+    operates on: predicate function
     related zefop: Or
     related zefop: Not
     related: Intersection
@@ -2564,6 +2981,26 @@ def or_tp(x, *args):
    
 #---------------------------------------- xor -----------------------------------------------
 def xor_imp(x, *args):
+    """ 
+    A logic combinator: takes two predicate functions
+    (with the same signature) and returns one predicate 
+    function with the same signature.
+    
+    ---- Examples ----
+    >>> 41 | xor[p1][p2]
+    
+    ---- Signature ----
+    (T, T->Bool, T->Bool) -> Bool
+
+    ---- Tags ----
+    used for: logic    
+    used for: function composition
+    operates on: predicate function
+    related zefop: Not
+    related zefop: Or
+    related zefop: And
+    related zefop: xor
+    """
     assert len(args) == 2
     f1, f2 = args
     res1, res2 = (f1(x), f2(x))
@@ -2577,33 +3014,6 @@ def xor_tp(x, *args):
     
        
    
-
-#---------------------------------------- drop -----------------------------------------------
-def drop_imp(v, n: int):
-    """
-    Drop the first n elements of the sequence
-    """
-    print("Deprecation: 😞😞😞😞😞 ops.drop is deprecated. Use 'skip'  instead 😞😞😞😞😞")
-    if isinstance(v, tuple) or isinstance(v, list) or isinstance(v, str):
-        return itertools.islice(v, n, None)  # None is 'inf' for the upper limit
-    # if isinstance(v, ZefRefs) or isinstance(v, EZefRefs):
-    #     return zefops.drop(v, n)
-    if n>=0:
-        it = iter(v)
-        for _ in range(n):
-            next(it)
-        def gen():
-            yield from it
-        return gen()    
-    # n<0
-    else:
-        cached = tuple(v)
-        return cached[:n]
-    
-
-def drop_tp(op, curr_type):
-    return curr_type
-
 
 
 #---------------------------------------- skip -----------------------------------------------
@@ -3102,7 +3512,7 @@ def If_imp(x, pred, true_case_func, false_case_func):
     forwarded to the relevant case function.
 
     ---- Examples ----
-    >>> Evens = Is[modulus[2] | equals[0]]
+    >>> Evens = Is[modulo[2] | equals[0]]
     >>> 4 | If[ Evens ][add[1]][add[2]]            # => 5
 
     ---- Signature ----
@@ -3111,14 +3521,16 @@ def If_imp(x, pred, true_case_func, false_case_func):
     ---- Tags ----
     - used for: control flow
     - used for: logic
-    - related zefop: if_then_else
     - related zefop: group_by
     - related zefop: match
-    - related zefop: match_apply
     - related zefop: filter
     """
     try:
-        case = pred(x)
+        if isinstance(pred, ValueType_):
+            case = is_a(x, pred)
+        else:
+            # if not a VT: assume it is callable            
+            case = pred(x)
     except Exception as e:            
         raise RuntimeError(f'\nError within `If` zefop evaluating predicate function: `{pred}` for value  `{x}`: {e}')
     try:
@@ -3127,62 +3539,6 @@ def If_imp(x, pred, true_case_func, false_case_func):
         raise RuntimeError(f'\nError within `If` zefop evaluating the apply function for value  `{x}`: {e}')
 
 
-# --------------------------------------- if_then_else ------------------------------------------------
-def if_then_else_apply_imp(x, pred, true_case_func, false_case_func):
-    """
-    Dispatches to one of two provided functions based on the boolean 
-    result of the predicate function, given the input value.
-    The input value into the zefop is used by the predicate and 
-    forwarded to the relevant case function.
-
-    ---- Examples ----
-    >>> add_one, add_two = add[1], add[2]
-    >>> 4 | if_then_else[is_even][add_one][add_two]         # => 5
-
-    ---- Signature ----
-    ((T->Bool), (T->T1), (T->T2)) -> Union[T1, T2]
-
-    ---- Tags ----
-    - used for: control flow
-    - used for: logic
-    - related zefop: if_then_else
-    - related zefop: group_by
-    - related zefop: match
-    - related zefop: match_apply
-    - related zefop: filter
-    """
-    return true_case_func(x) if pred(x) else false_case_func(x)
-
-
-def if_then_else_apply_tp(x, pred, true_case_func, false_case_func):
-    return VT.Any
-
-
-def if_then_else_imp(x, pred, value1, value2):
-    """
-    Unlike the apply version of this function. If pred evaluates
-    to true, value1 is returned otherwise value2.
-
-    ---- Examples ----
-    >>> 4 | if_then_else[is_even]["even"]["odd"]       # => "even"
-
-    ---- Signature ----
-    (Any, (T->Bool), (Any), (Any)) -> Any
-
-    ---- Tags ----
-    - used for: control flow
-    - used for: logic
-    - related zefop: if_then_else_apply
-    - related zefop: group_by
-    - related zefop: match
-    - related zefop: match_apply
-    - related zefop: filter
-    """
-    return value1 if pred(x) else value2
-
-
-def if_then_else_tp(x, pred, true_case_func, false_case_func):
-    return VT.Any
 
 
 # ------------------------------------------ attempt ---------------------------------------------
@@ -3238,6 +3594,10 @@ def bypass_imp(x, bypass_type, fct):
 
     ---- Signature ----
     (List[T, T2], Type(T2), (T -> T3)) -> List[Union[T2, T3]]
+
+    ---- Tags ----
+    used for: control flow
+    operates on: ZefOp
     """
     type_tup = bypass_type if isinstance(bypass_type, tuple) else (bypass_type,)
     return if_then_else(
@@ -3276,12 +3636,14 @@ def pattern_imp(x, p):
     (Dict[T1, T2], Dict[Union[T1, _Any], Union[T2, _Any]]) -> Bool
 
     ---- Tags ----
-    - operates on: Dict, List
+    - operates on: List
+    - operates on: Dict
     - used for: control flow
     - related zefop: match
     - related zefop: match_apply
     - related zefop: distinct_by
     """
+    print(f"pattern will be retired: use `Pattern` and if a predicate is required `is_a[Pattern[...]]` instead. 🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱 ")
     from zef.ops import _any
     class Sentinel:
         pass
@@ -3343,20 +3705,28 @@ def distinct_imp(v):
     LazyValue[List[T]] -> LazyValue[List[T]]
 
     ---- Tags ----
-    - operates on: List, Stream
+    - operates on: Stream
+    - operates on: List
     - used for: list manipulation
     - related zefop: is_distinct
     - related zefop: distinct_by
     """
     observed = set()
+    unhashable = []
     it = iter(v)
+    from typing import Hashable
     def wrapper():
         try:
             while True:
                 el = next(it)
-                if el not in observed:
-                    observed.add(el)
-                    yield el
+                if isinstance(el, Hashable):
+                    if el not in observed:
+                        observed.add(el)
+                        yield el
+                else:
+                    if el not in unhashable:
+                        unhashable.append(el)
+                        yield el
         except StopIteration:
             return
 
@@ -3387,7 +3757,8 @@ def distinct_by_imp(v, fct):
     LazyValue[(List[T], (T->Any))] -> LazyValue[List[T]]
 
     ---- Tags ----
-    - operates on: List, Stream
+    - operates on: List
+    - operates on: Stream
     - used for: list manipulation
     - related zefop: is_distinct_by
     - related zefop: distinct
@@ -3434,7 +3805,8 @@ def is_distinct_imp(v):
     LazyValue[List[T]] -> Bool
 
     ---- Tags ----
-    - operates on: List, String
+    - operates on: String
+    - operates on: List
     - used for: set theory
     - related zefop: is_distinct_by
     - related zefop: distinct
@@ -3468,7 +3840,8 @@ def is_distinct_by_imp(v, fn):
     Stream[T], Callable -> Bool
 
     ---- Tags ----
-    - operates on: List, String
+    - operates on: String
+    - operates on: List
     - used for: set theory
     - related zefop: distinct_by
     - related zefop: is_distinct
@@ -3500,8 +3873,10 @@ def replace_imp(collection, old_val, new_val):
     String, Char, Char -> String
     
     ---- Tags ----
-    - operates on: List, String
+    - operates on: String
+    - operates on: List
     - used for: list manipulation
+    - used for: string manipulation
     - related zefop: replace_at
     - related zefop: insert_in
     - related zefop: insert
@@ -3596,7 +3971,6 @@ def slice_imp(v, start_end: tuple):
     - related zefop: last
     - related zefop: nth    
     """
-    print(type(v))
     from typing import Generator
     import itertools
     assert isinstance(start_end, tuple)
@@ -3638,6 +4012,16 @@ def split_imp(collection, val):
 
     ---- Signature ----
     (List[T], T) -> List[List[T]]
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: split_left
+    - related zefop: split_right
+    - related zefop: split_if
+    - related zefop: trim
     """
     if isinstance(collection, str):
         return collection.split(val)
@@ -3661,6 +4045,93 @@ def split_tp(*args):
     return VT.Any
 
 
+# ---------------------------------------- split_left -----------------------------------------------
+def split_left_imp(v, val):
+    """ 
+    Split a List into a List[List] based on the occurrence of val.
+    In contrast to `split`, it adds the element to split on to the
+    following sublist - i.e. it splits on the left side.
+    
+    ---- Examples ----
+    >>> 'abcdeabfb' | split_left['b']            # => ['a', 'bcdea', 'bf', 'b']
+    >>> [0,1,6,2,3,4,2,] | split_left[2]         # => [[0, 1, 6], [2, 3, 4], [2]]    
+
+    ---- Signature ----
+    (List[T], T) -> List[List[T]]
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: split
+    - related zefop: split_right
+    - related zefop: split_if
+    - related zefop: trim
+    """
+    if isinstance(v, str):
+        return split_left_imp(iter(v), val) | map[concat] | collect
+
+    def wrapper():
+        it = iter(v)
+        try:
+            next_val = next(it)
+            while True:
+                s = []
+                s.append(next_val)
+                next_val = next(it)
+                while next_val != val:                
+                    s.append(next_val)
+                    next_val = next(it)                    
+                yield s
+        except StopIteration:
+            if s!=[]: yield s
+            return
+    return wrapper()
+
+
+# ---------------------------------------- split_right -----------------------------------------------
+def split_right_imp(v, val):
+    """ 
+    Split a List into a List[List] based on the occurrence of val.
+    In contrast to `split`, it adds the element to split on to the
+    left sublist - i.e. it splits on the right side.
+    
+    ---- Examples ----
+    >>> 'abcdeabfb' | split_right['b']            # => ['ab', 'cdeab', 'fb']
+    >>> [0,1,6,2,3,4,2,] | split_right[2]         # => [[0, 1, 6, 2], [3, 4, 2]]    
+
+    ---- Signature ----
+    (List[T], T) -> List[List[T]]
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: split
+    - related zefop: split_left
+    - related zefop: split_if
+    - related zefop: trim
+    """
+    if isinstance(v, str):
+        return split_right_imp(iter(v), val) | map[concat] | collect
+
+    def wrapper():
+        it = iter(v)
+        try:
+            while True:
+                s = []
+                next_val = next(it)
+                s.append(next_val)
+                while next_val != val:                
+                    next_val = next(it)                    
+                    s.append(next_val)
+                yield s
+        except StopIteration:
+            if s!=[]: yield s
+            return
+    return wrapper()
 
 
 # ------------------------------------------ split_if ---------------------------------------------
@@ -3679,12 +4150,14 @@ def split_if_imp(v, split_function):
     (List[T], T->Bool) -> List[List[T]]
 
     ---- Tags ----
-    - operates on: List, String
+    - operates on: List
+    - operates on: String
     - used for: list manipulation
     - used for: string manipulation
     - related zefop: split
     - related zefop: concat
     - related zefop: trim
+    - used for: predicate
     """
     if isinstance(v, str):
         return v | func[tuple] | split_if[split_function] | map[join] | collect
@@ -3704,41 +4177,6 @@ def split_if_imp(v, split_function):
     return wrapper()
 
 
-
-
-
-# ------------------------------------------ tx ---------------------------------------------
-
-def tx_imp(*args):
-    """
-    let zr: ZefRef  ezr: EZefRef
-    zr | tx[instantiated]       # keeps ref. frame of zr, returns a ZefRef: 
-    zr | tx[terminated]
-    """
-    print(f"😭😭😭😭😭😭😭😭 Deprecation warning: the 'tx' operator will be deprecated. Its usage was too broad and mixed up concepts. Use 'to_graph_slice' and 'to_tx' instead")
-    # print(f">>>>> args[0]={args[0]}")
-    # print(f">>>>> args[1]={args[1]}")
-    # print(f">>>>> {args[1]== lazy_zefops.instantiated}")
-    x = args[0]
-    if len(args) == 1:          
-        if isinstance(x, GraphSlice):
-            zz = x.tx
-            return ZefRef(zz, zz)
-        if isinstance(x, ZefRef):
-            return pyzefops.tx(x)
-    
-    if len(args) == 2:        
-        if type(args[1]) == ZefOp:
-            if args[1].el_ops[0][0] == RT.Instantiated:                                
-                return pyzefops.instantiation_tx(x)
-            if args[1].el_ops[0][0] == RT.Terminated:                                
-                return pyzefops.termination_tx(x)
-
-    raise Exception("Unknown type for tx op type(args[0])={type(args[0])}")
-
-
-def tx_tp(op, curr_type):
-    return curr_type
 
 
 
@@ -3825,9 +4263,9 @@ def now_type_info(*args_tp):
 
 # ---------------------------------------- time_slice -----------------------------------------------
 
-def time_slice_implementation(first_arg, *curried_args):
+def time_slice_implementation(gs: GraphSlice, *curried_args):
     """ 
-    Returns the time slice as an Int for GraphSlice.
+    Returns the time slice as an special `TimeSlice` object for a given  GraphSlice.
     
     Note: we may introduce z_tx | time_slice if we can find a convincing use case.
     We're leaving it out for now, since this builds on the prior confusion
@@ -3839,21 +4277,47 @@ def time_slice_implementation(first_arg, *curried_args):
     >>> my_graph_slice | time_slice
 
     ---- Signature ----
-    GraphSlice -> Int
+    GraphSlice -> TimeSlice
     """
-    if isinstance(first_arg, GraphSlice):
-        return pyzefops.time_slice(first_arg.tx)
+    print(f"😔😔😔😔😔😔 RThis zefop will be deprecated. The TimeSlice data structure \
+         (which it returns) has been conceptually replaced with 'GraphSlice'.")
+    if isinstance(gs, GraphSlice):
+        return pyzefops.time_slice(gs.tx)
 
-    print(f"😞😞😞😞😞  The use of the 'time_slice' on arbitrary ZefRefs is deprecated: use 'frame | time_slice' or 'to_graph_slice | time_slice' instead 😞😞😞😞😞")  
-
-    # Old usage:
-    if not is_a(first_arg, BT.TX_EVENT_NODE):
-        print(f"😞😞😞😞😞  The use of the 'time_slice' operator with type(first_arg)={type(first_arg)} is deprecated: 😞😞😞😞😞")    
-    return (pyzefops.time_slice)(first_arg, *curried_args).value
+    raise TypeError(f"The 'time_slice' ZefOp can only be used on GraphSlices. Use 'frame | time_slice' or 'to_graph_slice | time_slice' ")  
 
 
 def time_slice_type_info(op, curr_type):
     return VT.TimeSlice
+
+
+# ---------------------------------------- graph_slice_index -----------------------------------------------
+
+def graph_slice_index_imp(gs: GraphSlice, *curried_args):
+    """ 
+    Returns the index of a GraphSlice as an Int. 
+    
+    Historical note: the GraphSlice data structure itself replaces 
+    what was previously the TimeSlice.
+
+    Historical note 2: There was initial confusion in conflating the 
+    transactions themselves with time slices / graph slices.
+    These are distinct concepts: TXs are sets of changes, 
+    i.e. events: "what happened?"
+    
+    GraphSlices are states: "What is?" They are also known as 
+    "reference frames"
+    
+    ---- Examples ----
+    >>> my_graph_slice | graph_slice_index
+
+    ---- Signature ----
+    (GraphSlice, ) -> Int
+    """
+    if isinstance(gs, GraphSlice):
+        return int(pyzefops.time_slice(gs.tx))
+
+    raise TypeError(f"The 'graph_slice_index' ZefOp can only be used on GraphSlices. You may want to use the 'frame' or 'to_graph_slice' zefops")  
 
 
 
@@ -3866,14 +4330,19 @@ def next_tx_imp(z_tx):
     in that reference frame. Nil is returned in that case.
     
     For Both ZeFfRef/EZefRef, Nil is returned when called
-    on the very lastest TX.
+    on the very latest TX.
 
     ---- Examples ----
     z2_tx = z_tx | next_tx | collect
 
     ---- Signature ----
     ZefRef -> Union[ZefRef, Nil]
-    EZefRef -> Union[EZefRef, Nil]    
+    EZefRef -> Union[EZefRef, Nil]
+
+    ---- Tags ----
+    - used for: time traversal
+    - related zefop: previous_tx
+    - related zefop: time_travel
     """
     def next_tx_ezr(zz):
         try:
@@ -3907,11 +4376,17 @@ def previous_tx_imp(z_tx):
     If one tries to go back from the very first tx, nil is 
     returned.    
     
+    ---- Examples ----
+    z2_tx = z_tx | previous_tx | collect
+
     ---- Signature ----
     ZefRef -> Union[ZefRef, Nil]
     EZefRef -> Union[EZefRef, Nil]
     
-    z2_tx = z_tx | previous_tx | collect
+    ---- Tags ----
+    - used for: time traversal
+    - related zefop: previous_tx
+    - related zefop: time_travel
     """
     def previous_tx_ezr(zz):
         try:
@@ -3937,6 +4412,75 @@ def previous_tx_tp(z_tp):
     return None
 
 
+# ----------------------------------------- preceding_events --------------------------------------------
+
+def preceding_events_imp(x, filter_on=None):
+    """ 
+    Given a TX as a (E)ZefRef, return all events that occurred in that TX.
+    Given a ZefRef to a RAE, return all the events that happend on the RAE.
+
+    - filter_on allows for filtering on the type of the events; by default it is none which
+    returns all events.
+
+    ---- Examples ----
+    >>> my_graph_slice | events                  => [instantiated[z1], terminated[z3], assigned[z8][41][42] ]
+    >>> z_rae | events                          => [instantiated[z1], assigned[z8][41][42], terminated[z3]]
+    >>> z_rae | events[Instantiated]            => [instantiated[z1]]
+    >>> z_rae | events[Instantiated | Assigned] => [instantiated[z1], assigned[z8][41][42]]
+
+    ---- Signature ----
+    Union[ZefRef[TX], EZefRef[TX]]  ->  List[ZefOp[Union[Instantiated[ZefRef], Terminated[ZefRef], ValueAssigned[ZefRef, T]]]]
+    """
+    from zef.pyzef import zefops as pyzefops
+    # Note: we can't use the python to_frame here as that calls into us.
+    
+    if isinstance(x, GraphSlice):
+        return 'TODO!!!!!!!!!!!!!!!'
+
+    if BT(x) == BT.TX_EVENT_NODE:
+        raise TypeError(f"`preceding_events` can only be called on RAEs and GraphSlices and lists all relevant events form the past. It was called on a TX. You may be looking for the `events` operator, which lists all events that happened in a TX.")
+        
+    if BT(x) not in [
+            BT.ENTITY_NODE,
+            BT.RELATION_EDGE,
+            BT.ATOMIC_ENTITY_NODE,
+            ]:
+        raise TypeError(f"`preceding_events` can only be called on RAEs and GraphSlices and lists all relevant events form the past.")
+
+    if internals.is_delegate(x):
+        ezr = to_ezefref(x)
+        to_del = ezr | in_rel[BT.TO_DELEGATE_EDGE] | collect
+        insts = to_del | Ins[BT.DELEGATE_INSTANTIATION_EDGE]
+        retirements = to_del | Ins[BT.DELEGATE_RETIREMENT_EDGE]
+        if type(ezr) == ZefRef:
+            gs = frame(ezr)
+            insts = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
+            retirements = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
+
+        insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        full_list = insts+retirements
+    else:
+        zr = x
+
+        def make_val_as_from_tx(tx):
+            aet_at_frame = pyzefops.to_frame(zr, tx)
+            try:
+                prev_tx  = tx | previous_tx | collect                                   # Will fail if tx is already first TX
+                prev_val = pyzefops.to_frame(zr, prev_tx) | value | collect     # Will fail if aet didn't exist at prev_tx
+            except:
+                prev_val = None
+            return assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+
+        inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: instantiated[pyzefops.to_frame(zr, tx) ]] | collect
+        val_assigns =  pyzefops.value_assignment_txs(zr) | map[make_val_as_from_tx] | collect
+        # TODO termination_tx returns even if zr is a zefref with a timeslice where it wasn't terminated yet
+        termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[pyzefops.to_frame(zr, tx, True)]] | collect
+        full_list = inst + val_assigns + termination 
+
+    if filter_on: return full_list | filter[lambda z: is_a_implementation(z, filter_on)] | collect
+    return full_list
+
 
 
 
@@ -3951,16 +4495,22 @@ def events_imp(z_tx_or_rae, filter_on=None):
     returns all events.
 
     ---- Examples ----
-    >>> z_tx  | events                          => [instantiated[z1], terminated[z3], value_assigned[z8][41][42] ]
-    >>> z_rae | events                          => [instantiated[z1], value_assigned[z8][41][42], terminated[z3]]
-    >>> z_rae | events[Instantiated]            => [instantiated[z1]]
-    >>> z_rae | events[Instantiated | Assigned] => [instantiated[z1], value_assigned[z8][41][42]]
+    >>> z_tx  | events                          => [instantiated[z1], terminated[z3], assigned[z8][41][42] ]
+
 
     ---- Signature ----
-    Union[ZefRef[TX], EZefRef[TX]]  ->  List[ZefOp[Union[Instantiated[ZefRef], Terminated[ZefRef], ValueAssigned[ZefRef, T]]]]
+    ZefRef[TX] | EZefRef[TX]  ->  List[ZefOp[Union[Instantiated[ZefRef], Terminated[ZefRef], ValueAssigned[ZefRef, Any, Any]]]]
+
+    ---- Tags ----
+    - related zefop: preceding_events
+    - related zefop: instantiation_txs
+    - related zefop: termination_txs
+    - related zefop: assignment_txs
+
     """
     from zef.pyzef import zefops as pyzefops
     # Note: we can't use the python to_frame here as that calls into us.
+    
 
     if internals.is_delegate(z_tx_or_rae):
         ezr = to_ezefref(z_tx_or_rae)
@@ -3969,8 +4519,8 @@ def events_imp(z_tx_or_rae, filter_on=None):
         retirements = to_del | Ins[BT.DELEGATE_RETIREMENT_EDGE]
         if type(ezr) == ZefRef:
             gs = frame(ezr)
-            insts = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
-            retirements = insts | filter[time_slice | less_than_or_equal[time_slice(gs)]]
+            insts = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
+            retirements = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
 
         insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
         retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
@@ -3987,13 +4537,16 @@ def events_imp(z_tx_or_rae, filter_on=None):
                 prev_val = pyzefops.to_frame(aet, prev_tx) | value | collect   # Will fail if aet didn't exist at prev_tx
             except:
                 prev_val = None
-            return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+            return assigned[aet_at_frame][prev_val][value(aet_at_frame)]
 
         insts        = zr | pyzefops.instantiated   | map[lambda zz: instantiated[pyzefops.to_frame(zz, gs.tx) ]] | collect
         val_assigns  = zr | pyzefops.value_assigned | map[make_val_as_for_aet] | collect
         terminations = zr | pyzefops.terminated     | map[lambda zz: terminated[pyzefops.to_frame(zz, gs.tx, True) ]] | collect
         full_list = insts+val_assigns+terminations
     else:
+        print(f"🥱🥱🥱🥱🥱🥱 Change: The `events` ZefOp can only be used on (E)ZefRef to TXs. To look at the past of any RAE from a given frame, use `preceding_events`. ")
+        raise Exception()
+        # TODO: retire this block
         zr = z_tx_or_rae
 
         def make_val_as_from_tx(tx):
@@ -4086,22 +4639,7 @@ def in_frame_imp(z, *args):
     if is_same_g or origin_uid(zz).graph_uid == uid(g_frame):
         z_obj = to_ezefref(z) if is_same_g else g_frame[origin_uid(zz)]
         # exit early if we are looking in a frame prior to the objects instantiation: this is not even allowed when allow_tombstone=True
-        if BT(z_obj) == BT.TX_EVENT_NODE:
-            # TODO: This should not be necessary in the future, as
-            # events[Instantiated] should cover this and the following ROOT_NODE
-            # case.
-            instantiation_ts = pyzefops.time_slice(z_obj)
-        elif BT(z_obj) == BT.ROOT_NODE:
-            # TODO: It should also be possible to pass this to
-            # events[Instantiated], as then the delegates of the root node can
-            # also be handled seamlessly
-            instantiation_ts = TimeSlice(0)
-        else:
-            # Note that 'first' is used here instead of 'single', as delegates
-            # may have been brought back to life... but we only care about
-            # casuality here, which corresponds to the very first instantiation.
-            instantiation_ts = z_obj | events[Instantiated] | first | absorbed | single | frame | time_slice | collect
-        if (time_slice(target_frame)) < instantiation_ts:
+        if z_obj | Not[aware_of[target_frame]] | collect:
             raise RuntimeError(f"Causality error: you cannot point to an object from a frame prior to its existence / the first time that frame learned about it.")            
         if not tombstone_allowed:
             if not exists_at(z_obj, target_frame):
@@ -4241,20 +4779,19 @@ def time_travel_imp(x, *args):
     ---- Examples ----
     >>> #       ---- relative time travel ----
     >>> zr | time_travel[-3]                    # how many time slices to move
-    >>> zr | time_travel[-3.5*units.seconds]  
-    >>> my_graph_slice | time_travel[-3]
-    >>> 
-    >>> #       ---- absolute time travel ----
+    ... zr | time_travel[-3.5*units.seconds]  
+    ... my_graph_slice | time_travel[-3]
+     
+    >>> #       ---- time travel to fixed time ----
     >>> t1 = Time('October 20 2020 14:00 (+0100)')
-    >>> g | time_travel[t1]
-    >>> gs | time_travel[t1]
-    >>> ezr | time_travel[t1]
-    >>> zr | time_travel[t1]
-    >>>
-    >>> ezr | time_travel[allow_tombstone][t1]
-    >>> zr | time_travel[allow_tombstone][-3]
-    >>> zr | time_travel[allow_tombstone][-3.5*units.seconds]
-    >>> zr | time_travel[allow_tombstone][t1]
+    ... g | time_travel[t1]
+    ... gs | time_travel[t1]
+    ... ezr | time_travel[t1]
+    ... zr | time_travel[t1]
+    ... ezr | time_travel[allow_tombstone][t1]
+    ... zr | time_travel[allow_tombstone][-3]
+    ... zr | time_travel[allow_tombstone][-3.5*units.seconds]
+    ... zr | time_travel[allow_tombstone][t1]
 
     ---- Signature ----
     (ZefRef, Int)                           -> Union[ZefRef, Nil]           # nil or error? What is the process / criterion?
@@ -4270,6 +4807,9 @@ def time_travel_imp(x, *args):
     ---- Tags ----
     - used for: time traversal
     - related zefop: time_slice    
+    - related zefop: next_tx
+    - related zefop: previous_tx
+    - related zefop: time
     """
     c = collect 
 
@@ -4419,14 +4959,15 @@ def origin_rae_tp(x):
 
 
 def fill_or_attach_implementation(z, rt, val):
-    # from ...deprecated import zefops
-    # return curry_args_in_zefop(zefops.fill_or_attach, args[0], args[1:])
-    if has_out(z, rt):
-        return z | Out[rt] | assign_value[val] | collect
-    else:
-        return (z, rt, val)
+    return LazyValue(z) | fill_or_attach[rt][val]
 
 def fill_or_attach_type_info(op, curr_type):
+    return curr_type
+
+def set_field_implementation(z, rt, val):
+    return LazyValue(z) | set_field[rt][val]
+
+def set_field_type_info(op, curr_type):
     return curr_type
 
 def assert_implementation(z, predicate=None, message=None):
@@ -4456,7 +4997,6 @@ def assert_type_info(op, curr_type):
     
 def run_effect_implementation(eff):
     from ..fx import _effect_handlers
-    from ..fx.fx_types import _Effect_Class
     
     # if we create the effect with short hand notation, e.g. (ET.Dog, ET.Person | g | run)
     # we want to directly unpack the instances in the same structure as the types that went in
@@ -4464,10 +5004,9 @@ def run_effect_implementation(eff):
     # as a key in the receipt
 
     
-    if not isinstance(eff, _Effect_Class):
-        raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run an Effect.")
-    handler = _effect_handlers[eff.d['type'].d]
-    eff._been_run = True
+    if not isinstance(eff, dict):
+        raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run a wish, which are represented as dictionaries.")
+    handler = _effect_handlers[eff['type'].d]
     return handler(eff)
 
 
@@ -4497,7 +5036,8 @@ def apply_functions_imp(x, fns):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Functions
+    - operates on: ZefOp
+    - operates on: Function
     - related zefop: func
     - related zefop: reverse_args
     - related zefop: map
@@ -4559,25 +5099,31 @@ def map_implementation(v, f):
 
 
 
-   
+# -------------------------------- reduce -------------------------------------------------
+ 
 
 def reduce_implementation(iterable, fct, init):
     import functools
     return functools.reduce(fct, iterable, init)
 
 
-# def group_by_implementation(first_arg, *curried_args):
-#     return (ops.group_by)(first_arg, *curried_args)
 
+# -------------------------------- group_by -------------------------------------------------
 def group_by_implementation(iterable, key_fct, categories=None):
     """
     categories is optional and specifies additional keys/categories 
-    to create, even if there are no occurrences. Passed as a list 
-    [True, False]
+    to create, even if there are no occurrences. The categories can
+    be implicitly inferred from the data or explicitly specified 
+    (useful for dispatch and allowing for empty catergories).
+
+    ---- Examples ----
+    >>> range(10) | group_by[modulo[3]]   # => [(0, [0, 3, 6, 9]), (1, [1, 4, 7]), (2, [2, 5, 8])]
     
     ---- Tags ----
     - used for: control flow
-    - operates on: List    
+    - operates on: List
+    - operates on: Stream
+    - related zefop: group
     """        
     # map to list first in case the generator state changes
     from collections import defaultdict
@@ -4595,10 +5141,95 @@ def group_by_implementation(iterable, key_fct, categories=None):
 
 
 
+# -------------------------------- group -------------------------------------------------
+def group_imp(v, f=lambda x: x):
+    """
+    Examine successive elements in a List and return 
+    a lazy list of lists: the given function f maps 
+    the elements within each sublist map onto the 
+    same value, i.e. the splitting occurs where mapped
+    elements differ.
+
+    ---- Examples ----
+    >>> ['a','a','a','b','b','c','a', 'a'] | group      # => [('a', 'a', 'a'), ('b', 'b'), ('c',), ('a', 'a')]
+    >>> [2,4,6,1,3,2,5,7,9,10] | group[lambda x: x%2]   # => [(2, 4, 6), (1, 3), (2,), (5, 7, 9), (10,)]
+
+    ---- Signature ----
+    (List[T], (T)->T2) -> List[List[T]]
+    
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: group_by
+    - related zefop: chunk
+    """
+    def wrapper():        
+        it = iter(v)
+        current_list = []
+        try:
+            last_val = next(it)
+            last_f_val = f(last_val)
+            while True:
+                current_list = [last_val]
+                while True:                    
+                    val = next(it)
+                    f_val = f(val)
+                    if f_val != last_f_val:
+                        yield tuple(current_list)
+                        last_val = val
+                        last_f_val = f_val
+                        break
+                    current_list.append(val)
+                    last_val = val
+                    last_f_val = f_val
+        except StopIteration:
+            if current_list != []:
+                yield tuple(current_list)
+            return
+
+    return wrapper()
+
+
+
+
+
+
+# -------------------------------- identity -------------------------------------------------
+
 def identity_implementation(x):
+    """
+    The identity function: always returns the input argument
+
+    ---- Examples ----
+    >>> 42 | identity     # => 42
+
+    ---- Tags ----
+    operates on: Any
+    used for: function composition
+    """
     return x
 
+
+# -------------------------------- length -------------------------------------------------
 def length_implementation(iterable):
+    """
+    Zef's version of the length function.
+    Similar to Python's `len` and sometimes
+    called `count` in other languages.
+
+    ---- Examples ----
+    >>> ['a', 'b', 'c'] | length     # => 3
+
+    ---- Signature ----
+    (List[T]) -> Int
+
+    ---- Tags ----
+    related zefop: count
+    operates on: List
+    operates on: Stream
+    """
     if hasattr(iterable, "__len__"):
         return len(iterable)
     else:
@@ -4607,11 +5238,15 @@ def length_implementation(iterable):
 
 
 
+# -------------------------------- nth -------------------------------------------------
 def nth_implementation(iterable, n):
     """
     Returns the nth element of an iterable or a stream.
-    Using negative 'n' takes from the back with 'nth[-1]' being the last element.
-    An Error value is returned if the index is out of bounds.
+    Using negative 'n' takes from the back with 'nth[-1]' 
+    being the last element. An Error value is returned if 
+    the index is out of bounds.
+    This is sometimes called 'get` in other languages, but
+    we want to distinguish it from key lookup.
     Note: this uses a zero-indexed convention.
 
     ---- Examples ----
@@ -4692,7 +5327,7 @@ def modulo_imp(m: int, n: int):
 
 
 #---------------------------------------- select_by_field -----------------------------------------------
-def filter_implementation(itr, pred):
+def filter_implementation(itr, pred_or_vt):
     """
     Filters an iterable or stream lazily.
 
@@ -4711,6 +5346,10 @@ def filter_implementation(itr, pred):
     - used for: control flow
     - operates on: List
     """
+    if isinstance(pred_or_vt, ValueType_): pred = is_a[pred_or_vt]
+    elif isinstance(pred_or_vt, set): pred = lambda x: x in pred_or_vt
+    else: pred = pred_or_vt
+    
     input_type = parse_input_type(type_spec(itr))
     if input_type == "tools":
         # As this is an intermediate, we return an explicit generator
@@ -4741,6 +5380,7 @@ def select_by_field_imp(zrs : Iterable[ZefRef], rt: RelationType, val):
     ---- Tags ----
     - operates on: Graph
     - related zefop: filter
+    - related zefop: value    
     """
     return pyzefops.select_by_field_impl(zrs, rt, val)
 
@@ -5118,29 +5758,16 @@ def in_rels_imp(z, rt=None, source_filter=None):
 
 
 
-
-
-
-def ins_implementation_old(first_arg, *curried_args):
-    print("Deprecation: 😞😞😞😞😞 ops.ins is deprecated. Use 'z1 < L[RT]'  instead of 'z1 | ins' 😞😞😞😞😞")
-    if isinstance(first_arg, FlatRef): return fr_ins_imp(first_arg)
-    return (pyzefops.ins)(first_arg, *curried_args)
-
-def outs_implementation_old(zr):
-    print("Deprecation: 😞😞😞😞😞 ops.outs is deprecated. Use 'z1 > L[RT]'  instead of 'z1 | outs' 😞😞😞😞😞")
-    if isinstance(zr, FlatRef): return fr_outs_imp(zr)
-    return pyzefops.outs(zr)
-
-def ins_and_outs_implementation_old(first_arg, *curried_args):
-    print("Deprecation: 😞😞😞😞😞 ops.ins_and_outs is deprecated. use 'z1 < L[RT]' and 'z1 > L[RT]' instead😞😞😞😞😞")    
-    if isinstance(first_arg, FlatRef): return fr_ins_and_outs_imp(first_arg)
-    return (pyzefops.ins_and_outs)(first_arg, *curried_args)
-
 def source_implementation(zr, *curried_args):
     if isinstance(zr, FlatRef):
         return fr_source_imp(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
+    if isinstance(zr, Delegate):
+        from ...pyzef.internals import DelegateRelationTriple
+        if not isinstance(zr.item, DelegateRelationTriple):
+            raise Exception(f"Can't take the source of a non-relation-triple Delegate ({zr})")
+        return Delegate(zr.order + zr.item.source.order, zr.item.source.item)
     if is_a(zr, ET):
         raise Exception(f"Can't take the source of an entity (have {zr}), only relations have sources/targets")
     return (pyzefops.source)(zr, *curried_args)
@@ -5150,6 +5777,11 @@ def target_implementation(zr):
         return fr_target_imp(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
+    if isinstance(zr, Delegate):
+        from ...pyzef.internals import DelegateRelationTriple
+        if not isinstance(zr.item, DelegateRelationTriple):
+            raise Exception(f"Can't take the target of a non-relation-triple Delegate ({zr})")
+        return Delegate(zr.order + zr.item.target.order, zr.item.target.item)
     if is_a(zr, ET):
         raise Exception(f"Can't take the target of an entity (have {zr}), only relations have sources/targets")
     return pyzefops.target(zr)
@@ -5191,15 +5823,13 @@ def time_implementation(x, *curried_args):
 
 
 def instantiation_tx_implementation(z):
-    return z | events[Instantiated] | single | absorbed | single | frame | to_tx | collect
+    return z | preceding_events[Instantiated] | single | absorbed | single | frame | to_tx | collect
 
 def termination_tx_implementation(z):
     root_node = Graph(z)[42] 
-    return z | events[Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
+    return z | preceding_events[Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
 
-def instances_implementation(*args):
-    print("Deprecation: 😞😞😞😞😞 instances is deprecated. Use 'f | all'  instead 😞😞😞😞😞")
-    return all(*args)
+
     
 def uid_implementation(arg):
     if isinstance(arg, str):
@@ -5219,9 +5849,69 @@ def base_uid_implementation(first_arg):
         return first_arg
     return base_uid(uid(first_arg))
 
-def exists_at_implementation(first_arg, frame):
+def exists_at_implementation(z, frame):
     assert isinstance(frame, GraphSlice)
-    return (pyzefops.exists_at)(first_arg, frame.tx)
+    return (pyzefops.exists_at)(z, frame.tx)
+
+def first_tx_for_low_level_blob(z):
+    # Delegate detection comes first, as several of the other things below can
+    # be delegates and would need their own logic.
+    if internals.is_delegate(z):
+        # Chronological order is mandatory so we find the first instantiation edge
+        return first_tx_for_low_level_blob(z | in_rel[BT.TO_DELEGATE_EDGE] | collect)
+    elif BT(z) in [BT.ENTITY_NODE,
+                   BT.RELATION_EDGE,
+                   BT.ATOMIC_ENTITY_NODE]:
+        # Chronological order is mandatory so we find the first instantiation edge
+        return first_tx_for_low_level_blob(z | in_rel[BT.RAE_INSTANCE_EDGE] | collect)
+    if BT(z) in [BT.DELEGATE_INSTANTIATION_EDGE,
+                   BT.DELEGATE_RETIREMENT_EDGE,
+                   BT.INSTANTIATION_EDGE,
+                   BT.TERMINATION_EDGE,
+                   BT.ATOMIC_VALUE_ASSIGNMENT_EDGE,
+                   BT.ASSIGN_TAG_NAME_EDGE]:
+        # Any of these are low-level blobs that only have a single event of "instantiation" and whose source is the tx
+        return source(z)
+    elif BT(z) in [BT.ORIGIN_RAE_EDGE,
+                   BT.ORIGIN_GRAPH_EDGE,
+                   BT.FOREIGN_ENTITY_NODE,
+                   BT.FOREIGN_RELATION_EDGE,
+                   BT.FOREIGN_ATOMIC_ENTITY_NODE,
+                   BT.FOREIGN_GRAPH_NODE]:
+        raise TypeError(f"Can't yet determine events for this kind of blob: {BT(z)}")
+                   
+    # Special cases where there is a TX but it's a bit harder to get to
+    elif BT(z) == BT.TX_EVENT_NODE:
+        return z
+    elif BT(z) == BT.NEXT_TX_EDGE:
+        return target(z)
+    elif BT(z) == BT.ROOT_NODE:
+        # This is a little of an odd choice
+        return z | Out[BT.NEXT_TX_EDGE] | collect
+    elif BT(z) == BT.RAE_INSTANCE_EDGE:
+        return z | Ins[BT.INSTANTIATION_EDGE] | first | collect
+    elif BT(z) == BT.TO_DELEGATE_EDGE:
+        # Need to get the first TX of all instantiation edges.
+        return z | Ins[BT.DELEGATE_INSTANTIATION_EDGE] | first | collect
+
+    raise Exception("Not a low level blob we can get a simple tx for.")
+
+
+def aware_of_implementation(z, frame):
+    """
+    Return whether the Graph is aware of the object `z` in the frame given. This
+    differs from exists_at in that a graph is still "aware" of a terminated
+    entity, and low-level blobs are also valid inputs to aware_of.
+    
+    ---- Signature ----
+    ((ZefRef | EZefRef), GraphSlice) -> Bool
+    """
+    z_tx = first_tx_for_low_level_blob(z)
+    return (z_tx
+            | to_graph_slice
+            | graph_slice_index
+            | less_than_or_equal[graph_slice_index(frame)]
+            | collect)
 
 def is_zefref_promotable_implementation(z):
     return pyzefops.is_zefref_promotable(z)
@@ -5343,9 +6033,44 @@ def is_a_implementation(x, typ):
         return True
     
 
+    def rp_matching(x, rp):
+        triple = rp.d['absorbed'][0]
+        v = tuple(el == Z for el in triple)
+        try:
+            if v == (True, False, False):
+                return x | Out[triple[1]] | is_a[triple[2]] | collect
+
+            if v == (False, False, True):
+                return x | In[triple[1]] | is_a[triple[0]] | collect
+
+            if v == (False, True, False):
+                return is_a(source(x), triple[0]) and is_a(target(x), triple[2])
+                
+            if  v == (False, False, False):
+                return is_a(x, triple[1]) and is_a(source(x), triple[0]) and is_a(target(x), triple[2])
+        except:
+            return False
+        raise TypeError(f"invalid pattern to match on in RP: {triple}")
+
+
+    def has_value_matching(x, vt):
+        my_set = vt.d['absorbed'][0]
+        try:
+            val = value(x)
+        except:
+            raise TypeError(f"HasValue can only be applied to AETs")
+            # TODO: or return false here
+
+        if isinstance(my_set, set):
+            return val in my_set            
+        # If we're here, it should be a VT    
+        return is_a(val, my_set)
+
+
+
     def set_of_matching(el, setof):
         from typing import Callable
-        for set_el in setof.d['absorbed']: 
+        for set_el in setof.d['absorbed'][0]: 
             if set_el == el: return True
         return False
     
@@ -5354,14 +6079,23 @@ def is_a_implementation(x, typ):
         sentinel = Sentinel() 
         p = typ | absorbed | single | collect
         assert (
-            (isinstance(x, dict) and isinstance(p, dict)) 
+            (isinstance(x, dict) and isinstance(p, dict)) or
+            (type(x) in {list, tuple} and type(p) in {list, tuple}) 
         )
         if isinstance(x, dict):
             for k, v in p.items():            
                 r = x.get(k, sentinel)
                 if r is sentinel: return False
+                if not isinstance(v, ValueType_): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
                 if not is_a(r, v): return False  
             return True
+        elif isinstance(x, list) or isinstance(x, tuple):
+            for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
+                if not isinstance(p_e, ValueType_): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
+                if not is_a(x_e, p_e): return False  
+            return True
+        
+        raise NotImplementedError(f"Pattern ValueType isn't implemented for {x}")
 
     def valuetype_matching(el, vt):
         if vt == VT.Any: return True
@@ -5401,6 +6135,12 @@ def is_a_implementation(x, typ):
         if typ.d['type_name'] == "Is":
             return is_matching(x, typ)
 
+        if typ.d['type_name'] == "RP":
+            return rp_matching(x, typ)
+
+        if typ.d['type_name'] == "HasValue":
+            return has_value_matching(x, typ)
+        
         if typ.d['type_name'] == "SetOf":
             return set_of_matching(x, typ)
         
@@ -5408,7 +6148,7 @@ def is_a_implementation(x, typ):
             return not is_a(x, typ.d['absorbed'][0])
 
         if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
-            map_ = {"Instantiated": instantiated, "Assigned": value_assigned, "Terminated": terminated}
+            map_ = {"Instantiated": instantiated, "Assigned": assigned, "Terminated": terminated}
             def compare_absorbed(x, typ):
                 val_absorbed = absorbed(x)
                 typ_absorbed = absorbed(typ)
@@ -5711,15 +6451,6 @@ def filter_type_info(op, curr_type):
 def sort_type_info(op, curr_type):
     return curr_type
 
-def ins_type_info(op, curr_type):
-    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
-
-def outs_type_info(op, curr_type):
-    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
-
-def ins_and_outs_type_info(op, curr_type):
-    return VT.Any # VT.ZefRefs if "ZefRef" in curr_type.d['type_name'] else VT.EZefRefs
-
 def source_type_info(op, curr_type):
     return curr_type
 
@@ -5740,8 +6471,6 @@ def instantiation_tx_type_info(op, curr_type):
 def termination_tx_type_info(op, curr_type):
     return VT.ZefRef
 
-def instances_type_info(op, curr_type):
-    return VT.Any # VT.ZefRefs
 
 def uid_type_info(op, curr_type):
     if curr_type == VT.Graph:
@@ -5795,12 +6524,12 @@ def terminate_implementation(z, *args):
 def terminate_type_info(op, curr_type):
     return curr_type
 
-def assign_value_imp(z, val):
+def assign_imp(z, val):
     # We need to keep the assign value as something that works in the GraphDelta
     # code. So we simply wrap everything up as a LazyValue and return that.
-    return LazyValue(z) | assign_value[val]
+    return LazyValue(z) | assign[val]
 
-def assign_value_tp(op, curr_type):
+def assign_tp(op, curr_type):
     return VT.Any
 
 def ET_implementation(z, *args):
@@ -5980,8 +6709,8 @@ def merge_imp(a, second=None, *args):
     https://clojuredocs.org/clojure.core/merge
 
     ---- Examples -----
-    [{'a': 1, 'b': 42}, {'a': 2, 'c': 43}] | merge          # => {'a': 2, 'b': 42, 'c': 43}
-    {'a': 1, 'b': 42} | merge[ {'a': 2, 'c': 43} ]
+    >>> [{'a': 1, 'b': 42}, {'a': 2, 'c': 43}] | merge          # => {'a': 2, 'b': 42, 'c': 43}
+    >>> {'a': 1, 'b': 42} | merge[ {'a': 2, 'c': 43} ]
 
     ---- Signature ----
     List[Dict]          -> Dict
@@ -5989,9 +6718,8 @@ def merge_imp(a, second=None, *args):
     (Dict, Dict, Dict)  -> Dict
 
     ---- Tags ----
-    * tool for: dictionaries
-    * similar: merge_with
-    ...
+    - operates on: Dict
+    - related zefop: merge_with
     """
     from typing import Generator
     if isinstance(a, FlatGraph) and isinstance(second, FlatGraph):
@@ -6030,9 +6758,9 @@ def merge_with_imp(dict_or_list, merge_func, more_dict_or_list=None):
     Based on the Clojure operator https://clojuredocs.org/clojure.core/merge-with
 
     ---- Examples ----
-    {'a': 1, 'b': 2} | merge_with[add][{'a': 3}]                        # => {'a': 4, 'b': 2}
-    {'a': 1, 'b': 2} | merge_with[add][{'a': 3}, {'b': 10, 'c': 5}]     # => {'a': 4, 'b': 12, 'c': 5}    
-    [{'a': [1], 'b': [2]}, {'a': [3]}] | merge_with[concat]             # => {'a': [1, 2], 'b': [3]}
+    >>> {'a': 1, 'b': 2} | merge_with[add][{'a': 3}]                        # => {'a': 4, 'b': 2}
+    >>> {'a': 1, 'b': 2} | merge_with[add][{'a': 3}, {'b': 10, 'c': 5}]     # => {'a': 4, 'b': 12, 'c': 5}    
+    >>> [{'a': [1], 'b': [2]}, {'a': [3]}] | merge_with[concat]             # => {'a': [1, 2], 'b': [3]}
 
     ---- Signature ----
     (Dict[T1, T2], ((T2,T2)->T2), Dict[T1, T2]) -> Dict[T1, T2]
@@ -6065,9 +6793,9 @@ def to_clipboard_imp(x):
     an elementary type to the clipboard.
 
     ---- Examples ----
-    'hello' | to_clipboard                                  # returns an effect
-    my_zef_func | to_clipboard | run                        # copy a single zef function to the clipboard
-    g | now | all[ET.ZEF_Function] | to_clipboard | run     # copy all zef function on graph to clipboard
+    >>> 'hello' | to_clipboard                                  # returns an effect
+    >>> my_zef_func | to_clipboard | run                        # copy a single zef function to the clipboard
+    >>> g | now | all[ET.ZEF_Function] | to_clipboard | run     # copy all zef function on graph to clipboard
 
     ---- Signature ----
     String                          -> Effect
@@ -6231,10 +6959,14 @@ def read_file_imp(fname):
     the effect will contain a "content" key with the file's content.
 
     ---- Examples ----
-    "data.yaml" | read_file | run | get["content"] | from_yaml | collect
+    >>> "data.yaml" | read_file | run | get["content"] | from_yaml | collect
 
     ---- Signature ----
     VT.String -> VT.Effect
+
+    ---- Tags ----
+    - related zefop: load_file
+    - used for: file io
 
     """
     return Effect({
@@ -6253,10 +6985,14 @@ def load_file_imp(fname, format = None):
     the effect will contain a "content" key with the transformed object.
 
     ---- Examples ----
-    "data.yaml" | load_file | run | get["content"] | collect
+    >>> "data.yaml" | load_file | run | get["content"] | collect
 
     ---- Signature ----
     VT.String -> VT.Effect
+
+    ---- Tags ----
+    - related zefop: read_file
+    - used for: file io
 
     """
     return Effect({
@@ -6280,7 +7016,7 @@ def save_file_imp(content, fname, settings = {}):
     An example is for csv, we can pass a dict {"na_values": True} to keep NA values in the Pandas DF.
 
     ---- Examples ----
-    data_as_dict | save_file["data.yaml"] | run
+    >>> data_as_dict | save_file["data.yaml"] | run
     
     ---- Possible issues ---
     data_as_dict | to_yaml | save_file["data.yaml"] | run
@@ -6311,7 +7047,7 @@ def write_file_imp(content, fname):
     which must be passed to run.
     
     ---- Examples ----
-    "Hello" | write_file["data.txt"] | run
+    >>> "Hello" | write_file["data.txt"] | run
     
     ---- Signature ----
     (VT.Any, VT.String) -> VT.Effect
@@ -6370,7 +7106,7 @@ def to_pipeline_imp(ops: list):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
     - related zefop: inject
     - related zefop: inject_list
     - related zefop: absorbed
@@ -6398,7 +7134,7 @@ def inject_imp(x, injectee):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
     - related zefop: inject_list
     - related zefop: absorbed
     - related zefop: without_absorbed
@@ -6425,7 +7161,7 @@ def inject_list_imp(v, injectee):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOps, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
     - related zefop: inject
     - related zefop: absorbed
     - related zefop: without_absorbed
@@ -6448,6 +7184,20 @@ def zascii_to_asg_imp(zascii_str: VT.String) -> VT.Dict:
 
     ---- Signature ----
     (VT.String) -> VT.Dict
+
+    ---- Examples ----
+    >>> s = \"""
+    >>>                   RT.RatingScore
+    >>>   ET.Dropdown─────────────────────────►1.0
+    >>>   \"""
+    >>> zascii_to_asg(s)
+
+
+    ---- Tags ----
+    - used for: parsing ascii
+    - operates on: String
+    - related zefop: zascii_to_flatgraph
+    - related zefop: zascii_to_blueprint_fg
     """
     from ...deprecated.tools.zascii import parse_zascii_to_asg
     asg, _  = parse_zascii_to_asg(zascii_str)
@@ -6456,18 +7206,211 @@ def zascii_to_asg_imp(zascii_str: VT.String) -> VT.Dict:
 def zascii_to_asg_tp(op, curr_type):
     return VT.Dict
 
-def zascii_to_schema_imp(zascii_str: VT.String) -> VT.GraphDelta:
+def zascii_to_flatgraph_imp(zascii_str: VT.String) -> VT.FlatGraph:
     """ 
-    Takes a zascii string with a schema and returns a GraphDelta.
+    Takes a zascii string representing a Graph and returns a FlatGraph containing all the RAEs 
+    appearing in the string.
+
+    ---- Examples ----
+    >>> s = \"""
+    >>>                   RT.RatingScore
+    >>>   ET.Dropdown─────────────────────────►1.0
+    >>>   \"""
+    >>> zascii_to_flatgraph(s)
+    FlatGraph(
+    (temp_id_0002=>0)
+    (temp_id_0003=>1)
+    (temp_id_0004=>2)
+    -------
+    (0, ET.Dropdown, [2], None)
+    (1, AET.Float, [-2], None, 1.0)
+    (2, RT.RatingScore, [], None, 0, 1)
+    )
 
     ---- Signature ----
-    (VT.String) -> VT.GraphDelta
+    (VT.String) -> VT.FlatGraph
+
+    ---- Tags ----
+    - used for: parsing ascii
+    - operates on: String
+    - related zefop: zascii_to_asg
+    - related zefop: zascii_to_blueprint_fg
     """
-    pass
+    from ...core.internals import is_any_UID
 
-def zascii_to_schema_tp(op, curr_type):
-    return VT.GraphDelta
+    asg = zascii_to_asg_imp(zascii_str)
 
+    aet_mapping = {'Float': AET.Float, 'Int': AET.Int, 'Bool': AET.Bool, 'String': AET.String}
+    scalar_types_for_aets = {'Float', 'Int', 'Bool', 'String'}
+    elements = list(asg.items())
+    filter_with_temp_id =filter[lambda p: not is_any_UID(p[1].get('existing_uid', ''))]
+
+    def ensure_valid_aet_type(d: dict):
+        if d[1]['value'] not in scalar_types_for_aets: raise TypeError(f'An AET type "AET.{d.get("value", None)}" is not a parsable AET type')
+        return d
+
+    ets = (elements 
+    | filter[lambda p: p[1]['type'] == 'ET'] 
+    | filter_with_temp_id
+    | map[lambda p: ET(p[1]['value'])[p[0]]]
+    | collect
+    )
+
+    aets = (elements 
+    | filter[lambda p: p[1]['type'] == 'AET'] 
+    | filter_with_temp_id
+    | map[lambda p: ensure_valid_aet_type(p)]
+    | map[lambda p: aet_mapping[p[1]['value']][p[0]]]
+    | collect
+    )
+
+    aets_from_vals = (elements 
+    | filter[lambda p: p[1]['type'] in scalar_types_for_aets]
+    | filter_with_temp_id
+    | map[lambda p: aet_mapping[p[1]['type']][p[0]] <= p[1]['value']]
+    | collect
+    )
+    ids = {absorbed(x)[0] for x in ets + aets}.union({absorbed(x.initial_val)[0] for x in aets_from_vals})
+
+    rels = (elements 
+    | filter[lambda p: p[1]['type'] == 'Edge']
+    | filter_with_temp_id
+    | map[lambda p: (Z[p[1]['source']], RT(asg[p[1]['labeled_by']]['value'])[p[0]], Z[p[1]['target']])]
+    | collect
+    )    
+    sorted_rels = []
+    while rels:
+        for r in rels:
+            if absorbed(r[0])[0] in ids and absorbed(r[2])[0] in ids:
+                sorted_rels.append(r)
+                ids.add(absorbed(r[1])[0])
+                rels.remove(r)
+
+    actions = ets + aets + aets_from_vals + sorted_rels
+    return FlatGraph(actions)
+
+def zascii_to_flatgraph_tp(op, curr_type):
+    return VT.FlatGraph
+
+
+def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
+    """ 
+    Takes a zascii string representing a Graph Blueprint and returns a FlatGraph containing all the delegates 
+    appearing in the string.
+
+    ---- Examples ----
+    >>> s = \"""
+    >>>                   RT.RatingScore
+    >>>   ET.Dropdown─────────────────────────►AET.Int
+    >>>   \"""
+    >>> zascii_to_blueprint_fg(s)
+    FlatGraph(
+    (D1(ET.Dropdown)=>0)
+    (D1(AET.Int)=>1)
+    (D1({D1(ET.Dropdown)>RT.RatingScore>D1(AET.Int)})=>2)
+    -------
+    (0, D1(ET.Dropdown), [2], None)
+    (1, D1(AET.Int), [-2], None)
+    (2, D1({D1(ET.Dropdown)>RT.RatingScore>D1(AET.Int)}), [], None, 0, 1)
+    )    
+
+    ---- Signature ----
+    (VT.String) -> VT.FlatGraph
+
+    ---- Tags ----
+    - used for: parsing ascii
+    - operates on: String
+    - related zefop: zascii_to_asg
+    - related zefop: zascii_to_flatgraph
+    """
+    from ...core.internals import is_any_UID
+    asg = zascii_to_asg(zascii_str)
+
+    aet_mapping = {'Float': AET.Float, 'Int': AET.Int, 'Bool': AET.Bool, 'String': AET.String}
+    scalar_types_for_aets = {'Float', 'Int', 'Bool', 'String'}
+    elements = list(asg.items())
+    filter_with_temp_id =filter[lambda p: not is_any_UID(p[1].get('existing_uid', ''))]
+
+    def ensure_valid_aet_type(d: dict):
+        if d[1]['value'] not in scalar_types_for_aets: raise TypeError(f'An AET type "AET.{d.get("value", None)}" is not a parsable AET type')
+        return d
+
+    ets = (elements 
+    | filter[lambda p: p[1]['type'] == 'ET'] 
+    | filter_with_temp_id
+    | map[lambda p: ET(p[1]['value'])[p[0]]]
+    | collect
+    )
+
+    aets = (elements 
+    | filter[lambda p: p[1]['type'] == 'AET'] 
+    | filter_with_temp_id
+    | map[lambda p: ensure_valid_aet_type(p)]
+    | map[lambda p: aet_mapping[p[1]['value']][p[0]]]
+    | collect
+    )
+
+    # Don't include the values, could be changes in the future to point to instances
+    aets_without_vals = (elements 
+    | filter[lambda p: p[1]['type'] in scalar_types_for_aets]
+    | filter_with_temp_id
+    | map[lambda p: aet_mapping[p[1]['type']][p[0]] ]
+    | collect
+    )
+
+    id_to_rae = {absorbed(x)[0]: x for x in ets + aets + aets_without_vals}
+
+    rels = (elements 
+    | filter[lambda p: p[1]['type'] == 'Edge']
+    | filter_with_temp_id
+    | map[lambda p: (Z[p[1]['source']], RT(asg[p[1]['labeled_by']]['value'])[p[0]], Z[p[1]['target']])]
+    | collect
+    )    
+
+    # TopoSort the RTs
+    sorted_rels = []
+    while rels:
+        for r in rels:
+            if absorbed(r[0])[0] in id_to_rae and absorbed(r[2])[0] in id_to_rae:
+                sorted_rels.append(r)
+                id_to_rae[absorbed(r[1])[0]] = r[1]
+                rels.remove(r)
+    
+    instance_rep = Delegate
+
+    def get_label(p):
+        return LazyValue(p) | absorbed | single_or[None] | collect
+
+    @func
+    def get_template_representation(p, id_lookup):
+        label = result = None
+        if type(p) == EntityType or type(p) == AtomicEntityType:
+            result = instance_rep(p)
+            label = get_label(p)
+        elif type(p) == tuple:
+            s = get_item(p[0], id_lookup)
+            t = get_item(p[2], id_lookup)
+            result = instance_rep(s, p[1], t)
+            label = get_label(p[1])
+
+        if label is not None:
+            id_lookup[label] = result
+        return result
+
+    def get_item(x, id_lookup):
+        if type(x) == ZefOp and is_a(x, Z):
+            return id_lookup[get_label(x)]
+        if type(x) == Delegate:
+            return x
+        return instance_rep(x)
+    
+    items = concat([ets + aets + aets_without_vals + sorted_rels])
+    reps = items | map[get_template_representation[id_to_rae]] | collect
+    dels = reps | map[delegate_of] | collect
+    return FlatGraph(dels)
+
+def zascii_to_blueprint_fg_tp(op, curr_type):
+    return VT.FlatGraph
 
 #--------------------------------------------------------------------------------------
 def replace_at_imp(str_or_list, index, new_el):
@@ -6475,9 +7418,20 @@ def replace_at_imp(str_or_list, index, new_el):
     Given a list replace element at an index with new_el.
     Given a string return a new string with element at index replaced with new_el.
     
+
+    ---- Examples ----
+    >>> ['a','b','c'] | replace_at[1]['x']    # => ['a','x','c']
+    >>> 'hello' | replace_at[1]['a'] | c      # 'hallo'
+
     ---- Signature ----
     (VT.String, VT.Int, VT.String) -> VT.String
     (VT.List, VT.Int, VT.Any) -> VT.List
+
+    ---- Tags ----
+    - related zefop: replace
+    - used for: list manipulation
+    - operates on: String
+    - operates on: List
     
     """
     from typing import Generator
@@ -6507,19 +7461,6 @@ def replace_at_imp(str_or_list, index, new_el):
 
 
 def replace_at_tp(op, curr_type):
-    return VT.String
-
-
-
-
-def pad_to_length_imp(s: VT.String, l: VT.Int) -> VT.String:
-    """ 
-    Pads a string with white space to the right to a specific length l.
-    """
-    print("😞😞😞😞😞  pad_to_length_imp is deprecated. Use 'pad_right' instead")
-    return s + (" " * (l - len(s))) 
-
-def pad_to_length_tp(op, curr_type):
     return VT.String
 
 
@@ -7050,6 +7991,24 @@ def make_request_tp(op, curr_type):
 
 #---------------------------------------- blake3 -----------------------------------------------
 def blake3_imp(obj) -> VT.String:
+    """
+    Cryptographic hash function.
+    Can be applied to strings and Bytes.
+
+    ---- Examples ----
+    >>> 'hello' | blake3    
+    >>> b'hello' | blake3    
+    
+    ---- Signature ----
+    String -> String
+    Bytes -> String
+
+    ---- Tags ----
+    - used for: Cryptography
+    - used for: Hashing
+    - operates on: String
+    - operates on: Bytes
+    """
     # Hash some input all at once. The input can be bytes, a bytearray, or a memoryview.
     from blake3 import blake3 as b3
     if isinstance(obj, bytes):
@@ -7057,14 +8016,40 @@ def blake3_imp(obj) -> VT.String:
     elif isinstance(obj, str):
         return b3(obj.encode()).hexdigest()
     else:
-        try:
-            from ..op_structs import type_spec
-            type_str = str(type_spec(obj))
-        except:
-            type_str = str(type(obj))
-        return blake3_imp(type_str + str(obj))
+        raise ValueError(f"Expected Bytes or Str but got {obj} instead.")
 
 def blake3_tp(op, curr_type):
+    return VT.String
+
+
+def value_hash_imp(obj) -> VT.String:
+    """
+    Cryptographic hash function using blake3 
+    for non-str/bytes values including Zef Values.
+
+    ---- Examples ----
+    >>> 5 | value_hash    
+    >>> g | value_hash    
+    
+    ---- Signature ----
+    Any -> String
+
+    ---- Tags ----
+    - used for: Cryptography
+    - used for: Hashing
+    - operates on: Values
+    - operates on: Any
+    """
+    if isinstance(obj, dict): # Handle dict specially to fix key,value pair order.
+        return blake3_imp("dict" + str(sort(obj.items())))
+    try:
+        from ..op_structs import type_spec
+        type_str = str(type_spec(obj))
+    except:
+        type_str = str(type(obj))
+    return blake3_imp(type_str + str(obj))
+
+def value_hash_tp(op, curr_type):
     return VT.String
 
 
@@ -7097,6 +8082,8 @@ def to_zef_list_tp(op, curr_type):
 #-----------------------------FlatGraph Implementations-----------------------------------
 def fg_insert_imp(fg, new_el):
     from ..graph_delta import map_scalar_to_aet_type
+    from ...pyzef.internals import DelegateRelationTriple
+
     assert isinstance(fg, FlatGraph)
     new_fg = FlatGraph()
     new_blobs, new_key_dict = [*fg.blobs], {**fg.key_dict}
@@ -7191,7 +8178,7 @@ def fg_insert_imp(fg, new_el):
 
         elif isinstance(new_el, Val):
             new_el = new_el.arg
-            hash_vn = blake3(str(new_el))
+            hash_vn = value_hash(new_el)
             if hash_vn not in new_key_dict:
                 idx = next_idx()
                 new_key_dict[hash_vn] = idx
@@ -7211,6 +8198,30 @@ def fg_insert_imp(fg, new_el):
             idx = common_logic(origin_rae(new_el))
             if isinstance(new_blobs[idx][1], AtomicEntityType) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))
+        elif isinstance(new_el, Delegate):
+            if isinstance(new_el.item, DelegateRelationTriple):
+                if new_el in new_key_dict:
+                    idx = new_key_dict[new_el]
+                else:
+                    src, rt, trgt = source(new_el), new_el.item.rt, target(new_el)
+                    src_idx = common_logic(src)
+                    trgt_idx = common_logic(trgt)
+                    idx = next_idx()
+
+                    new_blobs.append((idx, new_el, [], None, src_idx, trgt_idx))
+                    if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
+                    if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
+                    new_key_dict[new_el] = idx
+            else:
+                internal_id = new_el | absorbed | attempt[single][None] | collect
+                new_el = new_el | without_absorbed | collect
+                if new_el in new_key_dict:
+                    idx = new_key_dict[new_el]
+                else:
+                    idx = next_idx()
+                    if internal_id: new_key_dict[internal_id] = idx
+                    new_key_dict[new_el] = idx
+                    new_blobs.append((idx, new_el, [], None))
         else:
             idx = None
         return idx
@@ -7227,7 +8238,7 @@ def fg_insert_imp(fg, new_el):
         return ent_idx
 
     def _insert_single(new_el):
-        if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val}:
+        if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val, Delegate}:
             common_logic(new_el)
         elif isinstance(new_el, tuple) and len(new_el) == 3:
             src, rt, trgt = new_el
@@ -7281,7 +8292,7 @@ def fg_get_imp(fg, key):
     if type(key) in {ZefRef, EZefRef} and origin_uid(key) in kdict: return FlatRef(fg, kdict[origin_uid(key)])
     elif type(key) in {Entity, AtomicEntity} and key.d['uid'] in kdict: return FlatRef(fg, kdict[key.d['uid']])
     elif isinstance(key, Relation) and key.d['uids'][1] in kdict:return FlatRef(fg, kdict[key.d['uids'][1]])
-    elif isinstance(key, Val) and  blake3(key.arg) in kdict: return FlatRef(fg, kdict[blake3(key.arg)])
+    elif isinstance(key, Val) and  value_hash(key.arg) in kdict: return FlatRef(fg, kdict[value_hash(key.arg)])
     elif key in kdict: return FlatRef(fg, kdict[key])
     else: raise KeyError(f"{key} isn't found in this FlatGraph!")
 
@@ -7302,9 +8313,9 @@ def fg_remove_imp(fg, key):
         idx = kdict[key.d['uids'][1]]
         key = key.d['uids'][1]
     elif isinstance(key, Val):
-        if blake3(key.arg) not in kdict: raise error
-        idx = kdict[blake3(key.arg)]
-        key = blake3(key.arg)
+        if value_hash(key.arg) not in kdict: raise error
+        idx = kdict[value_hash(key.arg)]
+        key = value_hash(key.arg)
     elif key in kdict:  
         idx = kdict[key]
     else: raise error
@@ -7337,21 +8348,20 @@ def fg_remove_imp(fg, key):
 
 
 def flatgraph_to_commands(fg):
-    return_elements = []
+    return_elements = set()
     idx_key = {idx:key for key,idx in fg.key_dict.items()}
     def dispatch_on_blob(b, for_rt=False):
         idx = b[0]
         if isinstance(b[1], EntityType):
             if idx in idx_key:
                 key = idx_key[idx]
-                if is_a(key, uid):
-                    return Entity({"type": b[1], "uid": key})
+                if is_a(key, uid): return Entity({"type": b[1], "uid": key})
                 else:
                     if for_rt: return Z[key]
                     return b[1][key]
-            elif for_rt or len(b[2]) == 0:
-                return Z[idx]
-            else: return b[1][idx]
+            else:
+                if b[1][idx] in return_elements: return Z[idx]
+                return  b[1][idx] 
         elif isinstance(b[1], AtomicEntityType):
             if idx in idx_key:
                 key = idx_key[idx]
@@ -7362,10 +8372,13 @@ def flatgraph_to_commands(fg):
                     if for_rt: return Z[key]
                     if b[-1]: return b[1][key] <= b[-1]
                     else:     return b[1][key]
-            elif for_rt or len(b[2]) == 0:
-                if b[-1]: return b[1][idx] <= b[-1]
-                else:     return b[1][idx]
-            else: return None
+            else:
+                if b[-1]: 
+                    if (b[1][idx] <= b[-1]) in return_elements: return Z[idx] <= b[-1]
+                    return b[1][idx] <= b[-1]
+                else:     
+                    if (b[1][idx]) in return_elements: return Z[idx]
+                    return b[1][idx]
         elif isinstance(b[1], RelationType):
             if idx in idx_key: 
                 key = idx_key[idx]
@@ -7381,24 +8394,25 @@ def flatgraph_to_commands(fg):
 
         elif isinstance(b[1], str) and b[1][:2] == "BT":
             if for_rt:
-                return Z[blake3(b[-1])]
+                return Z[value_hash(b[-1])]
             else:
                 from ..graph_delta import map_scalar_to_aet_type
                 if type(b[-1]) in map_scalar_to_aet_type:
                     aet = map_scalar_to_aet_type[type(b[-1])](b[-1])
-                    return aet[blake3(b[-1])] <= (b[-1])
+                    return aet[value_hash(b[-1])] <= (b[-1])
                 else:
-                    return AET.Serialized[blake3(b[-1])] <= to_json(b[-1])
+                    return AET.Serialized[value_hash(b[-1])] <= to_json(b[-1])
+        elif isinstance(b[1], Delegate):
+            return b[1]
 
         raise NotImplementedError(f"Unhandled type in dispatching {b}")
 
     for b in fg.blobs | filter[lambda b: b != None] | collect:
         el = dispatch_on_blob(b)
-        print(b, el)
-        if isinstance(el, LazyValue) or el != None: return_elements.append(el)
+        if isinstance(el, LazyValue) or el != None: return_elements.add(el)
 
     from ..graph_delta import construct_commands
-    return construct_commands(return_elements)
+    return construct_commands(list(return_elements))
 
 
 # ------------------------------FlatRef----------------------------------
@@ -7480,7 +8494,7 @@ def transact_imp(data, g, **kwargs):
         raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
 
     return Effect({
-            "type": FX.TX.Transact,
+            "type": FX.Graph.Transact,
             "target_graph": g,
             "commands":commands
     })    
@@ -7548,12 +8562,79 @@ def fg_merge_imp(fg1, fg2):
 
 
 
+
+
+
 #-----------------------------Range----------------------------------------
 def range_imp(*args):
-    def generator_wrapper(r):
-        yield from iter(r)
+    """
+    Introduce a separate operator from Python's range.
     
-    return generator_wrapper(range(*args))
+    1)  The lazy output value type should be uniform for other
+    zefops to deal with. `range` does not return a general Python
+    generator, but a special range object. We don't want to  make
+    all other zefops that can operate on a lazy List[Int] to special
+    case range.
+
+    2) we want the ability to pipe the boundary values into `Range`.
+    Range can take a single int or a pair of ints and returns a lazy
+    List[Int].
+
+    3) In contrast to Python's builtin `range`, Zef's `Range` can
+    be called with infinity as an upper bound.
+
+    ---- Signature ----
+    Int -> List[Int]
+    (Int, Int) -> List[Int]
+
+    ---- Examples ----
+    >>> 4 | Range         # => [0,1,2,3]   # but as a generator
+    >>> (2, 5) | Range    # => [2,3,4]
+    >>> Range(4)          # => [0,1,2,3]   # not lazy! The parentheses trigger evaluation for ZefOps!
+    >>> infinity | Range  # => [0,1,2,3, ... # lazy and infinitely long
+    >>> (4, infinity) | Range  # => [4,5,6, ... # lazy and infinitely long
+
+    ---- Gotchas ----
+    - calling with parentheses triggers evaluation. If this is 
+      called for an infinite lazy sequence, the evaluation will not terminate.
+
+    ---- Tags ----
+    - used for: List manipulation
+
+    """
+
+    if len(args) == 1:
+        a = args[0]
+        # 10 | Range | ...
+        if isinstance(a, int) or a==infinity:
+            lo, hi = 0, a        
+        # (2, 5) | Range | ...
+        elif len(a) == 2:
+            if not (isinstance(a[0], int) and (isinstance(a[1], int) or a[1]==infinity)):
+                raise TypeError(f'When called with two argument, Range takes two ints. Got: {a}')
+            else: lo, hi = a
+        else:
+            raise TypeError(f'Range can be called with one or two integers. It got called with the wrong number of args: {a}')
+    # Range(2, 5) | ...
+    elif len(args) == 2:
+        a = args
+        if not (isinstance(a[0], int) and (isinstance(a[1], int) or a[1]==infinity)):
+                raise TypeError(f'When called with two argument, Range takes two ints. Got: {a}')
+        else: lo, hi = a
+    else:
+        raise TypeError(f'Range can be called with one or two integers. It got called with the wrong number of args: {args}')
+
+    def generator_wrapper2():
+        count2 = lo
+        while True:
+            yield count2
+            count2 += 1
+
+    def generator_wrapper1():
+        yield from range(lo, hi)
+    # don't expose the yield directly, keep this a function
+    return generator_wrapper2() if hi==infinity else generator_wrapper1()
+
 
 def range_tp(op, curr_type):
     return None
@@ -7561,6 +8642,13 @@ def range_tp(op, curr_type):
 
 # -----------------------------Old Traversals-----------------------------
 def traverse_implementation(first_arg, *curried_args, func_only, func_multi, func_optional, func_RT, func_BT, traverse_direction):
+    translation_dict = {
+        "outout": "Out",
+        "out"  : "out_rel",
+        "inin": "In",
+        "in": "in_rel",
+    }
+    print(f"Old traversal style will be retired: use `{translation_dict[traverse_direction]}` instead. 🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱 ")
     if isinstance(first_arg, FlatRef):
         return traverse_flatref_imp(first_arg, curried_args, traverse_direction)
     elif isinstance(first_arg, FlatRefs):
@@ -7707,9 +8795,10 @@ def to_bytes_imp(x: String) -> Bytes:
     used for: type conversion
     operates on: String
     """
+    from zef.core.bytes import Bytes_
     if isinstance(x, str): return Bytes(x.encode())     # default: utf8
-    if isinstance(x, Bytes): return x
     if isinstance(x, bytes): return Bytes(x)
+    if isinstance(x, Bytes_): return x
     else: raise NotImplementedError()
 
 
@@ -7867,9 +8956,11 @@ def without_imp(x, y):
 def without_tp(x):
     return VT.Any
 
-def schema_imp(x, include_edges=False):
+def blueprint_imp(x, include_edges=False):
     """ 
-    Returns all schema nodes on the graph or alive in the given GraphSlice.
+    WARNING: the name/interface of this zefop is not stable and is likely to change in the future.
+
+    Returns all delegate nodes on the graph or alive in the given GraphSlice.
     These are the delegate entities/relations which reference all instances on
     the graph.
 
@@ -7878,13 +8969,13 @@ def schema_imp(x, include_edges=False):
     `graphviz`.
  
     ---- Examples ----
-    >>> g | schema[True] | graphviz          # Shows the schema of graph g.
-    >>> g | now | schema[True] | graphviz    # Shows the schema of graph g in the current time slice.
+    >>> g | blueprint[True] | graphviz          # Shows the blueprint of graph g.
+    >>> g | now | blueprint[True] | graphviz    # Shows the blueprint of graph g in the current time slice.
 
-    # A blank graph already has one TX delegate node.
+    >>> # A blank graph already has one TX delegate node.
     >>> g = Graph()
-    >>> g | schema | collect
-    ... [<EZefRef #65 DELEGATE TX at slice=0>]
+    ... g | blueprint | collect
+    [<EZefRef #65 DELEGATE TX at slice=0>]
  
     ---- Signature ----
     (Graph, Bool) => List[EZefRef]
@@ -7894,7 +8985,7 @@ def schema_imp(x, include_edges=False):
     if isinstance(x, Graph):
         g = x
         if include_edges:
-            frontier_of = map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | map_cat[lambda x: (x, target(x))]
+            frontier_of = map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | map_cat[apply[identity, target]]
         else:
             frontier_of = map_cat[Outs[BT.TO_DELEGATE_EDGE]]
 
@@ -7912,12 +9003,509 @@ def schema_imp(x, include_edges=False):
                      | last
                      | first
                      | collect)
-        return all_items | without[[g | root | collect]] | collect
+
+        all_equal = sliding[2] | map[unpack[equals]] | all
+        is_delegate_rel_group = BT.RELATION_EDGE & Is[apply[identity, source, target] | all_equal]
+        trim_items = [g | root | collect] + (all_items | filter[is_delegate_rel_group] | collect)
+
+        return all_items | without[trim_items | apply[identity, map_cat[out_rels[BT.TO_DELEGATE_EDGE]]] | concat | collect] | collect
     elif isinstance(x, GraphSlice):
-        log.warn("Currently schema(graph_slice) returns eternal schema not the schema in the appropriate reference frame. This will be fixed in the future.")
-        return schema_imp(Graph(x), include_edges) | filter[exists_at[x]] | map[in_frame[x][allow_tombstone]] | collect
+        rae_satisfies = match[
+            (Delegate, exists_at[x]),
+            (Any, aware_of[x])
+        ]
+        satisfies = match[
+            (BT.TO_DELEGATE_EDGE, target),
+            (Any, identity)
+        ] | rae_satisfies
+        return (blueprint_imp(Graph(x), include_edges)
+                # We need to be careful of the filtering here. Only RAEs (including delegates) can be used with exists_at.
+                 | filter[satisfies]
+                # allow_tombstone is set here to bypass exists_at checking
+                 | map[in_frame[x][allow_tombstone]]
+                | collect)
 
-    return Error(f"Don't know how to handle type of {type(x)} in schema zefop")
+    return Error(f"Don't know how to handle type of {type(x)} in blueprint zefop")
 
-def schema_tp(x):
-    return VT.List
+
+# ----------------------------- field -----------------------------
+
+@func
+def field_imp(z, rt):
+    """
+    Opinionated operator that is part of high level zef.
+
+    1) If the final node at the end of the path is an AET,
+       the `value` zefop is automatically applied. i.e. The
+       value and not the ZefRef to the node is returned.
+
+    2) Automatically maps to the right nesting order, it
+       essentially wraps with the according number of "map"s
+    >>> [z1, z2, z3] | F.Name      # equivalent to 
+    >>> [z1, z2, z3] | map[Out[RT.Name] | value]
+
+
+    ***** TODO: allow traversing the "implied graphs", given ********
+          a base graph and set of rules.
+
+    rules = [
+            Implies[ (ET.Person['p'], RT.Directed, ET.Movie['m']), (ET.Movie['m'], RT.Director, ET.Person['p']) ],
+
+            Implies[ (Any['y'], RT.BirthYear, Any['x']), (Any['y'], RT.YearOfBirth, Any['x']) ],
+            ]
+    
+    
+    ---- Signature ----
+    (ZefRef, RT) -> ZefRef
+    (List[ZefRef], RT) -> List[ZefRef]
+    (List[List[ZefRef]], RT) -> List[List[ZefRef]]
+
+    ----Examples ----
+    >>> z1 | F.Name         # equivalent to z1 | Out[RT.Name] | value     # if target is an AET
+    >>> z1 | F.FriendOf     # equivalent to z1 | Out[RT.Name]             # if target is an ET or RT
+
+    ---- Tags ----
+    - related zefop: fields
+    - related zefop: Out
+    - used for: graph traversal
+    """
+    def val_maybe(x):
+        if is_a(x, AET): return value(x)
+        else: return x
+
+    if isinstance(z, ZefRef):
+        return val_maybe(Out(z, rt))
+
+    if isinstance(z, list) or isinstance(z, tuple):
+        return [field(zz, rt) for zz in z]
+
+    raise TypeError(f"Field operator not implemented for type(z)={type(z)}    z={z}")
+
+
+# ----------------------------- fields -----------------------------
+
+
+@func
+def fields_imp(z, rt):
+    """
+    Closely related to the `field` operator, but use this for
+    traversing a variable number of outgoing relations, similar
+    to `Outs`.
+
+    If any of the target nodes is an AET, the value is automatically
+    used.
+
+    ---- Signature ----
+    (ZefRef, RT) -> List[ZefRef]
+    (List[ZefRef], RT) -> List[List[ZefRef]]
+
+    ----Examples ----
+    >>> z1 | F.Name         # equivalent to z1 | Out[RT.Name] | value     # if target is an AET
+    >>> z1 | F.FriendOf     # equivalent to z1 | Out[RT.Name]             # if target is an ET or RT
+
+    ---- Tags ----
+    - related zefop: field
+    - related zefop: Outs
+    - used for: graph traversal
+    """
+    def val_maybe(x):
+        if is_a(x, AET): return value(x)
+        else: return x
+
+    if isinstance(z, ZefRef):
+        return [val_maybe(x) for x in Outs(z, rt)]
+
+    if isinstance(z, list) or isinstance(z, tuple):
+        return [fields(zz, rt) for zz in z]
+
+    raise TypeError(f"`fields` operator not implemented for type(z)={type(z)}    z={z}")
+
+
+
+
+# ----------------------------- apply -----------------------------
+def apply_imp(x, f):
+    """
+    Very similar to func to apply a function
+    to an input argument.
+    In addition, a tuple of functions (f1,..,.fn) can 
+    be specified and the output is is the tuple of
+    the individual output values.
+    Note that this procedure is distinct from map, as
+    it acts on the single flow input argument once.
+
+    ---- Signature ----
+    (T,  (T->T2) ) -> T2    # if f is a single function
+    (T, List[(T->T2)] ) -> List[T2]
+
+    ---- Examples ----
+    >>> 40 | apply[
+    ...    add[1],
+    ...    add[2],
+    ...    String,
+    ... ]
+    (41, 42, '40')
+    
+    ---- Tags ----
+    - related zefop: map
+    - related zefop: func
+    - related zefop: call
+    - used for: control flow
+    - used for: function application
+    """
+    if isinstance(f, tuple) or isinstance(f, list):
+        return tuple(ff(x) for ff in f)
+    else: return f(x)
+
+
+
+
+# ----------------------------- split_on_next -----------------------------
+def split_on_next_imp(s, el_to_split_on):
+    """
+    Split a List or a string at one point only
+
+    ---- Examples ----
+    >>> before, after = split_on_next('good morning, good afternoon, good night', ', ')     # => ['good morning', 'good afternoon, good night']
+    >>> [1,2,3,4,5,3,8] | split_on_next[3]    # => (1,2), (4, 5, 3, 8)
+
+    ---- Signature ----
+    (String, String) -> String
+    (List[T], T) -> List[T]
+
+    ---- Tags ----
+    - related zefop: split
+    - related zefop: split_if
+    - related zefop: chunk
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    """
+    from typing import Generator
+    if isinstance(s, str):
+        ind = s.find(el_to_split_on)
+        if ind == -1: return s, ''    # not found
+        return s[:ind], s[ind+len(el_to_split_on):]
+    if isinstance(s, list) or isinstance(s, tuple) or isinstance(s, Generator):
+        it = iter(s)
+        part1 = []
+        while True:
+            val = next(it)
+            if val == el_to_split_on: break
+            part1.append(val)
+        def wrapper():      # keep split_on_next a function
+            yield from it
+        return part1, wrapper()
+
+    raise TypeError(f"expected a String or a List in `split_on_next`, got a {type(s)}")
+
+
+
+# ----------------------------- ops acting on op doctstring -----------------------------
+def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
+    """
+    Returns the examples portion of a docstring as a list of tuples mapping
+    example string to a possible output string.
+
+    It is able to handle multiline result, but not multine examples. This
+    will be later improved.
+
+    ---- Examples ----
+    >>> examples(to_snake_case)
+    [("'yaml-keyword' | to_snake_case", '"yaml_keyword"'),
+    ("'TokenName' | to_snake_case", '"token_name"'),
+    ("'external. data-with  UNUSUAL@characters' | to_snake_case",
+    '"external_data_with_unusualcharacters"')]
+
+    ---- Signature ----
+    (ZefOp) -> List[Record[String | Nil]]
+
+    ---- Tags ----
+    - related zefop: tags
+    - related zefop: signature
+    - related zefop: related_ops
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    def parse_example(s):
+        s = trim(s, " ")
+
+        # Case of empty lines
+        if len(s) == 0: return None
+
+        # Case of comments
+        if s[0] == "#": raise ValueError(f"Comments aren't allowed on new-lines without >>> before them so not to be confused with an output that starts with #! {s}")
+
+        # ... <example one-liner 2>
+        if s[:3] == "...":
+            example = s[3:] | trim[" "] | collect
+            comment_idx = example.find('#')
+            if comment_idx != -1: example = example[:comment_idx] | trim[" "] | collect
+            return (example, None, "multi-example")
+
+        # case of example lines
+        if s[:3] == ">>>":
+            result = None
+            s = s | trim[">>>"] | trim[" "] | collect
+
+            # case of '>>>' only
+            if len(s) == 0: return None                 
+
+            # case of '>>> <example one-liner 1>       # => <result of the one-liner (a value)>'
+            s = s.replace("# ->", "# =>").replace("=>", "# =>") # TODO relax this later i.e make it break on malformation
+            result_idx = s.find('# =>')
+            if result_idx != -1:
+                result = s[result_idx + 4:] | trim[" "] | collect
+                comment_idx = result.find('#')
+                if comment_idx != -1: result = result[:comment_idx] | trim[" "] | collect
+                s = s[:result_idx] | trim[" "] | collect
+
+            # case of '>>> <example one-liner 2>       # <comment on the behaviour (not a value)>'
+            comment_idx = s.find('#')
+            if comment_idx != -1:
+                s = s[:comment_idx] | trim[" "] | collect
+                if len(s) == 0: return None
+
+            return s, result
+
+        # case of '(single line or multine output )'
+        else:
+            return (None, s, "multi-result")
+
+    def process_examples(tups):
+        def join_if_not_empty(s1, s2):
+            if s2: return s1 + "\n" + s2
+            return s1
+
+        result = []
+        curr_result = curr_example = ""
+        for t in reversed(list(tups)):
+            if t[-1] and t[-1] == "multi-result": 
+                curr_result = join_if_not_empty(t[1], curr_result)
+                # curr_result = t[1] + "\n" + curr_result
+            elif t[-1] and t[-1] == "multi-example": 
+                curr_example = join_if_not_empty(t[0], curr_example)
+                # curr_example = t[0] + "\n" + curr_example
+            elif not t[-1]:
+                example = join_if_not_empty(t[0], curr_example)
+                result.append((example, curr_result))
+                curr_result = curr_example = ""
+            else:
+                if curr_example or curr_result: raise ValueError(f"Malformed example. A multiline output or example contained also an inline comment. This isn't allowed! {t}")
+                result.append(t)
+        return result[::-1]
+
+
+    s = docstring(op) | split["\n"] | collect
+    example_idx = s.index("---- Examples ----")
+    return (
+        s 
+        | skip[example_idx + 1] 
+        | take_while[lambda l: l[:4] != "----"] 
+        | map[parse_example]
+        | filter[lambda l: l != None]
+        | func[process_examples]
+        | collect
+    )
+
+
+def signature_imp(op: VT.ZefOp) -> VT.List[VT.String]:
+    """
+    Given the signature portion of a docstring is valid, returns back a List of Strings.
+
+    ---- Examples ----
+    >>> signature(apply)
+    ['(T,  (T->T2) ) -> T2', '(T, List[(T->T2)] ) -> List[T2]']
+
+    >>> signature(schema)
+    ['(Graph, Bool) -> List[EZefRef]', '(GraphSlice, Bool) -> List[ZefRef]']
+
+    ---- Signature ----
+    (ZefOp) -> List[String]
+
+    ---- Tags ----
+    - related zefop: tags
+    - related zefop: examples
+    - related zefop: related_ops
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    def clean_and_eval(s):
+        s = s | replace['=>']['->'] | collect
+        commment_idx = s.find("#")
+        if commment_idx != -1: s = s[:commment_idx]
+        return s | trim[' '] | join | collect
+        # extra_eval = lambda expr: eval(expr, globals(), {**VT.__dict__})
+        # try:
+            # val_type = extra_eval(s)
+        # except:
+            # raise ValueError(f"The following '{s}'' signature is malformed and can't be parsed! Make sure all types present in the signature are valid ValueTypes")
+        # return val_type
+
+
+    s = LazyValue(op) | docstring | split["\n"] | collect
+    try:
+        signature_idx = s.index("---- Signature ----")
+    except:
+        raise ValueError(f"The docstring for {op} is either malformed or missing a Signature section!")  from None
+    signature = (
+        s 
+        | skip[signature_idx + 1] 
+        | take_while[lambda l: l[:4] != "----"] 
+        | filter[lambda l: l != ""]
+        | map[clean_and_eval]
+        | collect
+    )
+    return signature
+
+
+def tags_imp(op: VT.ZefOp) -> VT.List:
+    """
+    Returns the tags portion of a docstring as a list of list of strings.
+
+    ---- Examples ----
+    >>> tags(map)
+    [['used for', 'control flow'],
+    ['used for', 'function application'],
+    ['related zefop', 'apply_functions']]
+
+    ---- Signature ----
+    (ZefOp) -> List[String]
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: related_ops
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    try:
+        return (LazyValue(op) 
+        | docstring 
+        | split["\n"]
+        | skip_while[Not[equals['---- Tags ----']]] 
+        | skip[1]
+        | take_while[lambda s: s[:4]!='----']
+        | map[trim_left['-']]
+        | filter[~SetOf('')]
+        | map[split[':'] | map[trim[' ']]]
+        | collect
+    )
+    except:
+        return []
+
+
+def related_ops_imp(op: VT.ZefOp) -> VT.List[VT.ZefOp]:
+    """
+    Extracts the related ops from the tags portion of the docstring of the op.
+    It returns back a list of ZefOp. It also discards invalid ZefOps.
+
+    ---- Examples ----
+    >>> related_ops(to_snake_case)
+    [to_lower_case, to_upper_case, to_pascal_case, to_camel_case, to_kebab_case, to_screaming_snake_case]
+
+    ---- Signature ----
+    (ZefOp) -> List[ZefOp]
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: tags
+    - related zefop: operates_on
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    from ... import ops
+    tags_lines = tags(op) | collect
+    return (
+        tags_lines 
+        | filter[first |equals["related zefop"]]
+        | map[second | func[lambda s: ops.__dict__.get(s, None)]]
+        | filter[lambda el: el != None]
+        | collect
+    )
+
+def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
+    """
+    Extracts the operates on Types from the tags portion of the docstring of the op.
+    It returns back a list of ValueTypes. It also discards invalid ValueTypes.
+
+    ---- Examples ----
+    >>> operates_on(blake3)
+    [String, Bytes]
+
+    ---- Signature ----
+    (ZefOp) -> List[ValueType]
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: tags
+    - related zefop: related_ops
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    tags_lines = tags(op) | collect
+    return (
+        tags_lines 
+        | filter[first |equals["operates on"]]
+        | map[second | func[lambda s: VT.__dict__.get(s, None)]]
+        | filter[lambda el: el != None]
+        | collect
+    )
+
+def used_for_imp(op: VT.ZefOp) -> VT.List[VT.String]:
+    """
+    Extracts the used for from the tags portion of the docstring of the op.
+
+    ---- Examples ----
+    >>> used_for(append)   # => ["list manipulation", "string manipulation"]
+
+    ---- Signature ----
+    (ZefOp) -> List[String]
+
+    ---- Tags ----
+    - related zefop: signature
+    - related zefop: examples
+    - related zefop: tags
+    - related zefop: related_ops
+    - related zefop: used_for
+    - operates on: ZefOp
+    - used for: op usage
+    """
+    tags_lines = tags(op) | collect
+    return (
+        tags_lines 
+        | filter[first |equals["used for"]]
+        | map[second]
+        | collect
+    )
+
+
+
+
+def indexes_of_imp(v, ElType):
+    """
+    Given a list, returns the indexes of the elements which are of
+    a specified logic type / set.
+
+    ---- Signature ----
+    (List[Any], ValueType) -> List[Int]
+
+    ---- Examples ----
+    >>> me = ["foo", 5,"bar", "baz", 'bar'] | indexes_of[SetOf["bar",]] | c  # => [2, 4]
+
+    ---- Tags ----
+    operates on: List
+    """
+    return v | enumerate | filter[second | is_a[ElType]] | map[first] | collect
+

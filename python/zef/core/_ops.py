@@ -135,6 +135,7 @@ reduce          = make_zefop(RT.Reduce)
 iterate         = make_zefop(RT.Iterate)
 scan            = make_zefop(RT.Scan)
 group_by        = make_zefop(RT.GroupBy)
+group           = make_zefop(RT.Group)
 transpose       = make_zefop(RT.Transpose)
 frequencies     = make_zefop(RT.Frequencies)
 max             = make_zefop(RT.Max)
@@ -153,12 +154,12 @@ take_while      = make_zefop(RT.TakeWhile)
 take_while_pair = make_zefop(RT.TakeWhilePair)
 take_until      = make_zefop(RT.TakeUntil)                 # TODO: use 'take_until' in the RX-sense: complete the stream based on another stream emitting an item. Add 'including' to take_while as a flag for the current behavior?
 skip_while      = make_zefop(RT.SkipWhile)
-drop            = make_zefop(RT.Drop)                      # TODO: retire this and switch to skip
 skip            = make_zefop(RT.Skip)
 length          = make_zefop(RT.Length) 
 nth             = make_zefop(RT.Nth) 
 now             = make_zefop(RT.Now) 
 events          = make_zefop(RT.Events) 
+preceding_events= make_zefop(RT.PrecedingEvents) 
 to_delegate     = make_zefop(RT.ToDelegate) 
 delegate_of     = make_zefop(RT.DelegateOf) 
 target          = make_zefop(RT.Target) 
@@ -170,7 +171,6 @@ RAE             = make_zefop(RT.RAE)
 time            = make_zefop(RT.Time) 
 value           = make_zefop(RT.Value)
 sort            = make_zefop(RT.Sort)
-instances       = make_zefop(RT.Instances)
 uid             = make_zefop(RT.Uid)
 frame           = make_zefop(RT.Frame)
 discard_frame   = make_zefop(RT.DiscardFrame)
@@ -184,13 +184,14 @@ previous_tx     = make_zefop(RT.PreviousTX)
 to_ezefref      = make_zefop(RT.ToEZefRef)
 root            = make_zefop(RT.Root)
 terminate       = make_zefop(RT.Terminate) 
-assign_value    = make_zefop(RT.AssignValue) 
+assign          = make_zefop(RT.Assign) 
 is_a            = make_zefop(RT.IsA)
 is_represented_as = make_zefop(RT.IsRepresentedAs)
 representation_type = make_zefop(RT.RepresentationType)
 rae_type        = make_zefop(RT.RaeType)
 abstract_type   = make_zefop(RT.AbstractType)
 fill_or_attach  = make_zefop(RT.FillOrAttach)
+set_field       = make_zefop(RT.SetField)
 Assert          = make_zefop(RT.Assert)
 allow_tombstone = make_zefop(RT.AllowTombstone)
 tag             = make_zefop(RT.Tag)
@@ -201,8 +202,6 @@ from_clipboard  = make_zefop(RT.FromClipboard)
 text_art        = make_zefop(RT.TextArt)
 
 sign            = make_zefop(RT.Sign)
-if_then_else    = make_zefop(RT.IfThenElse)
-if_then_else_apply    = make_zefop(RT.IfThenElseApply)
 attempt         = make_zefop(RT.Attempt)
 bypass          = make_zefop(RT.Bypass)
 pattern         = make_zefop(RT.Pattern)
@@ -213,20 +212,20 @@ is_distinct     = make_zefop(RT.IsDistinct)
 is_distinct_by  = make_zefop(RT.IsDistinctBy)
 shuffle         = make_zefop(RT.Shuffle)
 split           = make_zefop(RT.Split)
+split_left      = make_zefop(RT.SplitLeft)
+split_right     = make_zefop(RT.SplitRight)
 split_if        = make_zefop(RT.SplitIf)
 graphviz        = make_zefop(RT.Graphviz)
 
-tx              = make_zefop(RT.Tx)
-schema          = make_zefop(RT.Schema)
+blueprint       = make_zefop(RT.Blueprint)
 exists_at       = make_zefop(RT.ExistsAt)
+aware_of        = make_zefop(RT.AwareOf)
 base_uid        = make_zefop(RT.BaseUid)
 origin_uid      = make_zefop(RT.OriginUid)
 origin_rae      = make_zefop(RT.OriginRAE)
 
 has_out         = make_zefop(RT.HasOut)                # z1 | has_out[RT.Foo] use  (z1, RT.Foo, Z) | exists  /   (z, RT.Foo, RAE) | exists[g]  /   (z, RT.Foo, RAE) | exists[now(g)][single]
 has_in          = make_zefop(RT.HasIn)                 # z1 | has_in[RT.Foo]  use  (Z, RT.Foo, z1) | exists
-
-All             = make_zefop(RT.All)               # TODO: retire
 
 In              = make_zefop(RT.In)
 Ins             = make_zefop(RT.Ins)
@@ -239,22 +238,18 @@ out_rels        = make_zefop(RT.OutRels)
 
 
 is_zefref_promotable= make_zefop(RT.IsZefRefPromotable)  # Retire this. this is a old love level operator. We can use is_a[RAE] or an extended concept new.
-ins             = make_zefop(RT.InsOld)                   # z < L[RT]
-outs            = make_zefop(RT.OutsOld)                  # z > L[RT]
-ins_and_outs    = make_zefop(RT.InsAndOutsOld)            # we don't seem to use this very much (looking at existing code base).
-time_slice      = make_zefop(RT.TimeSlice)             # with the GraphSlice syntax it seems that we have been using time slices / txs mostly as a proxy for that. Given the data oriented approach, it seems a more consistent design to just use Int instead of time slices when we actually want a number?
+time_slice      = make_zefop(RT.TimeSlice)        
+graph_slice_index=make_zefop(RT.GraphSliceIndex) 
     
 instantiation_tx= make_zefop(RT.InstantiationTx)       # use tx[instantiated]
 termination_tx  = make_zefop(RT.TerminationTx)         # use tx[terminated]   
-relations       = make_zefop(RT.Relations)             # g | now | All[(z1, RT.Bar, z2)]   with pattern matching style any of the three args can also be replaced with a more general class
+relations       = make_zefop(RT.Relations)             # g | now | all[(z1, RT.Bar, z2)]   with pattern matching style any of the three args can also be replaced with a more general class
 relation        = make_zefop(RT.Relation)              # looking through our code base for use cases of this op, I don't think a separate operator is necessary. Just use the syntax above followed by ... | single. If required more often, it is much easier to add this in future than to remove it.
-call            = make_zefop(RT.Call)                  # useful now. But the "func[...]" syntax could replace this in future?
-unpack = make_zefop(RT.Unpack)
+unpack          = make_zefop(RT.Unpack)
 _any            = make_zefop(RT._Any)                  # used as a wildcard
 has_relation    = make_zefop(RT.HasRelation)     
 
 replace_at      = make_zefop(RT.ReplaceAt)           
-pad_to_length   = make_zefop(RT.PadToLength)           
 pad_left        = make_zefop(RT.PadLeft)           
 pad_right       = make_zefop(RT.PadRight)           
 pad_center      = make_zefop(RT.PadCenter)           
@@ -304,8 +299,9 @@ to_screaming_snake_case = make_zefop(RT.ToScreamingSnakeCase)
 make_request  = make_zefop(RT.MakeRequest)
 
 
-zascii_to_asg    = make_zefop(RT.ZasciiToAsg)
-zascii_to_schema = make_zefop(RT.ZasciiToSchema)
+zascii_to_asg       = make_zefop(RT.ZasciiToAsg)
+zascii_to_flatgraph = make_zefop(RT.ZasciiToFlatGraph)
+zascii_to_blueprint_fg = make_zefop(RT.ZasciiToBlueprintFg)
 
                 # Syntax????????????????? 
                 # has_relation(z1, RT.Foo, z2)      replaced by 
@@ -314,7 +310,7 @@ zascii_to_schema = make_zefop(RT.ZasciiToSchema)
                 #       2) g_slice | contains[(z1, RT.Foo, z2)]
 # Syntax choices:   
 #       exists or contained_in?
-#       All or instances?    Also: my_delegate | All    or my_delegate | instances?
+#       All or instances?    Also: my_delegate | all    or my_delegate | instances?
 
 
 
@@ -323,6 +319,7 @@ zascii_to_schema = make_zefop(RT.ZasciiToSchema)
 merge           = make_zefop(RT.Merge)                 # We need this for observables. Only there?
 
 blake3          = make_zefop(RT.Blake3)
+value_hash      = make_zefop(RT.ValueHash)        
 to_zef_list     = make_zefop(RT.ToZefList)
 transact        = make_zefop(RT.Transact)
 # transact
@@ -338,7 +335,6 @@ transact        = make_zefop(RT.Transact)
 
 peel            = make_zefop(RT.Peel)                
 match           = make_zefop(RT.Match)                
-match_apply     = make_zefop(RT.MatchApply)                
 Range           = make_zefop(RT.Range)      
 zstandard_compress = make_zefop(RT.ZstandardCompress)
 zstandard_decompress = make_zefop(RT.ZstandardDecompress)
@@ -349,7 +345,20 @@ bytes_to_base64string = make_zefop(RT.BytesToBase64string)
 is_between      = make_zefop(RT.IsBetween)
 If              = make_zefop(RT.If)
 
+field           = make_zefop(RT.Field)
+fields          = make_zefop(RT.Fields)
+apply           = make_zefop(RT.Apply)
+split_on_next   = make_zefop(RT.SplitOnNext)
+indexes_of      = make_zefop(RT.IndexesOf)
 
+
+
+examples        = make_zefop(RT.Examples)
+signature       = make_zefop(RT.Signature)
+tags            = make_zefop(RT.Tags)
+related_ops     = make_zefop(RT.RelatedOps)
+operates_on     = make_zefop(RT.OperatesOn)
+used_for        = make_zefop(RT.UsedFor)
 
 
 # TODO: implement
@@ -369,3 +378,22 @@ on              = make_zefop(RT.On)
 # window(Max[10], Max[30/sec, over[2*sec]])
 # 
 # time_travel         # RuntimeError: Only(EZefRefs zs) request, but length was 0
+
+
+
+
+
+# -------- These are not ZefOps, but using the `.` operator, they return ZefOps.
+# The user may not even be aware of this distinction and therefore this namespace 
+# is the most natural to put them in.
+class FClass:    
+    def __getattr__(self, s: str):        
+        return field[RT(s)]    # just returns a normal zefop called 'field'
+
+F = FClass()
+
+class FsClass:    
+    def __getattr__(self, s: str):        
+        return fields[RT(s)]    # just returns a normal zefop called 'field'
+
+Fs = FsClass()

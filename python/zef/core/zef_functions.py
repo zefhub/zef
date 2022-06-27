@@ -338,7 +338,7 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
             z_python_str = z_zef_fct | Out[RT.PythonSourceCode] | collect
             # only assign a new value if the contents changed
             if (value(z_python_str)) != s:
-                z_python_str | assign_value[s] | g | run
+                z_python_str | assign[s] | g | run
 
             # If docstring already exists; update it may be
             if len(z_zef_fct | Outs[RT.DocString] |collect) == 1:
@@ -348,7 +348,7 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
                     z_zef_fct | out_rel[RT.DocString] | terminate | g | run
                 # If Docstring was updated
                 elif docstring_maybe != (z_doctstring_str | value | collect):
-                    z_doctstring_str | assign_value[docstring_maybe] | collect
+                    z_doctstring_str | assign[docstring_maybe] | collect
             # Case where this function existed before introducting Docstring parsing
             else:
                 # If Docstring is defined attach it
@@ -392,12 +392,16 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
             z_ed | terminate | g | run
 
         def add_binding(z_fct: ZefRef, name: str, z_attached_fct):                    
-            z_rel = (instantiate(z_fct | to_ezefref | collect, RT.Binding, z_attached_fct | to_ezefref | collect, g) 
-                    | fill_or_attach[RT.Name, name] 
-                    | fill_or_attach[RT.UseTimeSlice, str(base_uid(z_attached_fct | frame | to_tx))]        # the zef function passed in by the user may be pointing to an earlier 
-                    | collect
-                    # TODO: this should directly point at the transaction once zefDB allows attaching RTs to txs. This is just a hack for now !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-                    )
+            # z_rel = (instantiate(z_fct | to_ezefref | collect, RT.Binding, z_attached_fct | to_ezefref | collect, g) 
+            #         | fill_or_attach[RT.Name, name] 
+            #         | fill_or_attach[RT.UseTimeSlice, str(base_uid(z_attached_fct | frame | to_tx))]        # the zef function passed in by the user may be pointing to an earlier 
+            #         | collect
+            #         # TODO: this should directly point at the transaction once zefDB allows attaching RTs to txs. This is just a hack for now !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+            #         )
+            z = instantiate(z_fct | to_ezefref | collect, RT.Binding, z_attached_fct | to_ezefref | collect, g) 
+            [z | fill_or_attach[RT.Name][name],
+             z | fill_or_attach[RT.UseTimeSlice][str(base_uid(z_attached_fct | frame | to_tx))]
+             ] | transact[g] | run
 
         list(bindings_to_remove.items()) | for_each[lambda p: remove_binding(z_zef_fct, *p)]
         list(bindings_to_add.items()) | for_each[lambda p: add_binding(z_zef_fct, *p)]
@@ -421,7 +425,7 @@ class LocalFunction:
         self.is_pure = is_pure
 
     def __getitem__(self, arg):
-        return call[self][arg]
+        return func[self][arg]
 
     def __call__(self, *args, **kwds):
         return self.func(*args, **kwds)
@@ -431,12 +435,12 @@ class LocalFunction:
         # i.e: @func
         #      def f(x): pass
         # f | map
-        return call[self] | other
+        return func[self] | other
 
     def __ror__(self, other):
         # Similar to ror behavior but pipes the other way
         # i.e: map | f
-        return other | call[self]
+        return other | func[self]
     
         
 

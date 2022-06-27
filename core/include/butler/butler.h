@@ -16,6 +16,8 @@
 
 #pragma once
 
+#include "export_statement.h"
+
 #include <thread>
 #include "zefDB_utils.h"
 #include "scalars.h"
@@ -82,8 +84,6 @@ namespace zefDB {
             
 
         std::filesystem::path zefdb_config_path();
-        std::string get_default_zefhub_uri();
-        std::string get_auto_connect();
 
         // If this is set, the butler no longer needs to commmunicate with
         // upstream to ask permission or take primary etc...
@@ -273,6 +273,7 @@ namespace zefDB {
             // wait_for_auth: will start_connection if not already connected
             bool wait_for_auth(std::chrono::duration<double> timeout=std::chrono::seconds(-1));
             void determine_refresh_token();
+            std::string who_am_i();
             // ensure_auth_credentials: if no credentials will pop up browser
             void ensure_auth_credentials();
             std::optional<std::string> load_forced_zefhub_key();
@@ -287,7 +288,6 @@ namespace zefDB {
             std::optional<std::string> session_auth_key;
 
 
-            // Butler() : Butler(get_default_zefhub_uri()) {}
             Butler(std::string uri);
 
 
@@ -416,10 +416,17 @@ namespace zefDB {
         ////////////////////////////////////////
         // * External handlers
 
+        // ** Merge handler
         typedef json (merge_handler_t)(Graph, const json &);
         LIBZEF_DLL_EXPORTED void register_merge_handler(std::function<merge_handler_t> func);
         LIBZEF_DLL_EXPORTED void remove_merge_handler();
         LIBZEF_DLL_EXPORTED json pass_to_merge_handler(Graph g, const json & payload);
+
+        // ** Schema validator
+        typedef void (schema_validator_t)(ZefRef);
+        LIBZEF_DLL_EXPORTED void register_schema_validator(std::function<schema_validator_t> func);
+        LIBZEF_DLL_EXPORTED void remove_schema_validator();
+        LIBZEF_DLL_EXPORTED void pass_to_schema_validator(ZefRef tx);
 
 
 

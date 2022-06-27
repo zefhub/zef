@@ -442,7 +442,7 @@ def collect_path_groups(s: List[str], visited_chars: dict, edge_char_candidates:
           | ops.take_while[lambda d: d is not None] 
           | ops.collect 
           | ops.last 
-          | ops.insert['type', 'path_group']     # add the type key to the dict
+          | ops.insert['type']['path_group']     # add the type key to the dict
           | ops.collect 
         )
     return elements

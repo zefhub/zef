@@ -14,33 +14,40 @@
 
 from ... import *
 from ...ops import *
+from .main import create_schema_graph
 from .server import start_server
 
 from zef.core.logger import log
 
+import os
 import argparse
 parser = argparse.ArgumentParser()
-parser.add_argument("schema_file", type=str, metavar="SCHEMA-FILE",
+parser.add_argument("--schema-file", type=str, metavar="schema_file", default=os.environ.get("SIMPLEGQL_SCHEMA_FILE", None),
                     help="The graphql schema file.")
-parser.add_argument("data_tag", type=str, metavar="DATA-TAG",
+parser.add_argument("--data-tag", type=str, metavar="data_tag", default=os.environ.get("SIMPLEGQL_DATA_TAG"),
                     help="The tag of the Zef graph with the data (not the schema).")
-parser.add_argument("--port", type=int, default=443)
-parser.add_argument("--bind", type=str, default="0.0.0.0",
+parser.add_argument("--port", type=int, default=int(os.environ.get("SIMPLEGQL_PORT", "443")))
+parser.add_argument("--bind", type=str, default=os.environ.get("SIMPLEGQL_BIND", "0.0.0.0"),
                     help="IP address to bind to.")
-parser.add_argument("--no-host-role", action="store_false", dest="host_role",
+parser.add_argument("--no-host-role", action="store_false", dest="host_role", default=(False if "SIMPLEGQL_NO_HOST_ROLE" in os.environ else True),
                     help="Whether the server should acquire host role on the data graph.")
-parser.add_argument("--create", action="store_true",
+parser.add_argument("--create", action="store_true", default=(True if "SIMPLEGQL_CREATE" in os.environ else None),
                     help="If the data graph does not exist, then create a new blank graph.")
+parser.add_argument("--hooks", type=str, dest="hooks_file", default=os.environ.get("SIMPLEGQL_HOOKS_FILE", None),
+                    help="If present, a python file containing the hooks to make available for the schema file")
+parser.add_argument("--init-hook", type=str, dest="init_hook", default=os.environ.get("SIMPLEGQL_INIT_HOOK", None),
+                    help="If present, a function in the hooks file to run on initialisation of the data graph")
 args = parser.parse_args()
 
-from .schema_file_parser import parse_partial_graphql, json_to_minimal_nodes
 
-g_schema = Graph()
 schema_gql = args.schema_file | read_file | run | get["content"] | collect
-parsed_dict = parse_partial_graphql(schema_gql)
-commands = json_to_minimal_nodes(parsed_dict)
-r = commands | transact[g_schema] | run
-root = r["root"]
+if args.hooks_file is not None:
+    hooks_string = args.hooks_file | read_file | run | get["content"] | collect
+    log.info(f"Going to read hooks from '{args.hooks_file}'")
+else:
+    hooks_string = None
+
+root = create_schema_graph(schema_gql, hooks_string)
 log.info(f"Created schema graph from '{args.schema_file}'")
 
 guid = lookup_uid(args.data_tag)
@@ -60,8 +67,23 @@ else:
     log.info("Loaded existing data graph")
 
 if args.host_role:
-    make_primary(g_data)
+    try:
+        g_data | take_transactor_role | run
+    except:
+        print("""
+Unable to obtain host role for data graph. Either stop other processes from having host role on this graph (`g | release_transactor_role | run` in that process) or run this server with `--no-host-role`).
+        
+Note that running without the host role is currently dangerous as mutations do not currently verify pre-conditions.
+""") 
+        raise SystemExit(3)
     log.info("Obtained host role on data graph")
+
+if args.init_hook is not None:
+    g_schema = Graph(root)
+    hook_func = g_schema | now | get[args.init_hook] | collect
+    hook_func(g_data)
+    log.info(f"Ran init hook: {args.init_hook}")
+    
 
 server_uuid = start_server(root, g_data, args.port, args.bind)
 

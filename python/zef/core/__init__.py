@@ -58,10 +58,12 @@ from .overrides import *
 # This set of imports is to define the order. Later imports are the ones to
 # actually provide useful exports.
 from . import internals
+from . import pure_utils
 from . import error
 from . import image
 from . import op_structs
 from . import _ops
+from . import VT
 from . import zef_functions
 from . import abstract_raes
 from . import graph_delta
@@ -97,6 +99,7 @@ from .VT import (
     List,
     Dict,
     Set,
+    Stream,
     ValueType,
     Instantiated, 
     Terminated, 
@@ -107,7 +110,13 @@ from .VT import (
     Complement,
     Is,
     SetOf,
+    RP,
+    HasValue,
     Pattern,
+
+    RelatedOps,
+    UsedFor,
+    OperatesOn
     )
 from .VT.value_type import ValueType_
 
@@ -129,7 +138,7 @@ please_assign      = make_custom_entity(name_to_display='please_assign',    pred
 
 instantiated     = make_custom_entity(name_to_display='instantiated', predetermined_uid='60252a53a03086b7')
 terminated       = make_custom_entity(name_to_display='terminated', predetermined_uid='4f676154ffeb9dc8')
-value_assigned   = make_custom_entity(name_to_display='value_assigned', predetermined_uid='c31287dab677f38c')
+assigned         = make_custom_entity(name_to_display='assigned', predetermined_uid='c31287dab677f38c')
 
 infinity           = make_custom_entity(name_to_display='infinity',    predetermined_uid='4906648460291096')
 nil                = make_custom_entity(name_to_display='nil',         predetermined_uid='1654670075329719') #| register_call_handler[f1] | run[execute] | get['entity'] | collect  # TODO

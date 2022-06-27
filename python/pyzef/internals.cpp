@@ -95,6 +95,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
         auto butler = Butler::get_butler();
         butler->stop_connection();
     }, py::call_guard<py::gil_scoped_release>());
+
+    internals_submodule.def("who_am_i", []() {
+        auto butler = Butler::get_butler();
+        return butler->who_am_i();
+    }, py::call_guard<py::gil_scoped_release>());
         
 
 	internals_submodule.def("is_any_UID", &is_any_UID);
@@ -379,24 +384,6 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	// internals_submodule.def("process_zm_tasks", [](){ tasks::apply_immediate_updates_from_zm(); }, py::call_guard<py::gil_scoped_release>());
 
 
-    py::class_<DelegateEntity>(internals_submodule, "DelegateEntity", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<EntityType>(), py::call_guard<py::gil_scoped_release>())
-		.def_readonly("et", &DelegateEntity::et)
-        .def("__repr__", [](const DelegateEntity & d) { return to_str(d); })
-		.def("__eq__", &DelegateEntity::operator==, py::is_operator())
-        ;
-    py::class_<DelegateAtomicEntity>(internals_submodule, "DelegateAtomicEntity", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<AtomicEntityType>(), py::call_guard<py::gil_scoped_release>())
-		.def_readonly("aet", &DelegateAtomicEntity::aet)
-        .def("__repr__", [](const DelegateAtomicEntity & d) { return to_str(d); })
-		.def("__eq__", &DelegateAtomicEntity::operator==, py::is_operator())
-        ;
-    py::class_<DelegateRelationGroup>(internals_submodule, "DelegateRelationGroup", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<RelationType>(), py::call_guard<py::gil_scoped_release>())
-		.def_readonly("rt", &DelegateRelationGroup::rt)
-        .def("__repr__", [](const DelegateRelationGroup & d) { return to_str(d); })
-		.def("__eq__", &DelegateRelationGroup::operator==, py::is_operator())
-        ;
     py::class_<DelegateTX>(internals_submodule, "DelegateTX", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<>(), py::call_guard<py::gil_scoped_release>())
         .def("__repr__", [](const DelegateTX & d) { return to_str(d); })
@@ -417,9 +404,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
         ;
 
     py::class_<Delegate>(internals_submodule, "Delegate", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>(), py::dynamic_attr())
-        .def(py::init<int,DelegateEntity>(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<int,DelegateAtomicEntity>(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<int,DelegateRelationGroup>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<int,EntityType>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<int,AtomicEntityType>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<int,RelationType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateTX>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateRoot>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateRelationTriple>(), py::call_guard<py::gil_scoped_release>())
@@ -427,6 +414,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
         .def(py::init<AtomicEntityType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<RelationType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<Delegate,RelationType,Delegate>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<Delegate>(), py::call_guard<py::gil_scoped_release>())
 		.def_readonly("order", &Delegate::order)
 		.def_readonly("item", &Delegate::item)
         .def("__repr__", [](const Delegate & d) { return to_str(d); })
@@ -627,6 +615,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		;
 
 	internals_submodule.def("StartTransactionReturnTx", [](Graph& g)->ZefRef { return StartTransactionReturnTx(g); }, py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("FinishTransaction", py::overload_cast<Graph&,bool,bool,bool>(&FinishTransaction), py::arg("g"), py::arg("wait"), py::arg("rollback_empty"), py::arg("check_schema"), py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("FinishTransaction", py::overload_cast<Graph&,bool,bool>(&FinishTransaction), py::arg("g"), py::arg("wait"), py::arg("rollback_empty"), py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("FinishTransaction", py::overload_cast<Graph&,bool>(&FinishTransaction), py::arg("g"), py::arg("wait"), py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("FinishTransaction", py::overload_cast<Graph&>(&FinishTransaction), py::arg("g"), py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("AbortTransaction", py::overload_cast<Graph&>(&AbortTransaction), py::call_guard<py::gil_scoped_release>());
@@ -690,7 +680,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("initialise_butler", py::overload_cast<>(&Butler::initialise_butler));
 	internals_submodule.def("initialise_butler", py::overload_cast<std::string>(&Butler::initialise_butler));
 	internals_submodule.def("initialise_butler_as_master", &Butler::initialise_butler_as_master);
-	internals_submodule.def("stop_butler", &Butler::stop_butler);
+    // Note: stopping the butler can cause python functions to be removed from
+    // subscriptions, so the GIL needs to be released.
+	internals_submodule.def("stop_butler", &Butler::stop_butler, py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("root_node_blob_index", internals::root_node_blob_index, "which blob index does the root node have?");
 	internals_submodule.def("validate_message_version", &Messages::validate_message_version);
 	internals_submodule.def("early_token_list", &Butler::early_token_list);
@@ -756,4 +748,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     internals_submodule.def("register_merge_handler", &Butler::register_merge_handler);
     internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&Butler::remove_merge_handler));
+
+    internals_submodule.def("register_schema_validator", &Butler::register_schema_validator);
+    internals_submodule.add_object("_cleanup_schema_validator", py::capsule(&Butler::remove_schema_validator));
 }

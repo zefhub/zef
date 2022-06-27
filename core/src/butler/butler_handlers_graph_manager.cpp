@@ -179,7 +179,7 @@ int resolve_memory_style(int mem_style, bool synced) {
     }
     if(mem_style == MMap::MMAP_STYLE_FILE_BACKED) {
         // TODO: Check if we have filesystem access here.
-#ifdef _MSC_VER
+#ifdef ZEF_WIN32
         // Until support is there, need to force anonymous.
         mem_style = MMap::MMAP_STYLE_ANONYMOUS;
 #endif
@@ -206,7 +206,7 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, boo
     // Apply blob updates
 
     internals::include_new_blobs(gd, heads.blobs.from, heads.blobs.to, blob_bytes, double_link, false);
-    gd.latest_complete_tx = index(internals::get_latest_complete_tx_node(gd));
+    update(gd.heads_locker, gd.latest_complete_tx, index(internals::get_latest_complete_tx_node(gd)));
 
     // Apply cache updates
 
@@ -308,6 +308,13 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
             apply_update_with_caches(*me.gd, *content.payload, false, false);
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
             // Note: don't set sync_head here, it should remain at 0.
+        } else {
+            // create a first transaction on a new graph. This layout allows us to assume that there always is a tx,
+            // which helps in various high level functions.
+            //
+            // Note: this is done here instead of in the GraphData constructor
+            // as creating a transaction will trigger the sync thread.
+            auto my_tx = Transaction(*me.gd, false, false);
         }
 
         if(!content.internal_use_only) {
@@ -856,7 +863,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
     Graph target_g(*me.gd);
 
     // Do different things based on the payload.
-    std::visit(overload {
+    std::visit(overloaded {
             [&](MergeRequest::PayloadGraphDelta & payload) {
                 try {
                     // py::gil_scoped_acquire acquire;

@@ -104,7 +104,11 @@ from ...pyzef.internals import (
     wait_for_auth,
 )
 
-from ...pyzef.main import ZefRef
+from ...pyzef.verification import (
+    verify_graph
+)
+
+from ...pyzef.main import ZefRef, zwitch
 
 # ----------------------------- monkey patch to allow dispatching on enums ---------------------------------------
 # For some reason we need to pass it through a lambda fct to get the bindings to work.
@@ -118,6 +122,8 @@ BlobType.__str__ = lambda self: repr(self).split(':')[0][10:]   # strip away the
 from .rel_ent_classes import ET, RT, EN, AET
 from .merges import register_merge_handler
 register_merge_handler()
+from .schema import register_schema_validator
+register_schema_validator()
 
 BT = BlobTypeStruct()
 
@@ -131,7 +137,7 @@ def safe_current_task():
 global_transaction_task = {}
 from contextlib import contextmanager
 @contextmanager
-def Transaction(g, wait=None):
+def Transaction(g, wait=None, rollback_empty=None, check_schema=None):
     global global_transaction_task
     from ...pyzef.zefops import uid
 
@@ -150,10 +156,14 @@ def Transaction(g, wait=None):
             del global_transaction_task[uid(g)]
         else:
             global_transaction_task[uid(g)] = prev_val
+
         if wait is None:
-            FinishTransaction(g)
-        else:
-            FinishTransaction(g, wait)
+            wait = zwitch.default_wait_for_tx_finish()
+        if rollback_empty is None:
+            rollback_empty = zwitch.default_rollback_empty_tx()
+        if check_schema is None:
+            check_schema = True
+        FinishTransaction(g, wait, rollback_empty, check_schema)
 
 
 

@@ -15,6 +15,9 @@
  */
 
 #pragma once
+
+#include "export_statement.h"
+
 #include <random>
 #include <chrono>
 #include <ctime>

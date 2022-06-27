@@ -15,7 +15,7 @@
 __all__ = [
     "GraphDelta",
 ]
-from typing import Any, Tuple, Callable
+from typing import Tuple, Callable
 from functools import partial as P
 
 from .. import pyzef
@@ -26,6 +26,8 @@ from ._ops import *
 from .op_structs import ZefOp, LazyValue
 from .graph_slice import GraphSlice
 from .abstract_raes import Entity, Relation, AtomicEntity, TXNode, Root
+from .logger import log
+from .VT import Is, Any
 
 from abc import ABC
 class ListOrTuple(ABC):
@@ -35,6 +37,8 @@ for t in [list, tuple]:
 
 
 
+import os
+gd_timing = "ZEFDB_GRAPH_DELTA_TIMING" in os.environ
 
 ##############################
 # * Description
@@ -45,69 +49,22 @@ for t in [list, tuple]:
 # - commands: dictionaries in the constructed GraphDelta which match directly to low-level changes.
 # - expressions: high-level things which match to user expectations. There are "complex" expressions and "primitive" expressions.
 #
-# The general flow to take a bunch of complex exprs, turn them into primitive
-# exprs (may increase the number of exprs) and then turn these into commands.
-#
-# GraphDelta constructor is in three stages:
-# First stage: verify input and translate to "simpler" or "fewer" base exprs.
-# Second stage: convert exprs to commands and order them
-# Orders them by iterating on to-do commands, sorts into bucket of can-be-done-now and to-do-later, applies can-be-done-now, iterate
-#
-# Logic flow of GraphDelta constructor is:
-# - handles nested GraphDeltas (including reassigning unique temporary ids)
-# - calls verify_internal_id on each expr (this builds a ID dict for the next step)
-# - calls verify_input_el on each expr (this validates that all Z[...] are in the ID dict, as well as the exprs have the expected structure)
-# - calls verify_relation_source_target (checks abstract Relations have all source/targets)
-# - TODO: call verify no TX or root nodes
-# - iteratively calls iteration_step (make_iteration_step)
-# - calls verify_and_compact_commands - does ordering
-#
-# iteration_step is a dispatch on expr type to call functions with _cmds_for prefix (e.g. _cmds_for_instantiable)
-# - takes in exprs-to-do ("user-expressions"), finished-commands ("commands") and seen-ids ("ids_present")
-# - returns new exprs, new commands and new ids
-# - eventually exprs list should "run out" and everything is now a command
-# - another analogy: exprs is a "work queue", cmds/ids is an "output list", iteration_step takes from work queue, puts results into output and maybe more jobs into the work queue.
-#
-#
-# Shorthand syntax:
-#
-# e.g. (a, (b,c,d)) = [ET.Entity, (z, RT.Something, 5)] | g | run
-#
-# If the user uses the shorthand syntax then the logic first passes through
-# `encode`. The function encode only does two additional things to the
-# GraphDelta constructor - it assigns IDs where necessary to be able to return
-# appropriate results, and prevents a few unusual things (e.g. tagging a
-# ZefRef). Most of this function is dedicated to handling relations to be able
-# to unpack them into the right structures. Other nodes are left "as is" except
-# for obtaining iids to unpack them.
-#
-#
-#
-# realise_single_node:
-# Used by encode for every top level item and used by GraphDelta constructor and
-# encode for pieces of relations. This function exists to both assign an ID and
-# convert a complex expression to a primitive one. Only works on "single
-# objects", e.g. entity, value, ZefRef, and not relations or tags.
-#
-# e.g. realise_single_node(ET.Entity) = ("tmp_id_1", ET.Entity["tmp_id_1"])
-#
-# 
-# Performing GraphDelta transaction:
-# - works through list of commands, applying then in a low-level transaction onto the graph
-# - commands must be properly ordered (done in constructor) before this function is called
-# - each command fills in ID dictionary to be returned as receipt.
-# - ID dictionary is called "d_raes"
-#
 
-# types of commands:
-# - instantiate
-# - assign_value
-# - merge
-# - terminate
-# - tag
-#
-# Commands should use keywords of "internal_id" or "origin_rae" to fill in ID dictionary.
+# TODO: REDO THE DESCRIPTION OF THIS FILE
 
+
+
+# WARNING!!!
+# WARNING!!!
+# WARNING!!!
+#
+# Much of the logic flow in this file is written in an immutable functional
+# style. However, for speed many of these functions have been changed to a
+# mutating version. This can lead to confusion when debugging.
+#
+# WARNING!!!
+# WARNING!!!
+# WARNING!!!
 
 
 ########################################################
@@ -133,7 +90,7 @@ def dispatch_ror_graph(g, x):
 
         commands_with_ids = [insert_id_maybe(c) for  c in commands]
         return Effect({
-                "type": FX.TX.Transact,
+                "type": FX.Graph.Transact,
                 "target_graph": g,
                 "commands": commands_with_ids,
                 "unpacking_template": unpacking_template,
@@ -150,8 +107,9 @@ main.Graph.__ror__ = dispatch_ror_graph
 ##############################
 # * GraphDelta construction
 #----------------------------
-def construct_commands(elements) -> list:
-    generate_id = make_generate_id()    # keeps an internal counter        
+def construct_commands(elements, generate_id=None) -> list:
+    if generate_id is None:
+        generate_id = make_generate_id()    # keeps an internal counter        
 
     # First extract any nested GraphDeltas commands out
     # Note: using native python filtering as the evaluation engine is too slow
@@ -184,9 +142,15 @@ def construct_commands(elements) -> list:
     # elements = elements | map[handle_dict | first] | concat | collect
     # Obtain all user IDs
     id_definitions = elements | map[obtain_ids] | reduce[merge_no_overwrite][{}] | collect
+    if gd_timing:
+        log.debug("Got id_definitions")
     # Check that nothing needs a user ID that wasn't provided
     elements | for_each[verify_input_el[id_definitions]]
+    if gd_timing:
+        log.debug("Verified input_el")
     elements | for_each[verify_relation_source_target[id_definitions]]
+    if gd_timing:
+        log.debug("Verified relation_source_target")
 
     state_initial = {
         'user_expressions': tuple(elements),
@@ -200,15 +164,16 @@ def construct_commands(elements) -> list:
             nonlocal num_done, next_print
             num_done += 1
             if now() > next_print:
-                print(f"Up to iteration {num_done} - {len(x['user_expressions'])}, {len(x['commands'])}", now())
+                log.debug("Construct: Up to", num_done=num_done, num_expr=len(x['user_expressions']), num_cmd=len(x['commands']))
                 next_print = now() + 5*seconds
         return debug_output
         
     # iterate until all user expressions and generated expressions have become commands
     state_final = (state_initial
                    | iterate[iteration_step[generate_id]]
-                   # | map[tap[make_debug_output()]]
+                   | (map[tap[make_debug_output()]] if gd_timing else identity)
                    | take_until[lambda s: len(s['user_expressions'])==0]
+                   # | map[tap[print]]
                    | last
                    | collect
                    )
@@ -280,13 +245,17 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
 
     if isinstance(x, LazyValue):
         # This is checking for an (x <= value) format
-        if is_a(x.el_ops, assign_value):
+        if is_a(x.el_ops, assign):
             return
         elif is_a(x.el_ops, terminate):
             return
         elif is_a(x.el_ops, tag):
             return
-        raise Exception(f"A LazyValue must have come from (x | assign_value), (x | terminate) or (x | tag) only. Got {x}")
+        elif is_a(x.el_ops, fill_or_attach):
+            return
+        elif is_a(x.el_ops, set_field):
+            return
+        raise Exception(f"A LazyValue must have come from (x | assign), (x | terminate), (x | fill_or_attach) or (x | tag) only. Got {x}")
 
     # Note: just is_a(x, Z) will also mean ZefRefs will be hit
     elif is_a(x, ZefOp) and is_a(x, Z):
@@ -305,7 +274,10 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
 
         for k,v in sub_d.items():
             verify_input_el(k, id_definitions, True, False)
-            verify_input_el(v, id_definitions, False, True)
+            if isinstance(v, list):
+                [verify_input_el(e, id_definitions, False, True) for e in v]
+            else:
+                verify_input_el(v, id_definitions, False, True)
 
         return
 
@@ -335,7 +307,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
 
     elif isinstance(x, ZefOp):
         if len(x) > 1:
-            # This could be something like Z["asdf"] | assign_value[5]
+            # This could be something like Z["asdf"] | assign[5]
             if LazyValue(x) | first | is_a[Z] | collect:
                 return
         if length(LazyValue(x) | absorbed) != 1:
@@ -426,14 +398,18 @@ def dispatch_cmds_for(expr, gen_id):
 
     # If we have a lazy value the second time around, then this must be an actual action to perform.
     if isinstance(expr, LazyValue):
-        if is_a(expr.el_ops, assign_value):
-            return cmds_for_lv_assign_value(expr, gen_id)
+        if is_a(expr.el_ops, assign):
+            return cmds_for_lv_assign(expr, gen_id)
         elif is_a(expr.el_ops, terminate):
             return cmds_for_lv_terminate(expr)
+        elif is_a(expr.el_ops, set_field):
+            return cmds_for_lv_set_field(expr, gen_id)
+        elif is_a(expr.el_ops, fill_or_attach):
+            return cmds_for_complex_expr(expr, gen_id)
         elif is_a(expr.el_ops, tag):
             return cmds_for_lv_tag(expr, gen_id)
         else:
-            raise Exception("LazyValue obtained which is not an assign_value or terminate")
+            raise Exception("LazyValue obtained which is not an assign or terminate")
 
     elif isinstance(expr, ZefOp):
         # If we have a chain beginning with a Z, convert to LazyValue
@@ -478,7 +454,7 @@ def cmds_for_complex_expr(x, gen_id):
     return exprs, []
 
 def cmds_for_initial_Z(expr):
-    assert LazyValue(expr) | first | is_a[Z] | collect
+    assert LazyValue(expr) | first | And[is_a[ZefOp]][is_a[Z]] | collect
 
     expr = LazyValue(LazyValue(expr) | first | collect) | (LazyValue(expr) | skip[1] | to_pipeline | collect)
     return (expr,), ()
@@ -510,7 +486,7 @@ def cmds_for_mergable(x):
 
         elif BT(x) == BT.ATOMIC_ENTITY_NODE:
             assign_val_cmds = [] if isinstance(x, EZefRef) else [{
-                'cmd': 'assign_value', 
+                'cmd': 'assign', 
                 'value': x | value | collect,
                 'internal_id': uid(origin),
                 'explicit': False,
@@ -556,17 +532,17 @@ def cmds_for_lv_tag(x, gen_id):
     return exprs, [cmd]
     
 
-def cmds_for_lv_assign_value(x, gen_id: Callable):
+def cmds_for_lv_assign(x, gen_id: Callable):
     assert isinstance(x, LazyValue)
 
     assert len(x | peel | collect) == 2
     target,op = x | peel | collect
 
-    assert is_a(op, assign_value)
+    assert is_a(op, assign)
     val = LazyValue(op) | absorbed | single | collect
     iid,exprs = realise_single_node(target, gen_id)
 
-    return exprs, [{'cmd': 'assign_value', 'value': val, 'explicit': True, "internal_id": iid}]
+    return exprs, [{'cmd': 'assign', 'value': val, 'explicit': True, "internal_id": iid}]
 
 def cmds_for_lv_terminate(x):
     assert isinstance(x, LazyValue)
@@ -584,6 +560,37 @@ def cmds_for_lv_terminate(x):
         cmd['internal_id'] = a_id
 
     return (), [cmd]
+
+def cmds_for_lv_set_field(x, gen_id):
+    assert isinstance(x, LazyValue)
+
+    assert len(x | peel | collect) == 2
+    source,op = x | peel | collect
+
+    # assert is_a(source, ZefOp) and is_a(source, Z), f"fill_or_attach reached cmd creation with an incorrect input type: {source}"
+    assert is_a(op, set_field)
+    rt,assignment = LazyValue(op) | absorbed | collect
+    assert type(rt) == RelationType
+
+    iid,exprs = realise_single_node(source, gen_id)
+
+    cmd = {
+        'cmd': 'set_field', 
+        'source_id': iid,
+        'rt': LazyValue(rt) | without_absorbed | collect,
+    }
+
+    if type(assignment) in scalar_types:
+        cmd['value'] = assignment 
+    else:
+        target_iid,target_exprs = realise_single_node(assignment, gen_id)
+        cmd['target_id'] = target_iid
+        exprs.extend(target_exprs)
+
+    if LazyValue(rt) | absorbed | collect != ():
+        cmd['internal_id'] = LazyValue(rt) | absorbed | single | collect
+
+    return exprs, [cmd]
 
 def cmds_for_delegate(x):                            
     internal_ids = []
@@ -735,18 +742,26 @@ def realise_single_node(x, gen_id):
     if isinstance(x, LazyValue):
         x = collect(x)
 
-    # Now this is a check for whether we are an assign_value
+    # Now this is a check for whether we are an assign
     if isinstance(x, LazyValue):
         target,op = x | peel | collect
-        if is_a(op, assign_value):
+        if is_a(op, terminate) or is_a(op, tag):
+            iid = origin_uid(target)
+            exprs = [x]
+        elif is_a(op, assign):
             iid,exprs = realise_single_node(target, gen_id)
             exprs = exprs + [LazyValue(Z[iid]) | op]
-        elif is_a(op, terminate):
-            iid = origin_uid(target)
-            exprs = [x]
-        elif is_a(op, tag):
-            iid = origin_uid(target)
-            exprs = [x]
+        elif is_a(op, fill_or_attach):
+            # fill_or_attach behaviour is now basically set_field except when the target is not a value
+            iid,exprs = realise_single_node(target, gen_id)
+            rt,assignment = LazyValue(op) | absorbed | collect
+            if type(assignment) in scalar_types:
+                exprs = exprs + [LazyValue(Z[iid]) | set_field[rt][assignment]]
+            else:
+                exprs = exprs + [(Z[iid], rt, assignment)]
+        elif is_a(op, set_field):
+            iid,exprs = realise_single_node(target, gen_id)
+            exprs = exprs + [LazyValue(Z[iid]) | op]
         else:
             raise Exception(f"Don't understand LazyValue type: {op}")
     elif isinstance(x, EntityType) or isinstance(x, AtomicEntityType):
@@ -771,7 +786,7 @@ def realise_single_node(x, gen_id):
     elif type(x) in scalar_types:
         iid = gen_id()
         aet = map_scalar_to_aet_type[type(x)](x)
-        exprs = [aet[iid], LazyValue(Z[iid]) | assign_value[x]]
+        exprs = [aet[iid], LazyValue(Z[iid]) | assign[x]]
     elif isinstance(x, ZefOp):
         assert len(x) == 1
         params = LazyValue(x) | peel | first | second
@@ -790,9 +805,13 @@ def realise_single_node(x, gen_id):
 
         exprs = entity_exprs
         for k,v in sub_d.items():
-            target_iid, target_exprs = realise_single_node(v, gen_id)
-            exprs.extend(target_exprs)
-            exprs.append((Z[iid], k, Z[target_iid]))
+            if isinstance(v, list):
+                # for e in v:
+                #     assert type(e) not in scalar_types, "Can't have multiple scalars attached in a dictionary"
+                #     exprs.append((Z[iid], k, e))
+                raise Exception("Not allowed to use lists inside of a dictionary syntax anymore")
+            else:
+                exprs.append(Z[iid] | set_field[k][v])
     else:
         raise TypeError(f'in GraphDelta encode step: for type(x)={type(x)}')
 
@@ -806,26 +825,26 @@ def realise_single_node(x, gen_id):
 
 def verify_and_compact_commands(cmds: tuple):                
     aes_with_explicit_assigns = (cmds
-                                 | filter[lambda d: d["cmd"] == "assign_value"]
+                                 | filter[lambda d: d["cmd"] == "assign"]
                                  | filter[lambda d: d["explicit"]]
                                  | map[lambda d: d["internal_id"]]
                                  | collect
                                  )
     def is_unnecessary_automatic_merge_assign(d):
-        return (d["cmd"] == "assign_value"
+        return (d["cmd"] == "assign"
                 and not d["explicit"]
                 and d["internal_id"] in aes_with_explicit_assigns)
 
     # make sure if multiple assignment commands exist for the same AE, that their values agree
     cmds = (cmds | group_by[get['cmd']]
-            | map[match_apply[
-                        (first | equals["assign_value"],
-                         second | filter[Not[is_unnecessary_automatic_merge_assign]]
-                         | validate_and_compress_unique_assignment),
-                        (first | equals["merge"], second | combine_internal_ids_for_merges),
-                        (first | equals["terminate"], second | combine_terminates),
-                        # Just pack things back in for other cmd types
-                        (always[True], second)
+            | map[match[
+                        (Is[first | equals["assign"]],   second | filter[Not[is_unnecessary_automatic_merge_assign]] | validate_and_compress_unique_assignment),
+                # TODO: Validate fill_or_attach assignments - but note that
+                # these could also conflict with regular assignments but it's
+                # hard to tell that without playing out the assignments first.
+                        (Is[first | equals["merge"]],          second | combine_internal_ids_for_merges),
+                        (Is[first | equals["terminate"]],      second | combine_terminates), 
+                        (Any, second),                                 # Just pack things back in for other cmd types
             ]]
             | concat
             | collect)
@@ -842,7 +861,7 @@ def verify_and_compact_commands(cmds: tuple):
             nonlocal num_done, next_print
             num_done += 1
             if now() > next_print:
-                print(f"Up to compacting {num_done} - {len(x['state']['input'])}, {len(x['state']['output'])}", now())
+                log.debug("Compacting:", num_done=num_done, num_input=len(x['state']['input']), num_output=len(x['state']['output']))
                 next_print = now() + 5*seconds
         return debug_output
 
@@ -854,9 +873,9 @@ def verify_and_compact_commands(cmds: tuple):
     state_final = (
         {"state": state_initial, "num_changed": -1}
         | iterate[resolve_dag_ordering_step] 
-        # | tap[make_debug_output()]
+        | (tap[make_debug_output()] if gd_timing else identity)
         | take_until[lambda s: s["num_changed"] == 0]
-        # | tap[lambda x: print("After take_until")]
+        # | map[tap[print]]
         | last
         | get["state"]
         | collect
@@ -927,7 +946,8 @@ def command_ordering_by_type(d_raes: dict) -> int:
         if isinstance(d_raes['rae_type'], AtomicEntityType): return 2
         if isinstance(d_raes['rae_type'], RelationType): return 3
         return 4                                            # there may be {'cmd': 'instantiate', 'rae_type': AET.Bool}
-    if d_raes['cmd'] == 'assign_value': return 5
+    if d_raes['cmd'] == 'assign': return 5
+    if d_raes['cmd'] == 'set_field': return 5.5
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Relation): return 6
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Entity): return 7
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], AtomicEntity): return 8
@@ -965,15 +985,35 @@ def resolve_dag_ordering_step(arg: dict)->dict:
     # arg is "state" + "num_changed"
     state = arg["state"]
     ids = state['known_ids']        
+    input = state['input']
     
     def can_be_executed(cmd):        
-        if cmd['cmd'] == 'instantiate' and isinstance(cmd['rae_type'], RelationType) and (cmd['source'] not in ids or cmd['target'] not in ids):
-            return False
-        if cmd['cmd'] == 'merge' and isinstance(cmd['origin_rae'], Relation) and (cmd['origin_rae'].d["uids"][0] not in ids or cmd['origin_rae'].d["uids"][2] not in ids):
-            return False
-        if cmd['cmd'] == 'terminate' and any(get_id(cmd) in get_ids(other) for other in state['input'] if other['cmd'] != 'terminate'):
-            return False
-        return True        
+        if cmd['cmd'] == 'instantiate':
+            # If we are creating an RT, wait until both source/target exist
+            return not isinstance(cmd['rae_type'], RelationType) or (cmd['source'] in ids and cmd['target'] in ids)
+        if cmd['cmd'] == 'merge':
+            # If the merge is of a relation, we need both source and target to exist already
+            return not isinstance(cmd['origin_rae'], Relation) or (cmd['origin_rae'].d["uids"][0] not in ids or cmd['origin_rae'].d["uids"][2] not in ids)
+        if cmd['cmd'] == 'terminate':
+            # Don't terminate if there an upcoming operation that will create this item
+            return all(get_id(cmd) not in get_ids(other) for other in input if other['cmd'] != 'terminate')
+        if cmd['cmd'] == 'assign':
+            # The object to be assigned needs to exist.
+            return get_id(cmd) in ids
+        if cmd['cmd'] == 'set_field':
+            # This is where things get tricky - the behaviour of set_field
+            # can change if there is another command that creates a relation of
+            # the same type.
+            #
+            # TODO: this properly! I can see issues with assignments to the same
+            # object via different IDs causing massive headaches here. Need to
+            # consider aliasing and also consider multiple set_field commands.
+            #
+            # For now, just make sure the source is alive and run with that.
+            return cmd['source_id'] in ids
+        if cmd['cmd'] == 'tag':
+            return get_id(cmd) in ids
+        raise Exception(f"Don't know how to decide DAG ordering for command {cmd['cmd']}")
     (_,can), (_,cannot) = state['input'] | group_by[can_be_executed][[True, False]] | collect
     return {
         "state": {
@@ -1072,7 +1112,7 @@ def encode(xx):
         return iid
 
     step_res = step(xx, False)
-    return step_res, construct_commands(gd_exprs)
+    return step_res, construct_commands(gd_exprs, gen_id)
 
 
 def unpack_receipt(unpacking_template, receipt: dict):
@@ -1099,7 +1139,13 @@ def perform_transaction_commands(commands: list, g: Graph):
             # TODO: Have to change the behavior of Transaction(g) later I suspect
             frame_now = GraphSlice(tx_now)
             d_raes['tx'] = tx_now
+
+            next_print = now()+5*seconds
             for i,cmd in enumerate(commands):
+                if gd_timing:
+                    if now() > next_print:
+                        log.debug("Perform", i=i, total=len(commands))
+                        next_print = now() + 5*seconds
 
                 zz = None
                 
@@ -1110,7 +1156,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                 elif cmd['cmd'] == 'instantiate' and type(cmd['rae_type']) in {RelationType}:
                     zz = instantiate(to_ezefref(d_raes[cmd['source']]), cmd['rae_type'], to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
                 
-                elif cmd['cmd'] == 'assign_value':
+                elif cmd['cmd'] == 'assign':
                     this_id = cmd['internal_id']
                     zz = d_raes.get(this_id, None)
                     if zz is None:
@@ -1120,6 +1166,49 @@ def perform_transaction_commands(commands: list, g: Graph):
                         if zz | value | collect != cmd['value']:
                             # print("Assigning value of ", cmd['value'], "to a", AET(z))
                             internals.assign_value_imp(zz, cmd['value'])
+                    zz = now(zz)
+
+                elif cmd['cmd'] == 'set_field':
+                    z_source = d_raes.get(cmd['source_id'], None)
+                    if z_source is None:
+                        raise KeyError(f"set_field called with unknown source {cmd['source_id']}")
+
+                    if 'value' in cmd:
+                        # AET path
+                        aet = map_scalar_to_aet_type[type(cmd['value'])](cmd['value'])
+                    else:
+                        # Entity path
+                        z_target = d_raes.get(cmd['target_id'], None)
+                        if z_target is None:
+                            raise KeyError("set_field called with entity that is not known {cmd['target_id']}")
+
+                    opts = z_source | out_rels[cmd['rt']] | collect
+                    if len(opts) == 2:
+                        raise Exception(f"Can't set_field to {z_source} because it has two or more relations of kind {rt}")
+                    elif len(opts) == 1:
+                        zz = single(opts)
+                        if 'value' in cmd:
+                            # AE path - overwrite value
+                            ae = target(zz)
+                            if aet != rae_type(ae):
+                                raise Exception(f"Can't fill or attach {ae} because it is the wrong type for value {cmd['value']}")
+                            if value(ae) != cmd['value']:
+                                internals.assign_value_imp(ae, cmd['value'])
+                        else:
+                            # Entity path - replace the relation
+                            from ..pyzef import zefops as pyzefops
+                            pyzefops.terminate(zz)
+                            zz = instantiate(z_source, cmd['rt'], z_target, g)
+                    else:
+                        if 'value' in cmd:
+                            # AE path
+                            ae = instantiate(aet, g)
+                            internals.assign_value_imp(ae, cmd['value'])
+                            zz = instantiate(z_source, cmd['rt'], ae, g)
+                        else:
+                            # Entity path
+                            zz = instantiate(z_source, cmd['rt'], z_target, g)
+                    # This zz is the relation that connects the source/target
                     zz = now(zz)
                     
                 elif cmd['cmd'] == 'merge':
@@ -1202,6 +1291,25 @@ def perform_transaction_commands(commands: list, g: Graph):
 
                 for this_id in get_ids(cmd):
                     d_raes[this_id] = zz
+
+        # There is a weird edge case here - if a node is asked to be merged
+        # in, but already existed on the graph AND there were no changes,
+        # causing the transaction to be rolled-back, then the reference
+        # frame of the ZefRefs will be wrong.
+
+        # We check this by seeing if the index of the tx zefref is invalid.
+        if index(d_raes['tx']) > g.graph_data.read_head:
+            # Signal this by setting the tx to none (i.e. there was no tx)
+            d_raes['tx'] = None
+
+            # Update all ZefRefs to be in the latest frame instead of the previously created tx.
+            reset_frame = in_frame[now(g)][allow_tombstone]
+            for key,val in d_raes.items():
+                if key == 'tx': continue
+
+                # A terminated non-existent entity can return None
+                if val is not None:
+                    d_raes[key] = reset_frame(val)
 
     except Exception as exc:        
         raise RuntimeError(f"Error executing graph delta transaction exc={exc}") from exc
@@ -1344,15 +1452,35 @@ def get_absorbed_id(obj):
     return obj | absorbed | single_or[None] | collect
 
 
+def equal_identity(a, b):
+    if type(a) != type(b):
+        return False
+
+    # Things that don't produce the same objectt even though their python objects
+    # are the same
+    if type(a) in [EntityType, RelationType, AtomicEntityType, ZefEnumValue]:
+        return False
+
+    return a == b
+
+# @func
+# def merge_no_overwrite(a,b):
+#     d = {**a}
+
+#     for k,v in b.items():
+#         if k in d and not equal_identity(d[k], v):
+#             raise Exception(f"The internal id '{k}' refers to multiple objects, including '{d[k]}' and '{v}'. This is ambiguous and not allowed.")
+#         d[k] = v
+#     return d
+
 @func
 def merge_no_overwrite(a,b):
-    d = {**a}
-
+    # This version is mutating because otherwise it's too slow
     for k,v in b.items():
-        if k in d and d[k] != v:
-            raise Exception("The internal id '{k}' refers to multiple objects, including '{d[k]}' and '{v}'. This is ambiguous and not allowed.")
-        d[k] = v
-    return d
+        if k in a and not equal_identity(a[k], v):
+            raise Exception(f"The internal id '{k}' refers to multiple objects, including '{a[k]!r}' and '{v!r}'. This is ambiguous and not allowed.")
+        a[k] = v
+    return a
 
 
 
