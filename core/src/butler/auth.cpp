@@ -53,10 +53,12 @@ namespace zefDB {
         std::cerr << "Tried to do initialise_curl but we are going to deliberately fail" << std::endl;
         throw std::runtime_error("Failing on purpose");
         thread_local CURL* easy_handle;
-        thread_local done = false;
+        thread_local bool done = false;
         if(!done) {
             easy_handle = curl_easy_init();
-            on_thread_exit([&easy_handle]() {
+            // Suppressing warnings?
+            auto temp = easy_handle;
+            on_thread_exit("curl_cleanup", [temp]() {
                 curl_easy_cleanup(easy_handle);
             });
             done = true;
