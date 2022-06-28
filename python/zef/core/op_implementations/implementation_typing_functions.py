@@ -6113,6 +6113,20 @@ def is_a_implementation(x, typ):
         else:
             return True
 
+
+    def set_matching(x, tp):
+        import sys
+        if not isinstance(x, set):
+            return False
+        ab = tp.d['absorbed']
+        if ab != ():
+            if len(ab)!=1:    # List takes only one Type argument
+                print(f'Something went wrong in `is_a[Set[T1]]`: Set takes exactly one subtype, but got {x}', file=sys.stderr)
+            return x | map[is_a[ab[0]]] | all | collect
+        else:
+            return True
+
+
     def dict_matching(x, tp):
         import sys
         if not (isinstance(x, dict)):
@@ -6184,6 +6198,9 @@ def is_a_implementation(x, typ):
 
         if typ.d['type_name'] == "List":
             return list_matching(x, typ)
+
+        if typ.d['type_name'] == "Set":
+            return set_matching(x, typ)
 
         if typ.d['type_name'] == "Dict":
             return dict_matching(x, typ)
