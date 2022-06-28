@@ -39,7 +39,6 @@
 #include "tools.h"
 
 #include "butler/butler.h"
-#include "butler/butler_zefhub.h"
 
 #include "from_json.h"
 #include "zef_config.h"

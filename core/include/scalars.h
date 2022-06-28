@@ -107,6 +107,10 @@ namespace zefDB {
 
     namespace internals {
         inline ZefEnumValue assert_that_is_unit_val(ZefEnumValue x) {
+            // This is a quick exit to avoid calling anything at initialisation
+            // of library, i.e. before the token store might be initialised.
+            if(x == EN.Unit._undefined)
+                return x;
             if (x.enum_type() != "Unit" || x.enum_value() == "")
                 throw std::runtime_error("ZefEnumValue passed is not a Unit value (e.g. 'kilograms')");
             return x;
@@ -269,25 +273,15 @@ namespace zefDB {
 
 
 
-    const QuantityFloat seconds{ 1, EN.Unit.seconds };
-    const QuantityFloat minutes{ 60, EN.Unit.seconds };
-    const QuantityFloat hours{ 60 * 60, EN.Unit.seconds };
-    const QuantityFloat days{ 60 * 60 * 24, EN.Unit.seconds };
-    const QuantityFloat weeks{ 60 * 60 * 24 * 7, EN.Unit.seconds };
-    const QuantityFloat months{ 60 * 60 * 24 * 30, EN.Unit.seconds };
-    const QuantityFloat years{ 60 * 60 * 24 * 365, EN.Unit.seconds };
+    extern const QuantityFloat seconds;
+    extern const QuantityFloat minutes;
+    extern const QuantityFloat hours;
+    extern const QuantityFloat days;
+    extern const QuantityFloat weeks;
+    extern const QuantityFloat months;
+    extern const QuantityFloat years;
 
 
     LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, Time t);
-
-
-
-
-
-
-
-
-
-
 
 }

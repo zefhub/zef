@@ -23,6 +23,7 @@
 #include <vector>
 #include <array>
 #include <algorithm>
+#include "include_fs.h"
 
 namespace zefDB {
 
@@ -66,5 +67,7 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED config_var_t get_config_var(std::string key);
     LIBZEF_DLL_EXPORTED void set_config_var(std::string key, config_var_t val);
     LIBZEF_DLL_EXPORTED std::vector<std::pair<std::string,config_var_t>> list_config(std::string filter="");
+
+    LIBZEF_DLL_EXPORTED std::filesystem::path zefdb_config_path();
 }
 

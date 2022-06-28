@@ -254,48 +254,6 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
 
 
 
-// TODO: Replace these with the individual type updates, which will occur in new messages from zefhub.
-template<typename T1, typename T2>
-void update_bidirection_name_map(thread_safe_bidirectional_map<T1,T2>& map_to_update, const T1 & indx, const T2 & name) {			
-    if(map_to_update.contains(indx)) {
-        auto it = map_to_update.at(indx);
-        if(it != name) {
-            std::cout << it << " doesn't agree with " << name << " (" << indx << ")" << std::endl;
-            throw std::runtime_error("existing index assigned to a ET/RT does not agree with newly received ET/RT type list");
-        }
-    } else if(map_to_update.contains(name)) {
-        auto it = map_to_update.at(name);
-        if(it != indx) {
-            std::cout << it << " doesn't agree with " << name << " (" << indx << ")" << std::endl;
-            throw std::runtime_error("existing name assigned to a ET/RT does not agree with newly received ET/RT type list");
-        }
-    } else
-        map_to_update.insert(indx, name);
-}
-
-
-void update_zef_enum_bidirectional_map(thread_safe_zef_enum_bidirectional_map& map_to_update, const enum_indx & indx, const std::string& name) {
-    auto [enum_type,enum_value] = internals::split_enum_string(name);
-    auto pair = std::make_pair(enum_type, enum_value);
-    if(map_to_update.contains(indx)) {
-        auto it = map_to_update.at(indx);
-        if(it.first != enum_type || it.second != enum_value) {
-                std::cout << it.first << "." << it.second << " doesn't agree with "
-                          << enum_type << "." << enum_value << " for indx " << it.first << std::endl;
-                throw std::runtime_error("existing index assigned to a enum does not agree with newly received enum type and name list");
-        }
-    } else if(map_to_update.contains(pair)) {
-        auto it = map_to_update.at(pair);
-        if(it != indx) {
-                std::cout << it << " doesn't agree with "
-                          << enum_type << "." << enum_value << " for indx " << indx << std::endl;
-                throw std::runtime_error("existing name assigned to a enum does not agree with newly received enum type and name list");
-        }
-    } else
-        map_to_update.insert(indx, pair);
-}
-
-
 void handle_token_response(Butler & butler, json & j) {
     auto& tokens = global_token_store();
 
@@ -304,34 +262,54 @@ void handle_token_response(Butler & butler, json & j) {
         std::cerr << "Got a butler-handlable token response with reason: " << reason << std::endl;
     if(reason == "list") {
         auto vec1 = j["groups"]["ET"].get<std::vector<std::pair<token_value_t, std::string>>>();
+        if(zwitch.developer_output())
+            std::cerr << "Got " << vec1.size() << " ETs in listing from upstream" << std::endl;
+        int num_before = tokens.ETs.size();
         for(auto & it : vec1) {
-            update_bidirection_name_map(tokens.ETs, std::get<0>(it), std::get<1>(it));
-            if(zwitch.developer_output())
-                std::cerr << "ET: " << std::get<1>(it) << std::endl;
+            tokens.force_add_entity_type(std::get<0>(it), std::get<1>(it));
+            // if(zwitch.developer_output())
+            //     std::cerr << "ET: " << std::get<1>(it) << std::endl;
         }
+        if(zwitch.developer_output())
+            std::cerr << "Of these, " << tokens.ETs.size() - num_before << " were new to us." << std::endl;
 
         auto vec2 = j["groups"]["RT"].get<std::vector<std::tuple<token_value_t, std::string>>>();
+        if(zwitch.developer_output())
+            std::cerr << "Got " << vec2.size() << " RTs in listing from upstream" << std::endl;
+        num_before = tokens.RTs.size();
         for(auto & it : vec2) {
-            update_bidirection_name_map(tokens.RTs, std::get<0>(it), std::get<1>(it));
-            if(zwitch.developer_output())
-                std::cerr << "RT: " << std::get<1>(it) << std::endl;
+            tokens.force_add_relation_type(std::get<0>(it), std::get<1>(it));
+            // if(zwitch.developer_output())
+            //     std::cerr << "RT: " << std::get<1>(it) << std::endl;
         }
+        if(zwitch.developer_output())
+            std::cerr << "Of these, " << tokens.RTs.size() - num_before << " were new to us." << std::endl;
 
         if(j["groups"].contains("KW")) {
             auto vec4 = j["groups"]["KW"].get<std::vector<std::tuple<token_value_t, std::string>>>();
+            if(zwitch.developer_output())
+                std::cerr << "Got " << vec4.size() << " KWs in listing from upstream" << std::endl;
+            num_before = tokens.KWs.size();
             for(auto & it : vec4) {
-                update_bidirection_name_map(tokens.KWs, std::get<0>(it), std::get<1>(it));
-                if(zwitch.developer_output())
-                    std::cerr << "KW: " << std::get<1>(it) << std::endl;
+                tokens.force_add_keyword(std::get<0>(it), std::get<1>(it));
+                // if(zwitch.developer_output())
+                //     std::cerr << "KW: " << std::get<1>(it) << std::endl;
             }
+            if(zwitch.developer_output())
+                std::cerr << "Of these, " << tokens.KWs.size() - num_before << " were new to us." << std::endl;
         }
 
         auto vec3 = j["groups"]["EN"].get<std::vector<std::tuple<enum_indx, std::string>>>();
+        if(zwitch.developer_output())
+            std::cerr << "Got " << vec3.size() << " ETs in listing from upstream" << std::endl;
+        num_before = tokens.ENs.size();
         for(auto & it : vec3) {
-            update_zef_enum_bidirectional_map(tokens.ENs, std::get<0>(it), std::get<1>(it));
-            if(zwitch.developer_output())
-                std::cerr << "EN: " << std::get<1>(it) << std::endl;
+            tokens.force_add_enum_type(std::get<0>(it), std::get<1>(it));
+            // if(zwitch.developer_output())
+            //     std::cerr << "EN: " << std::get<1>(it) << std::endl;
         }
+        if(zwitch.developer_output())
+            std::cerr << "Of these, " << tokens.ENs.size() - num_before << " were new to us." << std::endl;
     } else {
         throw std::runtime_error("Shouldn't get here - unknown reason for token response: " + reason);
     }
@@ -351,13 +329,13 @@ void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr &
 
             for(auto & [name,indx] : response.pairs) {
                 if (group == "ET")
-                    update_bidirection_name_map(tokens.ETs, indx, name);
+                    tokens.force_add_entity_type(indx, name);
                 else if(group == "RT")
-                    update_bidirection_name_map(tokens.RTs, indx, name);
+                    tokens.force_add_relation_type(indx, name);
                 else if(group == "KW")
-                    update_bidirection_name_map(tokens.KWs, indx, name);
+                    tokens.force_add_keyword(indx, name);
                 else if(group == "EN")
-                    update_zef_enum_bidirectional_map(tokens.ENs, indx, name);
+                    tokens.force_add_enum_type(indx, name);
             }
         } else {
             std::cerr << "WARNING: unexpected reason (" << response.generic.reason << ") during handle_token_response" << std::endl;

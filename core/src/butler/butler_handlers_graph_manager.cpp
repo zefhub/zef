@@ -1031,7 +1031,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, TagGrap
         msg->promise.set_value(GenericResponse("Can't tag graph when not being synchronised."));
         return;
     }
-    if(!wait_diff(me.gd->heads_locker, me.gd->sync_head, 0, std::chrono::duration<double>(butler_generic_timeout.value))) {
+    if(!wait_diff(me.gd->heads_locker, me.gd->sync_head, 0, std::chrono::duration<double>(butler_generic_timeout))) {
         msg->promise.set_value(GenericResponse("Timed out waiting for graph to be synced."));
         return;
     }

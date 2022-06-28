@@ -12,18 +12,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// This file exists to order the initialisation of any globals that need
+// ordering.
 #include "zwitch.h"
-#include "graph.h"
+#include "scalars.h"
 
 namespace zefDB {
-    std::chrono::steady_clock::time_point time_start_of_process = std::chrono::steady_clock::now();
+    Zwitch zwitch;
 
-    std::ostream& operator<< (std::ostream& o, Zwitch zw) {
-        o << "{" << std::endl;
-        for(auto item : zw.as_dict()) {
-            o << "\t\"" << item.first << "\": " << item.second << std::endl;
-        }
-        o << "}" << std::endl;
-        return o;
-    }
+    const QuantityFloat seconds{ 1, EN.Unit.seconds };
+    const QuantityFloat minutes{ 60, EN.Unit.seconds };
+    const QuantityFloat hours{ 60 * 60, EN.Unit.seconds };
+    const QuantityFloat days{ 60 * 60 * 24, EN.Unit.seconds };
+    const QuantityFloat weeks{ 60 * 60 * 24 * 7, EN.Unit.seconds };
+    const QuantityFloat months{ 60 * 60 * 24 * 30, EN.Unit.seconds };
+    const QuantityFloat years{ 60 * 60 * 24 * 365, EN.Unit.seconds };
 }

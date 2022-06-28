@@ -715,12 +715,24 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     // TODO: In the future, these should be compiled into a version of pyzef
     // only available to zefhub/tokoloshes
-    internals_submodule.def("add_entity_type", &Butler::add_entity_type, "This should only be called by zefhub.");
-    internals_submodule.def("add_relation_type", &Butler::add_relation_type, "This should only be called by zefhub.");
-    internals_submodule.def("add_enum_type", &Butler::add_enum_type, "This should only be called by zefhub.");
-    internals_submodule.def("add_keyword", &Butler::add_keyword, "This should only be called by zefhub.");
+    internals_submodule.def("add_entity_type", [](const token_value_t indx, const std::string & name) {
+        auto & store = global_token_store();
+        store.force_add_entity_type(indx, name);
+    }, "This should only be called by zefhub.");
+    internals_submodule.def("add_relation_type", [](const token_value_t indx, const std::string & name) {
+        auto & store = global_token_store();
+        store.force_add_relation_type(indx, name);
+    }, "This should only be called by zefhub.");
+    internals_submodule.def("add_enum_type", [](const token_value_t indx, const std::string & name) {
+        auto & store = global_token_store();
+        store.force_add_enum_type(indx, name);
+    }, "This should only be called by zefhub.");
+    internals_submodule.def("add_keyword", [](const token_value_t indx, const std::string & name) {
+        auto & store = global_token_store();
+        store.force_add_keyword(indx, name);
+    }, "This should only be called by zefhub.");
 
-	internals_submodule.def("set_data_layout_version_info", &internals::set_data_layout_version_info, "new_string_value"_a, "g"_a);
+    internals_submodule.def("set_data_layout_version_info", &internals::set_data_layout_version_info, "new_string_value"_a, "g"_a);
 	internals_submodule.def("get_data_layout_version_info", &internals::get_data_layout_version_info, "g"_a);
 	internals_submodule.def("set_graph_revision_info", &internals::set_graph_revision_info, "new_string_value"_a, "g"_a);
 	internals_submodule.def("get_graph_revision_info", &internals::get_graph_revision_info, "g"_a);

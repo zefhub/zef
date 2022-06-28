@@ -34,8 +34,8 @@ namespace zefDB {
 
     namespace Butler {
 
-		const QuantityFloat zefhub_generic_timeout(10, EN.Unit.seconds);
-		const QuantityFloat butler_generic_timeout(15, EN.Unit.seconds);
+		const double zefhub_generic_timeout(10);
+		const double butler_generic_timeout(15);
 
         using namespace zefDB::Messages;
 
@@ -83,8 +83,6 @@ namespace zefDB {
         }
             
 
-        std::filesystem::path zefdb_config_path();
-
         // If this is set, the butler no longer needs to commmunicate with
         // upstream to ask permission or take primary etc...
         extern bool butler_is_master;
@@ -106,7 +104,7 @@ namespace zefDB {
                 bool is_online;
                 // Time last_activity;
                 std::atomic<double> last_activity;
-                QuantityFloat timeout;
+                double timeout;
                 // The nothing constructor is for receiving a looked-up task
                 // only.
                 Task() {}
@@ -122,7 +120,7 @@ namespace zefDB {
                 // Handle when making a Task from a RequestMesssage, which
                 // is forwarding a client request straight to zefhub, letting
                 // the client wait on the response rather than the butler.
-                Task(Time time, bool is_online, QuantityFloat timeout, std::promise<Response> & promise, bool acquire_future)
+                Task(Time time, bool is_online, double timeout, std::promise<Response> & promise, bool acquire_future)
                     : started_time(time),
                       is_online(is_online),
                       last_activity(time.seconds_since_1970),
@@ -155,8 +153,8 @@ namespace zefDB {
             // Note: we can't have add_task return a reference here, as it will
             // reference a location in the vector which may later change from
             // multi-threaded behaviour.
-            task_ptr add_task(bool is_online, QuantityFloat timeout);
-            task_ptr add_task(bool is_online, QuantityFloat timeout, std::promise<Response> && promise, bool acquire_future=false);
+            task_ptr add_task(bool is_online, double timeout);
+            task_ptr add_task(bool is_online, double timeout, std::promise<Response> && promise, bool acquire_future=false);
             task_promise_ptr find_task(std::string task_uid, bool forget=false);
             bool forget_task(std::string task_uid);
             void cancel_online_tasks();
@@ -173,18 +171,18 @@ namespace zefDB {
                 timeout_exception() : std::runtime_error("Timeout exception") {}
             };
 
-            Response wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest = {}, QuantityFloat timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false);
+            Response wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false);
 
             template<class T=GenericZefHubResponse>
-            T wait_on_zefhub_message(json & j, const std::vector<std::string> & rest = {}, QuantityFloat timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false);
+            T wait_on_zefhub_message(json & j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false);
 
             // This is to allow brace initialisation, while still preferring pass-by-reference.
-            Response wait_on_zefhub_message_any(json && j, const std::vector<std::string> & rest = {}, QuantityFloat timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false) {
+            Response wait_on_zefhub_message_any(json && j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false) {
                 return wait_on_zefhub_message_any(j, rest, timeout, throw_on_failure);
             }
 
             template<class T=GenericZefHubResponse>
-            T wait_on_zefhub_message(json && j, const std::vector<std::string> & rest = {}, QuantityFloat timeout = zefhub_generic_timeout, bool throw_on_failure = false) {
+            T wait_on_zefhub_message(json && j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false) {
                 return wait_on_zefhub_message(j, rest, timeout, throw_on_failure);
             }
 
@@ -314,7 +312,7 @@ namespace zefDB {
             // only time this could be useful is if there is nobody blocking on
             // a ZH query, e.g. a zearch request.
             template <class T>
-            T msg_push_timeout(Request && content, QuantityFloat timeout = butler_generic_timeout, bool ignore_closed=false);
+            T msg_push_timeout(Request && content, double timeout = butler_generic_timeout, bool ignore_closed=false);
 
             ////////////////////////////////////////////////////
             // * Graph manager functions
@@ -404,12 +402,6 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED std::filesystem::path local_graph_uid_path(std::filesystem::path dir);
 
         LIBZEF_DLL_EXPORTED void ensure_or_get_range(void * ptr, size_t size);
-
-        // These are just for butler_zefhub.cpp
-        template<typename T1, typename T2>
-        void update_bidirection_name_map(thread_safe_bidirectional_map<T1,T2>& map_to_update, const T1 & indx, const T2 & name);
-        void update_zef_enum_bidirectional_map(thread_safe_zef_enum_bidirectional_map& map_to_update, const enum_indx& indx, const std::string & name);
-
 
         GenericResponse generic_from_json(json j);
 
