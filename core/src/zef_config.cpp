@@ -35,8 +35,28 @@ namespace zefDB {
     
     std::unordered_map<std::string, config_var_t> session_overrides;
 
+    std::filesystem::path zefdb_config_path() {
+        char * env = std::getenv("ZEFDB_SESSION_PATH");
+        if (env != nullptr)
+            return std::string(env);
+
+#ifdef ZEF_WIN32
+        env = std::getenv("LOCALAPPDATA");
+#else
+        env = std::getenv("HOME");
+#endif
+        if (env == nullptr)
+            throw std::runtime_error("No HOME env set!");
+
+        std::filesystem::path path(env);
+        path /= ".zef";
+        if(!std::filesystem::exists(path))
+            std::filesystem::create_directories(path);
+        return path;
+    }
+
     std::filesystem::path config_file_path() {
-        return Butler::zefdb_config_path() / "config.yaml";
+        return zefdb_config_path() / "config.yaml";
     }
 
     bool config_file_exists() {

@@ -877,26 +877,6 @@ namespace zefDB {
             return *local_process_graph;
         }
 
-        std::filesystem::path zefdb_config_path() {
-            char * env = std::getenv("ZEFDB_CONFIG_PATH");
-            if (env != nullptr)
-                return std::string(env);
-
-#ifdef ZEF_WIN32
-            env = std::getenv("LOCALAPPDATA");
-#else
-            env = std::getenv("HOME");
-#endif
-            if (env == nullptr)
-                throw std::runtime_error("No HOME env set!");
-
-            std::filesystem::path path(env);
-            path /= ".zef";
-            if(!std::filesystem::exists(path))
-                std::filesystem::create_directories(path);
-            return path;
-        }
-
         ////////////////////////////////////////////////////////
         // * External handlers
 

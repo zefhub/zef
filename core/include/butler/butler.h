@@ -83,8 +83,6 @@ namespace zefDB {
         }
             
 
-        std::filesystem::path zefdb_config_path();
-
         // If this is set, the butler no longer needs to commmunicate with
         // upstream to ask permission or take primary etc...
         extern bool butler_is_master;
