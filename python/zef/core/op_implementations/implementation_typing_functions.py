@@ -9577,3 +9577,112 @@ def indexes_of_imp(v, ElType):
     """
     return v | enumerate | filter[second | is_a[ElType]] | map[first] | collect
 
+
+
+
+
+
+
+
+def gather_imp(z_initial, rules=None):
+    """ 
+    An operator that given a launch point on a graph, gathers up 
+    a subgraph by traversing based on a rules pattern that is specified.
+    There are two main modes of usage: 
+
+    ---------------- A: Explicit Rules -----------------
+    Giving an explicit rule set:
+    >>> rules = [
+    >>>     (Z[ET.A], RT.R1, ET.B),        # from source
+    >>>     (Z[Any], RT.R2, AET.String),    
+    >>>     (ET.Bar, RT.R2, Z[ET.Foo]),    # from target moving in the opposite direction of the relation
+    >>> ]
+    then 
+    >>> z1 | gather[rules]
+    will iteratively traverse the graph until there is nothing more to be collected.
+    What do the rules specify in this case? For example, the first rule (ET.A, RT.R1, ET.B)
+    being part of 'from_source' mean that if one were to stand on a node of type "ET.A" as a source,
+    with an outgoing relation of type "RT.R1" which leads to a "ET.B", then take that step
+    and include both the edge and the "ET.B" in the gathered set.
+
+    ---------------- B: Implicit Rules -----------------
+    For certain entity types, predefined rule sets are associated.
+    B1) For ET.ZEF_Function, a rule set to gather all things related to that function is predefined.
+    Future: Also for ET.ZEF_EffectModule, ET.ZEF_Op
+    
+    """
+
+
+    # ------------------------------ catch all cases for implicit rules ----------------------------------
+    if rules is None:
+        if z_initial | is_a[ET.ZEF_Function] | collect:
+            zef_fct_rules =  [
+                        (Z[ET.ZEF_Function], RT.PythonSourceCode, AET.String),
+                        (Z[ET.ZEF_Function], RT.OriginalName,     AET.String),
+                        (Z[ET.ZEF_Function], RT.Binding,          ET.ZEF_Function),
+                        (Z[RT.Binding],      RT.Name,             AET.String),
+                        (Z[RT.Binding],      RT.UseTimeSlice,     AET.String),
+                    ]
+            return gather_imp(z_initial, zef_fct_rules)           
+        else:
+            raise TypeError(f"Implicit rules not defined in 'gather' operator for {rae_type(z_initial)}")
+
+
+    # --------------------------------- verify the rules data structure-------------------------------
+    # TODO: once type checking is in place, hoist this out of the body into the function signature
+    ValidRule = (
+        List &
+        Is[length | equals[3]] & (
+            Is[first | without_absorbed | equals[Z]] |
+            Is[last | without_absorbed | equals[Z]] 
+        ))
+    def EveryElement(T):
+        return List & Is[ map[is_a[T]] | all  ]
+
+    ValidRuleList = EveryElement(ValidRule)
+
+    if not rules | is_a[ValidRuleList] | collect:
+        return Error(f'`gather` called with an invalid set of rules: {rules}')
+
+
+    # --------------------------------- explicit rules -------------------------------
+    def traverse_rae_step(z: ZefRef) -> List[ZefRef]:
+
+        def from_single_rule_from_source(triple) -> List[ZefRef]:
+            src_tp, rel_tp, trg_tp = triple
+            if not is_a[src_tp](z):
+                return []
+            return z | out_rels[rel_tp][trg_tp] | map[lambda rel: (rel, target(rel))] | concat | collect
+
+        def from_single_rule_from_target(triple) -> List[ZefRef]:
+            src_tp, rel_tp, trg_tp = triple
+            if not is_a[trg_tp](z):
+                return []
+            return z | in_rels[rel_tp][src_tp] | map[lambda rel: (rel, source(rel))] | concat | collect
+ 
+        from_source_rules = rules | filter[first | without_absorbed | equals[Z]] | map[lambda x: (absorbed(x[0])[0], x[1], x[2])] | collect
+        from_target_rules = rules | filter[last  | without_absorbed | equals[Z]] | map[lambda x: (x[0], x[1], absorbed(x[2])[0])] | collect
+
+        return (
+            from_source_rules | map[from_single_rule_from_source] | concat | collect,
+            from_target_rules | map[from_single_rule_from_target] | concat | collect,
+            ) | concat | collect
+
+    def step(d: dict) -> dict:
+        new_gathered = {*d['gathered'], *d['frontier']}
+        new_frontier = d['frontier'] | map[traverse_rae_step] | concat | filter[Not[contained_in[new_gathered]]] | collect
+        return {
+            'gathered': new_gathered,
+            'frontier': new_frontier,
+        }
+    
+    frontier_is_empty = get['frontier'] | length | equals[0]    
+    return {
+        'gathered': set(),
+        'frontier': {z_initial, },
+    } | iterate[step] | take_until[frontier_is_empty] | last | get['gathered'] | collect
+
+
+
+
+
