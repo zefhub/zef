@@ -334,6 +334,28 @@ namespace zefDB {
     }
 
 #ifdef ZEF_WIN32
+}
+#include <windows.h>
+#include <sysinfoapi.h>
+#include <io.h>
+#include <fcntl.h>
+
+namespace zefDB {
+        inline std::string WindowsErrorMsg() {
+            LPVOID lpMsgBuf;
+            FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+            NULL,
+            GetLastError(),
+            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+            (LPTSTR)&lpMsgBuf,
+            0, NULL);
+
+            std::string ret((LPCTSTR)lpMsgBuf);
+
+            LocalFree(lpMsgBuf);
+            return ret;
+        }
+
         constexpr size_t WIN_FILE_LOCK_BYTES = 1024;
 inline bool WindowsLockFile(int fd, bool exclusive=true, bool block=false) {
             HANDLE h = (HANDLE)_get_osfhandle(fd);
@@ -368,18 +390,19 @@ inline bool WindowsLockFile(int fd, bool exclusive=true, bool block=false) {
             : path(path) {
             if(std::filesystem::is_directory(path))
                 path /= ".lock";
-            fd = open(path.c_str(), O_RDWR | O_CREAT, 0600);
+            auto path_s = path.string();
+            fd = open(path_s.c_str(), O_RDWR | O_CREAT, 0600);
             if(fd == -1)
                 throw std::runtime_error("Opening lockfile '" + path.string() + "' failed.");
                 
             locked = WindowsLockFile(fd, exclusive, true);
             if(!locked)
-                throw std::runtime_error("Locking file failed. Errno: " + to_str(flock_ret));
+                throw std::runtime_error("Locking file failed.");
         }
         ~FileLock() {
             if(fd != -1) {
                 if(locked)
-                    WindowsUnlockFile(fd)
+                    WindowsUnlockFile(fd);
                 close(fd);
             }
         }

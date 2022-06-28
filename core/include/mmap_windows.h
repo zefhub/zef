@@ -93,21 +93,6 @@
 namespace zefDB {
     namespace MMap {
 
-        inline std::string WindowsErrorMsg() {
-            LPVOID lpMsgBuf;
-            FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,
-            GetLastError(),
-            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-            (LPTSTR)&lpMsgBuf,
-            0, NULL);
-
-            std::string ret((LPCTSTR)lpMsgBuf);
-
-            LocalFree(lpMsgBuf);
-            return ret;
-        }
-
         inline void *WindowsMMap(int fd, size_t offset, size_t size, void * location) {
             if(fd == 0) {
                 // Anonymous map
