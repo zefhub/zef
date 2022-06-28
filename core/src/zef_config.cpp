@@ -40,11 +40,6 @@ namespace zefDB {
         return config_spec;
     }
 
-    // Going to make this code trivially threadsafe by locking before each function call.
-    // TODO: Make this a lock over multiple processes
-    std::recursive_mutex config_mutex;
-
-    
     std::unordered_map<std::string, config_var_t> session_overrides;
 
     std::filesystem::path zefdb_config_path() {
@@ -107,7 +102,7 @@ namespace zefDB {
     }
 
     config_var_t get_config_var(std::string key) {
-        std::lock_guard lock(config_mutex);
+        FileLock lock(zefdb_config_path());
         auto search = session_overrides.find(key);
         if(search != session_overrides.cend()) {
             return search->second;
@@ -159,7 +154,7 @@ namespace zefDB {
     // TODO: Has to lookup every key for defaults/overrides and indicate this too in the return
     
     void set_config_var(std::string key, config_var_t val) {
-        std::lock_guard lock(config_mutex);
+        FileLock lock(zefdb_config_path());
         ensure_config_file();
 
         auto & spec = get_spec(key);
