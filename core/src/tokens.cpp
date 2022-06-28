@@ -471,13 +471,12 @@ namespace zefDB {
     }
 
     void TokenStore::save_cached_tokens() {
-        // Lock this for thread safety.
-        static std::mutex m;
-        std::lock_guard lock(m);
-        // TODO: Really want a FS lock on the file in the case of multiple
-        // processses.
-
         try {
+            std::filesystem::path cache_path = get_cached_tokens_path();
+            auto lock_path = cache_path;
+            lock_path += ".lock";
+            FileLock file_lock(lock_path);
+
             json j{
                 {"ETs", ETs.all_entries_as_list()},
                 {"RTs", RTs.all_entries_as_list()},
@@ -485,7 +484,6 @@ namespace zefDB {
                 {"KWs", KWs.all_entries_as_list()},
             };
 
-            std::filesystem::path cache_path = get_cached_tokens_path();
             if(zwitch.developer_output())
                 std::cerr << "Going to save tokens to: " << cache_path << std::endl;
             std::ofstream file(cache_path);
@@ -498,14 +496,12 @@ namespace zefDB {
     }
 
     void TokenStore::load_cached_tokens() {
-        // Lock this for thread safety.
-        static std::mutex m;
-        std::lock_guard lock(m);
-        // TODO: Really want a FS lock on the file in the case of multiple
-        // processses.
-
         try {
             std::filesystem::path cache_path = get_cached_tokens_path();
+            auto lock_path = cache_path;
+            lock_path += ".lock";
+            FileLock file_lock(lock_path);
+
             if(zwitch.developer_output())
                 std::cerr << "Going to attempt loading cached tokens from: " << cache_path << std::endl;
             

@@ -333,4 +333,93 @@ namespace zefDB {
         exiter.callbacks.emplace_front(name, std::move(func));
     }
 
+#ifdef ZEF_WIN32
+        constexpr size_t WIN_FILE_LOCK_BYTES = 1024;
+inline bool WindowsLockFile(int fd, bool exclusive=true, bool block=false) {
+            HANDLE h = (HANDLE)_get_osfhandle(fd);
+            OVERLAPPED overlapped;
+            overlapped.Offset = 0;
+            overlapped.OffsetHigh = 0;
+            overlapped.hEvent = 0;
+            int flags = 0;
+            if(exclusive)
+                flags |= LOCKFILE_EXCLUSIVE_LOCK;
+            if(!block)
+                flags |= LOCKFILE_FAIL_IMMEDIATELY;
+            if (!LockFileEx(h, flags, NULL, WIN_FILE_LOCK_BYTES, 0, &overlapped))
+                return false;
+            return true;
+        }
+        inline void WindowsUnlockFile(int fd, bool flush=false) {
+            HANDLE h = (HANDLE)_get_osfhandle(fd);
+            if(flush) {
+                if (!FlushFileBuffers(h))
+                    throw std::runtime_error("Problem flushing file to disk: " + WindowsErrorMsg());
+            }
+            if (!UnlockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0))
+                    throw std::runtime_error("Problem unlocking file: " + WindowsErrorMsg());
+        }
+
+    struct FileLock {
+        std::filesystem::path path;
+        bool locked = false;
+        int fd = -1;
+        FileLock(std::filesystem::path path, bool exclusive=true)
+            : path(path) {
+            if(std::filesystem::is_directory(path))
+                path /= ".lock";
+            fd = open(path.c_str(), O_RDWR | O_CREAT, 0600);
+            if(fd == -1)
+                throw std::runtime_error("Opening lockfile '" + path.string() + "' failed.");
+                
+            locked = WindowsLockFile(fd, exclusive, true);
+            if(!locked)
+                throw std::runtime_error("Locking file failed. Errno: " + to_str(flock_ret));
+        }
+        ~FileLock() {
+            if(fd != -1) {
+                if(locked)
+                    WindowsUnlockFile(fd)
+                close(fd);
+            }
+        }
+    };
+#else
+}
+
+#include <sys/file.h>
+#include <unistd.h>
+
+namespace zefDB {
+    // Acquires a lock on a given named file in the given directory. This file
+    // should not itself contain any data. Uses flock or similar.
+    struct FileLock {
+        std::filesystem::path path;
+        int flock_ret = -1;
+        int fd = -1;
+        FileLock(std::filesystem::path path, bool exclusive=true)
+            : path(path) {
+            if(std::filesystem::is_directory(path))
+                path /= ".lock";
+            fd = open(path.c_str(), O_RDWR | O_CREAT, 0600);
+            if(fd == -1)
+                throw std::runtime_error("Opening lockfile '" + path.string() + "' failed.");
+                
+            if(exclusive)
+                flock_ret = flock(fd, LOCK_EX);
+            else
+                flock_ret = flock(fd, LOCK_SH);
+            if(flock_ret == -1)
+                throw std::runtime_error("Locking file failed. Errno: " + to_str(flock_ret));
+        }
+        ~FileLock() {
+            if(fd != -1) {
+                if(flock_ret != -1)
+                    flock(fd, LOCK_UN);
+                close(fd);
+            }
+        }
+    };
+#endif
+
 }
