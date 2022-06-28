@@ -15,6 +15,7 @@
 
 #=============================================================================== HTTP Server handlers =========================================================================================================
 from .fx_types import Effect, FX
+from ..VT import Pattern, SetOf
 from uuid import uuid4
 from .._ops import *
 from ..error import Error
@@ -315,11 +316,12 @@ source | map[middleware_worker[seq_of_funcs]] | run
 
         if cur is None:
             return None
+        # Not sure if this is the right way to do things
+        SendResponseEffect = Pattern[{"type": SetOf(FX.HTTP.SendResponse)}]
+        if is_a(cur, SendResponseEffect):
+            return cur
         if isinstance(cur, dict):
             continue
-        # if isinstance(cur, Effect):
-        if isinstance(cur, dict):
-            return cur
 
         raise Exception(f"Unusual type in middleware_runner: {type(func)}")
         
