@@ -6113,6 +6113,22 @@ def is_a_implementation(x, typ):
         else:
             return True
 
+    def dict_matching(x, tp):
+        import sys
+        if not (isinstance(x, dict)):
+            return False
+        ab = tp.d['absorbed']
+        if ab != ():
+            if (len(ab)==1 and len(ab[0])==2):    # Dict must contain a type in one [] and that must be a pair
+                T1, T2 = ab[0]
+                return x | items | map[lambda p: is_a(p[0], T1) and is_a(p[1], T2)] | all | collect
+            else:
+                print(f'Something went wrong in `is_a[Dict[T1, T2]]`: exactly two subtypes must be given. Got {ab}', file=sys.stderr)
+                return Error('Error matching Dict[...]')
+        else:
+            return True
+
+
 
 
     def valuetype_matching(el, vt):
@@ -6168,6 +6184,9 @@ def is_a_implementation(x, typ):
 
         if typ.d['type_name'] == "List":
             return list_matching(x, typ)
+
+        if typ.d['type_name'] == "Dict":
+            return dict_matching(x, typ)
 
 
         if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
