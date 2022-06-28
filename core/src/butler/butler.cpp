@@ -279,6 +279,9 @@ namespace zefDB {
             if(zwitch.developer_output())
                 std::cerr << "Clear waiting tasks" << std::endl;
             butler->waiting_tasks.clear();
+            if(zwitch.developer_output())
+                std::cerr << "Save tokens to cache" << std::endl;
+            global_token_store().save_cached_tokens();
 
             if(zwitch.developer_output())
                 std::cerr << "Joining main butler thread" << std::endl;

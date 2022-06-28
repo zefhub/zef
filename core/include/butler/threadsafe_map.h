@@ -270,6 +270,10 @@ namespace zefDB {
             //     if (found_val_it != map2.end()) return found_val_it->second;
             //     else return insert(val);			
             // }
+
+            size_t size() {
+                return map1.size();
+            }
         
             bool contains(const T1& val) {
                 return map1.find(val) != map1.end();
@@ -338,6 +342,7 @@ namespace zefDB {
 
         READ_FUNC(at);
         READ_FUNC(contains);
+        READ_FUNC(size);
         READ_FUNC(all_entries_as_list);
         READ_FUNC(all_keys);
         READ_FUNC(all_indices);
@@ -416,6 +421,7 @@ namespace zefDB {
             // enum_indx get_or_insert_and_get_enum_number(const string_pair& name_pair) ;
             bool contains(enum_indx indx_key) ;
             bool contains(const string_pair& name_pair) ;
+            size_t size();
         };
     }
 
@@ -460,6 +466,7 @@ namespace zefDB {
 
         READ_FUNC(at);
         READ_FUNC(contains);
+        READ_FUNC(size);
         READ_FUNC(all_entries_as_list);
         READ_FUNC(all_enum_types);
         READ_FUNC(all_enum_values);
