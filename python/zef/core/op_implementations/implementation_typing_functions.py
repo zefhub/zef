@@ -6097,6 +6097,24 @@ def is_a_implementation(x, typ):
         
         raise NotImplementedError(f"Pattern ValueType isn't implemented for {x}")
 
+
+    def list_matching(x, tp):
+        import sys
+        from typing import Generator
+        if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, Generator)):
+            return False
+        ab = tp.d['absorbed']
+        if ab != ():
+            if isinstance(x, Generator):
+                raise NotImplementedError()
+            if len(ab)!=1:    # List takes only one Type argument
+                print('Something went wrong in `is_a[List[...]]`: multiple args curried into ', file=sys.stderr)
+            return x | map[is_a[ab[0]]] | all | collect
+        else:
+            return True
+
+
+
     def valuetype_matching(el, vt):
         if vt == VT.Any: return True
 
@@ -6124,6 +6142,7 @@ def is_a_implementation(x, typ):
         if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
         python_type = vt_name_to_python_type[vt.d['type_name']]
         return isinstance(el, python_type)
+    
 
     if isinstance(typ, ValueType_):
         if typ.d['type_name'] == "Union":
@@ -6146,6 +6165,10 @@ def is_a_implementation(x, typ):
         
         if typ.d['type_name'] == "Complement":
             return not is_a(x, typ.d['absorbed'][0])
+
+        if typ.d['type_name'] == "List":
+            return list_matching(x, typ)
+
 
         if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
             map_ = {"Instantiated": instantiated, "Assigned": assigned, "Terminated": terminated}
@@ -6265,6 +6288,15 @@ def is_a_implementation(x, typ):
         return isinstance(x, typ)
     except TypeError:
         return False
+
+
+
+
+
+
+
+
+
 
 def _is_a_instance_delegate_generic(x, typ):
     # This function is for internal use only and does the comparisons against
