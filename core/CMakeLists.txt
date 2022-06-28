@@ -73,9 +73,9 @@ set(SOURCES
     src/uids.cpp
     src/from_json.cpp
     src/zef_config.cpp
+    src/globals.cpp
 
     src/butler/butler.cpp
-    src/butler/butler_zefhub.cpp
     src/butler/communication.cpp
     src/butler/threadsafe_map.cpp
     src/butler/auth.cpp
@@ -108,7 +108,6 @@ set(SOURCES
 #     include/zwitch.h
 
 #     include/butler/butler.h
-#     include/butler/butler_zefhub.h
 #     include/butler/msgqueue.h
 #     include/butler/messages.h
 #     include/butler/communication.h

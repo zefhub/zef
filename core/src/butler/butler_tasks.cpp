@@ -16,10 +16,10 @@
 ////////////////////////////////
 // * Task handling and WS msgs
 
-Butler::task_ptr Butler::add_task(bool is_online, QuantityFloat timeout) {
+Butler::task_ptr Butler::add_task(bool is_online, double timeout) {
     return add_task(is_online, timeout, std::promise<Response>(), true);
 };
-Butler::task_ptr Butler::add_task(bool is_online, QuantityFloat timeout, std::promise<Response> && promise, bool acquire_future) {
+Butler::task_ptr Butler::add_task(bool is_online, double timeout, std::promise<Response> && promise, bool acquire_future) {
     std::lock_guard lock(waiting_tasks_mutex);
 #ifdef ZEF_DEBUG
     if(waiting_tasks.size() > 100)
@@ -67,11 +67,10 @@ void Butler::cancel_online_tasks() {
 }
 
 Response wait_future(Butler::task_ptr task) {
-    if(task->timeout.value > 0) {
+    if(task->timeout > 0) {
         while(true) {
-            assert(task->timeout.unit == EN.Unit.seconds);
             // TODO: We might have to make last_activity an atomic to make sure updates come through.
-            auto wait_time = Time(task->last_activity.load()) + task->timeout - now();
+            auto wait_time = Time(task->last_activity.load()) + task->timeout*seconds - now();
             auto status = task->future.wait_for(std::chrono::duration<double>(wait_time.value));
             if(status == std::future_status::ready) {
                 if(zwitch.developer_output())
@@ -79,7 +78,7 @@ Response wait_future(Butler::task_ptr task) {
                 break;
             }
 
-            if(now() > Time(task->last_activity.load()) + task->timeout) {
+            if(now() > Time(task->last_activity.load()) + task->timeout*seconds) {
                 std::cerr << "Throwing timeout exception because last_activity was " << task->last_activity << " and now is " << now() << std::endl;
                 throw Butler::timeout_exception();
             }
@@ -87,7 +86,7 @@ Response wait_future(Butler::task_ptr task) {
     }
     return task->future.get();
 }
-Response Butler::wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest, QuantityFloat timeout, bool throw_on_failure, bool chunked) {
+Response Butler::wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest, double timeout, bool throw_on_failure, bool chunked) {
     std::string msg_type = j["msg_type"].get<std::string>();
     task_ptr task = add_task(true, timeout);
     j["task_uid"] = task->task_uid;
@@ -180,7 +179,7 @@ void Butler::send_chunked_ZH_message(std::string main_task_uid, json & j, const 
         rest_sizes[i] = rest[i].size();
 
     fill_out_ZH_message(j);
-    task_ptr task = add_task(true, chunk_timeout*seconds);
+    task_ptr task = add_task(true, chunk_timeout);
     send_ZH_message(json{
             {"msg_type", "chunked"},
             {"task_uid", task->task_uid},
@@ -239,7 +238,7 @@ void Butler::send_chunked_ZH_message(std::string main_task_uid, json & j, const 
             int this_chunk_size = std::min(chunk_size, rest_size - cur_start);
             std::string this_bytes = rest[rest_index].substr(cur_start, this_chunk_size);
             // std::cerr << "Sending a chunk, size: " << this_bytes.size() << ", start: " << cur_start << "/" << rest_size << ", rest_index: " << rest_index << std::endl;
-            task = add_task(true, chunk_timeout*seconds);
+            task = add_task(true, chunk_timeout);
             send_ZH_message(json{
                     {"task_uid", task->task_uid},
                     {"msg_type", "chunked"},

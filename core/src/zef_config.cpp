@@ -19,17 +19,29 @@
 
 namespace zefDB {
 
-    const ConfigItem config_spec[] = {
-        {"login.autoConnect", "auto", {"no", "auto", "always"}, "ZEFDB_LOGIN_AUTOCONNECT",
-         "Whether zefdb should automatically connect to ZefHub on start of the butler."},
-        {"butler.autoStart", true, {}, "ZEFDB_BUTLER_AUTOSTART",
-         "Whether the butler will automatically be started on import of the zefdb module."},
-        {"login.zefhubURL", "wss://hub.zefhub.io", {}, "ZEFHUB_URL",
-         "Which URL to connect to ZefHub."},
-    };
-    const int num_config_spec = sizeof(config_spec) / sizeof(ConfigItem);
+    // We force config_spec to be loaded from within a function, rather than a
+    // global, as this allows others globals to make use of it when they
+    // themselves are being initialised.
+    //
+    // This used to be a const array but keeping it as a vector is fine.
+    const std::vector<ConfigItem>& all_config_spec() {
+        static const std::vector<ConfigItem> config_spec{
+            {"login.autoConnect", "auto", {"no", "auto", "always"}, "ZEFDB_LOGIN_AUTOCONNECT",
+            "Whether zefdb should automatically connect to ZefHub on start of the butler."},
+            {"butler.autoStart", true, {}, "ZEFDB_BUTLER_AUTOSTART",
+            "Whether the butler will automatically be started on import of the zefdb module."},
+            {"login.zefhubURL", "wss://hub.zefhub.io", {}, "ZEFHUB_URL",
+            "Which URL to connect to ZefHub."},
+            {"tokens.cachePath", "$CONFIG/tokens_cache.json", {}, "ZEFDB_TOKENS_CACHE_PATH",
+            "Where are the tokens cached between sessions"},
+            {"tokens.pullOnConnect", true, {}, "ZEFDB_TOKENS_PULL_ON_CONNECT",
+            "When connecting, get latest set for user."},
+        };
+        return config_spec;
+    }
 
     // Going to make this code trivially threadsafe by locking before each function call.
+    // TODO: Make this a lock over multiple processes
     std::recursive_mutex config_mutex;
 
     
@@ -72,13 +84,9 @@ namespace zefDB {
     }
 
     const ConfigItem & get_spec(std::string key) {
-        // for(auto & item : config_spec) {
-        //     if(item.path == key)
-        //         return item;
-        // }
-        for(int i = 0; i < num_config_spec ; i++) {
-            if(config_spec[i].path == key)
-                return config_spec[i];
+        for(auto & item : all_config_spec()) {
+            if(item.path == key)
+                return item;
         }
         throw std::runtime_error("Don't recognise path '" + key + "' in config");
     }
@@ -151,6 +159,7 @@ namespace zefDB {
     // TODO: Has to lookup every key for defaults/overrides and indicate this too in the return
     
     void set_config_var(std::string key, config_var_t val) {
+        std::lock_guard lock(config_mutex);
         ensure_config_file();
 
         auto & spec = get_spec(key);
@@ -205,11 +214,11 @@ namespace zefDB {
     std::vector<std::pair<std::string,config_var_t>> list_config(std::string filter) {
         std::vector<std::pair<std::string,config_var_t>> out;
 
-        for(int i = 0; i < num_config_spec ; i++) {
-            if(filter != "" && config_spec[i].path.find(filter) == std::string::npos)
+        for(auto & item : all_config_spec()) {
+            if(filter != "" && item.path.find(filter) == std::string::npos)
                 continue;
 
-            out.emplace_back(config_spec[i].path, get_config_var(config_spec[i].path));
+            out.emplace_back(item.path, get_config_var(item.path));
         }
 
         return out;
