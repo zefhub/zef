@@ -50,7 +50,62 @@ gd_timing = "ZEFDB_GRAPH_DELTA_TIMING" in os.environ
 # - expressions: high-level things which match to user expectations. There are "complex" expressions and "primitive" expressions.
 #
 
-# TODO: REDO THE DESCRIPTION OF THIS FILE
+# 1. Entrypoints:
+# There are two entrypoints to the code in this file. Either:
+#
+# receipt = [... list of expressions ...] | transact[g] | run
+# or
+# unpacked_template = template | g | run
+#
+# The first is a "GraphDelta" whereas the second is the shorthand syntax.
+#
+# The shorthand syntax goes through `encode` which will first assign IDs to any
+# parts necessary for unpacking the result into the same template structure. It
+# then passes the result to `construct_commands`
+#
+# The `transact[g]` route goes directly to `construct_commands`
+#
+# 2. `construct_commands`
+# Each expressions given by the user is passed to the cmds_for_* functions to
+# convert it to either a) an equivalent command, and/or b) additional expressions.
+#
+# To make this work more easily, `realise_single_node` can take any expression
+# which should result in a "single node" (e.g. an ET.Something, or a
+# {ET.Something: ...} syntax) and returns a simplified set of expressions to
+# realise this, along with the ID to refer to that "single node"
+#
+# Pretty much the only object that cannot be passed to `realise_single_node` is
+# a relation triple. This is handled in `cmds_for_tuple`.
+#
+# Many expressions passed in are of a LazyValue type. These are consider the
+# same as values, and special forms such as assign, set_field or tag are just
+# LazyValues that evaluate to themselves.
+#
+# 3. Flow
+#
+# (maybe) `encode`
+# `construct_commands`:
+#     (pre-construct verification)
+#     - `obtain_ids` 
+#     - `verify_input_el`
+#     - `verify_relation_source_target`
+#     (construction)
+#     - `iteration_step` -> `dispatch_cmds_for` -> `cmds_for_*` -> `realise_single_node`
+#     - `verify_and_compact_commands`
+# `perform_transaction_commands`
+#
+# 4. IDs
+#
+# The IDs must be consistently unique throughout each GraphDelta. A `gen_id`
+# object is passed around the functions and produces ids beginning with
+# "tmp_id". This is exploited to filter out automatically-generated IDs in the
+# receipt.
+#
+# IDs are how the individual commands are linked to one another. In the end, any
+# command that references an ID must come after the ID which creates that item.
+# IDs refer to "internal IDs" which do not exist on the graph after the
+# transaction finishes. However they are returned in the receipt, allowing user
+# code to identify these objects later.
 
 
 
@@ -1429,21 +1484,6 @@ def filter_temporary_ids(receipt):
             | func[dict]
             | collect)
 
-
-
-@func
-def single_or(itr, default):
-    itr = iter(itr)
-    try:
-        ret = next(itr)
-        try:
-            next(itr)
-            raise Exception("single_or detected more than one item in iterator")
-        except StopIteration:
-            return ret
-    except StopIteration:
-        return default
-
 @func
 def get_absorbed_id(obj):
     # THIS SHOULDN"T BE NEEDED! FIX!
@@ -1481,76 +1521,3 @@ def merge_no_overwrite(a,b):
             raise Exception(f"The internal id '{k}' refers to multiple objects, including '{a[k]!r}' and '{v!r}'. This is ambiguous and not allowed.")
         a[k] = v
     return a
-
-
-
-################################################
-# * Old not used anymore?
-#----------------------------------------------
-
-
-
-def verify_assign_values(assign_v, id_definitions):
-    new_value = assign_v['new_value']
-
-    # This function is called from 2 different locations. First inside the AssignValue_ constructor where we are able to cast a ZefRef to its rae_type
-    # Secondly, inside the GraphDelta constructor where we check against uid inside the id_definitions dict.
-    if "zr_type" in assign_v:
-        type_of_assignedto = assign_v['zr_type']
-    else:
-        if assign_v['some_id'] in id_definitions: type_of_assignedto = id_definitions[assign_v['some_id']]
-        else: type_of_assignedto = None
-
-    # This comes first as _eq_ for ZefRef throws in the next if statement
-    if isinstance(new_value, ZefRef) or isinstance(new_value, EZefRef) or isinstance(new_value, ZefRefs) or isinstance(new_value, EZefRefs):
-        raise RuntimeError(f'The passed value can\'t be of type Zefref(s) or EZefRef(s)')
-
-    # If no value was passed
-    if new_value == None:
-        raise RuntimeError(f'{assign_v} is missing a value to be assigned.')
-
-    # If type of the value passed isn't part of this set of allowed types
-    if type(new_value) in scalar_types:
-        raise RuntimeError(f'The type of the value passed in {assign_v} isn\'t of the allowed types: str, int, float, bool, Time, QuantityFloat, QuantityInt, ZefEnumValue')
-
-    if type_of_assignedto: 
-        type_map = {
-            str:           AET.String,
-            ZefEnumValue:  AET.Enum,
-            QuantityFloat: AET.QuantityFloat, 
-            QuantityInt:   AET.QuantityInt, 
-            Time:          AET.Time,
-        }
-        # If type of the rae that is being assigned isn't of an AET type i.e assigning a str to an ET.Cat
-        if type_of_assignedto not in {AET.Int, AET.Float, AET.Bool, AET.String, AET.Enum, AET.QuantityFloat, AET.QuantityInt, AET.Time}:
-            raise RuntimeError(f'The type_of_assignedto={type_of_assignedto} must be of the allowed types: AET.Int, AET.Float, AET.Bool, AET.String, AET.Enum, AET.QuantityFloat, AET.QuantityInt, AET.Time')
-
-        # Verify cast-ability
-        elif type(new_value) == int:
-            if type_of_assignedto not in {AET.Int, AET.Float, AET.Bool}:
-                raise RuntimeError(f'Can only assign values of type int to only AET.Int, AET.Float, AET.Bool')
-            if type_of_assignedto == AET.Bool and new_value not in [0,1]:
-                raise RuntimeError(f'Can\'t assign int value that isn\'t 0 or 1 to AET.Bool')
-            
-        elif type(new_value) == float:
-            if type_of_assignedto not in {AET.Int, AET.Float}:
-                raise RuntimeError(f'Can only assign values of type float to only AET.Int, AET.Float')
-            import math
-            if type_of_assignedto == AET.Int and math.fabs(new_value - round(new_value)) > 1e-8:
-                raise RuntimeError(f'Can only assign values of type float to int if the double is numerically sufficiently close to make rounding safe.')
-
-        elif type(new_value) == bool:    
-            if type_of_assignedto not in {AET.Int, AET.Bool}:
-                raise RuntimeError(f'Can only assign values of type bool to only AET.Int, AET.Bool')
-            if type_of_assignedto == AET.Int and new_value not in [False, True]:
-                raise RuntimeError(f'Can\'t assign bool value that isn\'t True or False to AET.Int')
-
-        # These are only castable one-to-one
-        elif type_map[type(new_value)] != type_of_assignedto:
-            raise RuntimeError(f'Can\'t assign value of type {type(new_value)} to an AET of type {type_of_assignedto}')
-
-
-
-
-
-
