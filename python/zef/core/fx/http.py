@@ -80,8 +80,11 @@ class Handler(BaseHTTPRequestHandler):
                 # TODO: Cleanup from open_requests here
                 pass
 
+            # TODO: This needs improving to allow sending content with non-200.
+            # The only choice is when to put msg in content or in header-line
+            # response.
             status,headers,msg = result
-            if status != 200:
+            if status != 200 and msg is not None:
                 msg = msg.decode('utf-8')
                 self.send_response(status, msg)
             else:
@@ -207,9 +210,9 @@ def http_send_response_handler(eff: Effect):
     d = _effects_processes[eff["server_uuid"]]
     future = d["open_requests"][eff["request_id"]]
 
-    if "response" not in eff:
-        print(f"Warning: FX.HTTP.SendResponse wish did not contain 'response' field. This is probably an error. Received wish: {eff}")
-    msg = eff.get("response", "")
+    # if "response" not in eff:
+    #     print(f"Warning: FX.HTTP.SendResponse wish did not contain 'response' field. This is probably an error. Received wish: {eff}")
+    msg = eff.get("response", None)
     assert msg is None or isinstance(msg, str) or isinstance(msg, bytes)
     if isinstance(msg, str):
         msg = msg.encode("utf-8")
