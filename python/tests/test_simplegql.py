@@ -56,7 +56,7 @@ type Transaction
 
 type Category {
   transactions: [Transaction] @relation(rt: "Category") @incoming
-  name: String
+  name: String @unique
 }
 
 enum TestEnum {
@@ -221,6 +221,13 @@ testString: ""
         cat_data = r.json()["data"]["updateTransaction"]["transaction"][0]["category"]
         self.assertNotEqual(cat_data["id"], cat_id)
         self.assertEqual(cat_data["name"], "on the fly")
+
+        # Unique checks
+        r = do_query(jwt_user1, 'mutation { addCategory(input: {name: "soon to be duplicated"}) { category { id } } }')
+        assert_no_error(r)
+
+        r = do_query(jwt_user1, 'mutation { updateCategory(input: {filter: {id: "' + cat_id + '"}, set: {name: "soon to be duplicated"} }) { category { id name } } }')
+        assert_error_with(r, "Non-unique values")
 
 
 

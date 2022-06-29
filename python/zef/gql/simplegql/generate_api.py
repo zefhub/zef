@@ -854,7 +854,7 @@ def maybe_paginate_result(opts, first=None, offset=None):
 # ** Resolution
 
 @func
-def internal_resolve_field(z, info, z_field):
+def internal_resolve_field(z, info, z_field, auth_required=True):
     # This returns a LazyValue so we can deal with whatever comes out without
     # instantiating the whole list.
 
@@ -894,8 +894,8 @@ def internal_resolve_field(z, info, z_field):
     else:
         raise Exception(f"Don't know how to resolve this field: {z_field}")
 
-    # Auth filtering todo
-    opts = opts | filter[pass_query_auth[target(z_field)][info]]
+    if auth_required:
+        opts = opts | filter[pass_query_auth[target(z_field)][info]]
 
     # We must convert final objects from AEs to python types.
     # if z_field | target | is_core_scalar | collect:
@@ -1071,12 +1071,10 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
             raise Exception(f"Updating list things is a todo (for z_field={z_field})")
         else:
             if op_is_unique(z_field):
-                et = ET(type_node | Out[RT.GQL_Delegate] | collect)
-                others = info.context["g"] | now | all[et] | filter[fvalue[rt][None] | equals[val]] | collect
-                others = set(others) - {z}
-                if len(others) > 0:
-                    log.error("Trying to modify entity with unique field that conflicts with others", z=z, et=et, field=field_name, others=others)
-                    raise ExternalError(f"Unique field '{field_name}' conflicts with existing items.")
+                # This used to be checked directly, here but just in case
+                # there's a mutation that renames two things at the same time,
+                # we change this up a bit.
+                post_checks += [("unique", z_field, type_node)]
 
             if z_field | target | op_is_scalar | collect:
                 actions += [z | set_field[rt][val][op_is_incoming(z_field)]]
@@ -1219,11 +1217,15 @@ def commit_with_post_checks(actions, post_checks, info):
             r = actions | transact[g] | run
             # Test all post checks
             for (kind,obj,type_node) in post_checks:
-                if type(obj) == str:
-                    obj = r[obj]
-                assert type(obj) == ZefRef
-                obj = obj | in_frame[g | now | collect][allow_tombstone] | collect
-                type_name = {type_node | fvalue[RT.Name][''] | collect}
+                type_name = type_node | fvalue[RT.Name][''] | collect
+
+                if kind in ["unique"]:
+                    pass
+                else:
+                    if type(obj) == str:
+                        obj = r[obj]
+                    assert type(obj) == ZefRef
+                    obj = obj | in_frame[g | now | collect][allow_tombstone] | collect
 
                 if kind == "add":
                     for z_func in type_node | Outs[RT.OnCreate]:
@@ -1247,6 +1249,22 @@ def commit_with_post_checks(actions, post_checks, info):
                             func[z_func](obj)
                         except:
                             raise ExternalError(f"OnRemove hook for type_node of '{type_name}' threw an exception")
+                elif kind == "unique":
+                    print("Doing a unqiue check for", obj, type_name)
+                    # In this case, obj is the field which must be unique
+                    z_field = obj
+                    assert op_is_unique(z_field)
+                    # Get all values - note this is not filtered by the user's
+                    # viewpoint, so we need to be a little careful.
+                    ents = g | now | all[ET(type_node | Out[RT.GQL_Delegate] | collect)]
+                    vals = ents | map[internal_resolve_field[info][z_field][False]] | concat | collect
+
+                    dis = distinct(vals)
+                    print(vals)
+                    print(dis)
+                    if len(dis) != len(vals):
+                        log.error("Non-unique values", vals=set(vals) - set(dis))
+                        raise ExternalError(f"Non-unique values found for field '{z_field | F.Name | collect}' of type_node '{type_name}'")
 
 
         except Exception as exc:
