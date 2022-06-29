@@ -51,6 +51,12 @@ type Transaction
   user: User @relation(rt: "User") @search
   amount: Int @search
   date: DateTime @search
+  category: Category
+}
+
+type Category {
+  transactions: [Transaction] @relation(rt: "Category") @incoming
+  name: String
 }
 
 enum TestEnum {
@@ -161,10 +167,8 @@ def dynamicHook(z, info):
         assert_no_error(r)
         user2_id = r.json()["data"]["addUser"]["user"][0]["id"]
 
-        if False:
-            # This needs to be implemented!
-            r = do_query(jwt_user1, 'mutation { updateTransaction(input: {filter: {id: "' + trans_id + '"}, set: {user: {id: "' + user2_id + '"}}}) { transaction { id } } }')
-            assert_error_with(r, "TODO")
+        r = do_query(jwt_user1, 'mutation { updateTransaction(input: {filter: {id: "' + trans_id + '"}, set: {user: {id: "' + user2_id + '"}}}) { transaction { id } } }')
+        assert_error_with(r, "Unable to find entity")
 
         # Test updating and removing things
         r = do_query(jwt_user1, '''mutation {
@@ -202,6 +206,22 @@ testString: ""
         assert_no_error(r)
         self.assertEqual(len(r.json()["data"]["queryUser"]), 1)
         self.assertEqual(len(r.json()["data"]["queryUser"][0]["transactions"]), 0)
+
+        # Adding Category explicitly and updating transaction
+        r = do_query(jwt_user1, 'mutation { addCategory(input: {name: "explicit create"}) { category { id } } }')
+        assert_no_error(r)
+        cat_id = r.json()["data"]["addCategory"]["category"][0]["id"]
+
+        r = do_query(jwt_user1, 'mutation { updateTransaction(input: {filter: {id: "' + trans_id + '"}, set: {category: {id: "' + cat_id + '"} } }) { count } }')
+        assert_no_error(r)
+
+        # Adding category during update to transaction
+        r = do_query(jwt_user1, 'mutation { updateTransaction(input: {filter: {id: "' + trans_id + '"}, set: {category: {name: "on the fly"} } }) { transaction { category { id name } } } }')
+        assert_no_error(r)
+        cat_data = r.json()["data"]["updateTransaction"]["transaction"][0]["category"]
+        self.assertNotEqual(cat_data["id"], cat_id)
+        self.assertEqual(cat_data["name"], "on the fly")
+
 
 
 if __name__ == '__main__':

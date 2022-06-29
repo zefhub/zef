@@ -1014,7 +1014,7 @@ def add_new_entity(info, type_node, params, name_gen):
                 l = [val]
 
             for item in l:
-                obj,obj_actions,obj_post_checks = find_or_add_entity(item, info, target(z_field), params, name_gen)
+                obj,obj_actions,obj_post_checks = find_or_add_entity(item, info, target(z_field), name_gen)
                 actions += obj_actions
                 post_checks += obj_post_checks
                 if z_field | op_is_incoming | collect:
@@ -1024,9 +1024,14 @@ def add_new_entity(info, type_node, params, name_gen):
 
     return this, actions, post_checks
 
-def find_or_add_entity(val, info, target_node, params, name_gen):
+def find_or_add_entity(val, info, target_node, name_gen):
     if isinstance(val, dict) and val.get("id", None) is not None:
+        # There should be no other fields given for this entity, otherwise the meaning is unclear.
+        if set(val.keys()) != {"id"}:
+            raise ExternalError("An entity should be designated with either an 'id' or a set of new fields to create a new entity.")
         obj = find_existing_entity_by_id(info, target_node, val["id"])
+        if obj is None:
+            raise ExternalError(f"Unable to find entity of kind '{target_node | F.Name | collect}' with id '{val['id']}'.")
         return obj,[],[]
     else:
         obj_name,actions,post_checks = add_new_entity(info, target_node, val, name_gen)
@@ -1073,20 +1078,14 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
                     log.error("Trying to modify entity with unique field that conflicts with others", z=z, et=et, field=field_name, others=others)
                     raise ExternalError(f"Unique field '{field_name}' conflicts with existing items.")
 
-            if op_is_incoming(z_field):
-                maybe_prior_rel = z | in_rels[rt] | optional | collect
-            else:
-                maybe_prior_rel = z | out_rels[rt] | optional | collect
             if z_field | target | op_is_scalar | collect:
-                if maybe_prior_rel is None:
-                    if op_is_incoming(z_field):
-                        actions += [(val, rt, z)]
-                    else:
-                        actions += [(z, rt, val)]
-                else:
-                    actions += [(maybe_prior_rel | target | assign[val] | collect)]
+                actions += [z | set_field[rt][val][op_is_incoming(z_field)]]
             else:
-                raise Exception("Updating non-scalars is TODO")
+                found_z,new_actions,new_post_checks = find_or_add_entity(val, info, target(z_field), name_gen)
+                actions += new_actions
+                post_checks += new_post_checks
+
+                actions += [z | set_field[rt][found_z][op_is_incoming(z_field)]]
     
     for key,val in remove_d.items():
         if val is not None:
@@ -1102,6 +1101,11 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
         else:
             rels = z | out_rels[rt]
         actions += [terminate(rel) for rel in rels]
+
+        # TODO: Add a post-check here that this would not remove a relation on a
+        # type that has a required relation. Note that a new relation could be
+        # created in the same transaction, so it needs to be post, not directly
+        # here.
 
         # Also delete scalars
         if z_field | target | op_is_scalar | collect:
