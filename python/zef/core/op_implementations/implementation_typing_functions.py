@@ -4964,8 +4964,8 @@ def fill_or_attach_implementation(z, rt, val):
 def fill_or_attach_type_info(op, curr_type):
     return curr_type
 
-def set_field_implementation(z, rt, val):
-    return LazyValue(z) | set_field[rt][val]
+def set_field_implementation(z, rt, val, incoming=False):
+    return LazyValue(z) | set_field[rt][val][incoming]
 
 def set_field_type_info(op, curr_type):
     return curr_type

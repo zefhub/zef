@@ -624,7 +624,7 @@ def cmds_for_lv_set_field(x, gen_id):
 
     # assert is_a(source, ZefOp) and is_a(source, Z), f"fill_or_attach reached cmd creation with an incorrect input type: {source}"
     assert is_a(op, set_field)
-    rt,assignment = LazyValue(op) | absorbed | collect
+    rt,assignment,incoming = LazyValue(op) | absorbed | collect
     assert type(rt) == RelationType
 
     iid,exprs = realise_single_node(source, gen_id)
@@ -633,6 +633,7 @@ def cmds_for_lv_set_field(x, gen_id):
         'cmd': 'set_field', 
         'source_id': iid,
         'rt': LazyValue(rt) | without_absorbed | collect,
+        'incoming': incoming,
     }
 
     if type(assignment) in scalar_types:
@@ -1237,14 +1238,20 @@ def perform_transaction_commands(commands: list, g: Graph):
                         if z_target is None:
                             raise KeyError("set_field called with entity that is not known {cmd['target_id']}")
 
-                    opts = z_source | out_rels[cmd['rt']] | collect
+                    if cmd['incoming']:
+                        opts = z_source | in_rels[cmd['rt']] | collect
+                    else:
+                        opts = z_source | out_rels[cmd['rt']] | collect
                     if len(opts) == 2:
                         raise Exception(f"Can't set_field to {z_source} because it has two or more relations of kind {rt}")
                     elif len(opts) == 1:
                         zz = single(opts)
                         if 'value' in cmd:
                             # AE path - overwrite value
-                            ae = target(zz)
+                            if cmd['incoming']:
+                                ae = source(zz)
+                            else:
+                                ae = target(zz)
                             if aet != rae_type(ae):
                                 raise Exception(f"Can't fill or attach {ae} because it is the wrong type for value {cmd['value']}")
                             if value(ae) != cmd['value']:
@@ -1253,16 +1260,25 @@ def perform_transaction_commands(commands: list, g: Graph):
                             # Entity path - replace the relation
                             from ..pyzef import zefops as pyzefops
                             pyzefops.terminate(zz)
-                            zz = instantiate(z_source, cmd['rt'], z_target, g)
+                            if cmd['incoming']:
+                                zz = instantiate(z_target, cmd['rt'], z_source, g)
+                            else:
+                                zz = instantiate(z_source, cmd['rt'], z_target, g)
                     else:
                         if 'value' in cmd:
                             # AE path
                             ae = instantiate(aet, g)
                             internals.assign_value_imp(ae, cmd['value'])
-                            zz = instantiate(z_source, cmd['rt'], ae, g)
+                            if cmd['incoming']:
+                                zz = instantiate(ae, cmd['rt'], z_source, g)
+                            else:
+                                zz = instantiate(z_source, cmd['rt'], ae, g)
                         else:
                             # Entity path
-                            zz = instantiate(z_source, cmd['rt'], z_target, g)
+                            if cmd['incoming']:
+                                zz = instantiate(z_target, cmd['rt'], z_source, g)
+                            else:
+                                zz = instantiate(z_source, cmd['rt'], z_target, g)
                     # This zz is the relation that connects the source/target
                     zz = now(zz)
                     
