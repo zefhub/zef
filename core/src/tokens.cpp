@@ -473,6 +473,8 @@ namespace zefDB {
     void TokenStore::save_cached_tokens() {
         try {
             std::filesystem::path cache_path = get_cached_tokens_path();
+            if(cache_path == "")
+                return;
             auto lock_path = cache_path;
             lock_path += ".lock";
             FileLock file_lock(lock_path);
@@ -498,6 +500,8 @@ namespace zefDB {
     void TokenStore::load_cached_tokens() {
         try {
             std::filesystem::path cache_path = get_cached_tokens_path();
+            if(cache_path == "")
+                return;
             auto lock_path = cache_path;
             lock_path += ".lock";
             FileLock file_lock(lock_path);
