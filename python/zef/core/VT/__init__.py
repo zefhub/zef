@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import partial
 from .value_type import *
 
 
@@ -204,3 +205,19 @@ def used_for_ctor(x):
 OperatesOn     = ValueType_(type_name='OperatesOn',   constructor_func = operates_on_ctor,  get_item_func = operates_on_ctor)
 RelatedOps     = ValueType_(type_name='RelatedOps',   constructor_func = related_ops_ctor,  get_item_func = related_ops_ctor)
 UsedFor        = ValueType_(type_name='UsedFor',      constructor_func = used_for_ctor, get_item_func =used_for_ctor)
+
+
+#--------------------------ZefUI Types------------------
+def zef_ui_ctor(type_name, self, *args, **kwargs):
+    if len(args) != 0: 
+        raise ValueError(f'{type_name} constructor takes no positional arguments except self, got {args}')
+
+    ctor_dict = {"type_name":type_name, "constructor_func": partial(zef_ui_ctor, type_name), "pass_self": True}
+    if len(self.d['absorbed']) == 1:
+        return ValueType_( absorbed = ({**self.d['absorbed'][0], **kwargs},), **ctor_dict)
+
+    return ValueType_(absorbed = (kwargs,), **ctor_dict)
+
+Text  = ValueType_(type_name='Text', constructor_func = partial(zef_ui_ctor, 'Text'), pass_self = True)
+Code  = ValueType_(type_name='Code', constructor_func = partial(zef_ui_ctor, 'Code'), pass_self = True)
+Table = ValueType_(type_name='Table', constructor_func = partial(zef_ui_ctor, 'Table'), pass_self = True)
