@@ -232,6 +232,9 @@ namespace zefDB {
             auto to_del_edge_uzr = internals::instantiate(root_uzr, BT.TO_DELEGATE_EDGE, delegate_tx_uzr, *this);
             auto del_inst_uzr = internals::instantiate(root_uzr, BT.DELEGATE_INSTANTIATION_EDGE, to_del_edge_uzr, *this);
 
+            // Every graph starts with an empty transaction
+            auto my_tx = Transaction(*this, false, false);
+
             auto & info = MMap::info_from_blobs(this);
             MMap::flush_mmap(info, write_head);
         } else if(preexisting_fg) {

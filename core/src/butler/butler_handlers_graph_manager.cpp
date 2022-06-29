@@ -308,13 +308,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
             apply_update_with_caches(*me.gd, *content.payload, false, false);
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
             // Note: don't set sync_head here, it should remain at 0.
-        } else {
-            // create a first transaction on a new graph. This layout allows us to assume that there always is a tx,
-            // which helps in various high level functions.
-            //
-            // Note: this is done here instead of in the GraphData constructor
-            // as creating a transaction will trigger the sync thread.
-            auto my_tx = Transaction(*me.gd, false, false);
         }
 
         if(!content.internal_use_only) {
