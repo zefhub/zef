@@ -280,7 +280,9 @@ def json_to_minimal_nodes(json, g):
                     actions += [(Z[type_name], RT(field_name[1:]), field)]
                 elif field_name in ["_OnCreate", "_OnRemove", "_OnUpdaate"]:
                     # Find the zef function that this corresponds to
-                    z_func = g[field]
+                    if field not in now(g):
+                        raise Exception(f"Hook named {field} not found on schema graph")
+                    z_func = g | now | get[field] | collect
                     actions += [(Z[type_name], RT(field_name[1:]), z_func)]
 
                 elif field_name == "_Upfetch":
@@ -305,7 +307,9 @@ def json_to_minimal_nodes(json, g):
 
                 if "dynamic" in field:
                     assert "relation" not in field, f"Can't give a relation with a dynamically resolved field: {field}"
-                    z_func = g[field["dynamic"]]
+                    if field["dynamic"] not in now(g):
+                        raise Exception(f"Hook named {field['dynamic']} not found on schema graph")
+                    z_func = g | now | get[field["dynamic"]] | collect
                     actions += [(Z[qual_name], RT.GQL_FunctionResolver, z_func)]
                     del field["dynamic"]
                 else:

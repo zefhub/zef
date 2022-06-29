@@ -80,6 +80,9 @@ Note that running without the host role is currently dangerous as mutations do n
 
 if args.init_hook is not None:
     g_schema = Graph(root)
+    if args.init_hook not in now(g_schema):
+        log.error("Could not find init hook {args.init_hook} on schema graph.")
+        raise SystemExit(4)
     hook_func = g_schema | now | get[args.init_hook] | collect
     hook_func(g_data)
     log.info(f"Ran init hook: {args.init_hook}")
