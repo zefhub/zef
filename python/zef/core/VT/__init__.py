@@ -220,4 +220,5 @@ def zef_ui_ctor(type_name, self, *args, **kwargs):
 
 Text  = ValueType_(type_name='Text', constructor_func = partial(zef_ui_ctor, 'Text'), pass_self = True)
 Code  = ValueType_(type_name='Code', constructor_func = partial(zef_ui_ctor, 'Code'), pass_self = True)
+Style = ValueType_(type_name='Style', constructor_func = partial(zef_ui_ctor, 'Style'), pass_self = True)
 Table = ValueType_(type_name='Table', constructor_func = partial(zef_ui_ctor, 'Table'), pass_self = True)
