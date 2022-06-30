@@ -133,7 +133,7 @@ def http_start_server_handler(eff: dict):
     thread = None
     try:
         open_requests = {}
-        pushable_stream = Effect({'type': FX.Stream.CreatePushableStream}) | run
+        pushable_stream = {'type': FX.Stream.CreatePushableStream} | run
         server_uuid = str(uid(pushable_stream.stream_ezefref))
         if eff.get('pipe_into', None) is not None:
             pushable_stream | eff['pipe_into']
@@ -292,7 +292,7 @@ def send_response(req):
     if "response_headers" in req:
         eff_d["headers"] = req["response_headers"]
 
-    return Effect(eff_d)
+    return eff_d
 
 @func
 def fallback_not_found(req):

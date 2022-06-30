@@ -97,7 +97,7 @@ try:
 except KeyboardInterrupt:
     pass
 finally:
-    Effect({
+    {
         "type": FX.HTTP.StopServer,
         "server_uuid": server_uuid
-    }) | run
+    } | run

@@ -144,12 +144,12 @@ def dispatch_ror_graph(g, x):
             return cmd
 
         commands_with_ids = [insert_id_maybe(c) for  c in commands]
-        return Effect({
+        return {
                 "type": FX.Graph.Transact,
                 "target_graph": g,
                 "commands": commands_with_ids,
                 "unpacking_template": unpacking_template,
-            })
+            }
     raise NotImplementedError(f"'x | g' for x of type {type(x)}")
 
 

@@ -85,10 +85,10 @@ def dynamicHook(z, info):
         self.server_uuid = start_server(root, g_data, self.port, "localhost", logging=False)
 
     def tearDown(self):
-        Effect({
+        {
             "type": FX.HTTP.StopServer,
             "server_uuid": self.server_uuid,
-        }) | run
+        } | run
 
     def test_simplegql(self):
         import jwt

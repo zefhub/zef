@@ -302,9 +302,9 @@ class ZefOp:
             from .op_implementations.implementation_typing_functions import on_implementation
             return on_implementation(other, *self.el_ops[0][1])
         elif is_supported_stream(other):
-            from .fx import FX, Effect
+            from .fx import FX
             from ._ops import run
-            stream =  Effect({'type': FX.Stream.CreatePushableStream}) | run
+            stream =  {'type': FX.Stream.CreatePushableStream} | run
             return stream | self
         elif is_supported_value(other) or is_supported_zef_value(other):
             return LazyValue(other) | self
