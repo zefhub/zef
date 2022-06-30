@@ -25,34 +25,50 @@ def is_a_component(component, vt):
 def dispatch_rich_text(component):
     import rich.text as rt
 
-    def resolve_styles(new_d):
+    def resolve_styles(d):
         # TODO filter out non-rich styles if found
         from rich.style import Style
-        if "background_color" in new_d:
-            new_d['bgcolor'] = new_d['background_color']
-            new_d.pop("background_color")
-        return Style(**new_d)
+        if "background_color" in d:
+            d['bgcolor'] = d['background_color']
+            d.pop("background_color")
+        return Style(**d)
+
+    def resolve_nonstyle_attributes(d):
+        new_d = {}
+        if "justify" in d: new_d['justify'] = d.pop("justify")
+        if "overflow" in d: new_d['overflow'] = d.pop("overflow")
+        if "no_wrap" in d: new_d['no_wrap'] = d.pop("no_wrap")
+        if "tab_size" in d: new_d['tab_size'] = d.pop("tab_size")
+
+        return new_d
     
-    def resolve_text_style_pairs(t):
-        pairs = []
+    def resolve_text_and_nested_data(t):
+        pairs_or_text = []
         internals = t | absorbed | collect
         assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Text should be of type dict!"
         text = internals[0].get("text", "")
         attributes = {**internals[0]}
         attributes.pop("text", None)
+        nonstyle_attributes = resolve_nonstyle_attributes(attributes)
 
         if "data" in attributes:
             data = attributes["data"]
             def dispatch_on_data_type(data):
+                # Just a str
                 if isinstance(data, str):
-                    pairs.append((data, ""))
-                # TODO Check this using is_a
+                    pairs_or_text.append((data, ""))
+
+                # Nested Text component
                 elif is_a_component(data, Text) : 
-                    pairs.extend(resolve_text_style_pairs(data))
+                    pairs_or_text.extend(dispatch_rich_text(data))
+                
+                # List of the above 2
                 elif isinstance(data, list):
                     [dispatch_on_data_type(x) for x in data]
+
                 else:
-                    raise ValueError
+                    raise ValueError("Text's data field could contain only a str, Text component, or a list composed of the two.")
+
             dispatch_on_data_type(data)
             attributes.pop("data")
         
@@ -60,10 +76,11 @@ def dispatch_rich_text(component):
             style = dispatch_rich_style(attributes["style"])
         else:
             style = resolve_styles(attributes)
-        return [(text, style), *pairs]
 
-    pairs = resolve_text_style_pairs(component)
-    return rt.Text.assemble(*pairs)
+        return [(text, style), *pairs_or_text], nonstyle_attributes
+
+    pairs_or_text, nonstyle_attributes = resolve_text_and_nested_data(component)
+    return rt.Text.assemble(*pairs_or_text, **nonstyle_attributes)
 
 
 
@@ -105,30 +122,40 @@ def dispatch_rich_style(component):
 #--------------------------Table--------------------------------------
 def dispatch_rich_table(component):
     import rich.table as rt
+    import itertools as itr
 
-
-    def handle_string_or_component(str_or_component):
-        if isinstance(str_or_component, str):
-            return str_or_component
-        elif is_a_component(str_or_component, Text):
-            return dispatch_rich_text(str_or_component)
-        elif is_a_component(str_or_component, Style):
-            return dispatch_rich_style(str_or_component)
+    def handle_nested_components(maybe_component):
+        if isinstance(maybe_component, str):
+            return maybe_component
+        elif is_a_component(maybe_component, Text):
+            return dispatch_rich_text(maybe_component)
+        elif is_a_component(maybe_component, Style):
+            return dispatch_rich_style(maybe_component)
+        elif isinstance(maybe_component, tuple):
+            return tuple([handle_nested_components(el) for el in maybe_component])
         else:
-            raise NotImplementedError
+            raise NotImplementedError(f"{maybe_component}:{type(maybe_component)}")
 
     def resolve_attributes(d):
         # row_styles: List of styles or strings
         if "row_styles" in d:
-            d["row_styles"] = [handle_string_or_component(x) for x in d["row_styles"]]
+            d["row_styles"] = [handle_nested_components(x) for x in d["row_styles"]]
+        
+        # col_styles: List of styles or strings
+        if "col_styles" in d:
+            d["col_styles"] = [handle_nested_components(x) for x in d["col_styles"]]
 
         # title: String or Text
         if "title" in d:
-            d["title"] = handle_string_or_component(d["title"])
+            d["title"] = handle_nested_components(d["title"])
 
         # cols: string or text
         if "cols" in d:
-            d["cols"] = [handle_string_or_component(x) for x in d["cols"]]
+            d["cols"] = [handle_nested_components(x) for x in d["cols"]]
+        
+        # rows: string or text
+        if "rows" in d:
+            d["rows"] = [handle_nested_components(x) for x in d["rows"]]
 
         return d
     
@@ -137,8 +164,9 @@ def dispatch_rich_table(component):
     attributes = resolve_attributes({**internals[0]})
     cols = attributes.pop('cols', [])
     rows = attributes.pop('rows', [])
+    col_styles = attributes.pop('col_styles', [])
     rich_table = rt.Table(**attributes)
-    [rich_table.add_column(col) for col in cols]
+    [rich_table.add_column(col, style = style) for (col, style) in itr.zip_longest(cols, col_styles)]
     [rich_table.add_row(*row) for row in rows]
     return rich_table
 
