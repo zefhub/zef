@@ -115,7 +115,13 @@ def rp_getitem(x):
     if not isinstance(x, tuple) or len(x)!=3:
         raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got x={x}")
     return ValueType_(type_name='RP', absorbed=(x,))
-      
+
+
+def same_as_get_item(y):
+    from ..op_implementations.implementation_typing_functions import discard_frame_imp
+    return Is[lambda x: discard_frame_imp(x) == discard_frame_imp(y)]
+
+
 
 Nil        = ValueType_(type_name='Nil',        constructor_func=None)
 Any        = ValueType_(type_name='Any',        constructor_func=None)
@@ -189,6 +195,10 @@ SetOf          = ValueType_(type_name='SetOf',               constructor_func=se
 Complement     = ValueType_(type_name='Complement',          constructor_func=None,             get_item_func=complement_getitem)
 RP             = ValueType_(type_name='RP',                  constructor_func=None,             get_item_func=rp_getitem)
 HasValue       = ValueType_(type_name='HasValue',            constructor_func=None)
+SameAs         = ValueType_(type_name='SameAs',                                                 get_item_func = same_as_get_item)
+
+
+
 
 def operates_on_ctor(x):
     from .._ops import operates_on, contains
