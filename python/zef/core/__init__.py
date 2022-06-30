@@ -113,6 +113,7 @@ from .VT import (
     RP,
     HasValue,
     Pattern,
+    SameAs,
 
     RelatedOps,
     UsedFor,

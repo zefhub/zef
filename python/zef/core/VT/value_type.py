@@ -156,6 +156,15 @@ class ValueType_:
 
     def __invert__(self):
         return ValueType_(type_name='Complement', absorbed=(self,))
+
+
+    def __contains__(self, x):
+        """
+        Allows checking membership in form
+        >>> 4 in Int
+        """
+        from ..op_implementations.implementation_typing_functions import is_a_implementation
+        return is_a_implementation(x, self)
     
 
 def make_distinct(v):
