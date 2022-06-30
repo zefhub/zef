@@ -157,6 +157,9 @@ def dispatch_rich_table(component):
         if "rows" in d:
             d["rows"] = [handle_nested_components(x) for x in d["rows"]]
 
+        if "box" in d:
+            d["box"] = box_constants_mapping(d["box"])
+
         return d
     
     internals = component | absorbed | collect
@@ -184,6 +187,9 @@ def dispatch_rich_panel(component):
         if "subtitle" in d and is_a_component(d["title"], Text): 
             d["subtitle"] = dispatch_rich_text(d["subtitle"])
 
+        if "box" in d:
+            d["box"] = box_constants_mapping(d["box"])
+
         return d
     
     internals = component | absorbed | collect
@@ -199,6 +205,26 @@ def dispatch_rich_panel(component):
 
 
 #-------------------Dispatch-------------------------------------
+def box_constants_mapping(box_style: str):
+    from rich import box
+    str_to_constant = {
+        'ascii':                   box.ASCII,
+        'square':                  box.SQUARE,                
+        'minimal':                 box.MINIMAL,  
+        'minimal_heavy_head':      box.MINIMAL_HEAVY_HEAD,     
+        'minimal_double_head':     box.MINIMAL_DOUBLE_HEAD,           
+        'simple':                  box.SIMPLE,    
+        'heavy':                   box.HEAVY,                 
+        'heavy_edge':              box.HEAVY_EDGE,             
+        'heavy_head':              box.HEAVY_HEAD,
+        'double':                  box.DOUBLE,               
+        'double_edge':             box.DOUBLE_EDGE,
+        'simple_heavy':            box.SIMPLE_HEAVY,            
+        'horizontals':             box.HORIZONTALS,              
+        'rounded':                 box.ROUNDED,
+    }
+    return str_to_constant.get(box_style, box.ROUNDED)
+
 def match_and_dispatch(component):
     return component | match[
         (Is[is_a_component[Text]], dispatch_rich_text),
