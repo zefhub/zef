@@ -170,14 +170,21 @@ def dispatch_rich_table(component):
     [rich_table.add_row(*row) for row in rows]
     return rich_table
 
+
 #--------------------------Frame--------------------------------------
 def dispatch_rich_panel(component):
     import rich.panel as rp
 
-    def filter_attributes(d):
-        # TODO filter out non-rich styles if found
-        attributes.pop("displayable", None)
-        return {**d}
+    def filter_and_resolve_attributes(d):
+        d.pop("displayable", None)
+
+        if "title" in d and is_a_component(d["title"], Text): 
+            d["title"] = dispatch_rich_text(d["title"])
+        
+        if "subtitle" in d and is_a_component(d["title"], Text): 
+            d["subtitle"] = dispatch_rich_text(d["subtitle"])
+
+        return d
     
     internals = component | absorbed | collect
     assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Code should be of type dict!"
@@ -187,7 +194,7 @@ def dispatch_rich_panel(component):
     
     attributes = {**internals[0]}
     attributes.pop("displayable", None)
-    attributes = filter_attributes(attributes)
+    attributes = filter_and_resolve_attributes(attributes)
     return rp.Panel(displayable, **attributes)
 
 
