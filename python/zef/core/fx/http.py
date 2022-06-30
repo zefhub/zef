@@ -92,7 +92,7 @@ class Handler(BaseHTTPRequestHandler):
             for key,val in headers.items():
                 self.send_header(key, val)
             self.end_headers()
-            if status == 200:
+            if status == 200 and msg is not None:
                 self.wfile.write(msg)
         except BrokenPipeError:
             log.error("Connection aborted unexpectedly")
