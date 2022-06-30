@@ -170,20 +170,42 @@ def dispatch_rich_table(component):
     [rich_table.add_row(*row) for row in rows]
     return rich_table
 
+#--------------------------Frame--------------------------------------
+def dispatch_rich_panel(component):
+    import rich.panel as rp
+
+    def filter_attributes(d):
+        # TODO filter out non-rich styles if found
+        attributes.pop("displayable", None)
+        return {**d}
+    
+    internals = component | absorbed | collect
+    assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Code should be of type dict!"
+    displayable = internals[0].get("displayable")
+    displayable = match_and_dispatch(displayable)
+    if not displayable: raise ValueError("Frame's displayable field wasn't passed a component!")
+    
+    attributes = {**internals[0]}
+    attributes.pop("displayable", None)
+    attributes = filter_attributes(attributes)
+    return rp.Panel(displayable, **attributes)
+
 
 #-------------------Dispatch-------------------------------------
-def print_rich(displayable):
-    import rich
-    console = rich.console.Console()
-
-    displayable = displayable | match[
+def match_and_dispatch(component):
+    return component | match[
         (Is[is_a_component[Text]], dispatch_rich_text),
         (Is[is_a_component[Code]], dispatch_rich_syntax),
         (Is[is_a_component[Style]], dispatch_rich_style),
         (Is[is_a_component[Table]], dispatch_rich_table),
+        (Is[is_a_component[Frame]], dispatch_rich_panel),
         (Any, lambda x: print(f"Show not defined for {x}"))
     ] | collect
-    
+
+def print_rich(displayable):
+    import rich
+    console = rich.console.Console()
+    displayable = match_and_dispatch(displayable)
     console.print(displayable)
 
 show = run[print_rich]
