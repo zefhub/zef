@@ -391,7 +391,7 @@ def deserialize_zeftypes(z) -> dict:
         return Error.__getattribute__(z['type'])(*deserialize_list(z['args']))
 
     elif z['_zeftype'] == "Effect":
-        return Effect(deserialize_dict(z['internal_dict']))
+        return deserialize_dict(z['internal_dict'])
 
     elif z['_zeftype'] == "FXElement":
         return FXElement(tuple(z['elements']))

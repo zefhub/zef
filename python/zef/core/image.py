@@ -56,7 +56,7 @@ class Image:
 
         from . import FX, Effect
         from ._ops import run
-        Effect({
+        {
             "type": FX.LocalFile.SystemOpenWith,
             "filepath": filename
-        }) | run
+        } | run

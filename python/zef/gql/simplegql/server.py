@@ -137,7 +137,7 @@ def start_server(z_gql_root,
         context["jwk_client"] = PyJWKClient(url)
 
 
-    http_r = Effect({
+    http_r = {
         'type': FX.HTTP.StartServer,
         'port': port,
         'pipe_into': (map[middleware_worker[permit_cors,
@@ -147,7 +147,7 @@ def start_server(z_gql_root,
                       | subscribe[run]),
         'logging': logging,
         'bind_address': bind_address,
-    }) | run
+    } | run
     if is_a(http_r, Error):
         raise Exception("Error in creating server") from http_r.args[0]
 

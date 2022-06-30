@@ -203,7 +203,7 @@ def on_implementation(g, op):
     from ...pyzef import zefops as internal
     from ..fx import FX, Effect
 
-    stream =  Effect({'type': FX.Stream.CreatePushableStream}) | run
+    stream =  FX.Stream.CreatePushableStream() | run
     sub_decl = internal.subscribe[internal.keep_alive[True]]
     
     if isinstance(g, Graph):
@@ -2086,11 +2086,11 @@ def push_imp(item: VT.Any, stream: VT.Stream):  # -> Union[Effect, Error]
     (T, Stream) -> Effect
     """
     if isinstance(stream, Awaitable) or isinstance(stream, ZefRef) or isinstance(stream, EZefRef):
-        return Effect({
+        return {
             'type': FX.Stream.Push,
             'stream': stream,
             'item': item,
-        })
+        }
     raise RuntimeError('push must be called with a Stream pushable stream represented by a ZefRef[ET[PushableStream]] curried in.')
     
     
@@ -6694,13 +6694,13 @@ def tag_imp(x, tag_s: str, *args):
             force = args[0]
         else:
             force = False
-        return Effect({
+        return {
             'type': FX.Graph.Tag,
             'graph': x,
             'tag': tag_s,
             'force': force,
             'adding': True,
-        })
+        }
     if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
         assert len(args) == 0
         return LazyValue(x) | tag[tag_s]
@@ -6724,13 +6724,13 @@ def untag_imp(x, tag: str):
     (ZefRef, str) -> Effect
     """
     if isinstance(x, Graph):
-        return Effect({
+        return {
             'type': FX.Graph.Tag,
             'graph': x,
             'tag': tag,
             'adding': False,
             'force': False,
-        })
+        }
     if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
         raise Exception("Untagging a RAE is not supported at the moment.")
 
@@ -6755,11 +6755,11 @@ def sync_imp(x: VT.Graph, sync_state: bool = True):
     Graph -> Effect
     (Graph, bool) -> Effect
     """
-    return Effect({
+    return {
         'type': FX.Graph.Sync,
         'graph': x,
         'sync_state': sync_state,
-    })
+    }
     
 def sync_tp(op, curr_type):
     return VT.Effect
@@ -6887,10 +6887,10 @@ def to_clipboard_imp(x):
         return to_clipboard(str(x))
 
     assert type(x) in {str, int, float, bool}
-    return Effect({
+    return {
         'type': FX.Clipboard.CopyTo,
         'value': x
-    })
+    }
 
 
 def to_clipboard_tp(x):
@@ -6904,9 +6904,9 @@ def from_clipboard_imp():
     the content of a clipboard to be copied
     """
     # assert type(x) in {str, int, float, bool}
-    return Effect({
+    return {
         'type': FX.Clipboard.CopyFrom,
-    })
+    }
 
 _call_0_args_translation[RT.FromClipboard] = from_clipboard_imp
 
@@ -7037,10 +7037,10 @@ def read_file_imp(fname):
     - used for: file io
 
     """
-    return Effect({
+    return {
         'type': FX.LocalFile.Read,
         'filename' : fname
-    })
+    }
 
 def read_file_tp(op, curr_type):
     return VT.Effect
@@ -7063,11 +7063,11 @@ def load_file_imp(fname, format = None):
     - used for: file io
 
     """
-    return Effect({
+    return {
         'type'     : FX.LocalFile.Load,
         'filename' : fname,
         'format'   : format
-    })
+    }
 
 def load_file_tp(op, curr_type):
     return VT.Effect
@@ -7095,12 +7095,12 @@ def save_file_imp(content, fname, settings = {}):
     (VT.Any, VT.String) -> VT.Effect
 
     """
-    return Effect({
+    return {
         'type': FX.LocalFile.Save,
         'filename' : fname,
         'content': content,
         'settings': settings,
-    })
+    }
 
 def save_file_tp(op, curr_type):
     return VT.Effect
@@ -7121,11 +7121,11 @@ def write_file_imp(content, fname):
     (VT.Any, VT.String) -> VT.Effect
 
     """
-    return Effect({
+    return {
         'type': FX.LocalFile.Write,
         'filename' : fname,
         'content': content,
-    })
+    }
 
 def write_file_tp(op, curr_type):
     return VT.Effect
@@ -8045,13 +8045,13 @@ def to_screaming_snake_case_tp(op, curr_type):
     return VT.String
 
 def make_request_imp(url, method='GET', params={}, data={}):
-    return Effect({
+    return {
             "type":     FX.HTTP.Request,
             "url":      url,
             "method":   method,
             "params":   params,
             "data":     data,
-    })
+    }
 
 def make_request_tp(op, curr_type):
     return VT.Effect
@@ -8561,11 +8561,11 @@ def transact_imp(data, g, **kwargs):
     else:
         raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
 
-    return Effect({
+    return {
             "type": FX.Graph.Transact,
             "target_graph": g,
             "commands":commands
-    })    
+    }
 
 def transact_tp(op, curr_type):
     return VT.Effect

@@ -43,10 +43,10 @@ class FXElement():
         can be run, execute this before returning. If it fails, return an
         error.
         """
-        return Effect({
+        return {
             **kwargs,
             'type': self,
-        })
+        }
 
 
 
@@ -190,8 +190,7 @@ def Effect(*args, **kwargs) -> dict:
     or by passing in a dictionary.
     
     ---- Examples ----
-    Effect(type=FX.Subprocess.Start)
-    Effect({'type': FX.Subprocess.Start})
+    FX.Subprocess.Start()       # the call operator acts like a constructor. The type is inserted automatically.
     """
     if args!=():
         assert len(kwargs) == 0
