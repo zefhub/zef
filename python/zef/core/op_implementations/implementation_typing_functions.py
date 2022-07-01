@@ -379,7 +379,7 @@ def peel_tp(op, curr_type):
     if curr_type == VT.Effect:
         return VT.Dict[VT.String, VT.Any]
     elif curr_type in {VT.ZefOp, VT.LazyValue}:
-        return VT.Record
+        return VT.Tuple
     else:
         return absorbed(curr_type)[0]
 
@@ -6522,7 +6522,7 @@ def reduce_type_info(op, curr_type):
         return VT.List[VT.Any]
 
 def group_by_type_info(op, curr_type):
-    return VT.List[VT.Record[VT.Any]]
+    return VT.List[VT.Tuple[VT.Any]]
 
 def identity_type_info(op, curr_type):
     return curr_type
@@ -9301,7 +9301,7 @@ def split_on_next_imp(s, el_to_split_on):
 
 
 # ----------------------------- ops acting on op doctstring -----------------------------
-def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
+def examples_imp(op: VT.ZefOp) -> VT.List[VT.Tuple]:
     """
     Returns the examples portion of a docstring as a list of tuples mapping
     example string to a possible output string.
@@ -9317,7 +9317,7 @@ def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
     '"external_data_with_unusualcharacters"')]
 
     ---- Signature ----
-    (ZefOp) -> List[Record[String | Nil]]
+    (ZefOp) -> List[Tuple[String | Nil]]
 
     ---- Tags ----
     - related zefop: tags

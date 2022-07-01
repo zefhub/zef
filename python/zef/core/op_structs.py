@@ -1082,7 +1082,7 @@ def type_spec_dict(obj):
     return res
 
 def type_spec_tuple(obj):
-    new_tup = VT.Record
+    new_tup = VT.Tuple
     if len(obj) > 0:
         return new_tup[type_spec(obj[0])]
     else:
