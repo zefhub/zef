@@ -176,7 +176,7 @@ void Butler::send_chunked_ZH_message(std::string main_task_uid, json & j, const 
     Butler::task_promise_ptr main_task = find_task(main_task_uid);
 
     // Currently hardcoded but we need a way to extract this from config.
-    int chunk_size = this->chunked_transfer_size;
+    int chunk_size = std::max(this->chunked_transfer_size, this->chunked_transfer_size_min);
     // This uid links all chunks in the transfer together.
     std::string chunk_uid = generate_random_task_uid();
 
@@ -226,7 +226,7 @@ void Butler::send_chunked_ZH_message(std::string main_task_uid, json & j, const 
             // reacting to variables.
             if(chunked_transfer_auto_adjust)
                 // Big adjustment down, smaller adjustments up.
-                chunked_transfer_size /= 100;
+                chunked_transfer_size = std::max(chunked_transfer_size/100, chunked_transfer_size_min);
             std::rethrow_exception(std::current_exception());
         }
     };
