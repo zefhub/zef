@@ -5540,10 +5540,7 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
     #     return Error(f'Invalid type "{rt}" specified in Out[...]')
     # res = target(out_rel_imp(z, rt))
     # if target_filter and not is_a_implementation(res, target_filter):
-    res = Outs_imp(z, rt, target_filter)
-    if len(res) != 1:
-        raise Exception(f"Out didn't find a single target node that matched the [{rt}][{target_filter}] filter")
-    return single(res)
+    return target_implementation(out_rel_imp(z, rt, target_filter))
 
 
 
@@ -5569,11 +5566,7 @@ def Outs_imp(z, rt=None, target_filter = None):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
 
-    res = out_rels_imp(z, rt) | map[target] | collect
-    if target_filter: 
-        if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
-        return res | filter[is_a[target_filter]] | collect
-    return res
+    return out_rels_imp(z, rt, target_filter) | map[target] | collect
 
 
 #---------------------------------------- In -----------------------------------------------
@@ -5599,10 +5592,7 @@ def In_imp(z, rt=None, source_filter = None):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
 
-    res = Ins_imp(z, rt, source_filter)
-    if len(res) != 1:
-        raise Exception(f"In didn't find a single source node that matched the [{rt}][{source_filter}] filter")
-    return single(res)
+    return source_implementation(in_rel_imp(z, rt, source_filter))
 
 
 #---------------------------------------- Ins -----------------------------------------------
@@ -5626,11 +5616,7 @@ def Ins_imp(z, rt=None, source_filter = None):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
 
-    res = in_rels_imp(z, rt) | map[source] | collect
-    if source_filter: 
-        if isinstance(source_filter, ZefOp): source_filter = Is[source_filter]
-        return res | filter[is_a[source_filter]] | collect
-    return res
+    return in_rels_imp(z, rt, source_filter) | map[source] | collect
 
 
 #---------------------------------------- out_rel -----------------------------------------------
@@ -5659,8 +5645,30 @@ def out_rel_imp(z, rt=None, target_filter = None):
 
     opts = out_rels_imp(z, rt, target_filter)
     if len(opts) != 1:
-        # TODO: hinting if problems occur goes here
-        raise Exception("out_rel did not find a single edge. TODO hints here.")
+        # We use a function here for ease of control flow
+        def help_hint():
+            hint = ""
+            if len(opts) > 0:
+                hint += f"out_rel found too many relations that satisfy RT⊆{rt!r}"
+                if target_filter is not None:
+                    hint += f" and target={target_filter!r}"
+                return hint 
+            else:
+                hint += f"out_rel did not find any relations that satisfy RT⊆{rt!r}"
+                if target_filter is not None:
+                    hint += f" and target={target_filter!r}"
+                    num = len(out_rels_imp(z, rt, None))
+                    if num > 0:
+                        hint += f"\nThere are {num} relations of kind {rt!r}, maybe you did not mean to include the target filter?"
+                        return hint 
+
+                if len(in_rels_imp(z, rt, target_filter)) > 0:
+                    hint += f"\nThere are incoming relations of this kind, maybe you meant to write in_rel or In instead."
+                    return hint
+
+                return hint
+
+        raise Exception(help_hint())
     return single(opts)
 
 #---------------------------------------- out_rels -----------------------------------------------
@@ -5721,8 +5729,30 @@ def in_rel_imp(z, rt=None, source_filter = None):
 
     opts = in_rels_imp(z, rt, source_filter)
     if len(opts) != 1:
-        # TODO: hinting if problems occur goes here
-        raise Exception("in_rel did not find a single edge. TODO hints here.")
+        # We use a function here for ease of control flow
+        def help_hint():
+            hint = ""
+            if len(opts) > 0:
+                hint += f"in_rel found too many relations that satisfy RT⊆{rt!r}"
+                if source_filter is not None:
+                    hint += f" and source={source_filter!r}"
+                return hint 
+            else:
+                hint += f"in_rel did not find any relations that satisfy RT⊆{rt!r}"
+                if source_filter is not None:
+                    hint += f" and source={source_filter!r}"
+                    num = len(in_rels_imp(z, rt, None))
+                    if num > 0:
+                        hint += f"\nThere are {num} relations of kind {rt!r}, maybe you did not mean to include the source filter?"
+                        return hint 
+
+                if len(out_rels_imp(z, rt, source_filter)) > 0:
+                    hint += f"\nThere are outgoing relations of this kind, maybe you meant to write out_rel or Out instead."
+                    return hint
+
+                return hint
+
+        raise Exception(help_hint())
     return single(opts)
 
 
