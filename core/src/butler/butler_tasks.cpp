@@ -153,8 +153,14 @@ void Butler::send_ZH_message(json & j, const std::vector<std::string> & rest) {
     // won't know the protocol versions etc before then.
     fill_out_ZH_message(j);
 
-    if(zwitch.debug_zefhub_json_output())
+    if(zwitch.debug_zefhub_json_output()) {
         std::cerr << "About to send out: " << j << std::endl;
+        std::cerr << "REST sizes: [";
+        for(auto & it : rest) {
+            std::cerr << it.size() << ",";
+        }
+        std::cerr << "]" << std::endl;
+    }
 
     auto zh_msg = Communication::prepare_ZH_message(j, rest);
 
@@ -237,6 +243,10 @@ void Butler::send_chunked_ZH_message(std::string main_task_uid, json & j, const 
         while(cur_start < rest_size) {
             int this_chunk_size = std::min(chunk_size, rest_size - cur_start);
             std::string this_bytes = rest[rest_index].substr(cur_start, this_chunk_size);
+            if(this_bytes.size() == 0) {
+                std::cerr << "SIZE is ZERO: ";
+                std::cerr << this_chunk_size << ", " << chunk_size << this->chunked_transfer_size << std::endl;
+            }
             // std::cerr << "Sending a chunk, size: " << this_bytes.size() << ", start: " << cur_start << "/" << rest_size << ", rest_index: " << rest_index << std::endl;
             task = add_task(true, chunk_timeout);
             send_ZH_message(json{
