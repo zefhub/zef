@@ -232,4 +232,5 @@ Text  = ValueType_(type_name='Text', constructor_func = partial(zef_ui_ctor, 'Te
 Code  = ValueType_(type_name='Code', constructor_func = partial(zef_ui_ctor, 'Code'), pass_self = True)
 Style = ValueType_(type_name='Style', constructor_func = partial(zef_ui_ctor, 'Style'), pass_self = True)
 Table = ValueType_(type_name='Table', constructor_func = partial(zef_ui_ctor, 'Table'), pass_self = True)
+Column = ValueType_(type_name='Column', constructor_func = partial(zef_ui_ctor, 'Column'), pass_self = True)
 Frame = ValueType_(type_name='Frame', constructor_func = partial(zef_ui_ctor, 'Frame'), pass_self = True)

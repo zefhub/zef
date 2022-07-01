@@ -129,6 +129,8 @@ def dispatch_rich_table(component):
             return maybe_component
         elif is_a_component(maybe_component, Text):
             return dispatch_rich_text(maybe_component)
+        elif is_a_component(maybe_component, Column):
+            return dispatch_rich_column(maybe_component)
         elif is_a_component(maybe_component, Style):
             return dispatch_rich_style(maybe_component)
         elif isinstance(maybe_component, tuple):
@@ -141,10 +143,6 @@ def dispatch_rich_table(component):
         if "row_styles" in d:
             d["row_styles"] = [handle_nested_components(x) for x in d["row_styles"]]
         
-        # col_styles: List of styles or strings
-        if "col_styles" in d:
-            d["col_styles"] = [handle_nested_components(x) for x in d["col_styles"]]
-
         # title: String or Text
         if "title" in d:
             d["title"] = handle_nested_components(d["title"])
@@ -167,11 +165,33 @@ def dispatch_rich_table(component):
     attributes = resolve_attributes({**internals[0]})
     cols = attributes.pop('cols', [])
     rows = attributes.pop('rows', [])
-    col_styles = attributes.pop('col_styles', [])
-    rich_table = rt.Table(**attributes)
-    [rich_table.add_column(col, style = style) for (col, style) in itr.zip_longest(cols, col_styles)]
+    rich_table = rt.Table(*cols, **attributes)
+    # [rich_table.add_column(col, style = style) for (col, style) in itr.zip_longest(cols, col_styles)]
     [rich_table.add_row(*row) for row in rows]
     return rich_table
+
+#--------------------------Column--------------------------------------
+def dispatch_rich_column(component):
+    import rich.table as rt
+
+    def resolve_attributes(d):
+        allowed_keys = ["header_style", "footer_style", "style", "justify", "vertical", "width", "min_width", "max_width", "ratio", "no_wrap"]
+        attributes = select_keys(d, *allowed_keys)
+        # Resolve the non-string styles if found
+        for special_key in ["header_style", "footer_style", "style"]:
+            if special_key in attributes and is_a_component(attributes[special_key], Style):
+                attributes[special_key] = dispatch_rich_style(attributes[special_key])
+        
+        return attributes
+    
+    internals = component | absorbed | collect
+    assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Column should be of type dict!"
+    
+    header = internals[0].get("text", "")
+    if is_a_component(header, Text): header = dispatch_rich_text(header)
+    attributes = resolve_attributes(internals[0])
+
+    return rt.Column(header, **attributes)
 
 
 #--------------------------Frame--------------------------------------
@@ -231,6 +251,7 @@ def match_and_dispatch(component):
         (Is[is_a_component[Code]], dispatch_rich_syntax),
         (Is[is_a_component[Style]], dispatch_rich_style),
         (Is[is_a_component[Table]], dispatch_rich_table),
+        (Is[is_a_component[Column]], dispatch_rich_column),
         (Is[is_a_component[Frame]], dispatch_rich_panel),
         (Any, lambda x: print(f"Show not defined for {x}"))
     ] | collect
