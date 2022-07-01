@@ -57,6 +57,13 @@ type Transaction
 type Category {
   transactions: [Transaction] @relation(rt: "Category") @incoming
   name: String @unique
+
+  testListScalar: [String]
+  testListEntity: [Simple]
+}
+
+type Simple {
+  name: String
 }
 
 enum TestEnum {
@@ -228,6 +235,23 @@ testString: ""
 
         r = do_query(jwt_user1, 'mutation { updateCategory(input: {filter: {id: "' + cat_id + '"}, set: {name: "soon to be duplicated"} }) { category { id name } } }')
         assert_error_with(r, "Non-unique values")
+
+
+        # List creation
+        r = do_query(jwt_user1, 'mutation { addCategory(input: {testListScalar: ["a", "b", "c"], testListEntity: [{name: "a"}, {name: "b"}]}) { category { id testListScalar testListEntity { name } } } }')
+        assert_no_error(r)
+        cat_data = r.json()["data"]["addCategory"]["category"][0]
+        cat_list_id = cat_data["id"]
+        self.assertSetEqual(set(cat_data["testListScalar"]), {"a", "b", "c"})
+        expected = [{"name": "a"}, {"name": "b"}]
+        for x in cat_data["testListEntity"]:
+            self.assertIn(x, expected)
+        for x in expected:
+            self.assertIn(x, cat_data["testListEntity"])
+
+        # TODO: List set
+        # TODO: List manipulation
+        # TODO: List remove
 
 
 

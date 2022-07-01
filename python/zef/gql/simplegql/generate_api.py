@@ -279,7 +279,7 @@ input Upfetch{name}Input {{
 
     # Always generate the Int scalar type 
     int_type = schema_root | Outs[RT.GQL_CoreScalarType][AET.Int] | single | collect
-    if int_type not in [rae_type(x) for x in extra_filters.keys()]:
+    if rae_type(int_type) not in [rae_type(x) for x in extra_filters.keys()]:
         extra_filters[int_type] = schema_generate_scalar_filter(int_type)
 
     query_fields = '\n\t'.join(query_fields)
@@ -312,11 +312,17 @@ scalar DateTime
 # * Schema specific parts
 #----------------------------------------------
 
-def schema_generate_list_params(z_type, extra_filters):
-    name = z_type | F.Name | collect
+def schema_generate_type_dispatch(z_type, extra_filters):
     if z_type not in extra_filters:
         extra_filters[z_type] = None
-        extra_filters[z_type] = schema_generate_type_filter(z_type, extra_filters)
+        if op_is_scalar(z_type):
+            extra_filters[z_type] = schema_generate_scalar_filter(z_type)
+        else:
+            extra_filters[z_type] = schema_generate_type_filter(z_type, extra_filters)
+
+def schema_generate_list_params(z_type, extra_filters):
+    name = z_type | F.Name | collect
+    schema_generate_type_dispatch(z_type, extra_filters)
 
     query_params = [
         f"filter: {name}Filter",
@@ -359,12 +365,7 @@ def schema_generate_type_filter(z_type, extra_filters):
             filter_name = Boolean
         else:
             filter_name = f"{field_type_name}Filter"
-            if field_type not in extra_filters:
-                extra_filters[field_type] = None
-                if op_is_scalar(field_type):
-                    extra_filters[field_type] = schema_generate_scalar_filter(field_type)
-                else:
-                    extra_filters[field_type] = schema_generate_type_filter(field_type, extra_filters)
+            schema_generate_type_dispatch(field_type, extra_filters)
 
         if op_is_list(field):
             fields += [f"{field_name}: {filter_name}List"]
@@ -444,7 +445,8 @@ input {list_fil_name} {{
 \tmax: {type_name}!
 }}"""
 
-    return {"schema": schema}
+    return {"schema": schema,
+            "orderable": op_is_orderable(z_node)}
 
 ####################################
 # * Query resolvers
