@@ -5022,14 +5022,15 @@ def hasin_implementation(zr, rt):
 # -------------------------------- apply_functions -------------------------------------------------
 def apply_functions_imp(x, fns):
     """ 
-    Apply different functions to different elements in a list.
-    The use case is similar to using Zef's map[f1,f2,f3] with multiple
-    functions, but fills in the gap when the input is not a list / stream.
-    In this sense, it is closer to func.
-    The input list and list of functions must be of the same length.
+    Given a list of values and an associated list of functions,
+    apply the nth function to the nth value list element.
+
+    It is strongly recommended not to use impure functions inside
+    this operator.
 
     ---- Examples ----
-    ['Hello', 'World'] | apply_functions[to_upper_case, to_lower_case]    # => ['HELLO', 'world']
+    >>> ['Hello', 'World'] | apply_functions[to_upper_case, to_lower_case]    # => ['HELLO', 'world']
+    >>> (1,2) | apply_functions[add[1], add[10]]      # => (2, 12)
 
     ---- Signature ----
     (Tuple[T1, ...,TN], Tuple[T1->TT1, ..., TN->TTN] ) -> Tuple[TT1, ...,TTN]
@@ -5038,18 +5039,21 @@ def apply_functions_imp(x, fns):
     - used for: control flow
     - operates on: ZefOp
     - operates on: Function
-    - related zefop: func
     - related zefop: reverse_args
     - related zefop: map
+    - related zefop: apply
     """
     import builtins
-    if not (isinstance(x, tuple) or isinstance(x, list)):
-        raise TypeError(f"The dataflow argument for apply_functions must be a list/tuple: Got a type(x)={type(x)} Value: x={x}")
-    if not len(fns) == len(x):
-        raise TypeError(f"the length of the dataflow argument for apply_functions must be the same length as the list of functions provided. Got x={x} and fns={fns}" )
-    return tuple(
-        (f(el) for f, el in builtins.zip(fns, x))
-    )
+    from typing import Generator
+    if not (isinstance(fns, list) or isinstance(fns, tuple)):
+        raise TypeError(f"apply_functions must be given a tuple of functions.")
+    if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, Generator)):
+        raise TypeError(f"apply_functions must be given a tuple of input args.")
+    xx = tuple(x)
+    if not len(fns) == len(xx):
+        raise ValueError(f"len(fs) must be equal to len(x)")
+        
+    return tuple((f(el) for f, el in builtins.zip(fns, x)))
 
 
 
@@ -5076,6 +5080,7 @@ def map_implementation(v, f):
     - used for: control flow
     - used for: function application
     - related zefop: apply_functions
+    - related zefop: apply
     """
     import builtins
     input_type = parse_input_type(type_spec(v))
@@ -9246,6 +9251,7 @@ def apply_imp(x, f):
     
     ---- Tags ----
     - related zefop: map
+    - related zefop: apply_functions
     - related zefop: func
     - related zefop: call
     - used for: control flow
