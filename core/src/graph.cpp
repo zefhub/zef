@@ -244,10 +244,10 @@ namespace zefDB {
                 throw std::runtime_error("File graph doesn't have the same uid as passed in!");
             }
             
-            latest_complete_tx = index(internals::get_latest_complete_tx_node(*this, 0));
-
             write_head = fg->get_latest_blob_index();
             read_head = fg->get_latest_blob_index();
+            latest_complete_tx = index(internals::get_latest_complete_tx_node(*this, 0));
+
         } else {
             // Nothing to do here - just waiting for caller to fill in the graph
         }

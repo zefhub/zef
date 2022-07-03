@@ -387,6 +387,10 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
             me.gd->latest_complete_tx = index(internals::get_latest_complete_tx_node(*me.gd));
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
 
+            if(zwitch.developer_output()) {
+                std::cerr << "Loaded GUID: " << me.uid << " has heads of read:tx = " << me.gd->read_head.load() << ":" << me.gd->latest_complete_tx.load() << std::endl;
+            }
+
             json j{
                     {"msg_type", "subscribe_to_graph"},
                     {"msg_version", 3},
