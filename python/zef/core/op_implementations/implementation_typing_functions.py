@@ -1292,7 +1292,7 @@ def insert_imp(d: dict, key, val=None):
     - related zefop: remove
     - related zefop: update
     """
-    if isinstance(d, FlatGraph):
+    if is_a(d, FlatGraph):
         fg = d
         new_el = key
         return fg_insert_imp(fg, new_el)
@@ -1419,7 +1419,7 @@ def remove_imp(d: dict, key_to_remove: tuple):
     - related zefop: insert
     - related zefop: get
     """
-    if isinstance(d, FlatGraph):
+    if is_a(d, FlatGraph):
         fg = d
         return fg_remove_imp(fg, key_to_remove)
     return {p[0]: p[1] for p in d.items() if p[0] != key_to_remove}
@@ -1458,7 +1458,7 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
     - related zefop: select_in
     """
     from typing import Generator
-    if isinstance(d, FlatGraph):
+    if is_a(d, FlatGraph):
         return fg_get_imp(d, key)
     elif isinstance(d, dict):
         return d.get(key, default)
@@ -1778,7 +1778,7 @@ def all_imp(*args):
 
     import builtins
     from typing import Generator, Iterator   
-    if isinstance(args[0], FlatGraph):
+    if is_a(args[0], FlatGraph):
         return fg_all_imp(*args)
     if isinstance(args[0], ZefRef) and is_a[ET.ZEF_List](args[0]):
         z_list = args[0]
@@ -6829,7 +6829,7 @@ def merge_imp(a, second=None, *args):
     - related zefop: merge_with
     """
     from typing import Generator
-    if isinstance(a, FlatGraph) and isinstance(second, FlatGraph):
+    if is_a(a, FlatGraph) and is_a(second, FlatGraph):
         return fg_merge_imp(a, second)
     elif second is None:
         assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, Generator)
@@ -8191,7 +8191,7 @@ def fg_insert_imp(fg, new_el):
     from ..graph_delta import map_scalar_to_aet_type
     from ...pyzef.internals import DelegateRelationTriple
 
-    assert isinstance(fg, FlatGraph)
+    assert is_a(fg, FlatGraph)
     new_fg = FlatGraph()
     new_blobs, new_key_dict = [*fg.blobs], {**fg.key_dict}
 
@@ -8579,7 +8579,7 @@ def fr_ins_and_outs_imp(fr):
     return FlatRefs(fr.fg, blob[2])
 
 def fg_all_imp(fg, selector=None):
-    assert isinstance(fg, FlatGraph)
+    assert is_a(fg, FlatGraph)
     if selector:
         selected_blobs = fg.blobs | filter[lambda b: is_a(b[1], selector)] | collect
     else:
@@ -8591,7 +8591,7 @@ def fg_all_imp(fg, selector=None):
 def transact_imp(data, g, **kwargs):
     from typing import Generator
     from ..graph_delta import construct_commands
-    if isinstance(data, FlatGraph):
+    if is_a(data, FlatGraph):
         commands = flatgraph_to_commands(data)
     elif type(data) in {list, tuple}:
         commands = construct_commands(data)

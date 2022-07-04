@@ -47,7 +47,7 @@ def graphviz_imp(zz, *flags):
     List[ZefRef] -> Image
     (List[ZefRef], ZefOp) -> Image
     """
-    if isinstance(zz, FlatGraph): 
+    if is_a(zz, FlatGraph): 
         g = Graph()
         zz | transact[g] | run 
         contains_del = any([is_a(b[1], Delegate) for b in zz.blobs])
