@@ -62,6 +62,7 @@ jobs:
   upload-to-pypi:
     name: Upload wheels to PyPI
     runs-on: ubuntu-20.04
+    environment: Release
     needs: [build-wheels]
     # We need this if in case build-wheels doesn't run, because for some reason
     # a skipped status is treated as a reason for the following jobs to also be
