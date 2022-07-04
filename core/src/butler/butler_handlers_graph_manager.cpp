@@ -382,9 +382,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
             // this out for a call to do_reconnect, but there is some custom
             // logic to handle in here, with regards to safety checks on the
             // graph.
-            me.gd->read_head = fg->get_latest_blob_index();
-            me.gd->write_head = fg->get_latest_blob_index();
-            me.gd->latest_complete_tx = index(internals::get_latest_complete_tx_node(*me.gd));
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
 
             if(zwitch.developer_output()) {
