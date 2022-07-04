@@ -62,7 +62,10 @@ def resolve_token(context, request):
     else:
         raise Exception("Shouldn't get here")
 
-    if auth_result["aud"] != aud:
+    if isinstance(auth_result["aud"], list):
+        if aud not in auth_result["aud"]:
+            raise Exception("Invalid token for wrong audience")
+    elif auth_result["aud"] != aud:
         raise Exception("Invalid token for wrong audience")
 
     if namespace is None:
