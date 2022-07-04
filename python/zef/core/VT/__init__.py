@@ -43,6 +43,10 @@ def decimal_ctor(*args, **kwargs):
     return Decimal_(*args, **kwargs)
 
 
+def flatgraph_ctor(*args, **kwargs):
+    from ...core.flat_graph import FlatGraph_
+    return FlatGraph_(*args)
+
 
 def union_getitem(x):
     from ..op_structs import ZefOp
@@ -138,7 +142,7 @@ EZefRef    = ValueType_(type_name='EZefRef',    constructor_func=None)
 ZefRef     = ValueType_(type_name='ZefRef',     constructor_func=None)     
 Graph      = ValueType_(type_name='Graph',      constructor_func=graph_ctor)     
 GraphSlice = ValueType_(type_name='GraphSlice', constructor_func=None)     
-FlatGraph  = ValueType_(type_name='FlatGraph',  constructor_func=None)     
+FlatGraph  = ValueType_(type_name='FlatGraph',  constructor_func=flatgraph_ctor)     
 ZefOp      = ValueType_(type_name='ZefOp',      constructor_func=None)     
 Stream     = ValueType_(type_name='Stream',     constructor_func=None)     
 TX         = ValueType_(type_name='TX',         constructor_func=None)     
