@@ -118,7 +118,17 @@ namespace zefDB {
 
         if(zwitch.developer_output())
             std::cerr << "About to start io_server thread" << std::endl;
-        thread = std::make_shared<std::thread>([this]() {io_service_.run();});
+        thread = std::make_shared<std::thread>([this]() {
+            try {
+                asio::error_code ec;
+                io_service_.run(ec);
+                if(ec)
+                    std::cerr << "Auth server crashed with exception: " << ec << std::endl;
+            } catch(const std::exception & exc) {
+                std::cerr << "Auth server caught an unhandled exception: " << exc.what() << std::endl;
+            }
+            update(locker, should_stop, true);
+        });
         // TODO: Trigger opening of browser
         std::string url("http://localhost:" + std::to_string(cur_port) + "/auth");
         url += "?redirectUrl=callback";
