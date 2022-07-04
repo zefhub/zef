@@ -16,6 +16,9 @@
 // * Connection management
 
 bool Butler::want_upstream_connection() {
+    if(check_env_bool("ZEFDB_OFFLINE_MODE"))
+        return false;
+
     if(network.uri == "")
         return false;
 
