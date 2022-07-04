@@ -376,6 +376,7 @@ namespace zefDB {
 
 
             std::string upstream_name();
+            std::filesystem::path credentials_path();
 
             std::optional<Graph> local_process_graph;
             Graph get_local_process_graph();

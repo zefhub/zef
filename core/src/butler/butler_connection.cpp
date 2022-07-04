@@ -89,7 +89,7 @@ void Butler::determine_refresh_token() {
         if(have_logged_in_as_guest) {
             refresh_token = "";
         } else {
-            auto credentials_file = zefdb_config_path() / "credentials";
+            auto credentials_file = credentials_path();
             std::ifstream file(credentials_file);
             json j = json::parse(file);
             refresh_token = j["refresh_token"].get<std::string>();
@@ -115,7 +115,7 @@ std::string Butler::who_am_i() {
         if(have_logged_in_as_guest) {
             name = "GUEST via login prompt";
         } else {
-            auto credentials_file = zefdb_config_path() / "credentials";
+            auto credentials_file = credentials_path();
             if(!std::filesystem::exists(credentials_file)) {
                 name = "";
             } else {
@@ -265,6 +265,10 @@ std::string Butler::upstream_name() {
     return name;
 }
 
+std::filesystem::path Butler::credentials_path() {
+    return zefdb_config_path() / upstream_name() / "credentials";
+}
+
 //////////////////////////////
 // * Credentials
 
@@ -320,7 +324,7 @@ bool Butler::have_auth_credentials() {
 }
 
 bool Butler::is_credentials_file_valid() {
-    auto credentials_file = zefdb_config_path() / "credentials";
+    auto credentials_file = credentials_path();
     if(!std::filesystem::exists(credentials_file))
         return false;
 
@@ -353,7 +357,7 @@ void Butler::ensure_auth_credentials() {
         else
             get_firebase_refresh_token_email(*forced_zefhub_key);
     } else {
-        auto credentials_file = zefdb_config_path() / "credentials";
+        auto credentials_file = credentials_path();
         if(is_credentials_file_valid())
             return;
         if(have_logged_in_as_guest)
@@ -444,7 +448,7 @@ void Butler::user_logout() {
     if(load_forced_zefhub_key())
         throw std::runtime_error("Can't logout when an explicit key is given in ZEFHUB_AUTH_KEY or zefhub.key");
     if(have_auth_credentials()) {
-        auto credentials_file = zefdb_config_path() / "credentials";
+        auto credentials_file = credentials_path();
         if(std::filesystem::exists(credentials_file))
             std::filesystem::remove(credentials_file);
     } else if(have_logged_in_as_guest) {

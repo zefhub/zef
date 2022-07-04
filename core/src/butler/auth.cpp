@@ -127,8 +127,35 @@ namespace zefDB {
     std::string last_token = "";
     time token_expire_time = clock::now();
 
+    bool using_private_key() {
+        char * env = getenv("ZEFDB_PRIVATE_KEY");
+        return (env != NULL && env[0] != '\0');
+    }
+
+    std::string get_private_token(std::string auth_id) {
+        assert(using_private_key());
+
+        char * env = getenv("ZEFDB_PRIVATE_KEY");
+        std::string private_key(env);
+
+        std::string token = jwt::create<jwt::traits::nlohmann_json>()
+            .set_issuer("local")
+            .set_type("JWT")
+            .set_audience("zefhub-io")
+            .set_payload_claim("sub", auth_id)
+            .set_issued_at(jwt::date::clock::now())
+            .set_expires_at(jwt::date::clock::now() + std::chrono::minutes(60))
+            .sign(jwt::algorithm::hs256{private_key});
+
+        return token;
+    }
 
     std::string get_firebase_refresh_token_email(std::string key_string) {
+        if(using_private_key()) {
+            if(zwitch.developer_output())
+                std::cerr << "Going to generate JWT from private key ourselves." << std::endl;
+            return get_private_token(key_string);
+        }
         int colon = key_string.find(':');
         std::string auth_username = key_string.substr(0,colon);
         std::string key = key_string.substr(colon+1);
@@ -185,6 +212,8 @@ namespace zefDB {
     }
 
     std::string get_firebase_token_refresh_token(std::string refresh_token) {
+        if(using_private_key())
+            return refresh_token;
 
         time start = clock::now();
 
