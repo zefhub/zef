@@ -6255,6 +6255,10 @@ def is_a_implementation(x, typ):
         if typ.d['type_name'] == "Pattern":
             return pattern_vt_matching(x, typ)
 
+        if typ.d['type_name'] == "FlatGraph":
+            from zef.core.flat_graph import FlatGraph_
+            return isinstance(x, FlatGraph_)
+
         return valuetype_matching(x, typ)
                     
     # To handle user passing by int instead of Int by mistake
