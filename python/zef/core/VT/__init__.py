@@ -237,3 +237,5 @@ Style = ValueType_(type_name='Style', constructor_func = partial(zef_ui_ctor, 'S
 Table = ValueType_(type_name='Table', constructor_func = partial(zef_ui_ctor, 'Table'), pass_self = True)
 Column = ValueType_(type_name='Column', constructor_func = partial(zef_ui_ctor, 'Column'), pass_self = True)
 Frame = ValueType_(type_name='Frame', constructor_func = partial(zef_ui_ctor, 'Frame'), pass_self = True)
+HStack = ValueType_(type_name='HStack', constructor_func = partial(zef_ui_ctor, 'HStack'), pass_self = True)
+VStack = ValueType_(type_name='VStack', constructor_func = partial(zef_ui_ctor, 'VStack'), pass_self = True)
