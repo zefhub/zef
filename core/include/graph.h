@@ -341,6 +341,7 @@ namespace zefDB {
         std::unique_ptr<MMap::WholeFileMapping<AppendOnlyBinaryTree<BaseUID,blob_index>>> uid_lookup;
         std::unique_ptr<MMap::WholeFileMapping<AppendOnlyBinaryTree<EternalUID,blob_index>>> euid_lookup;
         std::unique_ptr<MMap::WholeFileMapping<AppendOnlyDictVariable<VariableString,VariableBlobIndex>>> tag_lookup;
+        // std::unique_ptr<MMap::WholeFileMapping<AppendOnlyBinaryTree<VariableString,VariableBlobIndex>>> av_hash_lookup;
 
         // std::unique_ptr<TokenStore> local_tokens;
 

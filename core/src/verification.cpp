@@ -14,8 +14,8 @@
 
 #include "verification.h"
 
-// This is only needed for the DOCTEST
 #include "high_level_api.h"
+#include "zefops.h"
 
 #include <doctest/doctest.h>
 

@@ -20,6 +20,8 @@
 #include "synchronization.h"
 #include "verification.h"
 
+#include "zefops.h"
+
 
 
 namespace zefDB {

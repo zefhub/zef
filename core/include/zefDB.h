@@ -36,6 +36,8 @@
 
 #include "low_level_api.h"
 #include "high_level_api.h"
+#include "ops_imperative.h"
+#include "zefops.h"
 #include "tools.h"
 
 #include "butler/butler.h"

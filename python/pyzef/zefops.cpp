@@ -1378,23 +1378,23 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     zefops_submodule.def("assign_value", [](ZefRef zr, py::int_ other) {pyint_assign_value(to_ezefref(zr), other); },
         "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
 
-    zefops_submodule.def("assign_value", py::overload_cast<EZefRef, double>(&imperative::assign_value<double>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<ZefRef, double>(&imperative::assign_value<double>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<EZefRef, bool>(&imperative::assign_value<bool>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<ZefRef, bool>(&imperative::assign_value<bool>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<EZefRef, std::string>(&imperative::assign_value<std::string>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<ZefRef, std::string>(&imperative::assign_value<std::string>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<EZefRef, Time>(&imperative::assign_value<Time>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<ZefRef, Time>(&imperative::assign_value<Time>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<EZefRef, SerializedValue>(&imperative::assign_value<SerializedValue>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<ZefRef, SerializedValue>(&imperative::assign_value<SerializedValue>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<EZefRef, ZefEnumValue>(&imperative::assign_value<ZefEnumValue>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<ZefRef, ZefEnumValue>(&imperative::assign_value<ZefEnumValue>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<EZefRef, QuantityFloat>(&imperative::assign_value<QuantityFloat>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<ZefRef, QuantityFloat>(&imperative::assign_value<QuantityFloat>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<EZefRef, QuantityInt>(&imperative::assign_value<QuantityInt>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	zefops_submodule.def("assign_value", py::overload_cast<ZefRef, QuantityInt>(&imperative::assign_value<QuantityInt>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
-	
+    zefops_submodule.def("assign_value", py::overload_cast<EZefRef,double>(&imperative::assign_value<double>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<ZefRef,double>(&imperative::assign_value<double>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<EZefRef,bool>(&imperative::assign_value<bool>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<ZefRef,bool>(&imperative::assign_value<bool>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<EZefRef,std::string>(&imperative::assign_value<std::string>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<ZefRef,std::string>(&imperative::assign_value<std::string>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<EZefRef,Time>(&imperative::assign_value<Time>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<ZefRef,Time>(&imperative::assign_value<Time>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<EZefRef,SerializedValue>(&imperative::assign_value<SerializedValue>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<ZefRef,SerializedValue>(&imperative::assign_value<SerializedValue>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<EZefRef,ZefEnumValue>(&imperative::assign_value<ZefEnumValue>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<ZefRef,ZefEnumValue>(&imperative::assign_value<ZefEnumValue>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<EZefRef,QuantityFloat>(&imperative::assign_value<QuantityFloat>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<ZefRef,QuantityFloat>(&imperative::assign_value<QuantityFloat>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<EZefRef,QuantityInt>(&imperative::assign_value<QuantityInt>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+    zefops_submodule.def("assign_value", py::overload_cast<ZefRef,QuantityInt>(&imperative::assign_value<QuantityInt>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+    
     py::class_<SerializedValue>(zefops_submodule, "SerializedValue", py::buffer_protocol())
         .def(py::init<std::string,std::string>())
         .def_readonly("type", &SerializedValue::type)

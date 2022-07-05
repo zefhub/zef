@@ -16,6 +16,7 @@
 #include "high_level_api.h"
 #include "synchronization.h"
 #include "verification.h"
+#include "zefops.h"
 
 #include <doctest/doctest.h>
 

@@ -82,6 +82,8 @@ namespace zefDB {
         bool operator== (TimeSlice other) const { return value == other.value; }
         bool operator!= (TimeSlice other) const { return value != other.value; }
 
+        TimeSlice(const EZefRef uzr);   // enable "tx_uzr | time_slice" to get TimeSlice object
+        TimeSlice(const ZefRef zr);
         TimeSlice operator() (EZefRef uzr) const;   // enable "tx_uzr | time_slice" to get TimeSlice object
         TimeSlice operator() (ZefRef zr) const;
     };

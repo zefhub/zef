@@ -59,6 +59,9 @@ set(SOURCES
     src/blobs.cpp
     src/graph.cpp
     src/high_level_api.cpp
+    src/ops_imperative.cpp
+    src/zefops.cpp
+    src/high_level_api.cpp
     src/low_level_api.cpp
     src/mmap.cpp
     src/observable.cpp

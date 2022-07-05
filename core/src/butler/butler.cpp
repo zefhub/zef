@@ -27,6 +27,7 @@ using json = nlohmann::json;
 
 // I want to not have to use this:
 #include "high_level_api.h"
+#include "zefops.h"
 #include "synchronization.h"
 #include "zef_config.h"
 

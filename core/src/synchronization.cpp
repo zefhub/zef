@@ -18,6 +18,8 @@
 #include "high_level_api.h"
 #include "blobs.h"
 
+#include "zefops.h"
+
 #include <algorithm>
 
 namespace zefDB {

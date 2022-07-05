@@ -16,6 +16,7 @@
 #include <chrono>
 #include "low_level_api.h"
 #include "high_level_api.h"
+#include "zefops.h"
 
 namespace zefDB {
 	
@@ -41,7 +42,7 @@ namespace zefDB {
         else if (BT(uzr) == BT.ATOMIC_ENTITY_NODE)
             os << " " << AET(uzr);
         else if (BT(uzr) == BT.TX_EVENT_NODE)
-            os << " TX at slice=" << time_slice(uzr).value;
+            os << " TX at slice=" << TimeSlice(uzr).value;
         else
             os << " " << BT(uzr);
 
