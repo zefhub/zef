@@ -382,8 +382,13 @@ void Butler::ensure_auth_credentials() {
                 std::cerr << "Logging in as guest" << std::endl;
         } else {
             have_logged_in_as_guest = false;
-            std::ofstream file(credentials_file);
-            file << *(auth_server->reply);
+            {
+                std::filesystem::create_directories(credentials_file.parent_path());
+                std::ofstream file(credentials_file);
+                file << *(auth_server->reply);
+                if(file.fail())
+                    throw std::runtime_error("Problem saving credentials to file!");
+            }
             if(zwitch.zefhub_communication_output())
                 std::cerr << "Successful obtained credentials" << std::endl;
             if(!zwitch.extra_quiet()) {

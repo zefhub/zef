@@ -127,3 +127,4 @@ tests/Testing/Temporary/
 /scripts/early.tokens
 python/zef/pyzef.pyd
 core/CMakeSettings.json
+/python/zef/auth.html

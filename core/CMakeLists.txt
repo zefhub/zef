@@ -173,6 +173,8 @@ if(ZEFDB_TEST_NO_MMAP_CHECKS)
 endif()
 
 # Make auth.html accessible for uninstalled builds
+# Note: this is really only for dynamic builds, but it will be a double-bounced
+# link for static builds
 if(NOT MSVC)
   add_custom_command(TARGET zef POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E create_symlink

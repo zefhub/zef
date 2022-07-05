@@ -474,7 +474,7 @@ namespace zefDB {
             if(std::filesystem::exists(dir))
                 throw std::runtime_error("Can't create local graph at '" + dir.string() + "' as it is already a file.");
 
-            std::filesystem::create_directory(dir);
+            std::filesystem::create_directories(dir.parent_path());
 
             auto data = spawn_graph_manager(make_random_uid());
             data->queue.push(std::make_shared<RequestWrapper>(std::move(msg->promise), LocalGraph{dir, true}));

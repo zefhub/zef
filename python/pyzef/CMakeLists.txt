@@ -107,41 +107,10 @@ if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   endif()
 endif()
 
-
-# target_include_directories (pyzef PUBLIC ${RANGE_INCLUDE_DIRS})
-
-# if(UNIX AND NOT APPLE)
-#   # This should take us up the lib directory where both libzef and libpython are.
-#   set_target_properties(pyzef PROPERTIES INSTALL_RPATH "$ORIGIN")
-# elseif(APPLE)
-#   set_target_properties(pyzef PROPERTIES INSTALL_RPATH "@loader_path")
-# endif()
-# add_custom_command(TARGET pyzef
-#   POST_BUILD
-#   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:pyzef> ${ZEFDB_DIR}/zef/`basename $<TARGET_FILE:pyzef>`
-#   COMMAND ${CMAKE_COMMAND} -E create_symlink $<TARGET_FILE:zef> ${ZEFDB_DIR}/zef/`basename $<TARGET_FILE:zef>`
-# )
-
 target_link_libraries(pyzef PUBLIC zef::zef)
-# target_include_directories(pyzef PRIVATE ${Zef_INCLUDE})
-
-# Hoping that hardcoding this will at least allow us to get somewhere.
-# target_link_libraries(pyzef PUBLIC openssl)
-# target_link_libraries(pyzef PUBLIC OpenSSL::SSL)
 
 target_link_libraries(pyzef PUBLIC pybind11_json)
 
-
-
-# Things needed for Visual Studio
-#if(MSVC)
-#	target_compile_options(pyzef PUBLIC "/permissive-")
-#    target_compile_options(pyzef PUBLIC "/bigobj")
-#    set_target_properties(pyzef PROPERTIES SUFFIX ".pyd")
-#    set_target_properties(pyzef PROPERTIES ENABLE_EXPORTS 1)
-#	set_target_properties(pyzef PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS 1)
-#endif()
-  
 # We are assuming this is an install into the python extension build directory.
 # Anything else should not be installing
 install(TARGETS pyzef LIBRARY DESTINATION .)
