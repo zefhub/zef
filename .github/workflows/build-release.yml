@@ -23,7 +23,7 @@ jobs:
           MAYBE_DISPATCH: ${{ github.event.inputs.tag }}
           MAYBE_RELEASE: ${{ github.event.release.tag_name }}
         run: |
-          if [ -n $MAYBE_DISPATCH ] ; then
+          if [ -n "$MAYBE_DISPATCH" ] ; then
               echo ::set-output name=tag::${MAYBE_DISPATCH}
           else
               echo ::set-output name=tag::${MAYBE_RELEASE##pyzef-}
