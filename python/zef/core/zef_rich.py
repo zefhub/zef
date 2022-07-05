@@ -223,6 +223,35 @@ def dispatch_rich_panel(component):
     attributes = filter_and_resolve_attributes(attributes)
     return rp.Panel(displayable, **attributes)
 
+#--------------------------HStack,VStack--------------------------------------
+def dispatch_rich_stack(component):
+    import rich.table as rt
+
+    def handle_nested_components(maybe_component):
+        if isinstance(maybe_component, str):
+            return maybe_component
+        else:
+            return match_and_dispatch(maybe_component)
+
+    def resolve_attributes(d):
+        allowed_keys = ["expand", "padding", "pad_edge"]
+        attributes = select_keys(d, *allowed_keys)
+        return attributes
+    
+    stack_type = str(component | without_absorbed | collect)
+    internals = component | absorbed | collect
+    assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Table should be of type dict!"
+    displayables = [handle_nested_components(c) for c in internals[0].get('displayables', [])]
+    cols         = [handle_nested_components(c) for c in internals[0].get('cols', [])]
+    attributes = resolve_attributes(internals[0])
+
+    rich_grid = rt.Table.grid(*cols, **attributes)
+    if stack_type == "HStack":
+        rich_grid.add_row(*displayables)
+    elif stack_type == "VStack":
+        [rich_grid.add_row(row) for row in displayables]
+    return rich_grid
+
 
 #-------------------Dispatch-------------------------------------
 def box_constants_mapping(box_style: str):
@@ -253,7 +282,8 @@ def match_and_dispatch(component):
         (Is[is_a_component[Table]], dispatch_rich_table),
         (Is[is_a_component[Column]], dispatch_rich_column),
         (Is[is_a_component[Frame]], dispatch_rich_panel),
-        (Any, lambda x: print(f"Show not defined for {x}"))
+        (Is[is_a_component[HStack]], dispatch_rich_stack),
+        (Is[is_a_component[VStack]], dispatch_rich_stack),
     ] | collect
 
 def print_rich(displayable):
@@ -263,3 +293,4 @@ def print_rich(displayable):
     console.print(displayable)
 
 show = run[print_rich]
+displayable = run[match_and_dispatch]
