@@ -23,6 +23,10 @@ New features:
 
 - `set_field` operation for atomically updating "fields" 
 
+Fixes:
+
+- `login` auth flow was broken for the new default of statically built libzef.
+
 pyzef-0.15.6
 ============
 
