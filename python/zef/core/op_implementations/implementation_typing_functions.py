@@ -9091,31 +9091,26 @@ def blueprint_imp(x, include_edges=False):
 
     if isinstance(x, Graph):
         g = x
-        if include_edges:
-            frontier_of = map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | map_cat[apply[identity, target]]
-        else:
-            frontier_of = map_cat[Outs[BT.TO_DELEGATE_EDGE]]
 
-        frontier = [g | root | collect]
+        rules = [
+            (Z[Any], BT.TO_DELEGATE_EDGE, Any)
+        ]
 
-        def step(found, last_frontier):
-            new_frontier = last_frontier | frontier_of | without[found] | collect
-            return found+new_frontier, new_frontier
-
-        all_items = ((frontier,frontier)
-                     | iterate[unpack[step]]
-                     | take_until[second
-                                  | length
-                                  | equals[0]]
-                     | last
-                     | first
-                     | collect)
+        all_items = g | root | gather[rules] | collect
 
         all_equal = sliding[2] | map[unpack[equals]] | all
         is_delegate_rel_group = BT.RELATION_EDGE & Is[apply[identity, source, target] | all_equal]
-        trim_items = [g | root | collect] + (all_items | filter[is_delegate_rel_group] | collect)
 
-        return all_items | without[trim_items | apply[identity, map_cat[out_rels[BT.TO_DELEGATE_EDGE]]] | concat | collect] | collect
+        trim_items = [g | root | collect] + (all_items | filter[is_delegate_rel_group] | collect)
+        trim_items += trim_items | map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | collect
+
+        all_items = all_items | without[trim_items] | collect
+
+        if not include_edges:
+            all_items = all_items | filter[Not[is_a[BT.TO_DELEGATE_EDGE]]] | collect
+
+        return all_items
+
     elif isinstance(x, GraphSlice):
         rae_satisfies = match[
             (Delegate, exists_at[x]),
