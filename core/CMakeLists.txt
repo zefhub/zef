@@ -188,7 +188,7 @@ if(MSVC)
 endif()
 
 if(LIBZEF_PYZEF_BUNDLED)
-  install(TARGETS zef LIBRARY DESTINATION .)
+  # install(TARGETS zef LIBRARY DESTINATION .)
   install(FILES auth.html DESTINATION .)
   install(FILES ${LICENSE_FILES} DESTINATION .)
 else()
