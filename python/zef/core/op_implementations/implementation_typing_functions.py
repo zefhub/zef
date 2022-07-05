@@ -5417,6 +5417,34 @@ def sort_implementation(v, key_fct=None, reverse=False):
 
 
 def to_delegate_implementation(first_arg, *curried_args):
+    """
+    Convert the Graph delegate representation to the Delegate representation,
+    which is not specific to any graph, or vice versa.
+    
+    Converting from a Graph EZefRef to a Delegate requires no additional curried
+    arguments.
+
+    Converting from a Delegate to a Graph EZefRef requires one argument of a
+    Graph and can take an additional argument specifying whether the EZefRef
+    should be created if it doesn't already exist. If this is not given, and the
+    delegate doesn't exist, then this function returns None.
+
+    ---- Examples ----
+    >>> z_entity_del | to_delegate      # A Delegate(...) of the entity
+    >>> delegate | to_delegate[g][True] # A EZefRef of the delegate
+    >>> delegate | to_delegate          # => delegate
+
+    ---- Signature ----
+    Delegate -> Delegate
+    (Delegate, Graph) -> EZefRef | Nil
+    (Delegate, Graph, True) -> EZefRef
+    EZefRef[Delegate] -> Delegate
+
+    ---- Tags ----
+    - related zefop: delegate_of
+
+    """
+
     if isinstance(first_arg, Delegate):
         if len(curried_args) == 0:
             return first_arg
@@ -5447,6 +5475,47 @@ def attempt_to_delegate(args):
         return Delegate(args)
 
 def delegate_of_implementation(x, arg1=None, arg2=None):
+    """
+    With no additional arguments, takes the input and produces an abstract
+    Delegate from it. The input could be a ZefRef on a graph, an
+    ET/RT/AET/RelationTriple type, or another delegate. The output will always
+    be one order of delegate higher than the input.
+    
+    With one additional argument, which must be a Graph, this will lookup the
+    ZefRef of the equivalent delegate on the graph, if it exists. A second
+    additional argument, set to True, forces the creation of the ZefRef on the
+    graph.
+    
+    This and `to_delegate` can be used interchangably in many ways.
+
+    ---- Examples ----
+    >>> z | delegate_of
+    >>> z | delegate_of | to_delegate == z | to_delegate | delegate_of
+    >>> ET.Machine | delegate_of == Delegate(ET.Machine) | delegate_of
+    >>> (ET.A, RT.B, ET.C) | delegate_of | source == ET.A | delegate_of
+    >>> z | delegate_of | all    # Get all instances that are the same type as z
+    
+    >>> ET.Machine | delegate_of[g] | now | all == g | now | all[ET.Machine]
+    >>> ET.Machine | delegate_of[g][True]   # Creates the delegate ZefRef on the graph g
+    
+    >>> z = ET.Machine | g | run
+    ... dz = z | delegate_of | collect
+    ... a,b,c = (dz, RT.Meta, "metadata") | g | run
+    ... b | delegate_of | discard_frame == (delegate_of(ET.Machine), RT.Meta, AET.String) | delegate_of[g]
+
+    ---- Signature ----
+    Delegate -> Delegate
+    AnyRAEType -> Delegate
+    ZefRef -> ZefRef | Nil
+    EZefRef -> EZefRef | Nil
+    (Delegate | AnyRAEType, Graph) -> EZefRef | Nil
+    (Delegate | AnyRAEType, Graph, Bool) -> EZefRef
+
+    where AnyRAEType = ET | AET | RT | RelationTriple
+
+    ---- Tags ----
+    - related zefop: to_delegate
+    """
     if isinstance(x, EZefRef) or isinstance(x, ZefRef):
         assert arg2 is None
         if arg1 is None:
