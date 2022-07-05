@@ -847,8 +847,8 @@ namespace zefDB {
                 return std::filesystem::path(std::string(env)) / upstream_name;
 
             std::filesystem::path path = zefdb_config_path();
-            path /= "graphs";
             path /= upstream_name;
+            path /= "graphs";
             return path;
         }
 
