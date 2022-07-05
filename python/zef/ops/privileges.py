@@ -47,11 +47,11 @@ def privileges_implementation(user, action, privilege, target):
     if typ is None:
         raise Exception(f"Unknown (action,privilege) combination {(action,privilege)}")
 
-    return Effect({
+    return {
         "type": typ,
         "user": user,
         "target": target
-    })
+    }
 
 def privileges_type_info(op, curr_type):
     return VT.Effect
@@ -63,8 +63,8 @@ privileges = make_zefop(RT.Privileges)
 grant = privileges[KW.grant]
 revoke = privileges[KW.revoke]
 
-login = Effect({"type": FX.ZefHub.Login})
-login_as_guest = Effect({"type": FX.ZefHub.Login, "auth_key": "GUEST"})
-logout = Effect({"type": FX.ZefHub.Logout})
+login = {"type": FX.ZefHub.Login}
+login_as_guest = {"type": FX.ZefHub.Login, "auth_key": "GUEST"}
+logout = {"type": FX.ZefHub.Logout}
 
 from ..pyzef.internals import who_am_i

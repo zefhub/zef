@@ -203,7 +203,7 @@ def on_implementation(g, op):
     from ...pyzef import zefops as internal
     from ..fx import FX, Effect
 
-    stream =  Effect({'type': FX.Stream.CreatePushableStream}) | run
+    stream =  FX.Stream.CreatePushableStream() | run
     sub_decl = internal.subscribe[internal.keep_alive[True]]
     
     if isinstance(g, Graph):
@@ -379,7 +379,7 @@ def peel_tp(op, curr_type):
     if curr_type == VT.Effect:
         return VT.Dict[VT.String, VT.Any]
     elif curr_type in {VT.ZefOp, VT.LazyValue}:
-        return VT.Record
+        return VT.Tuple
     else:
         return absorbed(curr_type)[0]
 
@@ -1292,7 +1292,7 @@ def insert_imp(d: dict, key, val=None):
     - related zefop: remove
     - related zefop: update
     """
-    if isinstance(d, FlatGraph):
+    if is_a(d, FlatGraph):
         fg = d
         new_el = key
         return fg_insert_imp(fg, new_el)
@@ -1419,7 +1419,7 @@ def remove_imp(d: dict, key_to_remove: tuple):
     - related zefop: insert
     - related zefop: get
     """
-    if isinstance(d, FlatGraph):
+    if is_a(d, FlatGraph):
         fg = d
         return fg_remove_imp(fg, key_to_remove)
     return {p[0]: p[1] for p in d.items() if p[0] != key_to_remove}
@@ -1458,7 +1458,7 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
     - related zefop: select_in
     """
     from typing import Generator
-    if isinstance(d, FlatGraph):
+    if is_a(d, FlatGraph):
         return fg_get_imp(d, key)
     elif isinstance(d, dict):
         return d.get(key, default)
@@ -1778,7 +1778,7 @@ def all_imp(*args):
 
     import builtins
     from typing import Generator, Iterator   
-    if isinstance(args[0], FlatGraph):
+    if is_a(args[0], FlatGraph):
         return fg_all_imp(*args)
     if isinstance(args[0], ZefRef) and is_a[ET.ZEF_List](args[0]):
         z_list = args[0]
@@ -2086,11 +2086,11 @@ def push_imp(item: VT.Any, stream: VT.Stream):  # -> Union[Effect, Error]
     (T, Stream) -> Effect
     """
     if isinstance(stream, Awaitable) or isinstance(stream, ZefRef) or isinstance(stream, EZefRef):
-        return Effect({
+        return {
             'type': FX.Stream.Push,
             'stream': stream,
             'item': item,
-        })
+        }
     raise RuntimeError('push must be called with a Stream pushable stream represented by a ZefRef[ET[PushableStream]] curried in.')
     
     
@@ -4964,8 +4964,8 @@ def fill_or_attach_implementation(z, rt, val):
 def fill_or_attach_type_info(op, curr_type):
     return curr_type
 
-def set_field_implementation(z, rt, val):
-    return LazyValue(z) | set_field[rt][val]
+def set_field_implementation(z, rt, val, incoming=False):
+    return LazyValue(z) | set_field[rt][val][incoming]
 
 def set_field_type_info(op, curr_type):
     return curr_type
@@ -5022,14 +5022,15 @@ def hasin_implementation(zr, rt):
 # -------------------------------- apply_functions -------------------------------------------------
 def apply_functions_imp(x, fns):
     """ 
-    Apply different functions to different elements in a list.
-    The use case is similar to using Zef's map[f1,f2,f3] with multiple
-    functions, but fills in the gap when the input is not a list / stream.
-    In this sense, it is closer to func.
-    The input list and list of functions must be of the same length.
+    Given a list of values and an associated list of functions,
+    apply the nth function to the nth value list element.
+
+    It is strongly recommended not to use impure functions inside
+    this operator.
 
     ---- Examples ----
-    ['Hello', 'World'] | apply_functions[to_upper_case, to_lower_case]    # => ['HELLO', 'world']
+    >>> ['Hello', 'World'] | apply_functions[to_upper_case, to_lower_case]    # => ['HELLO', 'world']
+    >>> (1,2) | apply_functions[add[1], add[10]]      # => (2, 12)
 
     ---- Signature ----
     (Tuple[T1, ...,TN], Tuple[T1->TT1, ..., TN->TTN] ) -> Tuple[TT1, ...,TTN]
@@ -5038,18 +5039,21 @@ def apply_functions_imp(x, fns):
     - used for: control flow
     - operates on: ZefOp
     - operates on: Function
-    - related zefop: func
     - related zefop: reverse_args
     - related zefop: map
+    - related zefop: apply
     """
     import builtins
-    if not (isinstance(x, tuple) or isinstance(x, list)):
-        raise TypeError(f"The dataflow argument for apply_functions must be a list/tuple: Got a type(x)={type(x)} Value: x={x}")
-    if not len(fns) == len(x):
-        raise TypeError(f"the length of the dataflow argument for apply_functions must be the same length as the list of functions provided. Got x={x} and fns={fns}" )
-    return tuple(
-        (f(el) for f, el in builtins.zip(fns, x))
-    )
+    from typing import Generator
+    if not (isinstance(fns, list) or isinstance(fns, tuple)):
+        raise TypeError(f"apply_functions must be given a tuple of functions.")
+    if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, Generator)):
+        raise TypeError(f"apply_functions must be given a tuple of input args.")
+    xx = tuple(x)
+    if not len(fns) == len(xx):
+        raise ValueError(f"len(fs) must be equal to len(x)")
+        
+    return tuple((f(el) for f, el in builtins.zip(fns, x)))
 
 
 
@@ -5076,6 +5080,7 @@ def map_implementation(v, f):
     - used for: control flow
     - used for: function application
     - related zefop: apply_functions
+    - related zefop: apply
     """
     import builtins
     input_type = parse_input_type(type_spec(v))
@@ -5540,10 +5545,7 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
     #     return Error(f'Invalid type "{rt}" specified in Out[...]')
     # res = target(out_rel_imp(z, rt))
     # if target_filter and not is_a_implementation(res, target_filter):
-    res = Outs_imp(z, rt, target_filter)
-    if len(res) != 1:
-        raise Exception(f"Out didn't find a single target node that matched the [{rt}][{target_filter}] filter")
-    return single(res)
+    return target_implementation(out_rel_imp(z, rt, target_filter))
 
 
 
@@ -5569,11 +5571,7 @@ def Outs_imp(z, rt=None, target_filter = None):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
 
-    res = out_rels_imp(z, rt) | map[target] | collect
-    if target_filter: 
-        if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
-        return res | filter[is_a[target_filter]] | collect
-    return res
+    return out_rels_imp(z, rt, target_filter) | map[target] | collect
 
 
 #---------------------------------------- In -----------------------------------------------
@@ -5599,10 +5597,7 @@ def In_imp(z, rt=None, source_filter = None):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
 
-    res = Ins_imp(z, rt, source_filter)
-    if len(res) != 1:
-        raise Exception(f"In didn't find a single source node that matched the [{rt}][{source_filter}] filter")
-    return single(res)
+    return source_implementation(in_rel_imp(z, rt, source_filter))
 
 
 #---------------------------------------- Ins -----------------------------------------------
@@ -5626,11 +5621,7 @@ def Ins_imp(z, rt=None, source_filter = None):
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
 
-    res = in_rels_imp(z, rt) | map[source] | collect
-    if source_filter: 
-        if isinstance(source_filter, ZefOp): source_filter = Is[source_filter]
-        return res | filter[is_a[source_filter]] | collect
-    return res
+    return in_rels_imp(z, rt, source_filter) | map[source] | collect
 
 
 #---------------------------------------- out_rel -----------------------------------------------
@@ -5659,8 +5650,30 @@ def out_rel_imp(z, rt=None, target_filter = None):
 
     opts = out_rels_imp(z, rt, target_filter)
     if len(opts) != 1:
-        # TODO: hinting if problems occur goes here
-        raise Exception("out_rel did not find a single edge. TODO hints here.")
+        # We use a function here for ease of control flow
+        def help_hint():
+            hint = ""
+            if len(opts) > 0:
+                hint += f"out_rel found too many relations that satisfy RT⊆{rt!r}"
+                if target_filter is not None:
+                    hint += f" and target={target_filter!r}"
+                return hint 
+            else:
+                hint += f"out_rel did not find any relations that satisfy RT⊆{rt!r}"
+                if target_filter is not None:
+                    hint += f" and target={target_filter!r}"
+                    num = len(out_rels_imp(z, rt, None))
+                    if num > 0:
+                        hint += f"\nThere are {num} relations of kind {rt!r}, maybe you did not mean to include the target filter?"
+                        return hint 
+
+                if len(in_rels_imp(z, rt, target_filter)) > 0:
+                    hint += f"\nThere are incoming relations of this kind, maybe you meant to write in_rel or In instead."
+                    return hint
+
+                return hint
+
+        raise Exception(help_hint())
     return single(opts)
 
 #---------------------------------------- out_rels -----------------------------------------------
@@ -5721,8 +5734,30 @@ def in_rel_imp(z, rt=None, source_filter = None):
 
     opts = in_rels_imp(z, rt, source_filter)
     if len(opts) != 1:
-        # TODO: hinting if problems occur goes here
-        raise Exception("in_rel did not find a single edge. TODO hints here.")
+        # We use a function here for ease of control flow
+        def help_hint():
+            hint = ""
+            if len(opts) > 0:
+                hint += f"in_rel found too many relations that satisfy RT⊆{rt!r}"
+                if source_filter is not None:
+                    hint += f" and source={source_filter!r}"
+                return hint 
+            else:
+                hint += f"in_rel did not find any relations that satisfy RT⊆{rt!r}"
+                if source_filter is not None:
+                    hint += f" and source={source_filter!r}"
+                    num = len(in_rels_imp(z, rt, None))
+                    if num > 0:
+                        hint += f"\nThere are {num} relations of kind {rt!r}, maybe you did not mean to include the source filter?"
+                        return hint 
+
+                if len(out_rels_imp(z, rt, source_filter)) > 0:
+                    hint += f"\nThere are outgoing relations of this kind, maybe you meant to write out_rel or Out instead."
+                    return hint
+
+                return hint
+
+        raise Exception(help_hint())
     return single(opts)
 
 
@@ -6097,6 +6132,54 @@ def is_a_implementation(x, typ):
         
         raise NotImplementedError(f"Pattern ValueType isn't implemented for {x}")
 
+
+    def list_matching(x, tp):
+        import sys
+        from typing import Generator
+        if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, Generator)):
+            return False
+        ab = tp.d['absorbed']
+        if ab != ():
+            if isinstance(x, Generator):
+                raise NotImplementedError()
+            if len(ab)!=1:    # List takes only one Type argument
+                print('Something went wrong in `is_a[List[...]]`: multiple args curried into ', file=sys.stderr)
+            return x | map[is_a[ab[0]]] | all | collect
+        else:
+            return True
+
+
+    def set_matching(x, tp):
+        import sys
+        if not isinstance(x, set):
+            return False
+        ab = tp.d['absorbed']
+        if ab != ():
+            if len(ab)!=1:    # List takes only one Type argument
+                print(f'Something went wrong in `is_a[Set[T1]]`: Set takes exactly one subtype, but got {x}', file=sys.stderr)
+            return x | map[is_a[ab[0]]] | all | collect
+        else:
+            return True
+
+
+    def dict_matching(x, tp):
+        import sys
+        if not (isinstance(x, dict)):
+            return False
+        ab = tp.d['absorbed']
+        if ab != ():
+            if (len(ab)==1 and len(ab[0])==2):    # Dict must contain a type in one [] and that must be a pair
+                T1, T2 = ab[0]
+                return x | items | map[lambda p: is_a(p[0], T1) and is_a(p[1], T2)] | all | collect
+            else:
+                print(f'Something went wrong in `is_a[Dict[T1, T2]]`: exactly two subtypes must be given. Got {ab}', file=sys.stderr)
+                return Error('Error matching Dict[...]')
+        else:
+            return True
+
+
+
+
     def valuetype_matching(el, vt):
         if vt == VT.Any: return True
 
@@ -6124,6 +6207,7 @@ def is_a_implementation(x, typ):
         if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
         python_type = vt_name_to_python_type[vt.d['type_name']]
         return isinstance(el, python_type)
+    
 
     if isinstance(typ, ValueType_):
         if typ.d['type_name'] == "Union":
@@ -6147,6 +6231,16 @@ def is_a_implementation(x, typ):
         if typ.d['type_name'] == "Complement":
             return not is_a(x, typ.d['absorbed'][0])
 
+        if typ.d['type_name'] == "List":
+            return list_matching(x, typ)
+
+        if typ.d['type_name'] == "Set":
+            return set_matching(x, typ)
+
+        if typ.d['type_name'] == "Dict":
+            return dict_matching(x, typ)
+
+
         if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
             map_ = {"Instantiated": instantiated, "Assigned": assigned, "Terminated": terminated}
             def compare_absorbed(x, typ):
@@ -6160,6 +6254,10 @@ def is_a_implementation(x, typ):
 
         if typ.d['type_name'] == "Pattern":
             return pattern_vt_matching(x, typ)
+
+        if typ.d['type_name'] == "FlatGraph":
+            from zef.core.flat_graph import FlatGraph_
+            return isinstance(x, FlatGraph_)
 
         return valuetype_matching(x, typ)
                     
@@ -6265,6 +6363,15 @@ def is_a_implementation(x, typ):
         return isinstance(x, typ)
     except TypeError:
         return False
+
+
+
+
+
+
+
+
+
 
 def _is_a_instance_delegate_generic(x, typ):
     # This function is for internal use only and does the comparisons against
@@ -6424,7 +6531,7 @@ def reduce_type_info(op, curr_type):
         return VT.List[VT.Any]
 
 def group_by_type_info(op, curr_type):
-    return VT.List[VT.Record[VT.Any]]
+    return VT.List[VT.Tuple[VT.Any]]
 
 def identity_type_info(op, curr_type):
     return curr_type
@@ -6626,13 +6733,13 @@ def tag_imp(x, tag_s: str, *args):
             force = args[0]
         else:
             force = False
-        return Effect({
+        return {
             'type': FX.Graph.Tag,
             'graph': x,
             'tag': tag_s,
             'force': force,
             'adding': True,
-        })
+        }
     if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
         assert len(args) == 0
         return LazyValue(x) | tag[tag_s]
@@ -6656,13 +6763,13 @@ def untag_imp(x, tag: str):
     (ZefRef, str) -> Effect
     """
     if isinstance(x, Graph):
-        return Effect({
+        return {
             'type': FX.Graph.Tag,
             'graph': x,
             'tag': tag,
             'adding': False,
             'force': False,
-        })
+        }
     if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
         raise Exception("Untagging a RAE is not supported at the moment.")
 
@@ -6687,11 +6794,11 @@ def sync_imp(x: VT.Graph, sync_state: bool = True):
     Graph -> Effect
     (Graph, bool) -> Effect
     """
-    return Effect({
+    return {
         'type': FX.Graph.Sync,
         'graph': x,
         'sync_state': sync_state,
-    })
+    }
     
 def sync_tp(op, curr_type):
     return VT.Effect
@@ -6722,7 +6829,7 @@ def merge_imp(a, second=None, *args):
     - related zefop: merge_with
     """
     from typing import Generator
-    if isinstance(a, FlatGraph) and isinstance(second, FlatGraph):
+    if is_a(a, FlatGraph) and is_a(second, FlatGraph):
         return fg_merge_imp(a, second)
     elif second is None:
         assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, Generator)
@@ -6819,10 +6926,10 @@ def to_clipboard_imp(x):
         return to_clipboard(str(x))
 
     assert type(x) in {str, int, float, bool}
-    return Effect({
+    return {
         'type': FX.Clipboard.CopyTo,
         'value': x
-    })
+    }
 
 
 def to_clipboard_tp(x):
@@ -6836,9 +6943,9 @@ def from_clipboard_imp():
     the content of a clipboard to be copied
     """
     # assert type(x) in {str, int, float, bool}
-    return Effect({
+    return {
         'type': FX.Clipboard.CopyFrom,
-    })
+    }
 
 _call_0_args_translation[RT.FromClipboard] = from_clipboard_imp
 
@@ -6969,10 +7076,10 @@ def read_file_imp(fname):
     - used for: file io
 
     """
-    return Effect({
+    return {
         'type': FX.LocalFile.Read,
         'filename' : fname
-    })
+    }
 
 def read_file_tp(op, curr_type):
     return VT.Effect
@@ -6995,11 +7102,11 @@ def load_file_imp(fname, format = None):
     - used for: file io
 
     """
-    return Effect({
+    return {
         'type'     : FX.LocalFile.Load,
         'filename' : fname,
         'format'   : format
-    })
+    }
 
 def load_file_tp(op, curr_type):
     return VT.Effect
@@ -7027,12 +7134,12 @@ def save_file_imp(content, fname, settings = {}):
     (VT.Any, VT.String) -> VT.Effect
 
     """
-    return Effect({
+    return {
         'type': FX.LocalFile.Save,
         'filename' : fname,
         'content': content,
         'settings': settings,
-    })
+    }
 
 def save_file_tp(op, curr_type):
     return VT.Effect
@@ -7053,11 +7160,11 @@ def write_file_imp(content, fname):
     (VT.Any, VT.String) -> VT.Effect
 
     """
-    return Effect({
+    return {
         'type': FX.LocalFile.Write,
         'filename' : fname,
         'content': content,
-    })
+    }
 
 def write_file_tp(op, curr_type):
     return VT.Effect
@@ -7977,13 +8084,13 @@ def to_screaming_snake_case_tp(op, curr_type):
     return VT.String
 
 def make_request_imp(url, method='GET', params={}, data={}):
-    return Effect({
+    return {
             "type":     FX.HTTP.Request,
             "url":      url,
             "method":   method,
             "params":   params,
             "data":     data,
-    })
+    }
 
 def make_request_tp(op, curr_type):
     return VT.Effect
@@ -8084,7 +8191,7 @@ def fg_insert_imp(fg, new_el):
     from ..graph_delta import map_scalar_to_aet_type
     from ...pyzef.internals import DelegateRelationTriple
 
-    assert isinstance(fg, FlatGraph)
+    assert is_a(fg, FlatGraph)
     new_fg = FlatGraph()
     new_blobs, new_key_dict = [*fg.blobs], {**fg.key_dict}
 
@@ -8472,7 +8579,7 @@ def fr_ins_and_outs_imp(fr):
     return FlatRefs(fr.fg, blob[2])
 
 def fg_all_imp(fg, selector=None):
-    assert isinstance(fg, FlatGraph)
+    assert is_a(fg, FlatGraph)
     if selector:
         selected_blobs = fg.blobs | filter[lambda b: is_a(b[1], selector)] | collect
     else:
@@ -8484,7 +8591,7 @@ def fg_all_imp(fg, selector=None):
 def transact_imp(data, g, **kwargs):
     from typing import Generator
     from ..graph_delta import construct_commands
-    if isinstance(data, FlatGraph):
+    if is_a(data, FlatGraph):
         commands = flatgraph_to_commands(data)
     elif type(data) in {list, tuple}:
         commands = construct_commands(data)
@@ -8493,11 +8600,11 @@ def transact_imp(data, g, **kwargs):
     else:
         raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
 
-    return Effect({
+    return {
             "type": FX.Graph.Transact,
             "target_graph": g,
             "commands":commands
-    })    
+    }
 
 def transact_tp(op, curr_type):
     return VT.Effect
@@ -8984,31 +9091,26 @@ def blueprint_imp(x, include_edges=False):
 
     if isinstance(x, Graph):
         g = x
-        if include_edges:
-            frontier_of = map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | map_cat[apply[identity, target]]
-        else:
-            frontier_of = map_cat[Outs[BT.TO_DELEGATE_EDGE]]
 
-        frontier = [g | root | collect]
+        rules = [
+            (Z[Any], BT.TO_DELEGATE_EDGE, Any)
+        ]
 
-        def step(found, last_frontier):
-            new_frontier = last_frontier | frontier_of | without[found] | collect
-            return found+new_frontier, new_frontier
-
-        all_items = ((frontier,frontier)
-                     | iterate[unpack[step]]
-                     | take_until[second
-                                  | length
-                                  | equals[0]]
-                     | last
-                     | first
-                     | collect)
+        all_items = g | root | gather[rules] | collect
 
         all_equal = sliding[2] | map[unpack[equals]] | all
         is_delegate_rel_group = BT.RELATION_EDGE & Is[apply[identity, source, target] | all_equal]
-        trim_items = [g | root | collect] + (all_items | filter[is_delegate_rel_group] | collect)
 
-        return all_items | without[trim_items | apply[identity, map_cat[out_rels[BT.TO_DELEGATE_EDGE]]] | concat | collect] | collect
+        trim_items = [g | root | collect] + (all_items | filter[is_delegate_rel_group] | collect)
+        trim_items += trim_items | map_cat[out_rels[BT.TO_DELEGATE_EDGE]] | collect
+
+        all_items = all_items | without[trim_items] | collect
+
+        if not include_edges:
+            all_items = all_items | filter[Not[is_a[BT.TO_DELEGATE_EDGE]]] | collect
+
+        return all_items
+
     elif isinstance(x, GraphSlice):
         rae_satisfies = match[
             (Delegate, exists_at[x]),
@@ -9148,6 +9250,7 @@ def apply_imp(x, f):
     
     ---- Tags ----
     - related zefop: map
+    - related zefop: apply_functions
     - related zefop: func
     - related zefop: call
     - used for: control flow
@@ -9203,7 +9306,7 @@ def split_on_next_imp(s, el_to_split_on):
 
 
 # ----------------------------- ops acting on op doctstring -----------------------------
-def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
+def examples_imp(op: VT.ZefOp) -> VT.List[VT.Tuple]:
     """
     Returns the examples portion of a docstring as a list of tuples mapping
     example string to a possible output string.
@@ -9219,7 +9322,7 @@ def examples_imp(op: VT.ZefOp) -> VT.List[VT.Record]:
     '"external_data_with_unusualcharacters"')]
 
     ---- Signature ----
-    (ZefOp) -> List[Record[String | Nil]]
+    (ZefOp) -> List[Tuple[String | Nil]]
 
     ---- Tags ----
     - related zefop: tags
@@ -9508,4 +9611,113 @@ def indexes_of_imp(v, ElType):
     operates on: List
     """
     return v | enumerate | filter[second | is_a[ElType]] | map[first] | collect
+
+
+
+
+
+
+
+
+def gather_imp(z_initial, rules=None):
+    """ 
+    An operator that given a launch point on a graph, gathers up 
+    a subgraph by traversing based on a rules pattern that is specified.
+    There are two main modes of usage: 
+
+    ---------------- A: Explicit Rules -----------------
+    Giving an explicit rule set:
+    >>> rules = [
+    >>>     (Z[ET.A], RT.R1, ET.B),        # from source
+    >>>     (Z[Any], RT.R2, AET.String),    
+    >>>     (ET.Bar, RT.R2, Z[ET.Foo]),    # from target moving in the opposite direction of the relation
+    >>> ]
+    then 
+    >>> z1 | gather[rules]
+    will iteratively traverse the graph until there is nothing more to be collected.
+    What do the rules specify in this case? For example, the first rule (ET.A, RT.R1, ET.B)
+    being part of 'from_source' mean that if one were to stand on a node of type "ET.A" as a source,
+    with an outgoing relation of type "RT.R1" which leads to a "ET.B", then take that step
+    and include both the edge and the "ET.B" in the gathered set.
+
+    ---------------- B: Implicit Rules -----------------
+    For certain entity types, predefined rule sets are associated.
+    B1) For ET.ZEF_Function, a rule set to gather all things related to that function is predefined.
+    Future: Also for ET.ZEF_EffectModule, ET.ZEF_Op
+    
+    """
+
+
+    # ------------------------------ catch all cases for implicit rules ----------------------------------
+    if rules is None:
+        if z_initial | is_a[ET.ZEF_Function] | collect:
+            zef_fct_rules =  [
+                        (Z[ET.ZEF_Function], RT.PythonSourceCode, AET.String),
+                        (Z[ET.ZEF_Function], RT.OriginalName,     AET.String),
+                        (Z[ET.ZEF_Function], RT.Binding,          ET.ZEF_Function),
+                        (Z[RT.Binding],      RT.Name,             AET.String),
+                        (Z[RT.Binding],      RT.UseTimeSlice,     AET.String),
+                    ]
+            return gather_imp(z_initial, zef_fct_rules)           
+        else:
+            raise TypeError(f"Implicit rules not defined in 'gather' operator for {rae_type(z_initial)}")
+
+
+    # --------------------------------- verify the rules data structure-------------------------------
+    # TODO: once type checking is in place, hoist this out of the body into the function signature
+    ValidRule = (
+        List &
+        Is[length | equals[3]] & (
+            Is[first | without_absorbed | equals[Z]] |
+            Is[last | without_absorbed | equals[Z]] 
+        ))
+    def EveryElement(T):
+        return List & Is[ map[is_a[T]] | all  ]
+
+    ValidRuleList = EveryElement(ValidRule)
+
+    if not rules | is_a[ValidRuleList] | collect:
+        return Error(f'`gather` called with an invalid set of rules: {rules}')
+
+
+    # --------------------------------- explicit rules -------------------------------
+    def traverse_rae_step(z: ZefRef) -> List[ZefRef]:
+
+        def from_single_rule_from_source(triple) -> List[ZefRef]:
+            src_tp, rel_tp, trg_tp = triple
+            if not is_a[src_tp](z):
+                return []
+            return z | out_rels[rel_tp][trg_tp] | map[lambda rel: (rel, target(rel))] | concat | collect
+
+        def from_single_rule_from_target(triple) -> List[ZefRef]:
+            src_tp, rel_tp, trg_tp = triple
+            if not is_a[trg_tp](z):
+                return []
+            return z | in_rels[rel_tp][src_tp] | map[lambda rel: (rel, source(rel))] | concat | collect
+ 
+        from_source_rules = rules | filter[first | without_absorbed | equals[Z]] | map[lambda x: (absorbed(x[0])[0], x[1], x[2])] | collect
+        from_target_rules = rules | filter[last  | without_absorbed | equals[Z]] | map[lambda x: (x[0], x[1], absorbed(x[2])[0])] | collect
+
+        return (
+            from_source_rules | map[from_single_rule_from_source] | concat | collect,
+            from_target_rules | map[from_single_rule_from_target] | concat | collect,
+            ) | concat | collect
+
+    def step(d: dict) -> dict:
+        new_gathered = {*d['gathered'], *d['frontier']}
+        new_frontier = d['frontier'] | map[traverse_rae_step] | concat | filter[Not[contained_in[new_gathered]]] | collect
+        return {
+            'gathered': new_gathered,
+            'frontier': new_frontier,
+        }
+    
+    frontier_is_empty = get['frontier'] | length | equals[0]    
+    return {
+        'gathered': set(),
+        'frontier': {z_initial, },
+    } | iterate[step] | take_until[frontier_is_empty] | last | get['gathered'] | collect
+
+
+
+
 

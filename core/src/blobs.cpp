@@ -284,7 +284,7 @@ namespace zefDB {
 
     AllEdgeIndexes::Iterator AllEdgeIndexes::begin() const {
         blob_index* ptr_to_first_el_in_array = internals::edge_indexes(uzr_with_edges);
-        GraphData & gd = Graph(uzr_with_edges).my_graph_data();
+        GraphData & gd = *graph_data(uzr_with_edges);
         // Need to ensure here for the entire edge list, as normally
         // EZefRef{...} just does the minimum blob amount.
         Butler::ensure_or_get_range(uzr_with_edges.blob_ptr, size_of_blob(uzr_with_edges));

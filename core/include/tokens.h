@@ -398,6 +398,9 @@ namespace zefDB {
         void init_KWs();
         void init_ENs();
 
+        void load_cached_tokens();
+        void save_cached_tokens();
+
         std::optional<EntityType> ET_from_string(const std::string & s);
         EntityType ET_from_string_failhard(const std::string & s);
         std::optional<std::string> string_from_ET(const EntityType & et);
@@ -427,6 +430,12 @@ namespace zefDB {
 
         TokenStore(MMap::FileGraph & fg);
         TokenStore();
+
+        // This is internal-use only
+        void force_add_entity_type(const token_value_t & indx, const std::string & name);
+        void force_add_relation_type(const token_value_t & indx, const std::string & name);
+        void force_add_enum_type(const enum_indx & indx, const std::string& name);
+        void force_add_keyword(const token_value_t & indx, const std::string & name);
     };
 
 	// on the first run this is created and lives forever. All graphs created and destroyed register and unregister here

@@ -72,6 +72,28 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(r["z"] | now | Out[RT.Supervisor] | collect, r3["new"])
 
 
+    def test_set_field_reversed(self):
+        g = Graph()
+
+        z = ET.Machine | g | run
+        z | set_field[RT.Something][42][True] | g | run
+
+        self.assertEqual(z | now | in_rels[RT.Something] | length | collect, 1)
+        self.assertEqual(z | now | In[RT.Something] | value | collect, 42)
+
+        z | set_field[RT.Something][43][True] | g | run
+
+        self.assertEqual(z | now | In[RT.Something] | value | collect, 43)
+
+        z2 = ET.Machine | g | run
+        z | set_field[RT.Entity][z2][True] | g | run
+
+        self.assertEqual(z | now | In[RT.Entity] | collect, now(z2))
+
+        z3 = ET.Machine | g | run
+        z | set_field[RT.Entity][z3][True] | g | run
+        self.assertEqual(z | now | In[RT.Entity] | collect, now(z3))
+
 
     def test_shorthand(self):
         g = Graph()

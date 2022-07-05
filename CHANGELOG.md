@@ -5,6 +5,8 @@ Breaking changes:
 
 - SimpleGQL: no longer takes the schema_file and graph as regular arguments, but
   as `--schema-file` and `--data-tag` instead.
+- Rename `ZEFDB_CONFIG_PATH` to `ZEFDB_SESSION_PATH`
+- `schema` zefop renamed to `blueprint`
   
 New features:
 
@@ -14,7 +16,16 @@ New features:
     Commandline args take priority.
     - `--init-hook` option to run a hook on every startup
     - `@dynamic(hook: "...")` option for field resolvers
+    
+- Tokens are cached in the session directory
 
+- Dictionary syntax for graph wishes: `{ET.Something: {RT.A: 3, RT.B: 4}}`
+
+- `set_field` operation for atomically updating "fields" 
+
+Fixes:
+
+- `login` auth flow was broken for the new default of statically built libzef.
 
 pyzef-0.15.6
 ============

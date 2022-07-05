@@ -15,6 +15,7 @@
 import os
 os.environ["ZEFDB_DEVELOPER_EARLY_TOKENS"] = "1"
 os.environ["ZEFDB_OFFLINE_MODE"] = "TRUE"
+os.environ["ZEFDB_TOKENS_CACHE_PATH"] = ""
 
 from zef import *
 from zef.ops import *

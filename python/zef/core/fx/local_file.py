@@ -99,12 +99,12 @@ def save_localfile_handler(eff: Effect):
     """
     Example Effect
 
-    Effect({
+    {
         'type':     FX.LocalFile.Save,
         'filename': fname,
         'content':  content,
         'settings': settings,
-    })
+    }
     """
     try:
         content   = eff["content"]
@@ -143,11 +143,11 @@ def write_localfile_handler(eff: Effect):
     """
     Example Effect
 
-    Effect({
+    {
         'type':     FX.LocalFile.Write,
         'filename': fname,
         'content':  content,
-    })
+    }
     """
     content   = eff["content"]
     filename  = eff["filename"]
@@ -164,10 +164,10 @@ def system_open_with_handler(eff: Effect):
     Example
     =======
 
-    Effect({
+    {
             'type': FX.LocalFile.SystemOpenWith,
             'filepath': fname,
-    })
+    }
     """
     try:
         import subprocess, os, platform

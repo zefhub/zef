@@ -45,8 +45,13 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED void break_graph(Graph&g, blob_index index, int style);
 
         inline bool verify_graph(Graph&g) {
-            return (verify_graph_double_linking(g)
-                    && verify_chronological_instantiation_order(g));
+            // This is to handle mixed kinds of return false/true or the exception throwing
+            try {
+                return (verify_graph_double_linking(g)
+                        && verify_chronological_instantiation_order(g));
+            } catch(...) {
+                return false;
+            }
         }
 	}
 }

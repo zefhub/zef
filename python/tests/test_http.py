@@ -26,6 +26,10 @@ class MyTestCase(unittest.TestCase):
             # We hope that this is not taken by anything else for this test...
             'port': port,
             'pipe_into': (map[middleware_worker[permit_cors,
+                                                route["/fixed-url"][lambda query: {"type": FX.HTTP.SendResponse,
+                                                                                   "server_uuid": query["server_uuid"],
+                                                                                   "request_id": query["request_id"],
+                                                                                   "response": "Fixed"}],
                                                 route["/test-url"][lambda query: {**query, "response_body": payload}],
                                                 fallback_not_found,
                                                 send_response]]
@@ -39,6 +43,10 @@ class MyTestCase(unittest.TestCase):
         r = requests.get(f"http://localhost:{port}/test-url")
         self.assertEqual(r.status_code, 200)
         self.assertEqual(r.content, payload)
+
+        r = requests.get(f"http://localhost:{port}/fixed-url")
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual(r.content, b"Fixed")
 
         r = requests.get(f"http://localhost:{port}")
         self.assertEqual(r.status_code, 404)

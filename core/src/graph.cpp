@@ -232,6 +232,9 @@ namespace zefDB {
             auto to_del_edge_uzr = internals::instantiate(root_uzr, BT.TO_DELEGATE_EDGE, delegate_tx_uzr, *this);
             auto del_inst_uzr = internals::instantiate(root_uzr, BT.DELEGATE_INSTANTIATION_EDGE, to_del_edge_uzr, *this);
 
+            // Every graph starts with an empty transaction
+            auto my_tx = Transaction(*this, false, false);
+
             auto & info = MMap::info_from_blobs(this);
             MMap::flush_mmap(info, write_head);
         } else if(preexisting_fg) {
@@ -241,10 +244,10 @@ namespace zefDB {
                 throw std::runtime_error("File graph doesn't have the same uid as passed in!");
             }
             
-            latest_complete_tx = index(internals::get_latest_complete_tx_node(*this, 0));
-
             write_head = fg->get_latest_blob_index();
             read_head = fg->get_latest_blob_index();
+            latest_complete_tx = index(internals::get_latest_complete_tx_node(*this, 0));
+
         } else {
             // Nothing to do here - just waiting for caller to fill in the graph
         }
@@ -299,16 +302,9 @@ namespace zefDB {
         if(!response.generic.success)
             throw std::runtime_error("Unable to create new graph: " + response.generic.reason);
         *this = std::move(*response.g);
-        if(internal_use_only) {
-            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
-            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
-            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
-            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
-            return;
-        }
         // std::cerr << "New graph Graph(), ref_count = " << my_graph_data().reference_count.load() << std::endl;
         
-        // After here, we should always destruct
+        // After here, we should always destruct if anything fails
         try {
             if(sync)
                 this->sync();

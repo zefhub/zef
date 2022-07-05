@@ -308,13 +308,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
             apply_update_with_caches(*me.gd, *content.payload, false, false);
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
             // Note: don't set sync_head here, it should remain at 0.
-        } else {
-            // create a first transaction on a new graph. This layout allows us to assume that there always is a tx,
-            // which helps in various high level functions.
-            //
-            // Note: this is done here instead of in the GraphData constructor
-            // as creating a transaction will trigger the sync thread.
-            auto my_tx = Transaction(*me.gd, false, false);
         }
 
         if(!content.internal_use_only) {
@@ -389,10 +382,11 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
             // this out for a call to do_reconnect, but there is some custom
             // logic to handle in here, with regards to safety checks on the
             // graph.
-            me.gd->read_head = fg->get_latest_blob_index();
-            me.gd->write_head = fg->get_latest_blob_index();
-            me.gd->latest_complete_tx = index(internals::get_latest_complete_tx_node(*me.gd));
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
+
+            if(zwitch.developer_output()) {
+                std::cerr << "Loaded GUID: " << me.uid << " has heads of read:tx = " << me.gd->read_head.load() << ":" << me.gd->latest_complete_tx.load() << std::endl;
+            }
 
             json j{
                     {"msg_type", "subscribe_to_graph"},
@@ -1031,7 +1025,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, TagGrap
         msg->promise.set_value(GenericResponse("Can't tag graph when not being synchronised."));
         return;
     }
-    if(!wait_diff(me.gd->heads_locker, me.gd->sync_head, 0, std::chrono::duration<double>(butler_generic_timeout.value))) {
+    if(!wait_diff(me.gd->heads_locker, me.gd->sync_head, 0, std::chrono::duration<double>(butler_generic_timeout))) {
         msg->promise.set_value(GenericResponse("Timed out waiting for graph to be synced."));
         return;
     }

@@ -82,3 +82,4 @@ python3 -m pip install -qr python/requirements.txt || exit 1
 ) || exit 1
 
 ln -fs $(realpath python/pyzef/build/pyzef.* --relative-to=python/zef) python/zef/
+ln -fs $(realpath core/auth.html --relative-to=python/zef) python/zef/

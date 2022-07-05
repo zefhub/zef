@@ -82,6 +82,10 @@ namespace zefDB {
         bool zef_enum_bidirectional_map::contains(const string_pair& name_pair) {
             return zefDB::contains(enum_name_to_indx, name_pair.first + "." + name_pair.second);
         }
+
+        size_t zef_enum_bidirectional_map::size() {
+            return indx_to_string_pair.size();
+        }
     
 
         std::vector<std::tuple<enum_indx, std::string, std::string>> zef_enum_bidirectional_map::all_entries_as_list() {
