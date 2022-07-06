@@ -380,6 +380,10 @@ def graph_info(g) -> str:
         | filter[lambda x: x[0] in {BT.TX_EVENT_NODE, BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}] 
         | collect
     )
+    grouped_by_bts[BT.TX_EVENT_NODE] = grouped_by_bts.get(BT.TX_EVENT_NODE, [])
+    grouped_by_bts[BT.ENTITY_NODE] = grouped_by_bts.get(BT.ENTITY_NODE, [])
+    grouped_by_bts[BT.ATOMIC_ENTITY_NODE] = grouped_by_bts.get(BT.ATOMIC_ENTITY_NODE, [])
+    grouped_by_bts[BT.RELATION_EDGE] = grouped_by_bts.get(BT.RELATION_EDGE, [])
 
     def simple_lengths(g) -> str:
         return (f"{g.graph_data.write_head} blobs, "
