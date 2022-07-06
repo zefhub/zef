@@ -164,6 +164,9 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
             if(msg_type == "terminate") {
                 handle_incoming_terminate(j);
                 return;
+            } else if(msg_type == "force_unsubscribe") {
+                handle_incoming_force_unsubscribe(j);
+                return;
             } else if(msg_type == "graph_update") {
                 handle_incoming_graph_update(j, rest);
                 return;
@@ -345,6 +348,20 @@ void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr &
     task_promise->promise.set_value(response);
 }
 
+
+void Butler::handle_incoming_force_unsubscribe(json & j) {
+    std::cerr << "Server requested we give up subscription for " << j["graph_uid"] << " forcibly: " << j["reason"].get<std::string>() << std::endl;
+    ForceUnsubscribe content;
+    content.graph_uid = j["graph_uid"].get<std::string>();
+
+    auto data = find_graph_manager(BaseUID::from_hex(content.graph_uid));
+    if(!data) {
+        std::cerr << "We weren't subscribed anyway!" << std::endl;
+    } else {
+        auto msg = std::make_shared<RequestWrapper>(content);
+        data->queue.push(std::move(msg), true);
+    }
+}
 
 
 
