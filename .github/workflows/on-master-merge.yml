@@ -1,4 +1,4 @@
-name: Validate Master Push/Merge
+name: Validate Main
 
 on:
   push:

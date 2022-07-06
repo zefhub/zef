@@ -20,7 +20,7 @@ namespace zefDB {
 
 
         template<class T>
-        T Butler::wait_on_zefhub_message(json & j, const std::vector<std::string> & rest, QuantityFloat timeout, bool throw_on_failure, bool chunked) {
+        T Butler::wait_on_zefhub_message(json & j, const std::vector<std::string> & rest, double timeout, bool throw_on_failure, bool chunked) {
             auto response = wait_on_zefhub_message_any(j, rest, timeout, throw_on_failure, chunked);
 
             return std::visit(overloaded {
@@ -54,11 +54,10 @@ namespace zefDB {
         }
 
         template <class T>
-        T Butler::msg_push_timeout(Request && content, QuantityFloat timeout, bool ignore_closed) {
+        T Butler::msg_push_timeout(Request && content, double timeout, bool ignore_closed) {
             std::string msg_type = std::visit([](auto & content) {return msgqueue_to_str(content);}, content);
             auto future = msg_push_internal(std::move(content), ignore_closed);
             std::future_status status;
-            assert(timeout.unit == EN.Unit.seconds);
             // This needs to be changed to timeout on the butler side instead of here.
             // if(timeout.value == 0)
             //     status = std::future_status::ready;

@@ -69,7 +69,7 @@ def graphql_start_server_handler(eff: Effect):
 
 
     logging = eff.get("logging", False)
-    http_r = Effect({
+    http_r = {
         **eff,     # Verify that this is ok after change: the dict was mutated previously (using pop). There may be more key-value pairs in there now.
         'type': FX.HTTP.StartServer,
         'port': port,
@@ -78,7 +78,7 @@ def graphql_start_server_handler(eff: Effect):
         # 'pipe_into': middleware[[permit_cors, resolve_gql_query, send_response]]
         'pipe_into': map[middleware_worker[permit_cors, resolve_gql_query, fallback_not_found, send_response]] | subscribe[run],
         'logging': logging,
-    }) | run
+    } | run
 
     log.info(f"Started GQL server at http://localhost:{port}{gql_path}")
     if playground_path is not None:
@@ -97,14 +97,14 @@ def graphql_stop_server_handler(eff: dict):
     
 def graphql_start_playground_handler(eff: dict):
     """Example
-    Effect({
+    {
         "type": FX.GraphQL.StartPlayground,
         "schema_root": z_schema,
         "port": 5001, (default=5000)
         "path": "/gql", (default="/gql")
         "playground_path": "/", (default="/")
         "open_browser": True (default=True)
-    }) | run
+    } | run
     """   
     schema = eff['schema_root']
     port = eff.get("port", 5000)

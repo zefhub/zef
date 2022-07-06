@@ -29,25 +29,40 @@ using json = nlohmann::json;
 #include "butler/auth.h"
 
 namespace zefDB {
-    CURL* initialise_curl() {
-        thread_local bool done = false;
-        thread_local CURL* easy_handle;
-        if(!done) {
+
+    // Curl has all kinds of warnings about thread safety. We try and avoid
+    // these issues by setting curl up as early as possible (on load of library)
+    //
+    // Note that curl easy handles need to be thread local so they don't go into
+    // CurlGlobal.
+    struct CurlGlobal {
+        CurlGlobal() {
             curl_global_init(CURL_GLOBAL_ALL);
-
-            easy_handle = curl_easy_init();
-
-            on_thread_exit([]() {
-                curl_easy_cleanup(easy_handle);
-                curl_global_cleanup();
-            });
-
-            done = true;
         }
 
+        ~CurlGlobal() {
+            curl_global_cleanup();
+        }
+    };
+
+    static CurlGlobal curl_global;
+
+    CURL* initialise_curl() {
+        thread_local CURL* easy_handle;
+        thread_local bool done = false;
+        if(!done) {
+            easy_handle = curl_easy_init();
+            // Suppressing warnings?
+            auto temp = easy_handle;
+            on_thread_exit("curl_cleanup", [temp]() {
+                curl_easy_cleanup(easy_handle);
+            });
+            done = true;
+        }
         curl_easy_reset(easy_handle);
         return easy_handle;
     }
+
     size_t _curl_write_data(void * curl_buffer, size_t size, size_t nmemb, void * userp) {
         std::string & buf = *(std::string*)userp;
         assert(size == 1);
@@ -112,8 +127,35 @@ namespace zefDB {
     std::string last_token = "";
     time token_expire_time = clock::now();
 
+    bool using_private_key() {
+        char * env = getenv("ZEFDB_PRIVATE_KEY");
+        return (env != NULL && env[0] != '\0');
+    }
+
+    std::string get_private_token(std::string auth_id) {
+        assert(using_private_key());
+
+        char * env = getenv("ZEFDB_PRIVATE_KEY");
+        std::string private_key(env);
+
+        std::string token = jwt::create<jwt::traits::nlohmann_json>()
+            .set_issuer("local")
+            .set_type("JWT")
+            .set_audience("zefhub-io")
+            .set_payload_claim("sub", auth_id)
+            .set_issued_at(jwt::date::clock::now())
+            .set_expires_at(jwt::date::clock::now() + std::chrono::minutes(60))
+            .sign(jwt::algorithm::hs256{private_key});
+
+        return token;
+    }
 
     std::string get_firebase_refresh_token_email(std::string key_string) {
+        if(using_private_key()) {
+            if(zwitch.developer_output())
+                std::cerr << "Going to generate JWT from private key ourselves." << std::endl;
+            return get_private_token(key_string);
+        }
         int colon = key_string.find(':');
         std::string auth_username = key_string.substr(0,colon);
         std::string key = key_string.substr(colon+1);
@@ -170,6 +212,8 @@ namespace zefDB {
     }
 
     std::string get_firebase_token_refresh_token(std::string refresh_token) {
+        if(using_private_key())
+            return refresh_token;
 
         time start = clock::now();
 

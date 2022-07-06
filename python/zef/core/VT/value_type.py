@@ -78,7 +78,7 @@ class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name: str, absorbed=(), constructor_func=None, get_item_func=None):
+    def __init__(self, type_name: str, absorbed=(), constructor_func=None, get_item_func=None, pass_self=False):
             self.d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
@@ -88,8 +88,9 @@ class ValueType_:
             if get_item_func is not None:
                 _value_type_get_item_funcs[type_name] = get_item_func
 
+            self.pass_self = pass_self
             self.allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
-        
+
     def __repr__(self):
         return self.d['type_name'] + (
             '' if self.d['absorbed'] == () 
@@ -102,12 +103,14 @@ class ValueType_:
             f = _value_type_constructor_funcs[self.d["type_name"]]
         except KeyError:
             return Error(f'{self.d["type_name"]}(...) was called, but no constructor function was registered for this type')
+        if self.pass_self: return f(self, *args, **kwargs)
         return f(*args, **kwargs)
 
 
     def __getitem__(self, x):
         try:
             f = _value_type_get_item_funcs[self.d["type_name"]]
+            if self.pass_self: return f(self, x)
             return f(x)
         except KeyError:
             return ValueType_(self.d["type_name"], absorbed=(*self.d['absorbed'], x))
@@ -153,6 +156,15 @@ class ValueType_:
 
     def __invert__(self):
         return ValueType_(type_name='Complement', absorbed=(self,))
+
+
+    def __contains__(self, x):
+        """
+        Allows checking membership in form
+        >>> 4 in Int
+        """
+        from ..op_implementations.implementation_typing_functions import is_a_implementation
+        return is_a_implementation(x, self)
     
 
 def make_distinct(v):

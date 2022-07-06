@@ -22,13 +22,13 @@ from . import VT
 class Val:
     arg: VT.Any
 
-class FlatGraph:
+class FlatGraph_:
     def __init__(self, *args):
         if args == ():
             self.key_dict = {}
             self.blobs = ()
         elif len(args) == 1 and isinstance(args[0], list):
-            new_fg = FlatGraph()
+            new_fg = FlatGraph_()
             new_fg = new_fg | insert[args[0]] | collect
             self.key_dict = new_fg.key_dict
             self.blobs = new_fg.blobs

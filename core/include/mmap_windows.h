@@ -93,22 +93,6 @@
 namespace zefDB {
     namespace MMap {
 
-        constexpr size_t WIN_FILE_LOCK_BYTES = 1024;
-        inline std::string WindowsErrorMsg() {
-            LPVOID lpMsgBuf;
-            FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,
-            GetLastError(),
-            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-            (LPTSTR)&lpMsgBuf,
-            0, NULL);
-
-            std::string ret((LPCTSTR)lpMsgBuf);
-
-            LocalFree(lpMsgBuf);
-            return ret;
-        }
-
         inline void *WindowsMMap(int fd, size_t offset, size_t size, void * location) {
             if(fd == 0) {
                 // Anonymous map
@@ -133,22 +117,6 @@ namespace zefDB {
                     throw std::runtime_error("Unable to close file mapping: " + WindowsErrorMsg());
                 return ret;
             }
-        }
-
-        inline bool WindowsLockFile(int fd) {
-            HANDLE h = (HANDLE)_get_osfhandle(fd);
-            if (!LockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0))
-                return false;
-            return true;
-        }
-        inline void WindowsUnlockFile(int fd, bool flush=false) {
-            HANDLE h = (HANDLE)_get_osfhandle(fd);
-            if(flush) {
-                if (!FlushFileBuffers(h))
-                    throw std::runtime_error("Problem flushing file to disk: " + WindowsErrorMsg());
-            }
-            if (!UnlockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0))
-                    throw std::runtime_error("Problem unlocking file: " + WindowsErrorMsg());
         }
 
         constexpr unsigned int PAGE_BITMAP_BITS = ZEF_UID_SHIFT / ZEF_PAGE_SIZE;

@@ -232,6 +232,9 @@ namespace zefDB {
             auto to_del_edge_uzr = internals::instantiate(root_uzr, BT.TO_DELEGATE_EDGE, delegate_tx_uzr, *this);
             auto del_inst_uzr = internals::instantiate(root_uzr, BT.DELEGATE_INSTANTIATION_EDGE, to_del_edge_uzr, *this);
 
+            // Every graph starts with an empty transaction
+            auto my_tx = Transaction(*this, false, false);
+
             auto & info = MMap::info_from_blobs(this);
             MMap::flush_mmap(info, write_head);
         } else if(preexisting_fg) {
@@ -241,10 +244,10 @@ namespace zefDB {
                 throw std::runtime_error("File graph doesn't have the same uid as passed in!");
             }
             
-            latest_complete_tx = index(internals::get_latest_complete_tx_node(*this, 0));
-
             write_head = fg->get_latest_blob_index();
             read_head = fg->get_latest_blob_index();
+            latest_complete_tx = index(internals::get_latest_complete_tx_node(*this, 0));
+
         } else {
             // Nothing to do here - just waiting for caller to fill in the graph
         }
@@ -299,16 +302,9 @@ namespace zefDB {
         if(!response.generic.success)
             throw std::runtime_error("Unable to create new graph: " + response.generic.reason);
         *this = std::move(*response.g);
-        if(internal_use_only) {
-            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
-            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
-            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
-            std::cerr << "Creating graph for internal use only - this shouldn't be happening anymore!" << std::endl;
-            return;
-        }
         // std::cerr << "New graph Graph(), ref_count = " << my_graph_data().reference_count.load() << std::endl;
         
-        // After here, we should always destruct
+        // After here, we should always destruct if anything fails
         try {
             if(sync)
                 this->sync();
@@ -952,6 +948,7 @@ namespace zefDB {
         // in case this was the last transaction that is closed, we want to mark the 
         // transcation node as complete: any write mod to the graph will trigger a new tx hereafter
         if (gd.number_of_open_tx_sessions == 0) {
+            blob_index manager_tx = 0;
             {
                 RAII_CallAtEnd call_at_end([&]() {
                     update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
@@ -988,15 +985,25 @@ namespace zefDB {
                 if(gd.index_of_open_tx_node == 0)
                     return;
 
-                bool can_run_subs = gd.latest_complete_tx == gd.last_run_subscriptions.load();
-                gd.latest_complete_tx = gd.index_of_open_tx_node;
-                gd.index_of_open_tx_node = 0;
 
-                // Unlike the write_head, we need to inform any listeners if the read_head changes.
-                update(gd.heads_locker, gd.read_head, gd.write_head.load());  // the zefscription manager can send out updates up to this pointer (not including)		
                 // TODO: This might not be the right place.
                 auto & info = MMap::info_from_blobs(&gd);
                 MMap::flush_mmap(info, gd.write_head);
+
+                // Unlike the write_head, we need to inform any listeners if the read_head changes.
+                // update(gd.heads_locker, gd.read_head, gd.write_head.load());  // the zefscription manager can send out updates up to this pointer (not including)		
+                update(gd.heads_locker, [&]() {
+                    gd.read_head = gd.write_head.load();
+                    gd.latest_complete_tx = gd.index_of_open_tx_node;
+                    gd.index_of_open_tx_node = 0;
+                    manager_tx = gd.manager_tx_head;
+                });
+            }
+            // Let's check in this thread - here at least we should be able to see the next tx edge
+            EZefRef debug_tx{manager_tx, gd};
+            if(!(debug_tx | has_out[BT.NEXT_TX_EDGE])) {
+                std::cerr << "guid: " << uid(gd) << std::endl;
+                std::cerr << "CAN'T SEE NEXT_TX_EDGE EVEN FROM WITHIN FINISH TRANSACTION!!!!" << std::endl;
             }
 
             // Note: we have to give up the lock on the thread by this point, as

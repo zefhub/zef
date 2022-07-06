@@ -29,11 +29,6 @@ from .core import *
 
 pyzef.internals.finished_loading_python_core()
 
-import os
-if os.environ.get("ZEFDB_DEVELOPER_CIRCULAR_IMPORTS", "FALSE") == "TRUE":
-    from .circular_imports import disable_check_circular_imports
-    disable_check_circular_imports()
-
 ############################################
 # * Starting the butler
 #------------------------------------------

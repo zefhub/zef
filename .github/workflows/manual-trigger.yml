@@ -1,0 +1,90 @@
+name: Manual validate all
+
+on:
+  workflow_dispatch:
+    inputs:
+      linuxBuild:
+        description: 'Linux build'
+        required: true
+        default: true
+        type: boolean
+      macosBuild:
+        description: 'MacOS build'
+        required: true
+        default: true
+        type: boolean
+      windowsBuild:
+        description: 'Windows build'
+        required: true
+        default: true
+        type: boolean
+
+env:
+  ZEFHUB_AUTH_KEY: "GUEST"
+
+jobs:
+  check-license:
+    uses: ./.github/workflows/check-license.yml
+
+  linux-build:
+    if: inputs.linuxBuild == true
+    needs: check-license
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-20.04]
+        python-version: [3.7, "3.10"]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        uses: ./.github/actions/build
+        # Windows takes forever to build so this needs to be >20min
+        timeout-minutes: 30
+        with:
+          python-version: ${{ matrix.python-version }}
+          os: ${{ matrix.os }}
+
+  macos-build:
+    if: inputs.macosBuild == true
+    needs: check-license
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+        python-version: ["3.10"]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        uses: ./.github/actions/build
+        # Windows takes forever to build so this needs to be >20min
+        timeout-minutes: 30
+        with:
+          python-version: ${{ matrix.python-version }}
+          os: ${{ matrix.os }}
+
+  windows-build:
+    if: inputs.windowsBuild == true
+    needs: check-license
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [windows-latest]
+        python-version: [3.7, "3.10"]
+    steps:
+      - uses: actions/checkout@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build
+        uses: ./.github/actions/build
+        # Windows takes forever to build so this needs to be >20min
+        timeout-minutes: 30
+        with:
+          python-version: ${{ matrix.python-version }}
+          os: ${{ matrix.os }}

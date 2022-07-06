@@ -48,7 +48,7 @@ namespace zefDB {
     EZefRef::EZefRef(blob_index my_blob_index, const GraphData& graph_data_to_get_graph_from) : 
         blob_ptr(ptr_from_blob_index(my_blob_index, graph_data_to_get_graph_from))
 		{
-			if (my_blob_index < 0) { // TODO: add the following check, but gd not defined yet || my_blob_index > graph_data_to_get_graph_from.write_head)
+			if (my_blob_index < 0 || my_blob_index > graph_data_to_get_graph_from.write_head) {
 				std::cout << "EZefRef ctor called with index " << my_blob_index << std::endl;
                 print_backtrace();
 				throw std::runtime_error("EZefRef initialized with index outside of valid range for this graph");

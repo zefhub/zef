@@ -73,9 +73,9 @@ set(SOURCES
     src/uids.cpp
     src/from_json.cpp
     src/zef_config.cpp
+    src/globals.cpp
 
     src/butler/butler.cpp
-    src/butler/butler_zefhub.cpp
     src/butler/communication.cpp
     src/butler/threadsafe_map.cpp
     src/butler/auth.cpp
@@ -108,7 +108,6 @@ set(SOURCES
 #     include/zwitch.h
 
 #     include/butler/butler.h
-#     include/butler/butler_zefhub.h
 #     include/butler/msgqueue.h
 #     include/butler/messages.h
 #     include/butler/communication.h
@@ -173,6 +172,8 @@ if(ZEFDB_TEST_NO_MMAP_CHECKS)
 endif()
 
 # Make auth.html accessible for uninstalled builds
+# Note: this is really only for dynamic builds, but it will be a double-bounced
+# link for static builds
 if(NOT MSVC)
   add_custom_command(TARGET zef POST_BUILD
                     COMMAND ${CMAKE_COMMAND} -E create_symlink
@@ -188,7 +189,7 @@ if(MSVC)
 endif()
 
 if(LIBZEF_PYZEF_BUNDLED)
-  install(TARGETS zef LIBRARY DESTINATION .)
+  # install(TARGETS zef LIBRARY DESTINATION .)
   install(FILES auth.html DESTINATION .)
   install(FILES ${LICENSE_FILES} DESTINATION .)
 else()

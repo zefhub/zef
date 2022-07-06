@@ -26,20 +26,24 @@ using json = nlohmann::json;
 #include "zefDB_utils.h"
 #include "zwitch.h"
 
+#ifdef LIBZEF_STATIC
+std::filesystem::path find_auth_html_dir() {
+    char* path = std::getenv("LIBZEF_AUTH_HTML_PATH");
+    if (zefDB::zwitch.developer_output())
+        std::cerr << "getenv returned (" << path << ") for LIBZEF_AUTH_HTML_PATH" << std::endl;
+    if (path == NULL)
+        throw std::runtime_error("Path for auth html was not set by controlling process!");
+    return std::filesystem::path(path);
+}
 
-#if defined(_MSC_VER)
-    std::filesystem::path find_libzef_path() {
-        char* path = std::getenv("LIBZEF_AUTH_HTML_PATH");
-        if (zefDB::zwitch.developer_output())
-            std::cerr << "getenv returned (" << path << ") for LIBZEF_AUTH_HTML_PATH" << std::endl;
-        if (path == NULL)
-            throw std::runtime_error("Path was not set by controlling process!");
-        // As the caller expects a library, we should give them something even if it doesn't exist.
-        return std::filesystem::path(path);
+#elif defined(ZEF_WIN32)
+#error "Windows code doesn't know how to find auth html dir if not built as static code."
+    std::filesystem::path find_auth_html_dir() {
+        throw std::runtime_error("Windows code doesn't know how to find the auth.html directory yet.")
     }
 #elif __APPLE__
 #include <dlfcn.h>
-    std::filesystem::path find_libzef_path() {
+    std::filesystem::path find_auth_html_dir() {
         void * handle = NULL;
         handle = dlopen("libzef.dylib", RTLD_NOW);
         if(handle == NULL)
@@ -54,7 +58,7 @@ using json = nlohmann::json;
 #elif __linux__
 #include <dlfcn.h>
 #include <link.h>
-    std::filesystem::path find_libzef_path() {
+    std::filesystem::path find_auth_html_dir() {
         void * handle = NULL;
         handle = dlopen("libzef.so", RTLD_NOW);
         if(handle == NULL)
@@ -65,8 +69,8 @@ using json = nlohmann::json;
 
         return std::filesystem::path(filename).parent_path();
     }
-#elif __unix__ // all unices not caught above
 #else
+#error "Unknown platform"
 #endif
 
 namespace zefDB {
@@ -118,7 +122,17 @@ namespace zefDB {
 
         if(zwitch.developer_output())
             std::cerr << "About to start io_server thread" << std::endl;
-        thread = std::make_shared<std::thread>([this]() {io_service_.run();});
+        thread = std::make_shared<std::thread>([this]() {
+            try {
+                asio::error_code ec;
+                io_service_.run(ec);
+                if(ec)
+                    std::cerr << "Auth server crashed with exception: " << ec << std::endl;
+            } catch(const std::exception & exc) {
+                std::cerr << "Auth server caught an unhandled exception: " << exc.what() << std::endl;
+            }
+            update(locker, should_stop, true);
+        });
         // TODO: Trigger opening of browser
         std::string url("http://localhost:" + std::to_string(cur_port) + "/auth");
         url += "?redirectUrl=callback";
@@ -281,14 +295,9 @@ namespace zefDB {
     std::string AuthServer::auth_reply() {
         if (zwitch.developer_output())
             std::cerr << "Going to reply with auth.html" << std::endl;
-        auto p = find_libzef_path();
+        auto p = find_auth_html_dir();
         if (zwitch.developer_output())
-            std::cerr << "Libzef path is: " << p.string() << std::endl;
-        // Note: this changed, it was that find_libzef_path would give the path to the library, but now it gives the path to the directory containing the library.
-        // p = p.parent_path();
-        // p /= "..";
-        // p /= "share";
-        // p /= "zefDB";
+            std::cerr << "auth.html dir is: " << p.string() << std::endl;
         p /= "auth.html";
         if (zwitch.developer_output())
             std::cerr << "auth.html path is: " << p.string() << std::endl;

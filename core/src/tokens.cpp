@@ -17,6 +17,7 @@
 #include "zwitch.h"
 #include "butler/butler.h"
 #include "low_level_api.h"
+#include "zef_config.h"
 
 
 namespace zefDB {
@@ -255,6 +256,8 @@ namespace zefDB {
 
     TokenStore::TokenStore() {
         init_defaults();
+
+        load_cached_tokens();
     }
     TokenStore::TokenStore(MMap::FileGraph & fg) {
         init_defaults();
@@ -458,6 +461,125 @@ namespace zefDB {
         init_KWs();
         init_ENs();
     }
+
+
+    std::filesystem::path get_cached_tokens_path() {
+        std::string path = std::get<std::string>(get_config_var("tokens.cachePath"));
+        if(starts_with(path, "$CONFIG/"))
+            return zefdb_config_path() / path.substr(strlen("$CONFIG/"));
+        return path;
+    }
+
+    void TokenStore::save_cached_tokens() {
+        try {
+            std::filesystem::path cache_path = get_cached_tokens_path();
+            if(cache_path == "")
+                return;
+            auto lock_path = cache_path;
+            lock_path += ".lock";
+            FileLock file_lock(lock_path);
+
+            json j{
+                {"ETs", ETs.all_entries_as_list()},
+                {"RTs", RTs.all_entries_as_list()},
+                {"ENs", ENs.all_entries_as_list()},
+                {"KWs", KWs.all_entries_as_list()},
+            };
+
+            if(zwitch.developer_output())
+                std::cerr << "Going to save tokens to: " << cache_path << std::endl;
+            std::ofstream file(cache_path);
+            file << j;
+            if(!file.good())
+                throw std::runtime_error("Error in writing file.");
+        } catch(const std::exception & e) {
+            std::cerr << "Error while trying to save cached tokens: " << e.what() << std::endl;
+        }
+    }
+
+    void TokenStore::load_cached_tokens() {
+        try {
+            std::filesystem::path cache_path = get_cached_tokens_path();
+            if(cache_path == "")
+                return;
+            auto lock_path = cache_path;
+            lock_path += ".lock";
+            FileLock file_lock(lock_path);
+
+            if(zwitch.developer_output())
+                std::cerr << "Going to attempt loading cached tokens from: " << cache_path << std::endl;
+            
+            if(!std::filesystem::exists(cache_path))
+                return;
+
+            std::ifstream file(cache_path);
+            json j;
+            file >> j;
+
+            auto j_ETs = j["ETs"].get<std::vector<std::pair<token_value_t,std::string>>>();
+            auto j_RTs = j["RTs"].get<std::vector<std::pair<token_value_t,std::string>>>();
+            auto j_KWs = j["KWs"].get<std::vector<std::pair<token_value_t,std::string>>>();
+            auto j_ENs = j["ENs"].get<std::vector<std::tuple<token_value_t,std::string,std::string>>>();
+
+            for(auto & it : j_ETs)
+                force_add_entity_type(it.first, it.second);
+            for(auto & it : j_RTs)
+                force_add_relation_type(it.first, it.second);
+            for(auto & it : j_KWs)
+                force_add_keyword(it.first, it.second);
+            for(auto & it : j_ENs)
+                force_add_enum_type(std::get<0>(it), std::get<1>(it) + "." + std::get<2>(it));
+        } catch(const std::exception & e) {
+            std::cerr << "Error while trying to load cached tokens: " << e.what() << std::endl;
+        }
+    }
+
+    // TODO: Replace these with the individual type updates, which will occur in new messages from zefhub.
+    template<typename T1, typename T2>
+    void update_bidirection_name_map(thread_safe_bidirectional_map<T1,T2>& map_to_update, const T1 & indx, const T2 & name) {			
+        auto prior_name = map_to_update.maybe_at(indx);
+        auto prior_indx = map_to_update.maybe_at(name);
+        if(prior_name && *prior_name != name)
+            throw std::runtime_error("Force adding token disagrees with existing token: " + *prior_name);
+        else if(prior_indx && *prior_indx != indx)
+            throw std::runtime_error("Force adding token disagrees with existing token: " + to_str(*prior_indx));
+        else
+            map_to_update.insert(indx, name);
+    }
+
+
+    void update_zef_enum_bidirectional_map(thread_safe_zef_enum_bidirectional_map& map_to_update, const enum_indx & indx, const std::string& name) {
+        auto [enum_type,enum_value] = internals::split_enum_string(name);
+        auto pair = std::make_pair(enum_type, enum_value);
+        auto prior_pair = map_to_update.maybe_at(indx);
+        auto prior_indx = map_to_update.maybe_at(pair);
+        if(prior_pair && *prior_pair != pair)
+            throw std::runtime_error("Force adding EN disagrees with existing token: " + std::get<0>(*prior_pair) + "." + std::get<1>(*prior_pair));
+        else if(prior_indx && *prior_indx != indx)
+            throw std::runtime_error("Force adding EN disagrees with existing token: " + to_str(*prior_indx));
+        else
+            map_to_update.insert(indx, pair);
+    }
+
+
+
+
+    void TokenStore::force_add_entity_type(const token_value_t & indx, const std::string & name) {
+        update_bidirection_name_map(ETs, indx, name);
+    }
+
+    void TokenStore::force_add_relation_type(const token_value_t & indx, const std::string & name) {
+        update_bidirection_name_map(RTs, indx, name);
+    }
+
+    void TokenStore::force_add_keyword(const token_value_t & indx, const std::string & name) {
+        update_bidirection_name_map(KWs, indx, name);
+    }
+
+    void TokenStore::force_add_enum_type(const enum_indx & indx, const std::string& name) {
+        update_zef_enum_bidirectional_map(ENs, indx, name);
+    }
+
 
 
     //////////////////////////////////////////////////////

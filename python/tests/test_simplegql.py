@@ -51,6 +51,19 @@ type Transaction
   user: User @relation(rt: "User") @search
   amount: Int @search
   date: DateTime @search
+  category: Category
+}
+
+type Category {
+  transactions: [Transaction] @relation(rt: "Category") @incoming
+  name: String @unique
+
+  testListScalar: [String]
+  testListEntity: [Simple]
+}
+
+type Simple {
+  name: String
 }
 
 enum TestEnum {
@@ -79,10 +92,10 @@ def dynamicHook(z, info):
         self.server_uuid = start_server(root, g_data, self.port, "localhost", logging=False)
 
     def tearDown(self):
-        Effect({
+        {
             "type": FX.HTTP.StopServer,
             "server_uuid": self.server_uuid,
-        }) | run
+        } | run
 
     def test_simplegql(self):
         import jwt
@@ -161,10 +174,8 @@ def dynamicHook(z, info):
         assert_no_error(r)
         user2_id = r.json()["data"]["addUser"]["user"][0]["id"]
 
-        if False:
-            # This needs to be implemented!
-            r = do_query(jwt_user1, 'mutation { updateTransaction(input: {filter: {id: "' + trans_id + '"}, set: {user: {id: "' + user2_id + '"}}}) { transaction { id } } }')
-            assert_error_with(r, "TODO")
+        r = do_query(jwt_user1, 'mutation { updateTransaction(input: {filter: {id: "' + trans_id + '"}, set: {user: {id: "' + user2_id + '"}}}) { transaction { id } } }')
+        assert_error_with(r, "Unable to find entity")
 
         # Test updating and removing things
         r = do_query(jwt_user1, '''mutation {
@@ -202,6 +213,46 @@ testString: ""
         assert_no_error(r)
         self.assertEqual(len(r.json()["data"]["queryUser"]), 1)
         self.assertEqual(len(r.json()["data"]["queryUser"][0]["transactions"]), 0)
+
+        # Adding Category explicitly and updating transaction
+        r = do_query(jwt_user1, 'mutation { addCategory(input: {name: "explicit create"}) { category { id } } }')
+        assert_no_error(r)
+        cat_id = r.json()["data"]["addCategory"]["category"][0]["id"]
+
+        r = do_query(jwt_user1, 'mutation { updateTransaction(input: {filter: {id: "' + trans_id + '"}, set: {category: {id: "' + cat_id + '"} } }) { count } }')
+        assert_no_error(r)
+
+        # Adding category during update to transaction
+        r = do_query(jwt_user1, 'mutation { updateTransaction(input: {filter: {id: "' + trans_id + '"}, set: {category: {name: "on the fly"} } }) { transaction { category { id name } } } }')
+        assert_no_error(r)
+        cat_data = r.json()["data"]["updateTransaction"]["transaction"][0]["category"]
+        self.assertNotEqual(cat_data["id"], cat_id)
+        self.assertEqual(cat_data["name"], "on the fly")
+
+        # Unique checks
+        r = do_query(jwt_user1, 'mutation { addCategory(input: {name: "soon to be duplicated"}) { category { id } } }')
+        assert_no_error(r)
+
+        r = do_query(jwt_user1, 'mutation { updateCategory(input: {filter: {id: "' + cat_id + '"}, set: {name: "soon to be duplicated"} }) { category { id name } } }')
+        assert_error_with(r, "Non-unique values")
+
+
+        # List creation
+        r = do_query(jwt_user1, 'mutation { addCategory(input: {testListScalar: ["a", "b", "c"], testListEntity: [{name: "a"}, {name: "b"}]}) { category { id testListScalar testListEntity { name } } } }')
+        assert_no_error(r)
+        cat_data = r.json()["data"]["addCategory"]["category"][0]
+        cat_list_id = cat_data["id"]
+        self.assertSetEqual(set(cat_data["testListScalar"]), {"a", "b", "c"})
+        expected = [{"name": "a"}, {"name": "b"}]
+        for x in cat_data["testListEntity"]:
+            self.assertIn(x, expected)
+        for x in expected:
+            self.assertIn(x, cat_data["testListEntity"])
+
+        # TODO: List set
+        # TODO: List manipulation
+        # TODO: List remove
+
 
 
 if __name__ == '__main__':

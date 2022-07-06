@@ -309,4 +309,6 @@ _op_to_functions = {
         RT.RelatedOps:         (related_ops_imp, None),
         RT.OperatesOn:         (operates_on_imp, None), 
         RT.UsedFor:            (used_for_imp, None),
+
+        RT.Gather:             (gather_imp, None),
 }

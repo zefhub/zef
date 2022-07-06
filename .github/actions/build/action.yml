@@ -23,10 +23,16 @@ runs:
   using: 'composite'
   steps:
 
+    - name: Setup compiler on windows
+      if: ${{ startsWith(inputs.os, 'windows') }}
+      uses: microsoft/setup-msbuild@v1.1
+      with:
+        vs-version: '17'
+
     ########
     # Python
 
-    - name: Setup python on linux
+    - name: Setup python on linux and windows
       if: ${{ !startsWith(inputs.os, 'macos') }}
       uses: actions/setup-python@v2
       with:
@@ -109,7 +115,11 @@ runs:
       if: ${{ startsWith(inputs.os, 'macos') }}
       shell: bash
       run: |
-        brew install ninja openssl zstd jq coreutils
+        brew install ninja openssl@1.1 zstd jq coreutils
+        echo
+        brew --prefix
+        echo
+        brew --prefix openssl@1.1
 
     # Only do the make if the C++ files and their deps have changed. These deps
     # are everything inside of core, but also things like the tokens files from
@@ -187,6 +197,6 @@ runs:
         set "PYTHONPATH=%GITHUB_WORKSPACE%/python;%PYTHONPATH%"
         copy python\pyzef\build\Release\pyzef.* python\zef
         python3 python/tests/quick_start.py
-        # Because of some strange weirdness, going to try unittest here instead of pytest
-        #python3 -mpytest python/tests
+        REM Because of some strange weirdness, going to try unittest here instead of pytest
+        REM python3 -mpytest python/tests
         python3 -munittest discover -s python/tests

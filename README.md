@@ -43,27 +43,27 @@ Zef is an open source, data-oriented toolkit for graph data. It combines the acc
 
 If any of these apply to you, Zef might help:
 
+- I need a graph database with fast query speeds and hassle-free infra
 - I need a graph data model that's more powerful than NetworkX but easier than Neo4j
 - I need to "time travel" and access past states easily
 - I like Datomic but prefer something open source that feels like working with local data structures
-- I don't want to learn a new query language like Cypher or GSQL (I just want to use Python)
+- I would prefer querying and traversing directly in Python, rather than a query language (like Cypher or GSQL)
 - I need a GraphQL API that's easy to spin up and close to my data model
-- I want to code Python in a more functional style by chaining lazy operators
 
 <br />
 <br />
 
 ## Features
 
-- in-memory, immutable database
+- a graph language you can use directly in Python code
 - fully versioned graphs
-- work with your data like local data structures
+- in-memory access speeds
+- free and real-time data persistence (via ZefHub)
+- work with graphs like local data structures
 - no separate query language
 - no ORM
-- query and transform data using Python with composable lazy operators
 - GraphQL API with low impedance mismatch to data model
 - data streams and subscriptions
-- automatically persist, sync, and distribute graphs securely with ZefHub for free
 
 <br />
 <br />
@@ -98,6 +98,8 @@ Check out our [installation doc](https://zef.zefhub.io/introduction/installation
 ## Using Zef
 
 Here's some quick points to get going. Check out our [Quick Start](https://zef.zefhub.io/introduction/quick-start) and docs for more details.
+
+A quick note, in Zef, we overloaded the "|" pipe so users can chain together values, Zef operators (ZefOps), and functions in sequential, lazy, and executable pipelines where data flow is left to right.
 
 <br />
 

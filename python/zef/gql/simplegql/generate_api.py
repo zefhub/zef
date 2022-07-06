@@ -279,7 +279,7 @@ input Upfetch{name}Input {{
 
     # Always generate the Int scalar type 
     int_type = schema_root | Outs[RT.GQL_CoreScalarType][AET.Int] | single | collect
-    if int_type not in [rae_type(x) for x in extra_filters.keys()]:
+    if rae_type(int_type) not in [rae_type(x) for x in extra_filters.keys()]:
         extra_filters[int_type] = schema_generate_scalar_filter(int_type)
 
     query_fields = '\n\t'.join(query_fields)
@@ -312,11 +312,17 @@ scalar DateTime
 # * Schema specific parts
 #----------------------------------------------
 
-def schema_generate_list_params(z_type, extra_filters):
-    name = z_type | F.Name | collect
+def schema_generate_type_dispatch(z_type, extra_filters):
     if z_type not in extra_filters:
         extra_filters[z_type] = None
-        extra_filters[z_type] = schema_generate_type_filter(z_type, extra_filters)
+        if op_is_scalar(z_type):
+            extra_filters[z_type] = schema_generate_scalar_filter(z_type)
+        else:
+            extra_filters[z_type] = schema_generate_type_filter(z_type, extra_filters)
+
+def schema_generate_list_params(z_type, extra_filters):
+    name = z_type | F.Name | collect
+    schema_generate_type_dispatch(z_type, extra_filters)
 
     query_params = [
         f"filter: {name}Filter",
@@ -359,12 +365,7 @@ def schema_generate_type_filter(z_type, extra_filters):
             filter_name = Boolean
         else:
             filter_name = f"{field_type_name}Filter"
-            if field_type not in extra_filters:
-                extra_filters[field_type] = None
-                if op_is_scalar(field_type):
-                    extra_filters[field_type] = schema_generate_scalar_filter(field_type)
-                else:
-                    extra_filters[field_type] = schema_generate_type_filter(field_type, extra_filters)
+            schema_generate_type_dispatch(field_type, extra_filters)
 
         if op_is_list(field):
             fields += [f"{field_name}: {filter_name}List"]
@@ -444,7 +445,8 @@ input {list_fil_name} {{
 \tmax: {type_name}!
 }}"""
 
-    return {"schema": schema}
+    return {"schema": schema,
+            "orderable": op_is_orderable(z_node)}
 
 ####################################
 # * Query resolvers
@@ -854,7 +856,7 @@ def maybe_paginate_result(opts, first=None, offset=None):
 # ** Resolution
 
 @func
-def internal_resolve_field(z, info, z_field):
+def internal_resolve_field(z, info, z_field, auth_required=True):
     # This returns a LazyValue so we can deal with whatever comes out without
     # instantiating the whole list.
 
@@ -894,8 +896,8 @@ def internal_resolve_field(z, info, z_field):
     else:
         raise Exception(f"Don't know how to resolve this field: {z_field}")
 
-    # Auth filtering todo
-    opts = opts | filter[pass_query_auth[target(z_field)][info]]
+    if auth_required:
+        opts = opts | filter[pass_query_auth[target(z_field)][info]]
 
     # We must convert final objects from AEs to python types.
     # if z_field | target | is_core_scalar | collect:
@@ -1014,7 +1016,7 @@ def add_new_entity(info, type_node, params, name_gen):
                 l = [val]
 
             for item in l:
-                obj,obj_actions,obj_post_checks = find_or_add_entity(item, info, target(z_field), params, name_gen)
+                obj,obj_actions,obj_post_checks = find_or_add_entity(item, info, target(z_field), name_gen)
                 actions += obj_actions
                 post_checks += obj_post_checks
                 if z_field | op_is_incoming | collect:
@@ -1024,9 +1026,14 @@ def add_new_entity(info, type_node, params, name_gen):
 
     return this, actions, post_checks
 
-def find_or_add_entity(val, info, target_node, params, name_gen):
+def find_or_add_entity(val, info, target_node, name_gen):
     if isinstance(val, dict) and val.get("id", None) is not None:
+        # There should be no other fields given for this entity, otherwise the meaning is unclear.
+        if set(val.keys()) != {"id"}:
+            raise ExternalError("An entity should be designated with either an 'id' or a set of new fields to create a new entity.")
         obj = find_existing_entity_by_id(info, target_node, val["id"])
+        if obj is None:
+            raise ExternalError(f"Unable to find entity of kind '{target_node | F.Name | collect}' with id '{val['id']}'.")
         return obj,[],[]
     else:
         obj_name,actions,post_checks = add_new_entity(info, target_node, val, name_gen)
@@ -1066,27 +1073,19 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
             raise Exception(f"Updating list things is a todo (for z_field={z_field})")
         else:
             if op_is_unique(z_field):
-                et = ET(type_node | Out[RT.GQL_Delegate] | collect)
-                others = info.context["g"] | now | all[et] | filter[fvalue[rt][None] | equals[val]] | collect
-                others = set(others) - {z}
-                if len(others) > 0:
-                    log.error("Trying to modify entity with unique field that conflicts with others", z=z, et=et, field=field_name, others=others)
-                    raise ExternalError(f"Unique field '{field_name}' conflicts with existing items.")
+                # This used to be checked directly, here but just in case
+                # there's a mutation that renames two things at the same time,
+                # we change this up a bit.
+                post_checks += [("unique", z_field, type_node)]
 
-            if op_is_incoming(z_field):
-                maybe_prior_rel = z | in_rels[rt] | optional | collect
-            else:
-                maybe_prior_rel = z | out_rels[rt] | optional | collect
             if z_field | target | op_is_scalar | collect:
-                if maybe_prior_rel is None:
-                    if op_is_incoming(z_field):
-                        actions += [(val, rt, z)]
-                    else:
-                        actions += [(z, rt, val)]
-                else:
-                    actions += [(maybe_prior_rel | target | assign[val] | collect)]
+                actions += [z | set_field[rt][val][op_is_incoming(z_field)]]
             else:
-                raise Exception("Updating non-scalars is TODO")
+                found_z,new_actions,new_post_checks = find_or_add_entity(val, info, target(z_field), name_gen)
+                actions += new_actions
+                post_checks += new_post_checks
+
+                actions += [z | set_field[rt][found_z][op_is_incoming(z_field)]]
     
     for key,val in remove_d.items():
         if val is not None:
@@ -1102,6 +1101,11 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
         else:
             rels = z | out_rels[rt]
         actions += [terminate(rel) for rel in rels]
+
+        # TODO: Add a post-check here that this would not remove a relation on a
+        # type that has a required relation. Note that a new relation could be
+        # created in the same transaction, so it needs to be post, not directly
+        # here.
 
         # Also delete scalars
         if z_field | target | op_is_scalar | collect:
@@ -1215,11 +1219,15 @@ def commit_with_post_checks(actions, post_checks, info):
             r = actions | transact[g] | run
             # Test all post checks
             for (kind,obj,type_node) in post_checks:
-                if type(obj) == str:
-                    obj = r[obj]
-                assert type(obj) == ZefRef
-                obj = obj | in_frame[g | now | collect][allow_tombstone] | collect
-                type_name = {type_node | fvalue[RT.Name][''] | collect}
+                type_name = type_node | fvalue[RT.Name][''] | collect
+
+                if kind in ["unique"]:
+                    pass
+                else:
+                    if type(obj) == str:
+                        obj = r[obj]
+                    assert type(obj) == ZefRef
+                    obj = obj | in_frame[g | now | collect][allow_tombstone] | collect
 
                 if kind == "add":
                     for z_func in type_node | Outs[RT.OnCreate]:
@@ -1243,6 +1251,22 @@ def commit_with_post_checks(actions, post_checks, info):
                             func[z_func](obj)
                         except:
                             raise ExternalError(f"OnRemove hook for type_node of '{type_name}' threw an exception")
+                elif kind == "unique":
+                    print("Doing a unqiue check for", obj, type_name)
+                    # In this case, obj is the field which must be unique
+                    z_field = obj
+                    assert op_is_unique(z_field)
+                    # Get all values - note this is not filtered by the user's
+                    # viewpoint, so we need to be a little careful.
+                    ents = g | now | all[ET(type_node | Out[RT.GQL_Delegate] | collect)]
+                    vals = ents | map[internal_resolve_field[info][z_field][False]] | concat | collect
+
+                    dis = distinct(vals)
+                    print(vals)
+                    print(dis)
+                    if len(dis) != len(vals):
+                        log.error("Non-unique values", vals=set(vals) - set(dis))
+                        raise ExternalError(f"Non-unique values found for field '{z_field | F.Name | collect}' of type_node '{type_name}'")
 
 
         except Exception as exc:

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from functools import partial
 from .value_type import *
 
 
@@ -41,6 +42,10 @@ def decimal_ctor(*args, **kwargs):
     # return core.bytes.Bytes_(*args, **kwargs)
     return Decimal_(*args, **kwargs)
 
+
+def flatgraph_ctor(*args, **kwargs):
+    from ...core.flat_graph import FlatGraph_
+    return FlatGraph_(*args)
 
 
 def union_getitem(x):
@@ -114,7 +119,13 @@ def rp_getitem(x):
     if not isinstance(x, tuple) or len(x)!=3:
         raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got x={x}")
     return ValueType_(type_name='RP', absorbed=(x,))
-      
+
+
+def same_as_get_item(y):
+    from ..op_implementations.implementation_typing_functions import discard_frame_imp
+    return Is[lambda x: discard_frame_imp(x) == discard_frame_imp(y)]
+
+
 
 Nil        = ValueType_(type_name='Nil',        constructor_func=None)
 Any        = ValueType_(type_name='Any',        constructor_func=None)
@@ -131,7 +142,7 @@ EZefRef    = ValueType_(type_name='EZefRef',    constructor_func=None)
 ZefRef     = ValueType_(type_name='ZefRef',     constructor_func=None)     
 Graph      = ValueType_(type_name='Graph',      constructor_func=graph_ctor)     
 GraphSlice = ValueType_(type_name='GraphSlice', constructor_func=None)     
-FlatGraph  = ValueType_(type_name='FlatGraph',  constructor_func=None)     
+FlatGraph  = ValueType_(type_name='FlatGraph',  constructor_func=flatgraph_ctor)     
 ZefOp      = ValueType_(type_name='ZefOp',      constructor_func=None)     
 Stream     = ValueType_(type_name='Stream',     constructor_func=None)     
 TX         = ValueType_(type_name='TX',         constructor_func=None)     
@@ -168,11 +179,10 @@ ET         = ValueType_(type_name='ET',         constructor_func=None)
 RT         = ValueType_(type_name='RT',         constructor_func=None)
 BT         = ValueType_(type_name='BT',         constructor_func=None)
 Enum       = ValueType_(type_name='Enum',       constructor_func=None)
-Record     = ValueType_(type_name='Record',     constructor_func=None)       
+Tuple      = ValueType_(type_name='Tuple',     constructor_func=None)       
 Function   = ValueType_(type_name='Function',   constructor_func=None)
 GraphDelta = ValueType_(type_name='GraphDelta', constructor_func=None)     
 Query      = ValueType_(type_name='Query',      constructor_func=None) 
-DeltaQuery = ValueType_(type_name='DeltaQuery', constructor_func=None) 
 Effect     = ValueType_(type_name='Effect',     constructor_func=None) 
 DataFrame  = ValueType_(type_name='DataFrame',  constructor_func=None)     
 # EZefRefs   = ValueType_(type_name='EZefRefs', constructor_func=None)     
@@ -188,6 +198,10 @@ SetOf          = ValueType_(type_name='SetOf',               constructor_func=se
 Complement     = ValueType_(type_name='Complement',          constructor_func=None,             get_item_func=complement_getitem)
 RP             = ValueType_(type_name='RP',                  constructor_func=None,             get_item_func=rp_getitem)
 HasValue       = ValueType_(type_name='HasValue',            constructor_func=None)
+SameAs         = ValueType_(type_name='SameAs',                                                 get_item_func = same_as_get_item)
+
+
+
 
 def operates_on_ctor(x):
     from .._ops import operates_on, contains
@@ -204,3 +218,24 @@ def used_for_ctor(x):
 OperatesOn     = ValueType_(type_name='OperatesOn',   constructor_func = operates_on_ctor,  get_item_func = operates_on_ctor)
 RelatedOps     = ValueType_(type_name='RelatedOps',   constructor_func = related_ops_ctor,  get_item_func = related_ops_ctor)
 UsedFor        = ValueType_(type_name='UsedFor',      constructor_func = used_for_ctor, get_item_func =used_for_ctor)
+
+
+#--------------------------ZefUI Types------------------
+def zef_ui_ctor(type_name, self, *args, **kwargs):
+    if len(args) != 0: 
+        raise ValueError(f'{type_name} constructor takes no positional arguments except self, got {args}')
+
+    ctor_dict = {"type_name":type_name, "constructor_func": partial(zef_ui_ctor, type_name), "pass_self": True}
+    if len(self.d['absorbed']) == 1:
+        return ValueType_( absorbed = ({**self.d['absorbed'][0], **kwargs},), **ctor_dict)
+
+    return ValueType_(absorbed = (kwargs,), **ctor_dict)
+
+Text  = ValueType_(type_name='Text', constructor_func = partial(zef_ui_ctor, 'Text'), pass_self = True)
+Code  = ValueType_(type_name='Code', constructor_func = partial(zef_ui_ctor, 'Code'), pass_self = True)
+Style = ValueType_(type_name='Style', constructor_func = partial(zef_ui_ctor, 'Style'), pass_self = True)
+Table = ValueType_(type_name='Table', constructor_func = partial(zef_ui_ctor, 'Table'), pass_self = True)
+Column = ValueType_(type_name='Column', constructor_func = partial(zef_ui_ctor, 'Column'), pass_self = True)
+Frame = ValueType_(type_name='Frame', constructor_func = partial(zef_ui_ctor, 'Frame'), pass_self = True)
+HStack = ValueType_(type_name='HStack', constructor_func = partial(zef_ui_ctor, 'HStack'), pass_self = True)
+VStack = ValueType_(type_name='VStack', constructor_func = partial(zef_ui_ctor, 'VStack'), pass_self = True)

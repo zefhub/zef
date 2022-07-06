@@ -15,6 +15,7 @@
 
 #=============================================================================== HTTP Server handlers =========================================================================================================
 from .fx_types import Effect, FX
+from ..VT import Pattern, SetOf
 from uuid import uuid4
 from .._ops import *
 from ..error import Error
@@ -79,8 +80,11 @@ class Handler(BaseHTTPRequestHandler):
                 # TODO: Cleanup from open_requests here
                 pass
 
+            # TODO: This needs improving to allow sending content with non-200.
+            # The only choice is when to put msg in content or in header-line
+            # response.
             status,headers,msg = result
-            if status != 200:
+            if status != 200 and msg is not None:
                 msg = msg.decode('utf-8')
                 self.send_response(status, msg)
             else:
@@ -88,7 +92,7 @@ class Handler(BaseHTTPRequestHandler):
             for key,val in headers.items():
                 self.send_header(key, val)
             self.end_headers()
-            if status == 200:
+            if status == 200 and msg is not None:
                 self.wfile.write(msg)
         except BrokenPipeError:
             log.error("Connection aborted unexpectedly")
@@ -129,7 +133,7 @@ def http_start_server_handler(eff: dict):
     thread = None
     try:
         open_requests = {}
-        pushable_stream = Effect({'type': FX.Stream.CreatePushableStream}) | run
+        pushable_stream = {'type': FX.Stream.CreatePushableStream} | run
         server_uuid = str(uid(pushable_stream.stream_ezefref))
         if eff.get('pipe_into', None) is not None:
             pushable_stream | eff['pipe_into']
@@ -206,7 +210,9 @@ def http_send_response_handler(eff: Effect):
     d = _effects_processes[eff["server_uuid"]]
     future = d["open_requests"][eff["request_id"]]
 
-    msg = eff.get("response", "")
+    # if "response" not in eff:
+    #     print(f"Warning: FX.HTTP.SendResponse wish did not contain 'response' field. This is probably an error. Received wish: {eff}")
+    msg = eff.get("response", None)
     assert msg is None or isinstance(msg, str) or isinstance(msg, bytes)
     if isinstance(msg, str):
         msg = msg.encode("utf-8")
@@ -286,7 +292,7 @@ def send_response(req):
     if "response_headers" in req:
         eff_d["headers"] = req["response_headers"]
 
-    return Effect(eff_d)
+    return eff_d
 
 @func
 def fallback_not_found(req):
@@ -313,11 +319,12 @@ source | map[middleware_worker[seq_of_funcs]] | run
 
         if cur is None:
             return None
+        # Not sure if this is the right way to do things
+        SendResponseEffect = Pattern[{"type": SetOf(FX.HTTP.SendResponse)}]
+        if is_a(cur, SendResponseEffect):
+            return cur
         if isinstance(cur, dict):
             continue
-        # if isinstance(cur, Effect):
-        if isinstance(cur, dict):
-            return cur
 
         raise Exception(f"Unusual type in middleware_runner: {type(func)}")
         
