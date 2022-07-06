@@ -222,9 +222,16 @@ UsedFor        = ValueType_(type_name='UsedFor',      constructor_func = used_fo
 
 #--------------------------ZefUI Types------------------
 def zef_ui_ctor(type_name, self, *args, **kwargs):
-    if len(args) != 0: 
-        raise ValueError(f'{type_name} constructor takes no positional arguments except self, got {args}')
+    data = None
+    if len(args) == 1: 
+        data = args[0]
+    elif len(args) > 1:
+        raise ValueError(f'{type_name} constructor takes at most one positional argument, got {args}')
 
+    if data:
+        if "data" in kwargs: raise ValueError(f'{type_name} was passed both a data positional arg and a data key in kwargs which isn\'t allowed')
+        else: kwargs = {**kwargs, "data": data}
+    
     ctor_dict = {"type_name":type_name, "constructor_func": partial(zef_ui_ctor, type_name), "pass_self": True}
     if len(self.d['absorbed']) == 1:
         return ValueType_( absorbed = ({**self.d['absorbed'][0], **kwargs},), **ctor_dict)
