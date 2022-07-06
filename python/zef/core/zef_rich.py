@@ -25,62 +25,37 @@ def is_a_component(component, vt):
 def dispatch_rich_text(component):
     import rich.text as rt
 
-    def resolve_styles(d):
-        # TODO filter out non-rich styles if found
-        from rich.style import Style
-        if "background_color" in d:
-            d['bgcolor'] = d['background_color']
-            d.pop("background_color")
-        return Style(**d)
+    def resolve_style(d):
+        if "style" in d: return dispatch_rich_style(d["style"])
+        return dispatch_rich_style(Style(**d))
 
-    def resolve_nonstyle_attributes(d):
-        new_d = {}
-        if "justify" in d: new_d['justify'] = d.pop("justify")
-        if "overflow" in d: new_d['overflow'] = d.pop("overflow")
-        if "no_wrap" in d: new_d['no_wrap'] = d.pop("no_wrap")
-        if "tab_size" in d: new_d['tab_size'] = d.pop("tab_size")
+    def resolve_attributes(d):
+        allowed_keys = ["justify", "overflow", "no_wrap", "tab_size"]
+        attributes = select_keys(d, *allowed_keys)
+        return attributes
 
-        return new_d
-    
-    def resolve_text_and_nested_data(t):
-        pairs_or_text = []
-        internals = t | absorbed | collect
-        assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Text should be of type dict!"
-        text = internals[0].get("text", "")
-        attributes = {**internals[0]}
-        attributes.pop("text", None)
-        nonstyle_attributes = resolve_nonstyle_attributes(attributes)
-
-        if "data" in attributes:
-            data = attributes["data"]
-            def dispatch_on_data_type(data):
-                # Just a str
-                if isinstance(data, str):
-                    pairs_or_text.append((data, ""))
-
-                # Nested Text component
-                elif is_a_component(data, Text) : 
-                    pairs_or_text.extend(dispatch_rich_text(data))
-                
-                # List of the above 2
-                elif isinstance(data, list):
-                    [dispatch_on_data_type(x) for x in data]
-
-                else:
-                    raise ValueError("Text's data field could contain only a str, Text component, or a list composed of the two.")
-
-            dispatch_on_data_type(data)
-            attributes.pop("data")
-        
-        if "style" in attributes:
-            style = dispatch_rich_style(attributes["style"])
+    def dispatch_on_data_type(data, style):
+        # Just a str
+        if isinstance(data, str):
+            pairs_or_text.append((data, style))
+        # Nested Text component
+        elif is_a_component(data, Text) : 
+            pairs_or_text.extend(dispatch_rich_text(data))
+        # List of the above 2
+        elif isinstance(data, list):
+            [dispatch_on_data_type(x, style) for x in data]
         else:
-            style = resolve_styles(attributes)
+            raise ValueError("Text's data field could contain only a str, Text component, or a list composed of the two.")
+    
+    pairs_or_text = []
+    internals = component | absorbed | collect
+    assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Text should be of type dict!"
+    data = internals[0].get("data", "")
+    attributes = resolve_attributes(internals[0])
+    style      = resolve_style(internals[0])
+    dispatch_on_data_type(data, style)
 
-        return [(text, style), *pairs_or_text], nonstyle_attributes
-
-    pairs_or_text, nonstyle_attributes = resolve_text_and_nested_data(component)
-    return rt.Text.assemble(*pairs_or_text, **nonstyle_attributes)
+    return rt.Text.assemble(*pairs_or_text, **attributes)
 
 
 
@@ -105,17 +80,17 @@ def dispatch_rich_syntax(component):
 
 #--------------------------Style--------------------------------------
 def dispatch_rich_style(component):
-    def resolve_styles(new_d):
+    def resolve_styles(d):
         from rich.style import Style
-        if "background_color" in new_d:
-            new_d['bgcolor'] = new_d['background_color']
-            new_d.pop("background_color")
-        return Style(**new_d)
+        allowed_keys = ["bold", "italic", "strike", "underline", "overline", "color"]
+        styles = select_keys(d, *allowed_keys)
+        if "background_color" in d: 
+            styles["bgcolor"] = d["background_color"]
+        return Style(**styles)
     
     internals = component | absorbed | collect
     assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Style should be of type dict!"
-    attributes = {**internals[0]}
-    return resolve_styles(attributes)
+    return resolve_styles(internals[0])
 
 
 
