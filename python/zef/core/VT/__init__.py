@@ -246,3 +246,5 @@ Column = ValueType_(type_name='Column', constructor_func = partial(zef_ui_ctor, 
 Frame = ValueType_(type_name='Frame', constructor_func = partial(zef_ui_ctor, 'Frame'), pass_self = True)
 HStack = ValueType_(type_name='HStack', constructor_func = partial(zef_ui_ctor, 'HStack'), pass_self = True)
 VStack = ValueType_(type_name='VStack', constructor_func = partial(zef_ui_ctor, 'VStack'), pass_self = True)
+BulletList   = ValueType_(type_name='BulletList', constructor_func = partial(zef_ui_ctor, 'BulletList'), pass_self = True)
+NumberedList = ValueType_(type_name='NumberedList', constructor_func = partial(zef_ui_ctor, 'NumberedList'), pass_self = True)

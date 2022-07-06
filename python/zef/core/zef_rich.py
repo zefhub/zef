@@ -215,6 +215,26 @@ def dispatch_rich_stack(component):
     return rich_grid
 
 
+#--------------------------Bullet/NumberedList--------------------------------------
+def dispatch_rich_list(component):
+    import rich.markdown as rm
+    list_type = str(component | without_absorbed | collect)
+    dispatch_type = lambda i: '- ' if list_type == 'BulletList' else str(i + 1) +'. '
+    nl = '\n'
+    
+    internals = component | absorbed | collect
+    assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Table should be of type dict!"
+    data  = internals[0].get('data', [])
+    title = internals[0].get('title', "")
+    if title: title = "# " + title
+    
+    markdown_str = f"""
+{title}
+{nl.join([f'{dispatch_type(i)}{e}' for i,e in enumerate(data)])}
+    """
+    return rm.Markdown(markdown_str)
+
+
 #-------------------Dispatch-------------------------------------
 def box_constants_mapping(box_style: str):
     from rich import box
@@ -246,6 +266,8 @@ def match_and_dispatch(component):
         (Is[is_a_component[Frame]], dispatch_rich_panel),
         (Is[is_a_component[HStack]], dispatch_rich_stack),
         (Is[is_a_component[VStack]], dispatch_rich_stack),
+        (Is[is_a_component[BulletList]], dispatch_rich_list),
+        (Is[is_a_component[NumberedList]], dispatch_rich_list),
     ] | collect
 
 def print_rich(displayable):
