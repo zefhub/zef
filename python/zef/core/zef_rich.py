@@ -63,19 +63,17 @@ def dispatch_rich_text(component):
 def dispatch_rich_syntax(component):
     import rich.syntax as rs
 
-    def filter_attributes(d):
-        # TODO filter out non-rich styles if found
-        lexer = d.get("language", "python3")
-        d.pop("language", None)
-        d.pop("code", None)
-        return {**d, "lexer": lexer}
+    def resolve_attributes(d):
+        allowed_keys = ["line_numbers", "theme", "tab_size", "indent_guides"]
+        attributes = select_keys(d, *allowed_keys)
+        attributes["lexer"] = d.get("language", "python")
+        return attributes
     
     internals = component | absorbed | collect
     assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Code should be of type dict!"
-    code = internals[0].get("code", "")
-    attributes = {**internals[0]}
-    attributes = filter_attributes(attributes)
-    return rs.Syntax(code, **attributes)
+    data = internals[0].get("data", "")
+    attributes = resolve_attributes(internals[0])
+    return rs.Syntax(data, **attributes)
 
 
 #--------------------------Style--------------------------------------
@@ -84,8 +82,7 @@ def dispatch_rich_style(component):
         from rich.style import Style
         allowed_keys = ["bold", "italic", "strike", "underline", "overline", "color"]
         styles = select_keys(d, *allowed_keys)
-        if "background_color" in d: 
-            styles["bgcolor"] = d["background_color"]
+        styles["bgcolor"] = d.get("background_color", None)
         return Style(**styles)
     
     internals = component | absorbed | collect
@@ -173,30 +170,27 @@ def dispatch_rich_column(component):
 def dispatch_rich_panel(component):
     import rich.panel as rp
 
-    def filter_and_resolve_attributes(d):
-        d.pop("displayable", None)
-
-        if "title" in d and is_a_component(d["title"], Text): 
-            d["title"] = dispatch_rich_text(d["title"])
+    def resolve_attributes(d):
+        allowed_keys = ["title", "subtitle", "box"]
+        styles = select_keys(d, *allowed_keys)
+        if "title" in styles and is_a_component(styles["title"], Text): 
+            styles["title"] = dispatch_rich_text(styles["title"])
         
-        if "subtitle" in d and is_a_component(d["title"], Text): 
-            d["subtitle"] = dispatch_rich_text(d["subtitle"])
+        if "subtitle" in styles and is_a_component(styles["title"], Text): 
+            styles["subtitle"] = dispatch_rich_text(styles["subtitle"])
 
-        if "box" in d:
-            d["box"] = box_constants_mapping(d["box"])
+        if "box" in styles:
+            styles["box"] = box_constants_mapping(styles["box"])
 
-        return d
+        return styles
     
     internals = component | absorbed | collect
     assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Code should be of type dict!"
-    displayable = internals[0].get("displayable")
-    displayable = match_and_dispatch(displayable)
-    if not displayable: raise ValueError("Frame's displayable field wasn't passed a component!")
-    
-    attributes = {**internals[0]}
-    attributes.pop("displayable", None)
-    attributes = filter_and_resolve_attributes(attributes)
-    return rp.Panel(displayable, **attributes)
+    if "data" not in internals[0]: raise ValueError("Can't render Frame without any data to display!")
+    data = internals[0].get("data")
+    data = match_and_dispatch(data)
+    attributes = resolve_attributes(internals[0])
+    return rp.Panel(data, **attributes)
 
 #--------------------------HStack,VStack--------------------------------------
 def dispatch_rich_stack(component):
