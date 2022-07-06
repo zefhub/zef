@@ -94,7 +94,6 @@ def dispatch_rich_style(component):
 #--------------------------Table--------------------------------------
 def dispatch_rich_table(component):
     import rich.table as rt
-    import itertools as itr
 
     def handle_nested_components(maybe_component):
         if isinstance(maybe_component, str):
@@ -111,34 +110,28 @@ def dispatch_rich_table(component):
             raise NotImplementedError(f"{maybe_component}:{type(maybe_component)}")
 
     def resolve_attributes(d):
-        # row_styles: List of styles or strings
-        if "row_styles" in d:
-            d["row_styles"] = [handle_nested_components(x) for x in d["row_styles"]]
-        
+        allowed_keys = ["row_styles", "title", "box", "expand", "show_header", "show_header", "show_footer", "show_edge", "show_header", "width"]
+        attributes       = select_keys(d, *allowed_keys)
+        # row_styles: List of attributes or strings
+        if "row_styles" in attributes:
+            attributes["row_styles"] = [handle_nested_components(x) for x in attributes["row_styles"]]
         # title: String or Text
-        if "title" in d:
-            d["title"] = handle_nested_components(d["title"])
-
-        # cols: string or text
-        if "cols" in d:
-            d["cols"] = [handle_nested_components(x) for x in d["cols"]]
-        
-        # rows: string or text
-        if "rows" in d:
-            d["rows"] = [handle_nested_components(x) for x in d["rows"]]
-
-        if "box" in d:
-            d["box"] = box_constants_mapping(d["box"])
-
-        return d
+        if "title" in attributes:
+            attributes["title"] = handle_nested_components(attributes["title"])
+        # box: str -> box.Attribute
+        if "box" in attributes:
+            attributes["box"] = box_constants_mapping(attributes["box"])
+        return attributes
     
+    def resolve_row_and_cols(rows, cols):
+        return [handle_nested_components(x) for x in rows], [handle_nested_components(x) for x in cols]
+
     internals = component | absorbed | collect
     assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Table should be of type dict!"
-    attributes = resolve_attributes({**internals[0]})
-    cols = attributes.pop('cols', [])
-    rows = attributes.pop('rows', [])
+    rows, cols = resolve_row_and_cols(internals[0].get('rows', []), internals[0].get('cols', []))
+    attributes = resolve_attributes(internals[0])
+
     rich_table = rt.Table(*cols, **attributes)
-    # [rich_table.add_column(col, style = style) for (col, style) in itr.zip_longest(cols, col_styles)]
     [rich_table.add_row(*row) for row in rows]
     return rich_table
 
@@ -159,11 +152,11 @@ def dispatch_rich_column(component):
     internals = component | absorbed | collect
     assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Column should be of type dict!"
     
-    header = internals[0].get("text", "")
-    if is_a_component(header, Text): header = dispatch_rich_text(header)
+    data = internals[0].get("data", "")
+    if is_a_component(data, Text): data = dispatch_rich_text(data)
     attributes = resolve_attributes(internals[0])
 
-    return rt.Column(header, **attributes)
+    return rt.Column(data, **attributes)
 
 
 #--------------------------Frame--------------------------------------
@@ -172,17 +165,17 @@ def dispatch_rich_panel(component):
 
     def resolve_attributes(d):
         allowed_keys = ["title", "subtitle", "box"]
-        styles = select_keys(d, *allowed_keys)
-        if "title" in styles and is_a_component(styles["title"], Text): 
-            styles["title"] = dispatch_rich_text(styles["title"])
+        attributes = select_keys(d, *allowed_keys)
+        if "title" in attributes and is_a_component(attributes["title"], Text): 
+            attributes["title"] = dispatch_rich_text(attributes["title"])
         
-        if "subtitle" in styles and is_a_component(styles["title"], Text): 
-            styles["subtitle"] = dispatch_rich_text(styles["subtitle"])
+        if "subtitle" in attributes and is_a_component(attributes["title"], Text): 
+            attributes["subtitle"] = dispatch_rich_text(attributes["subtitle"])
 
-        if "box" in styles:
-            styles["box"] = box_constants_mapping(styles["box"])
+        if "box" in attributes:
+            attributes["box"] = box_constants_mapping(attributes["box"])
 
-        return styles
+        return attributes
     
     internals = component | absorbed | collect
     assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Code should be of type dict!"
@@ -210,15 +203,15 @@ def dispatch_rich_stack(component):
     stack_type = str(component | without_absorbed | collect)
     internals = component | absorbed | collect
     assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Table should be of type dict!"
-    displayables = [handle_nested_components(c) for c in internals[0].get('displayables', [])]
-    cols         = [handle_nested_components(c) for c in internals[0].get('cols', [])]
+    data = [handle_nested_components(c) for c in internals[0].get('data', [])]
+    cols = [handle_nested_components(c) for c in internals[0].get('cols', [])]
     attributes = resolve_attributes(internals[0])
 
     rich_grid = rt.Table.grid(*cols, **attributes)
     if stack_type == "HStack":
-        rich_grid.add_row(*displayables)
+        rich_grid.add_row(*data)
     elif stack_type == "VStack":
-        [rich_grid.add_row(row) for row in displayables]
+        [rich_grid.add_row(row) for row in data]
     return rich_grid
 
 
