@@ -100,14 +100,14 @@ def resolve_with(rt, bt, ft):
         if is_list:
             return f'return (z | {dir}[RT.{d_rt_name}]) | map[value] | collect'
         else:
-            return f'return (z | {dir}[RT.{d_rt_name}]) | optional | maybe_value | collect'
+            return f'return (z | {dir}[RT.{d_rt_name}]) | single_or[None] | maybe_value | collect'
     else:
         if is_list:
             # return f'return (z >> L[RT.{d_rt_name}] | collect) , (z > L[RT.{d_rt_name}])| map[uid] | collect'
             return f'return (z | {dir}[RT.{d_rt_name}] | collect)'
         else:
             # return f'return (z >> RT.{d_rt_name} | collect) , (z > RT.{d_rt_name})|uid | collect'
-            return f'return (z | {dir}[RT.{d_rt_name}] | optional | collect)'
+            return f'return (z | {dir}[RT.{d_rt_name}] | single_or[None] | collect)'
 
 
 def resolve_with_script(rt):
