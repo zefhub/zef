@@ -75,7 +75,7 @@ from ...pyzef.internals import (
     is_aet_a_quantity_int,
     is_any_UID,
     is_delegate,
-    is_delegate_group,
+    is_delegate_relation_group,
     is_root,
     is_up_to_date,
     list_graph_manager_uids,

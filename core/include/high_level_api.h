@@ -41,28 +41,6 @@
 
 namespace zefDB {
 
-    struct SerializedValue {
-        std::string type;
-        std::string data;
-        bool operator==(const SerializedValue & other) const {
-            return type == other.type && data == other.data;
-        }
-    };
-    inline std::ostream& operator<<(std::ostream& os, SerializedValue & serialized_value) {
-        os << "SerializedValue{'" << serialized_value.type << "'}";
-        return os;
-    }
-
-
-
-
-//                                   _                    __      _                            
-//                         ___ _ __ | |_ _ __ _   _      / _| ___| |_ ___                      
-//    _____ _____ _____   / _ \ '_ \| __| '__| | | |    | |_ / __| __/ __|   _____ _____ _____ 
-//   |_____|_____|_____| |  __/ | | | |_| |  | |_| |    |  _| (__| |_\__ \  |_____|_____|_____|
-//                        \___|_| |_|\__|_|   \__, |    |_|  \___|\__|___/                     
-//                                            |___/                                            
-
     // Note: to_index is not inclusive
     LIBZEF_DLL_EXPORTED EZefRefs blobs(GraphData& gd, blob_index from_index=constants::ROOT_NODE_blob_index, blob_index to_index=0);
 	
@@ -70,110 +48,56 @@ namespace zefDB {
 		return blobs(g.my_graph_data(), from_index, to_index);
 	}
 
-
-
-	// LIBZEF_DLL_EXPORTED str type_name_(EZefRef uzr, int delegate_order_shift = 0);
-
-	// LIBZEF_DLL_EXPORTED std::string type_name(EZefRef uzr);
-	// LIBZEF_DLL_EXPORTED std::string type_name(ZefRef zr);
-
-	
-	LIBZEF_DLL_EXPORTED bool is_root(EZefRef z);
-	LIBZEF_DLL_EXPORTED bool is_root(ZefRef z);
-	LIBZEF_DLL_EXPORTED bool is_delegate(EZefRef z);
-	LIBZEF_DLL_EXPORTED bool is_delegate(ZefRef z);
-	LIBZEF_DLL_EXPORTED bool is_delegate_group(EZefRef z);
-	LIBZEF_DLL_EXPORTED bool is_delegate_group(ZefRef z);
-	LIBZEF_DLL_EXPORTED bool has_delegate(EZefRef z);
-	LIBZEF_DLL_EXPORTED bool has_delegate(ZefRef z);
-
-
-
-
-
     LIBZEF_DLL_EXPORTED EZefRefs all_raes(const Graph& graph);
 
 
-    namespace internals {
+    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const ZefRef& zr);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const ZefRefs& zrs);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const ZefRefss& zrss);
 
 
-        template <typename T>
-        void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const T & value_to_be_assigned);
-
-        template<>
-        void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const std::string & value_to_be_assigned);
-        // There are other variants of copy_to_buffer but we leave them to be instantiated in the cpp file.
-
-        template<class T>
-        void assign_value(EZefRef my_atomic_entity, T value_to_be_assigned);
-        extern template void assign_value(EZefRef my_atomic_entity, bool value_to_be_assigned);
-        extern template void assign_value(EZefRef my_atomic_entity, int value_to_be_assigned);
-        extern template void assign_value(EZefRef my_atomic_entity, double value_to_be_assigned);
-        extern template void assign_value(EZefRef my_atomic_entity, str value_to_be_assigned);
-        extern template void assign_value(EZefRef my_atomic_entity, const char* value_to_be_assigned);
-        extern template void assign_value(EZefRef my_atomic_entity, Time value_to_be_assigned);
-        extern template void assign_value(EZefRef my_atomic_entity, SerializedValue value_to_be_assigned);
-        extern template void assign_value(EZefRef my_atomic_entity, ZefEnumValue value_to_be_assigned);
-        extern template void assign_value(EZefRef my_atomic_entity, QuantityFloat value_to_be_assigned);
-        extern template void assign_value(EZefRef my_atomic_entity, QuantityInt value_to_be_assigned);
-
-
-        template <typename T>
-        T value(ZefRef my_atomic_entity);
-        template<> double value<double>(ZefRef my_atomic_entity);
-        template<> int value<int>(ZefRef my_atomic_entity);
-        template<> bool value<bool>(ZefRef my_atomic_entity);
-        template<> std::string value<std::string>(ZefRef my_atomic_entity);
-        template<> Time value<Time>(ZefRef my_atomic_entity);
-        template<> SerializedValue value<SerializedValue>(ZefRef my_atomic_entity);
-        template<> ZefEnumValue value<ZefEnumValue>(ZefRef my_atomic_entity);
-        template<> QuantityFloat value<QuantityFloat>(ZefRef my_atomic_entity);
-        template<> QuantityInt value<QuantityInt>(ZefRef my_atomic_entity);
-
-        template<class T>
-        bool is_compatible_type(AtomicEntityType aet);
-
-        template<> bool is_compatible_type<bool>(AtomicEntityType aet);
-        template<> bool is_compatible_type<int>(AtomicEntityType aet);
-        template<> bool is_compatible_type<double>(AtomicEntityType aet);
-        template<> bool is_compatible_type<str>(AtomicEntityType aet);
-        template<> bool is_compatible_type<const char*>(AtomicEntityType aet);
-        template<> bool is_compatible_type<Time>(AtomicEntityType aet);
-        template<> bool is_compatible_type<SerializedValue>(AtomicEntityType aet);
-
-        template<> bool is_compatible_type<ZefEnumValue>(AtomicEntityType aet);
-        template<> bool is_compatible_type<QuantityFloat>(AtomicEntityType aet);
-        template<> bool is_compatible_type<QuantityInt>(AtomicEntityType aet);
-
-        bool is_compatible(bool _, AtomicEntityType aet);
-        bool is_compatible(int _, AtomicEntityType aet);
-        bool is_compatible(double _, AtomicEntityType aet);
-        bool is_compatible(str _, AtomicEntityType aet);
-        bool is_compatible(const char * _, AtomicEntityType aet);
-        bool is_compatible(Time _, AtomicEntityType aet);
-        bool is_compatible(SerializedValue _, AtomicEntityType aet);
-
-        bool is_compatible(ZefEnumValue en, AtomicEntityType aet);
-        bool is_compatible(QuantityFloat q, AtomicEntityType aet);
-        bool is_compatible(QuantityInt q, AtomicEntityType aet);
-
-
-        template<class T>
-        T get_final_value_for_op_hat(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-
-        template<> str get_final_value_for_op_hat<str>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet); 
-        template<> SerializedValue get_final_value_for_op_hat<SerializedValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet); 
-
-        template<> double get_final_value_for_op_hat<double>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        template<> int get_final_value_for_op_hat<int>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-
-        extern template QuantityInt get_final_value_for_op_hat<QuantityInt>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        extern template QuantityFloat get_final_value_for_op_hat<QuantityFloat>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        extern template ZefEnumValue get_final_value_for_op_hat<ZefEnumValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-
+    template<class T>
+    void assign_value(EZefRef my_atomic_entity, T value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, bool value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, int value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, double value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, str value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const char* value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, Time value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, SerializedValue value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, ZefEnumValue value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, QuantityFloat value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, QuantityInt value_to_be_assigned);
+    template<class T>
+    void assign_value(ZefRef my_atomic_entity, T value_to_be_assigned) {
+        assign_value(my_atomic_entity.blob_uzr, value_to_be_assigned);
     }
+    template void assign_value(ZefRef my_atomic_entity, bool value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, int value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, double value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, str value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const char* value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, Time value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, SerializedValue value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, ZefEnumValue value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, QuantityFloat value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, QuantityInt value_to_be_assigned);
+
+
+    template <typename T>
+    std::optional<T> value(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<double> value<double>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<int> value<int>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<bool> value<bool>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<std::string> value<std::string>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<Time> value<Time>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<SerializedValue> value<SerializedValue>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<ZefEnumValue> value<ZefEnumValue>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<QuantityFloat> value<QuantityFloat>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<QuantityInt> value<QuantityInt>(ZefRef my_atomic_entity);
 
     LIBZEF_DLL_EXPORTED bool is_promotable_to_zefref(EZefRef uzr_to_promote, EZefRef reference_tx);
+    LIBZEF_DLL_EXPORTED bool is_promotable_to_zefref(EZefRef uzr_to_promote);
                                  
                                  
                                  
@@ -272,41 +196,8 @@ namespace zefDB {
 		};                       
                                  
                                  
-		template <typename T>    
-		T abs_val(T val) {       
-			return val > 0 ? val : -val;
-		}                        
-                                 
-                                 
-		inline EZefRef get_RAE_INSTANCE_EDGE(EZefRef my_entity_or_rel) {
-			for (auto ind : AllEdgeIndexes(my_entity_or_rel)) {
-				if (ind < 0) {   
-					auto candidate = EZefRef(abs_val(ind), *graph_data(my_entity_or_rel));
-					if (get<BlobType>(candidate) == BlobType::RAE_INSTANCE_EDGE) return candidate;
-				}                
-			}                    
-			throw std::runtime_error("We should not have landed here in get_RAE_INSTANCE_EDGE: there should have been one el to return");
-			return my_entity_or_rel; // hack to suppress compiler warnings
-		}                        
-
-		inline EZefRef get_TO_DELEGATE_EDGE(EZefRef my_entity_or_rel) {
-			for (auto ind : AllEdgeIndexes(my_entity_or_rel)) {
-				if (ind < 0) {   
-					auto candidate = EZefRef(abs_val(ind), *graph_data(my_entity_or_rel));
-					if (get<BlobType>(candidate) == BlobType::TO_DELEGATE_EDGE) return candidate;
-				}                
-			}                    
-			throw std::runtime_error("We should not have landed here in get_TO_DELEGATE_EDGE: there should have been one el to return");
-			return my_entity_or_rel; // hack to suppress compiler warnings
-		}                        
-
 		LIBZEF_DLL_EXPORTED bool is_terminated(EZefRef my_rel_ent);
 
-
-
-		// how do we pass a C++ object on to a python fct we execute from within C++? Turns out to be not as easy as other conversions with pybind. 
-		// Just create a function that can be accessed both by C++ / Python and stores it in a local static
-		LIBZEF_DLL_EXPORTED ZefRef internal_temp_storage_used_by_zefhooks(ZefRef new_z_val= ZefRef{ EZefRef{}, EZefRef{} }, bool should_save=false);
 
 
 	} // internals namespace
@@ -369,5 +260,23 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED nlohmann::json merge(const nlohmann::json & j, Graph target_graph, bool fire_and_forget=false);
 
 
+    // Expose some low_level_api things as high_level_api with ZefRefs supported too.
+    using internals::is_root;
+    using internals::is_delegate;
+    using internals::is_delegate_relation_group;
+    using internals::has_delegate;
+
+    inline bool is_root(ZefRef z) {
+        return internals::is_root(z.blob_uzr);
+    }
+    inline bool is_delegate(ZefRef z) {
+        return internals::is_delegate(z.blob_uzr);
+    }
+    inline bool is_delegate_relation_group(ZefRef z) {
+        return internals::is_delegate_relation_group(z.blob_uzr);
+    }
+    inline bool has_delegate(ZefRef z) {
+        return internals::has_delegate(z.blob_uzr);
+    }
 
 }

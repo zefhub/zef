@@ -36,17 +36,26 @@
 
 namespace zefDB {
 	
+    struct SerializedValue {
+        std::string type;
+        std::string data;
+        bool operator==(const SerializedValue & other) const {
+            return type == other.type && data == other.data;
+        }
+    };
+    inline std::ostream& operator<<(std::ostream& os, SerializedValue & serialized_value) {
+        os << "SerializedValue{'" << serialized_value.type << "'}";
+        return os;
+    }
+
+
+
     
 
     LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& os, EZefRef uzr);
     LIBZEF_DLL_EXPORTED std::string low_level_blob_info(const EZefRef & uzr);
 
 
-
-    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const ZefRef& zr);
-
-    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const ZefRefs& zrs);
-    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const ZefRefss& zrss);
     LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const EZefRefs& uzrs);
     LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const EZefRefss& uzrss);
 
@@ -60,9 +69,6 @@ namespace zefDB {
 
 
 	namespace internals{
-
-
-
 		// have similar API to instantiate and link low level blobs / EZefRefs
 		LIBZEF_DLL_EXPORTED EZefRef instantiate(BlobType bt, GraphData& gd);
 		LIBZEF_DLL_EXPORTED EZefRef instantiate(EZefRef src, BlobType bt, EZefRef trg, GraphData& gd);
@@ -212,5 +218,139 @@ namespace zefDB {
 			};
         }
 
-	}
+        LIBZEF_DLL_EXPORTED bool is_root(EZefRef z);
+        LIBZEF_DLL_EXPORTED bool is_delegate(EZefRef z);
+        LIBZEF_DLL_EXPORTED bool is_delegate_relation_group(EZefRef z);
+        LIBZEF_DLL_EXPORTED bool has_delegate(EZefRef z);
+
+        template <typename T>
+        void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const T & value_to_be_assigned);
+        extern template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const int & value_to_be_assigned);
+        extern template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const double & value_to_be_assigned);
+        extern template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const bool & value_to_be_assigned);
+        extern template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, char const * const & value_to_be_assigned);
+        extern template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const Time & value_to_be_assigned);
+        extern template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const QuantityFloat & value_to_be_assigned);
+        extern template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const QuantityInt & value_to_be_assigned);
+        extern template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const ZefEnumValue & value_to_be_assigned);
+
+        template<>
+        void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const std::string & value_to_be_assigned);
+        template<>
+        void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const SerializedValue & value_to_be_assigned);
+
+        template<class T>
+        bool is_compatible_type(AtomicEntityType aet);
+
+        template<> bool is_compatible_type<bool>(AtomicEntityType aet);
+        template<> bool is_compatible_type<int>(AtomicEntityType aet);
+        template<> bool is_compatible_type<double>(AtomicEntityType aet);
+        template<> bool is_compatible_type<str>(AtomicEntityType aet);
+        template<> bool is_compatible_type<const char*>(AtomicEntityType aet);
+        template<> bool is_compatible_type<Time>(AtomicEntityType aet);
+        template<> bool is_compatible_type<SerializedValue>(AtomicEntityType aet);
+
+        template<> bool is_compatible_type<ZefEnumValue>(AtomicEntityType aet);
+        template<> bool is_compatible_type<QuantityFloat>(AtomicEntityType aet);
+        template<> bool is_compatible_type<QuantityInt>(AtomicEntityType aet);
+
+        bool is_compatible(bool _, AtomicEntityType aet);
+        bool is_compatible(int _, AtomicEntityType aet);
+        bool is_compatible(double _, AtomicEntityType aet);
+        bool is_compatible(str _, AtomicEntityType aet);
+        bool is_compatible(const char * _, AtomicEntityType aet);
+        bool is_compatible(Time _, AtomicEntityType aet);
+        bool is_compatible(SerializedValue _, AtomicEntityType aet);
+
+        bool is_compatible(ZefEnumValue en, AtomicEntityType aet);
+        bool is_compatible(QuantityFloat q, AtomicEntityType aet);
+        bool is_compatible(QuantityInt q, AtomicEntityType aet);
+
+        // Because the pair-product of all types is a large space, we are going
+        // to leave this as a header-only function.
+
+        // Stupid class required to make the special case of T == V work out.
+        template<typename T>
+        struct value_cast_Impl {
+            template<typename V>
+            static T impl(V val) {
+                throw std::runtime_error("Unable to convert");
+            }
+            static T impl(T val) {
+                return val;
+            }
+        };
+
+        template<> template<>
+		inline double value_cast_Impl<double>::impl(int val) { return double(val); }
+        template<> template<>
+		inline int value_cast_Impl<int>::impl(double val) { 
+			if (fabs(val - round(val)) > 1E-8)
+				throw std::runtime_error("converting a double to an int, but the double was numerically not sufficiently close to an in to make rounding safe");
+			return int(val);
+		}
+        template<> template<>
+		inline bool value_cast_Impl<bool>::impl(int val) { 
+			if(val == 1) return true; 
+			if(val == 0) return false; 
+			throw std::runtime_error("converting an int to a bool, but the value was neither 0 or 1");
+		}
+        template<> template<>
+		inline int value_cast_Impl<int>::impl(bool val) { 
+			if(val) return 1; 
+			else return 0;
+		}
+
+		template<typename T, typename V>
+		T value_cast(V val) {
+            return value_cast_Impl<T>::impl(val);
+        }
+
+
+        template<class T>
+        T value_from_node(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+
+        // Specializations
+        template<> str value_from_node<str>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet); 
+        template<> SerializedValue value_from_node<SerializedValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet); 
+
+        template<> double value_from_node<double>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        template<> int value_from_node<int>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+
+        // These ones can be just instantiated from a single template
+        extern template QuantityInt value_from_node<QuantityInt>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        extern template QuantityFloat value_from_node<QuantityFloat>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        extern template ZefEnumValue value_from_node<ZefEnumValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        extern template bool value_from_node<bool>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+
+		template <typename T>    
+		T abs_val(T val) {       
+			return val > 0 ? val : -val;
+		}                        
+                                 
+                                 
+		inline EZefRef get_RAE_INSTANCE_EDGE(EZefRef my_entity_or_rel) {
+			for (auto ind : AllEdgeIndexes(my_entity_or_rel)) {
+				if (ind < 0) {   
+					auto candidate = EZefRef(abs_val(ind), *graph_data(my_entity_or_rel));
+					if (get<BlobType>(candidate) == BlobType::RAE_INSTANCE_EDGE) return candidate;
+				}                
+			}                    
+			throw std::runtime_error("We should not have landed here in get_RAE_INSTANCE_EDGE: there should have been one el to return");
+			return my_entity_or_rel; // hack to suppress compiler warnings
+		}                        
+
+		inline EZefRef get_TO_DELEGATE_EDGE(EZefRef my_entity_or_rel) {
+			for (auto ind : AllEdgeIndexes(my_entity_or_rel)) {
+				if (ind < 0) {   
+					auto candidate = EZefRef(abs_val(ind), *graph_data(my_entity_or_rel));
+					if (get<BlobType>(candidate) == BlobType::TO_DELEGATE_EDGE) return candidate;
+				}                
+			}                    
+			throw std::runtime_error("We should not have landed here in get_TO_DELEGATE_EDGE: there should have been one el to return");
+			return my_entity_or_rel; // hack to suppress compiler warnings
+		}                        
+
+
+    }
 }

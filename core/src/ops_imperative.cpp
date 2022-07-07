@@ -31,7 +31,7 @@ namespace zefDB {
             // relation connected to the delegate (e.g. metadata) must be
             // terminated before this is called.
 
-            if(!is_delegate(uzr))
+            if(!internals::is_delegate(uzr))
                 throw std::runtime_error("Can only retire delegates not" + to_str(uzr) + ".");
 
             Graph g(uzr);
@@ -66,7 +66,7 @@ namespace zefDB {
         // * exists_at
 
 		bool exists_at(EZefRef uzr, TimeSlice ts) {
-            if(is_delegate(uzr)) {
+            if(internals::is_delegate(uzr)) {
                 // Although the node itself might have some information, we
                 // should check the sequence of DELEGATE_INSTANTIATION_EDGE and
                 // DELEGATE_RETIREMENT_EDGE to determine if we are in a valid
@@ -121,7 +121,7 @@ namespace zefDB {
             case BlobType::ROOT_NODE: {
                 return true;
             }
-            default: {throw std::runtime_error("ExistsAt() called on a EZefRef that cannot be promoted to a ZefRef and where asking this question makes no sense."); return false; }
+            default: {throw std::runtime_error("ExistsAt() called on a EZefRef (" + to_str(uzr) + ") that cannot be promoted to a ZefRef and where asking this question makes no sense."); return false; }
             }
         };
         bool exists_at(EZefRef uzr, EZefRef tx) {
@@ -151,7 +151,7 @@ namespace zefDB {
         //
         // This relies on the instantiations/terminations being sorted chronologically.
 		bool exists_at_now(EZefRef uzr) {
-            if(is_delegate(uzr)) {
+            if(internals::is_delegate(uzr)) {
                 EZefRef to_del = internals::get_TO_DELEGATE_EDGE(uzr);
                 EZefRef last_edge(internals::last_set_edge_index(to_del), *graph_data(uzr));
 
@@ -322,9 +322,11 @@ namespace zefDB {
 		ZefRefs _filter_and_promote(EZefRefs ezrs, EZefRef tx) {
             auto temp = filter(ezrs,
                                [tx](EZefRef x) {
-                                   return exists_at(x, tx);
+                                   return BT(x) == BT.RELATION_EDGE && exists_at(x, tx);
                                        });
-            return map<ZefRef>(temp, [tx](EZefRef x) { return ZefRef{x, tx}; });
+            return ZefRefs{map<ZefRef>(temp, [tx](EZefRef x) { return ZefRef{x, tx}; }),
+                false,
+                tx};
 		}
 
         EZefRefs ins_and_outs(const EZefRef uzr) {
@@ -950,7 +952,7 @@ namespace zefDB {
         //////////////////////////////
         // * filter
 
-        EZefRefs filter(const EZefRefs& input, const std::function<bool(EZefRef)>& pred) {
+        EZefRefs filter(const EZefRefs& input, const std::function<bool(const EZefRef &)>& pred) {
             // std::cerr << "Filtering using input length of: " << input.len << std::endl;
             EZefRefs res(
                 length(input),
@@ -971,7 +973,7 @@ namespace zefDB {
                 res.delegate_ptr->len = count;
             return res;
         }
-        ZefRefs filter(const ZefRefs& input, const std::function<bool(ZefRef)>& pred) {
+        ZefRefs filter(const ZefRefs& input, const std::function<bool(const ZefRef &)>& pred) {
             auto res = ZefRefs(
                     input.len,
                     input.reference_frame_tx
@@ -1048,7 +1050,7 @@ namespace zefDB {
             GraphData& gd = *graph_data(my_rel_ent);
             if (!gd.is_primary_instance)
                 throw std::runtime_error("'terminate' called for a graph which is not a primary instance. This is not allowed. Shame on you!");
-            if (is_delegate(my_rel_ent))
+            if (internals::is_delegate(my_rel_ent))
                 throw std::runtime_error("Terminate called on a delegate. This is not allowed. At most, delegates may be tagged as 'disabled' in the future.");
 
             // tasks::apply_immediate_updates_from_zm();
@@ -1083,7 +1085,7 @@ namespace zefDB {
             //terminate all edges that have not been terminated yet
             for (EZefRef ed : ins_and_outs(my_rel_ent))
                 // Note: this can't be done in a filter until filters are lazily evaluated.
-                if(exists_at(ed, tx_node))
+                if(is_promotable_to_zefref(ed) && exists_at(ed, tx_node))
                     terminate(ed);
         }
         void terminate(ZefRef my_rel_ent) {
@@ -1188,17 +1190,13 @@ namespace zefDB {
             return z;
         }
 
-        bool is_delegate_relation_group(EZefRef z) {
-            return (z <= RT) && (source(z) == z) && (target(z) == z);
-        }
-
         std::optional<EZefRef> delegate_to_ezr(const RelationType & rt, int order, Graph g, bool create) {
             auto & gd = g.my_graph_data();
             EZefRef root{constants::ROOT_NODE_blob_index, gd};
             EZefRef z = root;
             for(int i = 0 ; i < order ; i++) {
                 EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), rt);
-                opts = filter(opts, is_delegate_relation_group);
+                opts = filter(opts, internals::is_delegate_relation_group);
                 if(length(opts) == 0) {
                     if(create) {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
@@ -1402,51 +1400,21 @@ namespace zefDB {
 
     namespace imperative {
 
-        template <typename T>
-        void assign_value(EZefRef my_atomic_entity, T value_to_be_assigned) {
-            internals::assign_value(my_atomic_entity, value_to_be_assigned);
-        }
-        template <typename T>
-        void assign_value(ZefRef my_atomic_entity, T value_to_be_assigned) {
-            internals::assign_value(my_atomic_entity.blob_uzr, value_to_be_assigned);
-        }
-
-        LIBZEF_DLL_EXPORTED template void assign_value(EZefRef my_atomic_entity, bool value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(ZefRef my_atomic_entity,  bool value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(EZefRef my_atomic_entity, int value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(ZefRef my_atomic_entity,  int value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(EZefRef my_atomic_entity, double value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(ZefRef my_atomic_entity,  double value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(EZefRef my_atomic_entity, str value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(ZefRef my_atomic_entity,  str value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(EZefRef my_atomic_entity, const char* value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(ZefRef my_atomic_entity,  const char* value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(EZefRef my_atomic_entity, Time value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(ZefRef my_atomic_entity,  Time value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(EZefRef my_atomic_entity, SerializedValue value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(ZefRef my_atomic_entity,  SerializedValue value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(EZefRef my_atomic_entity, ZefEnumValue value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(ZefRef my_atomic_entity,  ZefEnumValue value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(EZefRef my_atomic_entity, QuantityFloat value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(ZefRef my_atomic_entity,  QuantityFloat value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(EZefRef my_atomic_entity, QuantityInt value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED template void assign_value(ZefRef my_atomic_entity,  QuantityInt value_to_be_assigned);
-
         value_ret_t value(ZefRef ae) {
             if (get<BlobType>(ae.blob_uzr) != BlobType::ATOMIC_ENTITY_NODE) throw std::runtime_error("'value(zefref)' called for a zefref which is not an atomic entity.");
             auto aet = get<blobs_ns::ATOMIC_ENTITY_NODE>(ae.blob_uzr).my_atomic_entity_type.value;
             switch (aet) {
-            case AET.Float.value: { return internals::value<double>(ae); }
-            case AET.Int.value: { return internals::value<int>(ae); }
-            case AET.Bool.value: { return internals::value<bool>(ae); }
-            case AET.String.value: { return internals::value<std::string>(ae); }
-            case AET.Time.value: { return internals::value<Time>(ae); }
-            case AET.Serialized.value: { return internals::value<SerializedValue>(ae); }
+            case AET.Float.value: { return zefDB::value<double>(ae); }
+            case AET.Int.value: { return zefDB::value<int>(ae); }
+            case AET.Bool.value: { return zefDB::value<bool>(ae); }
+            case AET.String.value: { return zefDB::value<std::string>(ae); }
+            case AET.Time.value: { return zefDB::value<Time>(ae); }
+            case AET.Serialized.value: { return zefDB::value<SerializedValue>(ae); }
             default: {
                 switch (aet % 16) {
-                case 1: { return internals::value<ZefEnumValue>(ae); }
-                case 2: { return internals::value<QuantityFloat>(ae); }
-                case 3: { return internals::value<QuantityInt>(ae); }
+                case 1: { return zefDB::value<ZefEnumValue>(ae); }
+                case 2: { return zefDB::value<QuantityFloat>(ae); }
+                case 3: { return zefDB::value<QuantityInt>(ae); }
                 default: throw std::runtime_error("Return type not implemented.");
                 }
             }

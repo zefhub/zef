@@ -656,8 +656,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("is_root", py::overload_cast<ZefRef>(&zefDB::is_root), "");
 	internals_submodule.def("is_delegate", py::overload_cast<EZefRef>(&zefDB::is_delegate), "");
 	internals_submodule.def("is_delegate", py::overload_cast<ZefRef>(&zefDB::is_delegate), "");
-	internals_submodule.def("is_delegate_group", py::overload_cast<EZefRef>(&zefDB::is_delegate_group), "");
-	internals_submodule.def("is_delegate_group", py::overload_cast<ZefRef>(&zefDB::is_delegate_group), "");
+	internals_submodule.def("is_delegate_relation_group", py::overload_cast<EZefRef>(&zefDB::is_delegate_relation_group), "");
+	internals_submodule.def("is_delegate_relation_group", py::overload_cast<ZefRef>(&zefDB::is_delegate_relation_group), "");
 	internals_submodule.def("has_delegate", py::overload_cast<EZefRef>(&zefDB::has_delegate), "");
 	internals_submodule.def("has_delegate", py::overload_cast<ZefRef>(&zefDB::has_delegate), "");
 	

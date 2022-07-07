@@ -1962,7 +1962,7 @@ namespace zefDB {
 				}
 			}
 			if (result_candidate_edge.blob_ptr == nullptr) return {};  // no assignment edge was found
-			else return internals::get_final_value_for_op_hat<decltype(op._x)>(get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge), aet);
+			else return internals::value_from_node<decltype(op._x)>(get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge), aet);
 		}
 
 		// 
@@ -2004,7 +2004,7 @@ namespace zefDB {
 				}
 			}
 			if (result_candidate_edge.blob_ptr == nullptr) return {};  // no assignment edge was found
-			else return internals::get_final_value_for_op_hat<decltype(op._x)>(get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge), aet);
+			else return internals::value_from_node<decltype(op._x)>(get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge), aet);
         }
 
 

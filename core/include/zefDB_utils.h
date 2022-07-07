@@ -445,4 +445,18 @@ namespace zefDB {
     };
 #endif
 
+    template<typename T, class... Types>
+    inline bool variant_eq(const T& t, const std::variant<Types...>& v) {
+        const T* c = std::get_if<T>(&v);
+        if(c)
+            return *c == t;
+        else
+            return false;
+    }
+
+    template<typename T, class... Types>
+    inline bool variant_eq(const std::variant<Types...>& v, const T& t) {
+        return variant_eq(t, v);
+    }
+
 }

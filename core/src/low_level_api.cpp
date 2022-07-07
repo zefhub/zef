@@ -15,8 +15,9 @@
 #include <doctest/doctest.h>
 #include <chrono>
 #include "low_level_api.h"
-#include "high_level_api.h"
-#include "zefops.h"
+// We reach up into select parts of the high_level api to implement the
+// low_level api.
+#include "ops_imperative.h"
 
 namespace zefDB {
 	
@@ -63,38 +64,6 @@ namespace zefDB {
 
 
 
-    std::ostream& operator<<(std::ostream& o, const ZefRef& zr) {
-        //o << "<ZefRef with ptr to " << zr.blob_uzr << ">";
-        // o << "<ZefRef with" << std::endl;
-        // o << "blob_uzr=" << zr.blob_uzr << std::endl;
-        // o << "tx=" << zr.tx;
-        // o << " >";
-        o << "<ZefRef #" << index(zr);
-
-        if(is_delegate(zr))
-            o << " DELEGATE";
-            
-        if (BT(zr) == BT.ENTITY_NODE)
-            o << " " << ET(zr);
-        else if (BT(zr) == BT.RELATION_EDGE)
-            o << " " << RT(zr);
-        else if (BT(zr) == BT.ATOMIC_ENTITY_NODE)
-            o << " " << AET(zr);
-        else if (BT(zr) == BT.TX_EVENT_NODE)
-            o << " TX at slice=" << time_slice(zr.blob_uzr).value << " seen from";
-        else
-            o << " " << BT(zr);
-        o << " slice=" << time_slice(zr.tx).value;
-        o << ">";
-        return o;
-    }
-
-    std::ostream& operator<<(std::ostream& o, const ZefRefs& zrs) {
-        return o << "<ZefRefs with " << length(zrs) << " items>";
-    }
-    std::ostream& operator<<(std::ostream& o, const ZefRefss& zrss) {
-        return o << "<ZefRefs with " << length(zrss) << " items>";
-    }
     std::ostream& operator<<(std::ostream& o, const EZefRefs& uzrs) {
         return o << "<EZefRefs with " << length(uzrs) << " items>";
     }
@@ -165,9 +134,9 @@ namespace zefDB {
             // Without graph views, we must require all relations are created on the same graph as the UZRs themselves.
             if (graph_data(src) != &gd || graph_data(trg) != &gd)
                 throw std::runtime_error(std::string("Not allowing an edge to be created between UZRs on a different graph.")
-                                         + std::string("src:g=") + str(uid(*graph_data(src))) + ":ind=" + index(src) + ", "
-                                         + std::string("trg:g=") + str(uid(*graph_data(trg))) + ":ind=" + index(trg) + ", "
-                                         + std::string("gd=") + str(uid(gd)));
+                                         + std::string("src:g=") + str(get_graph_uid(src)) + ":ind=" + index(src) + ", "
+                                         + std::string("trg:g=") + str(get_graph_uid(trg)) + ":ind=" + index(trg) + ", "
+                                         + std::string("gd=") + str(get_graph_uid(gd)));
                                          
 			using namespace blobs_ns;
             void * new_ptr = (void*)(std::uintptr_t(&gd) + gd.write_head * constants::blob_indx_step_in_bytes);
@@ -488,6 +457,183 @@ namespace zefDB {
         void assign_uid(EZefRef uzr, BaseUID uid) {
             blob_uid_ref(uzr) = uid;
         }
+
+        bool is_root(EZefRef z) {
+            return index(z) == constants::ROOT_NODE_blob_index;
+        }
+    
+        bool is_delegate(EZefRef z) {
+            // Note: internals::has_delegate is different to has_delegate below.
+            if(!internals::has_delegate(BT(z)))
+                return false;
+            // we may additionally want to use (for efficiency) the spec. determined fact that if a rel_ent 
+            // has an incoming edge of type BT.TO_DELEGATE_EDGE, this is always the first one in the edge list.
+            return length(imperative::traverse_in_edge_multi(z, BT.TO_DELEGATE_EDGE)) == 1;
+        };
+
+
+        bool is_delegate_relation_group(EZefRef z) {
+            if(!is_delegate(z) || BT(z) != BT.RELATION_EDGE)
+                return false;
+
+            return visit_blob_with_source_target([&z](auto & x) {
+                return ((x.source_node_index == index(z)) &&
+                        (x.target_node_index == index(z)));
+            }, z);
+        }
+
+
+        bool has_delegate(EZefRef z) {
+            return imperative::traverse_in_edge_multi(z, BT.RAE_INSTANCE_EDGE).len == 1;
+        };
+
+
+		template <typename T>
+		void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const T & value_to_be_assigned) {
+			new(data_buffer_ptr) T(value_to_be_assigned);  // placement new: call copy ctor: copy assignment may not be defined
+			buffer_size_in_bytes = sizeof(value_to_be_assigned);
+		}
+
+        template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const int & value_to_be_assigned);
+        template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const double & value_to_be_assigned);
+        template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const bool & value_to_be_assigned);
+        template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, char const * const & value_to_be_assigned);
+        template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const Time & value_to_be_assigned);
+        template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const QuantityFloat & value_to_be_assigned);
+        template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const QuantityInt & value_to_be_assigned);
+        template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const ZefEnumValue & value_to_be_assigned);
+
+        template<>
+		void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const std::string & value_to_be_assigned) {
+            MMap::ensure_or_alloc_range(data_buffer_ptr, std::max(value_to_be_assigned.size(), blobs_ns::max_basic_blob_size));
+			std::memcpy(data_buffer_ptr, value_to_be_assigned.data(), value_to_be_assigned.size());
+			buffer_size_in_bytes = value_to_be_assigned.size();
+		}
+
+        template<>
+		void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const SerializedValue & value_to_be_assigned) {
+            buffer_size_in_bytes = value_to_be_assigned.type.size() + value_to_be_assigned.data.size() + 2*sizeof(int);
+
+            MMap::ensure_or_alloc_range(data_buffer_ptr, std::max((size_t)buffer_size_in_bytes, blobs_ns::max_basic_blob_size));
+            char * cur = data_buffer_ptr;
+            *(int*)cur = value_to_be_assigned.type.size();
+            cur += sizeof(int);
+            *(int*)cur = value_to_be_assigned.data.size();
+            cur += sizeof(int);
+
+			std::memcpy(cur, value_to_be_assigned.type.data(), value_to_be_assigned.type.size());
+            cur += value_to_be_assigned.type.size();
+			std::memcpy(cur, value_to_be_assigned.data.data(), value_to_be_assigned.data.size());
+		}
+
+        template<> bool is_compatible_type<bool>(AtomicEntityType aet) { return aet == AET.Bool; }
+        template<> bool is_compatible_type<int>(AtomicEntityType aet) { return aet == AET.Int || aet == AET.Float || aet == AET.Bool; }   // we can also assign an int to a bool
+        template<> bool is_compatible_type<double>(AtomicEntityType aet) { return aet == AET.Float || aet == AET.Int; }
+        template<> bool is_compatible_type<str>(AtomicEntityType aet) { return aet == AET.String; }
+        template<> bool is_compatible_type<const char*>(AtomicEntityType aet) { return aet == AET.String; }
+        template<> bool is_compatible_type<Time>(AtomicEntityType aet) { return aet == AET.Time; }
+        template<> bool is_compatible_type<SerializedValue>(AtomicEntityType aet) { return aet == AET.Serialized; }
+
+        template<> bool is_compatible_type<ZefEnumValue>( AtomicEntityType aet) {
+            int offset = aet.value % 16;
+            if (offset != 1) return false;   // Enums encoded by an offset of 1
+            return true;
+        }
+        template<> bool is_compatible_type<QuantityFloat>(AtomicEntityType aet) {
+            int offset = aet.value % 16;
+            if (offset != 2) return false;   // QuantityFloat encoded by an offset of 2
+            return true;		
+        }
+        template<> bool is_compatible_type<QuantityInt>(AtomicEntityType aet) {
+            int offset = aet.value % 16;		
+            if (offset != 3) return false;   // QuantityInt encoded by an offset of 3
+            return true;
+        }
+
+
+        bool is_compatible(bool _, AtomicEntityType aet) { return is_compatible_type<bool>(aet); }
+        bool is_compatible(int _, AtomicEntityType aet) { return is_compatible_type<int>(aet); }
+        bool is_compatible(double _, AtomicEntityType aet) { return is_compatible_type<double>(aet); }
+        bool is_compatible(str _, AtomicEntityType aet) { return is_compatible_type<str>(aet); }
+        bool is_compatible(const char * _, AtomicEntityType aet) { return is_compatible_type<const char *>(aet); }
+        bool is_compatible(Time _, AtomicEntityType aet) { return is_compatible_type<Time>(aet); }
+        bool is_compatible(SerializedValue _, AtomicEntityType aet) { return is_compatible_type<SerializedValue>(aet); }
+
+        bool is_compatible(ZefEnumValue en, AtomicEntityType aet) {
+            int offset = aet.value % 16;
+            return is_compatible_type<ZefEnumValue>(aet)
+                && (ZefEnumValue{ (aet.value - offset) }.enum_type() == en.enum_type());
+        }
+        bool is_compatible(QuantityFloat q, AtomicEntityType aet) {
+            int offset = aet.value % 16;
+            return is_compatible_type<QuantityFloat>(aet)
+                && ((aet.value - offset) == q.unit.value);
+        }
+        bool is_compatible(QuantityInt q, AtomicEntityType aet) {
+            int offset = aet.value % 16;
+            return is_compatible_type<QuantityInt>(aet)
+                && ((aet.value - offset) == q.unit.value);
+        }
+
+
+		// use template specialization for the return value in the fct 'auto operator^ (ZefRef my_atomic_entity, T op) -> std::optional<decltype(op._x)>' below.
+		// string values are saved as a char array. We could return a string_view, but for simplicity and pybind11, instantiate an std::string for now
+
+        template<>
+		str value_from_node<str>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet) {
+            Butler::ensure_or_get_range(aae.data_buffer, aae.buffer_size_in_bytes);
+            return std::string(aae.data_buffer, aae.buffer_size_in_bytes);
+		}
+
+        template<>
+		SerializedValue value_from_node<SerializedValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet) {
+            Butler::ensure_or_get_range(aae.data_buffer, aae.buffer_size_in_bytes);
+            char * cur = aae.data_buffer;
+            int type_len = *(int*)cur;
+            cur += sizeof(int);
+            int data_len = *(int*)cur;
+            cur += sizeof(int);
+            std::string type_str(cur, type_len);
+            cur += type_len;
+            std::string data_str(cur, data_len);
+            return SerializedValue{type_str, data_str};
+		}
+
+        template<>
+		double value_from_node<double>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet) {
+            // This needs to be specialised to convert, while allowing the other variants to avoid this unncessary check
+            if (aet == AET.Float)
+                return value_cast<double>(*(double*)(aae.data_buffer));
+            else// if(aet == AET.Int)
+                return value_cast<double>(*(int*)(aae.data_buffer));
+		}
+        template<>
+		int value_from_node<int>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet) {
+            // This needs to be specialised to convert, while allowing the other variants to avoid this unncessary check
+            if (aet == AET.Float) {
+                return value_cast<int>(*(double*)(aae.data_buffer));
+            } else if(aet == AET.Int) {
+                return value_cast<int>(*(int*)(aae.data_buffer));
+            } else //(aet == AET.Bool) {
+                return value_cast<int>(*(bool*)(aae.data_buffer));
+		}
+
+		// for contiguous POD types with compile-time determined size, we can use this template
+		template <typename T>
+		T value_from_node(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet) {
+			return *(T*)(aae.data_buffer);  // project onto type
+		}
+
+        template QuantityInt value_from_node<QuantityInt>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        template QuantityFloat value_from_node<QuantityFloat>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        template ZefEnumValue value_from_node<ZefEnumValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        template Time value_from_node<Time>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        template bool value_from_node<bool>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+
+
+
+
+
 
 	}
 }

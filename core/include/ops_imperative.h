@@ -37,13 +37,6 @@ namespace zefDB {
             return out_vec;
         }
 
-        template<class ELEM, class FUNC, class ITR>
-            std::vector<ELEM> filter(const ITR & iterable, FUNC f) {
-            std::vector<ELEM> out_vec;
-            std::copy_if(iterable.begin(), iterable.end(), std::back_inserter(out_vec), f);
-            return out_vec;
-        }
-
         template<class ITR>
             auto only(const ITR & iterable) {
             if(iterable.size() != 1) 
@@ -169,9 +162,16 @@ namespace zefDB {
 
 
 
-
-        LIBZEF_DLL_EXPORTED EZefRefs filter(const EZefRefs& uzrs, const std::function<bool(EZefRef)> & pred);
-        LIBZEF_DLL_EXPORTED ZefRefs filter(const ZefRefs& zrs, const std::function<bool(ZefRef)> & pred);
+        // This is temporary and will be replaced with type comparison when that
+        // moves from python into C++.
+        template<class ELEM, class ITR>
+        std::vector<ELEM> filter(const ITR & iterable, std::function<bool(const ELEM &)> f) {
+            std::vector<ELEM> out_vec;
+            std::copy_if(iterable.begin(), iterable.end(), std::back_inserter(out_vec), f);
+            return out_vec;
+        }
+        LIBZEF_DLL_EXPORTED EZefRefs filter(const EZefRefs& uzrs, const std::function<bool(const EZefRef &)> & pred);
+        LIBZEF_DLL_EXPORTED ZefRefs filter(const ZefRefs& zrs, const std::function<bool(const ZefRef &)> & pred);
 
         // Convenience versions
         LIBZEF_DLL_EXPORTED ZefRefs filter(const ZefRefs& zrs, EntityType et);
@@ -201,38 +201,7 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED Delegate delegate_rep(EZefRef ezr);
         LIBZEF_DLL_EXPORTED Delegate delegate_rep(ZefRef zr);
 
-
-    // these functions are used within assign_value and allow us to explicitly define which automatic type conversions
-	// are wanted / allowed. E.g. should the following throw or not?: my_ae_of_type_float <= my_int
-	// One AET may accept various C++ types to be assigned. Hence, we define a predicate function to model this.
-
-        // All of this seems unnecessary because the set of instantiated
-        // template options is already done in high_level_api.h. This works
-        // though, and I will leave it now to think about it another time.
-        template <typename T>
-        void assign_value(EZefRef my_atomic_entity, T value_to_be_assigned);
-        template <typename T>
-        void assign_value(ZefRef my_atomic_entity, T value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, bool value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(ZefRef my_atomic_entity,  bool value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, int value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(ZefRef my_atomic_entity,  int value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, double value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(ZefRef my_atomic_entity,  double value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, str value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(ZefRef my_atomic_entity,  str value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const char* value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(ZefRef my_atomic_entity,  const char* value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, Time value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(ZefRef my_atomic_entity,  Time value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, SerializedValue value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(ZefRef my_atomic_entity,  SerializedValue value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, ZefEnumValue value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(ZefRef my_atomic_entity,  ZefEnumValue value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, QuantityFloat value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(ZefRef my_atomic_entity,  QuantityFloat value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, QuantityInt value_to_be_assigned);
-        LIBZEF_DLL_EXPORTED extern template void assign_value(ZefRef my_atomic_entity,  QuantityInt value_to_be_assigned);
+        using zefDB::assign_value;
 
 
         using value_variant_t = std::variant<bool,int,double,str,Time,ZefEnumValue,QuantityFloat,QuantityInt,SerializedValue>;
