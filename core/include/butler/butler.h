@@ -404,7 +404,7 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED std::filesystem::path local_graph_prefix(std::filesystem::path dir);
         LIBZEF_DLL_EXPORTED std::filesystem::path local_graph_uid_path(std::filesystem::path dir);
 
-        LIBZEF_DLL_EXPORTED void ensure_or_get_range(void * ptr, size_t size);
+        LIBZEF_DLL_EXPORTED void ensure_or_get_range(const void * ptr, size_t size);
 
         GenericResponse generic_from_json(json j);
 

@@ -97,17 +97,17 @@ namespace zefDB {
 
         // * Utils
 
-        inline void * floor_ptr(void * ptr, size_t mod) { return (char*)ptr - (size_t)ptr % mod; }
+        inline void * floor_ptr(const void * ptr, size_t mod) { return (char*)ptr - (size_t)ptr % mod; }
         // Check if the below works and is any faster
         // void * floor_ptr(void * ptr, size_t mod) { return ptr & (my_mod - 1); }
-        inline void * ceil_ptr(void * ptr, size_t mod) {
+        inline void * ceil_ptr(const void * ptr, size_t mod) {
             void * temp = floor_ptr(ptr, mod);
             if(temp != ptr)
                 temp = (char*)temp + mod;
             return temp;
         }
 
-        inline void * align_to_system_pagesize(void * ptr) { return floor_ptr(ptr, getpagesize()); }
+        inline void * align_to_system_pagesize(const void * ptr) { return floor_ptr(ptr, getpagesize()); }
 
         inline void error(const char * s) {
             std::cerr << "Error: " << s << std::endl;
@@ -331,7 +331,7 @@ namespace zefDB {
             MMapAllocInfo() = default;
         };
 
-        inline void * blobs_ptr_from_mmap(void * ptr) {
+        inline void * blobs_ptr_from_mmap(const void * ptr) {
             // Need to leave room for the info struct
             void * new_ptr = ceil_ptr((char*)ptr + sizeof(MMapAllocInfo), ZEF_UID_SHIFT);
 
@@ -339,14 +339,14 @@ namespace zefDB {
             assert(new_ptr > ptr);
             return new_ptr;
         }
-        inline void * blobs_ptr_from_blob(void * ptr) { return floor_ptr(ptr, ZEF_UID_SHIFT); }
+        inline void * blobs_ptr_from_blob(const void * ptr) { return floor_ptr(ptr, ZEF_UID_SHIFT); }
 
-        inline MMapAllocInfo& info_from_blobs(void * ptr) {
+        inline MMapAllocInfo& info_from_blobs(const void * ptr) {
             ptr = (char*)ptr - sizeof(MMapAllocInfo);
             return *(MMapAllocInfo*)ptr;
         }
         inline void * blobs_ptr_from_info(MMapAllocInfo * ptr) { return (char*)ptr + sizeof(MMapAllocInfo); }
-        inline MMapAllocInfo& info_from_blob(void * ptr) { return info_from_blobs(blobs_ptr_from_blob(ptr)); }
+        inline MMapAllocInfo& info_from_blob(const void * ptr) { return info_from_blobs(blobs_ptr_from_blob(ptr)); }
 
 
 
@@ -355,16 +355,16 @@ namespace zefDB {
                 error("Accessing page out of range");
             return info.loaded_pages[page_ind];
         }
-        inline size_t ptr_to_page_ind(void * ptr) {
+        inline size_t ptr_to_page_ind(const void * ptr) {
             return ((size_t)ptr % ZEF_UID_SHIFT) / ZEF_PAGE_SIZE;
         }
-        inline bool is_page_alloced(void * ptr) {
+        inline bool is_page_alloced(const void * ptr) {
             MMapAllocInfo& info = info_from_blob(ptr);
             size_t page_ind = ptr_to_page_ind(ptr);
             return is_page_alloced(info, page_ind);
         }
 
-        inline bool is_range_alloced(void * target_ptr, size_t size) {
+        inline bool is_range_alloced(const void * target_ptr, size_t size) {
             MMapAllocInfo& info = info_from_blob(target_ptr);
             // Note: need (size-1) here.
             size_t page_ind_low = ptr_to_page_ind(target_ptr);
@@ -382,11 +382,11 @@ namespace zefDB {
 #endif
 
 #ifdef ZEFDB_TEST_NO_MMAP_CHECKS
-        inline void ensure_or_alloc_range(void * ptr, size_t size) {
+        inline void ensure_or_alloc_range(const void * ptr, size_t size) {
         }
-        inline void ensure_or_alloc_range_direct(void * ptr, size_t size) {
+        inline void ensure_or_alloc_range_direct(const void * ptr, size_t size) {
 #else
-        inline void ensure_or_alloc_range(void * ptr, size_t size) {
+        inline void ensure_or_alloc_range(const void * ptr, size_t size) {
 #endif
 #ifndef ZEF_WIN32
             // We don't do the following check anymore, as there are cases where a single blob_index-size ensure is needed.
@@ -431,7 +431,7 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED void print_malloc_arenas(void);
 
         LIBZEF_DLL_EXPORTED void destroy_mmap(MMapAllocInfo& info);
-        inline void destroy_mmap(void * ptr) { destroy_mmap(info_from_blobs(ptr)); }
+        inline void destroy_mmap(const void * ptr) { destroy_mmap(info_from_blobs(ptr)); }
 
         // * Whole file mappings
 

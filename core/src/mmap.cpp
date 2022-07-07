@@ -49,7 +49,7 @@ namespace zefDB {
             fclose(file);
         }
 
-        size_t my_mincore(void * start, size_t len, bool return_alloc=false) {
+        size_t my_mincore(const void * start, size_t len, bool return_alloc=false) {
             size_t total = 0;
             
             uintptr_t ptr = (uintptr_t)start;

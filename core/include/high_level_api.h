@@ -85,16 +85,16 @@ namespace zefDB {
 
 
     template <typename T>
-    std::optional<T> value(ZefRef my_atomic_entity);
-    LIBZEF_DLL_EXPORTED extern template std::optional<double> value<double>(ZefRef my_atomic_entity);
-    LIBZEF_DLL_EXPORTED extern template std::optional<int> value<int>(ZefRef my_atomic_entity);
-    LIBZEF_DLL_EXPORTED extern template std::optional<bool> value<bool>(ZefRef my_atomic_entity);
-    LIBZEF_DLL_EXPORTED extern template std::optional<std::string> value<std::string>(ZefRef my_atomic_entity);
-    LIBZEF_DLL_EXPORTED extern template std::optional<Time> value<Time>(ZefRef my_atomic_entity);
-    LIBZEF_DLL_EXPORTED extern template std::optional<SerializedValue> value<SerializedValue>(ZefRef my_atomic_entity);
-    LIBZEF_DLL_EXPORTED extern template std::optional<ZefEnumValue> value<ZefEnumValue>(ZefRef my_atomic_entity);
-    LIBZEF_DLL_EXPORTED extern template std::optional<QuantityFloat> value<QuantityFloat>(ZefRef my_atomic_entity);
-    LIBZEF_DLL_EXPORTED extern template std::optional<QuantityInt> value<QuantityInt>(ZefRef my_atomic_entity);
+    std::optional<T> value_from_ae(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<double> value_from_ae<double>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<int> value_from_ae<int>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<bool> value_from_ae<bool>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<std::string> value_from_ae<std::string>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<Time> value_from_ae<Time>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<SerializedValue> value_from_ae<SerializedValue>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<ZefEnumValue> value_from_ae<ZefEnumValue>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<QuantityFloat> value_from_ae<QuantityFloat>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<QuantityInt> value_from_ae<QuantityInt>(ZefRef my_atomic_entity);
 
     LIBZEF_DLL_EXPORTED bool is_promotable_to_zefref(EZefRef uzr_to_promote, EZefRef reference_tx);
     LIBZEF_DLL_EXPORTED bool is_promotable_to_zefref(EZefRef uzr_to_promote);
@@ -244,6 +244,21 @@ namespace zefDB {
 	inline ZefRef instantiate(ZefRef my_source, RelationType relation_type, ZefRef my_target, const Graph& g, std::optional<BaseUID> given_uid_maybe = {}) {
         return instantiate(my_source, relation_type, my_target, g.my_graph_data(), given_uid_maybe);
     }
+
+
+    template<typename T>
+    value_hash_t value_hash(T value);
+
+    template<>
+    inline value_hash_t value_hash(int value) { return std::hash<int>()(value); }
+
+    // Value nodes
+    template<typename T>
+	ZefRef instantiate_value_node(T value, value_hash_t hash, Graph& g);
+    template<typename T>
+	ZefRef instantiate_value_node(T value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(int value, Graph& g);
+
 
 
 

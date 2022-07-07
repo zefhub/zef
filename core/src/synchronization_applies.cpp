@@ -131,6 +131,22 @@ void unapply_action_ATOMIC_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_ca
     // WARNING THIS COULD MAKE A CLIENT GET OUT OF SYNC IN WEIRD ORDERING OF TAKING TRANSACTOR ROLE.
 }
 
+void apply_action_ATOMIC_VALUE_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
+    assert(get<BlobType>(uzr) == BlobType::ATOMIC_VALUE_NODE);
+    auto & node = get<blobs_ns::ATOMIC_VALUE_NODE>(uzr);
+
+    if(fill_caches) {
+        // TODO: Push the hash from a lookup
+    }
+}
+
+void unapply_action_ATOMIC_VALUE_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
+    auto & node = get<blobs_ns::ATOMIC_VALUE_NODE>(uzr);
+    if(fill_caches) {
+        // TODO: Pop the hash from a lookup
+    }
+}
+
 void apply_action_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
     assert(get<BlobType>(uzr) == BlobType::ENTITY_NODE);
     auto & node = get<blobs_ns::ENTITY_NODE>(uzr);

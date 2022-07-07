@@ -157,6 +157,7 @@ namespace zefDB {
 		struct ATOMIC_VALUE_NODE {
 			BlobType this_BlobType = BlobType::ATOMIC_VALUE_NODE;
 			AtomicEntityType my_atomic_entity_type;
+            value_hash_t hash;
 			unsigned int buffer_size_in_bytes = 0;   // this needs to be set specifically for each data type (not only data of variable size!)
 			// char data_buffer[1];	// for any type larger than a char, this is designed to overflow
             edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_VALUE_NODE};
@@ -637,12 +638,21 @@ namespace zefDB {
             return blob.data_buffer;
 		};
 
-        inline const char* get_data_buffer(EZefRef ezr) {
-            return visit_blob_with_data_buffer([](auto & x) { return(get_data_buffer(x)); }, ezr);
+        inline const char* get_data_buffer(const EZefRef ezr) {
+            return visit_blob_with_data_buffer([](const auto & x) { return get_data_buffer(x); }, ezr);
 		};
 
-        inline const size_t get_data_buffer_size(EZefRef ezr) {
-            return visit_blob_with_data_buffer([](auto & x) { return(x.buffer_size_in_bytes); }, ezr);
+        template<typename T>
+        inline size_t get_data_buffer_size(const T & blob) {
+            return blob.buffer_size_in_bytes;
+		};
+        template size_t get_data_buffer_size(const blobs_ns::ATOMIC_VALUE_NODE & blob);
+        template size_t get_data_buffer_size(const blobs_ns::ASSIGN_TAG_NAME_EDGE & blob);
+        template size_t get_data_buffer_size(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE & blob);
+
+        template<>
+        inline size_t get_data_buffer_size(const EZefRef & ezr) {
+            return visit_blob_with_data_buffer([](const auto & x) { return get_data_buffer_size(x); }, ezr);
 		};
         
 

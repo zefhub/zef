@@ -579,16 +579,19 @@ namespace zefDB {
 		// use template specialization for the return value in the fct 'auto operator^ (ZefRef my_atomic_entity, T op) -> std::optional<decltype(op._x)>' below.
 		// string values are saved as a char array. We could return a string_view, but for simplicity and pybind11, instantiate an std::string for now
 
+        template<typename T>
+		T value_from_node_ptr(const char * buf, unsigned int size, AtomicEntityType aet);
+
         template<>
-		str value_from_node<str>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet) {
-            Butler::ensure_or_get_range(aae.data_buffer, aae.buffer_size_in_bytes);
-            return std::string(aae.data_buffer, aae.buffer_size_in_bytes);
+		str value_from_node_ptr<str>(const char * buf, unsigned int size, AtomicEntityType aet) {
+            Butler::ensure_or_get_range(buf, size);
+            return std::string(buf, size);
 		}
 
         template<>
-		SerializedValue value_from_node<SerializedValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet) {
-            Butler::ensure_or_get_range(aae.data_buffer, aae.buffer_size_in_bytes);
-            char * cur = aae.data_buffer;
+		SerializedValue value_from_node_ptr<SerializedValue>(const char * buf, unsigned int size, AtomicEntityType aet) {
+            Butler::ensure_or_get_range(buf, size);
+            const char * cur = buf;
             int type_len = *(int*)cur;
             cur += sizeof(int);
             int data_len = *(int*)cur;
@@ -600,40 +603,72 @@ namespace zefDB {
 		}
 
         template<>
-		double value_from_node<double>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet) {
+		double value_from_node_ptr<double>(const char * buf, unsigned int size, AtomicEntityType aet) {
             // This needs to be specialised to convert, while allowing the other variants to avoid this unncessary check
             if (aet == AET.Float)
-                return value_cast<double>(*(double*)(aae.data_buffer));
+                return value_cast<double>(*(double*)(buf));
             else// if(aet == AET.Int)
-                return value_cast<double>(*(int*)(aae.data_buffer));
+                return value_cast<double>(*(int*)(buf));
 		}
         template<>
-		int value_from_node<int>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet) {
+		int value_from_node_ptr<int>(const char * buf, unsigned int size, AtomicEntityType aet) {
             // This needs to be specialised to convert, while allowing the other variants to avoid this unncessary check
             if (aet == AET.Float) {
-                return value_cast<int>(*(double*)(aae.data_buffer));
+                return value_cast<int>(*(double*)(buf));
             } else if(aet == AET.Int) {
-                return value_cast<int>(*(int*)(aae.data_buffer));
+                return value_cast<int>(*(int*)(buf));
             } else //(aet == AET.Bool) {
-                return value_cast<int>(*(bool*)(aae.data_buffer));
+                return value_cast<int>(*(bool*)(buf));
 		}
 
 		// for contiguous POD types with compile-time determined size, we can use this template
 		template <typename T>
-		T value_from_node(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet) {
-			return *(T*)(aae.data_buffer);  // project onto type
+		T value_from_node_ptr(const char * buf, unsigned int size, AtomicEntityType aet) {
+			return *(T*)(buf);  // project onto type
 		}
 
-        template QuantityInt value_from_node<QuantityInt>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        template QuantityFloat value_from_node<QuantityFloat>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        template ZefEnumValue value_from_node<ZefEnumValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        template Time value_from_node<Time>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        template bool value_from_node<bool>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        // template QuantityInt value_from_node<QuantityInt>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        // template QuantityFloat value_from_node<QuantityFloat>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        // template ZefEnumValue value_from_node<ZefEnumValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        // template Time value_from_node<Time>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        // template bool value_from_node<bool>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
 
 
+        template<typename T, typename C>
+        T value_from_node_(const C & aae_or_avn) {
+            const char * data_buffer = get_data_buffer(aae_or_avn);
+            unsigned int size = get_data_buffer_size(aae_or_avn);
+            return value_from_node_ptr<T>(data_buffer, size, aae_or_avn.my_atomic_entity_type);
+        }
 
+        template<class T>
+        T value_from_node(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae) {
+            return value_from_node_<T>(aae);
+        }
+        template<class T>
+        T value_from_node(const blobs_ns::ATOMIC_VALUE_NODE& av) {
+            return value_from_node_<T>(av);
+        }
 
+        template QuantityInt value_from_node<QuantityInt>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template QuantityFloat value_from_node<QuantityFloat>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template ZefEnumValue value_from_node<ZefEnumValue>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template Time value_from_node<Time>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template bool value_from_node<bool>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template str value_from_node<str>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template SerializedValue value_from_node<SerializedValue>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template double value_from_node<double>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template int value_from_node<int>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
 
+        template QuantityInt value_from_node<QuantityInt>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        template QuantityFloat value_from_node<QuantityFloat>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        template ZefEnumValue value_from_node<ZefEnumValue>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        template Time value_from_node<Time>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        template bool value_from_node<bool>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        template str value_from_node<str>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        template SerializedValue value_from_node<SerializedValue>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        template double value_from_node<double>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        template int value_from_node<int>(const blobs_ns::ATOMIC_VALUE_NODE& av);
 
-	}
+    }
 }

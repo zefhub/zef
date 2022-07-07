@@ -308,20 +308,27 @@ namespace zefDB {
 
 
         template<class T>
-        T value_from_node(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        T value_from_node(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template<class T>
+        T value_from_node(const blobs_ns::ATOMIC_VALUE_NODE& av);
 
-        // Specializations
-        template<> str value_from_node<str>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet); 
-        template<> SerializedValue value_from_node<SerializedValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet); 
+        extern template str value_from_node<str>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae); 
+        extern template SerializedValue value_from_node<SerializedValue>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae); 
+        extern template double value_from_node<double>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        extern template int value_from_node<int>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        extern template QuantityInt value_from_node<QuantityInt>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        extern template QuantityFloat value_from_node<QuantityFloat>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        extern template ZefEnumValue value_from_node<ZefEnumValue>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        extern template bool value_from_node<bool>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
 
-        template<> double value_from_node<double>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        template<> int value_from_node<int>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-
-        // These ones can be just instantiated from a single template
-        extern template QuantityInt value_from_node<QuantityInt>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        extern template QuantityFloat value_from_node<QuantityFloat>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        extern template ZefEnumValue value_from_node<ZefEnumValue>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
-        extern template bool value_from_node<bool>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae, AtomicEntityType aet);
+        extern template str value_from_node<str>(const blobs_ns::ATOMIC_VALUE_NODE& av); 
+        extern template SerializedValue value_from_node<SerializedValue>(const blobs_ns::ATOMIC_VALUE_NODE& av); 
+        extern template double value_from_node<double>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        extern template int value_from_node<int>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        extern template QuantityInt value_from_node<QuantityInt>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        extern template QuantityFloat value_from_node<QuantityFloat>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        extern template ZefEnumValue value_from_node<ZefEnumValue>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        extern template bool value_from_node<bool>(const blobs_ns::ATOMIC_VALUE_NODE& av);
 
 		template <typename T>    
 		T abs_val(T val) {       

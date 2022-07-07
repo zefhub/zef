@@ -479,10 +479,69 @@ namespace zefDB {
 
 
 
+    template<typename T>
+    ZefRef instantiate_value_node(T value, GraphData& gd) {
+        return instantiate_value_node(value, value_hash(value), gd);
+    }
 
-	namespace internals {
+    template ZefRef instantiate_value_node(int value, GraphData& gd);
 
-		auto can_be_cloned = [](ZefRef zz)->bool { return
+
+    template<typename T>
+    AtomicEntityType get_aet_for_type();
+
+    template<>
+    AtomicEntityType get_aet_for_type<int>() { return AET.Int; }
+
+    template<typename T>
+    ZefRef instantiate_value_node(T value, value_hash_t hash, GraphData& gd) {
+        if (!gd.is_primary_instance)
+            throw std::runtime_error("'instantiate_value_node' called for a graph which is not a primary instance. This is not allowed. Shame on you!");
+
+        // TODO: We could also just return a preexisting value that has the same hash.
+        
+		auto this_tx = Transaction(gd);
+
+        blobs_ns::ATOMIC_VALUE_NODE& ent = internals::get_next_free_writable_blob<blobs_ns::ATOMIC_VALUE_NODE>(gd);
+        MMap::ensure_or_alloc_range(&ent, blobs_ns::max_basic_blob_size);
+        ent.this_BlobType = BlobType::ATOMIC_VALUE_NODE;		
+		
+        // AtomicEntityType has a const member and we can't set this afterwards. Construct into place (call constructor on specified address)
+        auto aet = get_aet_for_type<T>();
+        new(&ent.my_atomic_entity_type) AtomicEntityType{ aet.value };
+
+        ent.hash = hash;
+
+        char * data_buffer = internals::get_data_buffer(ent);
+        internals::copy_to_buffer(data_buffer, ent.buffer_size_in_bytes, value);
+
+        internals::move_head_forward(gd);   // keep this low level function here! The buffer size is not fixed and 'instantiate' was not designed for this case
+
+        // TODO: We could put a link to this value as an edge. Alternatively, we
+        // can leave it and reference it only by its hash and a lookup.
+
+		EZefRef z_ent((void*)&ent);
+		EZefRef tx_node{ gd.index_of_open_tx_node, gd };
+        internals::apply_action_ATOMIC_VALUE_NODE(gd, z_ent, true);
+		
+		return ZefRef{ z_ent, tx_node };
+	}
+
+    template<typename T>
+	ZefRef instantiate_value_node(T value, value_hash_t hash, Graph& g) {
+        return instantiate_value_node(value, hash, g.my_graph_data());
+    }
+    template<typename T>
+	ZefRef instantiate_value_node(T value, Graph& g) {
+        return instantiate_value_node(value, g.my_graph_data());
+    }
+
+    template ZefRef instantiate_value_node(int value, Graph& g);
+
+
+    namespace internals {
+
+        auto can_be_cloned = [](ZefRef zz)->bool { return
 			(BT(zz) == BT.ENTITY_NODE ||
 				BT(zz) == BT.ATOMIC_ENTITY_NODE ||
 				BT(zz) == BT.RELATION_EDGE
@@ -502,7 +561,6 @@ namespace zefDB {
 			apply_action_FOREIGN_GRAPH_NODE(gd, new_foreign_graph_uzr, true);  // use the replay system to execute the action.
 			return new_foreign_graph_uzr;
 		};
-
 
 
 
@@ -692,9 +750,8 @@ namespace zefDB {
 
 
 
-
     template <typename T>
-    std::optional<T> value(ZefRef my_atomic_entity) {
+    std::optional<T> value_from_ae(ZefRef my_atomic_entity) {
         using namespace internals;
         // check that the type T corresponds to the type of atomic entity of the zefRef
         if (get<BlobType>(my_atomic_entity.blob_uzr) != BlobType::ATOMIC_ENTITY_NODE) 
@@ -725,17 +782,17 @@ namespace zefDB {
             }
         }
         if (result_candidate_edge.blob_ptr == nullptr) return {};  // no assignment edge was found
-        else return internals::value_from_node<T>(get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge), aet);
+        else return internals::value_from_node<T>(get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge));
     }
-    template std::optional<double> value<double>(ZefRef my_atomic_entity);
-    template std::optional<int> value<int>(ZefRef my_atomic_entity);
-    template std::optional<bool> value<bool>(ZefRef my_atomic_entity);
-    template std::optional<std::string> value<std::string>(ZefRef my_atomic_entity);
-    template std::optional<Time> value<Time>(ZefRef my_atomic_entity);
-    template std::optional<SerializedValue> value<SerializedValue>(ZefRef my_atomic_entity);
-    template std::optional<ZefEnumValue> value<ZefEnumValue>(ZefRef my_atomic_entity);
-    template std::optional<QuantityFloat> value<QuantityFloat>(ZefRef my_atomic_entity);
-    template std::optional<QuantityInt> value<QuantityInt>(ZefRef my_atomic_entity);
+    template std::optional<double> value_from_ae<double>(ZefRef my_atomic_entity);
+    template std::optional<int> value_from_ae<int>(ZefRef my_atomic_entity);
+    template std::optional<bool> value_from_ae<bool>(ZefRef my_atomic_entity);
+    template std::optional<std::string> value_from_ae<std::string>(ZefRef my_atomic_entity);
+    template std::optional<Time> value_from_ae<Time>(ZefRef my_atomic_entity);
+    template std::optional<SerializedValue> value_from_ae<SerializedValue>(ZefRef my_atomic_entity);
+    template std::optional<ZefEnumValue> value_from_ae<ZefEnumValue>(ZefRef my_atomic_entity);
+    template std::optional<QuantityFloat> value_from_ae<QuantityFloat>(ZefRef my_atomic_entity);
+    template std::optional<QuantityInt> value_from_ae<QuantityInt>(ZefRef my_atomic_entity);
         
 
 

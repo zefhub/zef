@@ -811,7 +811,7 @@ namespace zefDB {
         ////////////////////////////////////////
         // * Memory management
 
-        void ensure_or_get_range(void * ptr, size_t size) {
+        void ensure_or_get_range(const void * ptr, size_t size) {
 #ifndef ZEFDB_TEST_NO_MMAP_CHECKS
 
             if(!MMap::is_range_alloced(ptr, size)) {

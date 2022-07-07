@@ -1400,37 +1400,59 @@ namespace zefDB {
 
     namespace imperative {
 
-        value_ret_t value(ZefRef ae) {
-            if (get<BlobType>(ae.blob_uzr) != BlobType::ATOMIC_ENTITY_NODE) throw std::runtime_error("'value(zefref)' called for a zefref which is not an atomic entity.");
-            auto aet = get<blobs_ns::ATOMIC_ENTITY_NODE>(ae.blob_uzr).my_atomic_entity_type.value;
-            switch (aet) {
-            case AET.Float.value: { return zefDB::value<double>(ae); }
-            case AET.Int.value: { return zefDB::value<int>(ae); }
-            case AET.Bool.value: { return zefDB::value<bool>(ae); }
-            case AET.String.value: { return zefDB::value<std::string>(ae); }
-            case AET.Time.value: { return zefDB::value<Time>(ae); }
-            case AET.Serialized.value: { return zefDB::value<SerializedValue>(ae); }
-            default: {
-                switch (aet % 16) {
-                case 1: { return zefDB::value<ZefEnumValue>(ae); }
-                case 2: { return zefDB::value<QuantityFloat>(ae); }
-                case 3: { return zefDB::value<QuantityInt>(ae); }
-                default: throw std::runtime_error("Return type not implemented.");
+        value_ret_t value(ZefRef z) {
+            if (get<BlobType>(z.blob_uzr) == BlobType::ATOMIC_ENTITY_NODE) {
+                auto aet = get<blobs_ns::ATOMIC_ENTITY_NODE>(z.blob_uzr).my_atomic_entity_type.value;
+                switch (aet) {
+                case AET.Float.value: { return zefDB::value_from_ae<double>(z); }
+                case AET.Int.value: { return zefDB::value_from_ae<int>(z); }
+                case AET.Bool.value: { return zefDB::value_from_ae<bool>(z); }
+                case AET.String.value: { return zefDB::value_from_ae<std::string>(z); }
+                case AET.Time.value: { return zefDB::value_from_ae<Time>(z); }
+                case AET.Serialized.value: { return zefDB::value_from_ae<SerializedValue>(z); }
+                default: {
+                    switch (aet % 16) {
+                    case 1: { return zefDB::value_from_ae<ZefEnumValue>(z); }
+                    case 2: { return zefDB::value_from_ae<QuantityFloat>(z); }
+                    case 3: { return zefDB::value_from_ae<QuantityInt>(z); }
+                    default: throw std::runtime_error("Return type not implemented.");
+                    }
                 }
+                }
+            } else if (get<BlobType>(z.blob_uzr) == BlobType::ATOMIC_VALUE_NODE) {
+                auto ent = get<blobs_ns::ATOMIC_VALUE_NODE>(z.blob_uzr);
+                auto aet = ent.my_atomic_entity_type.value;
+                switch (aet) {
+                case AET.Float.value: { return internals::value_from_node<double>(ent); }
+                case AET.Int.value: { return internals::value_from_node<int>(ent); }
+                case AET.Bool.value: { return internals::value_from_node<bool>(ent); }
+                case AET.String.value: { return internals::value_from_node<std::string>(ent); }
+                case AET.Time.value: { return internals::value_from_node<Time>(ent); }
+                case AET.Serialized.value: { return internals::value_from_node<SerializedValue>(ent); }
+                default: {
+                    switch (aet % 16) {
+                    case 1: { return internals::value_from_node<ZefEnumValue>(ent); }
+                    case 2: { return internals::value_from_node<QuantityFloat>(ent); }
+                    case 3: { return internals::value_from_node<QuantityInt>(ent); }
+                    default: throw std::runtime_error("Return type not implemented.");
+                    }
+                }
+                }
+            } else {
+            throw std::runtime_error("'value(zefref)' called for a zefref which is not an atomic entity.");
             }
-            }
         }
-        value_ret_t value(EZefRef ae, EZefRef tx) {
-            return value(to_frame(ae, tx));
+        value_ret_t value(EZefRef z, EZefRef tx) {
+            return value(to_frame(z, tx));
         }
-        value_ret_t value(ZefRef ae, EZefRef tx) {
-            return value(to_frame(ae, tx));
+        value_ret_t value(ZefRef z, EZefRef tx) {
+            return value(to_frame(z, tx));
         }
-        value_ret_t value(EZefRef ae, ZefRef tx) {
-            return value(to_frame(ae, tx));
+        value_ret_t value(EZefRef z, ZefRef tx) {
+            return value(to_frame(z, tx));
         }
-        value_ret_t value(ZefRef ae, ZefRef tx) {
-            return value(to_frame(ae, tx));
+        value_ret_t value(ZefRef z, ZefRef tx) {
+            return value(to_frame(z, tx));
         }
 
         // std::vector<value_ret_t> value(ZefRefs zrs) {

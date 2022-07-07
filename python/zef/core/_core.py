@@ -36,6 +36,7 @@ from ..pyzef.main import (
     hours,
     index,
     instantiate,
+    instantiate_value_node,
     lookup_uid,
     make_primary,
     merge,

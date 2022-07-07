@@ -39,6 +39,8 @@ namespace zefDB {
 	// using RT_pair = std::tuple<et_enum_num_data, std::string>;
 	using enum_tuple = std::tuple<enum_indx, std::string, std::string>;
 
+	using value_hash_t = uint32_t;
+
     namespace MMap {
         constexpr size_t MB = 1024*1024;
         constexpr size_t GB = 1024*1024*1024;
