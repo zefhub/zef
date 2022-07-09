@@ -17,6 +17,7 @@
 #include "synchronization.h"
 #include "verification.h"
 #include "zefops.h"
+#include "external_handlers.h"
 
 #include <doctest/doctest.h>
 
@@ -961,7 +962,7 @@ namespace zefDB {
                     // We fake that we have the transaction still open just for AbortTransaction
                     gd.number_of_open_tx_sessions++;
                     try {
-                        Butler::pass_to_schema_validator(ctx);
+                        internals::pass_to_schema_validator(ctx);
                     } catch(const std::exception & e) {
                         std::cerr << "Exception in schema_validator: " << e.what() << std::endl;
                         AbortTransaction(Graph(ctx));

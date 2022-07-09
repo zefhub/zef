@@ -144,11 +144,17 @@ namespace zefDB {
 		
 		struct ATOMIC_ENTITY_NODE {
 			BlobType this_BlobType = BlobType::ATOMIC_ENTITY_NODE;
-			AtomicEntityType my_atomic_entity_type;   // only the type enum value. This can't overflow, the value is never saved here
+			ValueRepType rep_type;   // only the type enum value. This can't overflow, the value is never saved here
 			TimeSlice instantiation_time_slice = { 0 };
 			TimeSlice termination_time_slice = { 0 };
 			BaseUID uid;
             edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE};
+		};
+
+		struct COMPLEX_VALUE_TYPE_EDGE {
+			BlobType this_BlobType = BlobType::COMPLEX_VALUE_TYPE_EDGE;
+			blob_index source_node_index = 0;  // coming from an ATOMIC_ENTITY_NODE
+			blob_index target_node_index = 0;  // goes to an ATOMIC_VALUE_NODE
 		};
 		
 		// Sometimes we just wan to save a value (that never changes) or we want to project one time slice of the entity and relation property graph 
@@ -156,11 +162,16 @@ namespace zefDB {
 		// machineray and past values, if only the most recent are of interest
 		struct ATOMIC_VALUE_NODE {
 			BlobType this_BlobType = BlobType::ATOMIC_VALUE_NODE;
-			AtomicEntityType my_atomic_entity_type;
+			ValueRepType rep_type;
             value_hash_t hash;
 			unsigned int buffer_size_in_bytes = 0;   // this needs to be set specifically for each data type (not only data of variable size!)
 			// char data_buffer[1];	// for any type larger than a char, this is designed to overflow
             edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_VALUE_NODE};
+
+            ATOMIC_VALUE_NODE() {}
+            ATOMIC_VALUE_NODE(ValueRepType vrt, value_hash_t hash)
+                : rep_type(vrt),
+                  hash(hash) {}
 		};
 
 		struct RELATION_EDGE {
@@ -203,7 +214,7 @@ namespace zefDB {
 
 		struct ATOMIC_VALUE_ASSIGNMENT_EDGE {
 			BlobType this_BlobType = BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE;
-			AtomicEntityType my_atomic_entity_type;
+			ValueRepType rep_type;
 			unsigned int buffer_size_in_bytes = 0;    // this needs to be set specifically for each data type (not only data of variable size!)
 			blob_index source_node_index = 0;
 			blob_index target_node_index = 0;
@@ -269,7 +280,7 @@ namespace zefDB {
 
 		struct FOREIGN_ATOMIC_ENTITY_NODE {
 			BlobType this_BlobType = BlobType::FOREIGN_ATOMIC_ENTITY_NODE;
-			AtomicEntityType atomic_entity_type;   // only the type enum value. This can't overflow, the value is never saved here
+			ValueRepType rep_type;
 			BaseUID uid;
             edge_info edges{constants::default_local_edge_indexes_capacity_FOREIGN_ATOMIC_ENTITY_NODE};
 		};
@@ -322,6 +333,7 @@ namespace zefDB {
 		case BlobType::FOREIGN_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ENTITY_NODE*)uzr.blob_ptr)); }
 		case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE*)uzr.blob_ptr)); }
 		case BlobType::FOREIGN_RELATION_EDGE: { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)uzr.blob_ptr)); }
+		case BlobType::COMPLEX_VALUE_TYPE_EDGE: { return fct_to_apply(*((blobs_ns::COMPLEX_VALUE_TYPE_EDGE*)uzr.blob_ptr)); }
         default: { print_backtrace(); throw std::runtime_error("Unknown blob type"); }
 		}
 	};
@@ -364,6 +376,7 @@ namespace zefDB {
         case BlobType::ORIGIN_RAE_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_RAE_EDGE*)uzr.blob_ptr)); }
         case BlobType::ORIGIN_GRAPH_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_GRAPH_EDGE*)uzr.blob_ptr)); }
         case BlobType::FOREIGN_RELATION_EDGE: { { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)uzr.blob_ptr)); } }
+        case BlobType::COMPLEX_VALUE_TYPE_EDGE: { { return fct_to_apply(*((blobs_ns::COMPLEX_VALUE_TYPE_EDGE*)uzr.blob_ptr)); } }
         default: { print_backtrace(); throw std::runtime_error("Blobtype expected to have source/target but it didn't"); }
         }
 	};
@@ -440,6 +453,7 @@ namespace zefDB {
 				case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
 				case BlobType::ORIGIN_RAE_EDGE:
 				case BlobType::ORIGIN_GRAPH_EDGE:
+				case BlobType::COMPLEX_VALUE_TYPE_EDGE:
 				case BlobType::FOREIGN_RELATION_EDGE: {
                     return true;
                 }
@@ -491,6 +505,7 @@ namespace zefDB {
 				case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE:
 				case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
 				case BlobType::ORIGIN_RAE_EDGE:
+				case BlobType::COMPLEX_VALUE_TYPE_EDGE:
 				case BlobType::ORIGIN_GRAPH_EDGE: {
                     return false;
                 }
@@ -529,6 +544,7 @@ namespace zefDB {
 				case BlobType::FOREIGN_GRAPH_NODE:
 				case BlobType::FOREIGN_ENTITY_NODE:
 				case BlobType::FOREIGN_ATOMIC_ENTITY_NODE:
+				case BlobType::COMPLEX_VALUE_TYPE_EDGE:
 				case BlobType::FOREIGN_RELATION_EDGE: {
                     return false;
                 }
@@ -784,7 +800,7 @@ LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::TO_DELEGATE_EDGE& this_blob);
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ENTITY_NODE& this_blob);
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_ENTITY_NODE& this_blob);
-std::string value_blob_to_str(AtomicEntityType buffer_type, const char* buffer_ptr, unsigned int buffer_size=0);
+std::string value_blob_to_str(ValueRepType buffer_type, const char* buffer_ptr, unsigned int buffer_size=0);
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_VALUE_NODE& this_blob);
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::RELATION_EDGE& this_blob);
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& this_blob);
@@ -805,6 +821,7 @@ LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ENTITY_NODE& this_blob);
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE& this_blob);
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_RELATION_EDGE& this_blob);
+LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::COMPLEX_VALUE_TYPE_EDGE& this_blob);
 
     // If anyone can understand why I need this, and can't just use << (in
     // butler_handlers_graph_manager.cpp) then please fix it and tell me!
@@ -831,35 +848,36 @@ using ScalarVariant = std::variant<
     RelationType
 >;
 
-	inline bool operator<= (EZefRef uzr, BlobType bt) { return BT(uzr) == bt; }
 
-	inline bool operator<= (EZefRef uzr, AtomicEntityTypeStruct AET) { return uzr <= BT.ATOMIC_ENTITY_NODE; }
-	inline bool operator<= (EZefRef uzr, EntityTypeStruct ET) { return uzr <= BT.ENTITY_NODE; }
-	inline bool operator<= (EZefRef uzr, RelationTypeStruct RT) { return uzr <= BT.RELATION_EDGE; }
+	inline bool is_zef_subtype(EZefRef uzr, BlobType bt) { return BT(uzr) == bt; }
 
-	inline bool operator<= (EZefRef uzr, EntityType et) { return (uzr <= ET) && (ET(uzr) == et); }
-	inline bool operator<= (EZefRef uzr, RelationType rt) { return (uzr <= RT) && (RT(uzr) == rt); }
+	inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct VRT) { return is_zef_subtype(uzr, BT.ATOMIC_ENTITY_NODE); }
+	inline bool is_zef_subtype(EZefRef uzr, EntityTypeStruct ET) { return is_zef_subtype(uzr, BT.ENTITY_NODE); }
+	inline bool is_zef_subtype(EZefRef uzr, RelationTypeStruct RT) { return is_zef_subtype(uzr, BT.RELATION_EDGE); }
 
-
-	inline bool operator<= (EZefRef uzr, AtomicEntityType aet_super) { return (uzr <= AET) && (AET(uzr) <= aet_super); }
-    inline bool operator<= (EZefRef uzr, AtomicEntityTypeStruct::Enum_ aet_super) { return (uzr <= AET) && (AET(uzr) <= aet_super); }
-    inline bool operator<= (EZefRef uzr, AtomicEntityTypeStruct::QuantityFloat_ aet_super) { return (uzr <= AET) && (AET(uzr) <= aet_super); }
-    inline bool operator<= (EZefRef uzr, AtomicEntityTypeStruct::QuantityInt_ aet_super) { return (uzr <= AET) && (AET(uzr) <= aet_super); }
-
-	inline bool operator<= (ZefRef zr, BlobType bt) { return zr.blob_uzr <= bt; }
-
-	inline bool operator<= (ZefRef zr, AtomicEntityTypeStruct AET) { return zr.blob_uzr <= AET; }
-	inline bool operator<= (ZefRef zr, EntityTypeStruct ET) { return zr.blob_uzr <= ET; }
-	inline bool operator<= (ZefRef zr, RelationTypeStruct RT) { return zr.blob_uzr <= RT; }
-
-	inline bool operator<= (ZefRef zr, EntityType et) { return zr.blob_uzr <= et; }
-	inline bool operator<= (ZefRef zr, RelationType rt) { return zr.blob_uzr <= rt; }
+	inline bool is_zef_subtype(EZefRef uzr, EntityType et) { return is_zef_subtype(uzr, ET) && (ET(uzr) == et); }
+    inline bool is_zef_subtype(EZefRef uzr, RelationType rt) { return is_zef_subtype(uzr, RT) && (RT(uzr) == rt); }
 
 
-	inline bool operator<= (ZefRef zr, AtomicEntityType aet_super) { return zr.blob_uzr <= aet_super; }
-    inline bool operator<= (ZefRef zr, AtomicEntityTypeStruct::Enum_ aet_super) { return zr.blob_uzr <= aet_super; }
-    inline bool operator<= (ZefRef zr, AtomicEntityTypeStruct::QuantityFloat_ aet_super) { return zr.blob_uzr <= aet_super; }
-    inline bool operator<= (ZefRef zr, AtomicEntityTypeStruct::QuantityInt_ aet_super) { return zr.blob_uzr <= aet_super; }
+	inline bool is_zef_subtype(EZefRef uzr, ValueRepType vrt_super) { return is_zef_subtype(uzr, VRT) && is_zef_subtype(VRT(uzr), vrt_super); }
+    inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct::Enum_ vrt_super) { return is_zef_subtype(uzr, VRT) && is_zef_subtype(VRT(uzr), vrt_super); }
+    inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct::QuantityFloat_ vrt_super) { return is_zef_subtype(uzr, VRT) && is_zef_subtype(VRT(uzr), vrt_super); }
+    inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct::QuantityInt_ vrt_super) { return is_zef_subtype(uzr, VRT) && is_zef_subtype(VRT(uzr), vrt_super); }
+
+	inline bool is_zef_subtype(ZefRef zr, BlobType bt) { return is_zef_subtype(zr.blob_uzr, bt); }
+
+	inline bool is_zef_subtype(ZefRef zr, ValueRepTypeStruct VRT) { return is_zef_subtype(zr.blob_uzr, VRT); }
+	inline bool is_zef_subtype(ZefRef zr, EntityTypeStruct ET) { return is_zef_subtype(zr.blob_uzr, ET); }
+	inline bool is_zef_subtype(ZefRef zr, RelationTypeStruct RT) { return is_zef_subtype(zr.blob_uzr, RT); }
+
+	inline bool is_zef_subtype(ZefRef zr, EntityType et) { return is_zef_subtype(zr.blob_uzr, et); }
+	inline bool is_zef_subtype(ZefRef zr, RelationType rt) { return is_zef_subtype(zr.blob_uzr, rt); }
+
+
+	inline bool is_zef_subtype(ZefRef zr, ValueRepType vrt_super) { return is_zef_subtype(zr.blob_uzr, vrt_super); }
+    inline bool is_zef_subtype(ZefRef zr, ValueRepTypeStruct::Enum_ vrt_super) { return is_zef_subtype(zr.blob_uzr, vrt_super); }
+    inline bool is_zef_subtype(ZefRef zr, ValueRepTypeStruct::QuantityFloat_ vrt_super) { return is_zef_subtype(zr.blob_uzr, vrt_super); }
+    inline bool is_zef_subtype(ZefRef zr, ValueRepTypeStruct::QuantityInt_ vrt_super) { return is_zef_subtype(zr.blob_uzr, vrt_super); }
 
 
 }

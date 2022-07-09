@@ -168,6 +168,28 @@ namespace zefDB {
 	RelationType operator| (ZefRef zr, const RelationTypeStruct& RT_) {return RT_(zr);}
 
     //////////////////////////////
+    // * VRT
+
+	ValueRepType ValueRepTypeStruct::operator() (EZefRef uzr) const {
+		if (get<BlobType>(uzr) != BlobType::ATOMIC_ENTITY_NODE) throw std::runtime_error("AET(EZefRef uzr) called for a uzr which is not an atomic entity.");
+		return get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr).rep_type;
+	}
+	ValueRepType ValueRepTypeStruct::operator() (ZefRef zr) const {
+		return VRT(zr.blob_uzr);
+	}
+
+	ValueRepType::operator str () const {
+        return internals::get_string_name_from_value_rep_type(*this);
+    }
+
+	std::ostream& operator << (std::ostream& o, ValueRepType vrt) {
+        o << "VRT.";
+		o << str(vrt);
+		return o;
+	}
+
+
+    //////////////////////////////
     // * Keyword
 
 	Keyword KeywordStruct::operator() (const std::string& string_input) const {
@@ -193,57 +215,6 @@ namespace zefDB {
 		return o;
 	}
 
-
-
-    //////////////////////////////////////
-    // * AtomicEntityType
-
-    // TODO: There seems to be something missing here with the string lookups - it's not the same pattern as ET,RT
-
-	AtomicEntityType AtomicEntityTypeStruct::operator() (EZefRef uzr) const {
-		if (get<BlobType>(uzr) != BlobType::ATOMIC_ENTITY_NODE) throw std::runtime_error("AET(EZefRef uzr) calles for a uzr which is not an atomic entity.");
-		return get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr).my_atomic_entity_type;
-	}
-	AtomicEntityType AtomicEntityTypeStruct::operator() (ZefRef zr) const {
-		return AET(zr.blob_uzr);
-	}
-
-	AtomicEntityType::operator str () const {
-		return internals::get_string_name_from_atomic_entity_type(*this);
-	}
-	std::ostream& operator << (std::ostream& o, AtomicEntityType aet) {
-        o << "AET.";
-		o << str(aet);
-		return o;
-	}
-
-	AtomicEntityType operator| (EZefRef uzr, const AtomicEntityTypeStruct& AET_) {return AET_(uzr);}
-	AtomicEntityType operator| (ZefRef zr, const AtomicEntityTypeStruct& AET_) {return AET_(zr);}
-
-
-    //////////////////////////////
-    // * ZefEnumValue
-
-	
-
-
-    enum_indx round_down_mod16(enum_indx x) {
-        return x - (x % 16);
-    }
-
-    ZefEnumValue ZefEnumStruct::operator() (const std::string& enum_type, const std::string& enum_val) const {
-        // call with EN("MachineStatus", "IDLE")
-        return internals::get_enum_value_from_string(enum_type, enum_val);
-    }    
-
-	std::ostream& operator<<(std::ostream& os, ZefEnumValue zef_enum_val) {
-		auto sp = internals::get_enum_string_pair(zef_enum_val);
-		os << "EN." << sp.first << "." << sp.second;
-		return os;
-	}
-
-	std::string ZefEnumValue::enum_type() { return internals::get_enum_string_pair(*this).first; }
-	std::string ZefEnumValue::enum_value() { return  internals::get_enum_string_pair(*this).second; }
 
     //////////////////////////////
     // * TokenStore
@@ -677,31 +648,31 @@ namespace zefDB {
             return Keyword(r_indx);
         }		
 
-        AtomicEntityType get_aet_from_enum_type_name_string(const std::string& enum_type_name_str) {
+        ValueRepType get_vrt_from_enum_type_name_string(const std::string& enum_type_name_str) {
             switch (hash_char_array(enum_type_name_str.data())) {
 #include "graph.cpp.AETenumfromstring.gen"
             default:
-                return AtomicEntityType{ get_enum_value_from_string(enum_type_name_str, "").value + 1 };
+                return ValueRepType{ get_enum_value_from_string(enum_type_name_str, "").value + 1 };
             }
         }
 
 
-        AtomicEntityType get_aet_from_quantity_float_name_string(const std::string& unit_enum_value_str) {
+        ValueRepType get_vrt_from_quantity_float_name_string(const std::string& unit_enum_value_str) {
             using namespace std::chrono;
             switch (hash_char_array(unit_enum_value_str.data())) {
 #include "graph.cpp.AETquantityfloatfromstring.gen"
             default:
-                return AtomicEntityType{ get_enum_value_from_string("Unit", unit_enum_value_str).value + 2 };
+                return ValueRepType{ get_enum_value_from_string("Unit", unit_enum_value_str).value + 2 };
             }
         }
 
 
-        AtomicEntityType get_aet_from_quantity_int_name_string(const std::string& unit_enum_value_str) {
+        ValueRepType get_vrt_from_quantity_int_name_string(const std::string& unit_enum_value_str) {
             using namespace std::chrono;
             switch (hash_char_array(unit_enum_value_str.data())) {
 #include "graph.cpp.AETquantityintfromstring.gen"
             default:
-                return AtomicEntityType{ get_enum_value_from_string("Unit", unit_enum_value_str).value + 3 };
+                return ValueRepType{ get_enum_value_from_string("Unit", unit_enum_value_str).value + 3 };
             }
         }
 
@@ -854,23 +825,23 @@ namespace zefDB {
             }
         }
 
-        std::string get_string_name_from_atomic_entity_type(AtomicEntityType aet) {
+        std::string get_string_name_from_value_rep_type(ValueRepType vrt) {
             // TODO: See above
-            switch (aet.value) {
-            case AET._unspecified.value: {return "_unspecified"; break; }
-            case AET.String.value: {return "String"; break; }
-            case AET.Bool.value: {return "Bool"; break; }
-            case AET.Float.value: {return "Float"; break; }
-            case AET.Int.value: {return "Int"; break; }
-            case AET.Time.value: {return "Time"; break; }
-            case AET.Serialized.value: {return "Serialized"; break; }
+            switch (vrt.value) {
+            case VRT._unspecified.value: {return "_unspecified"; break; }
+            case VRT.String.value: {return "String"; break; }
+            case VRT.Bool.value: {return "Bool"; break; }
+            case VRT.Float.value: {return "Float"; break; }
+            case VRT.Int.value: {return "Int"; break; }
+            case VRT.Time.value: {return "Time"; break; }
+            case VRT.Serialized.value: {return "Serialized"; break; }
 
 #include "graph.cpp.stringfromAET.gen"
                 // if we reach here, it may still be a known type. It was just not known at compile time
             default: {
                 // deal with dictionary lookup here, e.g. for enum types, QuantityFloat and others that can be extended at runtime.
-                ZefEnumValue base_en{round_down_mod16(aet.value)};
-                switch (aet.value % 16) {
+                ZefEnumValue base_en{round_down_mod16(vrt.value)};
+                switch (vrt.value % 16) {
                 case 1: return "Enum." + base_en.enum_type();
                 case 2: return "QuantityFloat." + base_en.enum_value();
                 case 3: return "QuantityInt." + base_en.enum_value();
@@ -889,17 +860,17 @@ namespace zefDB {
         }
 
 
-        ZefEnumValue get_unit_from_aet(const AtomicEntityType & aet) {
-            if(!(aet <= AET.QuantityFloat || aet <= AET.QuantityInt))
+        ZefEnumValue get_unit_from_vrt(const ValueRepType & vrt) {
+            if(!is_zef_subtype(vrt, VRT.QuantityFloat) && !is_zef_subtype(vrt, VRT.QuantityInt))
                 throw std::runtime_error("AET is not a type with units.");
-            int offset = aet.value % 16;
-            return ZefEnumValue{ (aet.value - offset) };
+            int offset = vrt.value % 16;
+            return ZefEnumValue{ (vrt.value - offset) };
         }
-        std::string get_enum_type_from_aet(const AtomicEntityType & aet) {
-            if(!(aet <= AET.Enum))
+        std::string get_enum_type_from_vrt(const ValueRepType & vrt) {
+            if(!is_zef_subtype(vrt, VRT.Enum))
                 throw std::runtime_error("AET is not an enum.");
-            int offset = aet.value % 16;
-            return ZefEnumValue{ (aet.value - offset) }.enum_type();
+            int offset = vrt.value % 16;
+            return ZefEnumValue{ (vrt.value - offset) }.enum_type();
         }
     }
 
@@ -922,8 +893,8 @@ namespace zefDB {
     Delegate delegate_of(EntityType et) {
         return Delegate{1, et};
     }
-    Delegate delegate_of(AtomicEntityType aet) {
-        return Delegate{1, aet};
+    Delegate delegate_of(ValueRepType vrt) {
+        return Delegate{1, vrt};
     }
     Delegate delegate_of(RelationType rt) {
         return Delegate{1, rt};

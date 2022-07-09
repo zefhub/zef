@@ -30,6 +30,12 @@ namespace zefDB {
 
 	namespace zefOps {
 
+        //////////////////////////////////////////////////
+        // * Stuff from other files
+
+        LIBZEF_DLL_EXPORTED AtomicEntityType operator| (EZefRef uzr, const AtomicEntityTypeStruct& AET_); 
+        LIBZEF_DLL_EXPORTED AtomicEntityType operator| (ZefRef zr, const AtomicEntityTypeStruct& AET_);
+
 
 		//                        _                            
 		//                       | |___  __                    
@@ -278,7 +284,7 @@ namespace zefDB {
 			// -------------------- various functions to init filter object --------------------------
 			Filter operator[] (EntityType my_entity_type) const ;
 			Filter operator[] (RelationType my_relation_type) const ;
-			Filter operator[] (AtomicEntityType my_entity_type) const ;
+			// Filter operator[] (AtomicEntityType my_entity_type) const ;
 			Filter operator[] (BlobType my_BlobType) const ;			
 			Filter operator[] (Tensor<RelationType, 1> my_relation_types) const;
 			Filter operator[] (Tensor<BlobType, 1> my_blob_types) const;
@@ -1528,14 +1534,14 @@ namespace zefDB {
 		//                         \__,_|\___|_|\___|\__, |\__,_|\__\___|                  
 		//                                           |___/                            
 		struct LIBZEF_DLL_EXPORTED DelegateOp {
-			using type_variant = std::variant<Sentinel, EntityType, AtomicEntityType>;
+			using type_variant = std::variant<Sentinel, EntityType, ValueRepType>;
 			type_variant param = Sentinel{};			
 
 			EZefRef operator() (const EZefRef uzr) const ;
             std::optional<EZefRef> operator() (const Graph & g) const ;
 
             DelegateOp operator[](const EntityType& et) const ;
-            DelegateOp operator[](const AtomicEntityType& aet) const ;
+            DelegateOp operator[](const ValueRepType& aet) const ;
             // DelegateOp operator[](const RelationType& rt) const ;
 //             DelegateOp operator[](EntityType et_from, RelationType rt, EntityType et_to) {
 // //                 std::string key = "Delegate.RT." + get_all_active_graph_data_tracker().relation_type_names.at(rel.relation_type_indx);
@@ -1743,13 +1749,13 @@ namespace zefDB {
             // ----------------------- we want to be able to do       'g | instances[now][ET.Machine]'
             // to get all instances currently alive. This needs a different type after currying in the ref tx that the return type can be resolved to be a ZefRefs at compile time
             struct Sentinel {};
-            using type_variant = std::variant<Sentinel, EntityType, AtomicEntityType>;
+            using type_variant = std::variant<Sentinel, EntityType, ValueRepType>;
 
             std::variant<Sentinel, EZefRef, ZefRef, Now> ref_frame_data{ Sentinel {} };  
             type_variant curried_in_type = type_variant{ Sentinel{} };   // which type should be returned? e.g.     g | instances[ET.Machine] ...
 
             Instances operator[] (EntityType my_et) const { return Instances{ ref_frame_data, my_et }; };
-            Instances operator[] (AtomicEntityType my_aet) const { return Instances{ ref_frame_data, my_aet }; };
+            Instances operator[] (ValueRepType my_vrt) const { return Instances{ ref_frame_data, my_vrt }; };
             // Instances operator[] (Zuple zuple) const { return Instances{ ref_frame_tx, my_aet }; };   TODO
             Instances operator[] (EZefRef ref_frame_tx) const {
                 if (BT(ref_frame_tx) != BT.TX_EVENT_NODE)
@@ -1766,7 +1772,7 @@ namespace zefDB {
 
             static ZefRefs pure(EZefRef tx);
             static ZefRefs pure(EZefRef tx, EntityType et);
-            static ZefRefs pure(EZefRef tx, AtomicEntityType aet);
+            static ZefRefs pure(EZefRef tx, ValueRepType aet);
             static ZefRefs pure(EZefRef tx, Sentinel s);
             static ZefRefs pure(EZefRef tx, EZefRef delegate);
 
@@ -1776,7 +1782,7 @@ namespace zefDB {
             // Do this explicitly for easier bindings
             static ZefRefs pure(ZefRef tx_or_delegate);
             static ZefRefs pure(ZefRef tx, EntityType et) { return pure(EZefRef(tx), et); }
-            static ZefRefs pure(ZefRef tx, AtomicEntityType aet) { return pure(EZefRef(tx), aet); };
+            static ZefRefs pure(ZefRef tx, ValueRepType aet) { return pure(EZefRef(tx), aet); };
             static ZefRefs pure(ZefRef tx, Sentinel s) { return pure(EZefRef(tx), s); };
             static ZefRefs pure(ZefRef tx, EZefRef delegate) { return pure(EZefRef(tx), delegate); };
         };                       
@@ -1811,7 +1817,7 @@ namespace zefDB {
             EZefRefs operator() (const Graph& g) const;
                                  
             InstancesEternal operator[] (EntityType my_et) const { return InstancesEternal{ my_et }; };
-            InstancesEternal operator[] (AtomicEntityType my_aet) const { return InstancesEternal{ my_aet }; };
+            InstancesEternal operator[] (ValueRepType my_aet) const { return InstancesEternal{ my_aet }; };
             //InstancesEternal operator[] (EntityType my_et) const { return InstancesEternal{ my_et }; };
                                  
             //EZefRefss operator() (const EZefRefs& uzrs)  TODO			

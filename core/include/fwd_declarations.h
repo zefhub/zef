@@ -102,10 +102,5 @@ namespace zefDB {
 
 		// void apply_actions_to_blob_range(Graph& g, blob_index blob_index_lo, blob_index blob_index_hi, bool ensure_idempotency);
 		// void set_blobs_and_uids_from_bytes(Graph& g, blob_index start_index, blob_index end_index, const std::string& blob_bytes, const std::string& uid_bytes);
-	
-
-		// AtomicEntityType get_aet_from_enum_type_name_string(const std::string& name);
-		// AtomicEntityType get_aet_from_quantity_float_name_string(const std::string& name);
-		// AtomicEntityType get_aet_from_quantity_int_name_string(const std::string& name);
 	}
 }

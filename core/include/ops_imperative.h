@@ -23,26 +23,6 @@
 
 namespace zefDB {
     namespace imperative {
-        // We start with something that is only a tool for use inside of this package
-        template<class ELEM, class FUNC, class ITR>
-            std::vector<ELEM> map(const ITR & iterable, FUNC f) {
-            /* std::vector<ELEM> out_vec;
-             * for(auto & it : iterable) {
-             *     out_vec.push_back(f(it));
-             * }
-             * return out_vec; */
-
-            std::vector<ELEM> out_vec;
-            std::transform(iterable.begin(), iterable.end(), std::back_inserter(out_vec), f);
-            return out_vec;
-        }
-
-        template<class ITR>
-            auto only(const ITR & iterable) {
-            if(iterable.size() != 1) 
-                throw std::runtime_error("only(...) but length was " + to_str(iterable.size()));
-            return *iterable.begin();
-        }
 
 		LIBZEF_DLL_EXPORTED bool exists_at(EZefRef, TimeSlice);
 		LIBZEF_DLL_EXPORTED bool exists_at(EZefRef, EZefRef tx);
@@ -57,6 +37,10 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED ZefRef to_frame(ZefRef uzr, EZefRef tx, bool allow_terminated=false);
         LIBZEF_DLL_EXPORTED ZefRef to_frame(EZefRef uzr, ZefRef tx, bool allow_terminated=false);
         LIBZEF_DLL_EXPORTED ZefRef to_frame(ZefRef uzr, ZefRef tx, bool allow_terminated=false);
+
+        LIBZEF_DLL_EXPORTED ZefRef now(EZefRef ezr, bool allow_terminated=false);
+        LIBZEF_DLL_EXPORTED ZefRef now(ZefRef zr, bool allow_terminated=false);
+        LIBZEF_DLL_EXPORTED ZefRef now(const GraphData & gd);
 
         /* LIBZEF_DLL_EXPORTED ZefRefs to_frame(EZefRefs uzr, EZefRef tx, bool allow_terminated=false);
          * LIBZEF_DLL_EXPORTED ZefRefs to_frame(ZefRefs uzr, EZefRef tx, bool allow_terminated=false);
@@ -177,12 +161,12 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED ZefRefs filter(const ZefRefs& zrs, EntityType et);
         LIBZEF_DLL_EXPORTED ZefRefs filter(const ZefRefs& zrs, BlobType bt);
         LIBZEF_DLL_EXPORTED ZefRefs filter(const ZefRefs& zrs, RelationType rt);
-        LIBZEF_DLL_EXPORTED ZefRefs filter(const ZefRefs& zrs, AtomicEntityType aet);
+        LIBZEF_DLL_EXPORTED ZefRefs filter(const ZefRefs& zrs, ValueRepType vrt);
 
         LIBZEF_DLL_EXPORTED EZefRefs filter(const EZefRefs& uzrs, EntityType et);
         LIBZEF_DLL_EXPORTED EZefRefs filter(const EZefRefs& uzrs, BlobType bt);
         LIBZEF_DLL_EXPORTED EZefRefs filter(const EZefRefs& uzrs, RelationType rt);
-        LIBZEF_DLL_EXPORTED EZefRefs filter(const EZefRefs& uzrs, AtomicEntityType aet);
+        LIBZEF_DLL_EXPORTED EZefRefs filter(const EZefRefs& uzrs, ValueRepType vrt);
 
         // terminate any entity or relation
         LIBZEF_DLL_EXPORTED void terminate(EZefRef my_rel_ent);
@@ -195,7 +179,7 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED EZefRef delegate(EZefRef uzr);
         LIBZEF_DLL_EXPORTED EZefRef delegate(ZefRef uzr);
         LIBZEF_DLL_EXPORTED std::optional<EZefRef> delegate(const Graph & g, EntityType et);
-        LIBZEF_DLL_EXPORTED std::optional<EZefRef> delegate(const Graph & g, AtomicEntityType aet);
+        LIBZEF_DLL_EXPORTED std::optional<EZefRef> delegate(const Graph & g, ValueRepType aet);
 
         LIBZEF_DLL_EXPORTED std::optional<EZefRef> delegate_to_ezr(const Delegate & d, Graph g, bool create, int order_diff=0);
         LIBZEF_DLL_EXPORTED Delegate delegate_rep(EZefRef ezr);
@@ -204,8 +188,6 @@ namespace zefDB {
         using zefDB::assign_value;
 
 
-        using value_variant_t = std::variant<bool,int,double,str,Time,ZefEnumValue,QuantityFloat,QuantityInt,SerializedValue>;
-        using value_ret_t = std::optional<value_variant_t>;
         LIBZEF_DLL_EXPORTED value_ret_t value(ZefRef ae);
         LIBZEF_DLL_EXPORTED value_ret_t value(EZefRef ae, EZefRef tx);
         LIBZEF_DLL_EXPORTED value_ret_t value(ZefRef ae, EZefRef tx);
@@ -220,5 +202,22 @@ namespace zefDB {
 
         LIBZEF_DLL_EXPORTED EZefRef to_ezefref(ZefRef zr);
         LIBZEF_DLL_EXPORTED EZefRef to_ezefref(EZefRef zr);
+
+        ////////////////////////////////////
+        // * templated tools
+
+        template<class ELEM, class FUNC, class ITR>
+        std::vector<ELEM> map(const ITR & iterable, FUNC f) {
+            std::vector<ELEM> out_vec;
+            std::transform(iterable.begin(), iterable.end(), std::back_inserter(out_vec), f);
+            return out_vec;
+        }
+
+        template<class ITR>
+            auto only(const ITR & iterable) {
+            if(iterable.size() != 1) 
+                throw std::runtime_error("only(...) but length was " + to_str(iterable.size()));
+            return *iterable.begin();
+        }
     }
 }

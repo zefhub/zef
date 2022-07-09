@@ -79,7 +79,7 @@ namespace zefDB {
 	LIBZEF_DLL_EXPORTED GraphData* graph_data(ZefRef zr);
 
 	// for any given ZefRef: get access to the associated graph_data struct sitting at the very beginning of the mempool
-	LIBZEF_DLL_EXPORTED GraphData* graph_data(void* blob_ptr);
+	LIBZEF_DLL_EXPORTED GraphData* graph_data(const void* blob_ptr);
 
 	template <typename T>
 	T& get(EZefRef uzr) {

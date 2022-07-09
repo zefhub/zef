@@ -77,7 +77,7 @@ namespace zefDB {
 		constexpr int default_local_edge_indexes_capacity_ENTITY_NODE = 7;
 		// constexpr int default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE = 6;
 		constexpr int default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE = 7;
-		constexpr int default_local_edge_indexes_capacity_ATOMIC_VALUE_NODE = 6;
+		constexpr int default_local_edge_indexes_capacity_ATOMIC_VALUE_NODE = 5;
 		// constexpr int default_local_edge_indexes_capacity_RELATION_EDGE = 6;
 		constexpr int default_local_edge_indexes_capacity_RELATION_EDGE = 5;
 		// constexpr int default_local_edge_indexes_capacity_ASSIGN_TAG_NAME_EDGE = 2;

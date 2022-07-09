@@ -62,7 +62,7 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, int value_to_be_assigned);
     LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, double value_to_be_assigned);
     LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, str value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const char* value_to_be_assigned);
+    // LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const char* value_to_be_assigned);
     LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, Time value_to_be_assigned);
     LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, SerializedValue value_to_be_assigned);
     LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, ZefEnumValue value_to_be_assigned);
@@ -76,13 +76,14 @@ namespace zefDB {
     template void assign_value(ZefRef my_atomic_entity, int value_to_be_assigned);
     template void assign_value(ZefRef my_atomic_entity, double value_to_be_assigned);
     template void assign_value(ZefRef my_atomic_entity, str value_to_be_assigned);
-    template void assign_value(ZefRef my_atomic_entity, const char* value_to_be_assigned);
+    // template void assign_value(ZefRef my_atomic_entity, const char* value_to_be_assigned);
     template void assign_value(ZefRef my_atomic_entity, Time value_to_be_assigned);
     template void assign_value(ZefRef my_atomic_entity, SerializedValue value_to_be_assigned);
     template void assign_value(ZefRef my_atomic_entity, ZefEnumValue value_to_be_assigned);
     template void assign_value(ZefRef my_atomic_entity, QuantityFloat value_to_be_assigned);
     template void assign_value(ZefRef my_atomic_entity, QuantityInt value_to_be_assigned);
 
+    // TODO: assign_value with a value node
 
     template <typename T>
     std::optional<T> value_from_ae(ZefRef my_atomic_entity);
@@ -99,7 +100,10 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED bool is_promotable_to_zefref(EZefRef uzr_to_promote, EZefRef reference_tx);
     LIBZEF_DLL_EXPORTED bool is_promotable_to_zefref(EZefRef uzr_to_promote);
                                  
+    // These definitions are not used here, but are handy to synchronise several things which call into the value functions.
                                  
+    using value_variant_t = std::variant<bool,int,double,str,Time,ZefEnumValue,QuantityFloat,QuantityInt,SerializedValue>;
+    using value_ret_t = std::optional<value_variant_t>;
                                  
                                  
                                  
@@ -172,6 +176,7 @@ namespace zefDB {
 			case BlobType::ENTITY_NODE: return true;
 			case BlobType::ATOMIC_ENTITY_NODE: return true;
 			case BlobType::RELATION_EDGE: return true;
+			case BlobType::ATOMIC_VALUE_NODE: return true;
 			default: {
                 // print_backtrace();
                 throw std::runtime_error("asserting is a RAE failed");
@@ -185,6 +190,7 @@ namespace zefDB {
 			switch (*(BlobType*)uzr.blob_ptr) {
 			case BlobType::ENTITY_NODE: return true;
 			case BlobType::ATOMIC_ENTITY_NODE: return true;
+			case BlobType::ATOMIC_VALUE_NODE: return true;
 			case BlobType::RELATION_EDGE: return true;
 			case BlobType::TX_EVENT_NODE: return true;
 			case BlobType::ROOT_NODE: return true;
@@ -246,15 +252,7 @@ namespace zefDB {
     }
 
 
-    template<typename T>
-    value_hash_t value_hash(T value);
-
-    template<>
-    inline value_hash_t value_hash(int value) { return std::hash<int>()(value); }
-
     // Value nodes
-    template<typename T>
-	ZefRef instantiate_value_node(T value, value_hash_t hash, Graph& g);
     template<typename T>
 	ZefRef instantiate_value_node(T value, Graph& g);
     LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(int value, Graph& g);

@@ -44,3 +44,5 @@
 
 #include "from_json.h"
 #include "zef_config.h"
+
+#include "external_handlers.h"

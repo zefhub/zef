@@ -77,6 +77,7 @@ set(SOURCES
     src/from_json.cpp
     src/zef_config.cpp
     src/globals.cpp
+    src/external_handlers.cpp
 
     src/butler/butler.cpp
     src/butler/communication.cpp

@@ -40,6 +40,7 @@ namespace zefDB {
         std::string type;
         std::string data;
         bool operator==(const SerializedValue & other) const {
+            // Testing hash first for faster bailout
             return type == other.type && data == other.data;
         }
     };
@@ -47,6 +48,111 @@ namespace zefDB {
         os << "SerializedValue{'" << serialized_value.type << "'}";
         return os;
     }
+
+    inline ValueRepType get_vrt_from_value(const bool & value) { return VRT.Bool; }
+    inline ValueRepType get_vrt_from_value(const int & value) { return VRT.Int; }
+    inline ValueRepType get_vrt_from_value(const double & value) { return VRT.Float; }
+    inline ValueRepType get_vrt_from_value(const std::string & value) { return VRT.String; }
+    inline ValueRepType get_vrt_from_value(const Time & value) { return VRT.Time; }
+    inline ValueRepType get_vrt_from_value(const SerializedValue & value) { return VRT.Serialized; }
+    inline ValueRepType get_vrt_from_value(const ZefEnumValue & value) { return VRT.Enum(value.enum_type()); }
+    inline ValueRepType get_vrt_from_value(const QuantityFloat & value) { return ValueRepType{value.unit.value + 2}; }
+    inline ValueRepType get_vrt_from_value(const QuantityInt & value) { return ValueRepType{value.unit.value + 3}; }
+
+	struct LIBZEF_DLL_EXPORTED AtomicEntityType {
+		constexpr AtomicEntityType() : rep_type(0), complex_value(std::nullopt) {};
+		constexpr AtomicEntityType(ValueRepType rep_type) : rep_type(rep_type), complex_value(std::nullopt) {};
+		AtomicEntityType(SerializedValue complex_value) : rep_type(VRT.Serialized), complex_value(complex_value) {};
+		ValueRepType rep_type;
+        // In the future, this will become a ZefValue
+        std::optional<SerializedValue> complex_value;
+        operator str() const;
+	};
+    inline bool is_AET_complex(const AtomicEntityType & aet) {
+        return (bool)aet.complex_value;
+    }
+	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, const AtomicEntityType & aet);
+
+	struct LIBZEF_DLL_EXPORTED AtomicEntityTypeStruct {
+		struct Enum_ {
+// contextually: only contains enum types
+// internal encoding for Enum:  AET.Enum.SomeEnumType.value % 16 = 1
+// #include "blobs.h.AET_enum.gen"
+			// the following allows us to call AET.Enum("SomeNewEnumNameIOnlyKnowAtRuntime")
+			AtomicEntityType operator() (std::string name) const { return VRT.Enum(name); }
+		};
+		static constexpr Enum_ Enum{};
+
+		struct QuantityFloat_ {
+			// contextually: only contains enum values of enum type Unit
+			// internal encoding for QuantityFloat:  AET.QuantityFloat.SomeUnit.value % 16 = 2
+// #include "blobs.h.AET_qfloat.gen"
+
+            AtomicEntityType operator() (std::string name) const { return VRT.QuantityFloat(name); }
+		};
+		static constexpr QuantityFloat_ QuantityFloat{};		
+
+		struct QuantityInt_ {
+			// contextually: only contains enum values of enum type Unit
+			// internal encoding for QuantityInt:  AET.QuantityInt.SomeUnit.value % 16 = 3
+// #include "blobs.h.AET_qint.gen"
+
+			AtomicEntityType operator() (std::string name) const { return VRT.QuantityInt(name); }
+		};
+		static constexpr QuantityInt_ QuantityInt{};		
+
+		AtomicEntityType _unspecified{ VRT._unspecified };
+		AtomicEntityType String{ VRT.String };
+		AtomicEntityType Bool{ VRT.Bool };
+		AtomicEntityType Float{ VRT.Float };
+		AtomicEntityType Int{ VRT.Int };
+		AtomicEntityType Time{ VRT.Time };
+		AtomicEntityType Serialized{ VRT.Serialized };
+
+		AtomicEntityType operator() (EZefRef uzr) const;
+		AtomicEntityType operator() (ZefRef zr) const;
+		AtomicEntityType operator() (const blobs_ns::ATOMIC_ENTITY_NODE & zr) const;
+	};
+            
+    inline bool operator== (AtomicEntityType aet1, AtomicEntityType aet2) {
+        if(is_AET_complex(aet1) && is_AET_complex(aet2))
+            return aet1.complex_value == aet2.complex_value;
+        else if(is_AET_complex(aet1) || is_AET_complex(aet2))
+            return false;
+        else
+            return aet1.rep_type == aet2.rep_type;
+    }
+	inline bool operator!= (AtomicEntityType aet1, AtomicEntityType aet2) { return !(aet1 == aet2); }
+	// inline bool operator<= (AtomicEntityType aet1, AtomicEntityType aet_super) { return aet1 == aet_super; }
+	// inline bool operator<= (AtomicEntityType aet1, AtomicEntityTypeStruct::Enum_ enum_super_struct) { return (aet1.value >= 65536) && (aet1.value % 16 == 1); }
+	// inline bool operator<= (AtomicEntityType aet1, AtomicEntityTypeStruct::QuantityFloat_ quantity_float_super_struct) { return (aet1.value >= 65536) && (aet1.value % 16 == 2); }
+	// inline bool operator<= (AtomicEntityType aet1, AtomicEntityTypeStruct::QuantityInt_ quantity_int_super_struct) { return (aet1.value >= 65536) && (aet1.value % 16 == 3); }
+
+
+	LIBZEF_DLL_EXPORTED extern AtomicEntityTypeStruct AET;
+
+	inline bool is_zef_subtype(AtomicEntityType aet1, AtomicEntityType aet_super) {
+        if(is_AET_complex(aet_super))
+            throw std::runtime_error("TODO: Need to call into python for this");
+        else if(is_AET_complex(aet1))
+            return false;
+        else
+            return is_zef_subtype(aet1.rep_type, aet_super.rep_type);
+    }
+	inline bool is_zef_subtype(AtomicEntityType aet1, AtomicEntityTypeStruct::Enum_ enum_super_struct) { return !is_AET_complex(aet1) && is_zef_subtype(aet1.rep_type, VRT.Enum); }
+	inline bool is_zef_subtype(AtomicEntityType aet1, AtomicEntityTypeStruct::QuantityFloat_ quantity_float_super_struct) { return !is_AET_complex(aet1) && is_zef_subtype(aet1.rep_type, VRT.QuantityFloat); }
+	inline bool is_zef_subtype(AtomicEntityType aet1, AtomicEntityTypeStruct::QuantityInt_ quantity_int_super_struct) { return !is_AET_complex(aet1) && is_zef_subtype(aet1.rep_type, VRT.QuantityInt); }
+
+	inline bool is_zef_subtype(EZefRef uzr, AtomicEntityTypeStruct AET) { return is_zef_subtype(uzr, BT.ATOMIC_ENTITY_NODE); }
+	inline bool is_zef_subtype(EZefRef uzr, AtomicEntityType aet_super) { return is_zef_subtype(uzr, AET) && is_zef_subtype(AET(uzr), aet_super); }
+    inline bool is_zef_subtype(EZefRef uzr, AtomicEntityTypeStruct::Enum_ aet_super) { return is_zef_subtype(uzr, AET) && is_zef_subtype(AET(uzr), aet_super); }
+    inline bool is_zef_subtype(EZefRef uzr, AtomicEntityTypeStruct::QuantityFloat_ aet_super) { return is_zef_subtype(uzr, AET) && is_zef_subtype(AET(uzr), aet_super); }
+    inline bool is_zef_subtype(EZefRef uzr, AtomicEntityTypeStruct::QuantityInt_ aet_super) { return is_zef_subtype(uzr, AET) && is_zef_subtype(AET(uzr), aet_super); }
+	inline bool is_zef_subtype(ZefRef zr, AtomicEntityTypeStruct AET) { return is_zef_subtype(zr.blob_uzr, AET); }
+	inline bool is_zef_subtype(ZefRef zr, AtomicEntityType aet_super) { return is_zef_subtype(zr.blob_uzr, aet_super); }
+    inline bool is_zef_subtype(ZefRef zr, AtomicEntityTypeStruct::Enum_ aet_super) { return is_zef_subtype(zr.blob_uzr, aet_super); }
+    inline bool is_zef_subtype(ZefRef zr, AtomicEntityTypeStruct::QuantityFloat_ aet_super) { return is_zef_subtype(zr.blob_uzr, aet_super); }
+    inline bool is_zef_subtype(ZefRef zr, AtomicEntityTypeStruct::QuantityInt_ aet_super) { return is_zef_subtype(zr.blob_uzr, aet_super); }
 
 
 
@@ -72,6 +178,21 @@ namespace zefDB {
 		// have similar API to instantiate and link low level blobs / EZefRefs
 		LIBZEF_DLL_EXPORTED EZefRef instantiate(BlobType bt, GraphData& gd);
 		LIBZEF_DLL_EXPORTED EZefRef instantiate(EZefRef src, BlobType bt, EZefRef trg, GraphData& gd);
+
+
+        template<typename T>
+        value_hash_t value_hash(T value);
+
+        template<>
+        inline value_hash_t value_hash(int value) { return std::hash<int>()(value); }
+        template<>
+        inline value_hash_t value_hash(SerializedValue value) { return std::hash<str>()(value.data); }
+
+        // Value nodes
+        template<typename T>
+        EZefRef instantiate_value_node(const T & value, GraphData& g);
+        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const int & value, GraphData& g);
+        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const SerializedValue & value, GraphData& g);
 
 
 
@@ -240,31 +361,40 @@ namespace zefDB {
         void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const SerializedValue & value_to_be_assigned);
 
         template<class T>
-        bool is_compatible_type(AtomicEntityType aet);
+        bool is_compatible_rep_type(const ValueRepType & vrt);
 
-        template<> bool is_compatible_type<bool>(AtomicEntityType aet);
-        template<> bool is_compatible_type<int>(AtomicEntityType aet);
-        template<> bool is_compatible_type<double>(AtomicEntityType aet);
-        template<> bool is_compatible_type<str>(AtomicEntityType aet);
-        template<> bool is_compatible_type<const char*>(AtomicEntityType aet);
-        template<> bool is_compatible_type<Time>(AtomicEntityType aet);
-        template<> bool is_compatible_type<SerializedValue>(AtomicEntityType aet);
+        template<> bool is_compatible_rep_type<bool>(const ValueRepType & vrt);
+        template<> bool is_compatible_rep_type<int>(const ValueRepType & vrt);
+        template<> bool is_compatible_rep_type<double>(const ValueRepType & vrt);
+        template<> bool is_compatible_rep_type<str>(const ValueRepType & vrt);
+        template<> bool is_compatible_rep_type<const char*>(const ValueRepType & vrt);
+        template<> bool is_compatible_rep_type<Time>(const ValueRepType & vrt);
+        template<> bool is_compatible_rep_type<SerializedValue>(const ValueRepType & vrt);
 
-        template<> bool is_compatible_type<ZefEnumValue>(AtomicEntityType aet);
-        template<> bool is_compatible_type<QuantityFloat>(AtomicEntityType aet);
-        template<> bool is_compatible_type<QuantityInt>(AtomicEntityType aet);
+        // These can only check that they are in the class of e.g.
+        // QuantityFloats, but not the specific units or enum_type
+        template<> bool is_compatible_rep_type<ZefEnumValue>(const ValueRepType & vrt);
+        template<> bool is_compatible_rep_type<QuantityFloat>(const ValueRepType & vrt);
+        template<> bool is_compatible_rep_type<QuantityInt>(const ValueRepType & vrt);
 
-        bool is_compatible(bool _, AtomicEntityType aet);
-        bool is_compatible(int _, AtomicEntityType aet);
-        bool is_compatible(double _, AtomicEntityType aet);
-        bool is_compatible(str _, AtomicEntityType aet);
-        bool is_compatible(const char * _, AtomicEntityType aet);
-        bool is_compatible(Time _, AtomicEntityType aet);
-        bool is_compatible(SerializedValue _, AtomicEntityType aet);
+        // TODO: Call into python (registered function) if AET is complex
+        template<class T>
+        bool is_compatible(const T & val, const AtomicEntityType & aet);
 
-        bool is_compatible(ZefEnumValue en, AtomicEntityType aet);
-        bool is_compatible(QuantityFloat q, AtomicEntityType aet);
-        bool is_compatible(QuantityInt q, AtomicEntityType aet);
+        extern template bool is_compatible(const bool & val, const AtomicEntityType & aet);
+        extern template bool is_compatible(const int & val, const AtomicEntityType & aet);
+        extern template bool is_compatible(const double & val, const AtomicEntityType & aet);
+        extern template bool is_compatible(const str & val, const AtomicEntityType & aet);
+        // extern template bool is_compatible(const char const * val, const AtomicEntityType & aet);
+        extern template bool is_compatible(const Time & val, const AtomicEntityType & aet);
+        extern template bool is_compatible(const SerializedValue & val, const AtomicEntityType & aet);
+        extern template bool is_compatible(const ZefEnumValue & en, const AtomicEntityType & aet);
+        extern template bool is_compatible(const QuantityFloat & q, const AtomicEntityType & aet);
+        extern template bool is_compatible(const QuantityInt & q, const AtomicEntityType & aet);
+
+        std::optional<SerializedValue> get_AE_complex_type(const blobs_ns::ATOMIC_ENTITY_NODE & ae);
+
+        // Note: QuantityInt/Float and Enum will just have to be unscoped here.
 
         // Because the pair-product of all types is a large space, we are going
         // to leave this as a header-only function.

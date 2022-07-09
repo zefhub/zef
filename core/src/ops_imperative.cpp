@@ -167,6 +167,9 @@ namespace zefDB {
             if(get<BlobType>(uzr) == BlobType::TX_EVENT_NODE)
                 return true;
 
+            if(get<BlobType>(uzr) == BlobType::ATOMIC_VALUE_NODE)
+                return true;
+
             // For RAEs
             internals::assert_is_this_a_rae(uzr);
 			EZefRef this_re_ent_inst = internals::get_RAE_INSTANCE_EDGE(uzr);
@@ -181,11 +184,39 @@ namespace zefDB {
             return true;
         }
 
+        //////////////////////////////
+        // * now
+
+        ZefRef now(const GraphData& gd) {
+            EZefRef tx = (gd.number_of_open_tx_sessions > 0 && gd.open_tx_thread == std::this_thread::get_id()) ?
+                EZefRef(gd.index_of_open_tx_node, gd) :
+                EZefRef(gd.latest_complete_tx, gd);
+            return ZefRef(tx,tx);
+        }
+
+        ZefRef now(EZefRef uzr, bool allow_terminated) {
+            auto & gd = *graph_data(uzr);
+
+            // We do the exists_at_now check in here as it is more efficient
+            // than the general check in to_frame.
+            if (!allow_terminated && !exists_at_now(uzr))
+                throw std::runtime_error("'now(EZefRef)' called on a EZefRef that does not exist at the latest time slice.");
+
+            // We pass in allow_terminated as true to bypass the exists_at check
+            // of to_frame.
+            return to_frame(uzr, now(gd), true);
+        }
+
+        ZefRef now(ZefRef zr, bool allow_terminated) {
+            return now(zr.blob_uzr, allow_terminated);
+        }
 
         //////////////////////////////
         // * to_frame
 
         ZefRef to_frame(EZefRef uzr, EZefRef tx, bool allow_terminated) {
+            if (!is_promotable_to_zefref(uzr, tx))
+                throw std::runtime_error("'to_frame' called on EZefRef that cannot be promoted to a ZefRef.");
             if (!allow_terminated && !exists_at(uzr, tx))
                 throw std::runtime_error("to_frame called to promote a EZefRef that does not exist at the time slice specified.");
             return ZefRef{ uzr, tx };
@@ -997,47 +1028,43 @@ namespace zefDB {
 
         ZefRefs filter(const ZefRefs& zrs, EntityType et) {
             return filter(zrs, [&et](ZefRef zr) {
-                return (BT(zr) == BT.ENTITY_NODE &&
-                        (ET(zr) == et || ET(zr) == ET.ZEF_Any));
+                return is_zef_subtype(zr, et);
             });
         }
         ZefRefs filter(const ZefRefs& zrs, BlobType bt) {
             return filter(zrs, [&bt](ZefRef zr) {
-                return BT(zr) == bt;
+                return is_zef_subtype(zr, bt);
             });
         }
         ZefRefs filter(const ZefRefs& zrs, RelationType rt) {
             return filter(zrs, [&rt](ZefRef zr) {
-                return (BT(zr) == BT.RELATION_EDGE &&
-                        (RT(zr) == rt || RT(zr) == RT.ZEF_Any));
+                return is_zef_subtype(zr, rt);
             });
         }
-        ZefRefs filter(const ZefRefs& zrs, AtomicEntityType aet) {
-            return filter(zrs, [&aet](ZefRef zr) {
-                return (BT(zr) == BT.ATOMIC_ENTITY_NODE && AET(zr) == aet);
+        ZefRefs filter(const ZefRefs& zrs, ValueRepType vrt) {
+            return filter(zrs, [&vrt](ZefRef zr) {
+                return is_zef_subtype(zr, vrt);
             });
         }
 
         EZefRefs filter(const EZefRefs& uzrs, EntityType et) {
             return filter(uzrs, [&et](EZefRef uzr) {
-                return (BT(uzr) == BT.ENTITY_NODE &&
-                        (ET(uzr) == et || ET(uzr) == ET.ZEF_Any));
+                return is_zef_subtype(uzr, et);
             });
         }
         EZefRefs filter(const EZefRefs& uzrs, BlobType bt) {
             return filter(uzrs, [&bt](EZefRef uzr) {
-                return BT(uzr) == bt;
+                return is_zef_subtype(uzr, bt);
             });
         }
         EZefRefs filter(const EZefRefs& uzrs, RelationType rt) {
             return filter(uzrs, [&rt](EZefRef uzr) {
-                return (BT(uzr) == BT.RELATION_EDGE &&
-                        (RT(uzr) == rt || RT(uzr) == RT.ZEF_Any));
+                return is_zef_subtype(uzr, rt);
             });
         }
-        EZefRefs filter(const EZefRefs& uzrs, AtomicEntityType aet) {
-            return filter(uzrs, [&aet](EZefRef uzr) {
-                return (BT(uzr) == BT.ATOMIC_ENTITY_NODE && AET(uzr) == aet);
+        EZefRefs filter(const EZefRefs& uzrs, ValueRepType vrt) {
+            return filter(uzrs, [&vrt](EZefRef uzr) {
+                return is_zef_subtype(uzr, vrt);
             });
         }
 
@@ -1131,10 +1158,10 @@ namespace zefDB {
             return only(temp);
         }
 
-        std::optional<EZefRef> delegate(const Graph & g, AtomicEntityType aet) {
+        std::optional<EZefRef> delegate(const Graph & g, ValueRepType vrt) {
             GraphData& gd = g.my_graph_data();
             EZefRef root_ezr{constants::ROOT_NODE_blob_index, gd};
-            auto temp = filter(traverse_out_node_multi(root_ezr, BT.TO_DELEGATE_EDGE), aet);
+            auto temp = filter(traverse_out_node_multi(root_ezr, BT.TO_DELEGATE_EDGE), vrt);
             if(length(temp) == 0)
                 return {};
             return only(temp);
@@ -1165,17 +1192,17 @@ namespace zefDB {
             return z;
         }
 
-        std::optional<EZefRef> delegate_to_ezr(const AtomicEntityType & aet, int order, Graph g, bool create) {
+        std::optional<EZefRef> delegate_to_ezr(const ValueRepType & vrt, int order, Graph g, bool create) {
             auto & gd = g.my_graph_data();
             EZefRef root{constants::ROOT_NODE_blob_index, gd};
             EZefRef z = root;
             for(int i = 0 ; i < order ; i++) {
-                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), aet);
+                EZefRefs opts = filter(traverse_out_node_multi(z, BT.TO_DELEGATE_EDGE), vrt);
                 if(length(opts) == 0) {
                     if(create) {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef new_z = internals::instantiate(BT.ATOMIC_ENTITY_NODE, gd);
-                        get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).my_atomic_entity_type = aet;
+                        get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).rep_type = vrt;
                         get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
                         internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
@@ -1352,8 +1379,8 @@ namespace zefDB {
         }
 
         Delegate delegate_rep(EZefRef ezr) {
-            if(ezr <= ET
-               || ezr <= AET
+            if(is_zef_subtype(ezr, ET)
+               || is_zef_subtype(ezr, VRT)
                || is_delegate_relation_group(ezr)
                || BT(ezr) == BT.TX_EVENT_NODE
                || BT(ezr) == BT.ROOT_NODE) {
@@ -1365,11 +1392,11 @@ namespace zefDB {
                 }
                 // Note: we may end up with order 0 at the end here - this is
                 // acceptable, and means this is an instance!
-                if(ezr <= ET)
+                if(is_zef_subtype(ezr, ET))
                     return Delegate{order, ET(ezr)};
-                if(ezr <= AET)
-                    return Delegate{order, AET(ezr)};
-                if(ezr <= RT)
+                if(is_zef_subtype(ezr, VRT))
+                    return Delegate{order, VRT(ezr)};
+                if(is_zef_subtype(ezr, RT))
                     return Delegate{order, RT(ezr)};
                 if(BT(ezr) == BT.TX_EVENT_NODE)
                     return Delegate{order, DelegateTX{}};
@@ -1377,7 +1404,7 @@ namespace zefDB {
                     return Delegate{order, DelegateRoot{}};
             }
 
-            if(ezr <= RT) {
+            if(is_zef_subtype(ezr, RT)) {
                 // A relation but not a delegate group
                 Delegate src = delegate_rep(source(ezr));
                 Delegate trg = delegate_rep(target(ezr));
@@ -1402,16 +1429,16 @@ namespace zefDB {
 
         value_ret_t value(ZefRef z) {
             if (get<BlobType>(z.blob_uzr) == BlobType::ATOMIC_ENTITY_NODE) {
-                auto aet = get<blobs_ns::ATOMIC_ENTITY_NODE>(z.blob_uzr).my_atomic_entity_type.value;
-                switch (aet) {
-                case AET.Float.value: { return zefDB::value_from_ae<double>(z); }
-                case AET.Int.value: { return zefDB::value_from_ae<int>(z); }
-                case AET.Bool.value: { return zefDB::value_from_ae<bool>(z); }
-                case AET.String.value: { return zefDB::value_from_ae<std::string>(z); }
-                case AET.Time.value: { return zefDB::value_from_ae<Time>(z); }
-                case AET.Serialized.value: { return zefDB::value_from_ae<SerializedValue>(z); }
+                auto vrt = get<blobs_ns::ATOMIC_ENTITY_NODE>(z.blob_uzr).rep_type.value;
+                switch (vrt) {
+                case VRT.Float.value: { return zefDB::value_from_ae<double>(z); }
+                case VRT.Int.value: { return zefDB::value_from_ae<int>(z); }
+                case VRT.Bool.value: { return zefDB::value_from_ae<bool>(z); }
+                case VRT.String.value: { return zefDB::value_from_ae<std::string>(z); }
+                case VRT.Time.value: { return zefDB::value_from_ae<Time>(z); }
+                case VRT.Serialized.value: { return zefDB::value_from_ae<SerializedValue>(z); }
                 default: {
-                    switch (aet % 16) {
+                    switch (vrt % 16) {
                     case 1: { return zefDB::value_from_ae<ZefEnumValue>(z); }
                     case 2: { return zefDB::value_from_ae<QuantityFloat>(z); }
                     case 3: { return zefDB::value_from_ae<QuantityInt>(z); }
@@ -1421,16 +1448,16 @@ namespace zefDB {
                 }
             } else if (get<BlobType>(z.blob_uzr) == BlobType::ATOMIC_VALUE_NODE) {
                 auto ent = get<blobs_ns::ATOMIC_VALUE_NODE>(z.blob_uzr);
-                auto aet = ent.my_atomic_entity_type.value;
-                switch (aet) {
-                case AET.Float.value: { return internals::value_from_node<double>(ent); }
-                case AET.Int.value: { return internals::value_from_node<int>(ent); }
-                case AET.Bool.value: { return internals::value_from_node<bool>(ent); }
-                case AET.String.value: { return internals::value_from_node<std::string>(ent); }
-                case AET.Time.value: { return internals::value_from_node<Time>(ent); }
-                case AET.Serialized.value: { return internals::value_from_node<SerializedValue>(ent); }
+                auto vrt = ent.rep_type.value;
+                switch (vrt) {
+                case VRT.Float.value: { return internals::value_from_node<double>(ent); }
+                case VRT.Int.value: { return internals::value_from_node<int>(ent); }
+                case VRT.Bool.value: { return internals::value_from_node<bool>(ent); }
+                case VRT.String.value: { return internals::value_from_node<std::string>(ent); }
+                case VRT.Time.value: { return internals::value_from_node<Time>(ent); }
+                case VRT.Serialized.value: { return internals::value_from_node<SerializedValue>(ent); }
                 default: {
-                    switch (aet % 16) {
+                    switch (vrt % 16) {
                     case 1: { return internals::value_from_node<ZefEnumValue>(ent); }
                     case 2: { return internals::value_from_node<QuantityFloat>(ent); }
                     case 3: { return internals::value_from_node<QuantityInt>(ent); }

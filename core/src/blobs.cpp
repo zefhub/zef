@@ -187,13 +187,6 @@ namespace zefDB {
 
             MMap::destroy_mmap(mem);
 #undef BLOB
-            std::cerr << "AVAE: a: " << offsetof(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE, this_BlobType) << std::endl;
-            std::cerr << "AVAE: b: " << offsetof(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE, my_atomic_entity_type) << std::endl;
-            std::cerr << "AVAE: c: " << offsetof(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE, buffer_size_in_bytes) << std::endl;
-            std::cerr << "AVAE: d: " << offsetof(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE, source_node_index) << std::endl;
-            std::cerr << "AVAE: e: " << offsetof(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE, target_node_index) << std::endl;
-            std::cerr << "AVAE: f: " << offsetof(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE, data_buffer) << std::endl;
-            std::cerr << "AVAE: size: " << sizeof(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE) << std::endl;
         }
 
 		// e.g. when determining the EZefRefs out_edges(my_uzr), we need to know how much space to allocate for the EZefRefs object.
@@ -439,7 +432,7 @@ namespace zefDB {
 	std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_ENTITY_NODE& this_blob) {
 		using namespace ranges;
 		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
-		os << "{\"AtomicEntityType\": " << this_blob.my_atomic_entity_type << ", ";
+		os << "{\"ValueRepType\": " << this_blob.rep_type << ", ";
 		os << "{\"instantiation_time_slice\": " << this_blob.instantiation_time_slice.value << ", ";
 		os << "{\"termination_time_slice\": " << this_blob.termination_time_slice.value << ", ";
         show_edges(os, this_blob);
@@ -447,22 +440,22 @@ namespace zefDB {
 		return os;
 	}
 
-	std::string value_blob_to_str(AtomicEntityType buffer_type, const char* buffer_ptr, unsigned int buffer_size) {
+	std::string value_blob_to_str(ValueRepType buffer_type, const char* buffer_ptr, unsigned int buffer_size) {
 		// buffer_size is only required for types of non-fixed size. e.g. string
 
 		switch (buffer_type.value) {
-		case AET._unspecified.value: return "\"no type was specified.\"";
-		case AET.Float.value: return to_str(*(double*)buffer_ptr);
-		case AET.Int.value: return to_str(*(int*)buffer_ptr);
-		case AET.Bool.value: return to_str(*(bool*)buffer_ptr);
-		case AET.String.value: return [buffer_size](const char* buffer_ptr) { std::stringstream ss; ss << "\"" << std::string_view(buffer_ptr, buffer_size) << "\""; return ss.str(); }(buffer_ptr);
-		case AET.Time.value: return to_str(*(Time*)buffer_ptr);
+		case VRT._unspecified.value: return "\"no type was specified.\"";
+		case VRT.Float.value: return to_str(*(double*)buffer_ptr);
+		case VRT.Int.value: return to_str(*(int*)buffer_ptr);
+		case VRT.Bool.value: return to_str(*(bool*)buffer_ptr);
+		case VRT.String.value: return [buffer_size](const char* buffer_ptr) { std::stringstream ss; ss << "\"" << std::string_view(buffer_ptr, buffer_size) << "\""; return ss.str(); }(buffer_ptr);
+		case VRT.Time.value: return to_str(*(Time*)buffer_ptr);
 		default: {
 			switch (buffer_type.value % 16) {
 			case 1: return to_str(*((ZefEnumValue*)buffer_ptr));
 			case 2: return to_str(*((QuantityFloat*)buffer_ptr));
 			case 3: return to_str(*((QuantityInt*)buffer_ptr));
-			default: throw std::runtime_error("AET type convversion for this type not implemented in value_blob_to_str.");
+			default: throw std::runtime_error("VRT type convversion for this type not implemented in value_blob_to_str.");
 			}
 		}
 		}
@@ -471,11 +464,12 @@ namespace zefDB {
 	std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_VALUE_NODE& this_blob) {
 		using namespace ranges;
 		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
-		os << "\"AtomicEntityType\": " << this_blob.my_atomic_entity_type << ", ";
+		os << "\"ValueRepType\": " << this_blob.rep_type << ", ";
 		os << "\"buffer_size_in_bytes\": " << this_blob.buffer_size_in_bytes << ", ";
+		os << "\"hash\": " << this_blob.hash << ", ";
         show_edges(os, this_blob);
 		os << "\"value\": ";
-		os << value_blob_to_str(this_blob.my_atomic_entity_type, internals::get_data_buffer(this_blob), this_blob.buffer_size_in_bytes);
+		os << value_blob_to_str(this_blob.rep_type, internals::get_data_buffer(this_blob), this_blob.buffer_size_in_bytes);
 		os << "}";
 		return os;
 	}
@@ -497,12 +491,12 @@ namespace zefDB {
 
 	std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& this_blob) {
 		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
-		os << "\"AtomicEntityType\": " << this_blob.my_atomic_entity_type << ", ";
+		os << "\"ValueRepType\": " << this_blob.rep_type << ", ";
 		os << "\"buffer_size_in_bytes\": " << this_blob.buffer_size_in_bytes << ", ";
 		os << "\"source_node_index\": " << this_blob.source_node_index << ", ";
 		os << "\"target_node_index\": " << this_blob.target_node_index << ", ";
 		os << "\"value\": ";
-		os << value_blob_to_str(this_blob.my_atomic_entity_type, &this_blob.data_buffer[0], this_blob.buffer_size_in_bytes);
+		os << value_blob_to_str(this_blob.rep_type, &this_blob.data_buffer[0], this_blob.buffer_size_in_bytes);
 		os << "}";
 		return os;
 	}
@@ -632,7 +626,7 @@ namespace zefDB {
 	std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE& this_blob) {
 		using namespace ranges;
 		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
-		os << "{\"AtomicEntityType\": \"" << this_blob.atomic_entity_type << "\", ";
+		os << "{\"ValueRepType\": \"" << this_blob.rep_type << "\", ";
         show_edges(os, this_blob);
 		os << "}";
 		return os;
@@ -648,6 +642,15 @@ namespace zefDB {
 		os << "\"source_node_index\": " << this_blob.source_node_index << ", ";
 		os << "\"target_node_index\": " << this_blob.target_node_index << ", ";
         show_edges(os, this_blob);
+		os << "}";
+		return os;
+	}
+
+	std::ostream& operator<< (std::ostream& os, const blobs_ns::COMPLEX_VALUE_TYPE_EDGE& this_blob) {
+		using namespace ranges;
+		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
+		os << "\"source_node_index\": " << this_blob.source_node_index << ", ";
+		os << "\"target_node_index\": " << this_blob.target_node_index << ", ";
 		os << "}";
 		return os;
 	}
@@ -692,7 +695,7 @@ namespace zefDB {
 		
     json blob_to_json_details(const blobs_ns::ATOMIC_ENTITY_NODE & blob) {
         return json{
-			{"my_atomic_entity_type", blob.my_atomic_entity_type},
+			{"rep_type", blob.rep_type},
 			{"instantiation_time_slice", blob.instantiation_time_slice },
 			{"termination_time_slice", blob.termination_time_slice },
 		};
@@ -700,7 +703,7 @@ namespace zefDB {
 		
     json blob_to_json_details(const blobs_ns::ATOMIC_VALUE_NODE & blob) {
         return json{
-			{"my_atomic_entity_type", blob.my_atomic_entity_type},
+			{"rep_type", blob.rep_type},
 		};
     }
 
@@ -732,7 +735,7 @@ namespace zefDB {
 
     json blob_to_json_details(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE & blob) {
         return json{
-			{"my_atomic_entity_type", blob.my_atomic_entity_type},
+			{"rep_type", blob.rep_type},
         };
     }
 
@@ -770,7 +773,7 @@ namespace zefDB {
 
     json blob_to_json_details(const blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE & blob) {
         return json{
-			{"atomic_entity_type", blob.atomic_entity_type},
+			{"rep_type", blob.rep_type},
 		};
     }
 
@@ -778,6 +781,10 @@ namespace zefDB {
         return json{
 			{"relation_type", blob.relation_type },
 		};
+    }
+
+    json blob_to_json_details(const blobs_ns::COMPLEX_VALUE_TYPE_EDGE & blob) {
+        return json{};
     }
 
 

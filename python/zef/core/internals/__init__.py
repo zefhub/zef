@@ -70,9 +70,9 @@ from ...pyzef.internals import (
     is_BaseUID,
     is_EternalUID,
     is_ZefRefUID,
-    is_aet_a_enum,
-    is_aet_a_quantity_float,
-    is_aet_a_quantity_int,
+    is_vrt_a_enum,
+    is_vrt_a_quantity_float,
+    is_vrt_a_quantity_int,
     is_any_UID,
     is_delegate,
     is_delegate_relation_group,
@@ -124,6 +124,8 @@ from .merges import register_merge_handler
 register_merge_handler()
 from .schema import register_schema_validator
 register_schema_validator()
+from .value_type_check import register_value_type_check
+register_value_type_check()
 
 BT = BlobTypeStruct()
 

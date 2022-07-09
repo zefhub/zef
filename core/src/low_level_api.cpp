@@ -15,23 +15,58 @@
 #include <doctest/doctest.h>
 #include <chrono>
 #include "low_level_api.h"
+#include "external_handlers.h"
 // We reach up into select parts of the high_level api to implement the
 // low_level api.
 #include "ops_imperative.h"
 
 namespace zefDB {
-	
+    
+    //////////////////////////////////////
+    // * AtomicEntityType
 
-	std::ostream& operator << (std::ostream& os, EZefRef uzr) {
-		if (uzr.blob_ptr == nullptr) {
-			os << "<EZefRef: ZefRef reference not set>";
-			return os;
-		}
-		os << "<EZefRef #" << index(uzr);
-		if (*(BlobType*)uzr.blob_ptr == BlobType::_unspecified) {
-			os << "  -  reference set to uninitialized memory ZefRef>";
-			return os;
-		}
+	AtomicEntityTypeStruct AET;
+
+    // TODO: There seems to be something missing here with the string lookups - it's not the same pattern as ET,RT
+
+	AtomicEntityType AtomicEntityTypeStruct::operator() (const blobs_ns::ATOMIC_ENTITY_NODE & ae) const {
+        auto maybe_type = internals::get_AE_complex_type(ae);
+        if(maybe_type)
+            return AtomicEntityType(*maybe_type);
+        else
+            return AtomicEntityType(ae.rep_type);
+	}
+	AtomicEntityType AtomicEntityTypeStruct::operator() (EZefRef uzr) const {
+		if (get<BlobType>(uzr) != BlobType::ATOMIC_ENTITY_NODE) throw std::runtime_error("AET(EZefRef uzr) called for a uzr which is not an atomic entity.");
+		return AET(get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr));
+	}
+	AtomicEntityType AtomicEntityTypeStruct::operator() (ZefRef zr) const {
+		return AET(zr.blob_uzr);
+	}
+
+	AtomicEntityType::operator str () const {
+        std::string temp = internals::get_string_name_from_value_rep_type(this->rep_type);
+        if(is_AET_complex(*this))
+            temp += "[Complex type]";
+        return temp;
+    }
+
+	std::ostream& operator << (std::ostream& o, const AtomicEntityType & aet) {
+        o << "AET.";
+		o << str(aet);
+		return o;
+	}
+
+    std::ostream& operator << (std::ostream& os, EZefRef uzr) {
+        if (uzr.blob_ptr == nullptr) {
+            os << "<EZefRef: ZefRef reference not set>";
+            return os;
+        }
+        os << "<EZefRef #" << index(uzr);
+        if (*(BlobType*)uzr.blob_ptr == BlobType::_unspecified) {
+            os << "  -  reference set to uninitialized memory ZefRef>";
+            return os;
+        }
 
         if(is_delegate(uzr))
             os << " DELEGATE";
@@ -47,16 +82,16 @@ namespace zefDB {
         else
             os << " " << BT(uzr);
 
-		// visit([&os](auto& my_blob) {os << my_blob; }, uzr);
-		// os << ", size=" << size_of_blob(uzr)<<" bytes"
-		// 	//<< ", size in indexes=" << num_blob_indexes_to_move(size_of_blob(uzr))
-		// 	//<< ", graph_data address= " << &graph_data(uzr)
-		// 	//<< ", blob address= " << (BlobType*)uzr.blob_ptr
+        // visit([&os](auto& my_blob) {os << my_blob; }, uzr);
+        // os << ", size=" << size_of_blob(uzr)<<" bytes"
+        // 	//<< ", size in indexes=" << num_blob_indexes_to_move(size_of_blob(uzr))
+        // 	//<< ", graph_data address= " << &graph_data(uzr)
+        // 	//<< ", blob address= " << (BlobType*)uzr.blob_ptr
         //    << (internals::has_uid(uzr) ? (", uid=" + str(internals::get_blob_uid(uzr))) : "")
         //    << ">";
         os << ">";
-		return os;
-	}
+        return os;
+    }
 
     std::string low_level_blob_info(const EZefRef & uzr) {
         return to_str(uzr);
@@ -73,20 +108,20 @@ namespace zefDB {
 
 
 
-	std::ostream& operator << (std::ostream& o, Graph& g) {
-		auto& gd = g.my_graph_data();
-		o << "<Zef low level Graph:\n";
-		o << "graph data=" << gd;
-		o << "\n";
-		auto uzr = gd.get_ROOT_node();
-		//while (get_BlobType(uzr.blob_ptr) != BlobType::_unspecified) {
-		while (uzr) {
-			o << uzr;
-			uzr = get_next(uzr);
-		}
-		o << ">\n";
-		return o;
-	}
+    std::ostream& operator << (std::ostream& o, Graph& g) {
+        auto& gd = g.my_graph_data();
+        o << "<Zef low level Graph:\n";
+        o << "graph data=" << gd;
+        o << "\n";
+        auto uzr = gd.get_ROOT_node();
+        //while (get_BlobType(uzr.blob_ptr) != BlobType::_unspecified) {
+        while (uzr) {
+            o << uzr;
+            uzr = get_next(uzr);
+        }
+        o << ">\n";
+        return o;
+    }
 
 
 
@@ -94,43 +129,43 @@ namespace zefDB {
 
 
 
-	
+    
 
-	namespace internals{
-
-
+    namespace internals{
 
 
-		// have similar API to instantiate and link low level blobs / EZefRefs
-		EZefRef instantiate(BlobType bt, GraphData& gd) {
-			using namespace blobs_ns;
+
+
+        // have similar API to instantiate and link low level blobs / EZefRefs
+        EZefRef instantiate(BlobType bt, GraphData& gd) {
+            using namespace blobs_ns;
             void * new_ptr = (void*)(std::uintptr_t(&gd) + gd.write_head * constants::blob_indx_step_in_bytes);
             MMap::ensure_or_alloc_range(new_ptr, max_basic_blob_size);
             *(BlobType*)new_ptr = bt;
-			auto this_new_blob = EZefRef(new_ptr);
-			
-			switch (bt) {
-			case BlobType::ROOT_NODE: { new (new_ptr) ROOT_NODE; break; }
-			case BlobType::TX_EVENT_NODE: { new (new_ptr) TX_EVENT_NODE; break; }
-			case BlobType::RAE_INSTANCE_EDGE: { new (new_ptr) RAE_INSTANCE_EDGE; break; }
-			case BlobType::TO_DELEGATE_EDGE: { new (new_ptr) TO_DELEGATE_EDGE; break; }
-			case BlobType::ENTITY_NODE: { new (new_ptr) ENTITY_NODE; break; }
-			case BlobType::ATOMIC_ENTITY_NODE: { new (new_ptr) ATOMIC_ENTITY_NODE; break; }
-			case BlobType::RELATION_EDGE: { new (new_ptr) RELATION_EDGE; break; }
-			case BlobType::DEFERRED_EDGE_LIST_NODE: { new (new_ptr) DEFERRED_EDGE_LIST_NODE; break; }
-			case BlobType::FOREIGN_GRAPH_NODE: { new (new_ptr) FOREIGN_GRAPH_NODE; break; }
-			case BlobType::FOREIGN_ENTITY_NODE: { new (new_ptr) FOREIGN_ENTITY_NODE; break; }
-			case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { new (new_ptr) FOREIGN_ATOMIC_ENTITY_NODE; break; }
+            auto this_new_blob = EZefRef(new_ptr);
+            
+            switch (bt) {
+            case BlobType::ROOT_NODE: { new (new_ptr) ROOT_NODE; break; }
+            case BlobType::TX_EVENT_NODE: { new (new_ptr) TX_EVENT_NODE; break; }
+            case BlobType::RAE_INSTANCE_EDGE: { new (new_ptr) RAE_INSTANCE_EDGE; break; }
+            case BlobType::TO_DELEGATE_EDGE: { new (new_ptr) TO_DELEGATE_EDGE; break; }
+            case BlobType::ENTITY_NODE: { new (new_ptr) ENTITY_NODE; break; }
+            case BlobType::ATOMIC_ENTITY_NODE: { new (new_ptr) ATOMIC_ENTITY_NODE; break; }
+            case BlobType::RELATION_EDGE: { new (new_ptr) RELATION_EDGE; break; }
+            case BlobType::DEFERRED_EDGE_LIST_NODE: { new (new_ptr) DEFERRED_EDGE_LIST_NODE; break; }
+            case BlobType::FOREIGN_GRAPH_NODE: { new (new_ptr) FOREIGN_GRAPH_NODE; break; }
+            case BlobType::FOREIGN_ENTITY_NODE: { new (new_ptr) FOREIGN_ENTITY_NODE; break; }
+            case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { new (new_ptr) FOREIGN_ATOMIC_ENTITY_NODE; break; }
             case BlobType::FOREIGN_RELATION_EDGE: { new (new_ptr) FOREIGN_RELATION_EDGE; break; }
             case BlobType::NEXT_TX_EDGE: { new (new_ptr) NEXT_TX_EDGE; break; }
             default: {throw std::runtime_error("instantiate(BlobType bt, GraphData& gd) called for BlobType an unhandled case."); }
-			}			
-			move_head_forward(gd);
-			return this_new_blob;
-		}
+            }			
+            move_head_forward(gd);
+            return this_new_blob;
+        }
 
 
-		EZefRef instantiate(EZefRef src, BlobType bt, EZefRef trg, GraphData& gd) {
+        EZefRef instantiate(EZefRef src, BlobType bt, EZefRef trg, GraphData& gd) {
             // Without graph views, we must require all relations are created on the same graph as the UZRs themselves.
             if (graph_data(src) != &gd || graph_data(trg) != &gd)
                 throw std::runtime_error(std::string("Not allowing an edge to be created between UZRs on a different graph.")
@@ -138,82 +173,123 @@ namespace zefDB {
                                          + std::string("trg:g=") + str(get_graph_uid(trg)) + ":ind=" + index(trg) + ", "
                                          + std::string("gd=") + str(get_graph_uid(gd)));
                                          
-			using namespace blobs_ns;
+            using namespace blobs_ns;
             void * new_ptr = (void*)(std::uintptr_t(&gd) + gd.write_head * constants::blob_indx_step_in_bytes);
             MMap::ensure_or_alloc_range(new_ptr, max_basic_blob_size);
             *(BlobType*)new_ptr = bt;
-			auto this_new_blob = EZefRef(new_ptr);
+            auto this_new_blob = EZefRef(new_ptr);
 
             auto common_behavior = [&src,&trg,&bt](auto & tmp) {
                 new (&tmp) typename std::remove_reference<decltype(tmp)>::type;
-				tmp.source_node_index = index(src);
-				tmp.target_node_index = index(trg);
+                tmp.source_node_index = index(src);
+                tmp.target_node_index = index(trg);
             };
 
-			switch (bt) {
-			case BlobType::RELATION_EDGE: { common_behavior(get<RELATION_EDGE>(this_new_blob)); break; }
-			case BlobType::RAE_INSTANCE_EDGE: { common_behavior(get<RAE_INSTANCE_EDGE>(this_new_blob)); break; }
-			case BlobType::INSTANTIATION_EDGE: { common_behavior(get<INSTANTIATION_EDGE>(this_new_blob)); break; }
-			case BlobType::TO_DELEGATE_EDGE: { common_behavior(get<TO_DELEGATE_EDGE>(this_new_blob)); break; }
-			case BlobType::DELEGATE_INSTANTIATION_EDGE: { common_behavior(get<DELEGATE_INSTANTIATION_EDGE>(this_new_blob)); break; }
-			case BlobType::DELEGATE_RETIREMENT_EDGE: { common_behavior(get<DELEGATE_RETIREMENT_EDGE>(this_new_blob)); break; }
-			// case BlobType::ASSIGN_TAG_NAME_EDGE: { common_behavior(get<ASSIGN_TAG_NAME_EDGE>(this_new_blob)); break; }
-			case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE: { common_behavior(get<NEXT_TAG_NAME_ASSIGNMENT_EDGE>(this_new_blob)); break; }
-			case BlobType::ORIGIN_RAE_EDGE: { common_behavior(get<ORIGIN_RAE_EDGE>(this_new_blob)); break; }
-			case BlobType::ORIGIN_GRAPH_EDGE: { common_behavior(get<ORIGIN_GRAPH_EDGE>(this_new_blob)); break; }
-			case BlobType::FOREIGN_RELATION_EDGE: { common_behavior(get<FOREIGN_RELATION_EDGE>(this_new_blob)); break; }
-			default: {throw std::runtime_error("instantiate(EZefRef src, BlobType bt, EZefRef trg, GraphData& gd) called for BlobType an unhandled case. BT: " + to_str(bt)); }
-			}			
+            switch (bt) {
+            case BlobType::RELATION_EDGE: { common_behavior(get<RELATION_EDGE>(this_new_blob)); break; }
+            case BlobType::RAE_INSTANCE_EDGE: { common_behavior(get<RAE_INSTANCE_EDGE>(this_new_blob)); break; }
+            case BlobType::INSTANTIATION_EDGE: { common_behavior(get<INSTANTIATION_EDGE>(this_new_blob)); break; }
+            case BlobType::TO_DELEGATE_EDGE: { common_behavior(get<TO_DELEGATE_EDGE>(this_new_blob)); break; }
+            case BlobType::DELEGATE_INSTANTIATION_EDGE: { common_behavior(get<DELEGATE_INSTANTIATION_EDGE>(this_new_blob)); break; }
+            case BlobType::DELEGATE_RETIREMENT_EDGE: { common_behavior(get<DELEGATE_RETIREMENT_EDGE>(this_new_blob)); break; }
+                // case BlobType::ASSIGN_TAG_NAME_EDGE: { common_behavior(get<ASSIGN_TAG_NAME_EDGE>(this_new_blob)); break; }
+            case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE: { common_behavior(get<NEXT_TAG_NAME_ASSIGNMENT_EDGE>(this_new_blob)); break; }
+            case BlobType::ORIGIN_RAE_EDGE: { common_behavior(get<ORIGIN_RAE_EDGE>(this_new_blob)); break; }
+            case BlobType::ORIGIN_GRAPH_EDGE: { common_behavior(get<ORIGIN_GRAPH_EDGE>(this_new_blob)); break; }
+            case BlobType::FOREIGN_RELATION_EDGE: { common_behavior(get<FOREIGN_RELATION_EDGE>(this_new_blob)); break; }
+            case BlobType::COMPLEX_VALUE_TYPE_EDGE: { common_behavior(get<COMPLEX_VALUE_TYPE_EDGE>(this_new_blob)); break; }
+            default: {throw std::runtime_error("instantiate(EZefRef src, BlobType bt, EZefRef trg, GraphData& gd) called for BlobType an unhandled case. BT: " + to_str(bt)); }
+            }			
 
-			move_head_forward(gd);
-			append_edge_index(src, index(this_new_blob));
-			append_edge_index(trg, -index(this_new_blob));
-			return this_new_blob;
-		}
-
-
-
+            move_head_forward(gd);
+            append_edge_index(src, index(this_new_blob));
+            append_edge_index(trg, -index(this_new_blob));
+            return this_new_blob;
+        }
 
 
-		// look at the current write head: determine type of basic ZefRef there from first byte. Calculate actual
-		// size of blob, including possible overflows and move write head in graph data forward to the next free index
-		void move_head_forward(GraphData& gd) {
-			auto num_indxs_to_move = num_blob_indexes_to_move(size_of_blob(
-				EZefRef((void*)(std::uintptr_t(&gd) + gd.write_head * constants::blob_indx_step_in_bytes))
-			));
-			gd.write_head += num_indxs_to_move;
-		}
+        template<typename T>
+        EZefRef instantiate_value_node(T value, value_hash_t hash, GraphData& gd) {
+            if (!gd.is_primary_instance)
+                throw std::runtime_error("'instantiate_value_node' called for a graph which is not a primary instance. This is not allowed. Shame on you!");
+
+            // TODO: We could also just return a preexisting value that has the same hash.
+        
+            auto this_tx = Transaction(gd);
+
+            auto vrt = get_vrt_from_value(value);
+
+            blobs_ns::ATOMIC_VALUE_NODE& ent = internals::get_next_free_writable_blob<blobs_ns::ATOMIC_VALUE_NODE>(gd);
+            MMap::ensure_or_alloc_range(&ent, blobs_ns::max_basic_blob_size);
+            new(&ent) blobs_ns::ATOMIC_VALUE_NODE(vrt, hash);
+
+            char * data_buffer = internals::get_data_buffer(ent);
+            internals::copy_to_buffer(data_buffer, ent.buffer_size_in_bytes, value);
+
+            internals::move_head_forward(gd);   // keep this low level function here! The buffer size is not fixed and 'instantiate' was not designed for this case
+
+            // TODO: We could put a link to this value as an edge. Alternatively, we
+            // can leave it and reference it only by its hash and a lookup.
+
+            EZefRef z_ent((void*)&ent);
+            internals::apply_action_ATOMIC_VALUE_NODE(gd, z_ent, true);
+
+            return z_ent;
+        }
+
+
+        template<typename T>
+        EZefRef instantiate_value_node(const T & value, GraphData& gd) {
+            return instantiate_value_node(value, value_hash(value), gd);
+        }
+
+        template EZefRef instantiate_value_node(const int & value, GraphData& g);
+        template EZefRef instantiate_value_node(const SerializedValue & value, GraphData& g);
 
 
 
-//                                      _            __             _        _                             _   _                           
-//                   ___ _ __ ___  __ _| |_ ___     / /   __ _  ___| |_     | |_ _ __ __ _ _ __  ___  __ _| |_(_) ___  _ __                
-//    _____ _____   / __| '__/ _ \/ _` | __/ _ \   / /   / _` |/ _ \ __|    | __| '__/ _` | '_ \/ __|/ _` | __| |/ _ \| '_ \   _____ _____ 
-//   |_____|_____| | (__| | |  __/ (_| | ||  __/  / /   | (_| |  __/ |_     | |_| | | (_| | | | \__ \ (_| | |_| | (_) | | | | |_____|_____|
-//                  \___|_|  \___|\__,_|\__\___| /_/     \__, |\___|\__|     \__|_|  \__,_|_| |_|___/\__,_|\__|_|\___/|_| |_|              
-//                                                       |___/                                             
-
-		EZefRef get_or_create_and_get_tx(GraphData& gd) {
-			// in case there is any transaction open, just return a EZefRef referencing that tx node
-			if (gd.number_of_open_tx_sessions > 0 && gd.index_of_open_tx_node != 0)
-				return EZefRef(gd.index_of_open_tx_node, gd);
-				//return EZefRef((void*)(std::uintptr_t(&gd) + (gd.index_of_open_tx_node * constants::blob_indx_step_in_bytes)) );
 
 
-			// ---- if we're here: crete new TX and connect to previous one ----			
-			// create NEXT_TX_EDGE from the new tx_node to the previous tx_node			
-			auto NEXT_TX_EDGE_uzr = instantiate(BT.NEXT_TX_EDGE, gd);
-			auto& NEXT_TX_EDGE = get<blobs_ns::NEXT_TX_EDGE>(NEXT_TX_EDGE_uzr);
-			
-			// instantiate a new TX_EVENT_NODE
-			EZefRef tx_event_node = internals::instantiate(BT.TX_EVENT_NODE, gd);
-			NEXT_TX_EDGE.source_node_index = gd.latest_complete_tx;
-			NEXT_TX_EDGE.target_node_index = index(tx_event_node);			
 
-			//... double link ....
+        // look at the current write head: determine type of basic ZefRef there from first byte. Calculate actual
+        // size of blob, including possible overflows and move write head in graph data forward to the next free index
+        void move_head_forward(GraphData& gd) {
+            auto num_indxs_to_move = num_blob_indexes_to_move(size_of_blob(
+                EZefRef((void*)(std::uintptr_t(&gd) + gd.write_head * constants::blob_indx_step_in_bytes))
+                                                              ));
+            gd.write_head += num_indxs_to_move;
+        }
+
+
+
+        //                                      _            __             _        _                             _   _                           
+        //                   ___ _ __ ___  __ _| |_ ___     / /   __ _  ___| |_     | |_ _ __ __ _ _ __  ___  __ _| |_(_) ___  _ __                
+        //    _____ _____   / __| '__/ _ \/ _` | __/ _ \   / /   / _` |/ _ \ __|    | __| '__/ _` | '_ \/ __|/ _` | __| |/ _ \| '_ \   _____ _____ 
+        //   |_____|_____| | (__| | |  __/ (_| | ||  __/  / /   | (_| |  __/ |_     | |_| | | (_| | | | \__ \ (_| | |_| | (_) | | | | |_____|_____|
+        //                  \___|_|  \___|\__,_|\__\___| /_/     \__, |\___|\__|     \__|_|  \__,_|_| |_|___/\__,_|\__|_|\___/|_| |_|              
+        //                                                       |___/                                             
+
+        EZefRef get_or_create_and_get_tx(GraphData& gd) {
+            // in case there is any transaction open, just return a EZefRef referencing that tx node
+            if (gd.number_of_open_tx_sessions > 0 && gd.index_of_open_tx_node != 0)
+                return EZefRef(gd.index_of_open_tx_node, gd);
+            //return EZefRef((void*)(std::uintptr_t(&gd) + (gd.index_of_open_tx_node * constants::blob_indx_step_in_bytes)) );
+
+
+            // ---- if we're here: crete new TX and connect to previous one ----			
+            // create NEXT_TX_EDGE from the new tx_node to the previous tx_node			
+            auto NEXT_TX_EDGE_uzr = instantiate(BT.NEXT_TX_EDGE, gd);
+            auto& NEXT_TX_EDGE = get<blobs_ns::NEXT_TX_EDGE>(NEXT_TX_EDGE_uzr);
+            
+            // instantiate a new TX_EVENT_NODE
+            EZefRef tx_event_node = internals::instantiate(BT.TX_EVENT_NODE, gd);
+            NEXT_TX_EDGE.source_node_index = gd.latest_complete_tx;
+            NEXT_TX_EDGE.target_node_index = index(tx_event_node);			
+
+            //... double link ....
             internals::append_edge_index(tx_event_node, -index(NEXT_TX_EDGE_uzr));  //it's an incoming edge for the new tx node
             internals::append_edge_index(EZefRef(gd.latest_complete_tx, gd), index(NEXT_TX_EDGE_uzr));  //it's an outgoing edge for the previous tx node
-			gd.index_of_open_tx_node = index(tx_event_node);
+            gd.index_of_open_tx_node = index(tx_event_node);
             EZefRef previous_tx{gd.latest_complete_tx, gd};
             int previous_time_slice;
             if(get<BlobType>(previous_tx) == BlobType::ROOT_NODE)
@@ -223,38 +299,38 @@ namespace zefDB {
 
             get<blobs_ns::TX_EVENT_NODE>(tx_event_node).time_slice.value = previous_time_slice + 1;
             get<blobs_ns::TX_EVENT_NODE>(tx_event_node).time = Time{ std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() * 1E-6 };  // rounded to seconds
-			assign_uid(tx_event_node, make_random_uid());
-			// gd.key_dict[internals::get_uid_as_hex_str(tx_event_node)] = index(tx_event_node);
-			apply_action_TX_EVENT_NODE(gd, tx_event_node, true);
-			return tx_event_node;
-		}
-		
-		EZefRef get_or_create_and_get_tx(Graph& g) {
-			return get_or_create_and_get_tx(g.my_graph_data());
-		}
+            assign_uid(tx_event_node, make_random_uid());
+            // gd.key_dict[internals::get_uid_as_hex_str(tx_event_node)] = index(tx_event_node);
+            apply_action_TX_EVENT_NODE(gd, tx_event_node, true);
+            return tx_event_node;
+        }
+        
+        EZefRef get_or_create_and_get_tx(Graph& g) {
+            return get_or_create_and_get_tx(g.my_graph_data());
+        }
 
-		EZefRef get_or_create_and_get_tx(EZefRef some_blob_to_specify_which_graph) { 
-			return get_or_create_and_get_tx(graph_data(some_blob_to_specify_which_graph)); 
-		}
+        EZefRef get_or_create_and_get_tx(EZefRef some_blob_to_specify_which_graph) { 
+            return get_or_create_and_get_tx(graph_data(some_blob_to_specify_which_graph)); 
+        }
 
 
 
-//                            _     _ _                         _               _           _                                  
-//                   __ _  __| | __| (_)_ __   __ _     ___  __| | __ _  ___   (_)_ __   __| | _____  _____  ___               
-//    _____ _____   / _` |/ _` |/ _` | | '_ \ / _` |   / _ \/ _` |/ _` |/ _ \  | | '_ \ / _` |/ _ \ \/ / _ \/ __|  _____ _____ 
-//   |_____|_____| | (_| | (_| | (_| | | | | | (_| |  |  __/ (_| | (_| |  __/  | | | | | (_| |  __/>  <  __/\__ \ |_____|_____|
-//                  \__,_|\__,_|\__,_|_|_| |_|\__, |   \___|\__,_|\__, |\___|  |_|_| |_|\__,_|\___/_/\_\___||___/              
-//                                            |___/               |___/                                                 
+        //                            _     _ _                         _               _           _                                  
+        //                   __ _  __| | __| (_)_ __   __ _     ___  __| | __ _  ___   (_)_ __   __| | _____  _____  ___               
+        //    _____ _____   / _` |/ _` |/ _` | | '_ \ / _` |   / _ \/ _` |/ _` |/ _ \  | | '_ \ / _` |/ _ \ \/ / _ \/ __|  _____ _____ 
+        //   |_____|_____| | (_| | (_| | (_| | | | | | (_| |  |  __/ (_| | (_| |  __/  | | | | | (_| |  __/>  <  __/\__ \ |_____|_____|
+        //                  \__,_|\__,_|\__,_|_|_| |_|\__, |   \___|\__,_|\__, |\___|  |_|_| |_|\__,_|\___/_/\_\___||___/              
+        //                                            |___/               |___/                                                 
 
-		EZefRef create_new_deferred_edge_list(GraphData& gd, edge_list_size_t edge_list_length, blob_index first_blob) {
-			blobs_ns::DEFERRED_EDGE_LIST_NODE& el = get_next_free_writable_blob<blobs_ns::DEFERRED_EDGE_LIST_NODE>(gd);
+        EZefRef create_new_deferred_edge_list(GraphData& gd, edge_list_size_t edge_list_length, blob_index first_blob) {
+            blobs_ns::DEFERRED_EDGE_LIST_NODE& el = get_next_free_writable_blob<blobs_ns::DEFERRED_EDGE_LIST_NODE>(gd);
             // MMap::ensure_or_alloc_range(&el, sizeof(blobs_ns::DEFERRED_EDGE_LIST_NODE) + edge_list_length*sizeof(int));
             MMap::ensure_or_alloc_range(&el, std::max(sizeof(blobs_ns::DEFERRED_EDGE_LIST_NODE) + edge_list_length*sizeof(blob_index),
                                                       blobs_ns::max_basic_blob_size));
             new (&el) blobs_ns::DEFERRED_EDGE_LIST_NODE;
-			el.edges.local_capacity = edge_list_length;
-			el.first_blob = first_blob;
-			EZefRef uzr{(void*)&el};
+            el.edges.local_capacity = edge_list_length;
+            el.first_blob = first_blob;
+            EZefRef uzr{(void*)&el};
             if(edge_list_end_offset(uzr) != 0) {
                 throw std::runtime_error("Shouldn't be automatically enlarging edge lists anymore!");
                 // std::cerr << "Warning, enlarging deferred edge list size to match the blob spacing." << std::endl;
@@ -269,25 +345,25 @@ namespace zefDB {
 
             // Fill the sentinel value in
             el.edges.indices[el.edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
-			move_head_forward(gd); // the size needs to be set first
-			return uzr;
-		}
+            move_head_forward(gd); // the size needs to be set first
+            return uzr;
+        }
 
 
-		// should work for any ZefRef that has incoming / outgoing edges.
-		// Depending on the ZefRef-type, the list of edges may be in a locally
-		// different memory area of the struct. If the list is full, create a 
-		// new DEFERRED_EDGE_LIST_NODE: enable this recursively.
+        // should work for any ZefRef that has incoming / outgoing edges.
+        // Depending on the ZefRef-type, the list of edges may be in a locally
+        // different memory area of the struct. If the list is full, create a 
+        // new DEFERRED_EDGE_LIST_NODE: enable this recursively.
 
-		bool append_edge_index(EZefRef uzr, blob_index edge_index_to_append, bool prevent_new_edgelist_creation) {
+        bool append_edge_index(EZefRef uzr, blob_index edge_index_to_append, bool prevent_new_edgelist_creation) {
             // Note: this assumes the edge index to be added is definitely new.
             // That is, it will always add the index provided to the end of the
             // list known by this blob. To maybe add if no present, then use the
             // "idempotent" version below.
 
-			// the following lambda can mutate an existing ZefRef struct, but only by setting elements in s.edge_indexes
-			// that have already been allocated and are zero before. This is the one exception to the append only structure.
-			// prevent_new_edgelist_creation is a flag that is used in synchronization -> apply action blob.
+            // the following lambda can mutate an existing ZefRef struct, but only by setting elements in s.edge_indexes
+            // that have already been allocated and are zero before. This is the one exception to the append only structure.
+            // prevent_new_edgelist_creation is a flag that is used in synchronization -> apply action blob.
             GraphData* gd = graph_data(uzr);
             if(edge_index_to_append >= gd->write_head) {
                 std::cerr << "Trying to append an edge index that's beyond the write_head! " << edge_index_to_append << " >= " << gd->write_head.load() << std::endl;
@@ -363,7 +439,7 @@ namespace zefDB {
             return true;
         }
 
-		blob_index idempotent_append_edge_index(EZefRef uzr, blob_index edge_index_to_append) {
+        blob_index idempotent_append_edge_index(EZefRef uzr, blob_index edge_index_to_append) {
             // The comment below was for an extra parameter that has since been
             // removed. However, it will likely be added again, so I will leave
             // it in here as an idea.
@@ -374,9 +450,9 @@ namespace zefDB {
             // are added in the order that their edge indices will appear in the
             // lists.
 
-			// the following lambda can mutate an existing ZefRef struct, but only by setting elements in s.edge_indexes
-			// that have already been allocated and are zero before. This is the one exception to the append only structure.
-			// prevent_new_edgelist_creation is a flag that is used in synchronization -> apply action blob.
+            // the following lambda can mutate an existing ZefRef struct, but only by setting elements in s.edge_indexes
+            // that have already been allocated and are zero before. This is the one exception to the append only structure.
+            // prevent_new_edgelist_creation is a flag that is used in synchronization -> apply action blob.
             assert(edge_index_to_append != 0);
 
             GraphData * gd = graph_data(uzr);
@@ -439,17 +515,17 @@ namespace zefDB {
         }
 
 
-		BaseUID get_graph_uid(const GraphData& gd) {
-			return get_blob_uid(EZefRef(constants::ROOT_NODE_blob_index, gd));
+        BaseUID get_graph_uid(const GraphData& gd) {
+            return get_blob_uid(EZefRef(constants::ROOT_NODE_blob_index, gd));
         }
-		BaseUID get_graph_uid(const Graph& g) {
-			return get_graph_uid(g.my_graph_data());
+        BaseUID get_graph_uid(const Graph& g) {
+            return get_graph_uid(g.my_graph_data());
         }
-		BaseUID get_graph_uid(const EZefRef& uzr) {
-			return get_graph_uid(Graph(uzr));
+        BaseUID get_graph_uid(const EZefRef& uzr) {
+            return get_graph_uid(Graph(uzr));
         }
 
-		BaseUID get_blob_uid(const EZefRef& uzr) {
+        BaseUID get_blob_uid(const EZefRef& uzr) {
             return blob_uid_ref(uzr);
         }
 
@@ -488,11 +564,11 @@ namespace zefDB {
         };
 
 
-		template <typename T>
-		void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const T & value_to_be_assigned) {
-			new(data_buffer_ptr) T(value_to_be_assigned);  // placement new: call copy ctor: copy assignment may not be defined
-			buffer_size_in_bytes = sizeof(value_to_be_assigned);
-		}
+        template <typename T>
+        void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const T & value_to_be_assigned) {
+            new(data_buffer_ptr) T(value_to_be_assigned);  // placement new: call copy ctor: copy assignment may not be defined
+            buffer_size_in_bytes = sizeof(value_to_be_assigned);
+        }
 
         template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const int & value_to_be_assigned);
         template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const double & value_to_be_assigned);
@@ -504,14 +580,14 @@ namespace zefDB {
         template void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const ZefEnumValue & value_to_be_assigned);
 
         template<>
-		void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const std::string & value_to_be_assigned) {
+        void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const std::string & value_to_be_assigned) {
             MMap::ensure_or_alloc_range(data_buffer_ptr, std::max(value_to_be_assigned.size(), blobs_ns::max_basic_blob_size));
-			std::memcpy(data_buffer_ptr, value_to_be_assigned.data(), value_to_be_assigned.size());
-			buffer_size_in_bytes = value_to_be_assigned.size();
-		}
+            std::memcpy(data_buffer_ptr, value_to_be_assigned.data(), value_to_be_assigned.size());
+            buffer_size_in_bytes = value_to_be_assigned.size();
+        }
 
         template<>
-		void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const SerializedValue & value_to_be_assigned) {
+        void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const SerializedValue & value_to_be_assigned) {
             buffer_size_in_bytes = value_to_be_assigned.type.size() + value_to_be_assigned.data.size() + 2*sizeof(int);
 
             MMap::ensure_or_alloc_range(data_buffer_ptr, std::max((size_t)buffer_size_in_bytes, blobs_ns::max_basic_blob_size));
@@ -521,75 +597,125 @@ namespace zefDB {
             *(int*)cur = value_to_be_assigned.data.size();
             cur += sizeof(int);
 
-			std::memcpy(cur, value_to_be_assigned.type.data(), value_to_be_assigned.type.size());
+            std::memcpy(cur, value_to_be_assigned.type.data(), value_to_be_assigned.type.size());
             cur += value_to_be_assigned.type.size();
-			std::memcpy(cur, value_to_be_assigned.data.data(), value_to_be_assigned.data.size());
-		}
+            std::memcpy(cur, value_to_be_assigned.data.data(), value_to_be_assigned.data.size());
+        }
 
-        template<> bool is_compatible_type<bool>(AtomicEntityType aet) { return aet == AET.Bool; }
-        template<> bool is_compatible_type<int>(AtomicEntityType aet) { return aet == AET.Int || aet == AET.Float || aet == AET.Bool; }   // we can also assign an int to a bool
-        template<> bool is_compatible_type<double>(AtomicEntityType aet) { return aet == AET.Float || aet == AET.Int; }
-        template<> bool is_compatible_type<str>(AtomicEntityType aet) { return aet == AET.String; }
-        template<> bool is_compatible_type<const char*>(AtomicEntityType aet) { return aet == AET.String; }
-        template<> bool is_compatible_type<Time>(AtomicEntityType aet) { return aet == AET.Time; }
-        template<> bool is_compatible_type<SerializedValue>(AtomicEntityType aet) { return aet == AET.Serialized; }
+        ////////////////////////////////
+        // * Is compatible funcs
 
-        template<> bool is_compatible_type<ZefEnumValue>( AtomicEntityType aet) {
-            int offset = aet.value % 16;
+        // The flow here is:
+        //
+        // is_compatible -> pass_to_value_type_check
+        //            or -> is_compatible_native -> is_compatible_rep_type
+
+        template<typename T>
+        bool is_compatible_rep_type(const ValueRepType & vrt);
+
+        template<> bool is_compatible_rep_type<bool>(const ValueRepType & vrt) { return vrt == VRT.Bool; }
+        template<> bool is_compatible_rep_type<int>(const ValueRepType & vrt) { return vrt == VRT.Int || vrt == VRT.Float || vrt == VRT.Bool; }   // we can also assign an int to a bool
+        template<> bool is_compatible_rep_type<double>(const ValueRepType & vrt) { return vrt == VRT.Float || vrt == VRT.Int; }
+        template<> bool is_compatible_rep_type<str>(const ValueRepType & vrt) { return vrt == VRT.String; }
+        template<> bool is_compatible_rep_type<const char*>(const ValueRepType & vrt) { return vrt == VRT.String; }
+        template<> bool is_compatible_rep_type<Time>(const ValueRepType & vrt) { return vrt == VRT.Time; }
+        template<> bool is_compatible_rep_type<SerializedValue>(const ValueRepType & vrt) { return vrt == VRT.Serialized; }
+
+        template<> bool is_compatible_rep_type<ZefEnumValue>(const ValueRepType & vrt) {
+            int offset = vrt.value % 16;
             if (offset != 1) return false;   // Enums encoded by an offset of 1
             return true;
         }
-        template<> bool is_compatible_type<QuantityFloat>(AtomicEntityType aet) {
-            int offset = aet.value % 16;
+        template<> bool is_compatible_rep_type<QuantityFloat>(const ValueRepType & vrt) {
+            int offset = vrt.value % 16;
             if (offset != 2) return false;   // QuantityFloat encoded by an offset of 2
             return true;		
         }
-        template<> bool is_compatible_type<QuantityInt>(AtomicEntityType aet) {
-            int offset = aet.value % 16;		
+        template<> bool is_compatible_rep_type<QuantityInt>(const ValueRepType & vrt) {
+            int offset = vrt.value % 16;		
             if (offset != 3) return false;   // QuantityInt encoded by an offset of 3
             return true;
         }
 
-
-        bool is_compatible(bool _, AtomicEntityType aet) { return is_compatible_type<bool>(aet); }
-        bool is_compatible(int _, AtomicEntityType aet) { return is_compatible_type<int>(aet); }
-        bool is_compatible(double _, AtomicEntityType aet) { return is_compatible_type<double>(aet); }
-        bool is_compatible(str _, AtomicEntityType aet) { return is_compatible_type<str>(aet); }
-        bool is_compatible(const char * _, AtomicEntityType aet) { return is_compatible_type<const char *>(aet); }
-        bool is_compatible(Time _, AtomicEntityType aet) { return is_compatible_type<Time>(aet); }
-        bool is_compatible(SerializedValue _, AtomicEntityType aet) { return is_compatible_type<SerializedValue>(aet); }
-
-        bool is_compatible(ZefEnumValue en, AtomicEntityType aet) {
-            int offset = aet.value % 16;
-            return is_compatible_type<ZefEnumValue>(aet)
-                && (ZefEnumValue{ (aet.value - offset) }.enum_type() == en.enum_type());
-        }
-        bool is_compatible(QuantityFloat q, AtomicEntityType aet) {
-            int offset = aet.value % 16;
-            return is_compatible_type<QuantityFloat>(aet)
-                && ((aet.value - offset) == q.unit.value);
-        }
-        bool is_compatible(QuantityInt q, AtomicEntityType aet) {
-            int offset = aet.value % 16;
-            return is_compatible_type<QuantityInt>(aet)
-                && ((aet.value - offset) == q.unit.value);
+        template<typename T>
+        bool is_compatible_native(T val, const ValueRepType & vrt) {
+            return is_compatible_rep_type<T>(vrt); 
         }
 
-
-		// use template specialization for the return value in the fct 'auto operator^ (ZefRef my_atomic_entity, T op) -> std::optional<decltype(op._x)>' below.
-		// string values are saved as a char array. We could return a string_view, but for simplicity and pybind11, instantiate an std::string for now
+        template<>
+        bool is_compatible_native(ZefEnumValue en, const ValueRepType & vrt) {
+            int offset = vrt.value % 16;
+            return is_compatible_rep_type<ZefEnumValue>(vrt)
+                && (ZefEnumValue{ (vrt.value - offset) }.enum_type() == en.enum_type());
+        }
+        template<>
+        bool is_compatible_native(QuantityFloat q, const ValueRepType & vrt) {
+            int offset = vrt.value % 16;
+            return is_compatible_rep_type<QuantityFloat>(vrt)
+                && ((vrt.value - offset) == q.unit.value);
+        }
+        template<>
+        bool is_compatible_native(QuantityInt q, const ValueRepType & vrt) {
+            int offset = vrt.value % 16;
+            return is_compatible_rep_type<QuantityInt>(vrt)
+                && ((vrt.value - offset) == q.unit.value);
+        }
 
         template<typename T>
-		T value_from_node_ptr(const char * buf, unsigned int size, AtomicEntityType aet);
+        bool is_compatible(const T & val, const AtomicEntityType & aet) {
+            if(is_AET_complex(aet))
+                return internals::pass_to_value_type_check(val, *aet.complex_value);
+            return is_compatible_native(val, aet.rep_type);
+        }
+
+        template bool is_compatible(const bool & val, const AtomicEntityType & aet);
+        template bool is_compatible(const int & val, const AtomicEntityType & aet);
+        template bool is_compatible(const double & val, const AtomicEntityType & aet);
+        template bool is_compatible(const str & val, const AtomicEntityType & aet);
+        template bool is_compatible(const Time & val, const AtomicEntityType & aet);
+        template bool is_compatible(const SerializedValue & val, const AtomicEntityType & aet);
+        template bool is_compatible(const ZefEnumValue & en, const AtomicEntityType & aet);
+        template bool is_compatible(const QuantityFloat & q, const AtomicEntityType & aet);
+        template bool is_compatible(const QuantityInt & q, const AtomicEntityType & aet);
+
+        std::optional<SerializedValue> get_AE_complex_type(const blobs_ns::ATOMIC_ENTITY_NODE & ae) {
+            // The first edge is a REL_ENT_INSTANCE and the second must be the COMPLEX_VALUE_TYPE_EDGE
+            if(ae.edges.indices[1] <= 0)
+                return {};
+            EZefRef maybe_edge{ae.edges.indices[1], *graph_data(&ae)};
+            if(BT(maybe_edge) != BT.COMPLEX_VALUE_TYPE_EDGE)
+                return {};
+
+            EZefRef z_value_node = imperative::target(maybe_edge);
+            auto & value_node = get<blobs_ns::ATOMIC_VALUE_NODE>(z_value_node);
+            if(value_node.rep_type != VRT.Serialized)
+                throw std::runtime_error("Complex type value node is not of VRT.Serialized type.");
+
+            return value_from_node<SerializedValue>(value_node);
+        }
+
+        bool is_AE_complex(const blobs_ns::ATOMIC_ENTITY_NODE & ae) {
+            return (bool)get_AE_complex_type(ae);
+        }
+
+
+        //////////////////////////////////////////////
+        // * Obtaining raw values
+
+        // use template specialization for the return value in the fct 'auto operator^ (ZefRef my_atomic_entity, T op) -> std::optional<decltype(op._x)>' below.
+        // string values are saved as a char array. We could return a string_view, but for simplicity and pybind11, instantiate an std::string for now
+
+        template<typename T>
+        T value_from_node_ptr(const char * buf, unsigned int size, ValueRepType vrt);
 
         template<>
-		str value_from_node_ptr<str>(const char * buf, unsigned int size, AtomicEntityType aet) {
+        str value_from_node_ptr<str>(const char * buf, unsigned int size, ValueRepType vrt) {
             Butler::ensure_or_get_range(buf, size);
             return std::string(buf, size);
-		}
+        }
 
         template<>
-		SerializedValue value_from_node_ptr<SerializedValue>(const char * buf, unsigned int size, AtomicEntityType aet) {
+        SerializedValue value_from_node_ptr<SerializedValue>(const char * buf, unsigned int size, ValueRepType vrt) {
             Butler::ensure_or_get_range(buf, size);
             const char * cur = buf;
             int type_len = *(int*)cur;
@@ -600,32 +726,32 @@ namespace zefDB {
             cur += type_len;
             std::string data_str(cur, data_len);
             return SerializedValue{type_str, data_str};
-		}
+        }
 
         template<>
-		double value_from_node_ptr<double>(const char * buf, unsigned int size, AtomicEntityType aet) {
+        double value_from_node_ptr<double>(const char * buf, unsigned int size, ValueRepType vrt) {
             // This needs to be specialised to convert, while allowing the other variants to avoid this unncessary check
-            if (aet == AET.Float)
+            if (vrt == VRT.Float)
                 return value_cast<double>(*(double*)(buf));
-            else// if(aet == AET.Int)
+            else// if(vrt == VRT.Int)
                 return value_cast<double>(*(int*)(buf));
-		}
+        }
         template<>
-		int value_from_node_ptr<int>(const char * buf, unsigned int size, AtomicEntityType aet) {
+        int value_from_node_ptr<int>(const char * buf, unsigned int size, ValueRepType vrt) {
             // This needs to be specialised to convert, while allowing the other variants to avoid this unncessary check
-            if (aet == AET.Float) {
+            if (vrt == VRT.Float) {
                 return value_cast<int>(*(double*)(buf));
-            } else if(aet == AET.Int) {
+            } else if(vrt == VRT.Int) {
                 return value_cast<int>(*(int*)(buf));
-            } else //(aet == AET.Bool) {
+            } else //(vrt == VRT.Bool) {
                 return value_cast<int>(*(bool*)(buf));
-		}
+        }
 
-		// for contiguous POD types with compile-time determined size, we can use this template
-		template <typename T>
-		T value_from_node_ptr(const char * buf, unsigned int size, AtomicEntityType aet) {
-			return *(T*)(buf);  // project onto type
-		}
+        // for contiguous POD types with compile-time determined size, we can use this template
+        template <typename T>
+        T value_from_node_ptr(const char * buf, unsigned int size, ValueRepType vrt) {
+            return *(T*)(buf);  // project onto type
+        }
 
         // template QuantityInt value_from_node<QuantityInt>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
         // template QuantityFloat value_from_node<QuantityFloat>(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
@@ -638,7 +764,7 @@ namespace zefDB {
         T value_from_node_(const C & aae_or_avn) {
             const char * data_buffer = get_data_buffer(aae_or_avn);
             unsigned int size = get_data_buffer_size(aae_or_avn);
-            return value_from_node_ptr<T>(data_buffer, size, aae_or_avn.my_atomic_entity_type);
+            return value_from_node_ptr<T>(data_buffer, size, aae_or_avn.rep_type);
         }
 
         template<class T>

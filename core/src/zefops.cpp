@@ -24,6 +24,8 @@
 #include <unordered_set>
 
 namespace zefDB {
+	AtomicEntityType operator| (EZefRef uzr, const AtomicEntityTypeStruct& AET_) {return AET_(uzr);}
+	AtomicEntityType operator| (ZefRef zr, const AtomicEntityTypeStruct& AET_) {return AET_(zr);}
 
 	namespace internals {
 		// ------------ factor out list monad lifting ---------------		
@@ -415,19 +417,19 @@ namespace zefDB {
 				};
 			}
 
-			Filter Filter::operator[] (AtomicEntityType aet) const {
-				return Filter{
-					not_in_activated,
-					(std::function<bool(EZefRef)>)[aet](EZefRef uzr)->bool {
-					return get<BlobType>(uzr) == BlobType::ATOMIC_ENTITY_NODE &&
-						get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr).my_atomic_entity_type == aet;
-					},
-					(std::function<bool(ZefRef)>)[aet](ZefRef zr)->bool {
-					return get<BlobType>(zr) == BlobType::ATOMIC_ENTITY_NODE &&
-						get<blobs_ns::ATOMIC_ENTITY_NODE>(zr).my_atomic_entity_type == aet;
-					}
-				};
-			}
+			// Filter Filter::operator[] (AtomicEntityType aet) const {
+			// 	return Filter{
+			// 		not_in_activated,
+			// 		(std::function<bool(EZefRef)>)[aet](EZefRef uzr)->bool {
+			// 		return get<BlobType>(uzr) == BlobType::ATOMIC_ENTITY_NODE &&
+			// 			get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr).my_atomic_entity_type == aet;
+			// 		},
+			// 		(std::function<bool(ZefRef)>)[aet](ZefRef zr)->bool {
+			// 		return get<BlobType>(zr) == BlobType::ATOMIC_ENTITY_NODE &&
+			// 			get<blobs_ns::ATOMIC_ENTITY_NODE>(zr).my_atomic_entity_type == aet;
+			// 		}
+			// 	};
+			// }
 
 			Filter Filter::operator[] (BlobType my_BlobType) const {
 				return Filter{
@@ -1160,8 +1162,8 @@ namespace zefDB {
         DelegateOp DelegateOp::operator[](const EntityType& et) const {
             return DelegateOp{et};
         }
-        DelegateOp DelegateOp::operator[](const AtomicEntityType& aet) const {
-            return DelegateOp{aet};
+        DelegateOp DelegateOp::operator[](const ValueRepType& vrt) const {
+            return DelegateOp{vrt};
         }
         // Delegate DelegateOp::operator[](const RelationType& rt) const {
         //     return Delegate{rt};
@@ -1354,7 +1356,7 @@ namespace zefDB {
     template<class T>
     ZefRefs Instances_pure_helper(EZefRef tx, T type) {
         // This version ignores any local curried in data. It is the "pure function"
-        if (!(tx <= BT.TX_EVENT_NODE)) {
+        if (!(is_zef_subtype(tx, BT.TX_EVENT_NODE))) {
             throw std::runtime_error("Instances(tx, type) should be called with a TX as the first argument.");
         }
         
@@ -1368,17 +1370,17 @@ namespace zefDB {
     ZefRefs Instances::pure(EZefRef tx, EntityType et) {
         return Instances_pure_helper(tx, et);
     }
-    ZefRefs Instances::pure(EZefRef tx, AtomicEntityType aet) {
-        return Instances_pure_helper(tx, aet);
+    ZefRefs Instances::pure(EZefRef tx, ValueRepType vrt) {
+        return Instances_pure_helper(tx, vrt);
     }
-    ZefRefs Instances::pure(EZefRef tx, Instances::Sentinel aet) {
+    ZefRefs Instances::pure(EZefRef tx, Instances::Sentinel) {
         return Instances::pure(tx);
     }
 
     ZefRefs Instances::pure(EZefRef tx) {
         // This version ignores any local curried in data. It is the "pure function"
 
-        if (!(tx <= BT.TX_EVENT_NODE)) {
+        if (!is_zef_subtype(tx, BT.TX_EVENT_NODE)) {
             throw std::runtime_error("Instances(uzr) should be called with a TX as the first argument.");
         }
 
@@ -1388,7 +1390,7 @@ namespace zefDB {
     }
 
     ZefRefs Instances::pure(EZefRef tx, EZefRef delegate) {
-        if (!(tx <= BT.TX_EVENT_NODE)) {
+        if (!is_zef_subtype(tx, BT.TX_EVENT_NODE)) {
             throw std::runtime_error("Instances(tx, type) should be called with a TX as the first argument.");
         }
 
@@ -1396,7 +1398,7 @@ namespace zefDB {
     }
 
     ZefRefs Instances::pure(ZefRef tx_or_delegate) {
-        if (tx_or_delegate <= BT.TX_EVENT_NODE) {
+        if (is_zef_subtype(tx_or_delegate, BT.TX_EVENT_NODE)) {
             return pure(EZefRef(tx_or_delegate));
         } else {
             if (!internals::has_delegate(BT(tx_or_delegate))) throw std::runtime_error("Instances(zr) called for a blob type where no delegate exists.");
@@ -1409,7 +1411,7 @@ namespace zefDB {
     
     // pipe a delegate zr through: use the reference frame from the delegate   my_delegate_zr | instances
     ZefRefs Instances::operator() (ZefRef zr) const {
-        if (zr <= BT.TX_EVENT_NODE) {
+        if (is_zef_subtype(zr, BT.TX_EVENT_NODE)) {
             return (*this)(EZefRef(zr));
         } else {
             if (!internals::has_delegate(BT(zr))) throw std::runtime_error("Instances(zr) called for a blob type where no delegate exists.");
@@ -1421,7 +1423,7 @@ namespace zefDB {
 
             // pipe a delegate through, but determine the reference frame from the instance zefop
     ZefRefs Instances::operator() (EZefRef uzr) const {
-        if (uzr <= BT.TX_EVENT_NODE) {
+        if (is_zef_subtype(uzr, BT.TX_EVENT_NODE)) {
             if (!std::holds_alternative<Sentinel>(ref_frame_data)) throw std::runtime_error("An additional reference frame was curried into 'instances'. Please be more precise which reference frame to use.");
             return std::visit([&uzr](auto curried_in_type) { return pure(uzr, curried_in_type); },
                               curried_in_type);
@@ -1925,58 +1927,13 @@ namespace zefDB {
 		// for EZefRefs: 1) time info HAS to be specified in the 'value' zefop (where else would it get it from). An error is thrown if not
 		template <typename T>
 		auto operator| (ZefRef my_atomic_entity, T op) -> std::optional<decltype(op._x)> {
-			using namespace internals;
-			// check that the type T corresponds to the type of atomic entity of the zefRef
-			if (get<BlobType>(my_atomic_entity.blob_uzr) != BlobType::ATOMIC_ENTITY_NODE) 
-				throw std::runtime_error("ZefRef | value.something called for a ZefRef not pointing to an ATOMIC_ENTITY_NODE blob.");			
-            AtomicEntityType aet = get<blobs_ns::ATOMIC_ENTITY_NODE>(my_atomic_entity.blob_uzr).my_atomic_entity_type;
-			if (!is_compatible_type<decltype(op._x)>(aet))
-				throw std::runtime_error("ZefRef | value." + to_str(op._x) + " called, but the specified return type does not agree with the type of the ATOMIC_ENTITY_NODE pointed to (" + to_str(get<blobs_ns::ATOMIC_ENTITY_NODE>(my_atomic_entity.blob_uzr).my_atomic_entity_type) + ")");
-
-			GraphData& gd = *graph_data(my_atomic_entity);			
-			EZefRef ref_tx = std::holds_alternative<internals::Sentinel>(op.time_slice_override) ?
-				my_atomic_entity.tx :   // use the reference frame baked into the ZefRef if none is specified in the 'value' zefop
-				std::visit(overloaded{
-					[&gd](internals::Sentinel ts)->EZefRef {return EZefRef(0, gd); },   // never used, but required for completion
-					[&gd](TimeSlice ts)->EZefRef {return tx[gd][ts]; },  // determine the tx event for the specified time slice here: before this it is not know for which graph the tx should be determined
-					[](EZefRef uzr)->EZefRef { return uzr; },   // if the tx is directly specified
-					[&gd](Now latest_op)->EZefRef { return EZefRef(gd.latest_complete_tx, gd); }
-					}, op.time_slice_override);
-			
-			if (!exists_at[ref_tx](my_atomic_entity.blob_uzr))
-				throw std::runtime_error("ZefRef | value.something called, but the rel_ent pointed to does not exists in the reference frame tx specified.");
-
-			auto tx_time_slice = [](EZefRef uzr)->TimeSlice { return get<blobs_ns::TX_EVENT_NODE>(uzr).time_slice; };
-			TimeSlice ref_time_slice = tx_time_slice(ref_tx);
-			auto result_candidate_edge = EZefRef(nullptr);
-			// Ranges don't work for AllEdgeIndexes class and we want this part to be lazy, do it the ugly imperative way for now
-			// This is one of the critical parts where we want lazy evaluation.
-			// Enter the pyramid of death. 
-			for (auto ind : AllEdgeIndexes(my_atomic_entity.blob_uzr < BT.RAE_INSTANCE_EDGE)) {
-				if (ind < 0) {
-					auto incoming_val_assignment_edge = EZefRef(-ind, gd);
-					if (get<BlobType>(incoming_val_assignment_edge) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE) {
-						if (tx_time_slice(incoming_val_assignment_edge | source) <= ref_time_slice) result_candidate_edge = incoming_val_assignment_edge;
-						else break;
-					}
-				}
-			}
-			if (result_candidate_edge.blob_ptr == nullptr) return {};  // no assignment edge was found
-			else return internals::value_from_node<decltype(op._x)>(get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge), aet);
+            return value_from_ae<T>(my_atomic_entity);
 		}
 
 		// 
 
 		template <typename T>
 		auto operator| (EZefRef my_atomic_entity, T op) -> std::optional<decltype(op._x)> {
-			using namespace internals;
-			// check that the type T corresponds to the type of atomic entity of the zefRef
-			if (get<BlobType>(my_atomic_entity) != BlobType::ATOMIC_ENTITY_NODE) 
-				throw std::runtime_error("EZefRef | value.something called for a ZefRef not pointing to an ATOMIC_ENTITY_NODE blob.");			
-            AtomicEntityType aet = get<blobs_ns::ATOMIC_ENTITY_NODE>(my_atomic_entity).my_atomic_entity_type;
-			if (!is_compatible_type<decltype(op._x)>(aet))
-				throw std::runtime_error("EZefRef | value.something called, but the specified return type does not agree with the type of the ATOMIC_ENTITY_NODE pointed to.");
-
 			GraphData& gd = *graph_data(my_atomic_entity);			
 			EZefRef ref_tx = std::visit(overloaded{
 					[&gd](internals::Sentinel ts)->EZefRef {throw std::runtime_error("Time slice info need to be set inside 'value' zefop when calling on a EZefRef"); return EZefRef(0, gd); },   // never used, but required for completion
@@ -1988,23 +1945,8 @@ namespace zefDB {
 			if (!exists_at[ref_tx](my_atomic_entity))
 				throw std::runtime_error("EZefRef | value.something called, but the rel_ent pointed to does not exists in the reference frame tx specified.");
 
-			auto tx_time_slice = [](EZefRef uzr)->TimeSlice { return get<blobs_ns::TX_EVENT_NODE>(uzr).time_slice; };
-			TimeSlice ref_time_slice = tx_time_slice(ref_tx);
-			auto result_candidate_edge = EZefRef(nullptr);
-			// Ranges don't work for AllEdgeIndexes class and we want this part to be lazy, do it the ugly imperative way for now
-			// This is one of the critical parts where we want lazy evaluation.
-			// Enter the pyramid of death. 
-			for (auto ind : AllEdgeIndexes(my_atomic_entity < BT.RAE_INSTANCE_EDGE)) {
-				if (ind < 0) {
-					auto incoming_val_assignment_edge = EZefRef(-ind, gd);
-					if (get<BlobType>(incoming_val_assignment_edge) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE) {
-						if (tx_time_slice(incoming_val_assignment_edge | source) <= ref_time_slice) result_candidate_edge = incoming_val_assignment_edge;
-						else break;
-					}
-				}
-			}
-			if (result_candidate_edge.blob_ptr == nullptr) return {};  // no assignment edge was found
-			else return internals::value_from_node<decltype(op._x)>(get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge), aet);
+            ZefRef zr{my_atomic_entity, ref_tx};
+            return value_from_ae<T>(zr);
         }
 
 

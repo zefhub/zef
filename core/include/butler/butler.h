@@ -408,23 +408,6 @@ namespace zefDB {
 
         GenericResponse generic_from_json(json j);
 
-        ////////////////////////////////////////
-        // * External handlers
-
-        // ** Merge handler
-        typedef json (merge_handler_t)(Graph, const json &);
-        LIBZEF_DLL_EXPORTED void register_merge_handler(std::function<merge_handler_t> func);
-        LIBZEF_DLL_EXPORTED void remove_merge_handler();
-        LIBZEF_DLL_EXPORTED json pass_to_merge_handler(Graph g, const json & payload);
-
-        // ** Schema validator
-        typedef void (schema_validator_t)(ZefRef);
-        LIBZEF_DLL_EXPORTED void register_schema_validator(std::function<schema_validator_t> func);
-        LIBZEF_DLL_EXPORTED void remove_schema_validator();
-        LIBZEF_DLL_EXPORTED void pass_to_schema_validator(ZefRef tx);
-
-
-
         ////////////////////////////////////////////////
         // * Graph update messages
 

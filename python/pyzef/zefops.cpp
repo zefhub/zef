@@ -849,7 +849,7 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
         .def("__ror__", py::overload_cast<ZefRef>(&Instances::operator(), py::const_))
         .def("__ror__", py::overload_cast<EZefRef>(&Instances::operator(), py::const_))
         .def("__getitem__", py::overload_cast<EntityType>(&Instances::operator[], py::const_))
-        .def("__getitem__", py::overload_cast<AtomicEntityType>(&Instances::operator[], py::const_))
+        .def("__getitem__", py::overload_cast<ValueRepType>(&Instances::operator[], py::const_))
         //.def("__getitem__", py::overload_cast<Zuple>(&Instances::operator[], py::const_))
         .def("__getitem__", py::overload_cast<EZefRef>(&Instances::operator[], py::const_))
         .def("__getitem__", py::overload_cast<ZefRef>(&Instances::operator[], py::const_))
@@ -858,11 +858,11 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     zefops_submodule.attr("instances") = instances;  // expose this singleton
     zefops_submodule.def("instances_impl", py::overload_cast<EZefRef>(&Instances::pure));
     zefops_submodule.def("instances_impl", py::overload_cast<EZefRef,EntityType>(&Instances::pure));
-    zefops_submodule.def("instances_impl", py::overload_cast<EZefRef,AtomicEntityType>(&Instances::pure));
+    zefops_submodule.def("instances_impl", py::overload_cast<EZefRef,ValueRepType>(&Instances::pure));
     zefops_submodule.def("instances_impl", py::overload_cast<EZefRef,EZefRef>(&Instances::pure));
     zefops_submodule.def("instances_impl", py::overload_cast<ZefRef>(&Instances::pure));
     zefops_submodule.def("instances_impl", py::overload_cast<ZefRef,EntityType>(&Instances::pure));
-    zefops_submodule.def("instances_impl", py::overload_cast<ZefRef,AtomicEntityType>(&Instances::pure));
+    zefops_submodule.def("instances_impl", py::overload_cast<ZefRef,ValueRepType>(&Instances::pure));
     zefops_submodule.def("instances_impl", py::overload_cast<ZefRef,EZefRef>(&Instances::pure));
 
     py::class_<InstancesEternal>(zefops_submodule, "InstancesEternal", py::buffer_protocol())			
@@ -871,7 +871,7 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
         .def("__ror__", py::overload_cast<EZefRef>(&InstancesEternal::operator(), py::const_))			
         .def("__ror__", [](InstancesEternal op, const Graph& g) { return g | op; })
         .def("__getitem__", py::overload_cast<EntityType>(&InstancesEternal::operator[], py::const_))
-        .def("__getitem__", py::overload_cast<AtomicEntityType>(&InstancesEternal::operator[], py::const_))
+        .def("__getitem__", py::overload_cast<ValueRepType>(&InstancesEternal::operator[], py::const_))
         //.def("__getitem__", py::overload_cast<Zuple>(&InstancesEternal::operator[], py::const_))
         ;
     zefops_submodule.attr("instances_eternal") = instances_eternal;  // expose this singleton
@@ -1423,7 +1423,7 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     zefops_submodule.def("delegate", py::overload_cast<EZefRef>(&imperative::delegate), py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("delegate", py::overload_cast<ZefRef>(&imperative::delegate), py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("delegate", py::overload_cast<const Graph &,EntityType>(&imperative::delegate), py::call_guard<py::gil_scoped_release>());
-    zefops_submodule.def("delegate", py::overload_cast<const Graph &,AtomicEntityType>(&imperative::delegate), py::call_guard<py::gil_scoped_release>());
+    zefops_submodule.def("delegate", py::overload_cast<const Graph &,ValueRepType>(&imperative::delegate), py::call_guard<py::gil_scoped_release>());
 
     // I have no idea why the overload_cast complains here... just working around it for now.
     // zefops_submodule.def("delegate_of", py::overload_cast<EZefRef>(&delegate_of), py::call_guard<py::gil_scoped_release>());
@@ -1436,7 +1436,7 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     REPEAT(ZefRef);
     REPEAT(Delegate);
     REPEAT(EntityType);
-    REPEAT(AtomicEntityType);
+    REPEAT(ValueRepType);
     REPEAT(RelationType);
 #undef REPEAT
 
@@ -1448,21 +1448,21 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     REPEAT(SRC, ZefRef);                        \
     REPEAT(SRC, Delegate);                      \
     REPEAT(SRC, EntityType);                    \
-    REPEAT(SRC, AtomicEntityType);              \
+    REPEAT(SRC, ValueRepType);                  \
     REPEAT(SRC, RelationType);
 
     OUTER(EZefRef);
     OUTER(ZefRef);
     OUTER(Delegate);
     OUTER(EntityType);
-    OUTER(AtomicEntityType);
+    OUTER(ValueRepType);
     OUTER(RelationType);
 
 #undef OUTER
 #undef REPEAT
 
 
-    zefops_submodule.def("select_by_field_impl", [](std::vector<ZefRef> zrs, RelationType rt, imperative::value_variant_t val) -> std::optional<ZefRef> {
+    zefops_submodule.def("select_by_field_impl", [](std::vector<ZefRef> zrs, RelationType rt, value_variant_t val) -> std::optional<ZefRef> {
             // This is just to avoid creating a ZefRefs without a tx.
             if(zrs.size() == 0)
                 return {};

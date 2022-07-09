@@ -242,23 +242,43 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.attr("BT") = BT;
 
 
+	py::class_<ValueRepType>(internals_submodule, "ValueRepType", py::dynamic_attr())
+		.def(py::init<enum_indx>())	
+		.def_readonly("value", &ValueRepType::value)
+		.def("__repr__", [](const ValueRepType& self)->std::string { return to_str(self); })
+		.def("__str__", [](const ValueRepType& self)->std::string { return str(self); })
+		.def("__eq__", [](const ValueRepType& self, const ValueRepType& other)->bool { return self == other; }, py::is_operator())
+		.def("__hash__", [](const ValueRepType& self)->enum_indx {return self.value; })
+		.def("__int__", [](const ValueRepType& self)->int {return self.value; })
+		.def("__copy__", [](const ValueRepType& self)->ValueRepType {return self; })
+
+		.def_property_readonly("__enum_type", [](const ValueRepType& self) { return internals::get_enum_type_from_vrt(self); })
+		.def_property_readonly("__unit", [](const ValueRepType& self) { return internals::get_unit_from_vrt(self); })
+		;
+
+	internals_submodule.def("is_vrt_a_enum", [](ValueRepType my_vrt)->bool { return is_zef_subtype(my_vrt, VRT.Enum); });
+	internals_submodule.def("is_vrt_a_quantity_float", [](ValueRepType my_vrt)->bool { return is_zef_subtype(my_vrt, VRT.QuantityFloat); });
+	internals_submodule.def("is_vrt_a_quantity_int", [](ValueRepType my_vrt)->bool { return is_zef_subtype(my_vrt, VRT.QuantityInt); });
+
 	py::class_<AtomicEntityType>(internals_submodule, "AtomicEntityType", py::dynamic_attr())
 		.def(py::init<enum_indx>())	
-		.def_readonly("value", &AtomicEntityType::value)
+		.def(py::init<SerializedValue>())	
+		.def_readonly("rep_type", &AtomicEntityType::rep_type)
+		.def_readonly("complex_value", &AtomicEntityType::complex_value)
 		.def("__repr__", [](const AtomicEntityType& self)->std::string { return to_str(self); })
 		.def("__str__", [](const AtomicEntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const AtomicEntityType& self, const AtomicEntityType& other)->bool { return self == other; }, py::is_operator())
-		.def("__hash__", [](const AtomicEntityType& self)->enum_indx {return self.value; })
-		.def("__int__", [](const AtomicEntityType& self)->int {return self.value; })
+		// .def("__hash__", [](const AtomicEntityType& self) {return self.value; })
+		// .def("__int__", [](const AtomicEntityType& self)->int {return self.value; })
 		.def("__copy__", [](const AtomicEntityType& self)->AtomicEntityType {return self; })
 
-		.def_property_readonly("__enum_type", [](const AtomicEntityType& self) { return internals::get_enum_type_from_aet(self); })
-		.def_property_readonly("__unit", [](const AtomicEntityType& self) { return internals::get_unit_from_aet(self); })
+		// .def_property_readonly("__enum_type", [](const AtomicEntityType& self) { return internals::get_enum_type_from_aet(self); })
+		// .def_property_readonly("__unit", [](const AtomicEntityType& self) { return internals::get_unit_from_aet(self); })
 		;
 
-	internals_submodule.def("is_aet_a_enum", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.Enum; });
-	internals_submodule.def("is_aet_a_quantity_float", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.QuantityFloat; });
-	internals_submodule.def("is_aet_a_quantity_int", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.QuantityInt; });
+	// internals_submodule.def("is_aet_a_enum", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.Enum; });
+	// internals_submodule.def("is_aet_a_quantity_float", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.QuantityFloat; });
+	// internals_submodule.def("is_aet_a_quantity_int", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.QuantityInt; });
 
 
 
@@ -405,13 +425,13 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     py::class_<Delegate>(internals_submodule, "Delegate", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>(), py::dynamic_attr())
         .def(py::init<int,EntityType>(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<int,AtomicEntityType>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<int,ValueRepType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,RelationType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateTX>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateRoot>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateRelationTriple>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<EntityType>(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<AtomicEntityType>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<ValueRepType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<RelationType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<Delegate,RelationType,Delegate>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<Delegate>(), py::call_guard<py::gil_scoped_release>())
@@ -758,9 +778,12 @@ void fill_internals_module(py::module_ & internals_submodule) {
     },
         py::call_guard<py::gil_scoped_release>());
 
-    internals_submodule.def("register_merge_handler", &Butler::register_merge_handler);
-    internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&Butler::remove_merge_handler));
+    internals_submodule.def("register_merge_handler", &internals::register_merge_handler);
+    internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&internals::remove_merge_handler));
 
-    internals_submodule.def("register_schema_validator", &Butler::register_schema_validator);
-    internals_submodule.add_object("_cleanup_schema_validator", py::capsule(&Butler::remove_schema_validator));
+    internals_submodule.def("register_schema_validator", &internals::register_schema_validator);
+    internals_submodule.add_object("_cleanup_schema_validator", py::capsule(&internals::remove_schema_validator));
+
+    internals_submodule.def("register_value_type_check", &internals::register_value_type_check);
+    internals_submodule.add_object("_cleanup_value_type_check", py::capsule(&internals::remove_value_type_check));
 }

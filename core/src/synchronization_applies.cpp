@@ -107,10 +107,10 @@ void apply_action_ATOMIC_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_cach
             insert_uid_lookup(gd, get_blob_uid(uzr), index(uzr));
         }
         if(is_delegate(uzr)) {
-            if(node.my_atomic_entity_type <= AET.Enum ||
-               node.my_atomic_entity_type <= AET.QuantityFloat ||
-               node.my_atomic_entity_type <= AET.QuantityInt) {
-                auto v = node.my_atomic_entity_type.value;
+            if(is_zef_subtype(node.rep_type, VRT.Enum) ||
+               is_zef_subtype(node.rep_type, VRT.QuantityFloat) ||
+               is_zef_subtype(node.rep_type, VRT.QuantityInt)) {
+                auto v = node.rep_type.value;
                 enum_indx indx = v - v % 16;
                 auto p = gd.ENs_used->get_writer();
                 if(!p->contains(indx))
@@ -377,7 +377,7 @@ void apply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(GraphData & gd, EZefRef uzr, bool
     auto & node = get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(uzr);
 
     if(fill_caches) {
-        if(node.my_atomic_entity_type <= AET.Enum) {
+        if(is_zef_subtype(node.rep_type, VRT.Enum)) {
             ZefEnumValue & en = *(ZefEnumValue*)node.data_buffer;
             enum_indx indx = en.value;
 

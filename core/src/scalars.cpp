@@ -18,14 +18,24 @@
 #include "butler/butler.h"
 
 namespace zefDB {
-    Time& Time::operator= (const Time& other) {
-        if (this != &other)
-            new(this) Time(other); // placement new            
-        return *this;
-    }
+    //////////////////////////////
+    // * ZefEnumValue
+    ZefEnumValue ZefEnumStruct::operator() (const std::string& enum_type, const std::string& enum_val) const {
+        // call with EN("MachineStatus", "IDLE")
+        return internals::get_enum_value_from_string(enum_type, enum_val);
+    }    
 
+	std::ostream& operator<<(std::ostream& os, ZefEnumValue zef_enum_val) {
+		auto sp = internals::get_enum_string_pair(zef_enum_val);
+		os << "EN." << sp.first << "." << sp.second;
+		return os;
+	}
 
+	std::string ZefEnumValue::enum_type() const { return internals::get_enum_string_pair(*this).first; }
+	std::string ZefEnumValue::enum_value() const { return  internals::get_enum_string_pair(*this).second; }
 
+    ////////////////////////////////
+    // * QuantityFloat
 
 
     QuantityFloat operator+ (QuantityFloat q1, QuantityFloat q2) { 
@@ -82,6 +92,14 @@ namespace zefDB {
 
 
 
+    //////////////////////////////
+    // * Time
+
+    Time& Time::operator= (const Time& other) {
+        if (this != &other)
+            new(this) Time(other); // placement new            
+        return *this;
+    }
 
 
     Time operator+ (Time t, QuantityFloat duration) {

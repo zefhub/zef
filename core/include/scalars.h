@@ -30,7 +30,6 @@
 #include "fwd_declarations.h"
 #include "zefDB_utils.h"
 #include "butler/threadsafe_map.h"
-#include "tokens.h"
 //#include "high_level_api.h"
 
 /*[[[cog
@@ -53,6 +52,17 @@ namespace zefDB {
 
 
 
+
+    struct LIBZEF_DLL_EXPORTED ZefEnumValue {
+        constexpr ZefEnumValue(enum_indx n = 0) : value(n) {};
+        enum_indx value;
+        std::string enum_type() const;
+        std::string enum_value() const;
+        bool operator== (const ZefEnumValue& rhs) const { return value == rhs.value; }
+        bool operator!= (const ZefEnumValue& rhs) const { return value != rhs.value; }
+    };
+
+    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& os, ZefEnumValue zef_enum_val);
 
 
 
@@ -111,7 +121,7 @@ namespace zefDB {
         inline ZefEnumValue assert_that_is_unit_val(ZefEnumValue x) {
             // This is a quick exit to avoid calling anything at initialisation
             // of library, i.e. before the token store might be initialised.
-            if(x == EN.Unit._undefined)
+            if(x.value == 0)
                 return x;
             if (x.enum_type() != "Unit" || x.enum_value() == "")
                 throw std::runtime_error("ZefEnumValue passed is not a Unit value (e.g. 'kilograms')");
@@ -124,7 +134,7 @@ namespace zefDB {
         double value;
         ZefEnumValue unit;
                 
-        QuantityFloat(double value_=0.0, ZefEnumValue unit_=EN.Unit._undefined) : value(value_), unit(internals::assert_that_is_unit_val(unit_)) {};
+        QuantityFloat(double value_=0.0, ZefEnumValue unit_=ZefEnumValue{0}) : value(value_), unit(internals::assert_that_is_unit_val(unit_)) {};
         bool operator== (const QuantityFloat& rhs) const { return value == rhs.value && unit == rhs.unit; }
         bool operator!= (const QuantityFloat& rhs) const { return value != rhs.value || unit != rhs.unit; }
         bool operator> (const QuantityFloat& rhs) const {
@@ -153,9 +163,9 @@ namespace zefDB {
 
     struct LIBZEF_DLL_EXPORTED QuantityInt {
         int value = 0;
-        ZefEnumValue unit = EN.Unit._undefined;
+        ZefEnumValue unit;
                 
-        QuantityInt(int value_=0, ZefEnumValue unit_ = EN.Unit._undefined) : value(value_), unit(internals::assert_that_is_unit_val(unit_)) {};
+        QuantityInt(int value_=0, ZefEnumValue unit_ = ZefEnumValue{0}) : value(value_), unit(internals::assert_that_is_unit_val(unit_)) {};
         bool operator== (const QuantityInt& rhs) const { return value == rhs.value && unit == rhs.unit; }
         bool operator!= (const QuantityInt& rhs) const { return value != rhs.value || unit != rhs.unit; }
         bool operator> (const QuantityInt& rhs) const {
@@ -263,7 +273,6 @@ namespace zefDB {
     inline bool operator<= (Time t1, Time t2) { return t1.seconds_since_1970 <= t2.seconds_since_1970; }
     inline bool operator>= (Time t1, Time t2) { return t1.seconds_since_1970 >= t2.seconds_since_1970; }
 
-    inline QuantityFloat operator- (Time t1, Time t2) { return QuantityFloat{ t1.seconds_since_1970 - t2.seconds_since_1970, EN.Unit.seconds }; }
 
     LIBZEF_DLL_EXPORTED Time operator+ (Time t, QuantityFloat duration);
     LIBZEF_DLL_EXPORTED Time operator+ (Time t, QuantityInt duration);
@@ -282,6 +291,8 @@ namespace zefDB {
     extern const QuantityFloat weeks;
     extern const QuantityFloat months;
     extern const QuantityFloat years;
+
+    inline QuantityFloat operator- (Time t1, Time t2) { return (t1.seconds_since_1970 - t2.seconds_since_1970) * seconds; }
 
 
     LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, Time t);

@@ -30,6 +30,7 @@ using json = nlohmann::json;
 #include "zefops.h"
 #include "synchronization.h"
 #include "zef_config.h"
+#include "external_handlers.h"
 
 namespace zefDB {
     bool initialised_python_core = false;
@@ -879,50 +880,6 @@ namespace zefDB {
                 local_process_graph = g;
             }
             return *local_process_graph;
-        }
-
-        ////////////////////////////////////////////////////////
-        // * External handlers
-
-
-        // ** Merge handler
-        std::optional<std::function<merge_handler_t>> merge_handler;
-        json pass_to_merge_handler(Graph g, const json & payload) {
-            if(!merge_handler)
-                throw std::runtime_error("Merge handler has not been assigned.");
-
-            return (*merge_handler)(g, payload);
-        }
-
-        void register_merge_handler(std::function<merge_handler_t> func) {
-            if(merge_handler)
-                throw std::runtime_error("Merge handler has already been registered.");
-            merge_handler = func;
-        }
-
-        void remove_merge_handler() {
-            if(!merge_handler)
-                std::cerr << "Warning, no merge_handler registered to be removed." << std::endl;
-            merge_handler.reset();
-        }
-
-        // ** Schema validator
-        std::optional<std::function<schema_validator_t>> schema_validator;
-        void pass_to_schema_validator(ZefRef tx) {
-            if(schema_validator)
-                (*schema_validator)(tx);
-        }
-
-        void register_schema_validator(std::function<schema_validator_t> func) {
-            if(schema_validator)
-                throw std::runtime_error("schema_validator has already been registered.");
-            schema_validator = func;
-        }
-
-        void remove_schema_validator() {
-            if(!schema_validator)
-                std::cerr << "Warning, no schema_validator registered to be removed." << std::endl;
-            schema_validator.reset();
         }
     }
 }

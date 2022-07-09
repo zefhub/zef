@@ -74,13 +74,13 @@ namespace zefDB {
         }
         
         void assign_blob_specific(blobs_ns::ATOMIC_ENTITY_NODE & blob, const json & details) {
-            blob.my_atomic_entity_type = details["my_atomic_entity_type"];
+            blob.rep_type = details["rep_type"];
             blob.instantiation_time_slice = details["instantiation_time_slice"];
             blob.termination_time_slice = details["termination_time_slice"];
         }
         
         void assign_blob_specific(blobs_ns::ATOMIC_VALUE_NODE & blob, const json & details) {
-            blob.my_atomic_entity_type = details["my_atomic_entity_type"];
+            blob.rep_type = details["rep_type"];
         }
 
         void assign_blob_specific(blobs_ns::RELATION_EDGE & blob, const json & details) {
@@ -100,7 +100,7 @@ namespace zefDB {
         void assign_blob_specific(blobs_ns::TERMINATION_EDGE & blob, const json & details) {}
 
         void assign_blob_specific(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE & blob, const json & details) {
-            blob.my_atomic_entity_type = details["my_atomic_entity_type"];
+            blob.rep_type = details["rep_type"];
         }
 
         void assign_blob_specific(blobs_ns::DEFERRED_EDGE_LIST_NODE & blob, const json & details) {
@@ -129,12 +129,14 @@ namespace zefDB {
         }
 
         void assign_blob_specific(blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE & blob, const json & details) {
-            blob.atomic_entity_type = details["atomic_entity_type"];
+            blob.rep_type = details["rep_type"];
         }
 
         void assign_blob_specific(blobs_ns::FOREIGN_RELATION_EDGE & blob, const json & details) {
             blob.relation_type = details["relation_type"];
         }
+
+        void assign_blob_specific(blobs_ns::COMPLEX_VALUE_TYPE_EDGE & blob, const json & details) {}
 
 
         Graph create_from_json(std::unordered_map<blob_index,json> blobs) {
@@ -307,6 +309,7 @@ namespace zefDB {
             if(name == "FOREIGN_ENTITY_NODE") return BlobType::FOREIGN_ENTITY_NODE;
             if(name == "FOREIGN_ATOMIC_ENTITY_NODE") return BlobType::FOREIGN_ATOMIC_ENTITY_NODE;
             if(name == "FOREIGN_RELATION_EDGE") return BlobType::FOREIGN_RELATION_EDGE;
+            if(name == "COMPLEX_VALUE_TYPE_EDGE") return BlobType::COMPLEX_VALUE_TYPE_EDGE;
             throw std::runtime_error("Unknown blob type: " + name);
         }
 
