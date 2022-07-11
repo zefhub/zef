@@ -70,6 +70,40 @@ def verify_zef_list(z_list: ZefRef):
 
 
 
+
+class ZefGenerator:
+    """
+    A class that acts as a uniform interface instead of Python's
+    builtin generator. Defining a regular generator using yield
+    in Python does not always obey value semantics. It still keeps
+    state when iterated over.
+    
+    Example:
+    >>> def repeat(x, n=None):    
+    >>>  def make_wrapper():
+    >>>      if n is None:
+    >>>          while True:
+    >>>              yield x
+    >>>      else:
+    >>>             for _ in range(n):
+    >>>                 yield x
+    >>>  
+    >>>     return ZefGenerator(make_wrapper)
+
+    Returning `wrapper()` directly is equivalent to the class
+    where `__iter__` returns self, thus maintaining state from
+    previous iterations.
+    """
+    def __init__(self, generator_fct):
+        self.generator_fct = generator_fct
+
+    def __iter__(self):
+        return self.generator_fct()
+
+
+
+
+
 ####################################################
 # * TEMPLATE FOR DOCSTRINGS
 #--------------------------------------------------
@@ -460,12 +494,21 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
         else:
             return [v, first_curried_list_maybe, *args] | join[''] | collect
     else:
-        import more_itertools as mi
-        import itertools
         if first_curried_list_maybe is None:
-            return (el for sublist in v for el in sublist)
+            def wrapper():
+                it = iter(v)
+                try:
+                    while True:
+                        yield from next(it)
+                except StopIteration:
+                    return
+            
+            return ZefGenerator(wrapper)
         else:
-            return (el for sublist in (v, first_curried_list_maybe, *args)  for el in sublist)
+            def wrapper():
+                yield from (el for sublist in (v, first_curried_list_maybe, *args)  for el in sublist)
+            return ZefGenerator(wrapper)
+            
 
 
 
@@ -1674,7 +1717,7 @@ def cycle_tp(iterable_tp, n_tp):
 
 
 #---------------------------------------- repeat -----------------------------------------------
-def repeat_imp(iterable, n=None):
+def repeat_imp(x, n=None):
     """
     Repeat an element a given number of times 
     None (default) means infinite).
@@ -1687,9 +1730,18 @@ def repeat_imp(iterable, n=None):
     - related zefop: cycle
     - operates on: Any
     """
-    import itertools
-    if isinstance(iterable, Generator) or isinstance(iterable, Iterator): iterable = [i for i in iterable]
-    return itertools.repeat(iterable) if n is None else itertools.repeat(iterable, n)
+    def wrapper():
+        try:
+            if n is None:
+                while True:
+                    yield x
+            else:
+                for _ in range(n):
+                    yield x
+        except StopIteration:
+            return
+
+    return ZefGenerator(wrapper)
 
 
 def repeat_tp(iterable_tp, n_tp):
@@ -3121,8 +3173,18 @@ def iterate_implementation(x, f):
     ---- Signature ----
     (T, (T->T)) -> List[T]
     """
-    # TODO: assert that fct is an endomorphism on zef_type(x)
-    return itertools.accumulate(itertools.repeat(x), lambda fx, _: f(fx))
+    def wrapper():
+        current_val = x
+        try:
+            yield current_val
+            while True:
+                new_val = f(current_val)
+                current_val = new_val
+                yield new_val
+        except StopIteration:
+            return
+
+    return ZefGenerator(wrapper)
 
 
 def iterate_type_info(op, curr_type):
@@ -3150,15 +3212,24 @@ def take_implementation(v, n):
     ---- Signature ----
     (List[T], Int) -> List[T]
     """
-    import itertools
     if isinstance(v, ZefRef) or isinstance(v, EZefRef):
         return take(v, n)
     else:
-        if n >= 0:            
-            return (x for x in itertools.islice(v, n))
+        if n >= 0:
+            def wrapper():
+                it = iter(v)
+                try:
+                    for _ in range(n):
+                        yield next(it)
+                except StopIteration:
+                    return
+
+            return ZefGenerator(wrapper)
         else:
             vv = list(v)
             return vv[n:]
+
+
         
         
 def take_type_info(op, curr_type):
@@ -5273,12 +5344,15 @@ def nth_implementation(iterable, n):
         
     if isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, str):
         return iterable[n]
+    
+    # it must be a generator or zef generator
+    if n<0: 
+        return tuple(iterable)[n]    # if we're taking from the back, it must be non-infinite in length
+    
     it = iter(iterable)
     for cc in range(n):
         next(it)
-    return next(it)
-    #   TODO: implementation for awaitables
-            
+    return next(it)    
 
 
 
