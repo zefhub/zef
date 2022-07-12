@@ -93,7 +93,14 @@ def schema_str_to_flatgraph(schema_str):
     """
     Generate a Flatgraph containing all the RAEs defining the schema_str.
     """
-    pass
+    from zef.core.VT import FlatGraph
+    from zef import  BT
+    g = Graph()
+    generate_graph_from_file(schema_str, g)
+    all_raes = g | now | all | map[lambda zr: origin_rae(zr) if is_a(zr, BT.RELATION_EDGE) else zr] | collect
+    return FlatGraph(all_raes)
+
+
     # return graph_generator.parse_schema(g, schema_str)
 
 
