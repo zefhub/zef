@@ -916,6 +916,7 @@ class LazyValue:
 
     def evaluate(self, unpack_generator = True):
         from .op_implementations.dispatch_dictionary import _op_to_functions
+        from .op_implementations.implementation_typing_functions import ZefGenerator
         curr_value = self.initial_val
         
         # TODO: Type info has been disabled due to typespecing of long lists/sets/dicts which consumes
@@ -956,7 +957,7 @@ class LazyValue:
             #     back_up_type_info.append(curr_type)
         # self.type_info = type_info if primary_type_info else back_up_type_info
         
-        if unpack_generator and (isinstance(curr_value, Iterator) or isinstance(curr_value, Generator)):
+        if unpack_generator and (isinstance(curr_value, Iterator) or isinstance(curr_value, Generator) or isinstance(curr_value, ZefGenerator)):
             return [i for i in curr_value]
         return curr_value      
 
