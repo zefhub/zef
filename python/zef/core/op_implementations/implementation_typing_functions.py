@@ -1516,7 +1516,7 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
         return fg_get_imp(d, key)
     elif isinstance(d, dict):
         return d.get(key, default)
-    elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator):
+    elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator) or isinstance(d, ZefGenerator):
         return Error(f"get called on a list. Use 'nth' to get an element at a specified index.")
     elif isinstance(d, Graph) or isinstance(d, GraphSlice):
         try:
@@ -1674,7 +1674,7 @@ def reverse_imp(v):
     - operates on: List
     """
     from typing import Generator
-    if isinstance(v, Generator): return (tuple(v))[::-1]
+    if isinstance(v, (Generator, ZefGenerator)): return (tuple(v))[::-1]
     if isinstance(v, str): return v[::-1]
     if isinstance(v, list): return v[::-1]
     if isinstance(v, tuple): return v[::-1]
@@ -1791,7 +1791,7 @@ def contains_tp(x_tp, el_tp):
 
 #---------------------------------------- contained_in -----------------------------------------------
 def contained_in_imp(x, el):
-    if isinstance(x, Generator) or isinstance(x, Iterator): x = [i for i in x]
+    if isinstance(x, (Generator, ZefGenerator)) or isinstance(x, Iterator): x = [i for i in x]
     return x in el
 
 
@@ -1927,7 +1927,7 @@ def all_imp(*args):
     # once we're here, we interpret it like the Python "all"
     v = args[0]
     assert len(args) == 1
-    assert isinstance(v, list) or isinstance(v, tuple) or isinstance(v, Generator) or isinstance(v, Iterator)
+    assert isinstance(v, list) or isinstance(v, tuple) or isinstance(v, (Generator, ZefGenerator)) or isinstance(v, Iterator)
     # TODO: extend to awaitables
     return builtins.all(v)
             
@@ -2123,7 +2123,7 @@ def tap_imp(x, fct):
     - related zefop: apply
     """
     # As we can receive a generator, we need to collect it up first before continuing
-    if isinstance(x, Generator):
+    if isinstance(x, (Generator, ZefGenerator)):
         x = list(x)
     fct(x)
     return x
@@ -5153,7 +5153,7 @@ def apply_functions_imp(x, fns):
     from typing import Generator
     if not (isinstance(fns, list) or isinstance(fns, tuple)):
         raise TypeError(f"apply_functions must be given a tuple of functions.")
-    if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, Generator)):
+    if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, (Generator, ZefGenerator))):
         raise TypeError(f"apply_functions must be given a tuple of input args.")
     xx = tuple(x)
     if not len(fns) == len(xx):
@@ -6314,11 +6314,11 @@ def is_a_implementation(x, typ):
     def list_matching(x, tp):
         import sys
         from typing import Generator
-        if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, Generator)):
+        if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, (Generator, ZefGenerator))):
             return False
         ab = tp.d['absorbed']
         if ab != ():
-            if isinstance(x, Generator):
+            if isinstance(x, (Generator, ZefGenerator)):
                 raise NotImplementedError()
             if len(ab)!=1:    # List takes only one Type argument
                 print('Something went wrong in `is_a[List[...]]`: multiple args curried into ', file=sys.stderr)
@@ -7010,7 +7010,7 @@ def merge_imp(a, second=None, *args):
     if is_a(a, FlatGraph) and is_a(second, FlatGraph):
         return fg_merge_imp(a, second)
     elif second is None:
-        assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, Generator)
+        assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, (Generator, ZefGenerator))
         return {k: v for d in a for k, v in d.items()}
     else:
         assert isinstance(a, dict)
@@ -7400,7 +7400,7 @@ def to_pipeline_imp(ops: list):
     - related zefop: bypass
     """
     from typing import Generator, Iterable, Iterator
-    if isinstance(ops, Generator) or isinstance(ops, Iterator): ops = [op for op in ops]
+    if isinstance(ops, (Generator, ZefGenerator)) or isinstance(ops, Iterator): ops = [op for op in ops]
     return identity if len(ops) == 0 else (ops[1:] | reduce[lambda v, el: v | el][ops[0]] | collect)
 
 
@@ -8773,7 +8773,7 @@ def transact_imp(data, g, **kwargs):
         commands = flatgraph_to_commands(data)
     elif type(data) in {list, tuple}:
         commands = construct_commands(data)
-    elif isinstance(data, Generator):
+    elif isinstance(data, (Generator, ZefGenerator)):
         commands = construct_commands(tuple(data))
     else:
         raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
