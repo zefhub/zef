@@ -43,6 +43,7 @@ from .graphql import (
     graphql_stop_server_handler,
     graphql_start_playground_handler,
     graphql_stop_playground_handler,
+    graphql_generate_schema_string_handler,
 )
 
 
@@ -115,6 +116,7 @@ _effect_handlers = {
     FX.GraphQL.StopServer.d: graphql_stop_server_handler,
     FX.GraphQL.StartPlayground.d: graphql_start_playground_handler,
     FX.GraphQL.StopPlayground.d: graphql_stop_playground_handler,
+    FX.GraphQL.GenerateSchemaString.d: graphql_generate_schema_string_handler,
     
     FX.Stream.CreatePushableStream.d: stream_create_pushable_stream_handler,
     FX.Stream.Push.d: stream_push_handler,
