@@ -1,3 +1,18 @@
+pyzef-0.15.8
+============
+
+Fixes:
+------
+
+- SimpleGQL graphs are kept alive by default.
+
+Improvements:
+-------------
+
+- SimpleGQL:
+  - Faster queries/updates with explicit IDs.
+  - Queries work in consistent graph slice.
+
 pyzef-0.15.7
 ============
 

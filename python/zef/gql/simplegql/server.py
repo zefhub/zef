@@ -100,10 +100,12 @@ def query(request, context):
 
     q = json.loads(request["request_body"])
 
+    # We pass in the graph as a fixed slice, so that the queries can be done
+    # consistently.
     success,data = graphql_sync(
         context["ari_schema"],
         q,
-        context_value={"g": context["g_data"],
+        context_value={"gs": now(context["g_data"]),
                        "auth": auth_context},
     )
     if not success or "errors" in data:

@@ -461,9 +461,7 @@ def resolve_get(_, info, *, type_node, **params):
     return find_existing_entity_by_id(info, type_node, params["id"])
 
 def resolve_query(_, info, *, type_node, **params):
-    g = info.context["g"]
-    ents = g | now | all[ET(type_node | Out[RT.GQL_Delegate] | collect)]
-    ents = ents | filter[pass_query_auth[type_node][info]]
+    ents = obtain_initial_list(type_node, params.get("filter", None), info)
 
     ents = handle_list_params(ents, type_node, params, info)
 
@@ -608,7 +606,7 @@ def resolve_upfetch(_, info, *, type_node, **params):
 
                 obj = find_existing_entity_by_field(info, type_node, upfetch_field, item[field_name])
                 if obj is None:
-                    obj_name,more_actions,more_post_checks  = add_new_entity(info, type_node, item, name_gen)
+                    obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen)
                     actions += more_actions
                     post_checks += more_post_checks
                     new_obj_names += [obj_name]
@@ -668,7 +666,6 @@ def resolve_update(_, info, *, type_node, **params):
 def resolve_delete(_, info, *, type_node, **params):
     try:
         with mutation_lock:
-            g = info.context["g"]
             # Do the same thing as a resolve_query but delete the entities instead.
             if "filter" not in params:
                 raise ExtenalError("Not allowed to delete everything!")
@@ -705,6 +702,33 @@ def resolve_filter_response(obj, info, *, type_node, **params):
 ##############################################
 # * Internal query parts
 #--------------------------------------------
+
+def obtain_initial_list(type_node, filter_opts, info):
+    gs = info.context["gs"]
+
+    type_et = ET(type_node | Out[RT.GQL_Delegate] | collect)
+    if filter_opts is not None and filter_opts.get("id", None) is not None:
+        # ids were provided, so the initial list starts with them
+
+        # Note: we make the decision here to not throw on a missing id, as that
+        # could potentially be exploited somehow by smoeone to learn about what
+        # items exist even if they don't have auth access. A missing id is hence
+        # just "not passing" the filter.
+
+        log.debug("In the explicit ID path")
+
+        ids = filter_opts["id"]
+        zs = []
+
+        zs = (ids
+              | map[lambda id: find_existing_entity_by_id(info, type_node, id)]
+              | filter[Not[equals[None]]])
+
+        return zs
+    else:
+        return gs | all[type_et] | filter[pass_query_auth[type_node][info]]
+
+    
 
 def handle_list_params(opts, z_node, params, info):
     opts = maybe_filter_result(opts, z_node, info, params.get("filter", None))
@@ -926,10 +950,10 @@ def find_existing_entity_by_id(info, type_node, id):
     if the_uid is None:
         raise Exception("An id of {id} cannot be converted to a uid.")
     
-    g = info.context["g"]
+    gs = info.context["gs"]
 
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
-    ent = g[uid(id)] | now | collect
+    ent = gs[uid(id)] | collect
     if not is_a(ent, et):
         return None
     if not ent | pass_query_auth[type_node][info] | collect:
@@ -941,7 +965,7 @@ def find_existing_entity_by_field(info, type_node, z_field, val):
     if val is None:
         raise Exception("Can't find an entity by a None field value")
 
-    g = info.context["g"]
+    gs = info.context["gs"]
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
 
     # Note: we filter out with query auth even though this may mean we return
@@ -950,7 +974,7 @@ def find_existing_entity_by_field(info, type_node, z_field, val):
     # because the field is also @unique then this will fail. Better to keep the
     # failure point at the same location so we can determine what kind of error
     # to return and whether this will leak sensitive information.
-    ent = (g | now | all[et] | filter[pass_query_auth[type_node][info]]
+    ent = (gs | all[et] | filter[pass_query_auth[type_node][info]]
            | filter[internal_resolve_field[info][z_field] | optional | equals[val]]
            | optional
            | collect)
@@ -992,7 +1016,7 @@ def add_new_entity(info, type_node, params, name_gen):
 
         if z_field | target | op_is_scalar | collect:
             if op_is_unique(z_field):
-                others = info.context["g"] | now | all[et] | filter[fvalue[rt][None] | equals[val]] | func[set] | collect
+                others = info.context["gs"] | all[et] | filter[fvalue[rt][None] | equals[val]] | func[set] | collect
                 if len(others) > 0:
                     log.error("Trying to add a new entity with unique field that conflicts with others", et=et, field=field_name, others=others)
                     raise ExternalError(f"Unique field '{field_name}' conflicts with existing items.")
@@ -1213,7 +1237,7 @@ def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
 
 
 def commit_with_post_checks(actions, post_checks, info):
-    g = info.context["g"]
+    g = Graph(info.context["gs"])
     with Transaction(g):
         try:
             r = actions | transact[g] | run
