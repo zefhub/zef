@@ -27,4 +27,5 @@ __all__ = [
     "VStack",
     "BulletList",
     "NumberedList",
+    "Paragraph",
 ]
