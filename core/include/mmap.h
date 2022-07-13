@@ -209,7 +209,7 @@ namespace zefDB {
                 // layout changes. This has the effect of throwing away old
                 // versions, but it is very manual
                 // int version = 3;
-                int version = 4;
+                int version = 5;
                 zefDB::BaseUID uid;
                 blob_index last_update = 0;
                 std::array<Element_v1, MMap::PAGE_BITMAP_BITS> page_info;
@@ -225,6 +225,7 @@ namespace zefDB {
                 WholeFile_v1 uid_lookup;
                 WholeFile_v1 euid_lookup;
                 WholeFile_v1 tag_lookup;
+                WholeFile_v1 av_hash_lookup;
 
                 // WholeFile_v1 tokens_ET_dict;
                 

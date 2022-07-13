@@ -41,6 +41,7 @@ namespace zefDB {
         BINARY_TREE,
         SET_VARIABLE,
         DICT_VARIABLE,
+        COLLISION_HASH_MAP,
     };
 
     //////////////////////////////////////////////
@@ -668,6 +669,212 @@ namespace zefDB {
             } else {
                 if(kind != AppendOnlyKind::BINARY_TREE)
                     throw std::runtime_error("BINARY_TREE is not a BINARY_TREE");
+                _upstream_size = 0;
+            }
+        }
+    };
+
+    // This is basically the same as a binary tree, but there is a concept of
+    // hash and value for the comparison, where the value is looked up from the
+    // graph.
+    template<class KEY, class VAL>
+    struct AppendOnlyCollisionHashMap {
+        // using KEY = value_hash_t;
+        // using VAL = blob_index;
+        struct Element {
+            KEY key;
+            VAL val;
+            size_t left;
+            size_t right;
+        };
+
+        AppendOnlyKind kind;
+        char kind_version;
+        size_t _size;
+        size_t _upstream_size;
+        size_t _revision;
+
+        size_t& size() { return _size; }
+        size_t& upstream_size() { return _upstream_size; }
+        size_t& revision() { return _revision; }
+
+        using ensure_func_t = const std::function<AppendOnlyCollisionHashMap&(size_t new_head)>;
+        using compare_func_t = const std::function<char(const KEY & key, const VAL & val)> &;
+
+        Element* index_to_element(size_t index) const {
+            return (Element*)((uintptr_t)this + sizeof(AppendOnlyCollisionHashMap) + index*sizeof(Element));
+        }
+        size_t element_to_index(Element* el) const {
+            return (el - index_to_element(0));
+        }
+
+        std::vector<Element> as_vector() {
+            return std::vector<Element>(index_to_element(0), index_to_element(_size));
+        }
+
+        std::pair<Element*,Element*> find_element(compare_func_t compare_func) {
+            if(_size == 0)
+                return std::pair(nullptr, nullptr);
+
+            Element * cur = index_to_element(0);
+            Element * last = cur;
+
+            while(true) {
+                int compare_ret = compare_func(cur->key, cur->val);
+                if(compare_ret == 0)
+                    break;
+                else if(compare_ret < 0) {
+                    if(cur->left == 0) {
+                        cur = nullptr;
+                        break;
+                    }
+                    last = cur;
+                    cur = index_to_element(cur->left);
+                } else { //if(needle > cur->key) {
+                    if(cur->right == 0) {
+                        cur = nullptr;
+                        break;
+                    }
+                    last = cur;
+                    cur = index_to_element(cur->right);
+                }
+            }
+            return std::pair(last, cur);
+        }
+
+        std::optional<VAL> maybe_at(compare_func_t compare_func) {
+            if(_size == 0)
+                return {};
+            auto el = find_element(compare_func).second;
+            if(el == nullptr)
+                return {};
+            return el->val;
+        }
+        VAL at(compare_func_t compare_func) {
+            auto maybe = maybe_at(compare_func);
+            if(maybe)
+                return *maybe;
+            throw std::out_of_range("Couldn't find item in AppendOnlyCollisionHashMap.");
+        }
+
+        bool contains(const KEY & needle) {
+            return bool(maybe_at(needle));
+        }
+
+        AppendOnlyCollisionHashMap* _append(KEY && key, VAL && val, const compare_func_t & compare_func, const ensure_func_t & ensure_func, bool already_ensured) {
+            Element * last_el;
+            Element * cur_el;
+            std::tie(last_el, cur_el) = find_element(compare_func);
+            if(cur_el != nullptr)
+                throw std::runtime_error("AppendOnlyCollisionHashMap already contains key: " + to_str(key));
+
+            size_t el_indx = element_to_index(last_el);
+            AppendOnlyCollisionHashMap * new_this;
+            if(already_ensured)
+                new_this = this;
+            else
+                new_this = &ensure_func(sizeof(AppendOnlyCollisionHashMap) + sizeof(Element)*(_size+1));
+
+            last_el = new_this->index_to_element(el_indx);
+
+            auto at_end = new_this->index_to_element(new_this->_size);
+            at_end->key = key;
+            at_end->val = val;
+            if(new_this->_size > 0) {
+                if(compare_func(last_el->key, last_el->val) < 0)
+                    last_el->left = new_this->_size;
+                else
+                    last_el->right = new_this->_size;
+            }
+            new_this->_size++;
+
+            return new_this;
+        }
+        AppendOnlyCollisionHashMap* append(const KEY & key, const VAL & val, const compare_func_t & compare_func, const ensure_func_t & ensure_func, bool already_ensured=false) {
+            KEY _key = key;
+            VAL _val = val;
+            return _append(std::move(_key), std::move(_val), compare_func, ensure_func, already_ensured);
+        }
+
+        AppendOnlyCollisionHashMap* append(KEY && key, VAL && val, const compare_func_t & compare_func, const ensure_func_t & ensure_func, bool already_ensured=false) {
+            return _append(std::move(key), std::move(val), compare_func, ensure_func, already_ensured);
+        }
+
+        void _pop(const compare_func_t & compare_func, const ensure_func_t &ensure_func) {
+            // This is a low level function that should only be called when
+            // absolutely sure it makes sense to pop the final element from the
+            // tree. The key and val must be passed in to validate that the
+            // caller is popping the right thing.
+            int to_pop_ind = this->_size - 1;
+            auto to_pop = this->index_to_element(to_pop_ind);
+            if(compare_func(to_pop->key, to_pop->val) == 0) {
+                throw std::runtime_error("Pop called with something that doesn't match the final element in the tree");
+            }
+            auto before_el = find_element(compare_func).first;
+            if(before_el->left == to_pop_ind) {
+                before_el->left = 0;
+            } else if(before_el->right == to_pop_ind) {
+                before_el->right = 0;
+            } else {
+                throw std::runtime_error("Couldn't find parent of element that is being popped.");
+            }
+
+            _size--;
+            AppendOnlyCollisionHashMap * new_this = &ensure_func(sizeof(AppendOnlyCollisionHashMap) + sizeof(Element)*(_size));
+            assert(new_this == this);
+        }
+
+        std::string create_diff(size_t from, size_t to) {
+            std::string out((char*)index_to_element(from), (char*)index_to_element(to));
+            return out;
+        }
+
+        void apply_diff(std::string diff, const ensure_func_t & ensure_func) {
+            // Do one ensure func for the range we know is required now, that
+            // way we can be sure the data won't move afterwards
+            // size_t new_size = _size + diff.size()/sizeof(Element);
+            // auto & new_this = ensure_func(sizeof(AppendOnlyBinaryTree) + sizeof(Element)*new_size);
+
+            // const Element * data = (Element*)diff.c_str();
+            // if(diff.size() % sizeof(Element) != 0)
+            //     throw std::runtime_error("Diff isn't a multiple of data type");
+            // // We have to do the append manually here, as ensure_func can't be called with a smaller size
+            // Element * cur = new_this.index_to_element(0);
+            // for(int i = 0 ; i < diff.size()/sizeof(Element) ; i++) {
+            //     *cur = std::move(data[i]);
+            //     cur++;
+            // }
+            // new_this._size = new_size;
+
+            if(diff.size() % sizeof(Element) != 0)
+                throw std::runtime_error("Diff isn't a multiple of data type");
+
+            size_t new_size = _size + diff.size()/sizeof(Element);
+            auto & new_this = ensure_func(sizeof(AppendOnlyCollisionHashMap) + sizeof(Element)*new_size);
+
+            const Element * data = (Element*)diff.c_str();
+            // Element * cur = new_this.index_to_element(0);
+            // for(int i = 0 ; i < diff.size()/sizeof(Element) ; i++) {
+            //     *cur = std::move(data[i]);
+            //     cur++;
+            // }
+            for(int i = 0 ; i < diff.size()/sizeof(Element) ; i++)
+                new_this.append(data[i].key, data[i].val, ensure_func, true);
+
+            if(new_this._size != new_size)
+                throw std::runtime_error("Size after appending diff is not what was expected.");
+        }
+
+        void _construct(bool uninitialized, const ensure_func_t & ensure_func) {
+            if(uninitialized) {
+                auto& new_this = ensure_func(sizeof(AppendOnlyCollisionHashMap));
+                new_this.kind = AppendOnlyKind::COLLISION_HASH_MAP;
+                new_this._size = 0;
+                new_this._upstream_size = 0;
+                new_this._revision = 0;
+            } else {
+                if(kind != AppendOnlyKind::COLLISION_HASH_MAP)
+                    throw std::runtime_error("COLLISION_HASH_MAP is not a COLLISION_HASH_MAP");
                 _upstream_size = 0;
             }
         }

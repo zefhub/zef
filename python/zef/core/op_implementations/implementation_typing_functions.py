@@ -6071,7 +6071,8 @@ def first_tx_for_low_level_blob(z):
         return first_tx_for_low_level_blob(z | in_rel[BT.TO_DELEGATE_EDGE] | collect)
     elif BT(z) in [BT.ENTITY_NODE,
                    BT.RELATION_EDGE,
-                   BT.ATOMIC_ENTITY_NODE]:
+                   BT.ATOMIC_ENTITY_NODE,
+                   BT.ATOMIC_VALUE_NODE]:
         # Chronological order is mandatory so we find the first instantiation edge
         return first_tx_for_low_level_blob(z | in_rel[BT.RAE_INSTANCE_EDGE] | collect)
     if BT(z) in [BT.DELEGATE_INSTANTIATION_EDGE,

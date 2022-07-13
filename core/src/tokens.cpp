@@ -171,8 +171,12 @@ namespace zefDB {
     // * VRT
 
 	ValueRepType ValueRepTypeStruct::operator() (EZefRef uzr) const {
-		if (get<BlobType>(uzr) != BlobType::ATOMIC_ENTITY_NODE) throw std::runtime_error("AET(EZefRef uzr) called for a uzr which is not an atomic entity.");
-		return get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr).rep_type;
+		if (get<BlobType>(uzr) == BlobType::ATOMIC_ENTITY_NODE)
+            return get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr).rep_type;
+        else if(get<BlobType>(uzr) == BlobType::ATOMIC_VALUE_NODE)
+            return get<blobs_ns::ATOMIC_VALUE_NODE>(uzr).rep_type;
+        else
+            throw std::runtime_error("VRT(EZefRef uzr) called for a uzr which is not an atomic entity or value.");
 	}
 	ValueRepType ValueRepTypeStruct::operator() (ZefRef zr) const {
 		return VRT(zr.blob_uzr);
@@ -863,13 +867,13 @@ namespace zefDB {
 
         ZefEnumValue get_unit_from_vrt(const ValueRepType & vrt) {
             if(!is_zef_subtype(vrt, VRT.QuantityFloat) && !is_zef_subtype(vrt, VRT.QuantityInt))
-                throw std::runtime_error("AET is not a type with units.");
+                throw std::runtime_error("VRT is not a type with units.");
             int offset = vrt.value % 16;
             return ZefEnumValue{ (vrt.value - offset) };
         }
         std::string get_enum_type_from_vrt(const ValueRepType & vrt) {
             if(!is_zef_subtype(vrt, VRT.Enum))
-                throw std::runtime_error("AET is not an enum.");
+                throw std::runtime_error("VRT is not an enum.");
             int offset = vrt.value % 16;
             return ZefEnumValue{ (vrt.value - offset) }.enum_type();
         }

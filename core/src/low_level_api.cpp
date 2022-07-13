@@ -75,8 +75,18 @@ namespace zefDB {
             os << " " << ET(uzr);
         else if (BT(uzr) == BT.RELATION_EDGE)
             os << " " << RT(uzr);
-        else if (BT(uzr) == BT.ATOMIC_ENTITY_NODE)
-            os << " " << AET(uzr);
+        else if (BT(uzr) == BT.ATOMIC_ENTITY_NODE) {
+            // We have to branch here as delegates which are atomic entities are
+            // really value rep delegates... this is because of backwards
+            // compatibility.
+            if(is_delegate(uzr)) {
+                os << " " << VRT(uzr);
+            } else {
+                os << " " << AET(uzr);
+            }
+        }
+        else if (BT(uzr) == BT.ATOMIC_VALUE_NODE)
+            os << " " << VRT(uzr);
         else if (BT(uzr) == BT.TX_EVENT_NODE)
             os << " TX at slice=" << TimeSlice(uzr).value;
         else
@@ -133,6 +143,28 @@ namespace zefDB {
 
     namespace internals{
 
+        template<class T>
+        std::function<int(value_hash_t,blob_index)> create_compare_func_for_value_node(GraphData & gd, const T * value) {
+            auto hash = value_hash(*value);
+            return [value,&gd,hash](value_hash_t other_hash, blob_index other_indx) {
+                if(other_hash != hash) {
+                    return hash < other_hash ? -1 : +1;
+                }
+
+                EZefRef ezr_other{other_indx, gd};
+                auto & other_node = get<blobs_ns::ATOMIC_VALUE_NODE>(ezr_other);
+                auto other_value = value_from_node<value_variant_t>(other_node);
+
+                if(variant_eq(*value, other_value)) {
+                    return 0;
+                } else {
+                    // Should be able to do better here instead of "always left"
+                    return -1;
+                }
+            };
+        }
+
+        template std::function<int(value_hash_t,blob_index)> create_compare_func_for_value_node(GraphData & gd, const value_variant_t * value);
 
 
 
@@ -209,15 +241,31 @@ namespace zefDB {
 
 
         template<typename T>
-        EZefRef instantiate_value_node(T value, value_hash_t hash, GraphData& gd) {
-            if (!gd.is_primary_instance)
-                throw std::runtime_error("'instantiate_value_node' called for a graph which is not a primary instance. This is not allowed. Shame on you!");
+        std::optional<EZefRef> search_value_node(const T & value, GraphData& gd) {
+            auto ptr = gd.av_hash_lookup->get();
+            value_variant_t value_var(std::in_place_type<T>, value);
+            auto compare_func = internals::create_compare_func_for_value_node(gd, &value_var);
+            auto preexisting = ptr->find_element(compare_func).second;
+            if(preexisting != nullptr)
+                return EZefRef{preexisting->val, gd};
+            return {};
+        }
 
-            // TODO: We could also just return a preexisting value that has the same hash.
+        template std::optional<EZefRef> search_value_node(const bool & value, GraphData& gd);
+        template std::optional<EZefRef> search_value_node(const int & value, GraphData& gd);
+        template std::optional<EZefRef> search_value_node(const double & value, GraphData& gd);
+        template std::optional<EZefRef> search_value_node(const str & value, GraphData& gd);
+        template std::optional<EZefRef> search_value_node(const Time & value, GraphData& gd);
+        template std::optional<EZefRef> search_value_node(const ZefEnumValue & value, GraphData& gd);
+        template std::optional<EZefRef> search_value_node(const QuantityFloat & value, GraphData& gd);
+        template std::optional<EZefRef> search_value_node(const QuantityInt & value, GraphData& gd);
+        template std::optional<EZefRef> search_value_node(const SerializedValue & value, GraphData& gd);
+
         
-            auto this_tx = Transaction(gd);
-
+        template<typename T>
+        EZefRef instantiate_value_node(const T & value, GraphData& gd) {
             auto vrt = get_vrt_from_value(value);
+            value_hash_t hash = value_hash(value);
 
             blobs_ns::ATOMIC_VALUE_NODE& ent = internals::get_next_free_writable_blob<blobs_ns::ATOMIC_VALUE_NODE>(gd);
             MMap::ensure_or_alloc_range(&ent, blobs_ns::max_basic_blob_size);
@@ -226,21 +274,12 @@ namespace zefDB {
             char * data_buffer = internals::get_data_buffer(ent);
             internals::copy_to_buffer(data_buffer, ent.buffer_size_in_bytes, value);
 
-            internals::move_head_forward(gd);   // keep this low level function here! The buffer size is not fixed and 'instantiate' was not designed for this case
-
-            // TODO: We could put a link to this value as an edge. Alternatively, we
-            // can leave it and reference it only by its hash and a lookup.
+            internals::move_head_forward(gd);
 
             EZefRef z_ent((void*)&ent);
             internals::apply_action_ATOMIC_VALUE_NODE(gd, z_ent, true);
 
             return z_ent;
-        }
-
-
-        template<typename T>
-        EZefRef instantiate_value_node(const T & value, GraphData& gd) {
-            return instantiate_value_node(value, value_hash(value), gd);
         }
 
         template EZefRef instantiate_value_node(const bool & value, GraphData& g);

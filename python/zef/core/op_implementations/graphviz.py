@@ -15,6 +15,7 @@
 from .. import *
 from .._ops import *
 from ..VT import Is, Any
+from ..internals import VRT
 
 def graphviz_imp(zz, *flags):
     """
@@ -147,22 +148,27 @@ def graphviz_imp(zz, *flags):
 
     edge_colors = {}
     def nice_name(z: EZefRef) -> str:
+        def val_to_str(z):
+            v = value(z)
+            if v is None: return 'None'
+            elif isinstance(v, str): return f'"{v}"' if len(v) < 20 else f'"{v[:18]}..."'
+            else: return str(v)
+
         if BT(z)==BT.ENTITY_NODE:
-            return f"ET.{str(ET(z))}"        
+            return f"{ET(z)!r}"        
         if BT(z)==BT.TX_EVENT_NODE:
             return f"TX"
         if BT(z)==BT.ATOMIC_ENTITY_NODE:
-            def val_to_str(z):
-                v = value(z)
-                if v is None: return 'None'
-                elif isinstance(v, str): return f'"{v}"' if len(v) < 20 else f'"{v[:18]}..."'
-                else: return str(v)
-            val_maybe = (f"\n▷{val_to_str(z)}") if isinstance(z, ZefRef) and not internals.is_delegate(z) else ''
-            return f"AET.{AET(z)}{val_maybe}"        
+            if internals.is_delegate(z):
+                return f"{VRT(z)!r}"        
+            else:
+                val_maybe = (f"\n▷{val_to_str(z)}") if isinstance(z, ZefRef) else ''
+                return f"{AET(z)!r}{val_maybe}"        
         if BT(z)==BT.RELATION_EDGE:
-            return f"RT.{str(RT(z))}"        
-        else:
-            return f"BT.{str(BT(z))}"[:-5]
+            return f"{RT(z)!r}"        
+        if BT(z)==BT.ATOMIC_VALUE_NODE:
+            return f"Val({val_to_str(z)})"
+        return f"BT.{BT(z)}"[:-5]
     
     def nice_color(z: EZefRef)->str:
         if BT(z) == BT.ENTITY_NODE:

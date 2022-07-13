@@ -195,6 +195,9 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED value_ret_t value(EZefRef ae, ZefRef tx);
         LIBZEF_DLL_EXPORTED value_ret_t value(ZefRef ae, ZefRef tx);
 
+        // This one only works on value nodes
+        LIBZEF_DLL_EXPORTED value_ret_t value(EZefRef avn);
+
         /* LIBZEF_DLL_EXPORTED std::vector<value_ret_t> value(ZefRefs zrs);
          * LIBZEF_DLL_EXPORTED std::vector<value_ret_t> value(EZefRefs uzrs, EZefRef tx);
          * LIBZEF_DLL_EXPORTED std::vector<value_ret_t> value(ZefRefs zrs, EZefRef tx);

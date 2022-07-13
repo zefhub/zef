@@ -924,7 +924,7 @@ using ScalarVariant = std::variant<
 
 	inline bool is_zef_subtype(EZefRef uzr, BlobType bt) { return BT(uzr) == bt; }
 
-	inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct VRT) { return is_zef_subtype(uzr, BT.ATOMIC_ENTITY_NODE); }
+	inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct VRT) { return is_zef_subtype(uzr, BT.ATOMIC_ENTITY_NODE) || is_zef_subtype(uzr, BT.ATOMIC_VALUE_NODE); }
 	inline bool is_zef_subtype(EZefRef uzr, EntityTypeStruct ET) { return is_zef_subtype(uzr, BT.ENTITY_NODE); }
 	inline bool is_zef_subtype(EZefRef uzr, RelationTypeStruct RT) { return is_zef_subtype(uzr, BT.RELATION_EDGE); }
 

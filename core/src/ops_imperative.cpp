@@ -1472,6 +1472,17 @@ namespace zefDB {
             return value(to_frame(z, tx));
         }
 
+        value_ret_t value(EZefRef z) {
+            if (get<BlobType>(z) == BlobType::ATOMIC_ENTITY_NODE) {
+                throw std::runtime_error("Need a graph slice to extract an AE's value.");
+            } else if (get<BlobType>(z) == BlobType::ATOMIC_VALUE_NODE) {
+                auto & ent = get<blobs_ns::ATOMIC_VALUE_NODE>(z);
+                return internals::value_from_node<value_variant_t>(ent);
+            } else {
+                throw std::runtime_error("'value(zefref)' called for a zefref which is not an atomic entity.");
+            }
+        }
+
         // std::vector<value_ret_t> value(ZefRefs zrs) {
         //     std::vector<value_ret_t> res;
         //     res.reserve(length(zrs));

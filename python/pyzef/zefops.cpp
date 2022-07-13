@@ -1409,6 +1409,7 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     zefops_submodule.def("value", py::overload_cast<ZefRef,EZefRef>(&imperative::value), "Read a value from an atomic entity.", py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("value", py::overload_cast<EZefRef,ZefRef>(&imperative::value), "Read a value from an atomic entity.", py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("value", py::overload_cast<ZefRef,ZefRef>(&imperative::value), "Read a value from an atomic entity.", py::call_guard<py::gil_scoped_release>());
+    zefops_submodule.def("value", py::overload_cast<EZefRef>(&imperative::value), "Read a value from an atomic entity.", py::call_guard<py::gil_scoped_release>());
 
     // zefops_submodule.def("value", py::overload_cast<ZefRefs>(&imperative::value), py::call_guard<py::gil_scoped_release>());
     // zefops_submodule.def("value", py::overload_cast<EZefRefs,EZefRef>(&imperative::value), py::call_guard<py::gil_scoped_release>());

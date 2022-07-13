@@ -180,6 +180,7 @@ namespace zefDB {
             MAKE_UNIQUE(uid_lookup);
             MAKE_UNIQUE(euid_lookup);
             MAKE_UNIQUE(tag_lookup);
+            MAKE_UNIQUE(av_hash_lookup);
 #undef MAKE_UNIQUE
         } else {
             if(fg->get_version() <= 2)
@@ -195,6 +196,7 @@ namespace zefDB {
             MAKE_UNIQUE(uid_lookup);
             MAKE_UNIQUE(euid_lookup);
             MAKE_UNIQUE(tag_lookup);
+            MAKE_UNIQUE(av_hash_lookup);
 #undef MAKE_UNIQUE
 #undef MAKE_UNIQUE2
         }

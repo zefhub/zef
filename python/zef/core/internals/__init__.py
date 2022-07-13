@@ -101,6 +101,7 @@ from ...pyzef.internals import (
     stop_connection,
     to_uid,
     validate_message_version,
+    VRT,
     wait_for_auth,
 )
 

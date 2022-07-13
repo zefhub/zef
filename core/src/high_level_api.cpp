@@ -338,7 +338,8 @@ namespace zefDB {
 			RAE_INSTANCE_EDGE.target_node_index = index(my_rel_ent);
 			blob_index RAE_INSTANCE_EDGE_indx = index(rel_ent_edge);
 			append_edge_index(my_rel_ent, -RAE_INSTANCE_EDGE_indx);
- 			EZefRef to_delegate_edge = *imperative::delegate_to_ezr(delegate_of(my_rel_ent), Graph(gd), true) < BT.TO_DELEGATE_EDGE;  // pass the relation or entity along to enable extarcting the type
+            EZefRef z_delegate = *imperative::delegate_to_ezr(delegate_of(my_rel_ent), Graph(gd), true);
+ 			EZefRef to_delegate_edge = z_delegate < BT.TO_DELEGATE_EDGE;  // pass the relation or entity along to enable extarcting the type
 			
 			RAE_INSTANCE_EDGE.source_node_index = index(to_delegate_edge);
 			append_edge_index(to_delegate_edge, RAE_INSTANCE_EDGE_indx);  // incoming edges are represented as the negative index
@@ -346,12 +347,14 @@ namespace zefDB {
 
 			internals::instantiate(tx_event, instantiaion_or_clone_edge_bt, rel_ent_edge_uzr, gd);
 
-			if (given_uid_maybe) {
-				assign_uid(my_rel_ent, *given_uid_maybe); // write the uid in binary form into the uid buffer at pointer_to_uid_start
-			}
-			else {
-				assign_uid(my_rel_ent, make_random_uid());  // this also adds the uid to the dict key_dict with this index
-			}
+            if(has_uid(my_rel_ent)) {
+                if (given_uid_maybe) {
+                    assign_uid(my_rel_ent, *given_uid_maybe); // write the uid in binary form into the uid buffer at pointer_to_uid_start
+                }
+                else {
+                    assign_uid(my_rel_ent, make_random_uid());  // this also adds the uid to the dict key_dict with this index
+                }
+            }
         }
 
 
@@ -364,6 +367,41 @@ namespace zefDB {
 
 
 	
+
+    // This needs to come before the definition of instantiate with AEs
+    template<typename T>
+	ZefRef instantiate_value_node(const T & value, GraphData& gd) {
+        if (!gd.is_primary_instance)
+            throw std::runtime_error("'instantiate_value_node' called for a graph which is not a primary instance. This is not allowed. Shame on you!");
+
+        auto maybe_node = internals::search_value_node(value, gd);
+        if(maybe_node)
+            return imperative::now(*maybe_node);
+
+        auto this_tx = Transaction(gd);
+        EZefRef tx_event = internals::get_or_create_and_get_tx(gd);
+
+        EZefRef value_node = internals::instantiate_value_node(value, gd);
+        internals::hook_up_to_schema_nodes(value_node, gd);
+        // internals::instantiate(tx_event, BT.INSTANTIATION_EDGE, value_node, gd);
+
+        return imperative::now(value_node); 
+    }
+
+    template<typename T>
+	ZefRef instantiate_value_node(const T & value, Graph& g) {
+        return instantiate_value_node(value, g.my_graph_data());
+    }
+    template ZefRef instantiate_value_node(const bool & value, Graph& g);
+    template ZefRef instantiate_value_node(const int & value, Graph& g);
+    template ZefRef instantiate_value_node(const double & value, Graph& g);
+    template ZefRef instantiate_value_node(const str & value, Graph& g);
+    template ZefRef instantiate_value_node(const Time & value, Graph& g);
+    template ZefRef instantiate_value_node(const ZefEnumValue & value, Graph& g);
+    template ZefRef instantiate_value_node(const QuantityFloat & value, Graph& g);
+    template ZefRef instantiate_value_node(const QuantityInt & value, Graph& g);
+    template ZefRef instantiate_value_node(const SerializedValue & value, Graph& g);
+
 
 
 	// create the new entity node my_entity
@@ -397,13 +435,11 @@ namespace zefDB {
 	ZefRef instantiate(AtomicEntityType aet, GraphData& gd, std::optional<BaseUID> given_uid_maybe) {
 		if (!gd.is_primary_instance)
 			throw std::runtime_error("'instantiate atomic entity' called for a graph which is not a primary instance. This is not allowed. Shame on you!");
-		using namespace internals;
 		auto my_tx_to_keep_this_open_in_this_fct = Transaction(gd);
 
 		EZefRef my_entity = internals::instantiate(BT.ATOMIC_ENTITY_NODE, gd);
 		auto& entity_struct = get<blobs_ns::ATOMIC_ENTITY_NODE>(my_entity);		
 
-		hook_up_to_schema_nodes(my_entity, gd, given_uid_maybe);
 		EZefRef tx_node{ gd.index_of_open_tx_node, gd };
 		entity_struct.instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx_node).time_slice;
 
@@ -411,13 +447,21 @@ namespace zefDB {
 		// 'placement new': see https://www.stroustrup.com/C++11FAQ.html#unions
         if(is_AET_complex(aet)) {
             new(&entity_struct.rep_type) ValueRepType{ VRT.Complex.value };  // take on same type for the atomic entity delegate
-            EZefRef value_node = internals::instantiate_value_node(*aet.complex_value, gd);
-            internals::instantiate(my_entity, BT.COMPLEX_VALUE_TYPE_EDGE, value_node, gd);
+            // Weirdly, we can't do this just yet - we need to wait until after the hook_up_to_schema_nodes has done its thing. However that function needs the already VRT set...
+            // EZefRef value_node = internals::instantiate_value_node(*aet.complex_value, gd);
+            // internals::instantiate(my_entity, BT.COMPLEX_VALUE_TYPE_EDGE, value_node, gd);
         } else {
             new(&entity_struct.rep_type) ValueRepType{ aet.rep_type.value };  // take on same type for the atomic entity delegate
         }
 
-        apply_action_ATOMIC_ENTITY_NODE(gd, my_entity, true);
+        internals::hook_up_to_schema_nodes(my_entity, gd, given_uid_maybe);
+
+        if(is_AET_complex(aet)) {
+            ZefRef value_node = instantiate_value_node(*aet.complex_value, gd);
+            internals::instantiate(my_entity, BT.COMPLEX_VALUE_TYPE_EDGE, value_node.blob_uzr, gd);
+        }
+
+        internals::apply_action_ATOMIC_ENTITY_NODE(gd, my_entity, true);
 		
 		auto new_entity = ZefRef{ my_entity, tx_node };
 		return new_entity;
@@ -481,30 +525,6 @@ namespace zefDB {
 		auto new_relation = ZefRef{ this_rel, tx_node };
 		return new_relation;
 	}
-
-    template<typename T>
-	ZefRef instantiate_value_node(const T & value, Graph& g) {
-        // We lock the GraphData here so that we are sure that no other
-        // transactions are created even after ours finishes. This allows us to
-        // easily detect whether the transaction was rolled back.
-        GraphData & gd = g.my_graph_data();
-        LockGraphData lock{&gd};
-
-        EZefRef value_node = internals::instantiate_value_node(value, gd);
-
-        return imperative::now(value_node); 
-    }
-
-    template ZefRef instantiate_value_node(const bool & value, Graph& g);
-    template ZefRef instantiate_value_node(const int & value, Graph& g);
-    template ZefRef instantiate_value_node(const double & value, Graph& g);
-    template ZefRef instantiate_value_node(const str & value, Graph& g);
-    template ZefRef instantiate_value_node(const Time & value, Graph& g);
-    template ZefRef instantiate_value_node(const ZefEnumValue & value, Graph& g);
-    template ZefRef instantiate_value_node(const QuantityFloat & value, Graph& g);
-    template ZefRef instantiate_value_node(const QuantityInt & value, Graph& g);
-    template ZefRef instantiate_value_node(const SerializedValue & value, Graph& g);
-
     namespace internals {
 
         auto can_be_cloned = [](ZefRef zz)->bool { return

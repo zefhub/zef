@@ -96,6 +96,13 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
         .def("tag_cache", [](const Graph& self) {
             return self.my_graph_data().tag_lookup->get()->as_vector();
         })
+        .def("avn_cache", [](const Graph& self) {
+            auto temp = self.my_graph_data().av_hash_lookup->get()->as_vector();
+            std::vector<std::pair<value_hash_t, blob_index>> out;
+            std::transform(temp.begin(), temp.end(), std::back_inserter(out),
+                           [&](auto & x) { return std::make_pair(x.key, x.val); });
+            return out;
+        })
 		.def_property_readonly("tags", [](const Graph& self) { return self.my_graph_data().tag_list; } )
 		.def_property_readonly("_raw_ptr", [](const Graph& self) {
             auto ctypes = py::module_::import("ctypes");

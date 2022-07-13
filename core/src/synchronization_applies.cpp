@@ -62,6 +62,12 @@ void insert_tag_lookup(GraphData & gd, std::string tag, blob_index indx) {
     auto ptr = gd.tag_lookup->get_writer();
     ptr->append(tag, indx, ptr.ensure_func());
 }
+    
+void insert_av_hash_lookup(GraphData & gd, const value_variant_t & value, blob_index indx) {
+    auto compare_func = internals::create_compare_func_for_value_node(gd, &value);
+    auto ptr = gd.av_hash_lookup->get_writer();
+    ptr->append(value_hash(value), indx, compare_func, ptr.ensure_func());
+}
 
 void pop_uid_lookup(GraphData & gd, BaseUID uid, blob_index indx) {
     if(uid == BaseUID()) {
@@ -79,6 +85,11 @@ void remove_tag_lookup(GraphData & gd, std::string tag, blob_index indx) {
     // (*gd.key_dict)[name] = index(uzr);
     auto ptr = gd.tag_lookup->get_writer();
     ptr->_pop(tag, indx, ptr.ensure_func(true));
+}
+void pop_av_hash_lookup(GraphData & gd, const value_variant_t & value) {
+    auto ptr = gd.av_hash_lookup->get_writer();
+    auto compare_func = internals::create_compare_func_for_value_node(gd, &value);
+    ptr->_pop(compare_func, ptr.ensure_func(true));
 }
 
 void apply_action_ROOT_NODE(GraphData& gd, EZefRef uzr, bool fill_caches) {
@@ -136,7 +147,8 @@ void apply_action_ATOMIC_VALUE_NODE(GraphData & gd, EZefRef uzr, bool fill_cache
     auto & node = get<blobs_ns::ATOMIC_VALUE_NODE>(uzr);
 
     if(fill_caches) {
-        // TODO: Push the hash from a lookup
+        auto this_val = value_from_node<value_variant_t>(node);
+        insert_av_hash_lookup(gd, this_val, index(uzr));
     }
 }
 
@@ -144,6 +156,8 @@ void unapply_action_ATOMIC_VALUE_NODE(GraphData & gd, EZefRef uzr, bool fill_cac
     auto & node = get<blobs_ns::ATOMIC_VALUE_NODE>(uzr);
     if(fill_caches) {
         // TODO: Pop the hash from a lookup
+        auto this_val = value_from_node<value_variant_t>(node);
+        pop_av_hash_lookup(gd, this_val);
     }
 }
 

@@ -260,6 +260,27 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("is_vrt_a_quantity_float", [](ValueRepType my_vrt)->bool { return is_zef_subtype(my_vrt, VRT.QuantityFloat); });
 	internals_submodule.def("is_vrt_a_quantity_int", [](ValueRepType my_vrt)->bool { return is_zef_subtype(my_vrt, VRT.QuantityInt); });
 
+	py::class_<ValueRepTypeStruct>(internals_submodule, "ValueRepTypeStruct", py::buffer_protocol())
+		.def_property_readonly("_unspecified", [](const ValueRepTypeStruct& self) { return self._unspecified; })
+		.def_property_readonly("Float", [](const ValueRepTypeStruct& self) { return self.Float; })
+		.def_property_readonly("Int", [](const ValueRepTypeStruct& self) { return self.Int; })
+		.def_property_readonly("Bool", [](const ValueRepTypeStruct& self) { return self.Bool; })
+		.def_property_readonly("String", [](const ValueRepTypeStruct& self) { return self.String; })
+		.def_property_readonly("Time", [](const ValueRepTypeStruct& self) { return self.Time; })
+		.def_property_readonly("Serialized", [](const ValueRepTypeStruct& self) { return self.Serialized; })
+		.def_property_readonly("Complex", [](const ValueRepTypeStruct& self) { return self.Complex; })
+		.def_property_readonly("Enum", [](const ValueRepTypeStruct& self) { return self.Enum; })
+		.def_property_readonly("QuantityFloat", [](const ValueRepTypeStruct& self) { return self.QuantityFloat; })
+		.def_property_readonly("QuantityInt", [](const ValueRepTypeStruct& self) { return self.QuantityInt; })
+
+		.def("__call__", [](const ValueRepTypeStruct& self, ZefRef zr) { return self(zr); })
+		.def("__call__", [](const ValueRepTypeStruct& self, EZefRef uzr) { return self(uzr); })
+
+		// .def("__ror__", [](const ValueRepTypeStruct& self, ZefRef zr) { return self(zr); })
+		// .def("__ror__", [](const ValueRepTypeStruct& self, EZefRef uzr) { return self(uzr); })
+		;
+    internals_submodule.attr("VRT") = VRT;
+
 	py::class_<AtomicEntityType>(internals_submodule, "AtomicEntityType", py::dynamic_attr())
 		.def(py::init<enum_indx>())	
 		.def(py::init<SerializedValue>())	
@@ -268,7 +289,12 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def("__repr__", [](const AtomicEntityType& self)->std::string { return to_str(self); })
 		.def("__str__", [](const AtomicEntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const AtomicEntityType& self, const AtomicEntityType& other)->bool { return self == other; }, py::is_operator())
-		// .def("__hash__", [](const AtomicEntityType& self) {return self.value; })
+		.def("__hash__", [](const AtomicEntityType& self) {
+            if(self.complex_value)
+                return internals::value_hash(*self.complex_value);
+            else
+                return self.rep_type.value;
+        })
 		// .def("__int__", [](const AtomicEntityType& self)->int {return self.value; })
 		.def("__copy__", [](const AtomicEntityType& self)->AtomicEntityType {return self; })
 

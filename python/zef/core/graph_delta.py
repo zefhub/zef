@@ -26,6 +26,7 @@ from ._ops import *
 from .op_structs import ZefOp, LazyValue
 from .graph_slice import GraphSlice
 from .abstract_raes import Entity, Relation, AtomicEntity, TXNode, Root
+from ..pyzef.zefops import SerializedValue
 from .logger import log
 from .VT import Is, Any
 
@@ -34,7 +35,6 @@ class ListOrTuple(ABC):
     pass
 for t in [list, tuple]:
     ListOrTuple.register(t)
-
 
 
 import os
@@ -126,12 +126,12 @@ gd_timing = "ZEFDB_GRAPH_DELTA_TIMING" in os.environ
 # * Entrypoint from user code
 #------------------------------------------------------
 def dispatch_ror_graph(g, x):
-    from . import Effect, FX
+    from . import Effect, FX, Val
     if isinstance(x, LazyValue):
         x = collect(x)
         # Note that this could produce a new LazyValue if the input was an
         # assign_value. This is fine.
-    if any(isinstance(x, T) for T in {list, tuple, dict, EntityType, AtomicEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AtomicEntity, Relation}):
+    if any(isinstance(x, T) for T in {list, tuple, dict, EntityType, AtomicEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AtomicEntity, Relation, Val}):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -281,6 +281,10 @@ def obtain_ids(x) -> dict:
     elif type(x) in [ZefRef, EZefRef]:
         ids = {origin_uid(x): x}
 
+    elif type(x) == TaggedVal:
+        if x.iid is not None:
+            ids = {x.iid: x.primitive}
+
 
     # This is an extra step on top of the previous checks
     if type(x) in [Entity, AtomicEntity, Relation, EntityType,
@@ -294,6 +298,7 @@ def obtain_ids(x) -> dict:
 
 @func    
 def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
+    from . import Val
     # Check each input item to a GraphDelta to validate its form. Uses
     # id_definitions to assert that references to IDs are to things that are
     # defined in the GraphDelta.
@@ -375,6 +380,9 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif type(x) in [Entity, AtomicEntity, Relation]:
         return
 
+    elif type(x) in [Val, TaggedVal]:
+        return
+
     else:
         raise ValueError(f"Unexpected type passed to init list of GraphDelta: {x} of type {type(x)}")
 
@@ -448,6 +456,7 @@ def iteration_step(state: dict, gen_id)->dict:
     }
 
 def dispatch_cmds_for(expr, gen_id):
+    from . import Val
     if isinstance(expr, LazyValue):
         expr = collect(expr)
 
@@ -491,6 +500,9 @@ def dispatch_cmds_for(expr, gen_id):
         list: P(cmds_for_tuple, gen_id=gen_id),
 
         dict: P(cmds_for_complex_expr, gen_id=gen_id),
+
+        Val: cmds_for_value_node,
+        TaggedVal: cmds_for_value_node,
     }
     if type(expr) not in d_dispatch:
         raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
@@ -513,6 +525,19 @@ def cmds_for_initial_Z(expr):
 
     expr = LazyValue(LazyValue(expr) | first | collect) | (LazyValue(expr) | skip[1] | to_pipeline | collect)
     return (expr,), ()
+
+def cmds_for_value_node(x):
+    from . import Val
+    if type(x) == Val:
+        x = TaggedVal(x.arg, None)
+
+    cmd = {'cmd': 'instantiate_value_node',
+           'value': x.primitive}
+    
+    if x.iid is not None:
+        cmd['internal_id'] = x.iid
+        
+    return (), [cmd]
 
 
 def cmds_for_instantiable(x):
@@ -588,16 +613,25 @@ def cmds_for_lv_tag(x, gen_id):
     
 
 def cmds_for_lv_assign(x, gen_id: Callable):
+    from . import Val
     assert isinstance(x, LazyValue)
 
     assert len(x | peel | collect) == 2
     target,op = x | peel | collect
 
     assert is_a(op, assign)
-    val = LazyValue(op) | absorbed | single | collect
+        
     iid,exprs = realise_single_node(target, gen_id)
 
-    return exprs, [{'cmd': 'assign', 'value': val, 'explicit': True, "internal_id": iid}]
+    cmd = {'cmd': 'assign', 'explicit': True, "internal_id": iid}
+
+    val = LazyValue(op) | absorbed | single | collect
+    if type(val) == Val:
+        cmd['value_node'] = TaggedVal(val.arg, None).primitive
+    else:
+        cmd['value'] = val
+
+    return exprs, [cmd]
 
 def cmds_for_lv_terminate(x):
     assert isinstance(x, LazyValue)
@@ -772,6 +806,7 @@ def is_valid_relation_template(x):
 
 @func
 def realise_single_node(x, gen_id):
+    from . import Val
     # Take something that should refer to a single node, i.e. a RAE or a scalar
     # to be turned into a RAE, or a reference to a RAE, and return a version
     # with an explicit ID and the ID itself.
@@ -839,6 +874,9 @@ def realise_single_node(x, gen_id):
     elif type(x) in [Entity, AtomicEntity, Relation, TXNode, Root]:
         exprs = [x]
         iid = origin_uid(x)
+    elif type(x) == Val:
+        iid = gen_id()
+        exprs = [TaggedVal(x.arg, iid)]
     elif type(x) in scalar_types:
         iid = gen_id()
         aet = map_scalar_to_aet_type[type(x)](x)
@@ -948,7 +986,7 @@ def verify_and_compact_commands(cmds: tuple):
 def validate_and_compress_unique_assignment(cmds):
     @func
     def check_list_is_distinct(cmds):
-        values = cmds | map[get["value"]] | distinct | collect
+        values = cmds | map[lambda x: x["value"] if "value" in x else x["value_node"]] | distinct | collect
         if length(values) == 1:
             return cmds[0]
         raise ValueError(f'There may be at most one assignment commands for each AE. There were multiple for assignment to {get_id(cmds[0])!r} with values {values}')
@@ -997,6 +1035,9 @@ def command_ordering_by_type(d_raes: dict) -> int:
     if d_raes['cmd'] == 'merge':
         if isinstance(d_raes['origin_rae'], Relation): return 0.5
         else: return 0
+    if d_raes['cmd'] == 'instantiate_value_node':
+        # Comes before AET in case there is an assignment there
+        return 1.5
     if d_raes['cmd'] == 'instantiate':
         if isinstance(d_raes['rae_type'], EntityType): return 1
         if isinstance(d_raes['rae_type'], AtomicEntityType): return 2
@@ -1047,6 +1088,8 @@ def resolve_dag_ordering_step(arg: dict)->dict:
         if cmd['cmd'] == 'instantiate':
             # If we are creating an RT, wait until both source/target exist
             return not isinstance(cmd['rae_type'], RelationType) or (cmd['source'] in ids and cmd['target'] in ids)
+        if cmd['cmd'] == 'instantiate_value_node':
+            return True
         if cmd['cmd'] == 'merge':
             # If the merge is of a relation, we need both source and target to exist already
             return not isinstance(cmd['origin_rae'], Relation) or (cmd['origin_rae'].d["uids"][0] in ids and cmd['origin_rae'].d["uids"][2] in ids)
@@ -1212,16 +1255,26 @@ def perform_transaction_commands(commands: list, g: Graph):
                 elif cmd['cmd'] == 'instantiate' and type(cmd['rae_type']) in {RelationType}:
                     zz = instantiate(to_ezefref(d_raes[cmd['source']]), cmd['rae_type'], to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
                 
+                elif cmd['cmd'] == 'instantiate_value_node':
+                    zz = instantiate_value_node(cmd['value'], g)
+                
                 elif cmd['cmd'] == 'assign':
                     this_id = cmd['internal_id']
                     zz = d_raes.get(this_id, None)
                     if zz is None:
                         zz = most_recent_rae_on_graph(this_id, g)
                     assert zz is not None
-                    if cmd['value'] is not  None:
+                    if 'value' in cmd:
                         if zz | value | collect != cmd['value']:
                             # print("Assigning value of ", cmd['value'], "to a", AET(z))
                             internals.assign_value_imp(zz, cmd['value'])
+                    elif 'value_node' in cmd:
+                        if zz | value | collect != cmd['value_node']:
+                            vn = instantiate_value_node(cmd['value_node'], g)
+                            internals.assign_value_imp(zz, vn)
+                    else:
+                        raise Exception("Assignment without an value")
+                            
                     zz = now(zz)
 
                 elif cmd['cmd'] == 'set_field':
@@ -1391,9 +1444,16 @@ def perform_transaction_commands(commands: list, g: Graph):
 # * General utils
 #------------------------------
 
+class TaggedVal:
+    def __init__(self, arg, iid):
+        if type(arg) in scalar_types:
+            self.primitive = arg
+        else:
+            self.primitive = SerializedValue.serialize(arg)
+        self.iid = iid
 
 
-scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue}
+scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue}
 
 def make_enum_aet(x):
     """ hacky work around function for now:
