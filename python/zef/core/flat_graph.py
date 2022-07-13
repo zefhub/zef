@@ -43,6 +43,9 @@ class FlatGraph_:
     def __or__(self, other):
         return LazyValue(self) | other
 
+    def __ror__(self, other):
+        return self | insert[other] 
+
     def __getitem__(self, key):
         return get(self, key)
 
