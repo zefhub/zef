@@ -84,7 +84,7 @@ namespace zefDB {
     template void assign_value(ZefRef my_atomic_entity, QuantityInt value_to_be_assigned);
 
     // TODO: assign_value with a value node
-
+                                 
     template <typename T>
     std::optional<T> value_from_ae(ZefRef my_atomic_entity);
     LIBZEF_DLL_EXPORTED extern template std::optional<double> value_from_ae<double>(ZefRef my_atomic_entity);
@@ -96,14 +96,12 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED extern template std::optional<ZefEnumValue> value_from_ae<ZefEnumValue>(ZefRef my_atomic_entity);
     LIBZEF_DLL_EXPORTED extern template std::optional<QuantityFloat> value_from_ae<QuantityFloat>(ZefRef my_atomic_entity);
     LIBZEF_DLL_EXPORTED extern template std::optional<QuantityInt> value_from_ae<QuantityInt>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<value_variant_t> value_from_ae<value_variant_t>(ZefRef my_atomic_entity);
 
     LIBZEF_DLL_EXPORTED bool is_promotable_to_zefref(EZefRef uzr_to_promote, EZefRef reference_tx);
     LIBZEF_DLL_EXPORTED bool is_promotable_to_zefref(EZefRef uzr_to_promote);
                                  
     // These definitions are not used here, but are handy to synchronise several things which call into the value functions.
-                                 
-    using value_variant_t = std::variant<bool,int,double,str,Time,ZefEnumValue,QuantityFloat,QuantityInt,SerializedValue>;
-    using value_ret_t = std::optional<value_variant_t>;
                                  
                                  
                                  

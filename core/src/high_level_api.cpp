@@ -757,6 +757,7 @@ namespace zefDB {
     template std::optional<ZefEnumValue> value_from_ae<ZefEnumValue>(ZefRef my_atomic_entity);
     template std::optional<QuantityFloat> value_from_ae<QuantityFloat>(ZefRef my_atomic_entity);
     template std::optional<QuantityInt> value_from_ae<QuantityInt>(ZefRef my_atomic_entity);
+    template std::optional<value_variant_t> value_from_ae<value_variant_t>(ZefRef my_atomic_entity);
         
 
 

@@ -49,6 +49,8 @@ namespace zefDB {
         return os;
     }
 
+    using value_variant_t = std::variant<bool,int,double,str,Time,ZefEnumValue,QuantityFloat,QuantityInt,SerializedValue>;
+
     inline ValueRepType get_vrt_from_value(const bool & value) { return VRT.Bool; }
     inline ValueRepType get_vrt_from_value(const int & value) { return VRT.Int; }
     inline ValueRepType get_vrt_from_value(const double & value) { return VRT.Float; }
@@ -363,6 +365,7 @@ namespace zefDB {
         template<class T>
         bool is_compatible_rep_type(const ValueRepType & vrt);
 
+        template<> bool is_compatible_rep_type<value_variant_t>(const ValueRepType & vrt);
         template<> bool is_compatible_rep_type<bool>(const ValueRepType & vrt);
         template<> bool is_compatible_rep_type<int>(const ValueRepType & vrt);
         template<> bool is_compatible_rep_type<double>(const ValueRepType & vrt);
@@ -436,7 +439,6 @@ namespace zefDB {
             return value_cast_Impl<T>::impl(val);
         }
 
-
         template<class T>
         T value_from_node(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
         template<class T>
@@ -450,6 +452,7 @@ namespace zefDB {
         extern template QuantityFloat value_from_node<QuantityFloat>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
         extern template ZefEnumValue value_from_node<ZefEnumValue>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
         extern template bool value_from_node<bool>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        extern template value_variant_t value_from_node<value_variant_t>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
 
         extern template str value_from_node<str>(const blobs_ns::ATOMIC_VALUE_NODE& av); 
         extern template SerializedValue value_from_node<SerializedValue>(const blobs_ns::ATOMIC_VALUE_NODE& av); 
@@ -459,6 +462,7 @@ namespace zefDB {
         extern template QuantityFloat value_from_node<QuantityFloat>(const blobs_ns::ATOMIC_VALUE_NODE& av);
         extern template ZefEnumValue value_from_node<ZefEnumValue>(const blobs_ns::ATOMIC_VALUE_NODE& av);
         extern template bool value_from_node<bool>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        extern template value_variant_t value_from_node<value_variant_t>(const blobs_ns::ATOMIC_VALUE_NODE& av);
 
 		template <typename T>    
 		T abs_val(T val) {       

@@ -93,6 +93,8 @@ namespace zefDB {
 		
 		struct _unspecified {
 			BlobType this_BlobType = BlobType::_unspecified;
+            _unspecified & operator=(const _unspecified & other) = delete;
+            _unspecified (const _unspecified & other) = delete;
 		};
 				
 		struct ROOT_NODE {
@@ -103,6 +105,9 @@ namespace zefDB {
 			char data_layout_version_info[constants::data_layout_version_info_size]; // actual text needs to be null terminated '\0' withtin this range
 			char graph_revision_info[constants::graph_revision_info_size];
             edge_info edges{constants::default_local_edge_indexes_capacity_ROOT_NODE};
+            ROOT_NODE & operator=(const ROOT_NODE & other) = delete;
+            ROOT_NODE (const ROOT_NODE & other) = delete;
+            ROOT_NODE () = default;
 		};
 
 		struct TX_EVENT_NODE {
@@ -111,12 +116,18 @@ namespace zefDB {
 			TimeSlice time_slice = {0};  // a counter going up with each subsequent event
 			BaseUID uid;
             edge_info edges{constants::default_local_edge_indexes_capacity_TX_EVENT_NODE};
+            TX_EVENT_NODE & operator=(const TX_EVENT_NODE & other) = delete;
+            TX_EVENT_NODE (const TX_EVENT_NODE & other) = delete;
+            TX_EVENT_NODE () = default;
 		};
 
 		struct NEXT_TX_EDGE {
 			BlobType this_BlobType = BlobType::NEXT_TX_EDGE;
 			blob_index source_node_index = 0;  // coming from a TX_EVENT_NODE or ROOTNode
 			blob_index target_node_index = 0;	 // going to a 	ATOMIC_ENTITY_NODE_*, ENTITY_NODE_*, RELATION_EDGE_*
+            NEXT_TX_EDGE & operator=(const NEXT_TX_EDGE & other) = delete;
+            NEXT_TX_EDGE (const NEXT_TX_EDGE & other) = delete;
+            NEXT_TX_EDGE () = default;
 		};
 
 		struct RAE_INSTANCE_EDGE {
@@ -124,6 +135,9 @@ namespace zefDB {
 			blob_index source_node_index = 0;  // coming from the ROOT_node
 			blob_index target_node_index = 0;	 // going to a 	ATOMIC_ENTITY_NODE_*, ENTITY_NODE_*, RELATION_EDGE_*
             edge_info edges{constants::default_local_edge_indexes_capacity_RAE_INSTANCE_EDGE};
+            RAE_INSTANCE_EDGE & operator=(const RAE_INSTANCE_EDGE & other) = delete;
+            RAE_INSTANCE_EDGE (const RAE_INSTANCE_EDGE & other) = delete;
+            RAE_INSTANCE_EDGE () = default;
 		};				
 
 		struct TO_DELEGATE_EDGE {
@@ -131,6 +145,9 @@ namespace zefDB {
 			blob_index source_node_index = 0;  // coming from the "_AllEntities" node
 			blob_index target_node_index = 0;	 // going to the delegate node
             edge_info edges{constants::default_local_edge_indexes_capacity_TO_DELEGATE_EDGE};
+            TO_DELEGATE_EDGE & operator=(const TO_DELEGATE_EDGE & other) = delete;
+            TO_DELEGATE_EDGE (const TO_DELEGATE_EDGE & other) = delete;
+            TO_DELEGATE_EDGE () = default;
 		};		
 
 		struct ENTITY_NODE {
@@ -140,6 +157,9 @@ namespace zefDB {
 			TimeSlice termination_time_slice = { 0 };
 			BaseUID uid;
             edge_info edges{constants::default_local_edge_indexes_capacity_ENTITY_NODE};
+            ENTITY_NODE & operator=(const ENTITY_NODE & other) = delete;
+            ENTITY_NODE (const ENTITY_NODE & other) = delete;
+            ENTITY_NODE () = default;
 		};
 		
 		struct ATOMIC_ENTITY_NODE {
@@ -149,12 +169,18 @@ namespace zefDB {
 			TimeSlice termination_time_slice = { 0 };
 			BaseUID uid;
             edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE};
+            ATOMIC_ENTITY_NODE& operator=(const ATOMIC_ENTITY_NODE & other) = delete;
+            ATOMIC_ENTITY_NODE(const ATOMIC_ENTITY_NODE & other) = delete;
+            ATOMIC_ENTITY_NODE() = default;
 		};
 
 		struct COMPLEX_VALUE_TYPE_EDGE {
 			BlobType this_BlobType = BlobType::COMPLEX_VALUE_TYPE_EDGE;
 			blob_index source_node_index = 0;  // coming from an ATOMIC_ENTITY_NODE
 			blob_index target_node_index = 0;  // goes to an ATOMIC_VALUE_NODE
+            COMPLEX_VALUE_TYPE_EDGE& operator=(const COMPLEX_VALUE_TYPE_EDGE & other) = delete;
+            COMPLEX_VALUE_TYPE_EDGE(const COMPLEX_VALUE_TYPE_EDGE & other) = delete;
+            COMPLEX_VALUE_TYPE_EDGE() = default;
 		};
 		
 		// Sometimes we just wan to save a value (that never changes) or we want to project one time slice of the entity and relation property graph 
@@ -168,7 +194,9 @@ namespace zefDB {
 			// char data_buffer[1];	// for any type larger than a char, this is designed to overflow
             edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_VALUE_NODE};
 
-            ATOMIC_VALUE_NODE() {}
+            ATOMIC_VALUE_NODE& operator=(const ATOMIC_VALUE_NODE & other) = delete;
+            ATOMIC_VALUE_NODE(const ATOMIC_VALUE_NODE & other) = delete;
+            ATOMIC_VALUE_NODE() = default;
             ATOMIC_VALUE_NODE(ValueRepType vrt, value_hash_t hash)
                 : rep_type(vrt),
                   hash(hash) {}
@@ -184,33 +212,48 @@ namespace zefDB {
 			TimeSlice termination_time_slice = { 0 };
 			BaseUID uid;
             edge_info edges{constants::default_local_edge_indexes_capacity_RELATION_EDGE};
-		};
+            RELATION_EDGE & operator=(const RELATION_EDGE & other) = delete;
+            RELATION_EDGE(const RELATION_EDGE & other) = delete; 
+            RELATION_EDGE() = default;
+        };
 		
 		// these edges are created together with any new entity node or domain edge
 		struct DELEGATE_INSTANTIATION_EDGE {
 			BlobType this_BlobType = BlobType::DELEGATE_INSTANTIATION_EDGE;
 			blob_index source_node_index = 0;  // coming from a TX_EVENT_NODE
 			blob_index target_node_index = 0;	 // going to a TO_DELEGATE_EDGE edge 
-		};		
+            DELEGATE_INSTANTIATION_EDGE & operator=(const DELEGATE_INSTANTIATION_EDGE & other) = delete;
+            DELEGATE_INSTANTIATION_EDGE(const DELEGATE_INSTANTIATION_EDGE & other) = delete; 
+            DELEGATE_INSTANTIATION_EDGE() = default;
+        };		
 
 		struct DELEGATE_RETIREMENT_EDGE {
 			BlobType this_BlobType = BlobType::DELEGATE_RETIREMENT_EDGE;
 			blob_index source_node_index = 0;  // coming from a TX_EVENT_NODE
 			blob_index target_node_index = 0;	 // going to a TO_DELEGATE_EDGE edge 
-		};		
+            DELEGATE_RETIREMENT_EDGE & operator=(const DELEGATE_RETIREMENT_EDGE & other) = delete;
+            DELEGATE_RETIREMENT_EDGE(const DELEGATE_RETIREMENT_EDGE & other) = delete; 
+            DELEGATE_RETIREMENT_EDGE() = default;
+        };		
 
 		// these edges are created together with any new entity node or domain edge
 		struct INSTANTIATION_EDGE {
 			BlobType this_BlobType = BlobType::INSTANTIATION_EDGE;
 			blob_index source_node_index = 0;  // coming from a TX_EVENT_NODE
 			blob_index target_node_index = 0;	 // going to the entity node between the scneario node and the newly created node
-		};
+            INSTANTIATION_EDGE & operator=(const INSTANTIATION_EDGE & other) = delete;
+            INSTANTIATION_EDGE(const INSTANTIATION_EDGE & other) = delete; 
+            INSTANTIATION_EDGE() = default;
+        };
 				// these edges are created together with any new entity node or domain edge
 		struct TERMINATION_EDGE {
 			BlobType this_BlobType = BlobType::TERMINATION_EDGE;
 			blob_index source_node_index = 0;  // coming from a TX_EVENT_NODE
 			blob_index target_node_index = 0;	 // going to the entity node between the scneario node and the newly created node
-		};
+            TERMINATION_EDGE & operator=(const TERMINATION_EDGE & other) = delete;
+            TERMINATION_EDGE(const TERMINATION_EDGE & other) = delete; 
+            TERMINATION_EDGE() = default;
+        };
 
 		struct ATOMIC_VALUE_ASSIGNMENT_EDGE {
 			BlobType this_BlobType = BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE;
@@ -219,7 +262,10 @@ namespace zefDB {
 			blob_index source_node_index = 0;
 			blob_index target_node_index = 0;
 			char data_buffer[1];	// for any type larger than a char, this is designed to overflow
-		};
+            ATOMIC_VALUE_ASSIGNMENT_EDGE & operator=(const ATOMIC_VALUE_ASSIGNMENT_EDGE & other) = delete;
+            ATOMIC_VALUE_ASSIGNMENT_EDGE(const ATOMIC_VALUE_ASSIGNMENT_EDGE & other) = delete; 
+            ATOMIC_VALUE_ASSIGNMENT_EDGE() = default;
+        };
 
 		struct DEFERRED_EDGE_LIST_NODE {
 			BlobType this_BlobType = BlobType::DEFERRED_EDGE_LIST_NODE;
@@ -234,22 +280,31 @@ namespace zefDB {
                 // Note: we explicitly don't set the sentinel here, as the size
                 // of the edge list is determined after constructing the object.
             } edges;
-		};
+            DEFERRED_EDGE_LIST_NODE & operator=(const DEFERRED_EDGE_LIST_NODE & other) = delete;
+            DEFERRED_EDGE_LIST_NODE(const DEFERRED_EDGE_LIST_NODE & other) = delete; 
+            DEFERRED_EDGE_LIST_NODE() = default;
+        };
 
-		struct ASSIGN_TAG_NAME_EDGE {   // this is an edge between the tx in which it was assigned and the 'TO_INSTANCE' edge for the specific Blob to be tagged*
+        struct ASSIGN_TAG_NAME_EDGE {   // this is an edge between the tx in which it was assigned and the 'TO_INSTANCE' edge for the specific Blob to be tagged*
 			BlobType this_BlobType = BlobType::ASSIGN_TAG_NAME_EDGE;
 			unsigned int buffer_size_in_bytes = 0;
 			blob_index source_node_index = 0;
 			blob_index target_node_index = 0;
 			// char rel_ent_tag_name_buffer[constants::rel_ent_tag_name_buffer_size];	// fixed size: a larger size is not permitted. We don't want two data structures that are allowed to overflow
             edge_info edges{constants::default_local_edge_indexes_capacity_ASSIGN_TAG_NAME_EDGE};
+            ASSIGN_TAG_NAME_EDGE & operator=(const ASSIGN_TAG_NAME_EDGE & other) = delete;
+            ASSIGN_TAG_NAME_EDGE(const ASSIGN_TAG_NAME_EDGE & other) = delete; 
+            ASSIGN_TAG_NAME_EDGE() = default;
 		};
 
-		struct NEXT_TAG_NAME_ASSIGNMENT_EDGE {   // can be inserted between two BlobType::ASSIGN_TAG_NAME_EDGE to enable efficient temporal resolving of tag name values
-			BlobType this_BlobType = BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE;			
-			blob_index source_node_index = 0;
-			blob_index target_node_index = 0;
-		};
+        struct NEXT_TAG_NAME_ASSIGNMENT_EDGE {   // can be inserted between two BlobType::ASSIGN_TAG_NAME_EDGE to enable efficient temporal resolving of tag name values
+            BlobType this_BlobType = BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE;			
+            blob_index source_node_index = 0;
+            blob_index target_node_index = 0;
+            NEXT_TAG_NAME_ASSIGNMENT_EDGE & operator=(const NEXT_TAG_NAME_ASSIGNMENT_EDGE & other) = delete;
+            NEXT_TAG_NAME_ASSIGNMENT_EDGE(const NEXT_TAG_NAME_ASSIGNMENT_EDGE & other) = delete; 
+            NEXT_TAG_NAME_ASSIGNMENT_EDGE() = default;
+        };
 
 
 		struct FOREIGN_GRAPH_NODE {
@@ -257,33 +312,48 @@ namespace zefDB {
 			int internal_foreign_graph_index = 0;   // what is the internal visitor number for this graph? For the foreign graph delegate node, this remains set to 0 (no action is triggered)
 			BaseUID uid;
             edge_info edges{constants::default_local_edge_indexes_capacity_FOREIGN_GRAPH_NODE};
-		};
+            FOREIGN_GRAPH_NODE & operator=(const FOREIGN_GRAPH_NODE & other) = delete;
+            FOREIGN_GRAPH_NODE(const FOREIGN_GRAPH_NODE & other) = delete; 
+            FOREIGN_GRAPH_NODE() = default;
+        };
 
 		struct ORIGIN_RAE_EDGE {
 			BlobType this_BlobType = BlobType::ORIGIN_RAE_EDGE;
 			blob_index source_node_index = 0;
 			blob_index target_node_index = 0;
-		};
+            ORIGIN_RAE_EDGE & operator=(const ORIGIN_RAE_EDGE & other) = delete;
+            ORIGIN_RAE_EDGE(const ORIGIN_RAE_EDGE & other) = delete; 
+            ORIGIN_RAE_EDGE() = default;
+        };
 
 		struct ORIGIN_GRAPH_EDGE {
 			BlobType this_BlobType = BlobType::ORIGIN_GRAPH_EDGE;
 			blob_index source_node_index = 0;
 			blob_index target_node_index = 0;
-		};
+            ORIGIN_GRAPH_EDGE & operator=(const ORIGIN_GRAPH_EDGE & other) = delete;
+            ORIGIN_GRAPH_EDGE(const ORIGIN_GRAPH_EDGE & other) = delete; 
+            ORIGIN_GRAPH_EDGE() = default;
+        };
 
 		struct FOREIGN_ENTITY_NODE {
 			BlobType this_BlobType = BlobType::FOREIGN_ENTITY_NODE;
 			EntityType entity_type = ET.ZEF_Unspecified;
 			BaseUID uid;
             edge_info edges{constants::default_local_edge_indexes_capacity_FOREIGN_ENTITY_NODE};
-		};
+            FOREIGN_ENTITY_NODE & operator=(const FOREIGN_ENTITY_NODE & other) = delete;
+            FOREIGN_ENTITY_NODE(const FOREIGN_ENTITY_NODE & other) = delete; 
+            FOREIGN_ENTITY_NODE() = default;
+        };
 
 		struct FOREIGN_ATOMIC_ENTITY_NODE {
 			BlobType this_BlobType = BlobType::FOREIGN_ATOMIC_ENTITY_NODE;
 			ValueRepType rep_type;
 			BaseUID uid;
             edge_info edges{constants::default_local_edge_indexes_capacity_FOREIGN_ATOMIC_ENTITY_NODE};
-		};
+            FOREIGN_ATOMIC_ENTITY_NODE & operator=(const FOREIGN_ATOMIC_ENTITY_NODE & other) = delete;
+            FOREIGN_ATOMIC_ENTITY_NODE(const FOREIGN_ATOMIC_ENTITY_NODE & other) = delete; 
+            FOREIGN_ATOMIC_ENTITY_NODE() = default;
+        };
 
 		struct FOREIGN_RELATION_EDGE {
 			BlobType this_BlobType = BlobType::FOREIGN_RELATION_EDGE;
@@ -292,7 +362,10 @@ namespace zefDB {
 			blob_index target_node_index = 0;
 			BaseUID uid;
             edge_info edges{constants::default_local_edge_indexes_capacity_FOREIGN_RELATION_EDGE};
-		};
+            FOREIGN_RELATION_EDGE & operator=(const FOREIGN_RELATION_EDGE & other) = delete;
+            FOREIGN_RELATION_EDGE(const FOREIGN_RELATION_EDGE & other) = delete; 
+            FOREIGN_RELATION_EDGE() = default;
+        };
 
 
 	} //namespace blobs_ns

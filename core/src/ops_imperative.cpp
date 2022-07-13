@@ -1429,42 +1429,32 @@ namespace zefDB {
 
         value_ret_t value(ZefRef z) {
             if (get<BlobType>(z.blob_uzr) == BlobType::ATOMIC_ENTITY_NODE) {
-                auto vrt = get<blobs_ns::ATOMIC_ENTITY_NODE>(z.blob_uzr).rep_type.value;
-                switch (vrt) {
-                case VRT.Float.value: { return zefDB::value_from_ae<double>(z); }
-                case VRT.Int.value: { return zefDB::value_from_ae<int>(z); }
-                case VRT.Bool.value: { return zefDB::value_from_ae<bool>(z); }
-                case VRT.String.value: { return zefDB::value_from_ae<std::string>(z); }
-                case VRT.Time.value: { return zefDB::value_from_ae<Time>(z); }
-                case VRT.Serialized.value: { return zefDB::value_from_ae<SerializedValue>(z); }
-                default: {
-                    switch (vrt % 16) {
-                    case 1: { return zefDB::value_from_ae<ZefEnumValue>(z); }
-                    case 2: { return zefDB::value_from_ae<QuantityFloat>(z); }
-                    case 3: { return zefDB::value_from_ae<QuantityInt>(z); }
-                    default: throw std::runtime_error("Return type not implemented.");
+                auto & ae = get<blobs_ns::ATOMIC_ENTITY_NODE>(z.blob_uzr);
+                auto complex_type = internals::get_AE_complex_type(ae);
+                if(complex_type)
+                    return value_from_ae<value_variant_t>(z);
+                else {
+                    auto vrt = ae.rep_type.value;
+                    switch (vrt) {
+                    case VRT.Float.value: { return value_from_ae<double>(z); }
+                    case VRT.Int.value: { return value_from_ae<int>(z); }
+                    case VRT.Bool.value: { return value_from_ae<bool>(z); }
+                    case VRT.String.value: { return value_from_ae<std::string>(z); }
+                    case VRT.Time.value: { return value_from_ae<Time>(z); }
+                    case VRT.Serialized.value: { return value_from_ae<SerializedValue>(z); }
+                    default: {
+                        switch (vrt % 16) {
+                        case 1: { return value_from_ae<ZefEnumValue>(z); }
+                        case 2: { return value_from_ae<QuantityFloat>(z); }
+                        case 3: { return value_from_ae<QuantityInt>(z); }
+                        default: throw std::runtime_error("Return type not implemented.");
+                        }
                     }
-                }
+                    }
                 }
             } else if (get<BlobType>(z.blob_uzr) == BlobType::ATOMIC_VALUE_NODE) {
-                auto ent = get<blobs_ns::ATOMIC_VALUE_NODE>(z.blob_uzr);
-                auto vrt = ent.rep_type.value;
-                switch (vrt) {
-                case VRT.Float.value: { return internals::value_from_node<double>(ent); }
-                case VRT.Int.value: { return internals::value_from_node<int>(ent); }
-                case VRT.Bool.value: { return internals::value_from_node<bool>(ent); }
-                case VRT.String.value: { return internals::value_from_node<std::string>(ent); }
-                case VRT.Time.value: { return internals::value_from_node<Time>(ent); }
-                case VRT.Serialized.value: { return internals::value_from_node<SerializedValue>(ent); }
-                default: {
-                    switch (vrt % 16) {
-                    case 1: { return internals::value_from_node<ZefEnumValue>(ent); }
-                    case 2: { return internals::value_from_node<QuantityFloat>(ent); }
-                    case 3: { return internals::value_from_node<QuantityInt>(ent); }
-                    default: throw std::runtime_error("Return type not implemented.");
-                    }
-                }
-                }
+                auto & ent = get<blobs_ns::ATOMIC_VALUE_NODE>(z.blob_uzr);
+                return internals::value_from_node<value_variant_t>(ent);
             } else {
             throw std::runtime_error("'value(zefref)' called for a zefref which is not an atomic entity.");
             }

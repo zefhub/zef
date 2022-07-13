@@ -48,11 +48,11 @@ namespace zefDB {
         template<class T>
         void update_blob_indices_specific(T & blob, const map_t & index_map) {}
 
-        void assign_blob_specific(blobs_ns::_unspecified blob, const json & details) {
+        void assign_blob_specific(blobs_ns::_unspecified & blob, const json & details) {
             throw std::runtime_error("Shouldn't never get here");
         }
 
-        void assign_blob_specific(blobs_ns::ROOT_NODE blob, const json & details) {
+        void assign_blob_specific(blobs_ns::ROOT_NODE & blob, const json & details) {
             throw std::runtime_error("Shouldn't never get here");
         }
 

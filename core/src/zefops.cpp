@@ -1318,30 +1318,16 @@ namespace zefDB {
 	}
 
     ZefRef Now::operator() (const Graph& g) const {
-				GraphData& gd = g.my_graph_data();
-				EZefRef tx = (gd.number_of_open_tx_sessions > 0 && gd.open_tx_thread == std::this_thread::get_id()) ?
-					EZefRef(gd.index_of_open_tx_node, g) :
-					EZefRef(gd.latest_complete_tx, g);
-                return ZefRef(tx,tx);
-			}
+        return imperative::now(g.my_graph_data());
+    }
 
     ZefRef Now::operator() (EZefRef uzr) const {
-				// tasks::apply_immediate_updates_from_zm();
-				// EZefRef latest_tx = operator()(Graph(graph_data(uzr))) | to_ezefref;
-        // EZefRef latest_tx = operator()(Graph(uzr)) | to_ezefref;
-        Graph g(uzr);
-        EZefRef latest_tx = operator()(g) | to_ezefref;
-                if (!is_promotable_to_zefref(uzr, latest_tx)) throw std::runtime_error("Zefop 'now' called on EZefRef that cannot be promoted to a ZefRef.");
-
-				if (!imperative::exists_at_now(uzr))
-					throw std::runtime_error("'now(EZefRef)' called on a EZefRef that does not exist at the latest time slice. You can opt in to allow representing terminated RAEs by providing the flag 'z | now[allow_tombstone]' ");
-
-				return ZefRef(uzr, latest_tx);
-			}
+        return imperative::now(uzr);
+    }
 
     ZefRef Now::operator() (ZefRef zr) const {
-				return zr | to_zefref[Graph(zr.tx) | now];  // keep the reference graph: only move to the newest slice in the reference frame!
-			}
+        return imperative::now(zr);
+    }
     //ZefRefs Now::operator() (ZefRefs&& zrs) {  TODO.... }
 	ZefRefs Now::operator() (const ZefRefs& zrs) { 
 		// tasks::apply_immediate_updates_from_zm();  

@@ -613,6 +613,7 @@ namespace zefDB {
         template<typename T>
         bool is_compatible_rep_type(const ValueRepType & vrt);
 
+        template<> bool is_compatible_rep_type<value_variant_t>(const ValueRepType & vrt) { return true; }
         template<> bool is_compatible_rep_type<bool>(const ValueRepType & vrt) { return vrt == VRT.Bool; }
         template<> bool is_compatible_rep_type<int>(const ValueRepType & vrt) { return vrt == VRT.Int || vrt == VRT.Float || vrt == VRT.Bool; }   // we can also assign an int to a bool
         template<> bool is_compatible_rep_type<double>(const ValueRepType & vrt) { return vrt == VRT.Float || vrt == VRT.Int; }
@@ -710,12 +711,16 @@ namespace zefDB {
 
         template<>
         str value_from_node_ptr<str>(const char * buf, unsigned int size, ValueRepType vrt) {
+            if(vrt != VRT.String)
+                throw std::runtime_error("Can't extract a string from anything other than a VRT.String");
             Butler::ensure_or_get_range(buf, size);
             return std::string(buf, size);
         }
 
         template<>
         SerializedValue value_from_node_ptr<SerializedValue>(const char * buf, unsigned int size, ValueRepType vrt) {
+            if(vrt != VRT.Serialized)
+                throw std::runtime_error("Can't extract a SerializedValue from anything other than a VRT.Serialized");
             Butler::ensure_or_get_range(buf, size);
             const char * cur = buf;
             int type_len = *(int*)cur;
@@ -733,18 +738,43 @@ namespace zefDB {
             // This needs to be specialised to convert, while allowing the other variants to avoid this unncessary check
             if (vrt == VRT.Float)
                 return value_cast<double>(*(double*)(buf));
-            else// if(vrt == VRT.Int)
+            else if(vrt == VRT.Int)
                 return value_cast<double>(*(int*)(buf));
+            else
+                throw std::runtime_error("Can't extract a double from anything other than VRT.Float or VRT.Int");
         }
         template<>
         int value_from_node_ptr<int>(const char * buf, unsigned int size, ValueRepType vrt) {
             // This needs to be specialised to convert, while allowing the other variants to avoid this unncessary check
-            if (vrt == VRT.Float) {
+            if (vrt == VRT.Float)
                 return value_cast<int>(*(double*)(buf));
-            } else if(vrt == VRT.Int) {
+            else if(vrt == VRT.Int)
                 return value_cast<int>(*(int*)(buf));
-            } else //(vrt == VRT.Bool) {
+            else if(vrt == VRT.Bool)
                 return value_cast<int>(*(bool*)(buf));
+            else
+                throw std::runtime_error("Can't extract a int from anything other than VRT.Float, VRT.Int or VRT.Bool");
+        }
+
+        template<>
+        value_variant_t value_from_node_ptr<value_variant_t>(const char * buf, unsigned int size, ValueRepType vrt) {
+            // We get the actual value from the VRT and just return that unconverted
+            switch (vrt.value) {
+            case VRT.Float.value: { return value_from_node_ptr<double>(buf, size, vrt); }
+            case VRT.Int.value: { return value_from_node_ptr<int>(buf, size, vrt); }
+            case VRT.Bool.value: { return value_from_node_ptr<bool>(buf, size, vrt); }
+            case VRT.String.value: { return value_from_node_ptr<std::string>(buf, size, vrt); }
+            case VRT.Time.value: { return value_from_node_ptr<Time>(buf, size, vrt); }
+            case VRT.Serialized.value: { return value_from_node_ptr<SerializedValue>(buf, size, vrt); }
+            default: {
+                switch (vrt.value % 16) {
+                case 1: { return value_from_node_ptr<ZefEnumValue>(buf, size, vrt); }
+                case 2: { return value_from_node_ptr<QuantityFloat>(buf, size, vrt); }
+                case 3: { return value_from_node_ptr<QuantityInt>(buf, size, vrt); }
+                default: throw std::runtime_error("Return type not implemented.");
+                }
+            }
+            }
         }
 
         // for contiguous POD types with compile-time determined size, we can use this template
@@ -785,6 +815,7 @@ namespace zefDB {
         template SerializedValue value_from_node<SerializedValue>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
         template double value_from_node<double>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
         template int value_from_node<int>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template value_variant_t value_from_node<value_variant_t>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
 
         template QuantityInt value_from_node<QuantityInt>(const blobs_ns::ATOMIC_VALUE_NODE& av);
         template QuantityFloat value_from_node<QuantityFloat>(const blobs_ns::ATOMIC_VALUE_NODE& av);
@@ -795,6 +826,7 @@ namespace zefDB {
         template SerializedValue value_from_node<SerializedValue>(const blobs_ns::ATOMIC_VALUE_NODE& av);
         template double value_from_node<double>(const blobs_ns::ATOMIC_VALUE_NODE& av);
         template int value_from_node<int>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        template value_variant_t value_from_node<value_variant_t>(const blobs_ns::ATOMIC_VALUE_NODE& av);
 
     }
 }

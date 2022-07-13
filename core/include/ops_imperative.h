@@ -187,6 +187,7 @@ namespace zefDB {
 
         using zefDB::assign_value;
 
+        using value_ret_t = std::optional<value_variant_t>;
 
         LIBZEF_DLL_EXPORTED value_ret_t value(ZefRef ae);
         LIBZEF_DLL_EXPORTED value_ret_t value(EZefRef ae, EZefRef tx);

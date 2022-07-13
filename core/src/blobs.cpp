@@ -655,11 +655,11 @@ namespace zefDB {
 		return os;
 	}
 
-    json blob_to_json_details(const blobs_ns::_unspecified blob) {
+    json blob_to_json_details(const blobs_ns::_unspecified & blob) {
         throw std::runtime_error("Shouldn't never get here");
     }
 
-    json blob_to_json_details(const blobs_ns::ROOT_NODE blob) {
+    json blob_to_json_details(const blobs_ns::ROOT_NODE & blob) {
         return json{
 			{"data_layout_version_info", std::string(blob.data_layout_version_info, blob.actual_written_data_layout_version_info_size)},
 			{"graph_revision_info", std::string(blob.graph_revision_info, blob.actual_written_graph_revision_info_size)},
