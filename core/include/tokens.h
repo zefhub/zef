@@ -324,6 +324,7 @@ namespace zefDB {
 		static constexpr ValueRepType Int{ 4 };
 		static constexpr ValueRepType Time{ 5 };
 		static constexpr ValueRepType Serialized{ 6 };
+		static constexpr ValueRepType Complex{ 7 };
 
 		ValueRepType operator() (EZefRef uzr) const;
 		ValueRepType operator() (ZefRef zr) const;

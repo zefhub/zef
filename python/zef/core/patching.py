@@ -226,7 +226,7 @@ wrap_eq(main.Keyword)
 wrap_hash(main.Keyword)
 
 internals.AtomicEntityType.__getitem__ = absorbed_get_item
-wrap_repr(internals.AtomicEntityType)
+# wrap_repr(internals.AtomicEntityType)
 wrap_eq(internals.AtomicEntityType)
 wrap_hash(internals.AtomicEntityType)
 
@@ -356,3 +356,26 @@ SerializedValue.serialize = SerializedValue_serialize
 def SerializedValue_repr(self):
     return f"SerializedValue('{self.type}', '{self.data}')"
 SerializedValue.__repr__ = SerializedValue_repr
+
+
+
+original_AtomicEntityTypeStruct__call__ = internals.AtomicEntityTypeStruct.__call__
+def AtomicEntityTypeStruct_call(self, x):
+    from .VT import ValueType_
+    if type(x) == ValueType_:
+        return AtomicEntityType(SerializedValue.serialize(x))
+    else:
+        return original_AtomicEntityTypeStruct__call__(self, x)
+AtomicEntityTypeStruct.__call__ = AtomicEntityTypeStruct_call
+
+original_AtomicEntityType__repr__ = internals.AtomicEntityType.__repr__
+def AtomicEntityType_repr(self):
+    s = "AET"
+    if self.complex_value:
+        s += "(" + str(self.complex_value.deserialize()) + ")"
+    else:
+        s += "." + str(self.rep_type)
+    if '_absorbed' in self.__dict__:
+        s += ''.join(('[' + repr(el) + ']' for el in self._absorbed))
+    return s
+AtomicEntityType.__repr__ = AtomicEntityType_repr

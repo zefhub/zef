@@ -2364,7 +2364,10 @@ def without_absorbed_imp(x):
             return new_rt
         
     elif isinstance(x, AtomicEntityType):
-        return AtomicEntityType(x.value)
+        if x.complex_value:
+            return AtomicEntityType(x.complex_value)
+        else:
+            return AtomicEntityType(x.rep_type)
                 
     elif isinstance(x, Keyword):
         if '_absorbed' not in x.__dict__:

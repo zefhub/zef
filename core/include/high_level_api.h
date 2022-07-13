@@ -57,31 +57,37 @@ namespace zefDB {
 
 
     template<class T>
-    void assign_value(EZefRef my_atomic_entity, T value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, bool value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, int value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, double value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, str value_to_be_assigned);
-    // LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const char* value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, Time value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, SerializedValue value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, ZefEnumValue value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, QuantityFloat value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, QuantityInt value_to_be_assigned);
+    void assign_value(EZefRef my_atomic_entity, const T & value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const bool & value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const int & value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const double & value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const str & value_to_be_assigned);
+    // LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const charconst * value_to_be_assigned &);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const Time & value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const SerializedValue & value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const ZefEnumValue & value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const QuantityFloat & value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const QuantityInt & value_to_be_assigned);
+    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const EZefRef & value_to_be_assigned);
     template<class T>
-    void assign_value(ZefRef my_atomic_entity, T value_to_be_assigned) {
+    void assign_value(ZefRef my_atomic_entity, const T & value_to_be_assigned) {
         assign_value(my_atomic_entity.blob_uzr, value_to_be_assigned);
     }
-    template void assign_value(ZefRef my_atomic_entity, bool value_to_be_assigned);
-    template void assign_value(ZefRef my_atomic_entity, int value_to_be_assigned);
-    template void assign_value(ZefRef my_atomic_entity, double value_to_be_assigned);
-    template void assign_value(ZefRef my_atomic_entity, str value_to_be_assigned);
-    // template void assign_value(ZefRef my_atomic_entity, const char* value_to_be_assigned);
-    template void assign_value(ZefRef my_atomic_entity, Time value_to_be_assigned);
-    template void assign_value(ZefRef my_atomic_entity, SerializedValue value_to_be_assigned);
-    template void assign_value(ZefRef my_atomic_entity, ZefEnumValue value_to_be_assigned);
-    template void assign_value(ZefRef my_atomic_entity, QuantityFloat value_to_be_assigned);
-    template void assign_value(ZefRef my_atomic_entity, QuantityInt value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const bool & value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const int & value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const double & value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const str & value_to_be_assigned);
+    // template void assign_value(ZefRef my_atomic_entity, const charconst * & value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const Time & value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const SerializedValue & value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const ZefEnumValue & value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const QuantityFloat & value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const QuantityInt & value_to_be_assigned);
+    template void assign_value(ZefRef my_atomic_entity, const EZefRef & value_to_be_assigned);
+    template<>
+    inline void assign_value(ZefRef my_atomic_entity, const ZefRef & value_to_be_assigned) {
+        assign_value(my_atomic_entity, value_to_be_assigned.blob_uzr);
+    }
 
     // TODO: assign_value with a value node
                                  
@@ -252,8 +258,16 @@ namespace zefDB {
 
     // Value nodes
     template<typename T>
-	ZefRef instantiate_value_node(T value, Graph& g);
-    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(int value, Graph& g);
+	ZefRef instantiate_value_node(const T & value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const bool & value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const int & value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const double & value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const str & value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const Time & value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const ZefEnumValue & value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const QuantityFloat & value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const QuantityInt & value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const SerializedValue & value, Graph& g);
 
 
 

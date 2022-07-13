@@ -458,5 +458,19 @@ namespace zefDB {
     inline bool variant_eq(const std::variant<Types...>& v, const T& t) {
         return variant_eq(t, v);
     }
+    
+    // This is apparently the hash_combine that's in boost. Taken from
+    // https://stackoverflow.com/questions/19195183/how-to-properly-hash-the-custom-struct.
+    template <class T>
+    inline void hash_combine(std::size_t & s, const T & v)
+    {
+        std::hash<T> h;
+        s ^= h(v) + 0x9e3779b9 + (s<< 6) + (s>> 2);
+    }
+
+    template <class T>
+    inline size_t get_hash(const T & thing) {
+        return std::hash<T>{}(thing);
+    }
 
 }

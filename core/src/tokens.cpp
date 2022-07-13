@@ -835,6 +835,7 @@ namespace zefDB {
             case VRT.Int.value: {return "Int"; break; }
             case VRT.Time.value: {return "Time"; break; }
             case VRT.Serialized.value: {return "Serialized"; break; }
+            case VRT.Complex.value: {return "Complex"; break; }
 
 #include "graph.cpp.stringfromAET.gen"
                 // if we reach here, it may still be a known type. It was just not known at compile time

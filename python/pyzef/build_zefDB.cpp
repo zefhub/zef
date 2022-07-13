@@ -563,7 +563,15 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	main_module.def("instantiate", py::overload_cast<ZefRef, RelationType, ZefRef, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an relation", "src"_a, "relation_type"_a, "dst"_a, "g"_a, "uid"_a = py::none());
 	main_module.def("instantiate", py::overload_cast<EZefRef, RelationType, EZefRef, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an relation", "src"_a, "relation_type"_a, "dst"_a, "g"_a, "uid"_a = py::none());
 
-	main_module.def("instantiate_value_node", py::overload_cast<int, Graph&>(&instantiate_value_node<int>), py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<bool>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<int>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<double>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<str>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<Time>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<ZefEnumValue>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<QuantityFloat>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<QuantityInt>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<SerializedValue>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
 	
 
 //                                   _                    __      _                            

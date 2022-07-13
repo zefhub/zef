@@ -16,8 +16,6 @@
 def c_value_type_check(val, s_typ):
     """Don't call this explicitly. Only for the zefdb core."""
 
-    print("In value_type_check in python")
-
     from ...pyzef.zefops import SerializedValue
     from .._ops import is_a
 

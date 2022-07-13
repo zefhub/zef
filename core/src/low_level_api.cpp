@@ -243,7 +243,14 @@ namespace zefDB {
             return instantiate_value_node(value, value_hash(value), gd);
         }
 
+        template EZefRef instantiate_value_node(const bool & value, GraphData& g);
         template EZefRef instantiate_value_node(const int & value, GraphData& g);
+        template EZefRef instantiate_value_node(const double & value, GraphData& g);
+        template EZefRef instantiate_value_node(const str & value, GraphData& g);
+        template EZefRef instantiate_value_node(const Time & value, GraphData& g);
+        template EZefRef instantiate_value_node(const ZefEnumValue & value, GraphData& g);
+        template EZefRef instantiate_value_node(const QuantityFloat & value, GraphData& g);
+        template EZefRef instantiate_value_node(const QuantityInt & value, GraphData& g);
         template EZefRef instantiate_value_node(const SerializedValue & value, GraphData& g);
 
 
@@ -678,25 +685,40 @@ namespace zefDB {
         template bool is_compatible(const ZefEnumValue & en, const AtomicEntityType & aet);
         template bool is_compatible(const QuantityFloat & q, const AtomicEntityType & aet);
         template bool is_compatible(const QuantityInt & q, const AtomicEntityType & aet);
+        template<>
+        bool is_compatible(const EZefRef & z, const AtomicEntityType & aet) {
+            if(!is_zef_subtype(z, BT.ATOMIC_VALUE_NODE))
+                throw std::runtime_error("Got to is_compatible with a non-AVN EZefRef");
+            auto & ent = get<blobs_ns::ATOMIC_VALUE_NODE>(z);
+            auto val = value_from_node<value_variant_t>(ent);
+            return std::visit([&aet](auto & x) {
+                return is_compatible(x, aet);
+            },
+                val);
+        }
 
         std::optional<SerializedValue> get_AE_complex_type(const blobs_ns::ATOMIC_ENTITY_NODE & ae) {
+            if (!is_AE_complex(ae))
+                return {};
+
             // The first edge is a REL_ENT_INSTANCE and the second must be the COMPLEX_VALUE_TYPE_EDGE
             if(ae.edges.indices[1] <= 0)
-                return {};
+                throw std::runtime_error("Complex value type edge is missing");
             EZefRef maybe_edge{ae.edges.indices[1], *graph_data(&ae)};
             if(BT(maybe_edge) != BT.COMPLEX_VALUE_TYPE_EDGE)
-                return {};
+                throw std::runtime_error("Complex value type edge is missing");
 
             EZefRef z_value_node = imperative::target(maybe_edge);
             auto & value_node = get<blobs_ns::ATOMIC_VALUE_NODE>(z_value_node);
-            if(value_node.rep_type != VRT.Serialized)
-                throw std::runtime_error("Complex type value node is not of VRT.Serialized type.");
+            if (value_node.rep_type != VRT.Serialized)
+                throw std::runtime_error("Complex value type node is not VRT.Serialized");
 
             return value_from_node<SerializedValue>(value_node);
         }
 
         bool is_AE_complex(const blobs_ns::ATOMIC_ENTITY_NODE & ae) {
-            return (bool)get_AE_complex_type(ae);
+            // return (bool)get_AE_complex_type(ae);
+            return (ae.rep_type == VRT.Complex);
         }
 
 
@@ -799,7 +821,14 @@ namespace zefDB {
 
         template<class T>
         T value_from_node(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae) {
-            return value_from_node_<T>(aae);
+            if(aae.rep_type == VRT.Complex) {
+                // The data buffer contains the index that points to the real value node.
+                blob_index value_node_index = *(blob_index*)aae.data_buffer;
+                EZefRef z_value_node{value_node_index, *graph_data(&aae)};
+                auto & value_node = get<blobs_ns::ATOMIC_VALUE_NODE>(z_value_node);
+                return value_from_node_<T>(value_node);
+            } else
+                return value_from_node_<T>(aae);
         }
         template<class T>
         T value_from_node(const blobs_ns::ATOMIC_VALUE_NODE& av) {

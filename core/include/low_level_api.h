@@ -64,7 +64,7 @@ namespace zefDB {
 	struct LIBZEF_DLL_EXPORTED AtomicEntityType {
 		constexpr AtomicEntityType() : rep_type(0), complex_value(std::nullopt) {};
 		constexpr AtomicEntityType(ValueRepType rep_type) : rep_type(rep_type), complex_value(std::nullopt) {};
-		AtomicEntityType(SerializedValue complex_value) : rep_type(VRT.Serialized), complex_value(complex_value) {};
+		AtomicEntityType(SerializedValue complex_value) : rep_type(VRT.Complex), complex_value(complex_value) {};
 		ValueRepType rep_type;
         // In the future, this will become a ZefValue
         std::optional<SerializedValue> complex_value;
@@ -183,17 +183,33 @@ namespace zefDB {
 
 
         template<typename T>
-        value_hash_t value_hash(T value);
+        value_hash_t value_hash(const T & value) {
+            return get_hash(value);
+        }
+
+        // template value_hash_t value_hash(const bool & value);
+        // template value_hash_t value_hash(const int & value);
+        // template value_hash_t value_hash(const double & value);
+        // template value_hash_t value_hash(const str & value);
+        // template value_hash_t value_hash(const Time & value);
+        // template value_hash_t value_hash(const ZefEnumValue & value);
+        // template value_hash_t value_hash(const QuantityFloat & value);
+        // template value_hash_t value_hash(const QuantityInt & value);
 
         template<>
-        inline value_hash_t value_hash(int value) { return std::hash<int>()(value); }
-        template<>
-        inline value_hash_t value_hash(SerializedValue value) { return std::hash<str>()(value.data); }
+        inline value_hash_t value_hash(const SerializedValue & value) { return std::hash<str>()(value.data); }
 
         // Value nodes
         template<typename T>
         EZefRef instantiate_value_node(const T & value, GraphData& g);
+        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const bool & value, GraphData& g);
         LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const int & value, GraphData& g);
+        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const double & value, GraphData& g);
+        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const str & value, GraphData& g);
+        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const Time & value, GraphData& g);
+        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const ZefEnumValue & value, GraphData& g);
+        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const QuantityFloat & value, GraphData& g);
+        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const QuantityInt & value, GraphData& g);
         LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const SerializedValue & value, GraphData& g);
 
 
@@ -394,7 +410,10 @@ namespace zefDB {
         extern template bool is_compatible(const ZefEnumValue & en, const AtomicEntityType & aet);
         extern template bool is_compatible(const QuantityFloat & q, const AtomicEntityType & aet);
         extern template bool is_compatible(const QuantityInt & q, const AtomicEntityType & aet);
+        template<>
+        LIBZEF_DLL_EXPORTED bool is_compatible(const EZefRef & z, const AtomicEntityType & aet);
 
+        bool is_AE_complex(const blobs_ns::ATOMIC_ENTITY_NODE & ae);
         std::optional<SerializedValue> get_AE_complex_type(const blobs_ns::ATOMIC_ENTITY_NODE & ae);
 
         // Note: QuantityInt/Float and Enum will just have to be unscoped here.
@@ -464,7 +483,7 @@ namespace zefDB {
         extern template bool value_from_node<bool>(const blobs_ns::ATOMIC_VALUE_NODE& av);
         extern template value_variant_t value_from_node<value_variant_t>(const blobs_ns::ATOMIC_VALUE_NODE& av);
 
-		template <typename T>    
+		template <typename T>
 		T abs_val(T val) {       
 			return val > 0 ? val : -val;
 		}                        

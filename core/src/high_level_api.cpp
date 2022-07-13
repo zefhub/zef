@@ -410,7 +410,7 @@ namespace zefDB {
 		// AtomicEntityType has a const member and we can't set this afterwards. Construct into place (call constructor on specified address)
 		// 'placement new': see https://www.stroustrup.com/C++11FAQ.html#unions
         if(is_AET_complex(aet)) {
-            new(&entity_struct.rep_type) ValueRepType{ VRT.Serialized.value };  // take on same type for the atomic entity delegate
+            new(&entity_struct.rep_type) ValueRepType{ VRT.Complex.value };  // take on same type for the atomic entity delegate
             EZefRef value_node = internals::instantiate_value_node(*aet.complex_value, gd);
             internals::instantiate(my_entity, BT.COMPLEX_VALUE_TYPE_EDGE, value_node, gd);
         } else {
@@ -483,7 +483,7 @@ namespace zefDB {
 	}
 
     template<typename T>
-	ZefRef instantiate_value_node(T value, Graph& g) {
+	ZefRef instantiate_value_node(const T & value, Graph& g) {
         // We lock the GraphData here so that we are sure that no other
         // transactions are created even after ours finishes. This allows us to
         // easily detect whether the transaction was rolled back.
@@ -495,7 +495,15 @@ namespace zefDB {
         return imperative::now(value_node); 
     }
 
-    template ZefRef instantiate_value_node(int value, Graph& g);
+    template ZefRef instantiate_value_node(const bool & value, Graph& g);
+    template ZefRef instantiate_value_node(const int & value, Graph& g);
+    template ZefRef instantiate_value_node(const double & value, Graph& g);
+    template ZefRef instantiate_value_node(const str & value, Graph& g);
+    template ZefRef instantiate_value_node(const Time & value, Graph& g);
+    template ZefRef instantiate_value_node(const ZefEnumValue & value, Graph& g);
+    template ZefRef instantiate_value_node(const QuantityFloat & value, Graph& g);
+    template ZefRef instantiate_value_node(const QuantityInt & value, Graph& g);
+    template ZefRef instantiate_value_node(const SerializedValue & value, Graph& g);
 
     namespace internals {
 
@@ -762,7 +770,7 @@ namespace zefDB {
 
 
     template <typename T>
-    void assign_value(EZefRef my_atomic_entity, T value_to_be_assigned) {
+    void assign_value(EZefRef my_atomic_entity, const T & value_to_be_assigned) {
         GraphData& gd = *graph_data(my_atomic_entity);
         if (!gd.is_primary_instance)
             throw std::runtime_error("'assign value' called for a graph which is not a primary instance. This is not allowed. Shame on you!");
@@ -799,11 +807,13 @@ namespace zefDB {
         // 
 
         auto assignment_func = overloaded {
-                // [&](const ValueNodeRef &) {
-                //     // TODO: Stuff
-                //     new(&my_value_assignment_edge.my_atomic_entity_type) AtomicEntityType{ AET.Serialized.value };  // set the const value
-                //     throw std::runtime_error("Not yet done");
-                // },
+                [&](const EZefRef & z) {
+                    if(!is_zef_subtype(z, BT.ATOMIC_VALUE_NODE))
+                        throw std::runtime_error("Trying to assign a value from a non-AVN EZefRef");
+                    new(&my_value_assignment_edge.rep_type) ValueRepType{ VRT.Complex.value };
+                    // Assign the index of the value node into the buffer as the substitute.
+                    internals::copy_to_buffer(my_value_assignment_edge.data_buffer, my_value_assignment_edge.buffer_size_in_bytes, index(z));
+                },
                 [&](const auto & value_to_be_assigned) {
                     auto deduced_vrt = get_vrt_from_value(value_to_be_assigned);
                     // In this branch we know that the aet will always be a VRT
@@ -823,14 +833,15 @@ namespace zefDB {
         apply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(gd, EZefRef((void*)&my_value_assignment_edge), true);
     }
 
-    template void assign_value(EZefRef my_atomic_entity, bool value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, int value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, double value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, str value_to_be_assigned);
-    // template void assign_value(EZefRef my_atomic_entity, const char* value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, Time value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, SerializedValue value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, ZefEnumValue value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, QuantityFloat value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, QuantityInt value_to_be_assigned);
+    template void assign_value(EZefRef my_atomic_entity, const bool & value_to_be_assigned);
+    template void assign_value(EZefRef my_atomic_entity, const int & value_to_be_assigned);
+    template void assign_value(EZefRef my_atomic_entity, const double & value_to_be_assigned);
+    template void assign_value(EZefRef my_atomic_entity, const str & value_to_be_assigned);
+    // template void assign_value(EZefRef my_atomic_entity, const charconst * value_to_be_assigned &);
+    template void assign_value(EZefRef my_atomic_entity, const Time & value_to_be_assigned);
+    template void assign_value(EZefRef my_atomic_entity, const SerializedValue & value_to_be_assigned);
+    template void assign_value(EZefRef my_atomic_entity, const ZefEnumValue & value_to_be_assigned);
+    template void assign_value(EZefRef my_atomic_entity, const QuantityFloat & value_to_be_assigned);
+    template void assign_value(EZefRef my_atomic_entity, const QuantityInt & value_to_be_assigned);
+    template void assign_value(EZefRef my_atomic_entity, const EZefRef & value_to_be_assigned);
 }
