@@ -185,6 +185,7 @@ def dispatch_rich_panel(component):
     attributes = resolve_attributes(internals[0])
     return rp.Panel(data, **attributes)
 
+
 #--------------------------HStack,VStack--------------------------------------
 def dispatch_rich_stack(component):
     import rich.table as rt
@@ -215,28 +216,8 @@ def dispatch_rich_stack(component):
     return rich_grid
 
 
-#--------------------------Bullet/NumberedList--------------------------------------
-def dispatch_rich_list(component):
-    import rich.markdown as rm
-    list_type = str(component | without_absorbed | collect)
-    dispatch_type = lambda i: '- ' if list_type == 'BulletList' else str(i + 1) +'. '
-    nl = '\n'
-    
-    internals = component | absorbed | collect
-    assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Table should be of type dict!"
-    data  = internals[0].get('data', [])
-    heading = internals[0].get('heading', "")
-    if heading: heading = "# " + heading
-    
-    markdown_str = f"""
-{heading}
-{nl.join([f'{dispatch_type(i)}{e}' for i,e in enumerate(data)])}
-    """
-    return rm.Markdown(markdown_str)
-
-
-#--------------------------Paragraph--------------------------------------
-def dispatch_rich_paragraph(component):
+#--------------------------Markdown--------------------------------------
+def dispatch_rich_markdown(component):
     import rich.markdown as rm
 
     def resolve_style(d):
@@ -245,16 +226,53 @@ def dispatch_rich_paragraph(component):
     
     internals = component | absorbed | collect
     assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Table should be of type dict!"
-    data  = internals[0].get('data', "")
-    heading = internals[0].get('heading', "")
-    if heading: heading = "## " + heading
     style = resolve_style(internals[0])
+
+    return rm.Markdown(component_to_markdown_string(component), style = style)
+
+
+def component_to_markdown_string(component):
     
-    markdown_str = f"""
+    def dispatch_bullet_or_numbered_list(component):
+        list_type = str(component | without_absorbed | collect)
+        if list_type == 'BulletList':
+            dispatch_type = lambda i: '- ' 
+        else:
+            dispatch_type = lambda i: str(i + 1) +'. '
+        nl = '\n'
+        
+        internals = component | absorbed | collect
+        assert isinstance(internals[0], dict), f"First absorbed argument for ZefUI {list_type} should be of type dict!"
+        data  = internals[0].get('data', [])
+        heading = internals[0].get('heading', "")
+        heading_level = internals[0].get('heading_level', 3)
+        
+        if heading: heading = f"{'#' * heading_level} {heading}"
+        
+        return f"""
+{heading}
+{nl.join([f'{dispatch_type(i)}{e}' for i,e in enumerate(data)])}
+    """
+
+    def dispatch_paragraph(component):
+        internals = component | absorbed | collect
+        assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Paragraph should be of type dict!"
+        data  = internals[0].get('data', "")
+        heading = internals[0].get('heading', "")
+        heading_level = internals[0].get('heading_level', 2)
+        if heading: heading = f"{'#' * heading_level} {heading}"
+
+    
+        return f"""
 {heading}
 {data}
     """
-    return rm.Markdown(markdown_str, style = style)
+
+    return component | match[
+        (Is[is_a_component[BulletList]], dispatch_bullet_or_numbered_list),
+        (Is[is_a_component[NumberedList]], dispatch_bullet_or_numbered_list),
+        (Is[is_a_component[Paragraph]], dispatch_paragraph),
+    ] | collect
 
 
 #-------------------Dispatch-------------------------------------
@@ -288,9 +306,9 @@ def match_and_dispatch(component):
         (Is[is_a_component[Frame]], dispatch_rich_panel),
         (Is[is_a_component[HStack]], dispatch_rich_stack),
         (Is[is_a_component[VStack]], dispatch_rich_stack),
-        (Is[is_a_component[BulletList]], dispatch_rich_list),
-        (Is[is_a_component[NumberedList]], dispatch_rich_list),
-        (Is[is_a_component[Paragraph]], dispatch_rich_paragraph),
+        (Is[is_a_component[BulletList]], dispatch_rich_markdown),
+        (Is[is_a_component[NumberedList]], dispatch_rich_markdown),
+        (Is[is_a_component[Paragraph]], dispatch_rich_markdown),
     ] | collect
 
 def print_rich(displayable):
