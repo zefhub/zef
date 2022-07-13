@@ -26,6 +26,7 @@ from ._values import value_or, maybe_value
 # from ..tools.ops import _ 
 
 from .transactor_role import *
+from ..ui import show
 
 __all__ = [
     # "_",
@@ -34,4 +35,5 @@ __all__ = [
     "value_or",
     "maybe_value",
     "config",
+    "show",
 ] + privileges.__all__ + lazy_all + transactor_role.__all__
