@@ -1049,7 +1049,7 @@ def resolve_dag_ordering_step(arg: dict)->dict:
             return not isinstance(cmd['rae_type'], RelationType) or (cmd['source'] in ids and cmd['target'] in ids)
         if cmd['cmd'] == 'merge':
             # If the merge is of a relation, we need both source and target to exist already
-            return not isinstance(cmd['origin_rae'], Relation) or (cmd['origin_rae'].d["uids"][0] not in ids or cmd['origin_rae'].d["uids"][2] not in ids)
+            return not isinstance(cmd['origin_rae'], Relation) or (cmd['origin_rae'].d["uids"][0] in ids and cmd['origin_rae'].d["uids"][2] in ids)
         if cmd['cmd'] == 'terminate':
             # Don't terminate if there an upcoming operation that will create this item
             return all(get_id(cmd) not in get_ids(other) for other in input if other['cmd'] != 'terminate')
