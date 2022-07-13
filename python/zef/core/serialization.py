@@ -75,12 +75,6 @@ def serialize_internal(v):
         }
     if is_python_scalar_type(v):
         return v
-    elif isinstance(v, list):
-        return serialize_list(v)
-    elif isinstance(v, tuple):
-        return serialize_tuple(v)
-    elif isinstance(v, dict):
-        return serialize_dict(v)
     elif type(v) in serialization_mapping:
          return serialization_mapping[type(v)](v)
     raise Exception(f"Don't know how to serialize type {type(v)}")
@@ -488,7 +482,9 @@ serialization_mapping[pyinternals.DelegateTX] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRoot] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRelationTriple] = serialize_delegate
 serialization_mapping[ValueType_] = serialize_valuetype
-
+serialization_mapping[list] = serialize_list
+serialization_mapping[tuple] = serialize_tuple
+serialization_mapping[dict] = serialize_dict
 
 deserialization_mapping["dict"] = deserialize_dict
 deserialization_mapping["tuple"] = deserialize_tuple

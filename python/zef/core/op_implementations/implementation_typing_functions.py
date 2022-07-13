@@ -2539,15 +2539,14 @@ def multiply_tp(a, second, *args):
 
 
 #---------------------------------------- divide -----------------------------------------------
-def divide_imp(a, second=None):    
+def divide_imp(a, b=None):    
     """
     Binary operator to divide two elements. Neither is a list.
-    If am operator is needed that can act on a tuple of length 2,
+    If an operator is needed that can act on a tuple of length 2,
     this can be wrapped in `unpack`.
 
     ---- Examples ----
     10 | divide[2]                # => 5
-    (10, 2) | divide[subtract]    # => 5
 
     ---- Signature ----
     (T1, T2) -> Float
@@ -2564,7 +2563,7 @@ def divide_imp(a, second=None):
     """
     if type(a) in {list, tuple} or type(b) in {list, tuple}:
         raise TypeError(f"`subtract` is a binary operator, i.e. always takes two arguments.")
-    return a-b
+    return a/b
     
     
 def divide_tp(a, second):
@@ -6011,12 +6010,7 @@ def value_implementation(zr, maybe_tx=None):
 
     from ...pyzef.zefops import SerializedValue
     if isinstance(val, SerializedValue):
-        if val.type == "tools.serialize":
-            from ..serialization import deserialize
-            from json import loads
-            return deserialize(loads(val.data))
-        else:
-            raise Exception(f"Don't know how to deserialize a type of {val.type}")
+        return val.deserialize()
     else:
         return val
 

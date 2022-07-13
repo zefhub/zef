@@ -329,3 +329,30 @@ def Graph__init__(self, *args, **kwds):
 
     return original_Graph__init__(self, *args, **kwds)
 main.Graph.__init__ = Graph__init__
+
+
+from ..pyzef.zefops import SerializedValue
+
+def SerializedValue_deserialize(self):
+    if self.type == "tools.serialize":
+        from .serialization import deserialize
+        from json import loads
+        return deserialize(loads(self.data))
+    else:
+        print(self.type)
+        print(self.data)
+        raise Exception(f"Don't know how to deserialize a type of {self.type}")
+SerializedValue.deserialize = SerializedValue_deserialize
+
+def SerializedValue_serialize(value):
+    from .serialization import serialize, serialization_mapping, is_python_scalar_type
+    from json import dumps
+    if type(value) in serialization_mapping or is_python_scalar_type(value):
+        return SerializedValue("tools.serialize", dumps(serialize(value)))
+    else:
+        raise Exception(f"Don't know how to serialize a type of {value}")
+SerializedValue.serialize = SerializedValue_serialize
+
+def SerializedValue_repr(self):
+    return f"SerializedValue('{self.type}', '{self.data}')"
+SerializedValue.__repr__ = SerializedValue_repr

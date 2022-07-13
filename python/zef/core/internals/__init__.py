@@ -172,13 +172,8 @@ def Transaction(g, wait=None, rollback_empty=None, check_schema=None):
 def assign_value_imp(z, value):
     from .._ops import is_a
     from ...pyzef.zefops import SerializedValue, assign_value as c_assign_value
-    from ..serialization import serialize, serialization_mapping
 
     assert isinstance(z, ZefRef) or isinstance(z, EZefRef)
     if is_a(z, AET.Serialized):
-        if type(z) in serialization_mapping:
-            from json import dumps
-            value = SerializedValue("tools.serialize", dumps(serialize(value)))
-        else:
-            raise Exception(f"Don't know how to serialize a type of {val}")
+        value = SerializedValue.serialize(value)
     c_assign_value(z, value)
