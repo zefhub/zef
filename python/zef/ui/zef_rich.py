@@ -110,7 +110,7 @@ def dispatch_rich_table(component):
             raise NotImplementedError(f"{maybe_component}:{type(maybe_component)}")
 
     def resolve_attributes(d):
-        allowed_keys = ["row_styles", "title", "box", "expand", "show_header", "show_header", "show_footer", "show_edge", "show_header", "width"]
+        allowed_keys = ["row_styles", "title", "box", "expand", "show_header", "padding", "show_footer", "show_edge", "show_lines", "width"]
         attributes       = select_keys(d, *allowed_keys)
         # row_styles: List of attributes or strings
         if "row_styles" in attributes:
@@ -285,6 +285,7 @@ def box_constants_mapping(box_style: str):
         'minimal_heavy_head':      box.MINIMAL_HEAVY_HEAD,     
         'minimal_double_head':     box.MINIMAL_DOUBLE_HEAD,           
         'simple':                  box.SIMPLE,    
+        'simple_head':             box.SIMPLE_HEAD,    
         'heavy':                   box.HEAVY,                 
         'heavy_edge':              box.HEAVY_EDGE,             
         'heavy_head':              box.HEAVY_HEAD,
