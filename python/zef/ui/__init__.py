@@ -15,6 +15,8 @@
 
 from .components import *
 from .zef_rich import show
+from .visualizations import to_table, to_card
+
 __all__ = [
     "show",
     "Text",
@@ -28,4 +30,6 @@ __all__ = [
     "BulletList",
     "NumberedList",
     "Paragraph",
+    "to_table",
+    "to_card",
 ]
