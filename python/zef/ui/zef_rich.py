@@ -169,7 +169,7 @@ def dispatch_rich_panel(component):
         if "title" in attributes and is_a_component(attributes["title"], Text): 
             attributes["title"] = dispatch_rich_text(attributes["title"])
         
-        if "subtitle" in attributes and is_a_component(attributes["title"], Text): 
+        if "subtitle" in attributes and is_a_component(attributes["subtitle"], Text): 
             attributes["subtitle"] = dispatch_rich_text(attributes["subtitle"])
 
         if "box" in attributes:
