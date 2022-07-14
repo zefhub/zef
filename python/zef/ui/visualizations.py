@@ -16,28 +16,28 @@ from . import *
 from ..core import *
 from ..ops import *
 
+# -----------------------Table View------------------------------------------
 def generate_mapping_for_et(et, g):
     z = delegate_of(et, g)
     connected_rels = z | out_rels[RT] | collect
     mapping =  connected_rels | map[lambda r: (rae_type(r), str(rae_type(r)))] | func[dict] | collect
     return mapping
 
+@func
+def value_or_type(node):
+    if is_a(node, AET):
+        val =  node | value | collect
+        if isinstance(val, bool):
+            return ["❌","✅"][val]
+        return val
+    else:
+        default = f"({repr(rae_type(node))})"
+        if len(Outs(node, RT.Name)) == 1:
+            return f"{node | Out[RT.Name]  | value | collect}{default}"
+        
+        return default
 
 def generate_rows(nodes, mapping):
-    @func
-    def value_or_type(node):
-        if is_a(node, AET):
-            val =  node | value | collect
-            if isinstance(val, bool):
-                return ["❌","✅"][val]
-            return val
-        else:
-            default = repr(rae_type(node))
-            if len(Outs(node, RT.Name)) == 1:
-                return node | Out[RT.Name]  | value | collect
-            
-            return default
-    
     @func
     def traverse_rt(rt, et):
         outs = et | Outs[rt] | collect
@@ -87,3 +87,39 @@ def generate_table_from_query(query):
     groups = query | filter[is_a[ET]] | group_by[rae_type] |  collect
     tables = groups | map[unpack[generate_table_for_single_type_zrs]] | collect
     return VStack(tables)
+
+
+#------------------------Card View------------------------------
+def generate_rows_for_node(node, is_out = True):
+    traverse_op, edge_end_op = [(in_rels, source), (out_rels, target)][is_out]
+    return node | traverse_op[RT] | sort[lambda rt: str(rae_type(rt))] | map[lambda rt: (str(rae_type(rt)), value_or_type(edge_end_op(rt)))] | collect
+
+
+def generate_table(zr, is_out):
+    colors = ["#ff7e74","#ffe596","#81d76d","#57acf9","#baaee1"]
+
+    rows = generate_rows_for_node(zr, is_out)
+    if not rows: return ""
+    row_styles  = [colors[i%len(colors)] for i in range(len(rows))]
+
+    column_headers = ["", [" Ins 👈🏻", " Outs 👉🏻"][is_out]]
+    columns = [Column(Text(c,justify = "left", style = Style(color = colors[1]))) for i,c in enumerate(column_headers)]
+
+    return Table(
+        expand=True,     
+        padding= (1,1,1,1),
+        box = 'simple_head',        
+        rows = rows,
+        cols = columns,
+        row_styles=row_styles,
+    )  
+
+def generate_card(zr):
+    title = Text(f"{(repr(rae_type(zr)))}", bold= True)
+    subtitle = Text(f"({uid(zr)})", bold= True)
+
+    outs_table = generate_table(zr, True)
+    ins_table = generate_table(zr, False)
+
+    return Frame(HStack([outs_table, ins_table], expand= True), title = title, subtitle=subtitle,  box="horizontals") 
+
