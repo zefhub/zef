@@ -82,10 +82,10 @@ def generate_table_for_single_type_zrs(selected_et, zrs, limit = 10):
         table
     ])
 
-
-def generate_table_from_query(query):
+@func
+def generate_table_from_query(query, limit=10):
     groups = query | filter[is_a[ET]] | group_by[rae_type] |  collect
-    tables = groups | map[unpack[generate_table_for_single_type_zrs]] | collect
+    tables = groups | map[lambda g: generate_table_for_single_type_zrs(*g, limit)] | collect
     return VStack(tables)
 
 
@@ -114,6 +114,7 @@ def generate_table(zr, is_out):
         row_styles=row_styles,
     )  
 
+@func
 def generate_card(zr):
     title = Text(f"{(repr(rae_type(zr)))}", bold= True)
     subtitle = Text(f"({uid(zr)})", bold= True)
@@ -123,3 +124,7 @@ def generate_card(zr):
 
     return Frame(HStack([outs_table, ins_table], expand= True), title = title, subtitle=subtitle,  box="horizontals") 
 
+
+#--------------------------Ops--------------------------------------
+to_table =  generate_table_from_query
+to_card  =  generate_card
