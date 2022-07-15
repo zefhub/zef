@@ -99,7 +99,7 @@ namespace zefDB {
             // Using offsetof to get the proper location of the start of the
             // data_buffer..
             size_t backtrack_amount = sizeof(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE) - offsetof(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE, data_buffer);
-            size += get<ATOMIC_VALUE_NODE>(b).buffer_size_in_bytes - backtrack_amount;
+            size += get<ATOMIC_VALUE_ASSIGNMENT_EDGE>(b).buffer_size_in_bytes - backtrack_amount;
             break;
         }
 		case BlobType::ASSIGN_TAG_NAME_EDGE: {

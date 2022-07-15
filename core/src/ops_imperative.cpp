@@ -99,6 +99,7 @@ namespace zefDB {
                 return (latest_instantiation_edge > latest_retirement_edge);
             }
 
+            // TODO: This needs to be updated with the instantiation/retirement of RAEs
             switch (get<BlobType>(uzr)) {
             case BlobType::RELATION_EDGE: {
                 blobs_ns::RELATION_EDGE& x = get<blobs_ns::RELATION_EDGE>(uzr);
@@ -114,6 +115,10 @@ namespace zefDB {
                 blobs_ns::ATOMIC_ENTITY_NODE& x = get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr);
                 return ts >= x.instantiation_time_slice
                     && (x.termination_time_slice.value == 0 || ts < x.termination_time_slice);
+            }
+            case BlobType::ATOMIC_VALUE_NODE: {
+                auto ez_tx = traverse_in_node(traverse_in_edge(uzr, BT.RAE_INSTANCE_EDGE), BT.INSTANTIATION_EDGE);
+                return exists_at(ez_tx, ts);
             }
             case BlobType::TX_EVENT_NODE: {
                 return ts >= get<blobs_ns::TX_EVENT_NODE>(uzr).time_slice;

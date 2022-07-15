@@ -55,7 +55,8 @@ namespace zefDB {
                                [](EZefRef x) {
                                    return ((BT(x) == BT.ENTITY_NODE)
                                            || (BT(x) == BT.ATOMIC_ENTITY_NODE)
-                                           || (BT(x) == BT.RELATION_EDGE))
+                                           || (BT(x) == BT.RELATION_EDGE)
+                                           || (BT(x) == BT.ATOMIC_VALUE_NODE))
                                        && !is_delegate(x);
                                });
     }

@@ -43,7 +43,6 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(z, z2)
         self.assertEqual(value(z), 5)
 
-        from zef.pyzef.zefops import SerializedValue
         z = Val({'some_dict': 5}) | g | run
         z2 = Val({'some_dict': 5}) | g | run
 
@@ -55,6 +54,11 @@ class MyTestCase(unittest.TestCase):
 
         d,e,f = (ET.Machine, RT.Kind, Val("operating")) | g | run
         self.assertEqual(now(c), now(f))
+
+        self.assertEqual(d | Out[RT.Kind] | Ins[RT.Kind] | func[set] | collect,
+                         {now(a), now(d)})
+
+        self.assertEqual(g | now | all | length | collect, 7)
 
     def test_logic_type(self):
         g = Graph()
