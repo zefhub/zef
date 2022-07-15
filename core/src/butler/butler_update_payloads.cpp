@@ -75,6 +75,7 @@ UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & up
             GEN_CACHE("_uid_lookup", uid_lookup)
             GEN_CACHE("_euid_lookup", euid_lookup)
             GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
         else {
             throw std::runtime_error("Unknown cache");
         }
@@ -109,6 +110,7 @@ json create_heads_json_from_sync_head(const GraphData & gd, const UpdateHeads & 
             GEN_CACHE("_uid_lookup", uid_lookup)
             GEN_CACHE("_euid_lookup", euid_lookup)
             GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
         else {
             throw std::runtime_error("Unknown cache");
         }
@@ -140,6 +142,7 @@ UpdateHeads client_create_update_heads(const GraphData & gd) {
         GEN_CACHE("_uid_lookup", uid_lookup)
         GEN_CACHE("_euid_lookup", euid_lookup)
         GEN_CACHE("_tag_lookup", tag_lookup)
+        GEN_CACHE("_av_hash_lookup", av_hash_lookup)
 #undef GEN_CACHE
         return update_heads;
 }
@@ -191,6 +194,13 @@ void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j) {
             {"revision", mapping.get()->revision()},
         };
     }
+    {
+        decltype(GraphData::av_hash_lookup)::element_type mapping(fg, prefix->av_hash_lookup);
+        cache_heads["_av_hash_lookup"] = json{
+            {"head", mapping.get()->size()},
+            {"revision", mapping.get()->revision()},
+        };
+    }
     j["cache_heads"] = cache_heads;
 }
 
@@ -213,6 +223,7 @@ void apply_sync_heads(GraphData & gd, const UpdateHeads & update_heads) {
                 GEN_CACHE("_uid_lookup", uid_lookup)
                 GEN_CACHE("_euid_lookup", euid_lookup)
                 GEN_CACHE("_tag_lookup", tag_lookup)
+                GEN_CACHE("_av_hash_lookup", av_hash_lookup)
             else
                 throw std::runtime_error("Don't understand cache: " + cache.name);
 #undef GEN_CACHE
@@ -276,6 +287,7 @@ bool heads_apply(const UpdateHeads & heads, const GraphData & gd) {
             GEN_CACHE("_uid_lookup", uid_lookup)
             GEN_CACHE("_euid_lookup", euid_lookup)
             GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
         else
             throw std::runtime_error("Unknown cache");
     }

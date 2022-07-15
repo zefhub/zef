@@ -159,6 +159,9 @@ namespace zefDB {
                     return 0;
                 } else {
                     // Should be able to do better here instead of "always left"
+                    // - however this will mess with the partial updates sent
+                    // over the network. So instead we will go with "always
+                    // left" for simplicity.
                     return -1;
                 }
             };

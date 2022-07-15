@@ -830,22 +830,6 @@ namespace zefDB {
         }
 
         void apply_diff(std::string diff, const ensure_func_t & ensure_func) {
-            // Do one ensure func for the range we know is required now, that
-            // way we can be sure the data won't move afterwards
-            // size_t new_size = _size + diff.size()/sizeof(Element);
-            // auto & new_this = ensure_func(sizeof(AppendOnlyBinaryTree) + sizeof(Element)*new_size);
-
-            // const Element * data = (Element*)diff.c_str();
-            // if(diff.size() % sizeof(Element) != 0)
-            //     throw std::runtime_error("Diff isn't a multiple of data type");
-            // // We have to do the append manually here, as ensure_func can't be called with a smaller size
-            // Element * cur = new_this.index_to_element(0);
-            // for(int i = 0 ; i < diff.size()/sizeof(Element) ; i++) {
-            //     *cur = std::move(data[i]);
-            //     cur++;
-            // }
-            // new_this._size = new_size;
-
             if(diff.size() % sizeof(Element) != 0)
                 throw std::runtime_error("Diff isn't a multiple of data type");
 
@@ -853,13 +837,28 @@ namespace zefDB {
             auto & new_this = ensure_func(sizeof(AppendOnlyCollisionHashMap) + sizeof(Element)*new_size);
 
             const Element * data = (Element*)diff.c_str();
-            // Element * cur = new_this.index_to_element(0);
-            // for(int i = 0 ; i < diff.size()/sizeof(Element) ; i++) {
-            //     *cur = std::move(data[i]);
-            //     cur++;
-            // }
-            for(int i = 0 ; i < diff.size()/sizeof(Element) ; i++)
-                new_this.append(data[i].key, data[i].val, ensure_func, true);
+            // We can't do true appends, as that requires knowing the true
+            // value. Here we have to take it on face value. However, we do need
+            // to update the left/right indexes. So we need to fake the
+            // comparison function. This is hence why we have the requirement
+            // that any hash collisions always go to the left and not use the
+            // value itself to make unpredictable choices.
+
+            Element * cur = new_this.index_to_element(0);
+            for(int i = 0 ; i < diff.size()/sizeof(Element) ; i++) {
+                const KEY & key = data[i].key;
+                const VAL & val = data[i].val;
+                auto compare_func = [&key,&val](KEY other_key, VAL other_val) {
+                    if(other_key != key)
+                        return key < other_key ? -1 : +1;
+
+                    if(other_val == val)
+                        throw std::runtime_error("Duplicate value encountered while inserting into CollisionHashMap.");
+                    else
+                        return -1;
+                };
+                new_this.append(key, val, compare_func, ensure_func, true);
+            }
 
             if(new_this._size != new_size)
                 throw std::runtime_error("Size after appending diff is not what was expected.");

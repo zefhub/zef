@@ -226,6 +226,7 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, boo
         GEN_CACHE("_uid_lookup", uid_lookup)
         GEN_CACHE("_euid_lookup", euid_lookup)
         GEN_CACHE("_tag_lookup", tag_lookup)
+        GEN_CACHE("_av_hash_lookup", av_hash_lookup)
         else
             throw std::runtime_error("Unknown cache");
 #undef GEN_CACHE
