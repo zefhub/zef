@@ -283,7 +283,7 @@ namespace zefDB {
 		constexpr ValueRepType(enum_indx n = 0) : value(n) {};
 		enum_indx value;
         operator str() const;
-        bool operator==(const ValueRepType & other) const { return this->value == other.value; }
+        constexpr bool operator==(const ValueRepType & other) const { return this->value == other.value; }
 	};
 	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, ValueRepType aet);
     inline void to_json(json& j, const ValueRepType & aet) {

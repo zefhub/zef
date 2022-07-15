@@ -255,9 +255,9 @@ def json_to_minimal_nodes(json, g):
 
     def name_to_raet(name):
         if name in core_types:
-            return getattr(AET, core_types[name])
+            return getattr(internals.VRT, core_types[name])
         if name in json["enums"]:
-            return getattr(AET.Enum, name)
+            return getattr(internals.VRT.Enum, name)
         return ET(name)
 
     for type_name,fields in json["types"].items():

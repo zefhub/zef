@@ -281,8 +281,40 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		;
     internals_submodule.attr("VRT") = VRT;
 
+    py::class_<ValueRepTypeStruct::Enum_>(internals_submodule, "ValueRepTypeStruct_Enum", py::buffer_protocol())
+		.def("__call__", [](const ValueRepTypeStruct::Enum_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const ValueRepTypeStruct::Enum_& self, const ValueRepTypeStruct::Enum_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const ValueRepTypeStruct::Enum_& self, std::string key) {
+            if(key.find("__") == 0)
+                throw pybind11::attribute_error();
+            return self(key); },
+            py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const ValueRepTypeStruct::Enum_& self) { return global_token_store().ENs.all_enum_types(); }, py::call_guard<py::gil_scoped_release>())
+        ;
+    py::class_<ValueRepTypeStruct::QuantityFloat_>(internals_submodule, "ValueRepTypeStruct_QuantityFloat", py::buffer_protocol())
+        .def("__call__", [](const ValueRepTypeStruct::QuantityFloat_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const ValueRepTypeStruct::QuantityFloat_& self, const ValueRepTypeStruct::QuantityFloat_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const ValueRepTypeStruct::QuantityFloat_& self, std::string key) {
+            if(key.find("__") == 0)
+                throw pybind11::attribute_error();
+            return self(key); },
+            py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const ValueRepTypeStruct::QuantityFloat_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
+        ;
+    py::class_<ValueRepTypeStruct::QuantityInt_>(internals_submodule, "ValueRepTypeStruct_QuantityInt", py::buffer_protocol())
+        .def("__call__", [](const ValueRepTypeStruct::QuantityInt_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const ValueRepTypeStruct::QuantityInt_& self, const ValueRepTypeStruct::QuantityInt_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const ValueRepTypeStruct::QuantityInt_& self, std::string key) {
+            if(key.find("__") == 0)
+                throw pybind11::attribute_error();
+            return self(key); },
+            py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const ValueRepTypeStruct::QuantityInt_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
+        ;
+
 	py::class_<AtomicEntityType>(internals_submodule, "AtomicEntityType", py::dynamic_attr())
 		.def(py::init<enum_indx>())	
+		.def(py::init<ValueRepType>())	
 		.def(py::init<SerializedValue>())	
 		.def_readonly("rep_type", &AtomicEntityType::rep_type)
 		.def_readonly("complex_value", &AtomicEntityType::complex_value)

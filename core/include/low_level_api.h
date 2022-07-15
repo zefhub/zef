@@ -63,7 +63,10 @@ namespace zefDB {
 
 	struct LIBZEF_DLL_EXPORTED AtomicEntityType {
 		constexpr AtomicEntityType() : rep_type(0), complex_value(std::nullopt) {};
-		constexpr AtomicEntityType(ValueRepType rep_type) : rep_type(rep_type), complex_value(std::nullopt) {};
+		constexpr AtomicEntityType(ValueRepType rep_type) : rep_type(rep_type), complex_value(std::nullopt) {
+            if(rep_type == VRT.Complex)
+                throw std::runtime_error("Can't instantiate an AET from a VRT.Complex on its own");
+        };
 		AtomicEntityType(SerializedValue complex_value) : rep_type(VRT.Complex), complex_value(complex_value) {};
 		ValueRepType rep_type;
         // In the future, this will become a ZefValue

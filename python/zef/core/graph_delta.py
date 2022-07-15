@@ -565,14 +565,18 @@ def cmds_for_mergable(x):
             return (), [cmd]
 
         elif BT(x) == BT.ATOMIC_ENTITY_NODE:
-            assign_val_cmds = [] if isinstance(x, EZefRef) else [{
-                'cmd': 'assign', 
-                'value': x | value | collect,
-                'internal_id': uid(origin),
-                'explicit': False,
+            cmds = [cmd]
+            if isinstance(x, ZefRef):
+                val = x | value | collect
+                if val is not None:
+                    cmds += [{
+                        'cmd': 'assign', 
+                        'value': val,
+                        'internal_id': uid(origin),
+                        'explicit': False,
                 }]
 
-            return (), [cmd] + assign_val_cmds
+            return (), cmds
 
         elif BT(x) == BT.RELATION_EDGE:
             return (
