@@ -24,7 +24,7 @@
 #include <chrono>
 
 namespace zefDB {
-	const std::string data_layout_version = "0.2.0";
+	const std::string data_layout_version = "0.3.0";
 
 	using blob_index = int32_t;
 	using edge_list_size_t = int32_t;

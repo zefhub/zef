@@ -214,7 +214,7 @@ namespace zefDB {
             // The protocol version chosen for communication. This may have to be autodetected in earlier versions.
             std::atomic_int zefdb_protocol_version = -1;
             constexpr static int zefdb_protocol_version_min = 4;
-            constexpr static int zefdb_protocol_version_max = 5;
+            constexpr static int zefdb_protocol_version_max = 6;
             AtomicLockWrapper auth_locker;
 
             int chunked_transfer_size_user = -1;
