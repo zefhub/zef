@@ -46,3 +46,5 @@
 #include "zef_config.h"
 
 #include "external_handlers.h"
+
+#include "conversions.h"

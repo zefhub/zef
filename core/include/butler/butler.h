@@ -19,7 +19,6 @@
 #include "export_statement.h"
 
 #include <thread>
-#include "zefDB_utils.h"
 #include "scalars.h"
 #include "butler/msgqueue.h"
 #include "butler/messages.h"

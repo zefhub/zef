@@ -15,7 +15,6 @@
 #include "from_json.h"
 #include "uids.h"
 #include "low_level_api.h"
-#include "butler/utils.h"
 #include "high_level_api.h"
 #include "synchronization.h"
 #include "verification.h"

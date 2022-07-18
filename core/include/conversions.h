@@ -17,11 +17,13 @@
 #pragma once
 
 #include "export_statement.h"
-#include "butler/butler.h"
+#include "butler/messages.h"
 
 namespace zefDB {
     namespace conversions {
 
-        UpdatePayload convert_payload_0_2_0_to_0_3_0(const UpdatePayload & payload);
+        using Messages::UpdatePayload;
+
+        UpdatePayload convert_payload_0_3_0_to_0_2_0(const UpdatePayload & payload);
     }
 }

@@ -21,7 +21,6 @@
 #include "fwd_declarations.h"
 #include "graph.h"
 #include "butler/locking.h"
-#include "butler/utils.h"
 #include "zwitch.h"
 
 #include <string>

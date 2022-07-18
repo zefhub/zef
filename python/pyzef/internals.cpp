@@ -771,24 +771,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		}, "read the content of the memory pool filled with blobs_ns for a given graph");
 	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload);
 	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads);
+	internals_submodule.def("convert_payload_0_3_0_to_0_2_0", &conversions::convert_payload_0_3_0_to_0_2_0);
 		
-	// internals_submodule.def("include_new_blobs", [](Graph& g, blob_index start_index, blob_index end_index, py::bytes blob_bytes, bool double_link)->void {
-    //         GraphData & gd = g.my_graph_data();
-
-    //         auto this_id = std::this_thread::get_id();
-    //         update_when_ready(gd.open_tx_thread_locker,
-    //                           gd.open_tx_thread,
-    //                           std::thread::id(),
-    //                           this_id);
-
-    //         RAII_CallAtEnd call_at_end([&]() {
-    //             update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
-    //         });
-    //         internals::include_new_blobs(g.my_graph_data(), start_index, end_index, blob_bytes, double_link);
-    // },
-    //                         py::call_guard<py::gil_scoped_release>(),
-    //                         "Directly include bytes into graph at designated interval, handling the consequences on other blobs at the same time.");
-
 	internals_submodule.def("apply_update", &Butler::apply_update_with_caches, py::call_guard<py::gil_scoped_release>());
 
     // TODO: In the future, these should be compiled into a version of pyzef
