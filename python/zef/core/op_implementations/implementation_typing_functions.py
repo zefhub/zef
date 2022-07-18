@@ -8918,7 +8918,7 @@ def range_imp(*args):
     def generator_wrapper1():
         yield from range(lo, hi)
     # don't expose the yield directly, keep this a function
-    return generator_wrapper2() if hi==infinity else generator_wrapper1()
+    return ZefGenerator(generator_wrapper2 if hi==infinity else generator_wrapper1)
 
 
 def range_tp(op, curr_type):
@@ -9901,7 +9901,7 @@ def gather_imp(z_initial, rules=None):
 
 
 
-# ----------------------------- bytes_to_base64string -----------------------------
+# ----------------------------- alias -----------------------------
 def alias_imp(vt, name: str):
     """ 
     Give a ValueType an alias: a name to show in the
@@ -9920,5 +9920,52 @@ def alias_imp(vt, name: str):
     vt2 = ValueType_(type_name=vt.d['type_name'], absorbed=vt.d['absorbed'])
     vt2.d['alias'] = name
     return vt2
+
+
+
+
+
+# ----------------------------- splice -----------------------------
+def splice_imp(x, start_pos, els_to_replace, replacement):
+    """
+    "splice in" or insert a replacement sequence or string into
+    a sequence at a given position.
+
+    ---- Examples ----
+    >>> 'good morning world' | splice[5][7]['afternoon']         # 'good afternoon world'
+    >>> Range(0, 5) | splice[2][1][('a','b', 'c')]               # (0, 1, 'a', 'b', 'c', 3, 4)
+
+    ---- Signature ----
+    (Graph, str, bool) -> Effect
+    (ZefRef, str, bool) -> LazyValue
+
+    ---- Tags ----
+    - operates on: String
+    - operates on: List
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: replace_at
+    - related zefop: replace
+    """
+    if isinstance(x, str):
+        return x[:start_pos] + replacement + x[start_pos + els_to_replace:]
+    elif isinstance(x, list) or isinstance(x, tuple):
+        return (*x[:start_pos], *replacement, *x[start_pos + els_to_replace:])
+    
+    elif isinstance(x, ZefGenerator):        
+        # handle both the dataflow arg and the replacement as generators
+        def wrapper():
+            it1 = iter(x)
+            it2 = iter(replacement)
+            for _ in range(start_pos):
+                yield next(it1)
+            yield from it2
+            for _ in range(els_to_replace):
+                next(it1)     # throw these away
+            yield from it1
+        return ZefGenerator(wrapper)
+
+    else:
+        return Error(f'Unsupported type passed to "splice": {type(x)}')
 
 
