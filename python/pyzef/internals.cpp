@@ -120,7 +120,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("size_of_blob", &size_of_blob);
 
 	internals_submodule.def("show_blob_details", [](const EZefRef & uzr) {
-        return visit([](const auto & x) { std::stringstream ss; ss << x; return ss.str(); },
+        return visit_blob([](const auto & x) { std::stringstream ss; ss << x; return ss.str(); },
                      uzr);
     });
 

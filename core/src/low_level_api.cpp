@@ -358,10 +358,6 @@ namespace zefDB {
             return get_or_create_and_get_tx(g.my_graph_data());
         }
 
-        EZefRef get_or_create_and_get_tx(EZefRef some_blob_to_specify_which_graph) { 
-            return get_or_create_and_get_tx(graph_data(some_blob_to_specify_which_graph)); 
-        }
-
 
 
         //                            _     _ _                         _               _           _                                  

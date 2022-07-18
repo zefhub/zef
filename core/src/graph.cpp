@@ -46,7 +46,7 @@ namespace zefDB {
                    && latest_complete_tx_hint < gd.write_head) {
                     Butler::ensure_or_get_range(candidate, 1);
                     if (*(BlobType*)candidate == BT.TX_EVENT_NODE) {
-                        tmp = (void*)candidate;
+                        tmp = EZefRef{candidate};
                     }
                 }
 			}
@@ -79,7 +79,7 @@ namespace zefDB {
 			return std::hash<token_value_t>{}(rt.relation_type_indx) ^
 				std::hash<int>{}(int(is_out_rel) + 2 * int(is_instantiation)) ^  // offset by two: all combinations unique
 				// *(std::size_t*)(std::uintptr_t(z_for_uid.blob_ptr) + constants::main_mem_pool_size_in_bytes);   // no need to hash the uid, this is random. Use the first 64bits only
-                                    *(size_t*)&blob_uid_ref(z_for_uid.blob_ptr);   // no need to hash the uid, this is random. Use the first 64bits only
+                                    *(size_t*)&blob_uid_ref(z_for_uid);   // no need to hash the uid, this is random. Use the first 64bits only
 		}
 
 

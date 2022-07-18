@@ -219,7 +219,7 @@ namespace zefDB {
                     
 
                 // Everything else that specific to a blob
-                visit([&](auto & blob) {
+                visit_blob([&](auto & blob) {
                     assign_blob_specific(blob, details);
                 }, ezr);
             }
@@ -251,7 +251,7 @@ namespace zefDB {
                     }, ezr);
                 }
 
-                visit([&](auto & blob) {
+                visit_blob([&](auto & blob) {
                     update_blob_indices_specific(blob, index_map_to_new);
                 }, ezr);
 

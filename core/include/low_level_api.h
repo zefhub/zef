@@ -270,8 +270,6 @@ namespace zefDB {
 		
 		LIBZEF_DLL_EXPORTED EZefRef get_or_create_and_get_tx(Graph& g);
 
-		LIBZEF_DLL_EXPORTED EZefRef get_or_create_and_get_tx(EZefRef some_blob_to_specify_which_graph);
-
 
 //                            _     _ _                         _               _           _                                  
 //                   __ _  __| | __| (_)_ __   __ _     ___  __| | __ _  ___   (_)_ __   __| | _____  _____  ___               

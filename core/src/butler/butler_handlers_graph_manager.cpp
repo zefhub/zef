@@ -246,7 +246,7 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, boo
             while(indx < gd.write_head) {
                 EZefRef uzr{indx, gd};
                 // visit([](auto & x) { std::cerr << x << std::endl; }, uzr);
-                visit([](auto & x) { manual_os_call(std::cerr, x) << std::endl; }, uzr);
+                visit_blob([](auto & x) { manual_os_call(std::cerr, x) << std::endl; }, uzr);
                 indx += num_blob_indexes_to_move(size_of_blob(uzr));
             }
 

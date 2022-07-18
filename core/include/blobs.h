@@ -372,97 +372,116 @@ namespace zefDB {
 
 
 
+    // General note: all versions of functions with _ (e.g. _size_of_blob) act
+    // on pointers, but this is DANGEROUS, as the memory may not be loaded (lazy
+    // loading). Hence, these are protected behind a differnt name rather than
+    // using function overloading.
 
 
 	// Return the size of the ZefRef in bytes, accounting for possible overflow etc.
 	// Future improvement: use std::visit with std::variant blobs_ns to make this robust to changes in the BlobType field location.
 	// But this should hardly ever change and we can catch it with tests
-	LIBZEF_DLL_EXPORTED blob_index size_of_blob(EZefRef b);
+	LIBZEF_DLL_EXPORTED blob_index _size_of_blob(void * ptr);
+	inline blob_index size_of_blob(EZefRef b) {
+        return _size_of_blob(b.blob_ptr);
+    }
 
 	// similar to std::visit for std::variants. Given a uzr, will dispatch a function overloaded for all relevant blob types to the respective one.
-	const auto visit = [](auto fct_to_apply, EZefRef uzr) {		
-		switch (get<BlobType>(uzr)) {
+	const auto _visit_blob = [](auto fct_to_apply, void * ptr) {
+		switch (get<BlobType>(ptr)) {
 		case BlobType::_unspecified: { throw std::runtime_error("visit called for an unspecified EZefRef");  }
-		case BlobType::ROOT_NODE: { return fct_to_apply(*((blobs_ns::ROOT_NODE*)uzr.blob_ptr)); }
-		case BlobType::TX_EVENT_NODE: { return fct_to_apply(*((blobs_ns::TX_EVENT_NODE*)uzr.blob_ptr)); }
-		case BlobType::RAE_INSTANCE_EDGE: { return fct_to_apply(*((blobs_ns::RAE_INSTANCE_EDGE*)uzr.blob_ptr)); }
-		case BlobType::TO_DELEGATE_EDGE: { return fct_to_apply(*((blobs_ns::TO_DELEGATE_EDGE*)uzr.blob_ptr)); }
-		case BlobType::NEXT_TX_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TX_EDGE*)uzr.blob_ptr)); }
-		case BlobType::ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ENTITY_NODE*)uzr.blob_ptr)); }
-		case BlobType::ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_ENTITY_NODE*)uzr.blob_ptr)); }
-		case BlobType::ATOMIC_VALUE_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_NODE*)uzr.blob_ptr)); }
-		case BlobType::RELATION_EDGE: { return fct_to_apply(*((blobs_ns::RELATION_EDGE*)uzr.blob_ptr)); }
-		case BlobType::DELEGATE_INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::DELEGATE_INSTANTIATION_EDGE*)uzr.blob_ptr)); }
-		case BlobType::DELEGATE_RETIREMENT_EDGE: { return fct_to_apply(*((blobs_ns::DELEGATE_RETIREMENT_EDGE*)uzr.blob_ptr)); }
-		case BlobType::INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::INSTANTIATION_EDGE*)uzr.blob_ptr)); }
-		case BlobType::TERMINATION_EDGE: { return fct_to_apply(*((blobs_ns::TERMINATION_EDGE*)uzr.blob_ptr)); }
-		case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE*)uzr.blob_ptr)); }
-		case BlobType::DEFERRED_EDGE_LIST_NODE: { return fct_to_apply(*((blobs_ns::DEFERRED_EDGE_LIST_NODE*)uzr.blob_ptr)); }
-		case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)uzr.blob_ptr)); }
-		case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TAG_NAME_ASSIGNMENT_EDGE*)uzr.blob_ptr)); }
-		case BlobType::FOREIGN_GRAPH_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_GRAPH_NODE*)uzr.blob_ptr)); }
-		case BlobType::ORIGIN_RAE_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_RAE_EDGE*)uzr.blob_ptr)); }
-		case BlobType::ORIGIN_GRAPH_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_GRAPH_EDGE*)uzr.blob_ptr)); }
-		case BlobType::FOREIGN_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ENTITY_NODE*)uzr.blob_ptr)); }
-		case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE*)uzr.blob_ptr)); }
-		case BlobType::FOREIGN_RELATION_EDGE: { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)uzr.blob_ptr)); }
-		case BlobType::COMPLEX_VALUE_TYPE_EDGE: { return fct_to_apply(*((blobs_ns::COMPLEX_VALUE_TYPE_EDGE*)uzr.blob_ptr)); }
+		case BlobType::ROOT_NODE: { return fct_to_apply(*((blobs_ns::ROOT_NODE*)ptr)); }
+		case BlobType::TX_EVENT_NODE: { return fct_to_apply(*((blobs_ns::TX_EVENT_NODE*)ptr)); }
+		case BlobType::RAE_INSTANCE_EDGE: { return fct_to_apply(*((blobs_ns::RAE_INSTANCE_EDGE*)ptr)); }
+		case BlobType::TO_DELEGATE_EDGE: { return fct_to_apply(*((blobs_ns::TO_DELEGATE_EDGE*)ptr)); }
+		case BlobType::NEXT_TX_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TX_EDGE*)ptr)); }
+		case BlobType::ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ENTITY_NODE*)ptr)); }
+		case BlobType::ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_ENTITY_NODE*)ptr)); }
+		case BlobType::ATOMIC_VALUE_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_NODE*)ptr)); }
+		case BlobType::RELATION_EDGE: { return fct_to_apply(*((blobs_ns::RELATION_EDGE*)ptr)); }
+		case BlobType::DELEGATE_INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::DELEGATE_INSTANTIATION_EDGE*)ptr)); }
+		case BlobType::DELEGATE_RETIREMENT_EDGE: { return fct_to_apply(*((blobs_ns::DELEGATE_RETIREMENT_EDGE*)ptr)); }
+		case BlobType::INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::INSTANTIATION_EDGE*)ptr)); }
+		case BlobType::TERMINATION_EDGE: { return fct_to_apply(*((blobs_ns::TERMINATION_EDGE*)ptr)); }
+		case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE*)ptr)); }
+		case BlobType::DEFERRED_EDGE_LIST_NODE: { return fct_to_apply(*((blobs_ns::DEFERRED_EDGE_LIST_NODE*)ptr)); }
+		case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)ptr)); }
+		case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TAG_NAME_ASSIGNMENT_EDGE*)ptr)); }
+		case BlobType::FOREIGN_GRAPH_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_GRAPH_NODE*)ptr)); }
+		case BlobType::ORIGIN_RAE_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_RAE_EDGE*)ptr)); }
+		case BlobType::ORIGIN_GRAPH_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_GRAPH_EDGE*)ptr)); }
+		case BlobType::FOREIGN_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ENTITY_NODE*)ptr)); }
+		case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE*)ptr)); }
+		case BlobType::FOREIGN_RELATION_EDGE: { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)ptr)); }
+		case BlobType::COMPLEX_VALUE_TYPE_EDGE: { return fct_to_apply(*((blobs_ns::COMPLEX_VALUE_TYPE_EDGE*)ptr)); }
         default: { print_backtrace(); throw std::runtime_error("Unknown blob type"); }
 		}
 	};
+	const auto visit_blob = [](auto fct_to_apply, EZefRef uzr) {		
+        return _visit_blob(fct_to_apply, uzr.blob_ptr);
+    };
 
-	const auto visit_blob_with_edges = [](auto fct_to_apply, EZefRef uzr) {		
-		switch (get<BlobType>(uzr)) {
+	const auto _visit_blob_with_edges = [](auto fct_to_apply, void * ptr) {		
+		switch (get<BlobType>(ptr)) {
 		case BlobType::_unspecified: { throw std::runtime_error("visit called for an unspecified EZefRef");  }
-		case BlobType::ROOT_NODE: { return fct_to_apply(*((blobs_ns::ROOT_NODE*)uzr.blob_ptr)); }
-		case BlobType::TX_EVENT_NODE: { return fct_to_apply(*((blobs_ns::TX_EVENT_NODE*)uzr.blob_ptr)); }
-		case BlobType::RAE_INSTANCE_EDGE: { return fct_to_apply(*((blobs_ns::RAE_INSTANCE_EDGE*)uzr.blob_ptr)); }
-		case BlobType::TO_DELEGATE_EDGE: { return fct_to_apply(*((blobs_ns::TO_DELEGATE_EDGE*)uzr.blob_ptr)); }
-		case BlobType::ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ENTITY_NODE*)uzr.blob_ptr)); }
-		case BlobType::ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_ENTITY_NODE*)uzr.blob_ptr)); }
-		case BlobType::ATOMIC_VALUE_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_NODE*)uzr.blob_ptr)); }
-		case BlobType::RELATION_EDGE: { return fct_to_apply(*((blobs_ns::RELATION_EDGE*)uzr.blob_ptr)); }
-		case BlobType::DEFERRED_EDGE_LIST_NODE: { return fct_to_apply(*((blobs_ns::DEFERRED_EDGE_LIST_NODE*)uzr.blob_ptr)); }
-		case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)uzr.blob_ptr)); }
-		case BlobType::FOREIGN_GRAPH_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_GRAPH_NODE*)uzr.blob_ptr)); }
-		case BlobType::FOREIGN_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ENTITY_NODE*)uzr.blob_ptr)); }
-		case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE*)uzr.blob_ptr)); }
-		case BlobType::FOREIGN_RELATION_EDGE: { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)uzr.blob_ptr)); }
+		case BlobType::ROOT_NODE: { return fct_to_apply(*((blobs_ns::ROOT_NODE*)ptr)); }
+		case BlobType::TX_EVENT_NODE: { return fct_to_apply(*((blobs_ns::TX_EVENT_NODE*)ptr)); }
+		case BlobType::RAE_INSTANCE_EDGE: { return fct_to_apply(*((blobs_ns::RAE_INSTANCE_EDGE*)ptr)); }
+		case BlobType::TO_DELEGATE_EDGE: { return fct_to_apply(*((blobs_ns::TO_DELEGATE_EDGE*)ptr)); }
+		case BlobType::ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ENTITY_NODE*)ptr)); }
+		case BlobType::ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_ENTITY_NODE*)ptr)); }
+		case BlobType::ATOMIC_VALUE_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_NODE*)ptr)); }
+		case BlobType::RELATION_EDGE: { return fct_to_apply(*((blobs_ns::RELATION_EDGE*)ptr)); }
+		case BlobType::DEFERRED_EDGE_LIST_NODE: { return fct_to_apply(*((blobs_ns::DEFERRED_EDGE_LIST_NODE*)ptr)); }
+		case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)ptr)); }
+		case BlobType::FOREIGN_GRAPH_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_GRAPH_NODE*)ptr)); }
+		case BlobType::FOREIGN_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ENTITY_NODE*)ptr)); }
+		case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE*)ptr)); }
+		case BlobType::FOREIGN_RELATION_EDGE: { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)ptr)); }
         default: { print_backtrace(); throw std::runtime_error("Blobtype expected to have edges but it didn't"); }
         }
 	};
+	const auto visit_blob_with_edges = [](auto fct_to_apply, EZefRef uzr) {		
+        return _visit_blob_with_edges(fct_to_apply, uzr.blob_ptr);
+    };
 
-	const auto visit_blob_with_source_target = [](auto fct_to_apply, EZefRef uzr) {		
-		switch (get<BlobType>(uzr)) {
+	const auto _visit_blob_with_source_target = [](auto fct_to_apply, void * ptr) {		
+		switch (get<BlobType>(ptr)) {
 		case BlobType::_unspecified: { throw std::runtime_error("visit called for an unspecified EZefRef");  }
-        case BlobType::RAE_INSTANCE_EDGE: { return fct_to_apply(*((blobs_ns::RAE_INSTANCE_EDGE*)uzr.blob_ptr)); }
-        case BlobType::TO_DELEGATE_EDGE: { return fct_to_apply(*((blobs_ns::TO_DELEGATE_EDGE*)uzr.blob_ptr)); }
-        case BlobType::NEXT_TX_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TX_EDGE*)uzr.blob_ptr)); }
-        case BlobType::RELATION_EDGE: { return fct_to_apply(*((blobs_ns::RELATION_EDGE*)uzr.blob_ptr)); }
-        case BlobType::DELEGATE_INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::DELEGATE_INSTANTIATION_EDGE*)uzr.blob_ptr)); }
-        case BlobType::DELEGATE_RETIREMENT_EDGE: { return fct_to_apply(*((blobs_ns::DELEGATE_RETIREMENT_EDGE*)uzr.blob_ptr)); }
-        case BlobType::INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::INSTANTIATION_EDGE*)uzr.blob_ptr)); }
-        case BlobType::TERMINATION_EDGE: { return fct_to_apply(*((blobs_ns::TERMINATION_EDGE*)uzr.blob_ptr)); }
-        case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE*)uzr.blob_ptr)); }
-        case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)uzr.blob_ptr)); }
-        case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TAG_NAME_ASSIGNMENT_EDGE*)uzr.blob_ptr)); }
-        case BlobType::ORIGIN_RAE_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_RAE_EDGE*)uzr.blob_ptr)); }
-        case BlobType::ORIGIN_GRAPH_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_GRAPH_EDGE*)uzr.blob_ptr)); }
-        case BlobType::FOREIGN_RELATION_EDGE: { { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)uzr.blob_ptr)); } }
-        case BlobType::COMPLEX_VALUE_TYPE_EDGE: { { return fct_to_apply(*((blobs_ns::COMPLEX_VALUE_TYPE_EDGE*)uzr.blob_ptr)); } }
+        case BlobType::RAE_INSTANCE_EDGE: { return fct_to_apply(*((blobs_ns::RAE_INSTANCE_EDGE*)ptr)); }
+        case BlobType::TO_DELEGATE_EDGE: { return fct_to_apply(*((blobs_ns::TO_DELEGATE_EDGE*)ptr)); }
+        case BlobType::NEXT_TX_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TX_EDGE*)ptr)); }
+        case BlobType::RELATION_EDGE: { return fct_to_apply(*((blobs_ns::RELATION_EDGE*)ptr)); }
+        case BlobType::DELEGATE_INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::DELEGATE_INSTANTIATION_EDGE*)ptr)); }
+        case BlobType::DELEGATE_RETIREMENT_EDGE: { return fct_to_apply(*((blobs_ns::DELEGATE_RETIREMENT_EDGE*)ptr)); }
+        case BlobType::INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::INSTANTIATION_EDGE*)ptr)); }
+        case BlobType::TERMINATION_EDGE: { return fct_to_apply(*((blobs_ns::TERMINATION_EDGE*)ptr)); }
+        case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE*)ptr)); }
+        case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)ptr)); }
+        case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TAG_NAME_ASSIGNMENT_EDGE*)ptr)); }
+        case BlobType::ORIGIN_RAE_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_RAE_EDGE*)ptr)); }
+        case BlobType::ORIGIN_GRAPH_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_GRAPH_EDGE*)ptr)); }
+        case BlobType::FOREIGN_RELATION_EDGE: { { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)ptr)); } }
+        case BlobType::COMPLEX_VALUE_TYPE_EDGE: { { return fct_to_apply(*((blobs_ns::COMPLEX_VALUE_TYPE_EDGE*)ptr)); } }
         default: { print_backtrace(); throw std::runtime_error("Blobtype expected to have source/target but it didn't"); }
         }
 	};
+	const auto visit_blob_with_source_target = [](auto fct_to_apply, EZefRef uzr) {		
+        return _visit_blob_with_source_target(fct_to_apply, uzr.blob_ptr);
+    };
 
-	const auto visit_blob_with_data_buffer = [](auto fct_to_apply, EZefRef uzr) {		
-		switch (get<BlobType>(uzr)) {
+	const auto _visit_blob_with_data_buffer = [](auto fct_to_apply, void * ptr) {		
+		switch (get<BlobType>(ptr)) {
 		case BlobType::_unspecified: { throw std::runtime_error("visit called for an unspecified EZefRef");  }
-        case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE*)uzr.blob_ptr)); }
-        case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)uzr.blob_ptr)); }
-        case BlobType::ATOMIC_VALUE_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_NODE*)uzr.blob_ptr)); }
+        case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE*)ptr)); }
+        case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)ptr)); }
+        case BlobType::ATOMIC_VALUE_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_NODE*)ptr)); }
         default: { print_backtrace(); throw std::runtime_error("Blobtype expected to have data buffer but it didn't"); }
         }
 	};
+	const auto visit_blob_with_data_buffer = [](auto fct_to_apply, EZefRef uzr) {		
+        return _visit_blob_with_data_buffer(fct_to_apply, uzr.blob_ptr);
+    };
 
 
 	struct LIBZEF_DLL_EXPORTED Sentinel {}; // used throughout. TODO: Sentinel was introduced all over the place within structs: migrate all of them to use this.
@@ -475,25 +494,29 @@ namespace zefDB {
 		// return a pointer to the buffer storing the 8 byte uid.
 		// The buffer location offset within the blob depends on the blob type.
 		// this function dispatches correctly.
-		inline BaseUID& blob_uid_ref(EZefRef uzr){
+		inline BaseUID& _blob_uid_ref(void * ptr){
 			using namespace blobs_ns;
-			switch(get<BlobType>(uzr.blob_ptr)){
-				case BlobType::ROOT_NODE: 					{return get<ROOT_NODE>(uzr.blob_ptr).uid; }
-				case BlobType::TX_EVENT_NODE: 				{return get<TX_EVENT_NODE>(uzr.blob_ptr).uid; }
-				case BlobType::ENTITY_NODE: 				{return get<ENTITY_NODE>(uzr.blob_ptr).uid; }
-				case BlobType::ATOMIC_ENTITY_NODE: 			{return get<ATOMIC_ENTITY_NODE>(uzr.blob_ptr).uid; }
-				case BlobType::RELATION_EDGE: 				{return get<RELATION_EDGE>(uzr.blob_ptr).uid; }
-				case BlobType::FOREIGN_GRAPH_NODE: 			{return get<FOREIGN_GRAPH_NODE>(uzr.blob_ptr).uid; }
-				case BlobType::FOREIGN_ENTITY_NODE: 		{return get<FOREIGN_ENTITY_NODE>(uzr.blob_ptr).uid; }
-				case BlobType::FOREIGN_ATOMIC_ENTITY_NODE:	{return get<FOREIGN_ATOMIC_ENTITY_NODE>(uzr.blob_ptr).uid; }
-				case BlobType::FOREIGN_RELATION_EDGE: 		{return get<FOREIGN_RELATION_EDGE>(uzr.blob_ptr).uid; }
+			switch(get<BlobType>(ptr)){
+				case BlobType::ROOT_NODE: 					{return get<ROOT_NODE>(ptr).uid; }
+				case BlobType::TX_EVENT_NODE: 				{return get<TX_EVENT_NODE>(ptr).uid; }
+				case BlobType::ENTITY_NODE: 				{return get<ENTITY_NODE>(ptr).uid; }
+				case BlobType::ATOMIC_ENTITY_NODE: 			{return get<ATOMIC_ENTITY_NODE>(ptr).uid; }
+				case BlobType::RELATION_EDGE: 				{return get<RELATION_EDGE>(ptr).uid; }
+				case BlobType::FOREIGN_GRAPH_NODE: 			{return get<FOREIGN_GRAPH_NODE>(ptr).uid; }
+				case BlobType::FOREIGN_ENTITY_NODE: 		{return get<FOREIGN_ENTITY_NODE>(ptr).uid; }
+				case BlobType::FOREIGN_ATOMIC_ENTITY_NODE:	{return get<FOREIGN_ATOMIC_ENTITY_NODE>(ptr).uid; }
+				case BlobType::FOREIGN_RELATION_EDGE: 		{return get<FOREIGN_RELATION_EDGE>(ptr).uid; }
 
             default: {print_backtrace_force(); throw std::runtime_error("blob_uid_ref called for ZefRef without a uid"); }
 			}
 		}
-		inline bool has_uid(EZefRef uzr){
+		inline BaseUID& blob_uid_ref(EZefRef uzr){
+            return _blob_uid_ref(uzr.blob_ptr);
+        }
+
+		inline bool _has_uid(void * ptr){
 			using namespace blobs_ns;
-			switch(get<BlobType>(uzr.blob_ptr)){
+			switch(get<BlobType>(ptr)){
 				case BlobType::ROOT_NODE:
 				case BlobType::TX_EVENT_NODE:
 				case BlobType::ENTITY_NODE:
@@ -508,9 +531,12 @@ namespace zefDB {
                     return false;
 			}
 		}
+		inline bool has_uid(EZefRef uzr){
+            return _has_uid(uzr.blob_ptr);
+        }
 
-		inline bool has_source_target_node(EZefRef uzr) {
-			BlobType this_BlobType = get<BlobType>(uzr);
+		inline bool _has_source_target_node(void * ptr) {
+			BlobType this_BlobType = get<BlobType>(ptr);
 			switch (this_BlobType) {
 
 				case BlobType::RAE_INSTANCE_EDGE:
@@ -548,10 +574,13 @@ namespace zefDB {
             }
 			return false; // should never reach here, suppress compiler warnings
 		}
+		inline bool has_source_target_node(EZefRef uzr) {
+            return _has_source_target_node(uzr.blob_ptr);
+        }
 
 		// helper function to check whether such a list exists as an attribute
-		inline bool has_edge_list(EZefRef uzr) {
-			BlobType this_BlobType = get<BlobType>(uzr);
+		inline bool _has_edge_list(void * ptr) {
+			BlobType this_BlobType = get<BlobType>(ptr);
 			switch (this_BlobType) {
 				case BlobType::ROOT_NODE:
 				case BlobType::TX_EVENT_NODE:
@@ -587,10 +616,14 @@ namespace zefDB {
 			}
 			return false; // should never reach here, suppress compiler warnings
 		}
+		inline bool has_edge_list(EZefRef uzr) {
+            return _has_edge_list(uzr.blob_ptr);
+        }
+
 
 		// helper function to check whether such a list exists as an attribute
-		inline bool has_data_buffer(EZefRef uzr) {
-			BlobType this_BlobType = get<BlobType>(uzr);
+		inline bool _has_data_buffer(void * ptr) {
+			BlobType this_BlobType = get<BlobType>(ptr);
 			switch (this_BlobType) {
 				case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE:
 				case BlobType::ATOMIC_VALUE_NODE:
@@ -626,6 +659,9 @@ namespace zefDB {
 			}
 			return false; // should never reach here, suppress compiler warnings
 		}
+		inline bool has_data_buffer(EZefRef uzr) {
+            return _has_data_buffer(uzr.blob_ptr);
+        }
 		
 		inline blob_index source_node_index(EZefRef uzr) {
             return visit_blob_with_source_target([](auto & s) { return s.source_node_index; },
@@ -758,6 +794,10 @@ namespace zefDB {
 			+ ((blob_size_in_bytes % constants::blob_indx_step_in_bytes) != 0);
 	}
 
+    // Note that this is not "from_ptr" as in an arbitrary data buffer, but the
+    // pointer has to refer to a GraphData location, but we just don't trust the
+    // blob pointed at is correct yet. Using an arbitrary pointer (not in a
+    // GraphData) will give the wrong result.
 	inline blob_index blob_index_from_ptr(void * ptr) {
 		auto offset_in_bytes = (char*)ptr - (char*)MMap::blobs_ptr_from_blob(ptr);
 		assert(offset_in_bytes % constants::blob_indx_step_in_bytes == 0);
@@ -766,6 +806,9 @@ namespace zefDB {
 
 
 
+	inline blob_index _blob_index_size(void * ptr) {
+		return num_blob_indexes_to_move(_size_of_blob(ptr));
+	}
 	inline blob_index blob_index_size(EZefRef b) {
 		return num_blob_indexes_to_move(size_of_blob(b));
 	}
