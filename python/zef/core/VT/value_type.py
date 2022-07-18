@@ -82,6 +82,7 @@ class ValueType_:
             self.d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
+                'alias': None,
             }
             if constructor_func is not None:
                 _value_type_constructor_funcs[type_name] = constructor_func
@@ -92,6 +93,8 @@ class ValueType_:
             self.allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
 
     def __repr__(self):
+        if self.d['alias'] != None:
+            return self.d['alias']
         return self.d['type_name'] + (
             '' if self.d['absorbed'] == () 
             else ''.join([ f"[{repr(el)}]" for el in self.d['absorbed'] ])

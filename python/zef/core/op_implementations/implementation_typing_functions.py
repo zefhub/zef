@@ -9901,5 +9901,24 @@ def gather_imp(z_initial, rules=None):
 
 
 
+# ----------------------------- bytes_to_base64string -----------------------------
+def alias_imp(vt, name: str):
+    """ 
+    Give a ValueType an alias: a name to show in the
+    repr's output to shorten and make the output more readable.
+
+    ---- Examples ----
+    >>> StringOrFloat = (String | Float) | alias('StringOrFloat')
+
+    ---- Signature ----
+    (ValueType, String)    -> ValueType
+
+    ---- Tags ----
+    - operates on: ValueType
+    - used for: readability
+    """
+    vt2 = ValueType_(type_name=vt.d['type_name'], absorbed=vt.d['absorbed'])
+    vt2.d['alias'] = name
+    return vt2
 
 
