@@ -46,18 +46,19 @@ def generate_rows(nodes, mapping):
         elif len(outs) > 1:
             return outs | map[value_or_type | func[str]] | join[','] | collect
         else:
-            return "❔"
+            return "-" 
 
     return nodes | map[lambda et: list(mapping.keys()) | map[traverse_rt[et]] | func[tuple] | collect] | collect
 
 
 @func
-def generate_table_for_single_type_zrs(selected_et, zrs, limit = 10):
+def generate_table_for_single_type_zrs(selected_et, zrs, compact, limit):
     if len(zrs) < 0: return Frame()
 
     g = Graph(zrs[0])
     mapping = generate_mapping_for_et(selected_et, g)
     zrs = zrs[:limit]
+    padding = [(1,1,1,1),(0,0,0,0)][compact]
 
     colors = ["#ff7e74","#ffe596","#81d76d","#57acf9","#baaee1"]
     row_styles  = ["", "dim"]
@@ -65,12 +66,12 @@ def generate_table_for_single_type_zrs(selected_et, zrs, limit = 10):
     rows = generate_rows(zrs, mapping)
     columns = [ Column(Text(c,justify = "center"), header_style = Style(background_color="#2a3240", color = colors[i%len(colors)]), style = Style(color = colors[i%len(colors)])) for i,c in enumerate(mapping.values())]
 
-    title = Frame(Text(f" A List of {len(zrs)} {repr(selected_et)}", bold= True, justify="center"), box ="head")
+    title = Frame(Text(f" A List of {len(zrs)} {repr(selected_et)}", bold= True, justify="center"), box ="simple_head")
     table = Table(
         show_edge=False,
         expand=True,     
+        padding = padding,
         show_header=True,
-        padding= (1,1,1,1),
         box = 'simple_head',        
         rows = rows,
         cols = columns,
@@ -83,9 +84,9 @@ def generate_table_for_single_type_zrs(selected_et, zrs, limit = 10):
     ])
 
 @func
-def generate_table_from_query(query, limit=10):
+def generate_table_from_query(query, compact = False, limit=10):
     groups = query | filter[is_a[ET]] | group_by[rae_type] |  collect
-    tables = groups | map[lambda g: generate_table_for_single_type_zrs(*g, limit)] | collect
+    tables = groups | map[lambda g: generate_table_for_single_type_zrs(*g, compact, limit)] | collect
     return VStack(tables)
 
 
@@ -95,8 +96,9 @@ def generate_rows_for_node(node, is_out = True):
     return node | traverse_op[RT] | sort[lambda rt: str(rae_type(rt))] | map[lambda rt: (str(rae_type(rt)), value_or_type(edge_end_op(rt)))] | collect
 
 
-def generate_table(zr, is_out):
+def generate_rts_table(zr, is_out, compact):
     colors = ["#ff7e74","#ffe596","#81d76d","#57acf9","#baaee1"]
+    padding = [(1,1,1,1),(0,0,0,0)][compact]
 
     rows = generate_rows_for_node(zr, is_out)
     if not rows: return ""
@@ -107,7 +109,7 @@ def generate_table(zr, is_out):
 
     return Table(
         expand=True,     
-        padding= (1,1,1,1),
+        padding= padding,
         box = 'simple_head',        
         rows = rows,
         cols = columns,
@@ -115,12 +117,12 @@ def generate_table(zr, is_out):
     )  
 
 @func
-def generate_card(zr):
+def generate_card(zr, compact = False):
     title = Text(f"{(repr(rae_type(zr)))}", bold= True)
     subtitle = Text(f"({uid(zr)})", bold= True)
 
-    outs_table = generate_table(zr, True)
-    ins_table = generate_table(zr, False)
+    outs_table = generate_rts_table(zr, True, compact)
+    ins_table = generate_rts_table(zr, False, compact)
 
     return Frame(HStack([outs_table, ins_table], expand= True), title = title, subtitle=subtitle,  box="horizontals") 
 
