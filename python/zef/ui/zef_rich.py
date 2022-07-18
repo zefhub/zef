@@ -204,8 +204,12 @@ def dispatch_rich_stack(component):
     stack_type = str(component | without_absorbed | collect)
     internals = component | absorbed | collect
     assert isinstance(internals[0], dict), "First absorbed argument for ZefUI Table should be of type dict!"
-    data = [handle_nested_components(c) for c in internals[0].get('data', [])]
-    cols = [handle_nested_components(c) for c in internals[0].get('cols', [])]
+    data = internals[0].get('data', [])
+    assert isinstance(data, list), f"Data for ZefUI Stack should be of type list! {data} was passed"
+    cols = internals[0].get('cols', [])
+    assert isinstance(cols, list), f"Data for ZefUI Stack should be of type list! {cols} was passed"
+    data = [handle_nested_components(c) for c in data]
+    cols = [handle_nested_components(c) for c in cols]
     attributes = resolve_attributes(internals[0])
 
     rich_grid = rt.Table.grid(*cols, **attributes)
