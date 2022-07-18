@@ -208,8 +208,9 @@ namespace zefDB {
                 // We can cheat here a little with bumping version when the data
                 // layout changes. This has the effect of throwing away old
                 // versions, but it is very manual
+                constexpr static int VERSION = 4;
                 // int version = 3;
-                int version = 4;
+                int version = VERSION;
                 zefDB::BaseUID uid;
                 blob_index last_update = 0;
                 std::array<Element_v1, MMap::PAGE_BITMAP_BITS> page_info;
@@ -237,8 +238,8 @@ namespace zefDB {
                 // We can cheat here a little with bumping version when the data
                 // layout changes. This has the effect of throwing away old
                 // versions, but it is very manual
-                // int version = 3;
-                int version = 5;
+                constexpr static int VERSION = 5;
+                int version = VERSION;
                 zefDB::BaseUID uid;
                 blob_index last_update = 0;
                 std::array<Element_v1, MMap::PAGE_BITMAP_BITS> page_info;
@@ -261,6 +262,7 @@ namespace zefDB {
                 Prefix_v5(BaseUID uid) : uid(uid) {};
             };
             using latest_Prefix_t = Prefix_v5;
+            constexpr static int filegraph_default_version = latest_Prefix_t::VERSION;
 
             void * main_file_mapping = nullptr;
 
@@ -321,10 +323,6 @@ namespace zefDB {
         }
 
         LIBZEF_DLL_EXPORTED void delete_filegraph_files(std::filesystem::path path_prefix);
-
-        constexpr int filegraph_v3_version_num = 4;
-        // constexpr int filegraph_default_version = 3;
-        constexpr int filegraph_default_version = 4;
 
 
         // * Basic struct manipulation

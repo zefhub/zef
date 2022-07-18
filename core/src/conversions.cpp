@@ -17,19 +17,75 @@
 #include "constants.h"
 #include "conversions.h"
 #include "low_level_api.h"
+#include "xxhash64.h"
 
 namespace zefDB {
     namespace conversions {
-        UpdatePayload convert_payload_0_3_0_to_0_2_0(const UpdatePayload & payload) {
-            if(payload.j["data_layout_version"] != "0.3.0")
-                throw std::runtime_error("Wrong data layout version");
+        uint64_t can_convert_0_3_0_to_0_2_0(void * start, size_t len) {
+            char * ptr = (char*)start;
+            char * end = ptr + len;
 
-            UpdatePayload out;
+            while(ptr < end) {
+                bool allowed = _visit_blob(overloaded {
+                        [](blobs_ns::ATOMIC_VALUE_NODE & x) {
+                            return false;
+                        },
+                        [](auto & x) {
+                            return true;
+                        },
+                    },
+                    ptr);
+                if(!allowed)
+                    return false;
+            }
+            return true;
+        }
 
+        uint64_t hash_with_only_layout_version_different(std::string new_layout, void * start, size_t len, uint64_t seed) {
+            // XXH64_state_t* const state = XXH64_createState();
+            // if(state == NULL) throw std::runtime_error("XXH64 failure");
+            // if(XXH64_reset(state, seed) == XXH_ERROR) throw std::runtime_error("XXH64 failure");
+
+            // // Do the root node part
+            // auto & root = *(blobs_ns::ROOT_NODE*)start;
+            // memcpy(root.data_layout_version_info, new_layout.data(), new_layout.size());
+            // root.actual_written_data_layout_version_info_size = new_layout.size();
+
+            // size_t root_size = sizeof(blobs_ns::ROOT_NODE);
+            // if(XXH64_update(state, &root, root_size) == XXH_ERROR) std::runtime_error("XXH64 failure");
+            // if(XXH64_update(state, (char*)start + root_size, len - root_size) == XXH_ERROR) std::runtime_error("XXH64 failure");
+
+            // uint64_t hash = XXH64_digest(state);
+            // XXH64_freeState(state);
+            // return hash;
+            XXHash64 xxh(seed);
+
+            // Do the root node part
+            const size_t root_size = sizeof(blobs_ns::ROOT_NODE);
+            // We can't create a blobs_ns::ROOT_NODE object here as the
+            // overflowing indices causes lots of problems. Instead we work with
+            // the raw buffer size.
+            char buf[root_size];
+            memcpy(buf, start, root_size);
+            auto root_ptr = (blobs_ns::ROOT_NODE *)buf;
+            memcpy(&root_ptr->data_layout_version_info, new_layout.data(), new_layout.size());
+            root_ptr->actual_written_data_layout_version_info_size = new_layout.size();
+
+            xxh.add(buf, root_size);
+            xxh.add((char*)start + root_size, len - root_size);
+
+            return xxh.hash();
+        }
+
+        uint64_t hash_0_3_0_as_if_0_2_0(void * start, size_t len, uint64_t seed) {
+            return hash_with_only_layout_version_different("0.2.0", start, len, seed);
+        }
+
+        std::string convert_blobs_0_3_0_to_0_2_0(std::string && blobs) {
             // We go through each blob and update:
             // a) the root node blob needs to contain a later layout version
             // b) assert for the lack of ATOMIC_VALUE_NODEs (no change)
-            std::string blobs = payload.rest[0];
+
             char * start = blobs.data();
             char * ptr = start;
             char * end = start + blobs.size();
@@ -41,14 +97,86 @@ namespace zefDB {
                         },
                         [](blobs_ns::ROOT_NODE & x) {
                             memcpy(x.data_layout_version_info, "0.2.0", strlen("0.2.0"));
-                            force_assert(x.actual_written_data_layout_version_info_size != strlen("0.2.0"));
+                            force_assert(x.actual_written_data_layout_version_info_size == strlen("0.2.0"));
                         },
                         [](auto & x) {},
                     },
                     ptr);
+
+                ptr += _blob_index_size(ptr) * constants::blob_indx_step_in_bytes;
             }
 
-            out.rest.push_back(std::move(blobs));
+            return blobs;
+        }
+
+        UpdatePayload create_update_payload_as_if_0_2_0(GraphData & gd, UpdateHeads update_heads) {
+            UpdatePayload payload = create_update_payload(gd, update_heads);
+
+            payload.rest[0] = convert_blobs_0_3_0_to_0_2_0(std::move(payload.rest[0]));
+
+            payload.j["hash_full_graph"] = gd.hash(constants::ROOT_NODE_blob_index, update_heads.blobs.to, 0, "0.2.0");
+            payload.j["data_layout_version"] = "0.2.0";
+
+            // We remove the av_hash cache but leave the rest
+            int cache_index = -1;
+            int iter_i = 0;
+            for(auto & cache : payload.j["caches"]) {
+                if(cache["name"] == "_av_hash_lookup") {
+                    if(payload.rest[iter_i+1].size() != 0)
+                        throw std::runtime_error("The rest size for the atomic value hash lookup is nonzero! Shouldn't have got here.");
+
+                    cache_index = iter_i;
+                    break;
+                }
+                iter_i++;
+            }
+            // Test as we might not have anything to do here
+            if(cache_index != -1) {
+                auto caches = payload.j["caches"].get<std::vector<std::string>>();
+                caches.erase(caches.begin()+cache_index);
+                payload.j["caches"] = caches;
+
+                // +1 here as the blobs are in index 0.
+                payload.rest.erase(payload.rest.begin()+cache_index + 1);
+            }
+
+            return payload;
+        }
+
+        std::string convert_blobs_0_2_0_to_0_3_0(std::string && blobs) {
+            char * start = blobs.data();
+            char * ptr = start;
+            char * end = start + blobs.size();
+
+            while(ptr < end) {
+                _visit_blob(overloaded {
+                        [](blobs_ns::ATOMIC_VALUE_NODE & x) {
+                            throw std::runtime_error("No value nodes should exist on a 0.2.0 graph.");
+                        },
+                        [](blobs_ns::ROOT_NODE & x) {
+                            memcpy(x.data_layout_version_info, "0.3.0", strlen("0.3.0"));
+                            force_assert(x.actual_written_data_layout_version_info_size == strlen("0.3.0"));
+                        },
+                        [](auto & x) {},
+                    },
+                    ptr);
+
+                ptr += _blob_index_size(ptr) * constants::blob_indx_step_in_bytes;
+            }
+
+            return blobs;
+        }
+
+        UpdatePayload convert_payload_0_2_0_to_0_3_0(const UpdatePayload & payload) {
+            if(payload.j["data_layout_version"] != "0.2.0")
+                throw std::runtime_error("Wrong data layout version");
+
+            UpdatePayload out;
+
+            // We go through each blob and update:
+            // a) the root node blob needs to contain a later layout version
+            std::string blobs_in = payload.rest[0];
+            std::string blobs = convert_blobs_0_2_0_to_0_3_0(std::move(blobs_in));
 
             out.j = json{
                 {"blob_index_lo", payload.j["blob_index_lo"]},
@@ -58,26 +186,28 @@ namespace zefDB {
                 // Unfortunately we can't copy the full hash because with the
                 // change of the data layout it affects the full graph hash.
                 // {"hash_full_graph", ...},
-                {"data_layout_version", "0.2.0"}
+                {"data_layout_version", "0.3.0"}
             };
 
-            // We remove the av_hash cache but leave the rest
+            // We are able to do a full hash in this case.
+            if(payload.j["blob_index_lo"] == constants::ROOT_NODE_blob_index)
+                out.j["hash_full_graph"] = internals::hash_memory_range(blobs.data(), blobs.size());
 
-            std::vector<json> new_caches;
-            int rest_index = 1;
-            for(auto & cache : payload.j["caches"]) {
-                if(cache["name"] == "_av_hash_lookup") {
-                    if(payload.rest[rest_index].size() != 0)
-                        throw std::runtime_error("The rest size for the atomic value hash lookup is nonzero! Shouldn't have got here.");
-                    continue;
-                }
-                out.rest.push_back(payload.rest[rest_index]);
+            out.j["caches"] = payload.j["caches"];
 
-                rest_index++;
+            out.rest.push_back(std::move(blobs));
+            for(auto it = payload.rest.cbegin()+1 ; it != payload.rest.cend() ; it++) {
+                out.rest.push_back(*it);
             }
-            out.j["caches"] = new_caches;
 
             return out;
+        }
+
+
+        void modify_update_heads(json & cache_heads, std::string working_layout) {
+            if(working_layout == "0.2.0") {
+                cache_heads.erase("_av_hash_lookup");
+            }
         }
     }
 }

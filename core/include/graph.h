@@ -357,8 +357,8 @@ namespace zefDB {
 		// which gets this GraphData struct froma bit of memory arithmetics (relative to its own address)
 		EZefRef get_ROOT_node() { return EZefRef(constants::ROOT_NODE_blob_index ,*this); }
 		std::uintptr_t ptr_to_write_head_location() { return (std::uintptr_t(this) + constants::blob_indx_step_in_bytes * write_head); }
-		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed=0) const;
-		uint64_t hash_partial(blob_index blob_index_hi, uint64_t seed=0) const;
+		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
+		uint64_t hash_partial(blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
 
 
 		// GraphData() { get_all_active_graph_data_tracker().register_graph_data(this); }
@@ -435,7 +435,7 @@ namespace zefDB {
         void delete_graphdata(void);
 
 
-		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed=0) const;
+		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
         // GraphData::key_map & key_dict();
 		bool contains(const std::string&) const;  // check if a key is contained
 		bool contains(const TagString&) const;
@@ -457,7 +457,7 @@ namespace zefDB {
 	};
 
     LIBZEF_DLL_EXPORTED Graph create_partial_graph(Graph old_g, blob_index index_hi);
-    LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed=0);
+    LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string working_layout);
     LIBZEF_DLL_EXPORTED void roll_back_using_only_existing(GraphData& gd);
     LIBZEF_DLL_EXPORTED void roll_back_to(GraphData& gd, blob_index index_hi, bool fill_caches);
 
@@ -576,6 +576,8 @@ namespace zefDB {
 		LIBZEF_DLL_EXPORTED str get_data_layout_version_info(const GraphData& gd);
 		LIBZEF_DLL_EXPORTED void set_graph_revision_info(const str& new_val, GraphData& gd);
 		LIBZEF_DLL_EXPORTED str get_graph_revision_info(GraphData& gd);
+
+        uint64_t hash_memory_range(const void * lo_ptr, size_t len, uint64_t seed=0);
 
 	} //internals
 

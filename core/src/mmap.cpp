@@ -424,8 +424,10 @@ namespace zefDB {
                 //     new(main_file_mapping) Prefix_v1{};
                 // else if (version == 2)
                 //     new(main_file_mapping) Prefix_v2{BaseUID::from_hex(uid)};
-                if (version == filegraph_v3_version_num)
+                if (version == Prefix_v3::VERSION)
                     new(main_file_mapping) Prefix_v3{uid};
+                else if (version == Prefix_v5::VERSION)
+                    new(main_file_mapping) Prefix_v5{uid};
                 else
                     throw std::runtime_error("Can't handle this version");
 
@@ -445,8 +447,10 @@ namespace zefDB {
             size_t temp;
             // if (version == 1) {
             //     size_t temp = sizeof(Prefix_v1);
-            if (version == filegraph_v3_version_num)
+            if (version == Prefix_v3::VERSION)
                 temp = sizeof(Prefix_v3);
+            else if (version == Prefix_v5::VERSION)
+                temp = sizeof(Prefix_v5);
             else
                 throw FileGraphWrongVersion(path_prefix, version, "Don't know prefix_size.");
             size_t num_pages = temp / ZEF_PAGE_SIZE + 1;
@@ -458,22 +462,31 @@ namespace zefDB {
         FileGraph::latest_Prefix_t * FileGraph::get_prefix() const {
             if(get_version() > filegraph_default_version)
                 throw FileGraphWrongVersion(path_prefix, get_version(), "Too new");
-            if(get_version() >= filegraph_v3_version_num)
+            if(get_version() == latest_Prefix_t::VERSION)
                 return (latest_Prefix_t*)main_file_mapping;
-            else
-                // This will be used for incompatibility with bit representation.
-                throw FileGraphWrongVersion(path_prefix, get_version());
+            // Modify the filegraph to update to the latest version
+            if(get_version() == Prefix_v3::VERSION) {
+                // This should not cause a resize of the prefix space.
+                // Just initialise the extra field (av_hash_lookup)
+                std::cerr << "Updating FileGraph prefix version " << Prefix_v3::VERSION << " to " << latest_Prefix_t::VERSION;
+                auto recast = (latest_Prefix_t*)main_file_mapping;
+                recast->version = latest_Prefix_t::VERSION;
+                new(&recast->av_hash_lookup) WholeFile_v1;
+                return recast;
+            }
+            // This will be used for incompatibility with bit representation.
+            throw FileGraphWrongVersion(path_prefix, get_version());
         }
 
         // This pattern will repeat a lot. Perhaps need a macro to handle it?
         blob_index FileGraph::get_latest_blob_index() const {
-            if(get_version() >= filegraph_v3_version_num)
+            if(get_version() >= Prefix_v3::VERSION)
                 return get_prefix()->last_update;
             else
                 throw FileGraphWrongVersion(path_prefix, get_version(), "No latest_blob_index.");
         }
         void FileGraph::set_latest_blob_index(blob_index new_value) {
-            if(get_version() >= filegraph_v3_version_num) {
+            if(get_version() >= Prefix_v3::VERSION) {
                 auto prefix = get_prefix();
                 if(prefix->last_update > new_value)
                     throw std::runtime_error("The last update blob index should never decrease!");
@@ -483,7 +496,7 @@ namespace zefDB {
         }
 
         bool FileGraph::is_page_in_file(size_t index) const {
-            if (get_version() >= filegraph_v3_version_num) {
+            if (get_version() >= Prefix_v3::VERSION) {
                 auto * prefix = get_prefix();
                 return prefix->page_info[index].offset != invalid_page;
             } else {
@@ -494,7 +507,7 @@ namespace zefDB {
         std::tuple<size_t,size_t> FileGraph::get_page_offset(size_t index) {
             // Note: the page index starts from 1 so there is an empty page at
             // the beginning for the prefix information.
-            if (get_version() == filegraph_v3_version_num) {
+            if (get_version() >= Prefix_v3::VERSION) {
                 Prefix_v3 & prefix = *(Prefix_v3*)main_file_mapping;
                 size_t offset = prefix.page_info[index].offset;
                 if (offset == invalid_page) {

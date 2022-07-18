@@ -18,12 +18,22 @@
 
 #include "export_statement.h"
 #include "butler/messages.h"
+#include "butler/butler.h"
 
 namespace zefDB {
     namespace conversions {
 
         using Messages::UpdatePayload;
+        using Butler::UpdateHeads;
 
-        UpdatePayload convert_payload_0_3_0_to_0_2_0(const UpdatePayload & payload);
+        uint64_t can_convert_0_3_0_to_0_2_0(void * start, size_t len);
+        uint64_t hash_0_3_0_as_if_0_2_0(void * start, size_t len, uint64_t seed);
+        std::string convert_blobs_0_3_0_to_0_2_0(std::string && blobs);
+        UpdatePayload create_update_payload_as_if_0_2_0(GraphData & gd, UpdateHeads update_heads);
+
+        std::string convert_blobs_0_2_0_to_0_3_0(std::string && blobs);
+        UpdatePayload convert_payload_0_2_0_to_0_3_0(const UpdatePayload & payload);
+
+        void modify_update_heads(json & cache_heads, std::string working_layout);
     }
 }

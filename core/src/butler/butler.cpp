@@ -31,6 +31,7 @@ using json = nlohmann::json;
 #include "synchronization.h"
 #include "zef_config.h"
 #include "external_handlers.h"
+#include "conversions.h"
 
 namespace zefDB {
     bool initialised_python_core = false;
@@ -509,8 +510,13 @@ namespace zefDB {
                     } catch(const std::exception & e) {
                         std::cerr << "THROW IN GRAPH MANAGER: " << e.what() << std::endl;
                         std::cerr << "While handling msg variant type: " << msg->content.index() << std::endl;
-                        std::cerr << "Setting graph into error state" << std::endl;
-                        me->gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                        if(me->gd) {
+                            std::cerr << "Setting graph into error state" << std::endl;
+                            me->gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                        } else {
+                            // Since no graphdata exists, no reason to hang around
+                            me->please_stop = true;
+                        }
                         // Failsafe
                         msg->promise.set_exception(std::current_exception());
                     }

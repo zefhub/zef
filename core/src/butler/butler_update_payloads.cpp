@@ -48,7 +48,7 @@ UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & up
         {"blob_index_hi", update_heads.blobs.to},
         {"graph_uid", str(internals::get_graph_uid(gd))},
         {"index_of_latest_complete_tx_node", last_tx},
-        {"hash_full_graph", gd.hash(constants::ROOT_NODE_blob_index, update_heads.blobs.to)},
+        {"hash_full_graph", gd.hash(constants::ROOT_NODE_blob_index, update_heads.blobs.to, 0, "")},
         {"data_layout_version", internals::get_data_layout_version_info(gd)}
     };
     p.rest = {blobs};
@@ -147,7 +147,7 @@ UpdateHeads client_create_update_heads(const GraphData & gd) {
         return update_heads;
 }
 
-void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j) {
+void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j, std::string working_layout) {
     j["blobs_head"] = fg.get_latest_blob_index();
 
     json cache_heads;
@@ -201,6 +201,8 @@ void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j) {
             {"revision", mapping.get()->revision()},
         };
     }
+
+    conversions::modify_update_heads(cache_heads, working_layout);
     j["cache_heads"] = cache_heads;
 }
 
@@ -325,7 +327,17 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
     if(is_up_to_date(update_heads))
         return;
 
-    UpdatePayload payload = create_update_payload(*me.gd, update_heads);
+    // As we might be doing this fast, we need to make sure that the auth
+    // handshake has happened so that we know the protocol version.
+    wait_for_auth();
+    force_assert(zefdb_protocol_version != -1);
+
+    UpdatePayload payload;
+    if(zefdb_protocol_version <= 5)
+        payload = conversions::create_update_payload_as_if_0_2_0(*me.gd, update_heads);
+    else
+        payload = create_update_payload(*me.gd, update_heads);
+
 
     if(me.gd->sync_head == 0)
         payload.j["msg_type"] = "full_graph";

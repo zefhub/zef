@@ -18,6 +18,7 @@
 #include "verification.h"
 #include "zefops.h"
 #include "external_handlers.h"
+#include "conversions.h"
 
 #include <doctest/doctest.h>
 
@@ -422,33 +423,39 @@ namespace zefDB {
     }
 
 
-    uint64_t Graph::hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed) const {
-        return my_graph_data().hash(blob_index_lo, blob_index_hi, seed);
+    uint64_t Graph::hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string target_layout_version) const {
+        return my_graph_data().hash(blob_index_lo, blob_index_hi, seed, target_layout_version);
     }
 
-    uint64_t GraphData::hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed) const {
+    uint64_t GraphData::hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string target_layout_version) const {
+        if(target_layout_version == "")
+            target_layout_version = "0.3.0";
+
         char * lo_ptr = (char*)this + blob_index_lo * constants::blob_indx_step_in_bytes;
         size_t len = (blob_index_hi - blob_index_lo)*constants::blob_indx_step_in_bytes;
         Butler::ensure_or_get_range(lo_ptr, len);
 
-            if (blob_index_lo < 0 ||
-				blob_index_lo > blob_index_hi ||
-				blob_index_hi > write_head
-				) throw std::runtime_error("invalid blob range to hash");
+        if (blob_index_lo < 0 ||
+            blob_index_lo > blob_index_hi ||
+            blob_index_hi > write_head
+            ) throw std::runtime_error("invalid blob range to hash");
 
-			uint64_t hash_from_blobs = XXHash64::hash((void*)(lo_ptr), len, seed);
+        if(target_layout_version == "0.3.0")
+            return internals::hash_memory_range((void*)(lo_ptr), len, seed);
+        else if(target_layout_version == "0.2.0")
+            return conversions::hash_0_3_0_as_if_0_2_0((void*)(lo_ptr), len, seed);
+        else
+            throw std::runtime_error("Can't hash for layout of " + target_layout_version);
+    }
 
-			return hash_from_blobs;
-		}
-
-    uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed) {
+    uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string target_layout_version) {
         // // Optimised common case
         GraphData & gd = g.my_graph_data();
         if(index_hi == gd.write_head)
-            return gd.hash(constants::ROOT_NODE_blob_index, index_hi);
+            return gd.hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
 
         Graph old_g = create_partial_graph(g, index_hi);
-        return old_g.hash(constants::ROOT_NODE_blob_index, index_hi, seed);
+        return old_g.hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
     }
 
     Graph create_partial_graph(Graph old_g, blob_index index_hi) {
@@ -1316,6 +1323,11 @@ namespace zefDB {
 			auto& root_blob = get<blobs_ns::ROOT_NODE>(EZefRef{constants::ROOT_NODE_blob_index, gd});
 			return std::string(root_blob.graph_revision_info, root_blob.actual_written_graph_revision_info_size);
 		}
+
+        uint64_t hash_memory_range(const void * lo_ptr, size_t len, uint64_t seed) {
+            // This is just so we can adjust it in the future.
+            return XXHash64::hash(lo_ptr, len, seed);
+        }
 	} //internals
 }
 

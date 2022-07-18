@@ -440,11 +440,11 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & update_heads);
         LIBZEF_DLL_EXPORTED UpdateHeads client_create_update_heads(const GraphData & gd);
         LIBZEF_DLL_EXPORTED json create_heads_json_from_sync_head(const GraphData & gd, const UpdateHeads & update_heads);
-        LIBZEF_DLL_EXPORTED void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j);
+        LIBZEF_DLL_EXPORTED void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j, std::string working_layout);
         LIBZEF_DLL_EXPORTED UpdateHeads parse_payload_update_heads(const UpdatePayload & payload);
         LIBZEF_DLL_EXPORTED UpdateHeads parse_message_update_heads(const json & j);
         // UpdateHeads client_create_update_heads(const GraphData & gd);
-        LIBZEF_DLL_EXPORTED void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, bool double_linking, bool update_upstream);
+        LIBZEF_DLL_EXPORTED void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, bool double_linking, bool update_upstream, std::string working_layout);
         LIBZEF_DLL_EXPORTED void apply_sync_heads(GraphData & gd, const UpdateHeads & update_heads);
 
     }
