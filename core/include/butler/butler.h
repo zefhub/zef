@@ -215,6 +215,7 @@ namespace zefDB {
             constexpr static int zefdb_protocol_version_min = 4;
             constexpr static int zefdb_protocol_version_max = 6;
             AtomicLockWrapper auth_locker;
+            std::string upstream_layout();
 
             int chunked_transfer_size_user = -1;
             int chunked_transfer_size = 10*1024;

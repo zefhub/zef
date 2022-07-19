@@ -333,10 +333,12 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
     force_assert(zefdb_protocol_version != -1);
 
     UpdatePayload payload;
-    if(zefdb_protocol_version <= 5)
+    if(upstream_layout() == "0.2.0")
         payload = conversions::create_update_payload_as_if_0_2_0(*me.gd, update_heads);
-    else
+    else {
+        force_assert(upstream_layout() == "0.3.0");
         payload = create_update_payload(*me.gd, update_heads);
+    }
 
 
     if(me.gd->sync_head == 0)

@@ -38,11 +38,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
     me.debug_last_action = "About to resubscribe";
 
-    std::string working_layout;
-    if(butler.zefdb_protocol_version <= 5)
-        working_layout = "0.2.0";
-    else
-        working_layout = "0.3.0";
+    std::string working_layout = butler.upstream_layout();
 
     // Interesting point here - we could send out read_head, but
     // if we've written more to it then upstream would get
@@ -200,8 +196,10 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload_in, 
     UpdatePayload payload;
     if(working_layout == "0.2.0")
         payload = conversions::convert_payload_0_2_0_to_0_3_0(payload_in);
-    else
+    else {
+        force_assert(working_layout == "0.3.0");
         payload = payload_in;
+    }
 
     UpdateHeads heads = parse_payload_update_heads(payload);
 
@@ -320,11 +318,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
         me.gd->should_sync = false;
 
         if(content.payload) {
-            std::string working_layout;
-            if(zefdb_protocol_version <= 5)
-                working_layout = "0.2.0";
-            else
-                working_layout = "0.3.0";
+            std::string working_layout = upstream_layout();
 
             apply_update_with_caches(*me.gd, *content.payload, false, false, working_layout);
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
@@ -395,11 +389,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
         // This is where all of the user-requested
         // options (like primary role) should come into
         // play.
-        std::string working_layout;
-        if(zefdb_protocol_version <= 5)
-            working_layout = "0.2.0";
-        else
-            working_layout = "0.3.0";
+        std::string working_layout = upstream_layout();
 
         if (existed) {
             // TODO: Need to send hash along to confirm we're right if we've
@@ -840,11 +830,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, GraphUp
     if(me.gd->is_primary_instance)
         throw std::runtime_error("Shouldn't be receiving updates if we are the primary role!");
 
-    std::string working_layout;
-    if(zefdb_protocol_version <= 5)
-        working_layout = "0.2.0";
-    else
-        working_layout = "0.3.0";
+    std::string working_layout = upstream_layout();
 
     apply_update_with_caches(*me.gd, content.payload, true, true, working_layout);
 
