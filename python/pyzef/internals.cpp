@@ -693,6 +693,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		}, "read the content of the memory pool filled with blobs_ns for a given graph");
 	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload);
 	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads);
+	internals_submodule.def("convert_payload_0_2_0_to_0_3_0", &conversions::convert_payload_0_2_0_to_0_3_0);
 		
 	// internals_submodule.def("include_new_blobs", [](Graph& g, blob_index start_index, blob_index end_index, py::bytes blob_bytes, bool double_link)->void {
     //         GraphData & gd = g.my_graph_data();
