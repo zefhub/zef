@@ -359,14 +359,9 @@ SerializedValue.__repr__ = SerializedValue_repr
 
 
 
-original_AtomicEntityTypeStruct__call__ = internals.AtomicEntityTypeStruct.__call__
-def AtomicEntityTypeStruct_call(self, x):
-    from .VT import ValueType_
-    if type(x) == ValueType_:
-        return AtomicEntityType(SerializedValue.serialize(x))
-    else:
-        return original_AtomicEntityTypeStruct__call__(self, x)
-AtomicEntityTypeStruct.__call__ = AtomicEntityTypeStruct_call
+def AtomicEntityTypeStruct_getitem(self, x):
+    return AtomicEntityType(SerializedValue.serialize(x))
+AtomicEntityTypeStruct.__getitem__ = AtomicEntityTypeStruct_getitem
 
 original_AtomicEntityType__repr__ = internals.AtomicEntityType.__repr__
 def AtomicEntityType_repr(self):

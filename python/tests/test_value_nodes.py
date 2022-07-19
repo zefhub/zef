@@ -65,7 +65,7 @@ class MyTestCase(unittest.TestCase):
 
         even_type = Int & Is[modulo[2] | equals[0]]
 
-        ae = AET(even_type) | g | run
+        ae = AET[even_type] | g | run
 
         self.assertEqual(AET(ae).complex_value.deserialize(), even_type)
 
@@ -117,7 +117,7 @@ class MyTestCase(unittest.TestCase):
         g = Graph()
         num_before = g | all | filter[is_a[BT.ATOMIC_VALUE_NODE]] | length | collect
         vn = Val({"something": 42}) | g | run
-        ae = AET(Any) | g | run
+        ae = AET[Any] | g | run
         ae | assign[Val({"something": 42})] | g | run
         num_after = g | all | filter[is_a[BT.ATOMIC_VALUE_NODE]] | length | collect
         self.assertEqual(num_after, num_before + 2)
@@ -127,8 +127,8 @@ class MyTestCase(unittest.TestCase):
         g = Graph()
         num_before = g | all | filter[is_a[BT.ATOMIC_VALUE_NODE]] | length | collect
         vn = Val(VT.Graph) | g | run
-        ae = AET(Any) | g | run
-        ae2 = AET(VT.Graph) | g | run
+        ae = AET[Any] | g | run
+        ae2 = AET[VT.Graph] | g | run
         ae | assign[Val(VT.Graph)] | g | run
         num_after = g | all | filter[is_a[BT.ATOMIC_VALUE_NODE]] | length | collect
         self.assertEqual(num_after, num_before + 2)
