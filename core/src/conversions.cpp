@@ -37,6 +37,7 @@ namespace zefDB {
                     ptr);
                 if(!allowed)
                     return false;
+                ptr += _blob_index_size(ptr) * constants::blob_indx_step_in_bytes;
             }
             return true;
         }

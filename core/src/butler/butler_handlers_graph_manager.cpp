@@ -724,6 +724,17 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
         return;
     }
 
+    if(upstream_layout() == "0.2.0") {
+        // Only allow sync to turn on if we can convert the layout for this graph. (it is compatible)
+        char * blobs_ptr = (char*)(me.gd) + constants::ROOT_NODE_blob_index * constants::blob_indx_step_in_bytes;
+        char * end = (char*)(me.gd) + me.gd->read_head.load() * constants::blob_indx_step_in_bytes;
+        size_t len = end - blobs_ptr;
+        if(!conversions::can_convert_0_3_0_to_0_2_0(blobs_ptr, len)) {
+            msg->promise.set_value(GenericResponse{false, "Can't sync a graph which is not comptabile with 0.2.0 data layout"});
+            return;
+        }
+    }
+
     update(me.gd->heads_locker, me.gd->should_sync, content.sync);
 
     // Note: if the graph was already set to sync, the manager should be
