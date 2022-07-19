@@ -771,7 +771,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		}, "read the content of the memory pool filled with blobs_ns for a given graph");
 	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload);
 	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads);
-	// internals_submodule.def("convert_payload_0_3_0_to_0_2_0", &conversions::convert_payload_0_3_0_to_0_2_0);
+	internals_submodule.def("convert_payload_0_2_0_to_0_3_0", &conversions::convert_payload_0_2_0_to_0_3_0);
 		
 	internals_submodule.def("apply_update", &Butler::apply_update_with_caches, py::call_guard<py::gil_scoped_release>());
 
