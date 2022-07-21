@@ -125,7 +125,6 @@ void Butler::fill_out_ZH_message(json & j) { //, bool add_hints) {
     j["protocol_type"] = "ZEFDB";
     j["protocol_version"] = zefdb_protocol_version.load();
     if(zefdb_protocol_version <= 5) {
-        std::cerr << "Protocol number is " << zefdb_protocol_version << std::endl;
         if(api_key != "")
             throw std::runtime_error("We got to a point of a using an API key but ZefHub is too old to understand it.");
         j["who"] = get_firebase_token_refresh_token(refresh_token);
