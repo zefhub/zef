@@ -33,7 +33,7 @@ def schema_str_to_dict(schema_str):
 
             return {
                 arg.name.value: {
-                    "type": resolve_type(arg.type),
+                    "return_type": resolve_type(arg.type),
                     **resolve_default_value(arg),
                 }
             }
@@ -60,26 +60,22 @@ def schema_str_to_dict(schema_str):
     def dispatch_on_type(type_node):
         return {
             type_node.name.value : {
-                "_gqltype": "Type",
                 **(list(type_node.fields) | map[resolve_field] | merge | collect)
             }
         }
 
     def dispatch_on_scalar(type_node):
-        return {
-            type_node.name.value : {
-                "_gqltype": "Scalar"
-            }
-        }
+        return type_node.name.value 
 
     dispatch = match[
-        (Is[lambda t: isinstance(t, ObjectTypeDefinitionNode)], dispatch_on_type),
-        (Is[lambda t: isinstance(t, ScalarTypeDefinitionNode)], dispatch_on_scalar),
+        (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": map(g[1], dispatch_on_type)}),
+        (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": map(g[1], dispatch_on_scalar)})
     ]
 
     document = parse(schema_str, no_location=True)
     return (
         list(document.definitions)
+        | group_by[type]
         | map[dispatch]
         | merge
         | collect
