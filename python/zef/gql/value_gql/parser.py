@@ -17,8 +17,8 @@
 # IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 # CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-from ..core import *
-from ..ops import *
+from ...core import *
+from ...ops import *
 from graphql import parse
 from graphql.language.ast import ScalarTypeDefinitionNode, ObjectTypeDefinitionNode, NamedTypeNode, ListTypeNode, NonNullTypeNode, InterfaceTypeDefinitionNode
 
