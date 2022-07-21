@@ -270,10 +270,10 @@ namespace zefDB {
                 int fd;
                 // fd = open(path.c_str(), O_RDWR | O_CREAT | O_TRUNC, 0600);
                 auto path = get_filename(file_index);
-                fd = open(path.c_str(), O_RDWR | O_CREAT, 0600);
+                fd = open(path.string().c_str(), O_RDWR | O_CREAT, 0600);
                 if(fd == -1) {
                     perror("Opening fd");
-                    throw std::runtime_error("Unable to open file: " + std::string(path));
+                    throw std::runtime_error("Unable to open file: " + path.string());
                 }
                 fds[file_index] = fd;
             }
@@ -409,7 +409,7 @@ namespace zefDB {
                 throw std::runtime_error("Unable to remap and enlarge memory.");
             return new_ptr;
 #elif defined(ZEF_WIN32)
-            void * new_ptr = WindowsMMap(fd, 0, new_size, nullptr);
+            void * new_ptr = OSMMap(fd, 0, new_size, nullptr);
             if (fd == 0) {
                 memcpy(new_ptr, old_ptr, old_size);
                 VirtualFree(old_ptr, 0, MEM_RELEASE);

@@ -51,6 +51,13 @@ namespace zefDB {
 
         // * Utils
 
+        inline void * align_to_system_pagesize(const void * ptr) { 
+            SYSTEM_INFO sys_info;
+            GetSystemInfo(&sys_info);
+
+            return floor_ptr(ptr, sys_info.dwPageSize);
+        }
+
         inline bool is_fd_writable(int fd) {
             BY_HANDLE_FILE_INFORMATION info;
             HANDLE handle = (HANDLE)_get_osfhandle(fd);
@@ -80,7 +87,7 @@ namespace zefDB {
             for(auto & fd : fds) {
                 if(fd != -1) {
                     try {
-                        WindowsUnlockFile(fd, true);
+                        OSUnlockFile(fd, true);
                     } catch(const std::exception & exc) {
                         std::cerr << "Problem unlocking file: " + std::string(exc.what()) << std::endl;
                         std::cerr << "Ignoring because in ~FileGraph" << std::endl;

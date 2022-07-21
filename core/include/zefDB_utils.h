@@ -417,7 +417,7 @@ namespace zefDB {
             : path(path) {
             if(std::filesystem::is_directory(path))
                 path /= ".lock";
-            fd = open(path.c_str(), O_RDWR | O_CREAT, 0600);
+            fd = open(path.string().c_str(), O_RDWR | O_CREAT, 0600);
             if(fd == -1)
                 throw std::runtime_error("Opening lockfile '" + path.string() + "' failed.");
                 

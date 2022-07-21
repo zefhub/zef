@@ -46,7 +46,7 @@ namespace zefDB {
                 auto [offset, file_index] = fg.get_page_offset(page_ind);
                 int fd = fg.get_fd(file_index);
                 // std::cerr << "*** Mapping file offset: " << offset << " to blob offset: " << (intptr_t)blob_start - (intptr_t)blobs_ptr << std::endl;
-                WindowsMMap(fd, offset, ZEF_PAGE_SIZE, blob_start);
+                OSMMap(fd, offset, ZEF_PAGE_SIZE, blob_start);
 
                 // Windows doesn't guarantee new file contents are zeroed out.
                 if(!info.occupied_pages[page_ind])

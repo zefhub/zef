@@ -37,6 +37,8 @@ namespace zefDB {
 
         // * Utils
 
+        inline void * align_to_system_pagesize(const void * ptr) { return floor_ptr(ptr, getpagesize()); }
+
         inline bool is_fd_writable(int fd) {
             int flags;
             flags = fcntl(fd, F_GETFL);

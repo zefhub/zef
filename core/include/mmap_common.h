@@ -57,7 +57,7 @@ namespace zefDB {
             return temp;
         }
 
-        inline void * align_to_system_pagesize(const void * ptr) { return floor_ptr(ptr, getpagesize()); }
+        void * align_to_system_pagesize(const void * ptr);
 
         inline void error(const char * s) {
             std::cerr << "Error: " << s << std::endl;
@@ -90,7 +90,7 @@ namespace zefDB {
             int what_errno;
             FileAlreadyLocked(std::filesystem::path path) : path(path) {
                 what_errno = errno;
-                s = std::string("Can't acquire exclusive lock on filegraph (") + std::string(path) + "), aborting. Errno = " + to_str(what_errno);
+                s = std::string("Can't acquire exclusive lock on filegraph (") + path.string() + "), aborting. Errno = " + to_str(what_errno);
             }
             const char * what() const noexcept {
                 return s.c_str();
@@ -106,7 +106,7 @@ namespace zefDB {
             std::string s;
 
             FileGraphWrongVersion(std::filesystem::path path, int version, std::string extra="") : path(path), version(version), extra(extra) {
-                s = std::string("Filegraph (") + std::string(path) + "), was the wrong version (" + to_str(version) + ").";
+                s = std::string("Filegraph (") + path.string() + "), was the wrong version (" + to_str(version) + ").";
                 if(extra != "")
                     s += " " + extra;
             }
