@@ -20,9 +20,13 @@
 from ..core import *
 from ..ops import *
 from graphql import parse
-from graphql.language.ast import ScalarTypeDefinitionNode, ObjectTypeDefinitionNode, NamedTypeNode, ListTypeNode, NonNullTypeNode
+from graphql.language.ast import ScalarTypeDefinitionNode, ObjectTypeDefinitionNode, NamedTypeNode, ListTypeNode, NonNullTypeNode, InterfaceTypeDefinitionNode
 
 def schema_str_to_dict(schema_str):
+
+    def resolve_interfaces(interfaces):
+        if interfaces: return {'_interfaces': interfaces | map[lambda i: i.name.value] | collect}
+        return {}
 
     def resolve_args(args):
         def resolve_arg(arg):
@@ -60,7 +64,8 @@ def schema_str_to_dict(schema_str):
     def dispatch_on_type(type_node):
         return {
             type_node.name.value : {
-                **(list(type_node.fields) | map[resolve_field] | merge | collect)
+                **(list(type_node.fields) | map[resolve_field] | merge | collect),
+                **resolve_interfaces(list(type_node.interfaces))
             }
         }
 
@@ -69,7 +74,8 @@ def schema_str_to_dict(schema_str):
 
     dispatch = match[
         (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": map(g[1], dispatch_on_type)}),
-        (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": map(g[1], dispatch_on_scalar)})
+        (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": map(g[1], dispatch_on_scalar)}),
+        (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"_Interfaces": map(g[1], dispatch_on_type)})
     ]
 
     document = parse(schema_str, no_location=True)
