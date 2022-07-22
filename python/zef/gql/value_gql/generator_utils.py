@@ -21,16 +21,14 @@ def print_types(generated_types, cog):
     cog.out(f"object_types = [{','.join(generated_types)}]")
 
 
-def print_imports(additional_exec, cog):
-    cog.outl("from ariadne import ObjectType,MutationType,QueryType,InterfaceType,SubscriptionType")
-    cog.outl("from zef.gql.ariadne_utils import *")
-    cog.outl("from zef.gql.resolvers_utils import *")
+def print_imports(cog):
     cog.outl("from zef import *")
     cog.outl("from zef.ops import *")
-    cog.outl(additional_exec)
+    cog.outl("from zef.gql.value_gql.generator_utils import *")
+    cog.outl("from ariadne import ObjectType,MutationType,QueryType,InterfaceType,SubscriptionType")
 
 
-#--------------------------Cogging------------------------
+#--------------------------Cogging-------------------------
 def initialize_object_type(object_type, cog):
     if "Mutation" == object_type:
         cog.outl(f'{object_type} = MutationType()')
@@ -66,13 +64,14 @@ def create_field_resolver(object_type, field_name, field_dict):
     return fn_body, default_params
 
 
-def generate_all(schema_dict, cog):
-    default_resolvers_list = schema_dict["default_resolvers_list"]
-    fallback_resolvers = schema_dict["fallback_resolvers"]
+def generate_resolvers(schema_dict, cog):
+    default_resolvers_list = schema_dict.get("default_resolvers_list", [])
+    fallback_resolvers = schema_dict.get("fallback_resolvers", [])
+
     types = schema_dict["_Types"]
     interfaces = schema_dict["_Interfaces"]
-
     object_types = []
+
     for t_dict in types:
         for object_type, fields_dict in t_dict.items():
         
@@ -82,7 +81,7 @@ def generate_all(schema_dict, cog):
             initialize_object_type(object_type, cog)
 
             for field_name, field_dict in fields_dict.items():
-
+                if field_name.startswith("_"): continue
                 fn_body, params = create_field_resolver(object_type, field_name, field_dict)
                 generate_field_resolver(object_type, field_name, fn_body, params, cog)
 
