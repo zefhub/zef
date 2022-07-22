@@ -47,19 +47,32 @@ def generate_fct_body(fct_body):
     return f"""
     return None""" 
 
-def generate_field_resolver(object_type, field_name, fct_body, params, cog):
+def generate_field_resolver(object_type, field_name, fct_body, args, cog):
     custom_sort = lambda item: 1 if "=" in item else -1
-    params = params | sort[custom_sort] | collect
+    args = args | sort[custom_sort] | collect
     cog.outl(f'@{object_type}.field("{field_name}")')
-    cog.outl(f'def resolve_{object_type}_{field_name}({", ".join(params)}):')
+    cog.outl(f'def resolve_{object_type}_{field_name}({", ".join(args)}):')
     cog.outl(f'{fct_body}\n')
+
+def generate_args(args):
+    def handle_arg_dict(d):
+        arg, arg_d = list(d.items())[0]
+        if "default" in arg_d: arg += f" = {arg_d['default']}"
+        return arg
+
+    default_args = ["z", "ctx"]
+    return (
+        args
+        | map[handle_arg_dict]
+        | concat[default_args]
+        | collect
+    )
 
 
 def create_field_resolver(object_type, field_name, field_dict):
-    default_params = ["z", "ctx"]
-    # params = handle_params(rt, default_params)
+    args = generate_args(field_dict.get('args', []))
     fct_body = generate_fct_body(field_dict["resolver"])
-    return fct_body, default_params
+    return fct_body, args
 
 
 def generate_resolvers(schema_dict, cog):
@@ -81,8 +94,8 @@ def generate_resolvers(schema_dict, cog):
 
             for field_name, field_dict in fields_dict.items():
                 if field_name.startswith("_"): continue
-                fct_body, params = create_field_resolver(object_type, field_name, field_dict)
-                generate_field_resolver(object_type, field_name, fct_body, params, cog)
+                fct_body, args = create_field_resolver(object_type, field_name, field_dict)
+                generate_field_resolver(object_type, field_name, fct_body, args, cog)
 
     # for i in interfaces:
     #     object_types.append(generate_interface_resolver(i, cog))
