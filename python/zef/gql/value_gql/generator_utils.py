@@ -38,30 +38,28 @@ def initialize_object_type(object_type, cog):
         cog.outl(f'{object_type} = ObjectType("{object_type}")')
 
 
-def resolve_with_wrapper(fn_body):
+def generate_fct_body(fct_body):
+    if fct_body:
+        return f"""
+    op_or_func = {fct_body}
+    return op_or_func('args')""" 
+    
     return f"""
-    try:
-        {fn_body}
-    """ + """
-    except Exception as e:
-        if "error traversing" not in str(e):
-            log.warn(f"Handled exception while calling a resolve_with_*", exc_info=e)
-        return None
-    """
+    return None""" 
 
-def generate_field_resolver(object_type, field_name, fn_body, params, cog):
+def generate_field_resolver(object_type, field_name, fct_body, params, cog):
     custom_sort = lambda item: 1 if "=" in item else -1
     params = params | sort[custom_sort] | collect
     cog.outl(f'@{object_type}.field("{field_name}")')
     cog.outl(f'def resolve_{object_type}_{field_name}({", ".join(params)}):')
-    cog.outl(f'     {fn_body}\n')
+    cog.outl(f'{fct_body}\n')
 
 
 def create_field_resolver(object_type, field_name, field_dict):
     default_params = ["z", "ctx"]
     # params = handle_params(rt, default_params)
-    fn_body = resolve_with_wrapper(field_dict["resolver"])
-    return fn_body, default_params
+    fct_body = generate_fct_body(field_dict["resolver"])
+    return fct_body, default_params
 
 
 def generate_resolvers(schema_dict, cog):
@@ -77,14 +75,14 @@ def generate_resolvers(schema_dict, cog):
         
             # Don't generate resolvers for function in this list
             if object_type in skip_generation_list: continue
-            
+
             object_types.append(object_type)
             initialize_object_type(object_type, cog)
 
             for field_name, field_dict in fields_dict.items():
                 if field_name.startswith("_"): continue
-                fn_body, params = create_field_resolver(object_type, field_name, field_dict)
-                generate_field_resolver(object_type, field_name, fn_body, params, cog)
+                fct_body, params = create_field_resolver(object_type, field_name, field_dict)
+                generate_field_resolver(object_type, field_name, fct_body, params, cog)
 
     # for i in interfaces:
     #     object_types.append(generate_interface_resolver(i, cog))
