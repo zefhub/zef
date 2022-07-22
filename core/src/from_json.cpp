@@ -135,7 +135,7 @@ namespace zefDB {
             blob.relation_type = details["relation_type"];
         }
 
-        void assign_blob_specific(blobs_ns::COMPLEX_VALUE_TYPE_EDGE & blob, const json & details) {}
+        void assign_blob_specific(blobs_ns::VALUE_TYPE_EDGE & blob, const json & details) {}
 
 
         Graph create_from_json(std::unordered_map<blob_index,json> blobs) {
@@ -308,7 +308,7 @@ namespace zefDB {
             if(name == "FOREIGN_ENTITY_NODE") return BlobType::FOREIGN_ENTITY_NODE;
             if(name == "FOREIGN_ATOMIC_ENTITY_NODE") return BlobType::FOREIGN_ATOMIC_ENTITY_NODE;
             if(name == "FOREIGN_RELATION_EDGE") return BlobType::FOREIGN_RELATION_EDGE;
-            if(name == "COMPLEX_VALUE_TYPE_EDGE") return BlobType::COMPLEX_VALUE_TYPE_EDGE;
+            if(name == "VALUE_TYPE_EDGE") return BlobType::VALUE_TYPE_EDGE;
             throw std::runtime_error("Unknown blob type: " + name);
         }
 

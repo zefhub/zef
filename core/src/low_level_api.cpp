@@ -232,7 +232,7 @@ namespace zefDB {
             case BlobType::ORIGIN_RAE_EDGE: { common_behavior(get<ORIGIN_RAE_EDGE>(this_new_blob)); break; }
             case BlobType::ORIGIN_GRAPH_EDGE: { common_behavior(get<ORIGIN_GRAPH_EDGE>(this_new_blob)); break; }
             case BlobType::FOREIGN_RELATION_EDGE: { common_behavior(get<FOREIGN_RELATION_EDGE>(this_new_blob)); break; }
-            case BlobType::COMPLEX_VALUE_TYPE_EDGE: { common_behavior(get<COMPLEX_VALUE_TYPE_EDGE>(this_new_blob)); break; }
+            case BlobType::VALUE_TYPE_EDGE: { common_behavior(get<VALUE_TYPE_EDGE>(this_new_blob)); break; }
             default: {throw std::runtime_error("instantiate(EZefRef src, BlobType bt, EZefRef trg, GraphData& gd) called for BlobType an unhandled case. BT: " + to_str(bt)); }
             }			
 
@@ -739,11 +739,11 @@ namespace zefDB {
             if (!is_AE_complex(ae))
                 return {};
 
-            // The first edge is a REL_ENT_INSTANCE and the second must be the COMPLEX_VALUE_TYPE_EDGE
+            // The first edge is a REL_ENT_INSTANCE and the second must be the VALUE_TYPE_EDGE
             if(ae.edges.indices[1] <= 0)
                 throw std::runtime_error("Complex value type edge is missing");
             EZefRef maybe_edge{ae.edges.indices[1], *graph_data(&ae)};
-            if(BT(maybe_edge) != BT.COMPLEX_VALUE_TYPE_EDGE)
+            if(BT(maybe_edge) != BT.VALUE_TYPE_EDGE)
                 throw std::runtime_error("Complex value type edge is missing");
 
             EZefRef z_value_node = imperative::target(maybe_edge);

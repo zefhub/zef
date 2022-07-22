@@ -596,7 +596,7 @@ namespace zefDB {
 		return os;
 	}
 
-	std::ostream& operator<< (std::ostream& os, const blobs_ns::COMPLEX_VALUE_TYPE_EDGE& this_blob) {
+	std::ostream& operator<< (std::ostream& os, const blobs_ns::VALUE_TYPE_EDGE& this_blob) {
 		using namespace ranges;
 		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
 		os << "\"source_node_index\": " << this_blob.source_node_index << ", ";
@@ -733,7 +733,7 @@ namespace zefDB {
 		};
     }
 
-    json blob_to_json_details(const blobs_ns::COMPLEX_VALUE_TYPE_EDGE & blob) {
+    json blob_to_json_details(const blobs_ns::VALUE_TYPE_EDGE & blob) {
         return json{};
     }
 

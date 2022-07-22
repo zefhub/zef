@@ -35,7 +35,7 @@ namespace zefDB {
         // auto bt = get<BlobType>(ezr.blob_ptr);
         // Note: the above creates a new EZefRef so we end up in an infinite chain
         auto bt = *(BlobType*)(ezr.blob_ptr);
-        if(bt == BlobType::_unspecified || bt > BlobType::COMPLEX_VALUE_TYPE_EDGE) {
+        if(bt == BlobType::_unspecified || bt > BlobType::VALUE_TYPE_EDGE) {
             print_backtrace();
 
             std::cerr << "Shouldn't be making a EZefRef that points at anything other than a blob." << std::endl;

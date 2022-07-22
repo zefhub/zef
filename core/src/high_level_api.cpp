@@ -450,7 +450,7 @@ namespace zefDB {
             new(&entity_struct.rep_type) ValueRepType{ VRT.Complex.value };  // take on same type for the atomic entity delegate
             // Weirdly, we can't do this just yet - we need to wait until after the hook_up_to_schema_nodes has done its thing. However that function needs the already VRT set...
             // EZefRef value_node = internals::instantiate_value_node(*aet.complex_value, gd);
-            // internals::instantiate(my_entity, BT.COMPLEX_VALUE_TYPE_EDGE, value_node, gd);
+            // internals::instantiate(my_entity, BT.VALUE_TYPE_EDGE, value_node, gd);
         } else {
             new(&entity_struct.rep_type) ValueRepType{ aet.rep_type.value };  // take on same type for the atomic entity delegate
         }
@@ -459,7 +459,7 @@ namespace zefDB {
 
         if(is_AET_complex(aet)) {
             ZefRef value_node = instantiate_value_node(*aet.complex_value, gd);
-            internals::instantiate(my_entity, BT.COMPLEX_VALUE_TYPE_EDGE, value_node.blob_uzr, gd);
+            internals::instantiate(my_entity, BT.VALUE_TYPE_EDGE, value_node.blob_uzr, gd);
         }
 
         internals::apply_action_ATOMIC_ENTITY_NODE(gd, my_entity, true);

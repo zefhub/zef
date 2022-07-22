@@ -162,6 +162,7 @@ namespace zefDB {
             ENTITY_NODE () = default;
 		};
 		
+        // Deprecated in data layout 0.3.0
 		struct ATOMIC_ENTITY_NODE {
 			BlobType this_BlobType = BlobType::ATOMIC_ENTITY_NODE;
 			ValueRepType rep_type;   // only the type enum value. This can't overflow, the value is never saved here
@@ -174,32 +175,51 @@ namespace zefDB {
             ATOMIC_ENTITY_NODE() = default;
 		};
 
-		struct COMPLEX_VALUE_TYPE_EDGE {
-			BlobType this_BlobType = BlobType::COMPLEX_VALUE_TYPE_EDGE;
+        // Introduced in data layout 0.3.0
+		struct ATOMIC_ENTITY_NODE2 {
+			BlobType this_BlobType = BlobType::ATOMIC_ENTITY_NODE2;
+			TimeSlice instantiation_time_slice = { 0 };
+			TimeSlice termination_time_slice = { 0 };
+			BaseUID uid;
+            edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE};
+            ATOMIC_ENTITY_NODE& operator=(const ATOMIC_ENTITY_NODE & other) = delete;
+            ATOMIC_ENTITY_NODE(const ATOMIC_ENTITY_NODE & other) = delete;
+            ATOMIC_ENTITY_NODE() = default;
+		};
+
+        // Introduced in data layout 0.3.0
+		struct VALUE_TYPE_EDGE {
+			BlobType this_BlobType = BlobType::VALUE_TYPE_EDGE;
 			blob_index source_node_index = 0;  // coming from an ATOMIC_ENTITY_NODE
 			blob_index target_node_index = 0;  // goes to an ATOMIC_VALUE_NODE
-            COMPLEX_VALUE_TYPE_EDGE& operator=(const COMPLEX_VALUE_TYPE_EDGE & other) = delete;
-            COMPLEX_VALUE_TYPE_EDGE(const COMPLEX_VALUE_TYPE_EDGE & other) = delete;
-            COMPLEX_VALUE_TYPE_EDGE() = default;
+            VALUE_TYPE_EDGE& operator=(const VALUE_TYPE_EDGE & other) = delete;
+            VALUE_TYPE_EDGE(const VALUE_TYPE_EDGE & other) = delete;
+            VALUE_TYPE_EDGE() = default;
+		};
+
+        // Introduced in data layout 0.3.0
+		struct VALUE_EDGE {
+			BlobType this_BlobType = BlobType::VALUE_EDGE;
+			blob_index source_node_index = 0;  // coming from an ATOMIC_VALUE_ASSIGNMENT_EDGE2
+			blob_index target_node_index = 0;  // goes to an ATOMIC_VALUE_NODE
+            VALUE_TYPE_EDGE& operator=(const VALUE_TYPE_EDGE & other) = delete;
+            VALUE_TYPE_EDGE(const VALUE_TYPE_EDGE & other) = delete;
+            VALUE_TYPE_EDGE() = default;
 		};
 		
-		// Sometimes we just wan to save a value (that never changes) or we want to project one time slice of the entity and relation property graph 
-		// out (e.g. for the simulation). No need to carry around the entire value assignment 
-		// machineray and past values, if only the most recent are of interest
+        // Even though this was present earlier, it wasn't used until data layout 0.3.0
 		struct ATOMIC_VALUE_NODE {
 			BlobType this_BlobType = BlobType::ATOMIC_VALUE_NODE;
-			ValueRepType rep_type;
-            value_hash_t hash;
 			unsigned int buffer_size_in_bytes = 0;   // this needs to be set specifically for each data type (not only data of variable size!)
-			// char data_buffer[1];	// for any type larger than a char, this is designed to overflow
-            edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_VALUE_NODE};
+            // This is the start of the data_buffer but that must contain the rep_type too
+			ValueRepType rep_type;
+
+            // There is also an edge info but we need to dynamically calculate its offset based on the data_buffer size
+            // edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_VALUE_NODE};
 
             ATOMIC_VALUE_NODE& operator=(const ATOMIC_VALUE_NODE & other) = delete;
             ATOMIC_VALUE_NODE(const ATOMIC_VALUE_NODE & other) = delete;
             ATOMIC_VALUE_NODE() = default;
-            ATOMIC_VALUE_NODE(ValueRepType vrt, value_hash_t hash)
-                : rep_type(vrt),
-                  hash(hash) {}
 		};
 
 		struct RELATION_EDGE {
@@ -255,6 +275,7 @@ namespace zefDB {
             TERMINATION_EDGE() = default;
         };
 
+        // Deprecated in data layout 0.3.0
 		struct ATOMIC_VALUE_ASSIGNMENT_EDGE {
 			BlobType this_BlobType = BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE;
 			ValueRepType rep_type;
@@ -262,6 +283,19 @@ namespace zefDB {
 			blob_index source_node_index = 0;
 			blob_index target_node_index = 0;
 			char data_buffer[1];	// for any type larger than a char, this is designed to overflow
+            ATOMIC_VALUE_ASSIGNMENT_EDGE & operator=(const ATOMIC_VALUE_ASSIGNMENT_EDGE & other) = delete;
+            ATOMIC_VALUE_ASSIGNMENT_EDGE(const ATOMIC_VALUE_ASSIGNMENT_EDGE & other) = delete; 
+            ATOMIC_VALUE_ASSIGNMENT_EDGE() = default;
+        };
+
+        // Introduced in data layout 0.3.0
+		struct ATOMIC_VALUE_ASSIGNMENT_EDGE2 {
+			BlobType this_BlobType = BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE2;
+			blob_index source_node_index = 0;
+			blob_index target_node_index = 0;
+            // This is in lieu of a proper edge list, so that we stay within one
+            // blob (an edge list would have to include sizes)
+            blob_index value_edge_index = 0;
             ATOMIC_VALUE_ASSIGNMENT_EDGE & operator=(const ATOMIC_VALUE_ASSIGNMENT_EDGE & other) = delete;
             ATOMIC_VALUE_ASSIGNMENT_EDGE(const ATOMIC_VALUE_ASSIGNMENT_EDGE & other) = delete; 
             ATOMIC_VALUE_ASSIGNMENT_EDGE() = default;
@@ -413,7 +447,7 @@ namespace zefDB {
 		case BlobType::FOREIGN_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ENTITY_NODE*)ptr)); }
 		case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE*)ptr)); }
 		case BlobType::FOREIGN_RELATION_EDGE: { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)ptr)); }
-		case BlobType::COMPLEX_VALUE_TYPE_EDGE: { return fct_to_apply(*((blobs_ns::COMPLEX_VALUE_TYPE_EDGE*)ptr)); }
+		case BlobType::VALUE_TYPE_EDGE: { return fct_to_apply(*((blobs_ns::VALUE_TYPE_EDGE*)ptr)); }
         default: { print_backtrace(); throw std::runtime_error("Unknown blob type"); }
 		}
 	};
@@ -462,7 +496,7 @@ namespace zefDB {
         case BlobType::ORIGIN_RAE_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_RAE_EDGE*)ptr)); }
         case BlobType::ORIGIN_GRAPH_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_GRAPH_EDGE*)ptr)); }
         case BlobType::FOREIGN_RELATION_EDGE: { { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)ptr)); } }
-        case BlobType::COMPLEX_VALUE_TYPE_EDGE: { { return fct_to_apply(*((blobs_ns::COMPLEX_VALUE_TYPE_EDGE*)ptr)); } }
+        case BlobType::VALUE_TYPE_EDGE: { { return fct_to_apply(*((blobs_ns::VALUE_TYPE_EDGE*)ptr)); } }
         default: { print_backtrace(); throw std::runtime_error("Blobtype expected to have source/target but it didn't"); }
         }
 	};
@@ -552,7 +586,7 @@ namespace zefDB {
 				case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
 				case BlobType::ORIGIN_RAE_EDGE:
 				case BlobType::ORIGIN_GRAPH_EDGE:
-				case BlobType::COMPLEX_VALUE_TYPE_EDGE:
+				case BlobType::VALUE_TYPE_EDGE:
 				case BlobType::FOREIGN_RELATION_EDGE: {
                     return true;
                 }
@@ -607,7 +641,7 @@ namespace zefDB {
 				case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE:
 				case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
 				case BlobType::ORIGIN_RAE_EDGE:
-				case BlobType::COMPLEX_VALUE_TYPE_EDGE:
+				case BlobType::VALUE_TYPE_EDGE:
 				case BlobType::ORIGIN_GRAPH_EDGE: {
                     return false;
                 }
@@ -650,7 +684,7 @@ namespace zefDB {
 				case BlobType::FOREIGN_GRAPH_NODE:
 				case BlobType::FOREIGN_ENTITY_NODE:
 				case BlobType::FOREIGN_ATOMIC_ENTITY_NODE:
-				case BlobType::COMPLEX_VALUE_TYPE_EDGE:
+				case BlobType::VALUE_TYPE_EDGE:
 				case BlobType::FOREIGN_RELATION_EDGE: {
                     return false;
                 }
@@ -937,7 +971,7 @@ LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ENTITY_NODE& this_blob);
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE& this_blob);
 LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_RELATION_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::COMPLEX_VALUE_TYPE_EDGE& this_blob);
+LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::VALUE_TYPE_EDGE& this_blob);
 
     // If anyone can understand why I need this, and can't just use << (in
     // butler_handlers_graph_manager.cpp) then please fix it and tell me!

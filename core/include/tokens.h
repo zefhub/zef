@@ -83,7 +83,10 @@ namespace zefDB {
 		FOREIGN_ENTITY_NODE,
 		FOREIGN_ATOMIC_ENTITY_NODE,
 		FOREIGN_RELATION_EDGE,
-        COMPLEX_VALUE_TYPE_EDGE,
+        VALUE_TYPE_EDGE,
+		VALUE_EDGE,
+		ATOMIC_ENTITY_NODE2,
+		ATOMIC_VALUE_ASSIGNMENT_EDGE2,
 	};
 
 	struct LIBZEF_DLL_EXPORTED BlobTypeStruct {
@@ -111,11 +114,10 @@ namespace zefDB {
 		static constexpr BlobType FOREIGN_ENTITY_NODE = BlobType::FOREIGN_ENTITY_NODE;
 		static constexpr BlobType FOREIGN_ATOMIC_ENTITY_NODE = BlobType::FOREIGN_ATOMIC_ENTITY_NODE;
 		static constexpr BlobType FOREIGN_RELATION_EDGE = BlobType::FOREIGN_RELATION_EDGE;
-		static constexpr BlobType COMPLEX_VALUE_TYPE_EDGE = BlobType::COMPLEX_VALUE_TYPE_EDGE;
-
-		
-			
-			
+		static constexpr BlobType VALUE_TYPE_EDGE = BlobType::VALUE_TYPE_EDGE;
+		static constexpr BlobType VALUE_EDGE = BlobType::VALUE_EDGE;
+		static constexpr BlobType ATOMIC_VALUE_ASSIGNMENT_EDGE2 = BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE2;
+		static constexpr BlobType ATOMIC_ENTITY_NODE2 = BlobType::ATOMIC_ENTITY_NODE2;
 
 		BlobType operator() (EZefRef uzr) const;
 		BlobType operator() (ZefRef zr) const;
