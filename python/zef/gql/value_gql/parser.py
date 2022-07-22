@@ -37,7 +37,7 @@ def schema_str_to_dict(schema_str):
 
             return {
                 arg.name.value: {
-                    "return_type": resolve_type(arg.type),
+                    "type": resolve_type(arg.type),
                     **resolve_default_value(arg),
                 }
             }
@@ -48,14 +48,14 @@ def schema_str_to_dict(schema_str):
     def resolve_type(type):
         return LazyValue(type) | match[
             (Is[lambda t: isinstance(t, NamedTypeNode)], lambda t: t.name.value),
-            (Is[lambda t: isinstance(t, ListTypeNode)], lambda t: {"_type": "List", "value": resolve_type(t.type)}),
-            (Is[lambda t: isinstance(t, NonNullTypeNode)], lambda t: {"_type": "Required", "value": resolve_type(t.type)}),
+            (Is[lambda t: isinstance(t, ListTypeNode)], lambda t: f"[{resolve_type(t.type)}]"),
+            (Is[lambda t: isinstance(t, NonNullTypeNode)], lambda t: f"{resolve_type(t.type)}!"),
         ] | collect
 
     def resolve_field(field):
         return {
             field.name.value: {
-                'return_type': resolve_type(field.type),
+                'type': resolve_type(field.type),
                 'resolver': None,
                 **resolve_args(list(field.arguments)),
             }
