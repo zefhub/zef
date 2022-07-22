@@ -617,6 +617,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
             GEN_CACHE("_uid_lookup", uid_lookup)
             GEN_CACHE("_euid_lookup", euid_lookup)
             GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", tag_lookup)
             else
                 throw std::runtime_error("Don't understand cache: " + name);
         }
