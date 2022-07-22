@@ -24,7 +24,7 @@ def print_types(generated_types, cog):
 def print_imports(cog):
     cog.outl("from zef import *")
     cog.outl("from zef.ops import *")
-    cog.outl("from zef.gql.value_gql.generator_utils import *")
+    cog.outl("from zef.core.logger import log")
     cog.outl("from ariadne import ObjectType,MutationType,QueryType,InterfaceType,SubscriptionType")
 
 
@@ -65,7 +65,7 @@ def create_field_resolver(object_type, field_name, field_dict):
 
 
 def generate_resolvers(schema_dict, cog):
-    default_resolvers_list = schema_dict.get("default_resolvers_list", [])
+    skip_generation_list = schema_dict.get("skip_generation_list", [])
     fallback_resolvers = schema_dict.get("fallback_resolvers", [])
 
     types = schema_dict["_Types"]
@@ -76,7 +76,8 @@ def generate_resolvers(schema_dict, cog):
         for object_type, fields_dict in t_dict.items():
         
             # Don't generate resolvers for function in this list
-            if object_type in default_resolvers_list: continue
+            if object_type in skip_generation_list: continue
+            
             object_types.append(object_type)
             initialize_object_type(object_type, cog)
 

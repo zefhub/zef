@@ -84,5 +84,6 @@ def schema_str_to_dict(schema_str):
         | group_by[type]
         | map[dispatch]
         | merge
+        | insert["skip_generation_list"][[]]
         | collect
     )
