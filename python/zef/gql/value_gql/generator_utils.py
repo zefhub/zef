@@ -52,15 +52,17 @@ def generate_field_resolver(object_type, field_name, fct_body, args, cog):
     args = args | sort[custom_sort] | collect
     cog.outl(f'@{object_type}.field("{field_name}")')
     cog.outl(f'def resolve_{object_type}_{field_name}({", ".join(args)}):')
+    # cog.outl(f'    print(obj);return "{args}"\n')
     cog.outl(f'{fct_body}\n')
 
 def generate_args(args):
     def handle_arg_dict(d):
         arg, arg_d = list(d.items())[0]
         if "default" in arg_d: arg += f" = {arg_d['default']}"
+        else: arg += f" = {None}"
         return arg
 
-    default_args = ["z", "ctx"]
+    default_args = ["obj", "info"]
     return (
         args
         | map[handle_arg_dict]
