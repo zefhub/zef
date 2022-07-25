@@ -86,6 +86,7 @@ Query[
 - add SymbolicExpression to VTs and implement in is_a
 - serialization
 - overload some unary operators: e.g. __pos__, __neg__, ...?
+- 41 | add[1] | x | multiply[2]          # advanced use case: should this also be a SE? SEs can themselves be used to do logic with ZefOps.
 
 """
 
