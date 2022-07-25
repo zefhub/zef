@@ -14,6 +14,7 @@
 
 from ...core import *
 from ...ops import *
+from ariadne import ObjectType,MutationType,QueryType,InterfaceType,SubscriptionType
 
 
 #------------------------Utils---------------------------
@@ -81,8 +82,8 @@ def generate_resolvers(schema_dict, cog):
     skip_generation_list = schema_dict.get("skip_generation_list", [])
     fallback_resolvers = schema_dict.get("fallback_resolvers", [])
 
-    types = schema_dict["_Types"]
-    interfaces = schema_dict["_Interfaces"]
+    types = schema_dict.get("_Types", [])
+    interfaces = schema_dict.get("_Interfaces", [])
     object_types = []
 
     for t_dict in types:
@@ -101,5 +102,81 @@ def generate_resolvers(schema_dict, cog):
 
     # for i in interfaces:
     #     object_types.append(generate_interface_resolver(i, cog))
+
+    return object_types
+
+
+#--------------------------Generator-------------------------
+def initialize_object_type(object_type):
+    if "Mutation" == object_type:
+        return MutationType()
+    elif "Subscription" == object_type:
+        return SubscriptionType()
+    else:
+        return ObjectType(object_type)
+
+def resolve_args(args):
+    def handle_arg_dict(d):
+        arg, arg_d = list(d.items())[0]
+        d = {}
+        d[arg]  = arg_d.get('default', None)
+        return d
+
+    return (
+        args
+        | map[handle_arg_dict]
+        | merge
+        | collect
+    )
+
+def generate_fct(field_dict, g):
+    kwargs = resolve_args(field_dict.get('args', []))
+    resolver = field_dict["resolver"]
+
+    def resolve_field(obj, info, **kwargs):
+        args = [
+            obj,
+            g,
+        ]
+        kwargs_all = {
+            "context": info,
+            **kwargs,
+        }
+
+        if is_a(resolver, ZefOp):
+            if peel(resolver)[0][0] == RT.Function:
+                return resolver(*args, **kwargs_all)
+            else:
+                return resolver(obj)
+
+        return resolver(*args,**kwargs_all)
+
+    return resolve_field
+
+def assign_field_resolver(object_type, field_name, field_dict, g):
+    fct = generate_fct(field_dict, g)
+    object_type.field(field_name)(fct)
+
+def generate_resolvers(schema_dict, g):
+    skip_generation_list = schema_dict.get("skip_generation_list", [])
+    fallback_resolver = schema_dict.get("fallback_resolvers", [])
+
+    types = schema_dict.get("_Types", [])
+    interfaces = schema_dict.get("_Interfaces", [])
+    object_types = []
+
+    for t_dict in types:
+        for object_type, fields_dict in t_dict.items():
+        
+            # Don't generate resolvers for function in this list
+            if object_type in skip_generation_list: continue
+
+            object_type = initialize_object_type(object_type)
+            object_types.append(object_type)
+
+            for field_name, field_dict in fields_dict.items():
+                if field_name.startswith("_"): continue
+                assign_field_resolver(object_type, field_name, field_dict, g)
+
 
     return object_types
