@@ -370,7 +370,7 @@ namespace zefDB {
             GraphData* gd = graph_data(uzr);
             // allocate enough space: this may be more than the total number of edges
             // and specifically more than the in edges only
-            if (!internals::has_edge_list(uzr))
+            if (!internals::has_edges(uzr))
                 throw std::runtime_error("ins_and_outs called on a EZefRef that does not have incoming or outgoing low level edges.");
 
             auto res = EZefRefs(
@@ -396,7 +396,7 @@ namespace zefDB {
             GraphData* gd = graph_data(uzr);
             // allocate enough space: this may be more than the total number of edges
             // and specifically more than the in edges only
-            if (!internals::has_edge_list(uzr))
+            if (!internals::has_edges(uzr))
                 throw std::runtime_error("ins called on a EZefRef that does not have incoming or outgoing low level edges.");
 
             auto res = EZefRefs(
@@ -422,7 +422,7 @@ namespace zefDB {
             GraphData* gd = graph_data(uzr);
             // allocate enough space: this may be more than the total number of edges
             // and specifically more than the in edges only
-            if (!internals::has_edge_list(uzr))
+            if (!internals::has_edges(uzr))
                 throw std::runtime_error("outs called on a EZefRef that does not have incoming or outgoing low level edges.");
 
             auto res = EZefRefs(

@@ -850,6 +850,10 @@ namespace zefDB {
         value_edge.source_node_index = avae_index;
         value_edge.target_node_index = index(z_value_node);
         blob_index value_edge_index = index(EZefRef((void*)&value_edge));
+
+        // Note: this has to happen before any appending to edges
+        internals::move_head_forward(gd);
+
         internals::append_edge_index(z_value_node, -value_edge_index);
 
         // Now fill in the avae struct

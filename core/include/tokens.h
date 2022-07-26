@@ -86,6 +86,7 @@ namespace zefDB {
         VALUE_TYPE_EDGE,
 		VALUE_EDGE,
 		ATTRIBUTE_VALUE_ASSIGNMENT_EDGE,
+		_last_blobtype,
 	};
 
 	struct LIBZEF_DLL_EXPORTED BlobTypeStruct {

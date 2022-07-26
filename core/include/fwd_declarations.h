@@ -49,6 +49,7 @@ inline void print_backtrace_force(int fd=STDERR_FILENO) {
 #ifdef DEBUG
 inline void print_backtrace(int fd = STDERR_FILENO) {
     print_backtrace_force(fd);    
+    abort();
 }
 #else
 inline void print_backtrace(int fd=STDERR_FILENO) {}

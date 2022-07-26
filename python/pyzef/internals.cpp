@@ -198,6 +198,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_property_readonly("FOREIGN_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_ENTITY_NODE; })
 		.def_property_readonly("FOREIGN_ATTRIBUTE_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE; })
 		.def_property_readonly("FOREIGN_RELATION_EDGE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_RELATION_EDGE; })
+		.def_property_readonly("VALUE_TYPE_EDGE", [](const BlobTypeStruct& self) { return BlobType::VALUE_TYPE_EDGE; })
+		.def_property_readonly("VALUE_EDGE", [](const BlobTypeStruct& self) { return BlobType::VALUE_EDGE; })
+		.def_property_readonly("ATTRIBUTE_VALUE_ASSIGNMENT_EDGE", [](const BlobTypeStruct& self) { return BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE; })
 		//[[[end]]]
 
 		.def("__call__", [](const BlobTypeStruct& self, ZefRef zr) { return BT(zr); })

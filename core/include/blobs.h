@@ -641,7 +641,7 @@ namespace zefDB {
 				case BlobType::ATTRIBUTE_ENTITY_NODE:
 				case BlobType::VALUE_NODE:
                 // Note this has one edge not an entire edge list
-                case BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
+                // case BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
 				case BlobType::RELATION_EDGE:
 				case BlobType::DEFERRED_EDGE_LIST_NODE:
 				case BlobType::ASSIGN_TAG_NAME_EDGE:
@@ -657,6 +657,15 @@ namespace zefDB {
 		}
 		inline bool has_edge_list(EZefRef uzr) {
             return _has_edge_list(uzr.blob_ptr);
+        }
+
+        // This is subtly different, the blob has edges but might not have an edge list
+		inline bool _has_edges(void * ptr) {
+			BlobType this_BlobType = get<BlobType>(ptr);
+            return _has_edge_list(ptr) || this_BlobType == BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE;
+		}
+		inline bool has_edges(EZefRef uzr) {
+            return _has_edges(uzr.blob_ptr);
         }
 
 

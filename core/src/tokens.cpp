@@ -62,6 +62,7 @@ namespace zefDB {
             SHOW_BLOB(FOREIGN_RELATION_EDGE)
             SHOW_BLOB(VALUE_TYPE_EDGE)
             SHOW_BLOB(VALUE_EDGE)
+            SHOW_BLOB(ATTRIBUTE_VALUE_ASSIGNMENT_EDGE)
 #undef SHOW_BLOB
         }
 		return o;

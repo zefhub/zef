@@ -32,7 +32,7 @@ namespace zefDB {
                                 ptr);
         if(internals::_has_edge_list(ptr)) {
             if(get<BlobType>(ptr) == BlobType::VALUE_NODE) {
-                // This is the only blob without an "edge_info" member in its class.
+                // This is the only blob without an "edge_info" member in its class, so we need to fake it.
                 size += sizeof(edge_info);
             }
 
@@ -153,6 +153,10 @@ namespace zefDB {
 
 		// e.g. when determining the EZefRefs out_edges(my_uzr), we need to know how much space to allocate for the EZefRefs object.
 		blob_index total_edge_index_list_size_upper_limit(EZefRef uzr){
+            if(get<BlobType>(uzr) == BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE) {
+                return 1;
+            }
+
 			blob_index * ptr = subsequent_deferred_edge_list_index(uzr);			
             Butler::ensure_or_get_range(ptr, sizeof(blob_index));
 			blob_index next_edge_list_indx = *ptr;
@@ -238,6 +242,13 @@ namespace zefDB {
 
 
     AllEdgeIndexes::Iterator AllEdgeIndexes::begin() const {
+        GraphData & gd = *graph_data(uzr_with_edges);
+        blob_index last_blob;
+        if(force_to_write_head || (gd.is_primary_instance && gd.open_tx_thread == std::this_thread::get_id()))
+            last_blob = gd.write_head.load();
+        else
+            last_blob = gd.read_head.load();
+
         // We have a hack here for the special case of a "fixed-size edge-list",
         // only used by ATTRIBUTE_VALUE_ASSIGNMENT_EDGE at the moment.
         if(get<BlobType>(uzr_with_edges) == BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE) {
@@ -247,21 +258,14 @@ namespace zefDB {
                 &blob.value_edge_index,
                 uzr_with_edges,
                 &blob.value_edge_index + 1, // blob_index* arithmetic not char*
-                0, // last_blob is irrelevant
+                last_blob,
             };
         }
 
         blob_index* ptr_to_first_el_in_array = internals::edge_indexes(uzr_with_edges);
-        GraphData & gd = *graph_data(uzr_with_edges);
         // Need to ensure here for the entire edge list, as normally
         // EZefRef{...} just does the minimum blob amount.
         Butler::ensure_or_get_range(uzr_with_edges.blob_ptr, size_of_blob(uzr_with_edges));
-
-        blob_index last_blob;
-        if(force_to_write_head || (gd.is_primary_instance && gd.open_tx_thread == std::this_thread::get_id()))
-            last_blob = gd.write_head.load();
-        else
-            last_blob = gd.read_head.load();
 
         blob_index * temp = ptr_to_first_el_in_array + internals::local_edge_indexes_capacity(uzr_with_edges);
         assert(*temp != 0);
@@ -805,7 +809,7 @@ namespace zefDB {
         json j;
         j["type"] = to_str(get<BlobType>(ezr));
         j["_old_index"] = index(ezr);
-        if(internals::has_edge_list(ezr)) {
+        if(internals::has_edges(ezr)) {
             std::vector<blob_index> v;
             for(auto & item : AllEdgeIndexes(ezr))
                 v.push_back(item);
