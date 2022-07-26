@@ -3221,9 +3221,26 @@ def take_implementation(v, n):
     negative n: take n last items. Must evaluate entire iterable, does not terminate 
     for infinite iterables.
 
+    ---- Examples ----
+    >>> ['a', 'b', 'c'] | take[2]       # => ['a', 'b']
+    >>> ['a', 'b', 'c'] | take[-2]      # => ['b', 'c']
+    >>> 'hello' | take[3]               # => 'hel'
+    >>> 'hello' | take[-3]              # => 'llo'
 
     ---- Signature ----
     (List[T], Int) -> List[T]
+    (String, Int)  -> String
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: slice
+    - related zefop: reverse
+    - related zefop: first
+    - related zefop: last
+    - related zefop: nth    
     """
     if isinstance(v, ZefRef) or isinstance(v, EZefRef):
         return take(v, n)
@@ -3239,8 +3256,10 @@ def take_implementation(v, n):
 
             return ZefGenerator(wrapper)
         else:
-            vv = list(v)
+            if isinstance(v, str): return v[n:]
+            vv = tuple(v)
             return vv[n:]
+
 
 
         
@@ -4064,7 +4083,7 @@ def slice_imp(v, start_end: tuple):
 
     ---- Examples ----
     >>> ['a', 'b', 'c', 'd'] | slice[1:2]    # => ['b', 'c']
-    >>> 'abcdefgh' | slice_imp[1,6,2]        # => 'bdf'
+    >>> 'abcdefgh' | slice[1,6,2]        # => 'bdf'
     
     ---- Tags ----
     - operates on: List
@@ -4085,7 +4104,8 @@ def slice_imp(v, start_end: tuple):
     
     if type(v) in {list, tuple, str}:
         if len(start_end) == 2:
-            return v[start_end[0]: start_end[1]]
+            end = start_end[1] if start_end[1]>=0 else start_end[1]+1
+            return v[start_end[0]: end] if start_end[1] !=-1 else v[start_end[0]:]
         if len(start_end) == 3:
             return v[start_end[0]: start_end[1] : start_end[2]]
     elif isinstance(v, Generator) or isinstance(v, ZefGenerator):
@@ -4093,10 +4113,9 @@ def slice_imp(v, start_end: tuple):
         # don't returns a custom slice object, but a generator to make it uniform.
         def wrapper():
             yield from itertools.islice(v, start, end)        
-        return wrapper()
+        return ZefGenerator(wrapper)
     else:
         raise TypeError(f"`slice` not implemented for type {type(v)}: {v}")
-
 
 
 def slice_tp(*args):
