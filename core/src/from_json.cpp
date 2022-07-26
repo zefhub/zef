@@ -72,13 +72,13 @@ namespace zefDB {
             blob.termination_time_slice = details["termination_time_slice"];
         }
         
-        void assign_blob_specific(blobs_ns::ATOMIC_ENTITY_NODE & blob, const json & details) {
-            blob.rep_type = details["rep_type"];
+        void assign_blob_specific(blobs_ns::ATTRIBUTE_ENTITY_NODE & blob, const json & details) {
+            blob.primitive_type = details["primitive_type"];
             blob.instantiation_time_slice = details["instantiation_time_slice"];
             blob.termination_time_slice = details["termination_time_slice"];
         }
         
-        void assign_blob_specific(blobs_ns::ATOMIC_VALUE_NODE & blob, const json & details) {
+        void assign_blob_specific(blobs_ns::VALUE_NODE & blob, const json & details) {
             blob.rep_type = details["rep_type"];
         }
 
@@ -100,6 +100,10 @@ namespace zefDB {
 
         void assign_blob_specific(blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE & blob, const json & details) {
             blob.rep_type = details["rep_type"];
+        }
+
+        void assign_blob_specific(blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE & blob, const json & details) {
+            blob.value_edge_index = details["edges"][0];
         }
 
         void assign_blob_specific(blobs_ns::DEFERRED_EDGE_LIST_NODE & blob, const json & details) {
@@ -127,8 +131,8 @@ namespace zefDB {
             blob.entity_type = details["entity_type"];
         }
 
-        void assign_blob_specific(blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE & blob, const json & details) {
-            blob.rep_type = details["rep_type"];
+        void assign_blob_specific(blobs_ns::FOREIGN_ATTRIBUTE_ENTITY_NODE & blob, const json & details) {
+            blob.primitive_type = details["primitive_type"];
         }
 
         void assign_blob_specific(blobs_ns::FOREIGN_RELATION_EDGE & blob, const json & details) {
@@ -136,6 +140,8 @@ namespace zefDB {
         }
 
         void assign_blob_specific(blobs_ns::VALUE_TYPE_EDGE & blob, const json & details) {}
+
+        void assign_blob_specific(blobs_ns::VALUE_EDGE & blob, const json & details) {}
 
 
         Graph create_from_json(std::unordered_map<blob_index,json> blobs) {
@@ -291,8 +297,8 @@ namespace zefDB {
             if(name == "TO_DELEGATE_EDGE") return BlobType::TO_DELEGATE_EDGE;
             if(name == "NEXT_TX_EDGE") return BlobType::NEXT_TX_EDGE;
             if(name == "ENTITY_NODE") return BlobType::ENTITY_NODE;
-            if(name == "ATOMIC_ENTITY_NODE") return BlobType::ATOMIC_ENTITY_NODE;
-            if(name == "ATOMIC_VALUE_NODE") return BlobType::ATOMIC_VALUE_NODE;
+            if(name == "ATTRIBUTE_ENTITY_NODE") return BlobType::ATTRIBUTE_ENTITY_NODE;
+            if(name == "VALUE_NODE") return BlobType::VALUE_NODE;
             if(name == "RELATION_EDGE") return BlobType::RELATION_EDGE;
             if(name == "DELEGATE_INSTANTIATION_EDGE") return BlobType::DELEGATE_INSTANTIATION_EDGE;
             if(name == "DELEGATE_RETIREMENT_EDGE") return BlobType::DELEGATE_RETIREMENT_EDGE;
@@ -306,9 +312,10 @@ namespace zefDB {
             if(name == "ORIGIN_RAE_EDGE") return BlobType::ORIGIN_RAE_EDGE;
             if(name == "ORIGIN_GRAPH_EDGE") return BlobType::ORIGIN_GRAPH_EDGE;
             if(name == "FOREIGN_ENTITY_NODE") return BlobType::FOREIGN_ENTITY_NODE;
-            if(name == "FOREIGN_ATOMIC_ENTITY_NODE") return BlobType::FOREIGN_ATOMIC_ENTITY_NODE;
+            if(name == "FOREIGN_ATTRIBUTE_ENTITY_NODE") return BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE;
             if(name == "FOREIGN_RELATION_EDGE") return BlobType::FOREIGN_RELATION_EDGE;
             if(name == "VALUE_TYPE_EDGE") return BlobType::VALUE_TYPE_EDGE;
+            if(name == "VALUE_EDGE") return BlobType::VALUE_EDGE;
             throw std::runtime_error("Unknown blob type: " + name);
         }
 
@@ -330,16 +337,16 @@ namespace zefDB {
 
             if(has_edge_list(this_new_blob)) {
                 visit_blob_with_edges(overloaded {
-                        [&](auto & blob) {
+                        [&](edge_info & blob_edges) {
                             int calced_size = edges->size()+1;
                             static_assert(constants::blob_indx_step_in_bytes == 4*sizeof(blob_index));
-                            size_t start_offset = offsetof(typename std::decay_t<decltype(blob)>, edges) + offsetof(blobs_ns::edge_info, indices);
+                            size_t start_offset = (char*)&blob_edges - (char*)this_new_blob.blob_ptr + offsetof(edge_info, indices);
                             // This will overcompensate by an extra blob if it was already perfectly aligned... no big deal.
                             calced_size += 4 - (start_offset/sizeof(blob_index) + calced_size + 1) % 4;
 
-                            new (&blob.edges) edge_info(calced_size);
+                            new (&blob_edges) edge_info(calced_size);
                         },
-                        [&](blobs_ns::DEFERRED_EDGE_LIST_NODE & blob) {
+                        [&](DEFERRED_EDGE_LIST_NODE::deferred_edge_info &) {
                             throw std::runtime_error("Shouldn't get here");
                         }
                     },

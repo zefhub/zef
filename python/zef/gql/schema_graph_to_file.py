@@ -59,7 +59,7 @@ def parse_queryparams_et(params_et):
         for param in params_et | out_rels[RT(gqlify("queryParams"))] | collect:
             param_name = de_gqlify(value(param | Out[ RT.Name]), False)
             nonnullable = check_nonnullable(param)
-            if BT(param | target | collect) == BT.ATOMIC_ENTITY_NODE:
+            if BT(param | target | collect) == BT.ATTRIBUTE_ENTITY_NODE:
                 aet_type = str(AET(param | target | collect))
                 aet_value = param | target | value | collect
                 if aet_type == "Bool":
@@ -97,7 +97,7 @@ def generate_fields(et, schema_out):
             else:
                 return ""
 
-        if blob_type == BT.ATOMIC_ENTITY_NODE:
+        if blob_type == BT.ATTRIBUTE_ENTITY_NODE:
             aet_type = str(AET(field_return | to_ezefref | collect))
             aet_value = field_return | value | collect
             if aet_type == "Bool":

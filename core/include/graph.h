@@ -456,6 +456,8 @@ namespace zefDB {
 		bool operator== (const Graph& g2) const;
 	};
 
+	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, Graph& g);
+
     LIBZEF_DLL_EXPORTED Graph create_partial_graph(Graph old_g, blob_index index_hi);
     LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string working_layout);
     LIBZEF_DLL_EXPORTED void roll_back_using_only_existing(GraphData& gd);

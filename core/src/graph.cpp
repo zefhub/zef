@@ -526,27 +526,27 @@ namespace zefDB {
             int new_last_blob = -1;
             bool is_start_of_edges = false;
             if(internals::has_edge_list(ezr)) {
-                visit_blob_with_edges([&](auto & x) {
+                visit_blob_with_edges([&](auto & edges) {
                     int this_last_blob_offset = -1;
-                    for(int i = 0; i < x.edges.local_capacity ; i++) {
-                        if(abs(x.edges.indices[i]) >= index_hi) {
-                            x.edges.indices[i] = 0;
+                    for(int i = 0; i < edges.local_capacity ; i++) {
+                        if(abs(edges.indices[i]) >= index_hi) {
+                            edges.indices[i] = 0;
                             if(this_last_blob_offset == -1)
                                 this_last_blob_offset = i;
                         }
                     }
 
-                    if(x.edges.indices[x.edges.local_capacity] >= index_hi) {
-                        x.edges.indices[x.edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
+                    if(edges.indices[edges.local_capacity] >= index_hi) {
+                        edges.indices[edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
                         if(this_last_blob_offset == -1)
-                            this_last_blob_offset = x.edges.local_capacity;
+                            this_last_blob_offset = edges.local_capacity;
                     }
 
                     if(this_last_blob_offset != -1) {
                         if(this_last_blob_offset == 0)
                             new_last_blob = 0;
                         else {
-                            uintptr_t direct_ptr = (uintptr_t)&x.edges.indices[this_last_blob_offset];
+                            uintptr_t direct_ptr = (uintptr_t)&edges.indices[this_last_blob_offset];
                             blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
                             new_last_blob = blob_index_from_ptr(ptr);
                         }
@@ -587,7 +587,8 @@ namespace zefDB {
         }
 
         // We also need to update terminated time slices. Unfortunately we can't
-        // do this until we know what the latest time slice was.
+        // do this until we know what the latest time slice was, hence why this
+        // occurs outside of the loop above.
         
         cur_index = constants::ROOT_NODE_blob_index;
         while(cur_index < index_hi) {
@@ -596,8 +597,8 @@ namespace zefDB {
                 auto rae = (blobs_ns::ENTITY_NODE*)ezr.blob_ptr;
                 if(rae->termination_time_slice > latest_time_slice)
                     rae->termination_time_slice = TimeSlice();
-            } else if(get<BlobType>(ezr) == BlobType::ATOMIC_ENTITY_NODE) {
-                auto rae = (blobs_ns::ATOMIC_ENTITY_NODE*)ezr.blob_ptr;
+            } else if(get<BlobType>(ezr) == BlobType::ATTRIBUTE_ENTITY_NODE) {
+                auto rae = (blobs_ns::ATTRIBUTE_ENTITY_NODE*)ezr.blob_ptr;
                 if(rae->termination_time_slice > latest_time_slice)
                     rae->termination_time_slice = TimeSlice();
             } else if(get<BlobType>(ezr) == BlobType::RELATION_EDGE) {
@@ -650,27 +651,27 @@ namespace zefDB {
                 int new_last_blob = -1;
                 bool is_start_of_edges = false;
                 if(internals::has_edge_list(ezr)) {
-                    visit_blob_with_edges([&](auto & x) {
+                    visit_blob_with_edges([&](auto & edges) {
                         int this_last_blob_offset = -1;
-                        for(int i = 0; i < x.edges.local_capacity ; i++) {
-                            if(abs(x.edges.indices[i]) >= index_hi) {
-                                x.edges.indices[i] = 0;
+                        for(int i = 0; i < edges.local_capacity ; i++) {
+                            if(abs(edges.indices[i]) >= index_hi) {
+                                edges.indices[i] = 0;
                                 if(this_last_blob_offset == -1)
                                     this_last_blob_offset = i;
                             }
                         }
 
-                        if(x.edges.indices[x.edges.local_capacity] >= index_hi) {
-                            x.edges.indices[x.edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
+                        if(edges.indices[edges.local_capacity] >= index_hi) {
+                            edges.indices[edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
                             if(this_last_blob_offset == -1)
-                                this_last_blob_offset = x.edges.local_capacity;
+                                this_last_blob_offset = edges.local_capacity;
                         }
 
                         if(this_last_blob_offset != -1) {
                             if(this_last_blob_offset == 0)
                                 new_last_blob = 0;
                             else {
-                                uintptr_t direct_ptr = (uintptr_t)&x.edges.indices[this_last_blob_offset];
+                                uintptr_t direct_ptr = (uintptr_t)&edges.indices[this_last_blob_offset];
                                 blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
                                 new_last_blob = blob_index_from_ptr(ptr);
                             }

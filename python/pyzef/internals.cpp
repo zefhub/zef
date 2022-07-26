@@ -142,37 +142,6 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
 
 	py::enum_<BlobType>(internals_submodule, "BlobType")
-		/*[[[cog
-		import cog
-		all_blob_type_names = [
-			'_unspecified',
-			'ROOT_NODE',
-			'TX_EVENT_NODE',
-			'RAE_INSTANCE_EDGE',
-			'TO_DELEGATE_EDGE',
-			'NEXT_TX_EDGE',
-			'ENTITY_NODE',
-			'ATOMIC_ENTITY_NODE',
-			'ATOMIC_VALUE_NODE',
-			'RELATION_EDGE',
-			'DELEGATE_INSTANTIATION_EDGE',
-			'DELEGATE_RETIREMENT_EDGE',
-			'INSTANTIATION_EDGE',
-			'TERMINATION_EDGE',
-			'ATOMIC_VALUE_ASSIGNMENT_EDGE',
-			'DEFERRED_EDGE_LIST_NODE',
-			'ASSIGN_TAG_NAME_EDGE',
-			'NEXT_TAG_NAME_ASSIGNMENT_EDGE',
-			'FOREIGN_GRAPH_NODE',
-			'ORIGIN_RAE_EDGE',
-			'ORIGIN_GRAPH_EDGE',
-			'FOREIGN_ENTITY_NODE',
-			'FOREIGN_ATOMIC_ENTITY_NODE',
-			'FOREIGN_RELATION_EDGE'
-		]
-		for n in all_blob_type_names:
-			cog.outl(f'.value("{n}", BlobType::{n})')
-		]]]*/
 		.value("_unspecified", BlobType::_unspecified)
 		.value("ROOT_NODE", BlobType::ROOT_NODE)
 		.value("TX_EVENT_NODE", BlobType::TX_EVENT_NODE)
@@ -180,8 +149,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.value("TO_DELEGATE_EDGE", BlobType::TO_DELEGATE_EDGE)
 		.value("NEXT_TX_EDGE", BlobType::NEXT_TX_EDGE)
 		.value("ENTITY_NODE", BlobType::ENTITY_NODE)
-		.value("ATOMIC_ENTITY_NODE", BlobType::ATOMIC_ENTITY_NODE)
-		.value("ATOMIC_VALUE_NODE", BlobType::ATOMIC_VALUE_NODE)
+		.value("ATTRIBUTE_ENTITY_NODE", BlobType::ATTRIBUTE_ENTITY_NODE)
+		.value("VALUE_NODE", BlobType::VALUE_NODE)
 		.value("RELATION_EDGE", BlobType::RELATION_EDGE)
 		.value("DELEGATE_INSTANTIATION_EDGE", BlobType::DELEGATE_INSTANTIATION_EDGE)
 		.value("DELEGATE_RETIREMENT_EDGE", BlobType::DELEGATE_RETIREMENT_EDGE)
@@ -195,9 +164,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.value("ORIGIN_RAE_EDGE", BlobType::ORIGIN_RAE_EDGE)
 		.value("ORIGIN_GRAPH_EDGE", BlobType::ORIGIN_GRAPH_EDGE)
 		.value("FOREIGN_ENTITY_NODE", BlobType::FOREIGN_ENTITY_NODE)
-		.value("FOREIGN_ATOMIC_ENTITY_NODE", BlobType::FOREIGN_ATOMIC_ENTITY_NODE)
+		.value("FOREIGN_ATTRIBUTE_ENTITY_NODE", BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE)
 		.value("FOREIGN_RELATION_EDGE", BlobType::FOREIGN_RELATION_EDGE)
-		//[[[end]]]
 		;
 
 	py::class_<BlobTypeStruct>(internals_submodule, "BlobTypeStruct", py::buffer_protocol())
@@ -213,8 +181,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_property_readonly("TO_DELEGATE_EDGE", [](const BlobTypeStruct& self) { return BlobType::TO_DELEGATE_EDGE; })
 		.def_property_readonly("NEXT_TX_EDGE", [](const BlobTypeStruct& self) { return BlobType::NEXT_TX_EDGE; })
 		.def_property_readonly("ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::ENTITY_NODE; })
-		.def_property_readonly("ATOMIC_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::ATOMIC_ENTITY_NODE; })
-		.def_property_readonly("ATOMIC_VALUE_NODE", [](const BlobTypeStruct& self) { return BlobType::ATOMIC_VALUE_NODE; })
+		.def_property_readonly("ATTRIBUTE_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::ATTRIBUTE_ENTITY_NODE; })
+		.def_property_readonly("VALUE_NODE", [](const BlobTypeStruct& self) { return BlobType::VALUE_NODE; })
 		.def_property_readonly("RELATION_EDGE", [](const BlobTypeStruct& self) { return BlobType::RELATION_EDGE; })
 		.def_property_readonly("DELEGATE_INSTANTIATION_EDGE", [](const BlobTypeStruct& self) { return BlobType::DELEGATE_INSTANTIATION_EDGE; })
 		.def_property_readonly("DELEGATE_RETIREMENT_EDGE", [](const BlobTypeStruct& self) { return BlobType::DELEGATE_RETIREMENT_EDGE; })
@@ -228,7 +196,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_property_readonly("ORIGIN_RAE_EDGE", [](const BlobTypeStruct& self) { return BlobType::ORIGIN_RAE_EDGE; })
 		.def_property_readonly("ORIGIN_GRAPH_EDGE", [](const BlobTypeStruct& self) { return BlobType::ORIGIN_GRAPH_EDGE; })
 		.def_property_readonly("FOREIGN_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_ENTITY_NODE; })
-		.def_property_readonly("FOREIGN_ATOMIC_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_ATOMIC_ENTITY_NODE; })
+		.def_property_readonly("FOREIGN_ATTRIBUTE_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE; })
 		.def_property_readonly("FOREIGN_RELATION_EDGE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_RELATION_EDGE; })
 		//[[[end]]]
 
@@ -268,7 +236,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_property_readonly("String", [](const ValueRepTypeStruct& self) { return self.String; })
 		.def_property_readonly("Time", [](const ValueRepTypeStruct& self) { return self.Time; })
 		.def_property_readonly("Serialized", [](const ValueRepTypeStruct& self) { return self.Serialized; })
-		.def_property_readonly("Complex", [](const ValueRepTypeStruct& self) { return self.Complex; })
+		.def_property_readonly("Any", [](const ValueRepTypeStruct& self) { return self.Any; })
 		.def_property_readonly("Enum", [](const ValueRepTypeStruct& self) { return self.Enum; })
 		.def_property_readonly("QuantityFloat", [](const ValueRepTypeStruct& self) { return self.QuantityFloat; })
 		.def_property_readonly("QuantityInt", [](const ValueRepTypeStruct& self) { return self.QuantityInt; })
@@ -312,83 +280,83 @@ void fill_internals_module(py::module_ & internals_submodule) {
         .def("__dir__", [](const ValueRepTypeStruct::QuantityInt_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
         ;
 
-	py::class_<AtomicEntityType>(internals_submodule, "AtomicEntityType", py::dynamic_attr())
+	py::class_<AttributeEntityType>(internals_submodule, "AttributeEntityType", py::dynamic_attr())
 		.def(py::init<enum_indx>())	
 		.def(py::init<ValueRepType>())	
 		.def(py::init<SerializedValue>())	
-		.def_readonly("rep_type", &AtomicEntityType::rep_type)
-		.def_readonly("complex_value", &AtomicEntityType::complex_value)
-		.def("__repr__", [](const AtomicEntityType& self)->std::string { return to_str(self); })
-		.def("__str__", [](const AtomicEntityType& self)->std::string { return str(self); })
-		.def("__eq__", [](const AtomicEntityType& self, const AtomicEntityType& other)->bool { return self == other; }, py::is_operator())
-		.def("__hash__", [](const AtomicEntityType& self) {
+		.def_readonly("rep_type", &AttributeEntityType::rep_type)
+		.def_readonly("complex_value", &AttributeEntityType::complex_value)
+		.def("__repr__", [](const AttributeEntityType& self)->std::string { return to_str(self); })
+		.def("__str__", [](const AttributeEntityType& self)->std::string { return str(self); })
+		.def("__eq__", [](const AttributeEntityType& self, const AttributeEntityType& other)->bool { return self == other; }, py::is_operator())
+		.def("__hash__", [](const AttributeEntityType& self) {
             if(self.complex_value)
                 return internals::value_hash(*self.complex_value);
             else
                 return self.rep_type.value;
         })
-		// .def("__int__", [](const AtomicEntityType& self)->int {return self.value; })
-		.def("__copy__", [](const AtomicEntityType& self)->AtomicEntityType {return self; })
+		// .def("__int__", [](const AttributeEntityType& self)->int {return self.value; })
+		.def("__copy__", [](const AttributeEntityType& self)->AttributeEntityType {return self; })
 
-		// .def_property_readonly("__enum_type", [](const AtomicEntityType& self) { return internals::get_enum_type_from_aet(self); })
-		// .def_property_readonly("__unit", [](const AtomicEntityType& self) { return internals::get_unit_from_aet(self); })
+		// .def_property_readonly("__enum_type", [](const AttributeEntityType& self) { return internals::get_enum_type_from_aet(self); })
+		// .def_property_readonly("__unit", [](const AttributeEntityType& self) { return internals::get_unit_from_aet(self); })
 		;
 
-	// internals_submodule.def("is_aet_a_enum", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.Enum; });
-	// internals_submodule.def("is_aet_a_quantity_float", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.QuantityFloat; });
-	// internals_submodule.def("is_aet_a_quantity_int", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.QuantityInt; });
+	// internals_submodule.def("is_aet_a_enum", [](AttributeEntityType my_aet)->bool { return my_aet <= AET.Enum; });
+	// internals_submodule.def("is_aet_a_quantity_float", [](AttributeEntityType my_aet)->bool { return my_aet <= AET.QuantityFloat; });
+	// internals_submodule.def("is_aet_a_quantity_int", [](AttributeEntityType my_aet)->bool { return my_aet <= AET.QuantityInt; });
 
 
 
-	py::class_<AtomicEntityTypeStruct>(internals_submodule, "AtomicEntityTypeStruct", py::buffer_protocol())
-		.def_property_readonly("_unspecified", [](const AtomicEntityTypeStruct& self) { return self._unspecified; })
-		.def_property_readonly("Float", [](const AtomicEntityTypeStruct& self) { return self.Float; })
-		.def_property_readonly("Int", [](const AtomicEntityTypeStruct& self) { return self.Int; })
-		.def_property_readonly("Bool", [](const AtomicEntityTypeStruct& self) { return self.Bool; })
-		.def_property_readonly("String", [](const AtomicEntityTypeStruct& self) { return self.String; })
-		.def_property_readonly("Time", [](const AtomicEntityTypeStruct& self) { return self.Time; })
-		.def_property_readonly("Serialized", [](const AtomicEntityTypeStruct& self) { return self.Serialized; })
-		.def_property_readonly("Enum", [](const AtomicEntityTypeStruct& self) { return self.Enum; })
-		.def_property_readonly("QuantityFloat", [](const AtomicEntityTypeStruct& self) { return self.QuantityFloat; })
-		.def_property_readonly("QuantityInt", [](const AtomicEntityTypeStruct& self) { return self.QuantityInt; })
+	py::class_<AttributeEntityTypeStruct>(internals_submodule, "AttributeEntityTypeStruct", py::buffer_protocol())
+		.def_property_readonly("_unspecified", [](const AttributeEntityTypeStruct& self) { return self._unspecified; })
+		.def_property_readonly("Float", [](const AttributeEntityTypeStruct& self) { return self.Float; })
+		.def_property_readonly("Int", [](const AttributeEntityTypeStruct& self) { return self.Int; })
+		.def_property_readonly("Bool", [](const AttributeEntityTypeStruct& self) { return self.Bool; })
+		.def_property_readonly("String", [](const AttributeEntityTypeStruct& self) { return self.String; })
+		.def_property_readonly("Time", [](const AttributeEntityTypeStruct& self) { return self.Time; })
+		.def_property_readonly("Serialized", [](const AttributeEntityTypeStruct& self) { return self.Serialized; })
+		.def_property_readonly("Enum", [](const AttributeEntityTypeStruct& self) { return self.Enum; })
+		.def_property_readonly("QuantityFloat", [](const AttributeEntityTypeStruct& self) { return self.QuantityFloat; })
+		.def_property_readonly("QuantityInt", [](const AttributeEntityTypeStruct& self) { return self.QuantityInt; })
 
-		.def("__call__", [](const AtomicEntityTypeStruct& self, ZefRef zr) { return self(zr); })
-		.def("__call__", [](const AtomicEntityTypeStruct& self, EZefRef uzr) { return self(uzr); })
+		.def("__call__", [](const AttributeEntityTypeStruct& self, ZefRef zr) { return self(zr); })
+		.def("__call__", [](const AttributeEntityTypeStruct& self, EZefRef uzr) { return self(uzr); })
 
-		// .def("__ror__", [](const AtomicEntityTypeStruct& self, ZefRef zr) { return self(zr); })
-		// .def("__ror__", [](const AtomicEntityTypeStruct& self, EZefRef uzr) { return self(uzr); })
+		// .def("__ror__", [](const AttributeEntityTypeStruct& self, ZefRef zr) { return self(zr); })
+		// .def("__ror__", [](const AttributeEntityTypeStruct& self, EZefRef uzr) { return self(uzr); })
 		;
     internals_submodule.attr("AET") = AET;
 
-    py::class_<AtomicEntityTypeStruct::Enum_>(internals_submodule, "AtomicEntityTypeStruct_Enum", py::buffer_protocol())
-		.def("__call__", [](const AtomicEntityTypeStruct::Enum_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
-		.def("__eq__", [](const AtomicEntityTypeStruct::Enum_& self, const AtomicEntityTypeStruct::Enum_& other)->bool { return true; }, py::is_operator())
-        .def("__getattr__", [](const AtomicEntityTypeStruct::Enum_& self, std::string key) {
+    py::class_<AttributeEntityTypeStruct::Enum_>(internals_submodule, "AttributeEntityTypeStruct_Enum", py::buffer_protocol())
+		.def("__call__", [](const AttributeEntityTypeStruct::Enum_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const AttributeEntityTypeStruct::Enum_& self, const AttributeEntityTypeStruct::Enum_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const AttributeEntityTypeStruct::Enum_& self, std::string key) {
             if(key.find("__") == 0)
                 throw pybind11::attribute_error();
             return self(key); },
             py::call_guard<py::gil_scoped_release>())
-        .def("__dir__", [](const AtomicEntityTypeStruct::Enum_& self) { return global_token_store().ENs.all_enum_types(); }, py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const AttributeEntityTypeStruct::Enum_& self) { return global_token_store().ENs.all_enum_types(); }, py::call_guard<py::gil_scoped_release>())
         ;
-    py::class_<AtomicEntityTypeStruct::QuantityFloat_>(internals_submodule, "AtomicEntityTypeStruct_QuantityFloat", py::buffer_protocol())
-        .def("__call__", [](const AtomicEntityTypeStruct::QuantityFloat_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
-		.def("__eq__", [](const AtomicEntityTypeStruct::QuantityFloat_& self, const AtomicEntityTypeStruct::QuantityFloat_& other)->bool { return true; }, py::is_operator())
-        .def("__getattr__", [](const AtomicEntityTypeStruct::QuantityFloat_& self, std::string key) {
+    py::class_<AttributeEntityTypeStruct::QuantityFloat_>(internals_submodule, "AttributeEntityTypeStruct_QuantityFloat", py::buffer_protocol())
+        .def("__call__", [](const AttributeEntityTypeStruct::QuantityFloat_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const AttributeEntityTypeStruct::QuantityFloat_& self, const AttributeEntityTypeStruct::QuantityFloat_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const AttributeEntityTypeStruct::QuantityFloat_& self, std::string key) {
             if(key.find("__") == 0)
                 throw pybind11::attribute_error();
             return self(key); },
             py::call_guard<py::gil_scoped_release>())
-        .def("__dir__", [](const AtomicEntityTypeStruct::QuantityFloat_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const AttributeEntityTypeStruct::QuantityFloat_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
         ;
-    py::class_<AtomicEntityTypeStruct::QuantityInt_>(internals_submodule, "AtomicEntityTypeStruct_QuantityInt", py::buffer_protocol())
-        .def("__call__", [](const AtomicEntityTypeStruct::QuantityInt_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
-		.def("__eq__", [](const AtomicEntityTypeStruct::QuantityInt_& self, const AtomicEntityTypeStruct::QuantityInt_& other)->bool { return true; }, py::is_operator())
-        .def("__getattr__", [](const AtomicEntityTypeStruct::QuantityInt_& self, std::string key) {
+    py::class_<AttributeEntityTypeStruct::QuantityInt_>(internals_submodule, "AttributeEntityTypeStruct_QuantityInt", py::buffer_protocol())
+        .def("__call__", [](const AttributeEntityTypeStruct::QuantityInt_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const AttributeEntityTypeStruct::QuantityInt_& self, const AttributeEntityTypeStruct::QuantityInt_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const AttributeEntityTypeStruct::QuantityInt_& self, std::string key) {
             if(key.find("__") == 0)
                 throw pybind11::attribute_error();
             return self(key); },
             py::call_guard<py::gil_scoped_release>())
-        .def("__dir__", [](const AtomicEntityTypeStruct::QuantityInt_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const AttributeEntityTypeStruct::QuantityInt_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
         ;
 
     py::class_<EntityTypeStruct>(internals_submodule, "EntityTypeStruct", py::buffer_protocol())
@@ -707,11 +675,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	// 	"Function to help interface Python ET singleton and create a RelationType object");	
 
 	// internals_submodule.def("get_aet_from_enum_type_name_string", &internals::get_aet_from_enum_type_name_string, py::call_guard<py::gil_scoped_release>(),
-	// 	"Function to help interface Python AET singleton and create a AtomicEntityType object from a new enum type");	
+	// 	"Function to help interface Python AET singleton and create a AttributeEntityType object from a new enum type");	
 	// internals_submodule.def("get_aet_from_quantity_float_name_string", &internals::get_aet_from_quantity_float_name_string, py::call_guard<py::gil_scoped_release>(),
-	// 	"Function to help interface Python AET singleton and create a AtomicEntityType object from a new unit type used in a QuantityFloat");
+	// 	"Function to help interface Python AET singleton and create a AttributeEntityType object from a new unit type used in a QuantityFloat");
 	// internals_submodule.def("get_aet_from_quantity_int_name_string", &internals::get_aet_from_quantity_int_name_string, py::call_guard<py::gil_scoped_release>(),
-	// 	"Function to help interface Python AET singleton and create a AtomicEntityType object from a new unit type used in a QuantityInt");	
+	// 	"Function to help interface Python AET singleton and create a AttributeEntityType object from a new unit type used in a QuantityInt");	
 
 	internals_submodule.def("get_enum_value_from_string", &internals::get_enum_value_from_string, py::call_guard<py::gil_scoped_release>(),
 		"Function to help interface Python EN singleton and create a ZefEnumValue object");

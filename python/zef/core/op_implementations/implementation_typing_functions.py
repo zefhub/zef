@@ -27,7 +27,7 @@ from ..abstract_raes import abstract_rae_from_rae_type_and_uid
 from ..logger import log
 
 from ...pyzef import zefops as pyzefops, main as pymain
-from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
+from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AttributeEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
 from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
@@ -255,7 +255,7 @@ def on_implementation(g, op):
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl                
                 # Type 2: any RAE  i.e on[terminated[ET.Dog]] or on[instantiated[RT.owns]] 
-                elif type(rae_or_zr) in {AtomicEntityType, EntityType, RelationType}: 
+                elif type(rae_or_zr) in {AttributeEntityType, EntityType, RelationType}: 
                     def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: rae_type(absorbed(x)[0]) == rae_or_zr] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl
@@ -271,7 +271,7 @@ def on_implementation(g, op):
                     def src_or_trgt_filter(rae, rae_filter):
                         if isinstance(rae_filter, ZefRef):
                             return to_ezefref(rae) == to_ezefref(rae_filter)
-                        elif isinstance(rae_filter, (EntityType, AtomicEntityType, RelationType)):
+                        elif isinstance(rae_filter, (EntityType, AttributeEntityType, RelationType)):
                             return rae_type(rae) == rae_filter
                         elif isinstance(rae_filter, ValueType_):
                             return is_a(rae, rae_filter)
@@ -297,7 +297,7 @@ def on_implementation(g, op):
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl
             # Type 2: any AET.* i.e on[assigned[AET.String]]
-            elif isinstance(aet_or_zr, AtomicEntityType): 
+            elif isinstance(aet_or_zr, AttributeEntityType): 
                 def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: rae_type(absorbed(x)[0]) == aet_or_zr] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl        
@@ -1864,13 +1864,13 @@ def all_imp(*args):
         fil = args[1]
         # These options have C++ backing so try them first
         # The specific all[ET.x/AET.x] options (not all[RT.x] though)
-        if isinstance(fil, EntityType) or isinstance(fil, AtomicEntityType):
+        if isinstance(fil, EntityType) or isinstance(fil, AttributeEntityType):
             # Note: returning list rather than ZefRefs as more compatible
             # return list(gs.tx | pyzefops.instances[fil])
             return gs.tx | pyzefops.instances[fil]
         
         if isinstance(fil, ValueType_):
-            representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (EntityType, AtomicEntityType))] | func[set] | collect
+            representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (EntityType, AttributeEntityType))] | func[set] | collect
             value_types = set(fil.d['absorbed']) - representation_types
             if len(value_types) > 0: value_types = Union[tuple(value_types)]        
             if fil.d['type_name'] == "Union":
@@ -1905,7 +1905,7 @@ def all_imp(*args):
         # These options have C++ backing so try them first
         # The specific all[ET.x/AET.x] options (not all[RT.x] though)
         # Not using as this is not correct in filtering out the delegates
-        # if isinstance(fil, EntityType) or isinstance(fil, AtomicEntityType):
+        # if isinstance(fil, EntityType) or isinstance(fil, AttributeEntityType):
         #     return g | pyzefops.instances_eternal[fil]
 
         # The remaining options will just use the generic filter and is_a
@@ -2299,19 +2299,19 @@ def absorbed_imp(x):
     
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AttributeEntity, ZefRef, EZefRef
     - related zefop: without_absorbed
     - related zefop: inject
     - related zefop: inject_list
     - related zefop: reverse_args
     """
-    if isinstance(x, (EntityType, RelationType, AtomicEntityType, Keyword, Delegate)):
+    if isinstance(x, (EntityType, RelationType, AttributeEntityType, Keyword, Delegate)):
         if '_absorbed' not in x.__dict__:
             return ()
         else:
             return x._absorbed
     
-    elif type(x) in {Entity, Relation, AtomicEntity}:
+    elif type(x) in {Entity, Relation, AttributeEntity}:
         return x.d['absorbed']
 
     elif isinstance(x, ZefOp):
@@ -2343,7 +2343,7 @@ def without_absorbed_imp(x):
     
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AttributeEntity, ZefRef, EZefRef
     - related zefop: absorbed
     - related zefop: inject
     - related zefop: inject_list
@@ -2363,11 +2363,11 @@ def without_absorbed_imp(x):
             new_rt = RelationType(x.value)
             return new_rt
         
-    elif isinstance(x, AtomicEntityType):
+    elif isinstance(x, AttributeEntityType):
         if x.complex_value:
-            return AtomicEntityType(x.complex_value)
+            return AttributeEntityType(x.complex_value)
         else:
-            return AtomicEntityType(x.rep_type)
+            return AttributeEntityType(x.rep_type)
                 
     elif isinstance(x, Keyword):
         if '_absorbed' not in x.__dict__:
@@ -2391,7 +2391,7 @@ def without_absorbed_imp(x):
     elif isinstance(x, ValueType_):
         return ValueType_(type_name=x.d['type_name'])
 
-    elif isinstance(x, (Entity, AtomicEntity, RelationType)):
+    elif isinstance(x, (Entity, AttributeEntity, RelationType)):
         return type(x)(remove(x.d, 'absorbed'))
     return Error('Not Implemented')
 
@@ -4551,7 +4551,7 @@ def preceding_events_imp(x, filter_on=None):
     if BT(x) not in [
             BT.ENTITY_NODE,
             BT.RELATION_EDGE,
-            BT.ATOMIC_ENTITY_NODE,
+            BT.ATTRIBUTE_ENTITY_NODE,
             ]:
         raise TypeError(f"`preceding_events` can only be called on RAEs and GraphSlices and lists all relevant events form the past.")
 
@@ -4762,7 +4762,7 @@ def in_frame_imp(z, *args):
             raise RuntimeError('origin node not found in reference frame graph!')
 
         zz = g_frame[the_origin_uid]
-        if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
+        if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
             z_candidates = zz | Ins[BT.ORIGIN_RAE_EDGE] | map[target] | filter[exists_at[target_frame]] | collect
             if len(z_candidates) > 1:
                 raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {the_origin_uid}")
@@ -4787,19 +4787,19 @@ def discard_frame_imp(x):
 
     ---- Signature ----
     ZefRef[ET[T1]] -> Entity[T1]
-    ZefRef[AET[T1]] -> AtomicEntity[T1]
+    ZefRef[AET[T1]] -> AttributeEntity[T1]
     ZefRef[RT[T1]] -> Relation[T1]
     ZefRef[BT.TX] -> TX           # TODO
     ZefRef[BT.Root] -> Graph      # TODO
 
     EZefRef[ET[T1]] -> Entity[T1]
-    EZefRef[AET[T1]] -> AtomicEntity[T1]
+    EZefRef[AET[T1]] -> AttributeEntity[T1]
     EZefRef[RT[T1]] -> Relation[T1]
     EZefRef[BT.TX] -> TX          # TODO
     EZefRef[BT.Root] -> Graph     # TODO
 
     Entity[T1] -> Entity[T1]
-    AtomicEntity[T1] -> AtomicEntity[T1]
+    AttributeEntity[T1] -> AttributeEntity[T1]
     Relation[T1] -> Relation[T1]
 
     ---- Tags ----
@@ -4808,8 +4808,8 @@ def discard_frame_imp(x):
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         if   BT(x) == BT.ENTITY_NODE: return Entity(x)
         elif BT(x) == BT.RELATION_EDGE: return Relation(x)
-        elif BT(x) == BT.ATOMIC_ENTITY_NODE: return AtomicEntity(x)
-    if isinstance(x, Entity) or isinstance(x, Relation) or isinstance(x, AtomicEntity):
+        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE: return AttributeEntity(x)
+    if isinstance(x, Entity) or isinstance(x, Relation) or isinstance(x, AttributeEntity):
         return x
     raise TypeError(f"'discard_frame' not implemented for type {type(x)}: it was passed {x}")
 
@@ -4998,9 +4998,9 @@ def time_travel_tp(x, p):
 
 def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
-    if type(z) in [Entity, AtomicEntity, Relation, TXNode, Root]:
+    if type(z) in [Entity, AttributeEntity, Relation, TXNode, Root]:
         return uid(z)
-    assert BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
+    assert BT(z) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
         return uid(to_ezefref(z))
     if BT(z) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
@@ -5010,7 +5010,7 @@ def origin_uid_imp(z) -> EternalUID:
         # z itself is the origin
         return uid(to_ezefref(z))
     z_or = origin_candidates | only | collect
-    if BT(z_or) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
+    if BT(z_or) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
         # the origin was from a different graph
         g_origin_uid = z_or | Out[BT.ORIGIN_GRAPH_EDGE] | base_uid | collect
         return EternalUID(z_or | base_uid | collect, g_origin_uid)
@@ -5028,7 +5028,7 @@ def origin_uid_tp(x):
 
 def origin_rae_imp(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
-    if type(x) in [Entity, AtomicEntity, Relation, TXNode, Root]:
+    if type(x) in [Entity, AttributeEntity, Relation, TXNode, Root]:
         return x
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         if internals.is_delegate(x):
@@ -5037,8 +5037,8 @@ def origin_rae_imp(x):
             return Entity(x)
         elif BT(x) == BT.RELATION_EDGE:
             return Relation(x)
-        elif BT(x) == BT.ATOMIC_ENTITY_NODE:
-            return AtomicEntity(x)
+        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE:
+            return AttributeEntity(x)
         elif BT(x) == BT.TX_EVENT_NODE:
             return TXNode(x)
         elif BT(x) == BT.ROOT_NODE:
@@ -6044,7 +6044,7 @@ def termination_tx_implementation(z):
 def uid_implementation(arg):
     if isinstance(arg, str):
         return to_uid(arg)
-    if isinstance(arg, (Entity, AtomicEntity, TXNode, Root)):
+    if isinstance(arg, (Entity, AttributeEntity, TXNode, Root)):
         return arg.d["uid"]
     if isinstance(arg, Relation):
         return arg.d["uids"][1]
@@ -6071,8 +6071,8 @@ def first_tx_for_low_level_blob(z):
         return first_tx_for_low_level_blob(z | in_rel[BT.TO_DELEGATE_EDGE] | collect)
     elif BT(z) in [BT.ENTITY_NODE,
                    BT.RELATION_EDGE,
-                   BT.ATOMIC_ENTITY_NODE,
-                   BT.ATOMIC_VALUE_NODE]:
+                   BT.ATTRIBUTE_ENTITY_NODE,
+                   BT.VALUE_NODE]:
         # Chronological order is mandatory so we find the first instantiation edge
         return first_tx_for_low_level_blob(z | in_rel[BT.RAE_INSTANCE_EDGE] | collect)
     if BT(z) in [BT.DELEGATE_INSTANTIATION_EDGE,
@@ -6087,7 +6087,7 @@ def first_tx_for_low_level_blob(z):
                    BT.ORIGIN_GRAPH_EDGE,
                    BT.FOREIGN_ENTITY_NODE,
                    BT.FOREIGN_RELATION_EDGE,
-                   BT.FOREIGN_ATOMIC_ENTITY_NODE,
+                   BT.FOREIGN_ATTRIBUTE_ENTITY_NODE,
                    BT.FOREIGN_GRAPH_NODE]:
         raise TypeError(f"Can't yet determine events for this kind of blob: {BT(z)}")
                    
@@ -6185,13 +6185,13 @@ def representation_type_imp(x):
             # QuantityFloat: VT.QuantityFloat,
             # QuantityInt: VT.QuantityInt,
             # EntityType: VT.EntityType,
-            # AtomicEntityType: VT.AtomicEntityType,
+            # AttributeEntityType: VT.AttributeEntityType,
             # RelationType: VT.RelationType,
             ZefRef: VT.ZefRef,
             EZefRef: VT.EZefRef,
             # TX: VT.TX
             # Entity: VT.Entity,
-            # AtomicEntity: VT.AtomicEntity,
+            # AttributeEntity: VT.AttributeEntity,
             # Relation: VT.Relation,
             ZefOp: VT.ZefOp,
             Graph: VT.Graph,
@@ -6496,10 +6496,10 @@ def is_a_implementation(x, typ):
         if typ == BT.RELATION_EDGE:
             return True
 
-    if isinstance(x, AtomicEntityType):
-        if isinstance(typ, AtomicEntityTypeStruct):
+    if isinstance(x, AttributeEntityType):
+        if isinstance(typ, AttributeEntityTypeStruct):
             return True
-        if isinstance(typ, AtomicEntityType):
+        if isinstance(typ, AttributeEntityType):
             return x == typ
         if typ == AET.QuantityFloat:
             return internals.is_aet_a_quantity_float(x)
@@ -6507,7 +6507,7 @@ def is_a_implementation(x, typ):
             return internals.is_aet_a_quantity_int(x)
         if typ == AET.Enum:
             return internals.is_aet_a_enum(x)
-        if typ == BT.ATOMIC_ENTITY_NODE:
+        if typ == BT.ATTRIBUTE_ENTITY_NODE:
             return True
 
     if isinstance(x, EntityTypeStruct):
@@ -6518,8 +6518,8 @@ def is_a_implementation(x, typ):
         if isinstance(typ, RelationTypeStruct):
             return True
 
-    if isinstance(x, AtomicEntityTypeStruct):
-        if isinstance(typ, AtomicEntityTypeStruct):
+    if isinstance(x, AttributeEntityTypeStruct):
+        if isinstance(typ, AttributeEntityTypeStruct):
             return True
 
     if isinstance(x, ZefOp):
@@ -6533,7 +6533,7 @@ def is_a_implementation(x, typ):
             return True
         
     # TODO CHANGE THIS TO ACCEPT ONLY PYTHON TYPES
-    if isinstance(typ, EntityTypeStruct) or isinstance(typ, RelationTypeStruct) or isinstance(x, AtomicEntityTypeStruct):
+    if isinstance(typ, EntityTypeStruct) or isinstance(typ, RelationTypeStruct) or isinstance(x, AttributeEntityTypeStruct):
         return False
     try:
         return isinstance(x, typ)
@@ -6556,7 +6556,7 @@ def _is_a_instance_delegate_generic(x, typ):
     if typ == Z:
         return True
     if typ == RAE:
-        if BT(x) in [BT.ENTITY_NODE, BT.RELATION_EDGE, BT.ATOMIC_ENTITY_NODE]:
+        if BT(x) in [BT.ENTITY_NODE, BT.RELATION_EDGE, BT.ATTRIBUTE_ENTITY_NODE]:
             return True
     if isinstance(typ, EntityType):
         if BT(x) != BT.ENTITY_NODE:
@@ -6573,15 +6573,15 @@ def _is_a_instance_delegate_generic(x, typ):
                 and _is_a_instance_delegate_generic(x, typ[1])
                 and _is_a_instance_delegate_generic(pyzefops.target(x), typ[2]))
     if is_a(typ, AET):
-        if BT(x) != BT.ATOMIC_ENTITY_NODE:
+        if BT(x) != BT.ATTRIBUTE_ENTITY_NODE:
             return False
         return is_a(AET(x), typ)
     if isinstance(typ, EntityTypeStruct):
         return BT(x) == BT.ENTITY_NODE
     if isinstance(typ, RelationTypeStruct):
         return BT(x) == BT.RELATION_EDGE
-    if isinstance(typ, AtomicEntityTypeStruct):
-        return BT(x) == BT.ATOMIC_ENTITY_NODE
+    if isinstance(typ, AttributeEntityTypeStruct):
+        return BT(x) == BT.ATTRIBUTE_ENTITY_NODE
 
     return False
 
@@ -6599,7 +6599,7 @@ def rae_type_implementation(z):
         return z.d["type"]
     if isinstance(z, Relation):
         return z.d["type"][1]
-    if isinstance(z, AtomicEntity):
+    if isinstance(z, AttributeEntity):
         return z.d["type"]
     return pymain.rae_type(z)
 
@@ -7389,7 +7389,7 @@ def to_pipeline_imp(ops: list):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AttributeEntity, ZefRef, EZefRef
     - related zefop: inject
     - related zefop: inject_list
     - related zefop: absorbed
@@ -7417,7 +7417,7 @@ def inject_imp(x, injectee):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AttributeEntity, ZefRef, EZefRef
     - related zefop: inject_list
     - related zefop: absorbed
     - related zefop: without_absorbed
@@ -7444,7 +7444,7 @@ def inject_list_imp(v, injectee):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AttributeEntity, ZefRef, EZefRef
     - related zefop: inject
     - related zefop: absorbed
     - related zefop: without_absorbed
@@ -7667,7 +7667,7 @@ def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
     @func
     def get_template_representation(p, id_lookup):
         label = result = None
-        if type(p) == EntityType or type(p) == AtomicEntityType:
+        if type(p) == EntityType or type(p) == AttributeEntityType:
             result = instance_rep(p)
             label = get_label(p)
         elif type(p) == tuple:
@@ -8388,7 +8388,7 @@ def fg_insert_imp(fg, new_el):
             assert rae_uid in new_key_dict, "Can't construct an Abstract Relation!"
             return new_key_dict[rae_uid]
         else:
-            rae_class = AtomicEntity if type(rae_type) == AtomicEntityType else Entity
+            rae_class = AttributeEntity if type(rae_type) == AttributeEntityType else Entity
             return common_logic(rae_class({"type": rae_type, "uid": rae_uid}))
 
     def common_logic(new_el):
@@ -8399,7 +8399,7 @@ def fg_insert_imp(fg, new_el):
             if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None))
 
-        elif isinstance(new_el, AtomicEntityType):
+        elif isinstance(new_el, AttributeEntityType):
             idx = next_idx()
             internal_id = new_el | absorbed | attempt[single][None] | collect
             new_el = new_el | without_absorbed | collect
@@ -8414,7 +8414,7 @@ def fg_insert_imp(fg, new_el):
                 new_key_dict[node_uid] = idx
             idx = new_key_dict[node_uid]
 
-        elif isinstance(new_el, AtomicEntity):
+        elif isinstance(new_el, AttributeEntity):
             node_type, node_uid = new_el.d['type'], new_el.d['uid']
             if node_uid not in new_key_dict:
                 idx = next_idx()
@@ -8433,10 +8433,10 @@ def fg_insert_imp(fg, new_el):
         # i.e: z4 <= 42 ; AET.String <= "42" ; AET.String['z1'] <= 42 ; Z['n1'] <= 42
         elif isinstance(new_el, LazyValue) and length(peel(new_el)) == 2:
             first_op = peel(new_el)[0]
-            if isinstance(first_op, AtomicEntityType):
+            if isinstance(first_op, AttributeEntityType):
                     internal_id = first_op | absorbed | attempt[single][None] | collect
                     aet_maybe = first_op | without_absorbed | collect
-                    assert isinstance(aet_maybe, AtomicEntityType), f"{new_el} should be of type AET"
+                    assert isinstance(aet_maybe, AttributeEntityType), f"{new_el} should be of type AET"
                     aet_value = peel(peel(new_el)[1])[0][1][0]
                     idx = next_idx()
                     new_blobs.append((idx, aet_maybe, [], None, aet_value))
@@ -8447,13 +8447,13 @@ def fg_insert_imp(fg, new_el):
                     aet_value = peel(peel(new_el)[1])[0][1][0]
                     if key not in new_key_dict and not isinstance(key, int): raise KeyError(f"{key} doesn't exist in internally known ids!")
                     idx = new_key_dict.get(key, key)
-                    assert isinstance(new_blobs[idx][1], AtomicEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
+                    assert isinstance(new_blobs[idx][1], AttributeEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
                     new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
                 else:
                     raise ValueError(f"Expected a Z['n1'] <= 42 got {new_el} instead!")
             elif isinstance(first_op, ZefRef) or isinstance(first_op, EZefRef):
                 idx = common_logic(first_op)
-                assert isinstance(new_blobs[idx][1], AtomicEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
+                assert isinstance(new_blobs[idx][1], AttributeEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
                 aet_value = peel(peel(new_el)[1])[0][1][0]
                 new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
             else:
@@ -8479,7 +8479,7 @@ def fg_insert_imp(fg, new_el):
 
         elif type(new_el) in {ZefRef, EZefRef}:
             idx = common_logic(origin_rae(new_el))
-            if isinstance(new_blobs[idx][1], AtomicEntityType) and isinstance(new_el, ZefRef):
+            if isinstance(new_blobs[idx][1], AttributeEntityType) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))
         elif isinstance(new_el, Delegate):
             if isinstance(new_el.item, DelegateRelationTriple):
@@ -8521,7 +8521,7 @@ def fg_insert_imp(fg, new_el):
         return ent_idx
 
     def _insert_single(new_el):
-        if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val, Delegate}:
+        if type(new_el) in {EntityType, AttributeEntityType, Entity, AttributeEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val, Delegate}:
             common_logic(new_el)
         elif isinstance(new_el, tuple) and len(new_el) == 3:
             src, rt, trgt = new_el
@@ -8573,7 +8573,7 @@ def fg_insert_imp(fg, new_el):
 def fg_get_imp(fg, key):
     kdict = fg.key_dict
     if type(key) in {ZefRef, EZefRef} and origin_uid(key) in kdict: return FlatRef(fg, kdict[origin_uid(key)])
-    elif type(key) in {Entity, AtomicEntity} and key.d['uid'] in kdict: return FlatRef(fg, kdict[key.d['uid']])
+    elif type(key) in {Entity, AttributeEntity} and key.d['uid'] in kdict: return FlatRef(fg, kdict[key.d['uid']])
     elif isinstance(key, Relation) and key.d['uids'][1] in kdict:return FlatRef(fg, kdict[key.d['uids'][1]])
     elif isinstance(key, Val) and  value_hash(key.arg) in kdict: return FlatRef(fg, kdict[value_hash(key.arg)])
     elif key in kdict: return FlatRef(fg, kdict[key])
@@ -8587,7 +8587,7 @@ def fg_remove_imp(fg, key):
         if origin_uid(key) not in kdict: raise error
         idx = kdict[origin_uid(key)]
         key = origin_uid(key)
-    elif type(key) in {Entity, AtomicEntity}: 
+    elif type(key) in {Entity, AttributeEntity}: 
         if key.d['uid'] not in kdict: raise error
         idx = kdict[key.d['uid']]
         key = key.d['uid']
@@ -8645,12 +8645,12 @@ def flatgraph_to_commands(fg):
             else:
                 if b[1][idx] in return_elements: return Z[idx]
                 return  b[1][idx] 
-        elif isinstance(b[1], AtomicEntityType):
+        elif isinstance(b[1], AttributeEntityType):
             if idx in idx_key:
                 key = idx_key[idx]
                 if is_a(key, uid):
-                    if b[-1]: return AtomicEntity({"type": b[1], "uid": key}) <= b[-1]
-                    else:     return AtomicEntity({"type": b[1], "uid": key})
+                    if b[-1]: return AttributeEntity({"type": b[1], "uid": key}) <= b[-1]
+                    else:     return AttributeEntity({"type": b[1], "uid": key})
                 else:
                     if for_rt: return Z[key]
                     if b[-1]: return b[1][key] <= b[-1]
@@ -8714,7 +8714,7 @@ def fr_target_imp(fr):
 def fr_value_imp(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
-    assert isinstance(blob[1], AtomicEntityType), "Can only ask for the value of an AET"
+    assert isinstance(blob[1], AttributeEntityType), "Can only ask for the value of an AET"
     return blob[-1]
 
 def traverse_flatref_imp(fr, rt, direction, traverse_type):

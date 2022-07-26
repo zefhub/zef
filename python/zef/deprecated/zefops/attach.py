@@ -71,14 +71,14 @@ class Attach():
             if len(field) == 3:
                 aet,val = field[1:]
 
-                assert isinstance(aet, AtomicEntityType)
+                assert isinstance(aet, AttributeEntityType)
                 if not auto_type_from_val(val) == aet:
                     raise TypeError(f'in attach: the type of the specified value "{args[1]}" does not match the specified type "{args[0]}"')
                 parsed.append( (rt, aet, val) )
             else:
                 # ----- one additional args -----
                 item = field[1]
-                if isinstance(item, AtomicEntityType):
+                if isinstance(item, AttributeEntityType):
                     parsed.append( (rt, item, None) )
                 else:
                     parsed.append( (rt, auto_type_from_val(item), item) )

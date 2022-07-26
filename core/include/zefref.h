@@ -488,6 +488,14 @@ namespace zefDB {
 
 
 
+    LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& os, EZefRef uzr);
+    LIBZEF_DLL_EXPORTED std::string low_level_blob_info(const EZefRef & uzr);
+
+
+    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const EZefRefs& uzrs);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const EZefRefss& uzrss);
+
+
 
 
 

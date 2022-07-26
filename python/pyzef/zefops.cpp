@@ -301,12 +301,12 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     // zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, EntityType>(&imperative::filter));
     // zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, BlobType>(&imperative::filter));
     // zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, RelationType>(&imperative::filter));
-    // zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, AtomicEntityType>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const ZefRefs&, AttributeEntityType>(&imperative::filter));
 
     // zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, EntityType>(&imperative::filter));
     // zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, BlobType>(&imperative::filter));
     // zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, RelationType>(&imperative::filter));
-    // zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, AtomicEntityType>(&imperative::filter));
+    // zefops_submodule.def("filter", py::overload_cast<const EZefRefs&, AttributeEntityType>(&imperative::filter));
 
 
 
@@ -442,7 +442,7 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //     .def("__ror__", [](const Delegate& self, const Graph& g) { return self(g); })
 
     //     .def("__getitem__", [](const Delegate& self, const EntityType& et) { return delegate[et]; })
-    //     .def("__getitem__", [](const Delegate& self, const AtomicEntityType& aet) { return delegate[aet]; })
+    //     .def("__getitem__", [](const Delegate& self, const AttributeEntityType& aet) { return delegate[aet]; })
     //     ;
 
 

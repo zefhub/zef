@@ -15,7 +15,7 @@
 # Note: This should never depend on core at the top level!
 
 from ...pyzef.internals import (
-    AtomicEntityTypeStruct,
+    AttributeEntityTypeStruct,
     BaseUID,
     BlobType,
     BlobTypeStruct,

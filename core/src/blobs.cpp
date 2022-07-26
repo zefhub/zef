@@ -30,20 +30,29 @@ namespace zefDB {
 
         size_t size = _visit_blob([](auto & x) { return sizeof(x); },
                                 ptr);
-        if(internals::_has_edge_list(ptr))
-            size += _visit_blob_with_edges([](auto & x) {
+        if(internals::_has_edge_list(ptr)) {
+            if(get<BlobType>(ptr) == BlobType::VALUE_NODE) {
+                // This is the only blob without an "edge_info" member in its class.
+                size += sizeof(edge_info);
+            }
+
+
+            size += _visit_blob_with_edges([](auto & edges) {
                 // Using offsetof to get the proper location of the indices.
                 // Even though it will be fine with int32s, going to be extra
                 // safe, just in case this changes in the future.
-                size_t backtrack_amount = sizeof(edge_info) - offsetof(edge_info, indices);
-                // Note: +1 is because there is another edge for the subsequent
-                // edge list.
-                return (x.edges.local_capacity + 1)*sizeof(blob_index) - backtrack_amount;
-            }, ptr);
+                using edges_t = std::remove_reference_t<decltype(edges)>;
+                size_t backtrack_amount = sizeof(edges_t) - offsetof(edges_t, indices);
+                // Note: +1 is because there is another edge for the
+                // subsequent edge list.
+                return (edges.local_capacity + 1)*sizeof(blob_index) - backtrack_amount;
+            },
+                ptr);
+        }
 
         if(internals::_has_data_buffer(ptr)) {
             size += _visit_blob_with_data_buffer(overloaded {
-                    [](blobs_ns::ATOMIC_VALUE_NODE & x)->size_t {
+                    [](blobs_ns::VALUE_NODE & x)->size_t {
                         return x.buffer_size_in_bytes;
                     },
                     [](blobs_ns::ASSIGN_TAG_NAME_EDGE & x)->size_t {
@@ -71,8 +80,8 @@ namespace zefDB {
         size_t edge_list_end_offset(EZefRef uzr) {
             assert(has_edge_list(uzr));
             // Check the default edge list sizes, that they are perfectly aligned with a blob.
-            return visit_blob_with_edges([](auto & obj) {
-                size_t start_offset = (uintptr_t)(&obj.edges.indices) - (uintptr_t)(&obj);
+            return visit_blob_with_edges([&uzr](auto & edges) {
+                size_t start_offset = (uintptr_t)(&edges.indices) - (uintptr_t)(&uzr.blob_ptr);
 
                 // std::cerr << "Start: " << start_offset;
                 // std::cerr << " capacity: " << obj.edges.local_capacity;
@@ -81,7 +90,7 @@ namespace zefDB {
                 // std::cerr << " direct: " << (uintptr_t)(subsequent_deferred_edge_list_index(obj)+1) - (uintptr_t)&obj;
                 // std::cerr << " direct(mod): " << ((uintptr_t)(subsequent_deferred_edge_list_index(obj)+1) - (uintptr_t)&obj) % constants::blob_indx_step_in_bytes;
                 // Need +1 for the subsequent edge list index.
-                return (start_offset + (obj.edges.local_capacity + 1)*sizeof(blob_index)) % constants::blob_indx_step_in_bytes;
+                return (start_offset + (edges.local_capacity + 1)*sizeof(blob_index)) % constants::blob_indx_step_in_bytes;
             }, uzr);
         }
                     
@@ -105,9 +114,9 @@ namespace zefDB {
                 std::cerr << "  *******************"; \
             std::cerr << std::endl; \
             /* Also check the default edge list sizes, that they are perfectly aligned with a blob. */ \
-            if(has_edge_list(uzr)) { \
-                size_t offset = edge_list_end_offset(uzr); \
-                if(offset != 0) \
+            if(has_edge_list(uzr) && get<BlobType>(uzr) != BlobType::VALUE_NODE) { \
+                size_t offset = edge_list_end_offset(uzr);              \
+                if(offset != 0)                                         \
                     std::cerr << "DEFAULT EDGE LIST FOR " << #x << " IS INCORRECT: " << offset << std::endl; \
             }
 
@@ -117,14 +126,15 @@ namespace zefDB {
             BLOB(RAE_INSTANCE_EDGE);
             BLOB(TO_DELEGATE_EDGE);
             BLOB(ENTITY_NODE);
-            BLOB(ATOMIC_ENTITY_NODE);
-            BLOB(ATOMIC_VALUE_NODE);
+            BLOB(ATTRIBUTE_ENTITY_NODE);
+            BLOB(VALUE_NODE);
             BLOB(RELATION_EDGE);
             BLOB(DELEGATE_INSTANTIATION_EDGE);
             BLOB(DELEGATE_RETIREMENT_EDGE);
             BLOB(INSTANTIATION_EDGE);
             BLOB(TERMINATION_EDGE);
             BLOB(ATOMIC_VALUE_ASSIGNMENT_EDGE);
+            BLOB(ATTRIBUTE_VALUE_ASSIGNMENT_EDGE);
             BLOB(DEFERRED_EDGE_LIST_NODE);
             BLOB(ASSIGN_TAG_NAME_EDGE);
             BLOB(NEXT_TAG_NAME_ASSIGNMENT_EDGE);
@@ -132,8 +142,10 @@ namespace zefDB {
             BLOB(ORIGIN_RAE_EDGE);
             BLOB(ORIGIN_GRAPH_EDGE);
             BLOB(FOREIGN_ENTITY_NODE);
-            BLOB(FOREIGN_ATOMIC_ENTITY_NODE);
+            BLOB(FOREIGN_ATTRIBUTE_ENTITY_NODE);
             BLOB(FOREIGN_RELATION_EDGE);
+            BLOB(VALUE_TYPE_EDGE);
+            BLOB(VALUE_EDGE);
 
             MMap::destroy_mmap(mem);
 #undef BLOB
@@ -152,11 +164,11 @@ namespace zefDB {
 
         blob_index last_set_edge_index(EZefRef uzr) {
             return visit_blob_with_edges( overloaded {
-                    [](blobs_ns::DEFERRED_EDGE_LIST_NODE & x)->blob_index {
+                    [](blobs_ns::DEFERRED_EDGE_LIST_NODE::deferred_edge_info & x)->blob_index {
                         throw std::runtime_error("Shouldn't get here - trying to get last_set_edge_index on a deferred edge list");
                     },
-                    [uzr](auto & s) {
-                        blob_index last_blob_index = s.edges.last_edge_holding_blob;
+                    [uzr](auto & edges) {
+                        blob_index last_blob_index = edges.last_edge_holding_blob;
 
                         // Handle the case of no edges first
                         if(last_blob_index == 0)
@@ -226,6 +238,19 @@ namespace zefDB {
 
 
     AllEdgeIndexes::Iterator AllEdgeIndexes::begin() const {
+        // We have a hack here for the special case of a "fixed-size edge-list",
+        // only used by ATTRIBUTE_VALUE_ASSIGNMENT_EDGE at the moment.
+        if(get<BlobType>(uzr_with_edges) == BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE) {
+            auto & blob = get<blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE>(uzr_with_edges);
+
+            return AllEdgeIndexes::Iterator{
+                &blob.value_edge_index,
+                uzr_with_edges,
+                &blob.value_edge_index + 1, // blob_index* arithmetic not char*
+                0, // last_blob is irrelevant
+            };
+        }
+
         blob_index* ptr_to_first_el_in_array = internals::edge_indexes(uzr_with_edges);
         GraphData & gd = *graph_data(uzr_with_edges);
         // Need to ensure here for the entire edge list, as normally
@@ -258,6 +283,12 @@ namespace zefDB {
         ++ptr_to_current_edge_element;
         // if we are at the end of the local list and there is another edge list attached:
         if(ptr_to_current_edge_element == ptr_to_last_edge_element_in_current_blob) {
+            // We have a hack here for the special case of a "fixed-size edge-list",
+            // only used by ATTRIBUTE_VALUE_ASSIGNMENT_EDGE at the moment.
+            if(get<BlobType>(current_blob_pointed_to) == BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE)
+                // This will now compare == to the sentinel
+                return *this;
+
             blob_index subsequent_edge_list = *ptr_to_current_edge_element;
             // The below is commented out, because we want to allow the iterator
             // to land "beyond" the end of the edge list. This is then the
@@ -290,7 +321,8 @@ namespace zefDB {
 
     template<class T>
     void show_edges_extra(std::ostream& os, const T& obj) {
-        os << "\"final_blob\": " << obj.edges.last_edge_holding_blob;
+        auto & edges = blob_edge_info(obj);
+        os << "\"final_blob\": " << edges.last_edge_holding_blob;
     }
 
     template<>
@@ -300,18 +332,19 @@ namespace zefDB {
 
     template<class T>
 	void show_edges(std::ostream& os, const T& obj) {
-		os << "\"local_capacity\": " << obj.edges.local_capacity << ", ";
+        auto & edges = blob_edge_info(obj);
+		os << "\"local_capacity\": " << edges.local_capacity << ", ";
 		os << "\"indices\": [";
         int i = 0;
-        blob_index * indices = internals::edge_indexes(obj);
-		for (; i < obj.edges.local_capacity ; i++) {
+        const blob_index * indices = edges.indices;
+		for (; i < edges.local_capacity ; i++) {
             if(indices[i] == 0)
                 break;
             os << " " << indices[i];
 		}
 		os << " ]";
         os << " (" << i << "), ";
-		os << "\"subsequent\": " << *internals::subsequent_deferred_edge_list_index(obj) << ", ";
+		os << "\"subsequent\": " << *internals::subsequent_deferred_edge_list_index(edges) << ", ";
         show_edges_extra(os, obj);
     }
 
@@ -379,10 +412,10 @@ namespace zefDB {
 		return os;
 	}
 
-	std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_ENTITY_NODE& this_blob) {
+	std::ostream& operator<< (std::ostream& os, const blobs_ns::ATTRIBUTE_ENTITY_NODE& this_blob) {
 		using namespace ranges;
 		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
-		os << "{\"ValueRepType\": " << this_blob.rep_type << ", ";
+		os << "{\"primitive_type\": " << this_blob.primitive_type << ", ";
 		os << "{\"instantiation_time_slice\": " << this_blob.instantiation_time_slice.value << ", ";
 		os << "{\"termination_time_slice\": " << this_blob.termination_time_slice.value << ", ";
         show_edges(os, this_blob);
@@ -411,12 +444,11 @@ namespace zefDB {
 		}
 	}
 
-	std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_VALUE_NODE& this_blob) {
+	std::ostream& operator<< (std::ostream& os, const blobs_ns::VALUE_NODE& this_blob) {
 		using namespace ranges;
 		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
 		os << "\"ValueRepType\": " << this_blob.rep_type << ", ";
 		os << "\"buffer_size_in_bytes\": " << this_blob.buffer_size_in_bytes << ", ";
-		os << "\"hash\": " << this_blob.hash << ", ";
         show_edges(os, this_blob);
 		os << "\"value\": ";
 		os << value_blob_to_str(this_blob.rep_type, internals::get_data_buffer(this_blob), this_blob.buffer_size_in_bytes);
@@ -447,6 +479,15 @@ namespace zefDB {
 		os << "\"target_node_index\": " << this_blob.target_node_index << ", ";
 		os << "\"value\": ";
 		os << value_blob_to_str(this_blob.rep_type, &this_blob.data_buffer[0], this_blob.buffer_size_in_bytes);
+		os << "}";
+		return os;
+	}
+
+	std::ostream& operator<< (std::ostream& os, const blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE& this_blob) {
+		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
+		os << "\"source_node_index\": " << this_blob.source_node_index << ", ";
+		os << "\"target_node_index\": " << this_blob.target_node_index << ", ";
+		os << "\"value_edge_index\": " << this_blob.value_edge_index;
 		os << "}";
 		return os;
 	}
@@ -573,10 +614,10 @@ namespace zefDB {
 	
 
 
-	std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE& this_blob) {
+	std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ATTRIBUTE_ENTITY_NODE& this_blob) {
 		using namespace ranges;
 		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
-		os << "{\"ValueRepType\": \"" << this_blob.rep_type << "\", ";
+		os << "{\"primitive_type\": \"" << this_blob.primitive_type << "\", ";
         show_edges(os, this_blob);
 		os << "}";
 		return os;
@@ -597,6 +638,15 @@ namespace zefDB {
 	}
 
 	std::ostream& operator<< (std::ostream& os, const blobs_ns::VALUE_TYPE_EDGE& this_blob) {
+		using namespace ranges;
+		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
+		os << "\"source_node_index\": " << this_blob.source_node_index << ", ";
+		os << "\"target_node_index\": " << this_blob.target_node_index << ", ";
+		os << "}";
+		return os;
+	}
+
+	std::ostream& operator<< (std::ostream& os, const blobs_ns::VALUE_EDGE& this_blob) {
 		using namespace ranges;
 		os << "{\"BlobType\": \"" << this_blob.this_BlobType << "\", ";
 		os << "\"source_node_index\": " << this_blob.source_node_index << ", ";
@@ -643,15 +693,15 @@ namespace zefDB {
 		};
     }
 		
-    json blob_to_json_details(const blobs_ns::ATOMIC_ENTITY_NODE & blob) {
+    json blob_to_json_details(const blobs_ns::ATTRIBUTE_ENTITY_NODE & blob) {
         return json{
-			{"rep_type", blob.rep_type},
+			{"primitive_type", blob.primitive_type},
 			{"instantiation_time_slice", blob.instantiation_time_slice },
 			{"termination_time_slice", blob.termination_time_slice },
 		};
     }
-		
-    json blob_to_json_details(const blobs_ns::ATOMIC_VALUE_NODE & blob) {
+
+    json blob_to_json_details(const blobs_ns::VALUE_NODE & blob) {
         return json{
 			{"rep_type", blob.rep_type},
 		};
@@ -689,6 +739,10 @@ namespace zefDB {
         };
     }
 
+    json blob_to_json_details(const blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE & blob) {
+        return json{};
+    }
+
     json blob_to_json_details(const blobs_ns::DEFERRED_EDGE_LIST_NODE & blob) {
         throw std::runtime_error("Shouldn't not get here");
     };
@@ -721,9 +775,9 @@ namespace zefDB {
 		};
     }
 
-    json blob_to_json_details(const blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE & blob) {
+    json blob_to_json_details(const blobs_ns::FOREIGN_ATTRIBUTE_ENTITY_NODE & blob) {
         return json{
-			{"rep_type", blob.rep_type},
+			{"primitive_type", blob.primitive_type},
 		};
     }
 
@@ -734,6 +788,10 @@ namespace zefDB {
     }
 
     json blob_to_json_details(const blobs_ns::VALUE_TYPE_EDGE & blob) {
+        return json{};
+    }
+
+    json blob_to_json_details(const blobs_ns::VALUE_EDGE & blob) {
         return json{};
     }
 

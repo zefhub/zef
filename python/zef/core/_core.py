@@ -58,7 +58,7 @@ from ..pyzef.internals import (
     EN,
     AET,
     BT,
-    AtomicEntityType,
+    AttributeEntityType,
     KW,
     Delegate,
 )

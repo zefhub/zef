@@ -69,7 +69,7 @@ def handle_params(rt, params):
     if length(rt | Outs[RT(gqlify("queryParams"))]) > 0:
         for param in rt | out_rels[RT(gqlify("queryParams"))]:
             param_name = de_gqlify(str(param | Out[ RT.Name] | value | collect), False)
-            if BT(param | target | collect) == BT.ATOMIC_ENTITY_NODE:
+            if BT(param | target | collect) == BT.ATTRIBUTE_ENTITY_NODE:
                 aet_type = str(AET(param | target | collect))
                 aet_value = param | target | value | collect
                 if length(param | Outs[RT(gqlify("nonNullable"))]) > 0:
@@ -96,7 +96,7 @@ def resolve_with(rt, bt, ft):
 
     dir = "Outs" if is_out else "Ins"
 
-    if bt == BT.ATOMIC_ENTITY_NODE:
+    if bt == BT.ATTRIBUTE_ENTITY_NODE:
         if is_list:
             return f'return (z | {dir}[RT.{d_rt_name}]) | map[value] | collect'
         else:

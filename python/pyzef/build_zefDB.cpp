@@ -566,7 +566,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 
 	main_module.def("instantiate", py::overload_cast<EntityType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an entity", "entity_type"_a, "g"_a, "uid"_a=py::none());
 	main_module.def("instantiate", py::overload_cast<RelationType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "Invalid call signature for instantiate (you must pass a source and target along with a relation)", "relation_type"_a, "g"_a, "uid"_a=py::none());
-	main_module.def("instantiate", py::overload_cast<AtomicEntityType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an atomic entity", "atomic_entity_type"_a, "g"_a, "uid"_a = py::none());
+	main_module.def("instantiate", py::overload_cast<AttributeEntityType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an atomic entity", "atomic_entity_type"_a, "g"_a, "uid"_a = py::none());
 	main_module.def("instantiate", py::overload_cast<ZefRef, RelationType, ZefRef, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an relation", "src"_a, "relation_type"_a, "dst"_a, "g"_a, "uid"_a = py::none());
 	main_module.def("instantiate", py::overload_cast<EZefRef, RelationType, EZefRef, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an relation", "src"_a, "relation_type"_a, "dst"_a, "g"_a, "uid"_a = py::none());
 

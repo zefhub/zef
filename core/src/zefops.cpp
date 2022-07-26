@@ -24,8 +24,8 @@
 #include <unordered_set>
 
 namespace zefDB {
-	AtomicEntityType operator| (EZefRef uzr, const AtomicEntityTypeStruct& AET_) {return AET_(uzr);}
-	AtomicEntityType operator| (ZefRef zr, const AtomicEntityTypeStruct& AET_) {return AET_(zr);}
+	AttributeEntityType operator| (EZefRef uzr, const AttributeEntityTypeStruct& AET_) {return AET_(uzr);}
+	AttributeEntityType operator| (ZefRef zr, const AttributeEntityTypeStruct& AET_) {return AET_(zr);}
 
 	namespace internals {
 		// ------------ factor out list monad lifting ---------------		
@@ -417,16 +417,16 @@ namespace zefDB {
 				};
 			}
 
-			// Filter Filter::operator[] (AtomicEntityType aet) const {
+			// Filter Filter::operator[] (AttributeEntityType aet) const {
 			// 	return Filter{
 			// 		not_in_activated,
 			// 		(std::function<bool(EZefRef)>)[aet](EZefRef uzr)->bool {
-			// 		return get<BlobType>(uzr) == BlobType::ATOMIC_ENTITY_NODE &&
-			// 			get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr).my_atomic_entity_type == aet;
+			// 		return get<BlobType>(uzr) == BlobType::ATTRIBUTE_ENTITY_NODE &&
+			// 			get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(uzr).my_atomic_entity_type == aet;
 			// 		},
 			// 		(std::function<bool(ZefRef)>)[aet](ZefRef zr)->bool {
-			// 		return get<BlobType>(zr) == BlobType::ATOMIC_ENTITY_NODE &&
-			// 			get<blobs_ns::ATOMIC_ENTITY_NODE>(zr).my_atomic_entity_type == aet;
+			// 		return get<BlobType>(zr) == BlobType::ATTRIBUTE_ENTITY_NODE &&
+			// 			get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(zr).my_atomic_entity_type == aet;
 			// 		}
 			// 	};
 			// }
@@ -1100,8 +1100,8 @@ namespace zefDB {
 					return time_slice >= x.instantiation_time_slice
 						&& (x.termination_time_slice.value == 0 || time_slice < x.termination_time_slice);
 				}
-				case BlobType::ATOMIC_ENTITY_NODE: {
-					blobs_ns::ATOMIC_ENTITY_NODE& x = get<blobs_ns::ATOMIC_ENTITY_NODE>(rel_ent);
+				case BlobType::ATTRIBUTE_ENTITY_NODE: {
+					blobs_ns::ATTRIBUTE_ENTITY_NODE& x = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(rel_ent);
 					return time_slice >= x.instantiation_time_slice
 						&& (x.termination_time_slice.value == 0 || time_slice < x.termination_time_slice);
 				}
@@ -1552,7 +1552,7 @@ namespace zefDB {
 		if (std::holds_alternative<Sentinel>(relation_direction))
 			throw std::runtime_error("subscribe called, but no subscription type was set in 'subscribe' zefop." + to_str(z));
 
-		if (std::holds_alternative<OnValueAssignment>(relation_direction) && BT(z)!=BT.ATOMIC_ENTITY_NODE)
+		if (std::holds_alternative<OnValueAssignment>(relation_direction) && BT(z)!=BT.ATTRIBUTE_ENTITY_NODE)
 			throw std::runtime_error("subscribe called for 'OnValueAssignment', but the ZefRef is not an AE:" + to_str(z));
 
 		if(!bool(callback_fct))

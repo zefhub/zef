@@ -78,9 +78,9 @@ namespace zefDB {
 		constexpr int default_local_edge_indexes_capacity_TO_DELEGATE_EDGE = 62;
 		// constexpr int default_local_edge_indexes_capacity_ENTITY_NODE = 5;
 		constexpr int default_local_edge_indexes_capacity_ENTITY_NODE = 7;
-		// constexpr int default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE = 6;
-		constexpr int default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE = 7;
-		constexpr int default_local_edge_indexes_capacity_ATOMIC_VALUE_NODE = 5;
+		// constexpr int default_local_edge_indexes_capacity_ATTRIBUTE_ENTITY_NODE = 6;
+		constexpr int default_local_edge_indexes_capacity_ATTRIBUTE_ENTITY_NODE = 7;
+		constexpr int default_local_edge_indexes_capacity_VALUE_NODE = 5;
 		// constexpr int default_local_edge_indexes_capacity_RELATION_EDGE = 6;
 		constexpr int default_local_edge_indexes_capacity_RELATION_EDGE = 5;
 		// constexpr int default_local_edge_indexes_capacity_ASSIGN_TAG_NAME_EDGE = 2;
@@ -91,7 +91,7 @@ namespace zefDB {
 		// constexpr int default_local_edge_indexes_capacity_DEFERRED_EDGE_LIST_NODE = 14;
 		constexpr int default_local_edge_indexes_capacity_DEFERRED_EDGE_LIST_NODE = 16;
 		constexpr int default_local_edge_indexes_capacity_FOREIGN_ENTITY_NODE = 5;
-		constexpr int default_local_edge_indexes_capacity_FOREIGN_ATOMIC_ENTITY_NODE = 5;
+		constexpr int default_local_edge_indexes_capacity_FOREIGN_ATTRIBUTE_ENTITY_NODE = 5;
 		// constexpr int default_local_edge_indexes_capacity_FOREIGN_RELATION_EDGE = 5;
 		constexpr int default_local_edge_indexes_capacity_FOREIGN_RELATION_EDGE = 3;
 

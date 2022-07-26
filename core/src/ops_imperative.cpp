@@ -111,12 +111,12 @@ namespace zefDB {
                 return ts >= x.instantiation_time_slice
                     && (x.termination_time_slice.value == 0 || ts < x.termination_time_slice);
             }
-            case BlobType::ATOMIC_ENTITY_NODE: {
-                blobs_ns::ATOMIC_ENTITY_NODE& x = get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr);
+            case BlobType::ATTRIBUTE_ENTITY_NODE: {
+                blobs_ns::ATTRIBUTE_ENTITY_NODE& x = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(uzr);
                 return ts >= x.instantiation_time_slice
                     && (x.termination_time_slice.value == 0 || ts < x.termination_time_slice);
             }
-            case BlobType::ATOMIC_VALUE_NODE: {
+            case BlobType::VALUE_NODE: {
                 auto ez_tx = traverse_in_node(traverse_in_edge(uzr, BT.RAE_INSTANCE_EDGE), BT.INSTANTIATION_EDGE);
                 return exists_at(ez_tx, ts);
             }
@@ -172,7 +172,7 @@ namespace zefDB {
             if(get<BlobType>(uzr) == BlobType::TX_EVENT_NODE)
                 return true;
 
-            if(get<BlobType>(uzr) == BlobType::ATOMIC_VALUE_NODE)
+            if(get<BlobType>(uzr) == BlobType::VALUE_NODE)
                 return true;
 
             // For RAEs
@@ -184,6 +184,7 @@ namespace zefDB {
 			if (get<BlobType>(last_in_edge_on_scenario_node) == BlobType::TERMINATION_EDGE) return false;
             assert(get<BlobType>(last_in_edge_on_scenario_node) == BlobType::INSTANTIATION_EDGE
                    || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE
+                   || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE
                    || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ORIGIN_RAE_EDGE
                    || get<BlobType>(last_in_edge_on_scenario_node) == BlobType::ASSIGN_TAG_NAME_EDGE);
             return true;
@@ -1104,7 +1105,7 @@ namespace zefDB {
             my_termination_edge.this_BlobType = BlobType::TERMINATION_EDGE;
             switch (get<BlobType>(my_rel_ent)) {
             case BlobType::ENTITY_NODE: {get<blobs_ns::ENTITY_NODE>(my_rel_ent).termination_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx_node).time_slice; break; }
-            case BlobType::ATOMIC_ENTITY_NODE: {get<blobs_ns::ATOMIC_ENTITY_NODE>(my_rel_ent).termination_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx_node).time_slice; break; }
+            case BlobType::ATTRIBUTE_ENTITY_NODE: {get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(my_rel_ent).termination_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx_node).time_slice; break; }
             case BlobType::RELATION_EDGE: {get<blobs_ns::RELATION_EDGE>(my_rel_ent).termination_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx_node).time_slice; break; }
             default: {throw std::runtime_error("termiate called on a EZefRef pointing to a blob type where the concept of termination makes no sense."); }
             }
@@ -1206,9 +1207,9 @@ namespace zefDB {
                 if(length(opts) == 0) {
                     if(create) {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
-                        EZefRef new_z = internals::instantiate(BT.ATOMIC_ENTITY_NODE, gd);
-                        get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).rep_type = vrt;
-                        get<blobs_ns::ATOMIC_ENTITY_NODE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
+                        EZefRef new_z = internals::instantiate(BT.ATTRIBUTE_ENTITY_NODE, gd);
+                        get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(new_z).primitive_type = vrt;
+                        get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
                         internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
                         z = new_z;
@@ -1433,32 +1434,29 @@ namespace zefDB {
     namespace imperative {
 
         value_ret_t value(ZefRef z) {
-            if (get<BlobType>(z.blob_uzr) == BlobType::ATOMIC_ENTITY_NODE) {
-                auto & ae = get<blobs_ns::ATOMIC_ENTITY_NODE>(z.blob_uzr);
-                auto complex_type = internals::get_AE_complex_type(ae);
-                if(complex_type)
-                    return value_from_ae<value_variant_t>(z);
-                else {
-                    auto vrt = ae.rep_type.value;
-                    switch (vrt) {
-                    case VRT.Float.value: { return value_from_ae<double>(z); }
-                    case VRT.Int.value: { return value_from_ae<int>(z); }
-                    case VRT.Bool.value: { return value_from_ae<bool>(z); }
-                    case VRT.String.value: { return value_from_ae<std::string>(z); }
-                    case VRT.Time.value: { return value_from_ae<Time>(z); }
-                    case VRT.Serialized.value: { return value_from_ae<SerializedValue>(z); }
-                    default: {
-                        switch (vrt % 16) {
-                        case 1: { return value_from_ae<ZefEnumValue>(z); }
-                        case 2: { return value_from_ae<QuantityFloat>(z); }
-                        case 3: { return value_from_ae<QuantityInt>(z); }
-                        default: throw std::runtime_error("Return type not implemented.");
-                        }
-                    }
+            if (get<BlobType>(z.blob_uzr) == BlobType::ATTRIBUTE_ENTITY_NODE) {
+                auto & ae = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(z.blob_uzr);
+                auto vrt = ae.primitive_type.value;
+                switch (vrt) {
+                case VRT.Float.value: { return value_from_ae<double>(z); }
+                case VRT.Int.value: { return value_from_ae<int>(z); }
+                case VRT.Bool.value: { return value_from_ae<bool>(z); }
+                case VRT.String.value: { return value_from_ae<std::string>(z); }
+                case VRT.Time.value: { return value_from_ae<Time>(z); }
+                case VRT.Serialized.value: { return value_from_ae<SerializedValue>(z); }
+                case VRT.Any.value: { return value_from_ae<value_variant_t>(z); }
+                case VRT.Type.value: { return value_from_ae<AttributeEntityType>(z); }
+                default: {
+                    switch (vrt % 16) {
+                    case 1: { return value_from_ae<ZefEnumValue>(z); }
+                    case 2: { return value_from_ae<QuantityFloat>(z); }
+                    case 3: { return value_from_ae<QuantityInt>(z); }
+                    default: throw std::runtime_error("Return type not implemented.");
                     }
                 }
-            } else if (get<BlobType>(z.blob_uzr) == BlobType::ATOMIC_VALUE_NODE) {
-                auto & ent = get<blobs_ns::ATOMIC_VALUE_NODE>(z.blob_uzr);
+                }
+            } else if (get<BlobType>(z.blob_uzr) == BlobType::VALUE_NODE) {
+                auto & ent = get<blobs_ns::VALUE_NODE>(z.blob_uzr);
                 return internals::value_from_node<value_variant_t>(ent);
             } else {
             throw std::runtime_error("'value(zefref)' called for a zefref which is not an atomic entity.");
@@ -1478,10 +1476,10 @@ namespace zefDB {
         }
 
         value_ret_t value(EZefRef z) {
-            if (get<BlobType>(z) == BlobType::ATOMIC_ENTITY_NODE) {
+            if (get<BlobType>(z) == BlobType::ATTRIBUTE_ENTITY_NODE) {
                 throw std::runtime_error("Need a graph slice to extract an AE's value.");
-            } else if (get<BlobType>(z) == BlobType::ATOMIC_VALUE_NODE) {
-                auto & ent = get<blobs_ns::ATOMIC_VALUE_NODE>(z);
+            } else if (get<BlobType>(z) == BlobType::VALUE_NODE) {
+                auto & ent = get<blobs_ns::VALUE_NODE>(z);
                 return internals::value_from_node<value_variant_t>(ent);
             } else {
                 throw std::runtime_error("'value(zefref)' called for a zefref which is not an atomic entity.");

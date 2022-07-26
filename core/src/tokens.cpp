@@ -23,10 +23,10 @@
 namespace zefDB {
 
 	namespace internals {
-		EntityType get_entity_type(EZefRef uzr){ return ET(uzr);}  // exposed that via pybind that it can be used in the 'EntityTypeStruct' defined in the python __init__ .py
-		RelationType get_relation_type(EZefRef uzr){ return RT(uzr);}
+		EntityType get_entity_type(EZefRef uzr){ return ET(uzr); }  // exposed that via pybind that it can be used in the 'EntityTypeStruct' defined in the python __init__ .py
+		RelationType get_relation_type(EZefRef uzr){ return RT(uzr); }
 		BlobType get_blob_type(EZefRef uzr){ return BT(uzr);}
-		AtomicEntityType get_atomic_entity_type(EZefRef uzr){ return AET(uzr);}
+		AttributeEntityType get_atomic_entity_type(EZefRef uzr){ return AET(uzr); }
 	}
 
 
@@ -34,38 +34,36 @@ namespace zefDB {
     // * BlobType
 
 	std::ostream& operator << (std::ostream& o, BlobType bl) {		
-		switch (bl) {
-		/*[[[cog
-		import cog
-		for bl in all_blob_type_names:
-			cog.outl(f'case BlobType::{bl}: {{o << "{bl}"; break; }}')
-		]]]*/
-		case BlobType::_unspecified: {o << "_unspecified"; break; }
-		case BlobType::ROOT_NODE: {o << "ROOT_NODE"; break; }
-		case BlobType::TX_EVENT_NODE: {o << "TX_EVENT_NODE"; break; }
-		case BlobType::RAE_INSTANCE_EDGE: {o << "RAE_INSTANCE_EDGE"; break; }
-		case BlobType::TO_DELEGATE_EDGE: {o << "TO_DELEGATE_EDGE"; break; }
-		case BlobType::NEXT_TX_EDGE: {o << "NEXT_TX_EDGE"; break; }
-		case BlobType::ENTITY_NODE: {o << "ENTITY_NODE"; break; }
-		case BlobType::ATOMIC_ENTITY_NODE: {o << "ATOMIC_ENTITY_NODE"; break; }
-		case BlobType::ATOMIC_VALUE_NODE: {o << "ATOMIC_VALUE_NODE"; break; }
-		case BlobType::RELATION_EDGE: {o << "RELATION_EDGE"; break; }
-		case BlobType::DELEGATE_INSTANTIATION_EDGE: {o << "DELEGATE_INSTANTIATION_EDGE"; break; }
-		case BlobType::DELEGATE_RETIREMENT_EDGE: {o << "DELEGATE_RETIREMENT_EDGE"; break; }
-		case BlobType::INSTANTIATION_EDGE: {o << "INSTANTIATION_EDGE"; break; }
-		case BlobType::TERMINATION_EDGE: {o << "TERMINATION_EDGE"; break; }
-		case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: {o << "ATOMIC_VALUE_ASSIGNMENT_EDGE"; break; }
-		case BlobType::DEFERRED_EDGE_LIST_NODE: {o << "DEFERRED_EDGE_LIST_NODE"; break; }
-		case BlobType::ASSIGN_TAG_NAME_EDGE: {o << "ASSIGN_TAG_NAME_EDGE"; break; }
-		case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE: {o << "NEXT_TAG_NAME_ASSIGNMENT_EDGE"; break; }
-		case BlobType::FOREIGN_GRAPH_NODE: {o << "FOREIGN_GRAPH_NODE"; break; }
-		case BlobType::ORIGIN_RAE_EDGE: {o << "ORIGIN_RAE_EDGE"; break; }
-		case BlobType::ORIGIN_GRAPH_EDGE: {o << "ORIGIN_GRAPH_EDGE"; break; }
-		case BlobType::FOREIGN_ENTITY_NODE: {o << "FOREIGN_ENTITY_NODE"; break; }
-		case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: {o << "FOREIGN_ATOMIC_ENTITY_NODE"; break; }
-		case BlobType::FOREIGN_RELATION_EDGE: {o << "FOREIGN_RELATION_EDGE"; break; }
-		//[[[end]]]
-		}
+        switch (bl) {
+#define SHOW_BLOB(x) case BlobType::x: {o << #x; break; }
+            SHOW_BLOB(_unspecified)
+            SHOW_BLOB(ROOT_NODE)
+            SHOW_BLOB(TX_EVENT_NODE)
+            SHOW_BLOB(RAE_INSTANCE_EDGE)
+            SHOW_BLOB(TO_DELEGATE_EDGE)
+            SHOW_BLOB(NEXT_TX_EDGE)
+            SHOW_BLOB(ENTITY_NODE)
+            SHOW_BLOB(ATTRIBUTE_ENTITY_NODE)
+            SHOW_BLOB(VALUE_NODE)
+            SHOW_BLOB(RELATION_EDGE)
+            SHOW_BLOB(DELEGATE_INSTANTIATION_EDGE)
+            SHOW_BLOB(DELEGATE_RETIREMENT_EDGE)
+            SHOW_BLOB(INSTANTIATION_EDGE)
+            SHOW_BLOB(TERMINATION_EDGE)
+            SHOW_BLOB(ATOMIC_VALUE_ASSIGNMENT_EDGE)
+            SHOW_BLOB(DEFERRED_EDGE_LIST_NODE)
+            SHOW_BLOB(ASSIGN_TAG_NAME_EDGE)
+            SHOW_BLOB(NEXT_TAG_NAME_ASSIGNMENT_EDGE)
+            SHOW_BLOB(FOREIGN_GRAPH_NODE)
+            SHOW_BLOB(ORIGIN_RAE_EDGE)
+            SHOW_BLOB(ORIGIN_GRAPH_EDGE)
+            SHOW_BLOB(FOREIGN_ENTITY_NODE)
+            SHOW_BLOB(FOREIGN_ATTRIBUTE_ENTITY_NODE)
+            SHOW_BLOB(FOREIGN_RELATION_EDGE)
+            SHOW_BLOB(VALUE_TYPE_EDGE)
+            SHOW_BLOB(VALUE_EDGE)
+#undef SHOW_BLOB
+        }
 		return o;
 	}
 
@@ -171,10 +169,10 @@ namespace zefDB {
     // * VRT
 
 	ValueRepType ValueRepTypeStruct::operator() (EZefRef uzr) const {
-		if (get<BlobType>(uzr) == BlobType::ATOMIC_ENTITY_NODE)
-            return get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr).rep_type;
-        else if(get<BlobType>(uzr) == BlobType::ATOMIC_VALUE_NODE)
-            return get<blobs_ns::ATOMIC_VALUE_NODE>(uzr).rep_type;
+		if (get<BlobType>(uzr) == BlobType::ATTRIBUTE_ENTITY_NODE)
+            return get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(uzr).primitive_type;
+        else if(get<BlobType>(uzr) == BlobType::VALUE_NODE)
+            return get<blobs_ns::VALUE_NODE>(uzr).rep_type;
         else
             throw std::runtime_error("VRT(EZefRef uzr) called for a uzr which is not an atomic entity or value.");
 	}
@@ -839,7 +837,8 @@ namespace zefDB {
             case VRT.Int.value: {return "Int"; break; }
             case VRT.Time.value: {return "Time"; break; }
             case VRT.Serialized.value: {return "Serialized"; break; }
-            case VRT.Complex.value: {return "Complex"; break; }
+            case VRT.Any.value: {return "Any"; break; }
+            case VRT.Type.value: {return "Type"; break; }
 
 #include "graph.cpp.stringfromAET.gen"
                 // if we reach here, it may still be a known type. It was just not known at compile time

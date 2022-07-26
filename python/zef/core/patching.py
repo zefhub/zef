@@ -14,7 +14,7 @@
 
 from ..pyzef.main import *
 from ..pyzef import main, zefops, internals
-from ._core import ET, AtomicEntityType, EntityType
+from ._core import ET, AttributeEntityType, EntityType
 
 main.ZefRef.__hash__ = lambda self: hash(((index(self)), index(self | zefops.tx)))
 main.EZefRef.__hash__ = lambda self: index(self)
@@ -30,8 +30,8 @@ internals.DelegateRoot.__hash__ = lambda self: hash(internals.DelegateRoot)
 
 
 from ..pyzef.main import EntityType, RelationType
-from ..pyzef.internals import AtomicEntityType, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType
-override_types = (EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+from ..pyzef.internals import AttributeEntityType, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct, BlobTypeStruct, BlobType
+override_types = (EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct, BlobTypeStruct, BlobType, AttributeEntityType, EntityType, RelationType)
 
 def or_for_types(self, other):
     from . import ValueType_
@@ -225,10 +225,10 @@ wrap_repr(main.Keyword)
 wrap_eq(main.Keyword)
 wrap_hash(main.Keyword)
 
-internals.AtomicEntityType.__getitem__ = absorbed_get_item
-# wrap_repr(internals.AtomicEntityType)
-wrap_eq(internals.AtomicEntityType)
-wrap_hash(internals.AtomicEntityType)
+internals.AttributeEntityType.__getitem__ = absorbed_get_item
+# wrap_repr(internals.AttributeEntityType)
+wrap_eq(internals.AttributeEntityType)
+wrap_hash(internals.AttributeEntityType)
 
 internals.Delegate.__getitem__ = absorbed_get_item
 wrap_repr(internals.Delegate)
@@ -249,7 +249,7 @@ def leq_monkey_patching_ae(self, other):
     from ._ops import assign, LazyValue
     return LazyValue(self) | assign[other]
     
-AtomicEntityType.__le__ = leq_monkey_patching_ae
+AttributeEntityType.__le__ = leq_monkey_patching_ae
 
 
 # # Pretty printing for ZefRefs
@@ -281,9 +281,9 @@ EZefRef.__le__ = convert_to_assign
 
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):
-    from .abstract_raes import Entity, AtomicEntity, Relation
+    from .abstract_raes import Entity, AttributeEntity, Relation
     from ._ops import origin_uid
-    if type(x) in [Entity, AtomicEntity, Relation]:
+    if type(x) in [Entity, AttributeEntity, Relation]:
         return origin_uid(x) in self
 
     if type(x) in [ZefRef, EZefRef]:
@@ -296,16 +296,16 @@ main.Graph.__contains__ = Graph__contains__
     
 original_Graph__getitem__ = main.Graph.__getitem__
 def Graph__getitem__(self, x):
-    from .abstract_raes import Entity, AtomicEntity, Relation
+    from .abstract_raes import Entity, AttributeEntity, Relation
     from ._ops import uid, target
     from .internals import BT
-    if type(x) in [Entity, AtomicEntity, Relation]:
+    if type(x) in [Entity, AttributeEntity, Relation]:
         return self[uid(x)]
 
     res = original_Graph__getitem__(self, x)
     # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
     # Accessing the low-level BTs can only be done through traversals
-    if BT(res) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
+    if BT(res) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
         # return target(res << BT.ORIGIN_RAE_EDGE)
         # TODO: We need a consistent way of accessing this.
         #
@@ -359,12 +359,12 @@ SerializedValue.__repr__ = SerializedValue_repr
 
 
 
-def AtomicEntityTypeStruct_getitem(self, x):
-    return AtomicEntityType(SerializedValue.serialize(x))
-AtomicEntityTypeStruct.__getitem__ = AtomicEntityTypeStruct_getitem
+def AttributeEntityTypeStruct_getitem(self, x):
+    return AttributeEntityType(SerializedValue.serialize(x))
+AttributeEntityTypeStruct.__getitem__ = AttributeEntityTypeStruct_getitem
 
-original_AtomicEntityType__repr__ = internals.AtomicEntityType.__repr__
-def AtomicEntityType_repr(self):
+original_AttributeEntityType__repr__ = internals.AttributeEntityType.__repr__
+def AttributeEntityType_repr(self):
     s = "AET"
     if self.complex_value:
         s += "(" + str(self.complex_value.deserialize()) + ")"
@@ -373,4 +373,4 @@ def AtomicEntityType_repr(self):
     if '_absorbed' in self.__dict__:
         s += ''.join(('[' + repr(el) + ']' for el in self._absorbed))
     return s
-AtomicEntityType.__repr__ = AtomicEntityType_repr
+AttributeEntityType.__repr__ = AttributeEntityType_repr

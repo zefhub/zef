@@ -25,7 +25,7 @@ from .zef_functions import func
 from ._ops import *
 from .op_structs import ZefOp, LazyValue
 from .graph_slice import GraphSlice
-from .abstract_raes import Entity, Relation, AtomicEntity, TXNode, Root
+from .abstract_raes import Entity, Relation, AttributeEntity, TXNode, Root
 from ..pyzef.zefops import SerializedValue
 from .logger import log
 from .VT import Is, Any
@@ -131,7 +131,7 @@ def dispatch_ror_graph(g, x):
         x = collect(x)
         # Note that this could produce a new LazyValue if the input was an
         # assign_value. This is fine.
-    if any(isinstance(x, T) for T in {list, tuple, dict, EntityType, AtomicEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AtomicEntity, Relation, Val}):
+    if any(isinstance(x, T) for T in {list, tuple, dict, EntityType, AttributeEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val}):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -270,7 +270,7 @@ def obtain_ids(x) -> dict:
             ids = merge_no_overwrite(ids, obtain_ids(k))
             ids = merge_no_overwrite(ids, obtain_ids(v))
 
-    elif type(x) in [Entity, AtomicEntity, Relation]:
+    elif type(x) in [Entity, AttributeEntity, Relation]:
         ids = {uid(x): x}
         if type(x) == Relation:
             if not is_a(x.d["type"][0], RT):
@@ -287,8 +287,8 @@ def obtain_ids(x) -> dict:
 
 
     # This is an extra step on top of the previous checks
-    if type(x) in [Entity, AtomicEntity, Relation, EntityType,
-                    AtomicEntityType, RelationType, ZefRef, EZefRef]:
+    if type(x) in [Entity, AttributeEntity, Relation, EntityType,
+                    AttributeEntityType, RelationType, ZefRef, EZefRef]:
         # Need the lazy value for the RT possibility
         a_id = get_absorbed_id(LazyValue(x))
         if a_id is not None:
@@ -377,7 +377,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif is_a(x, Delegate):
         return
 
-    elif type(x) in [Entity, AtomicEntity, Relation]:
+    elif type(x) in [Entity, AttributeEntity, Relation]:
         return
 
     elif type(x) in [Val, TaggedVal]:
@@ -486,12 +486,12 @@ def dispatch_cmds_for(expr, gen_id):
 
     d_dispatch = {
         EntityType: cmds_for_instantiable,
-        AtomicEntityType: cmds_for_instantiable,
+        AttributeEntityType: cmds_for_instantiable,
 
         ZefRef: cmds_for_mergable,
         EZefRef: cmds_for_mergable,
         Entity: cmds_for_mergable,
-        AtomicEntity: cmds_for_mergable,
+        AttributeEntity: cmds_for_mergable,
         Relation: cmds_for_mergable,
         TXNode: cmds_for_mergable,
         Root: cmds_for_mergable,
@@ -564,7 +564,7 @@ def cmds_for_mergable(x):
         if BT(x) in {BT.ENTITY_NODE, BT.TX_EVENT_NODE, BT.ROOT_NODE}:
             return (), [cmd]
 
-        elif BT(x) == BT.ATOMIC_ENTITY_NODE:
+        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE:
             cmds = [cmd]
             if isinstance(x, ZefRef):
                 val = x | value | collect
@@ -585,7 +585,7 @@ def cmds_for_mergable(x):
             )
         else:
             raise NotImplementedError(f"Unknown ZefRef type for merging: {BT(x)}")
-    elif is_a(x, Entity) or is_a(x, AtomicEntity):
+    elif is_a(x, Entity) or is_a(x, AttributeEntity):
         return (), [cmd]
     elif is_a(x, Relation):
         maybe_src_trg = []
@@ -776,7 +776,7 @@ def is_valid_single_node(x):
         return True
     if isinstance(x, RelationType):
         return True
-    if isinstance(x, AtomicEntityType):
+    if isinstance(x, AttributeEntityType):
         return True
     if isinstance(x, Delegate):
         return True
@@ -859,7 +859,7 @@ def realise_single_node(x, gen_id):
             exprs = exprs + [LazyValue(Z[iid]) | op]
         else:
             raise Exception(f"Don't understand LazyValue type: {op}")
-    elif isinstance(x, EntityType) or isinstance(x, AtomicEntityType):
+    elif isinstance(x, EntityType) or isinstance(x, AttributeEntityType):
         a_id = get_absorbed_id(x)
         if a_id is None:
             iid = gen_id()
@@ -875,7 +875,7 @@ def realise_single_node(x, gen_id):
         else:
             exprs = [x]
             iid = origin_uid(x)
-    elif type(x) in [Entity, AtomicEntity, Relation, TXNode, Root]:
+    elif type(x) in [Entity, AttributeEntity, Relation, TXNode, Root]:
         exprs = [x]
         iid = origin_uid(x)
     elif type(x) == Val:
@@ -1044,14 +1044,14 @@ def command_ordering_by_type(d_raes: dict) -> int:
         return 1.5
     if d_raes['cmd'] == 'instantiate':
         if isinstance(d_raes['rae_type'], EntityType): return 1
-        if isinstance(d_raes['rae_type'], AtomicEntityType): return 2
+        if isinstance(d_raes['rae_type'], AttributeEntityType): return 2
         if isinstance(d_raes['rae_type'], RelationType): return 3
         return 4                                            # there may be {'cmd': 'instantiate', 'rae_type': AET.Bool}
     if d_raes['cmd'] == 'assign': return 5
     if d_raes['cmd'] == 'set_field': return 5.5
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Relation): return 6
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Entity): return 7
-    if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], AtomicEntity): return 8
+    if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], AttributeEntity): return 8
     if d_raes['cmd'] == 'terminate' and is_a(d_raes['origin_rae'], Delegate): return 9
     if d_raes['cmd'] == 'tag': return 10
     else: raise NotImplementedError(f"In Sort fct for {d_raes}")
@@ -1253,7 +1253,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                 zz = None
                 
                 # print(f"{i}/{len(g_delta.commands)}: {g.graph_data.write_head * 16 / 1024 / 1024} MB")
-                if cmd['cmd'] == 'instantiate' and type(cmd['rae_type']) in {EntityType, AtomicEntityType}:
+                if cmd['cmd'] == 'instantiate' and type(cmd['rae_type']) in {EntityType, AttributeEntityType}:
                     zz = instantiate(cmd['rae_type'], g)
                 
                 elif cmd['cmd'] == 'instantiate' and type(cmd['rae_type']) in {RelationType}:
@@ -1361,7 +1361,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                                     origin_rae_uid.blob_uid,
                                     origin_rae_uid.graph_uid,
                                 )
-                            elif isinstance(cmd['origin_rae'], AtomicEntity):
+                            elif isinstance(cmd['origin_rae'], AttributeEntity):
                                 zz = internals.merge_atomic_entity_(
                                     g, 
                                     rae_type(cmd['origin_rae']),
@@ -1523,11 +1523,11 @@ def most_recent_rae_on_graph(origin_uid: str, g: Graph)->ZefRef:
         return None     # this graph never knew about a RAE with this origin uid
 
     zz = g[origin_uid]
-    if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
+    if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
         from .graph_slice import get_instance_rae
         return get_instance_rae(origin_uid, now(g))
         
-    elif BT(zz) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}:
+    elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}:
         if zz | exists_at[now(g)] | collect:
             return zz | in_frame[now(g)] | collect
         else:
@@ -1578,7 +1578,7 @@ def equal_identity(a, b):
 
     # Things that don't produce the same objectt even though their python objects
     # are the same
-    if type(a) in [EntityType, RelationType, AtomicEntityType, ZefEnumValue]:
+    if type(a) in [EntityType, RelationType, AttributeEntityType, ZefEnumValue]:
         return False
 
     return a == b

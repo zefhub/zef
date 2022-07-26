@@ -185,7 +185,7 @@ def update_items_convert_value(g, item, details):
 def AnyT(relent):
     if BT(relent) == BT.ENTITY_NODE:
         return ET(relent)
-    elif BT(relent) == BT.ATOMIC_ENTITY_NODE:
+    elif BT(relent) == BT.ATTRIBUTE_ENTITY_NODE:
         return AET(relent)
     elif BT(relent) == BT.RELATION_EDGE:
         return RT(relent)

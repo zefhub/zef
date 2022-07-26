@@ -303,7 +303,7 @@ namespace std {
     template<>
     struct hash<zefDB::QuantityFloat> {
         std::size_t operator() (const zefDB::QuantityFloat& q) const { 
-            size_t s = *(size_t*)"QuantityFloat";
+            size_t s = zefDB::hash_char_array("QuantityFloat");
             zefDB::hash_combine(s, q.value);
             zefDB::hash_combine(s, q.unit);
             return s;
@@ -312,7 +312,7 @@ namespace std {
     template<>
     struct hash<zefDB::QuantityInt> {
         std::size_t operator() (const zefDB::QuantityInt& q) const { 
-            size_t s = *(size_t*)"QuantityInt";
+            size_t s = zefDB::hash_char_array("QuantityInt");
             zefDB::hash_combine(s, q.value);
             zefDB::hash_combine(s, q.unit);
             return s;
@@ -321,7 +321,7 @@ namespace std {
     template<>
     struct hash<zefDB::Time> {
         std::size_t operator() (const zefDB::Time& t) const { 
-            size_t s = *(size_t*)"TimeTime";
+            size_t s = zefDB::hash_char_array("Time");
             zefDB::hash_combine(s, t.seconds_since_1970);
             return s;
         }

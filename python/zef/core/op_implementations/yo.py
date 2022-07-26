@@ -187,7 +187,7 @@ def zr_type(uzr):
 
 def value_previous_of_aet(aet, tx) -> str:
     try:
-        if BT(aet) == BT.ATOMIC_ENTITY_NODE:
+        if BT(aet) == BT.ATTRIBUTE_ENTITY_NODE:
             prev_tx = tx << BT.NEXT_TX_EDGE | collect
             val = aet | value[prev_tx] | collect  # If prev_tx == BT.ROOT_NODE it will be caught by except clause
             return f" [previous val: {'/' if not val else str(val)}]"
@@ -202,7 +202,7 @@ def value_of_aet_at_tx(aet, tx) -> str:
     try:
         if tx is now:
             tx = Graph(aet) | now | collect
-        if BT(aet) == BT.ATOMIC_ENTITY_NODE:
+        if BT(aet) == BT.ATTRIBUTE_ENTITY_NODE:
             val = aet | value[tx] | collect 
             return f" [{latest_or_current} val: {'/' if val is None else str(val)}]"
         else:
@@ -377,19 +377,19 @@ def graph_info(g) -> str:
     grouped_by_bts =  dict(
         bl 
         | group_by[BT] 
-        | filter[lambda x: x[0] in {BT.TX_EVENT_NODE, BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}] 
+        | filter[lambda x: x[0] in {BT.TX_EVENT_NODE, BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}] 
         | collect
     )
     grouped_by_bts[BT.TX_EVENT_NODE] = grouped_by_bts.get(BT.TX_EVENT_NODE, [])
     grouped_by_bts[BT.ENTITY_NODE] = grouped_by_bts.get(BT.ENTITY_NODE, [])
-    grouped_by_bts[BT.ATOMIC_ENTITY_NODE] = grouped_by_bts.get(BT.ATOMIC_ENTITY_NODE, [])
+    grouped_by_bts[BT.ATTRIBUTE_ENTITY_NODE] = grouped_by_bts.get(BT.ATTRIBUTE_ENTITY_NODE, [])
     grouped_by_bts[BT.RELATION_EDGE] = grouped_by_bts.get(BT.RELATION_EDGE, [])
 
     def simple_lengths(g) -> str:
         return (f"{g.graph_data.write_head} blobs, "
                 + str(length(grouped_by_bts[BT.TX_EVENT_NODE])) + " TXs, "
                 + str(length(grouped_by_bts[BT.ENTITY_NODE])) + " ETs, "
-                + str(length(grouped_by_bts[BT.ATOMIC_ENTITY_NODE])) + " AETs, "
+                + str(length(grouped_by_bts[BT.ATTRIBUTE_ENTITY_NODE])) + " AETs, "
                 + str(length(grouped_by_bts[BT.RELATION_EDGE])) + " RTs"
                 )
 
@@ -407,7 +407,7 @@ summary:                {simple_lengths(g)}
 size:                   {round((g.graph_data.write_head * 16) / 1E6, 3)}MB
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Atomic Entities ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{type_summary_view(grouped_by_bts[BT.ATOMIC_ENTITY_NODE], g, BT.ATOMIC_ENTITY_NODE)}
+{type_summary_view(grouped_by_bts[BT.ATTRIBUTE_ENTITY_NODE], g, BT.ATTRIBUTE_ENTITY_NODE)}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Entities ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 {type_summary_view(grouped_by_bts[BT.ENTITY_NODE], g, BT.ENTITY_NODE)}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^  Relations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^

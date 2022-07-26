@@ -176,7 +176,7 @@ namespace std {
     template<>
     struct hash<zefDB::EternalUID> {
         std::size_t operator() (const zefDB::EternalUID& u) const { 
-            size_t s = *(size_t*)"EternalUID";
+            size_t s = zefDB::hash_char_array("EternalUID");
             zefDB::hash_combine(s, u.graph_uid);
             zefDB::hash_combine(s, u.blob_uid);
             return s;
@@ -186,7 +186,7 @@ namespace std {
     template<>
     struct hash<zefDB::ZefRefUID> {
         std::size_t operator() (const zefDB::ZefRefUID& u) const { 
-            size_t s = *(size_t*)"ZefRefUID";
+            size_t s = zefDB::hash_char_array("ZefRefUID");
             zefDB::hash_combine(s, u.graph_uid);
             zefDB::hash_combine(s, u.blob_uid);
             zefDB::hash_combine(s, u.tx_uid);

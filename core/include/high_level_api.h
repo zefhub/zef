@@ -55,7 +55,6 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const ZefRefs& zrs);
     LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const ZefRefss& zrss);
 
-
     template<class T>
     void assign_value(EZefRef my_atomic_entity, const T & value_to_be_assigned);
     LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const bool & value_to_be_assigned);
@@ -68,7 +67,11 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const ZefEnumValue & value_to_be_assigned);
     LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const QuantityFloat & value_to_be_assigned);
     LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const QuantityInt & value_to_be_assigned);
-    LIBZEF_DLL_EXPORTED extern template void assign_value(EZefRef my_atomic_entity, const EZefRef & value_to_be_assigned);
+    template<>
+    LIBZEF_DLL_EXPORTED void assign_value(EZefRef my_atomic_entity, const EZefRef & value_to_be_assigned);
+    template<>
+    LIBZEF_DLL_EXPORTED void assign_value(EZefRef my_atomic_entity, const value_variant_t & value_to_be_assigned);
+
     template<class T>
     void assign_value(ZefRef my_atomic_entity, const T & value_to_be_assigned) {
         assign_value(my_atomic_entity.blob_uzr, value_to_be_assigned);
@@ -84,13 +87,12 @@ namespace zefDB {
     template void assign_value(ZefRef my_atomic_entity, const QuantityFloat & value_to_be_assigned);
     template void assign_value(ZefRef my_atomic_entity, const QuantityInt & value_to_be_assigned);
     template void assign_value(ZefRef my_atomic_entity, const EZefRef & value_to_be_assigned);
+
     template<>
     inline void assign_value(ZefRef my_atomic_entity, const ZefRef & value_to_be_assigned) {
         assign_value(my_atomic_entity, value_to_be_assigned.blob_uzr);
     }
 
-    // TODO: assign_value with a value node
-                                 
     template <typename T>
     std::optional<T> value_from_ae(ZefRef my_atomic_entity);
     LIBZEF_DLL_EXPORTED extern template std::optional<double> value_from_ae<double>(ZefRef my_atomic_entity);
@@ -102,6 +104,7 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED extern template std::optional<ZefEnumValue> value_from_ae<ZefEnumValue>(ZefRef my_atomic_entity);
     LIBZEF_DLL_EXPORTED extern template std::optional<QuantityFloat> value_from_ae<QuantityFloat>(ZefRef my_atomic_entity);
     LIBZEF_DLL_EXPORTED extern template std::optional<QuantityInt> value_from_ae<QuantityInt>(ZefRef my_atomic_entity);
+    LIBZEF_DLL_EXPORTED extern template std::optional<AttributeEntityType> value_from_ae<AttributeEntityType>(ZefRef my_atomic_entity);
     LIBZEF_DLL_EXPORTED extern template std::optional<value_variant_t> value_from_ae<value_variant_t>(ZefRef my_atomic_entity);
 
     LIBZEF_DLL_EXPORTED bool is_promotable_to_zefref(EZefRef uzr_to_promote, EZefRef reference_tx);
@@ -118,8 +121,8 @@ namespace zefDB {
                                  
                                  
                                  
-    LIBZEF_DLL_EXPORTED std::variant<EntityType, RelationType, AtomicEntityType> rae_type(EZefRef uzr);
-    inline std::variant<EntityType, RelationType, AtomicEntityType> rae_type(ZefRef zr) {
+    LIBZEF_DLL_EXPORTED std::variant<EntityType, RelationType, AttributeEntityType> rae_type(EZefRef uzr);
+    inline std::variant<EntityType, RelationType, AttributeEntityType> rae_type(ZefRef zr) {
         return rae_type(zr.blob_uzr);
     }                            
                                  
@@ -178,9 +181,9 @@ namespace zefDB {
  		inline auto assert_is_this_a_rae = [](EZefRef uzr) {
 			switch (*(BlobType*)uzr.blob_ptr) {
 			case BlobType::ENTITY_NODE: return true;
-			case BlobType::ATOMIC_ENTITY_NODE: return true;
+			case BlobType::ATTRIBUTE_ENTITY_NODE: return true;
 			case BlobType::RELATION_EDGE: return true;
-			case BlobType::ATOMIC_VALUE_NODE: return true;
+			case BlobType::VALUE_NODE: return true;
 			default: {
                 // print_backtrace();
                 throw std::runtime_error("asserting is a RAE failed");
@@ -193,8 +196,8 @@ namespace zefDB {
  		inline auto assert_blob_can_be_linked_via_relation = [](EZefRef uzr) {
 			switch (*(BlobType*)uzr.blob_ptr) {
 			case BlobType::ENTITY_NODE: return true;
-			case BlobType::ATOMIC_ENTITY_NODE: return true;
-			case BlobType::ATOMIC_VALUE_NODE: return true;
+			case BlobType::ATTRIBUTE_ENTITY_NODE: return true;
+			case BlobType::VALUE_NODE: return true;
 			case BlobType::RELATION_EDGE: return true;
 			case BlobType::TX_EVENT_NODE: return true;
 			case BlobType::ROOT_NODE: return true;
@@ -233,8 +236,8 @@ namespace zefDB {
     }
 
 	// for ATOMIC_ENTITY_NODE
-	LIBZEF_DLL_EXPORTED ZefRef instantiate(AtomicEntityType my_atomic_entity_type, GraphData& gd, std::optional<BaseUID> given_uid_maybe = {});
-	inline ZefRef instantiate(AtomicEntityType my_atomic_entity_type, const Graph& g, std::optional<BaseUID> given_uid_maybe = {}) {
+	LIBZEF_DLL_EXPORTED ZefRef instantiate(AttributeEntityType my_atomic_entity_type, GraphData& gd, std::optional<BaseUID> given_uid_maybe = {});
+	inline ZefRef instantiate(AttributeEntityType my_atomic_entity_type, const Graph& g, std::optional<BaseUID> given_uid_maybe = {}) {
         return instantiate(my_atomic_entity_type, g.my_graph_data(), given_uid_maybe);
     }
 
@@ -273,9 +276,9 @@ namespace zefDB {
 
 
 	namespace internals {
-		EZefRef get_or_create_and_get_foreign_rae(Graph& target_graph, std::variant<EntityType, AtomicEntityType, std::tuple<EZefRef, RelationType, EZefRef>> ae_or_entity_type, const BaseUID& origin_entity_uid, const BaseUID& origin_graph_uid);
+		EZefRef get_or_create_and_get_foreign_rae(Graph& target_graph, std::variant<EntityType, AttributeEntityType, std::tuple<EZefRef, RelationType, EZefRef>> ae_or_entity_type, const BaseUID& origin_entity_uid, const BaseUID& origin_graph_uid);
 		LIBZEF_DLL_EXPORTED EZefRef merge_entity_(Graph& target_graph, EntityType entity_type, const BaseUID& origin_entity_uid, const BaseUID& origin_graph_uid);
-		LIBZEF_DLL_EXPORTED EZefRef merge_atomic_entity_(Graph& target_graph, AtomicEntityType atomic_entity_type, const BaseUID& origin_entity_uid, const BaseUID& origin_graph_uid);
+		LIBZEF_DLL_EXPORTED EZefRef merge_atomic_entity_(Graph& target_graph, AttributeEntityType atomic_entity_type, const BaseUID& origin_entity_uid, const BaseUID& origin_graph_uid);
 		LIBZEF_DLL_EXPORTED EZefRef merge_relation_(Graph& target_graph, RelationType relation_type, EZefRef src, EZefRef trg, const BaseUID& origin_entity_uid, const BaseUID& origin_graph_uid);
 		
 

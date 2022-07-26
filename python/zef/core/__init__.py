@@ -122,7 +122,7 @@ from .VT import (
     )
 from .VT.value_type import ValueType_
 
-from .abstract_raes import Entity, AtomicEntity, Relation, TXNode, Root, make_custom_entity
+from .abstract_raes import Entity, AttributeEntity, Relation, TXNode, Root, make_custom_entity
 
 from .zef_functions import func
 

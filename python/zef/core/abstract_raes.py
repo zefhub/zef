@@ -117,7 +117,7 @@ class Entity:
 
     
 
-class AtomicEntity:
+class AttributeEntity:
     """ 
     A value representation of an "abstract atomic entity".
     This will become a zef value in future.
@@ -125,27 +125,27 @@ class AtomicEntity:
     def __init__(self, x):
         from ._ops import origin_uid
         if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-            assert BT(x)==BT.ATOMIC_ENTITY_NODE
+            assert BT(x)==BT.ATTRIBUTE_ENTITY_NODE
             self.d = {
                 'type': AET(x),
                 'uid': origin_uid(x),
                 'absorbed': (),
             }        
-        elif isinstance(x, AtomicEntity):
+        elif isinstance(x, AttributeEntity):
             return x
         elif isinstance(x, dict):
             assert 'type' in x and 'uid' in x
-            assert type(x['type']) == AtomicEntityType
+            assert type(x['type']) == AttributeEntityType
             x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
             raise TypeError(f"can't construct an abstract atomic entity from a type(x)={type(x)}.  Value passed in: x={x}")
 
     def __repr__(self):
-        return f'AtomicEntity({repr(self.d["type"])}, {repr(self.d["uid"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
+        return f'AttributeEntity({repr(self.d["type"])}, {repr(self.d["uid"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
-        if not isinstance(other, AtomicEntity): return False
+        if not isinstance(other, AttributeEntity): return False
         return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid']
 
     def __le__(self, value):
@@ -156,7 +156,7 @@ class AtomicEntity:
         return hash(self.d['uid'])
 
     def __getitem__(self, x):
-        return AtomicEntity({**self.d, 'absorbed': (*self.d['absorbed'], x)})
+        return AttributeEntity({**self.d, 'absorbed': (*self.d['absorbed'], x)})
     
 
 class Relation:
@@ -286,7 +286,7 @@ def abstract_rae_from_rae_type_and_uid(rae_type, uid):
     if is_a(rae_type, ET):
         return Entity({"type": rae_type, "uid": uid})
     elif is_a(rae_type, AET):
-        return AtomicEntity({"type": rae_type, "uid": uid})
+        return AttributeEntity({"type": rae_type, "uid": uid})
     else:
         assert is_a(rae_type, RT)
         raise Exception("Unable to create an abstract Relation without knowing its source and target")

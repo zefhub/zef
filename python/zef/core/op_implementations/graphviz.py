@@ -158,7 +158,7 @@ def graphviz_imp(zz, *flags):
             return f"{ET(z)!r}"        
         if BT(z)==BT.TX_EVENT_NODE:
             return f"TX"
-        if BT(z)==BT.ATOMIC_ENTITY_NODE:
+        if BT(z)==BT.ATTRIBUTE_ENTITY_NODE:
             if internals.is_delegate(z):
                 return f"{VRT(z)!r}"        
             else:
@@ -166,14 +166,14 @@ def graphviz_imp(zz, *flags):
                 return f"{AET(z)!r}{val_maybe}"        
         if BT(z)==BT.RELATION_EDGE:
             return f"{RT(z)!r}"        
-        if BT(z)==BT.ATOMIC_VALUE_NODE:
+        if BT(z)==BT.VALUE_NODE:
             return f"Val({val_to_str(z)})"
         return f"BT.{BT(z)}"[:-5]
     
     def nice_color(z: EZefRef)->str:
         if BT(z) == BT.ENTITY_NODE:
             return hex_color_for_type(ET(z))
-        if BT(z) == BT.ATOMIC_ENTITY_NODE:
+        if BT(z) == BT.ATTRIBUTE_ENTITY_NODE:
             return hex_color_for_type(AET(z))
             
         if BT(z) in {BT.TX_EVENT_NODE, BT.NEXT_TX_EDGE}:
@@ -188,13 +188,13 @@ def graphviz_imp(zz, *flags):
             return 'triangle'
         elif BT(z) == BT.ENTITY_NODE:
             return 'oval'            
-        elif BT(z) == BT.ATOMIC_ENTITY_NODE:
+        elif BT(z) == BT.ATTRIBUTE_ENTITY_NODE:
             return 'rectangle'
         else:
             return 'diamond'
 
     def nice_style(z):
-        if BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE}:
+        if BT(z) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE}:
             return 'dashed' if internals.is_delegate(z) else 'filled'
         else:
             return ''

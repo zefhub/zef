@@ -525,7 +525,7 @@ def execute_on_change_actions_inst(z_rel: ZefRef, a: CrawlArgs):
         z_ae = z_rel | traverse_dir
         
         for f in z_ae_template >> L[RT.ZEFUI_OnChange]:
-            if BT(z_ae_template) != BT.ATOMIC_ENTITY_NODE:
+            if BT(z_ae_template) != BT.ATTRIBUTE_ENTITY_NODE:
                 raise TypeError(f'Expecting an AET if an ZEFUI_OnChange was connected, but got z_ae_template={z_ae_template}  z_rel={z_rel}   z_ae={z_ae}')
 
             # An OnChange function given on a component template graph may ask for any subset of arguments from the dict below.

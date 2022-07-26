@@ -27,7 +27,10 @@ namespace zefDB {
 
             while(ptr < end) {
                 bool allowed = _visit_blob(overloaded {
-                        [](blobs_ns::ATOMIC_VALUE_NODE & x) {
+                        [](blobs_ns::VALUE_NODE & x) {
+                            return false;
+                        },
+                        [](blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE & x) {
                             return false;
                         },
                         [](auto & x) {
@@ -93,8 +96,10 @@ namespace zefDB {
 
             while(ptr < end) {
                 _visit_blob(overloaded {
-                        [](blobs_ns::ATOMIC_VALUE_NODE & x) {
+                        [](blobs_ns::VALUE_NODE & x) {
                             throw std::runtime_error("We can't convert a graph to 0.2.0 when there are atomic value nodes!");
+                            // Going to need a lot more to do...
+                            // So much that it's not really worth it.
                         },
                         [](blobs_ns::ROOT_NODE & x) {
                             memcpy(x.data_layout_version_info, "0.2.0", strlen("0.2.0"));
@@ -151,7 +156,7 @@ namespace zefDB {
 
             while(ptr < end) {
                 _visit_blob(overloaded {
-                        [](blobs_ns::ATOMIC_VALUE_NODE & x) {
+                        [](blobs_ns::VALUE_NODE & x) {
                             throw std::runtime_error("No value nodes should exist on a 0.2.0 graph.");
                         },
                         [](blobs_ns::ROOT_NODE & x) {

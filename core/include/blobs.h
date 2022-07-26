@@ -89,6 +89,9 @@ namespace zefDB {
                 uintptr_t ptr = (uintptr_t)&indices[local_capacity+1];
                 assert((ptr % constants::blob_indx_step_in_bytes) == 0);
             }
+
+            edge_info(const edge_info &) = delete;
+            edge_info & operator=(const edge_info &) = delete;
         };
 		
 		struct _unspecified {
@@ -124,7 +127,7 @@ namespace zefDB {
 		struct NEXT_TX_EDGE {
 			BlobType this_BlobType = BlobType::NEXT_TX_EDGE;
 			blob_index source_node_index = 0;  // coming from a TX_EVENT_NODE or ROOTNode
-			blob_index target_node_index = 0;	 // going to a 	ATOMIC_ENTITY_NODE_*, ENTITY_NODE_*, RELATION_EDGE_*
+			blob_index target_node_index = 0;	 // going to a 	ATTRIBUTE_ENTITY_NODE_*, ENTITY_NODE_*, RELATION_EDGE_*
             NEXT_TX_EDGE & operator=(const NEXT_TX_EDGE & other) = delete;
             NEXT_TX_EDGE (const NEXT_TX_EDGE & other) = delete;
             NEXT_TX_EDGE () = default;
@@ -133,7 +136,7 @@ namespace zefDB {
 		struct RAE_INSTANCE_EDGE {
 			BlobType this_BlobType = BlobType::RAE_INSTANCE_EDGE;
 			blob_index source_node_index = 0;  // coming from the ROOT_node
-			blob_index target_node_index = 0;	 // going to a 	ATOMIC_ENTITY_NODE_*, ENTITY_NODE_*, RELATION_EDGE_*
+			blob_index target_node_index = 0;	 // going to a 	ATTRIBUTE_ENTITY_NODE_*, ENTITY_NODE_*, RELATION_EDGE_*
             edge_info edges{constants::default_local_edge_indexes_capacity_RAE_INSTANCE_EDGE};
             RAE_INSTANCE_EDGE & operator=(const RAE_INSTANCE_EDGE & other) = delete;
             RAE_INSTANCE_EDGE (const RAE_INSTANCE_EDGE & other) = delete;
@@ -162,36 +165,25 @@ namespace zefDB {
             ENTITY_NODE () = default;
 		};
 		
-        // Deprecated in data layout 0.3.0
-		struct ATOMIC_ENTITY_NODE {
-			BlobType this_BlobType = BlobType::ATOMIC_ENTITY_NODE;
-			ValueRepType rep_type;   // only the type enum value. This can't overflow, the value is never saved here
+        // This was called ATOMIC_ENTITY_NODE in data layout <= 0.2.0.
+        // The layout did not change in 0.3.0.
+		struct ATTRIBUTE_ENTITY_NODE {
+			BlobType this_BlobType = BlobType::ATTRIBUTE_ENTITY_NODE;
+			ValueRepType primitive_type;
 			TimeSlice instantiation_time_slice = { 0 };
 			TimeSlice termination_time_slice = { 0 };
 			BaseUID uid;
-            edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE};
-            ATOMIC_ENTITY_NODE& operator=(const ATOMIC_ENTITY_NODE & other) = delete;
-            ATOMIC_ENTITY_NODE(const ATOMIC_ENTITY_NODE & other) = delete;
-            ATOMIC_ENTITY_NODE() = default;
-		};
-
-        // Introduced in data layout 0.3.0
-		struct ATOMIC_ENTITY_NODE2 {
-			BlobType this_BlobType = BlobType::ATOMIC_ENTITY_NODE2;
-			TimeSlice instantiation_time_slice = { 0 };
-			TimeSlice termination_time_slice = { 0 };
-			BaseUID uid;
-            edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE};
-            ATOMIC_ENTITY_NODE& operator=(const ATOMIC_ENTITY_NODE & other) = delete;
-            ATOMIC_ENTITY_NODE(const ATOMIC_ENTITY_NODE & other) = delete;
-            ATOMIC_ENTITY_NODE() = default;
+            edge_info edges{constants::default_local_edge_indexes_capacity_ATTRIBUTE_ENTITY_NODE};
+            ATTRIBUTE_ENTITY_NODE& operator=(const ATTRIBUTE_ENTITY_NODE & other) = delete;
+            ATTRIBUTE_ENTITY_NODE(const ATTRIBUTE_ENTITY_NODE & other) = delete;
+            ATTRIBUTE_ENTITY_NODE() = default;
 		};
 
         // Introduced in data layout 0.3.0
 		struct VALUE_TYPE_EDGE {
 			BlobType this_BlobType = BlobType::VALUE_TYPE_EDGE;
-			blob_index source_node_index = 0;  // coming from an ATOMIC_ENTITY_NODE
-			blob_index target_node_index = 0;  // goes to an ATOMIC_VALUE_NODE
+			blob_index source_node_index = 0;  // coming from an ATTRIBUTE_ENTITY_NODE
+			blob_index target_node_index = 0;  // goes to an VALUE_NODE
             VALUE_TYPE_EDGE& operator=(const VALUE_TYPE_EDGE & other) = delete;
             VALUE_TYPE_EDGE(const VALUE_TYPE_EDGE & other) = delete;
             VALUE_TYPE_EDGE() = default;
@@ -200,16 +192,16 @@ namespace zefDB {
         // Introduced in data layout 0.3.0
 		struct VALUE_EDGE {
 			BlobType this_BlobType = BlobType::VALUE_EDGE;
-			blob_index source_node_index = 0;  // coming from an ATOMIC_VALUE_ASSIGNMENT_EDGE2
-			blob_index target_node_index = 0;  // goes to an ATOMIC_VALUE_NODE
-            VALUE_TYPE_EDGE& operator=(const VALUE_TYPE_EDGE & other) = delete;
-            VALUE_TYPE_EDGE(const VALUE_TYPE_EDGE & other) = delete;
-            VALUE_TYPE_EDGE() = default;
+			blob_index source_node_index = 0;  // coming from an ATTRIBUTE_VALUE_ASSIGNMENT_EDGE
+			blob_index target_node_index = 0;  // goes to an VALUE_NODE
+            VALUE_EDGE& operator=(const VALUE_EDGE & other) = delete;
+            VALUE_EDGE(const VALUE_EDGE & other) = delete;
+            VALUE_EDGE() = default;
 		};
 		
         // Even though this was present earlier, it wasn't used until data layout 0.3.0
-		struct ATOMIC_VALUE_NODE {
-			BlobType this_BlobType = BlobType::ATOMIC_VALUE_NODE;
+		struct VALUE_NODE {
+			BlobType this_BlobType = BlobType::VALUE_NODE;
 			unsigned int buffer_size_in_bytes = 0;   // this needs to be set specifically for each data type (not only data of variable size!)
             // This is the start of the data_buffer but that must contain the rep_type too
 			ValueRepType rep_type;
@@ -217,9 +209,9 @@ namespace zefDB {
             // There is also an edge info but we need to dynamically calculate its offset based on the data_buffer size
             // edge_info edges{constants::default_local_edge_indexes_capacity_ATOMIC_VALUE_NODE};
 
-            ATOMIC_VALUE_NODE& operator=(const ATOMIC_VALUE_NODE & other) = delete;
-            ATOMIC_VALUE_NODE(const ATOMIC_VALUE_NODE & other) = delete;
-            ATOMIC_VALUE_NODE() = default;
+            VALUE_NODE& operator=(const VALUE_NODE & other) = delete;
+            VALUE_NODE(const VALUE_NODE & other) = delete;
+            VALUE_NODE() = default;
 		};
 
 		struct RELATION_EDGE {
@@ -289,16 +281,16 @@ namespace zefDB {
         };
 
         // Introduced in data layout 0.3.0
-		struct ATOMIC_VALUE_ASSIGNMENT_EDGE2 {
-			BlobType this_BlobType = BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE2;
+		struct ATTRIBUTE_VALUE_ASSIGNMENT_EDGE {
+			BlobType this_BlobType = BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE;
 			blob_index source_node_index = 0;
 			blob_index target_node_index = 0;
             // This is in lieu of a proper edge list, so that we stay within one
-            // blob (an edge list would have to include sizes)
+            // blob (an edge list would have to include sizes plus deferred edge list capability)
             blob_index value_edge_index = 0;
-            ATOMIC_VALUE_ASSIGNMENT_EDGE & operator=(const ATOMIC_VALUE_ASSIGNMENT_EDGE & other) = delete;
-            ATOMIC_VALUE_ASSIGNMENT_EDGE(const ATOMIC_VALUE_ASSIGNMENT_EDGE & other) = delete; 
-            ATOMIC_VALUE_ASSIGNMENT_EDGE() = default;
+            ATTRIBUTE_VALUE_ASSIGNMENT_EDGE & operator=(const ATTRIBUTE_VALUE_ASSIGNMENT_EDGE & other) = delete;
+            ATTRIBUTE_VALUE_ASSIGNMENT_EDGE(const ATTRIBUTE_VALUE_ASSIGNMENT_EDGE & other) = delete; 
+            ATTRIBUTE_VALUE_ASSIGNMENT_EDGE() = default;
         };
 
 		struct DEFERRED_EDGE_LIST_NODE {
@@ -379,14 +371,16 @@ namespace zefDB {
             FOREIGN_ENTITY_NODE() = default;
         };
 
-		struct FOREIGN_ATOMIC_ENTITY_NODE {
-			BlobType this_BlobType = BlobType::FOREIGN_ATOMIC_ENTITY_NODE;
-			ValueRepType rep_type;
+        // This was called FOREIGN_ATOMIC_ENTITY_NODE in data layout <= 0.2.0.
+        // The layout did not change in 0.3.0.
+		struct FOREIGN_ATTRIBUTE_ENTITY_NODE {
+			BlobType this_BlobType = BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE;
+			ValueRepType primitive_type;
 			BaseUID uid;
-            edge_info edges{constants::default_local_edge_indexes_capacity_FOREIGN_ATOMIC_ENTITY_NODE};
-            FOREIGN_ATOMIC_ENTITY_NODE & operator=(const FOREIGN_ATOMIC_ENTITY_NODE & other) = delete;
-            FOREIGN_ATOMIC_ENTITY_NODE(const FOREIGN_ATOMIC_ENTITY_NODE & other) = delete; 
-            FOREIGN_ATOMIC_ENTITY_NODE() = default;
+            edge_info edges{constants::default_local_edge_indexes_capacity_FOREIGN_ATTRIBUTE_ENTITY_NODE};
+            FOREIGN_ATTRIBUTE_ENTITY_NODE & operator=(const FOREIGN_ATTRIBUTE_ENTITY_NODE & other) = delete;
+            FOREIGN_ATTRIBUTE_ENTITY_NODE(const FOREIGN_ATTRIBUTE_ENTITY_NODE & other) = delete; 
+            FOREIGN_ATTRIBUTE_ENTITY_NODE() = default;
         };
 
 		struct FOREIGN_RELATION_EDGE {
@@ -430,14 +424,15 @@ namespace zefDB {
 		case BlobType::TO_DELEGATE_EDGE: { return fct_to_apply(*((blobs_ns::TO_DELEGATE_EDGE*)ptr)); }
 		case BlobType::NEXT_TX_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TX_EDGE*)ptr)); }
 		case BlobType::ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ENTITY_NODE*)ptr)); }
-		case BlobType::ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_ENTITY_NODE*)ptr)); }
-		case BlobType::ATOMIC_VALUE_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_NODE*)ptr)); }
+		case BlobType::ATTRIBUTE_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ATTRIBUTE_ENTITY_NODE*)ptr)); }
+		case BlobType::VALUE_NODE: { return fct_to_apply(*((blobs_ns::VALUE_NODE*)ptr)); }
 		case BlobType::RELATION_EDGE: { return fct_to_apply(*((blobs_ns::RELATION_EDGE*)ptr)); }
 		case BlobType::DELEGATE_INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::DELEGATE_INSTANTIATION_EDGE*)ptr)); }
 		case BlobType::DELEGATE_RETIREMENT_EDGE: { return fct_to_apply(*((blobs_ns::DELEGATE_RETIREMENT_EDGE*)ptr)); }
 		case BlobType::INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::INSTANTIATION_EDGE*)ptr)); }
 		case BlobType::TERMINATION_EDGE: { return fct_to_apply(*((blobs_ns::TERMINATION_EDGE*)ptr)); }
 		case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE*)ptr)); }
+		case BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE*)ptr)); }
 		case BlobType::DEFERRED_EDGE_LIST_NODE: { return fct_to_apply(*((blobs_ns::DEFERRED_EDGE_LIST_NODE*)ptr)); }
 		case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)ptr)); }
 		case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TAG_NAME_ASSIGNMENT_EDGE*)ptr)); }
@@ -445,9 +440,10 @@ namespace zefDB {
 		case BlobType::ORIGIN_RAE_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_RAE_EDGE*)ptr)); }
 		case BlobType::ORIGIN_GRAPH_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_GRAPH_EDGE*)ptr)); }
 		case BlobType::FOREIGN_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ENTITY_NODE*)ptr)); }
-		case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE*)ptr)); }
+		case BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ATTRIBUTE_ENTITY_NODE*)ptr)); }
 		case BlobType::FOREIGN_RELATION_EDGE: { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)ptr)); }
 		case BlobType::VALUE_TYPE_EDGE: { return fct_to_apply(*((blobs_ns::VALUE_TYPE_EDGE*)ptr)); }
+		case BlobType::VALUE_EDGE: { return fct_to_apply(*((blobs_ns::VALUE_EDGE*)ptr)); }
         default: { print_backtrace(); throw std::runtime_error("Unknown blob type"); }
 		}
 	};
@@ -455,23 +451,54 @@ namespace zefDB {
         return _visit_blob(fct_to_apply, uzr.blob_ptr);
     };
 
-	const auto _visit_blob_with_edges = [](auto fct_to_apply, void * ptr) {		
+    template<class T>
+    blobs_ns::edge_info & blob_edge_info(T & s) {
+        return s.edges;
+    }
+    template<class T>
+    const blobs_ns::edge_info & blob_edge_info(const T & s) {
+        return s.edges;
+    }
+
+    template<>
+    inline blobs_ns::edge_info & blob_edge_info(blobs_ns::VALUE_NODE & s) {
+        return *(blobs_ns::edge_info*)((char*)&s.rep_type + sizeof(decltype(s.rep_type)) + s.buffer_size_in_bytes);
+    }
+    template<>
+    inline const blobs_ns::edge_info & blob_edge_info(const blobs_ns::VALUE_NODE & s) {
+        return *(blobs_ns::edge_info*)((char*)&s.rep_type + sizeof(decltype(s.rep_type)) + s.buffer_size_in_bytes);
+    }
+
+    inline blobs_ns::DEFERRED_EDGE_LIST_NODE::deferred_edge_info & blob_edge_info(blobs_ns::DEFERRED_EDGE_LIST_NODE & s) {
+        return s.edges;
+    }
+    inline const blobs_ns::DEFERRED_EDGE_LIST_NODE::deferred_edge_info & blob_edge_info(const blobs_ns::DEFERRED_EDGE_LIST_NODE & s) {
+        return s.edges;
+    }
+
+
+    const auto _visit_blob_with_edges_internal = [](auto fct_to_apply, auto & x) {
+        return fct_to_apply(blob_edge_info(x));
+    };
+
+    const auto _visit_blob_with_edges = [](auto fct_to_apply, void * ptr) {		
 		switch (get<BlobType>(ptr)) {
 		case BlobType::_unspecified: { throw std::runtime_error("visit called for an unspecified EZefRef");  }
-		case BlobType::ROOT_NODE: { return fct_to_apply(*((blobs_ns::ROOT_NODE*)ptr)); }
-		case BlobType::TX_EVENT_NODE: { return fct_to_apply(*((blobs_ns::TX_EVENT_NODE*)ptr)); }
-		case BlobType::RAE_INSTANCE_EDGE: { return fct_to_apply(*((blobs_ns::RAE_INSTANCE_EDGE*)ptr)); }
-		case BlobType::TO_DELEGATE_EDGE: { return fct_to_apply(*((blobs_ns::TO_DELEGATE_EDGE*)ptr)); }
-		case BlobType::ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ENTITY_NODE*)ptr)); }
-		case BlobType::ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_ENTITY_NODE*)ptr)); }
-		case BlobType::ATOMIC_VALUE_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_NODE*)ptr)); }
-		case BlobType::RELATION_EDGE: { return fct_to_apply(*((blobs_ns::RELATION_EDGE*)ptr)); }
-		case BlobType::DEFERRED_EDGE_LIST_NODE: { return fct_to_apply(*((blobs_ns::DEFERRED_EDGE_LIST_NODE*)ptr)); }
-		case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)ptr)); }
-		case BlobType::FOREIGN_GRAPH_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_GRAPH_NODE*)ptr)); }
-		case BlobType::FOREIGN_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ENTITY_NODE*)ptr)); }
-		case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { return fct_to_apply(*((blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE*)ptr)); }
-		case BlobType::FOREIGN_RELATION_EDGE: { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)ptr)); }
+		case BlobType::ROOT_NODE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::ROOT_NODE*)ptr)); }
+		case BlobType::TX_EVENT_NODE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::TX_EVENT_NODE*)ptr)); }
+		case BlobType::RAE_INSTANCE_EDGE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::RAE_INSTANCE_EDGE*)ptr)); }
+		case BlobType::TO_DELEGATE_EDGE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::TO_DELEGATE_EDGE*)ptr)); }
+		case BlobType::ENTITY_NODE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::ENTITY_NODE*)ptr)); }
+		case BlobType::ATTRIBUTE_ENTITY_NODE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::ATTRIBUTE_ENTITY_NODE*)ptr)); }
+		case BlobType::VALUE_NODE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::VALUE_NODE*)ptr)); }
+        // An ATTRIBUTE_VALUE_ASSIGNMENT_EDGE doesn't have an edges member, only a single edge
+        case BlobType::RELATION_EDGE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::RELATION_EDGE*)ptr)); }
+		case BlobType::DEFERRED_EDGE_LIST_NODE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::DEFERRED_EDGE_LIST_NODE*)ptr)); }
+		case BlobType::ASSIGN_TAG_NAME_EDGE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::ASSIGN_TAG_NAME_EDGE*)ptr)); }
+		case BlobType::FOREIGN_GRAPH_NODE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::FOREIGN_GRAPH_NODE*)ptr)); }
+		case BlobType::FOREIGN_ENTITY_NODE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::FOREIGN_ENTITY_NODE*)ptr)); }
+		case BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::FOREIGN_ATTRIBUTE_ENTITY_NODE*)ptr)); }
+		case BlobType::FOREIGN_RELATION_EDGE: { return _visit_blob_with_edges_internal(fct_to_apply, *((blobs_ns::FOREIGN_RELATION_EDGE*)ptr)); }
         default: { print_backtrace(); throw std::runtime_error("Blobtype expected to have edges but it didn't"); }
         }
 	};
@@ -491,12 +518,14 @@ namespace zefDB {
         case BlobType::INSTANTIATION_EDGE: { return fct_to_apply(*((blobs_ns::INSTANTIATION_EDGE*)ptr)); }
         case BlobType::TERMINATION_EDGE: { return fct_to_apply(*((blobs_ns::TERMINATION_EDGE*)ptr)); }
         case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE*)ptr)); }
+        case BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE*)ptr)); }
         case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)ptr)); }
         case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::NEXT_TAG_NAME_ASSIGNMENT_EDGE*)ptr)); }
         case BlobType::ORIGIN_RAE_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_RAE_EDGE*)ptr)); }
         case BlobType::ORIGIN_GRAPH_EDGE: { return fct_to_apply(*((blobs_ns::ORIGIN_GRAPH_EDGE*)ptr)); }
         case BlobType::FOREIGN_RELATION_EDGE: { { return fct_to_apply(*((blobs_ns::FOREIGN_RELATION_EDGE*)ptr)); } }
         case BlobType::VALUE_TYPE_EDGE: { { return fct_to_apply(*((blobs_ns::VALUE_TYPE_EDGE*)ptr)); } }
+        case BlobType::VALUE_EDGE: { { return fct_to_apply(*((blobs_ns::VALUE_TYPE_EDGE*)ptr)); } }
         default: { print_backtrace(); throw std::runtime_error("Blobtype expected to have source/target but it didn't"); }
         }
 	};
@@ -509,7 +538,7 @@ namespace zefDB {
 		case BlobType::_unspecified: { throw std::runtime_error("visit called for an unspecified EZefRef");  }
         case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE*)ptr)); }
         case BlobType::ASSIGN_TAG_NAME_EDGE: { return fct_to_apply(*((blobs_ns::ASSIGN_TAG_NAME_EDGE*)ptr)); }
-        case BlobType::ATOMIC_VALUE_NODE: { return fct_to_apply(*((blobs_ns::ATOMIC_VALUE_NODE*)ptr)); }
+        case BlobType::VALUE_NODE: { return fct_to_apply(*((blobs_ns::VALUE_NODE*)ptr)); }
         default: { print_backtrace(); throw std::runtime_error("Blobtype expected to have data buffer but it didn't"); }
         }
 	};
@@ -534,11 +563,11 @@ namespace zefDB {
 				case BlobType::ROOT_NODE: 					{return get<ROOT_NODE>(ptr).uid; }
 				case BlobType::TX_EVENT_NODE: 				{return get<TX_EVENT_NODE>(ptr).uid; }
 				case BlobType::ENTITY_NODE: 				{return get<ENTITY_NODE>(ptr).uid; }
-				case BlobType::ATOMIC_ENTITY_NODE: 			{return get<ATOMIC_ENTITY_NODE>(ptr).uid; }
+				case BlobType::ATTRIBUTE_ENTITY_NODE:		{return get<ATTRIBUTE_ENTITY_NODE>(ptr).uid; }
 				case BlobType::RELATION_EDGE: 				{return get<RELATION_EDGE>(ptr).uid; }
 				case BlobType::FOREIGN_GRAPH_NODE: 			{return get<FOREIGN_GRAPH_NODE>(ptr).uid; }
 				case BlobType::FOREIGN_ENTITY_NODE: 		{return get<FOREIGN_ENTITY_NODE>(ptr).uid; }
-				case BlobType::FOREIGN_ATOMIC_ENTITY_NODE:	{return get<FOREIGN_ATOMIC_ENTITY_NODE>(ptr).uid; }
+				case BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE:	{return get<FOREIGN_ATTRIBUTE_ENTITY_NODE>(ptr).uid; }
 				case BlobType::FOREIGN_RELATION_EDGE: 		{return get<FOREIGN_RELATION_EDGE>(ptr).uid; }
 
             default: {print_backtrace_force(); throw std::runtime_error("blob_uid_ref called for ZefRef without a uid"); }
@@ -554,11 +583,11 @@ namespace zefDB {
 				case BlobType::ROOT_NODE:
 				case BlobType::TX_EVENT_NODE:
 				case BlobType::ENTITY_NODE:
-				case BlobType::ATOMIC_ENTITY_NODE:
+				case BlobType::ATTRIBUTE_ENTITY_NODE:
 				case BlobType::RELATION_EDGE:
 				case BlobType::FOREIGN_GRAPH_NODE:
 				case BlobType::FOREIGN_ENTITY_NODE:
-				case BlobType::FOREIGN_ATOMIC_ENTITY_NODE:
+				case BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE:
 				case BlobType::FOREIGN_RELATION_EDGE:
                     return true;
 				default:
@@ -582,31 +611,19 @@ namespace zefDB {
 				case BlobType::INSTANTIATION_EDGE:
 				case BlobType::TERMINATION_EDGE:
 				case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE:
+				case BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
 				case BlobType::ASSIGN_TAG_NAME_EDGE:
 				case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
 				case BlobType::ORIGIN_RAE_EDGE:
 				case BlobType::ORIGIN_GRAPH_EDGE:
 				case BlobType::VALUE_TYPE_EDGE:
+				case BlobType::VALUE_EDGE:
 				case BlobType::FOREIGN_RELATION_EDGE: {
                     return true;
                 }
-
-				case BlobType::_unspecified:
-				case BlobType::ROOT_NODE:
-				case BlobType::TX_EVENT_NODE:
-				case BlobType::ENTITY_NODE:
-				case BlobType::ATOMIC_ENTITY_NODE:
-				case BlobType::ATOMIC_VALUE_NODE:
-				case BlobType::DEFERRED_EDGE_LIST_NODE:
-				case BlobType::FOREIGN_GRAPH_NODE:
-				case BlobType::FOREIGN_ENTITY_NODE:
-                case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: {
-                    return false;
-                }
                 default:
-                    throw std::runtime_error("Shouldn't have got here in has_source_target_node!");
+                    return false;
             }
-			return false; // should never reach here, suppress compiler warnings
 		}
 		inline bool has_source_target_node(EZefRef uzr) {
             return _has_source_target_node(uzr.blob_ptr);
@@ -621,34 +638,22 @@ namespace zefDB {
 				case BlobType::RAE_INSTANCE_EDGE:
 				case BlobType::TO_DELEGATE_EDGE:
 				case BlobType::ENTITY_NODE:
-				case BlobType::ATOMIC_ENTITY_NODE:
-				case BlobType::ATOMIC_VALUE_NODE:
+				case BlobType::ATTRIBUTE_ENTITY_NODE:
+				case BlobType::VALUE_NODE:
+                // Note this has one edge not an entire edge list
+                case BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
 				case BlobType::RELATION_EDGE:
 				case BlobType::DEFERRED_EDGE_LIST_NODE:
 				case BlobType::ASSIGN_TAG_NAME_EDGE:
 				case BlobType::FOREIGN_GRAPH_NODE:
 				case BlobType::FOREIGN_ENTITY_NODE:
-				case BlobType::FOREIGN_ATOMIC_ENTITY_NODE:
+				case BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE:
 				case BlobType::FOREIGN_RELATION_EDGE: {
                     return true;
                 }
-				case BlobType::_unspecified:
-				case BlobType::NEXT_TX_EDGE:
-				case BlobType::DELEGATE_INSTANTIATION_EDGE:
-				case BlobType::DELEGATE_RETIREMENT_EDGE:
-				case BlobType::INSTANTIATION_EDGE:
-				case BlobType::TERMINATION_EDGE:
-				case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE:
-				case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
-				case BlobType::ORIGIN_RAE_EDGE:
-				case BlobType::VALUE_TYPE_EDGE:
-				case BlobType::ORIGIN_GRAPH_EDGE: {
-                    return false;
-                }
                 default:
-                    throw std::runtime_error("Shouldn't have got here in has_edge_list!");
+                    return false;
 			}
-			return false; // should never reach here, suppress compiler warnings
 		}
 		inline bool has_edge_list(EZefRef uzr) {
             return _has_edge_list(uzr.blob_ptr);
@@ -660,36 +665,12 @@ namespace zefDB {
 			BlobType this_BlobType = get<BlobType>(ptr);
 			switch (this_BlobType) {
 				case BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE:
-				case BlobType::ATOMIC_VALUE_NODE:
+				case BlobType::VALUE_NODE:
 				case BlobType::ASSIGN_TAG_NAME_EDGE: {
                     return true;
                 }
-				case BlobType::_unspecified:
-				case BlobType::NEXT_TX_EDGE:
-				case BlobType::DELEGATE_INSTANTIATION_EDGE:
-				case BlobType::DELEGATE_RETIREMENT_EDGE:
-				case BlobType::INSTANTIATION_EDGE:
-				case BlobType::TERMINATION_EDGE:
-				case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
-				case BlobType::ORIGIN_RAE_EDGE:
-				case BlobType::ORIGIN_GRAPH_EDGE:
-				case BlobType::ROOT_NODE:
-				case BlobType::TX_EVENT_NODE:
-				case BlobType::RAE_INSTANCE_EDGE:
-				case BlobType::TO_DELEGATE_EDGE:
-				case BlobType::ENTITY_NODE:
-				case BlobType::ATOMIC_ENTITY_NODE:
-				case BlobType::RELATION_EDGE:
-				case BlobType::DEFERRED_EDGE_LIST_NODE:
-				case BlobType::FOREIGN_GRAPH_NODE:
-				case BlobType::FOREIGN_ENTITY_NODE:
-				case BlobType::FOREIGN_ATOMIC_ENTITY_NODE:
-				case BlobType::VALUE_TYPE_EDGE:
-				case BlobType::FOREIGN_RELATION_EDGE: {
-                    return false;
-                }
                 default:
-                    throw std::runtime_error("Shouldn't have got here in has_edge_list!");
+                    return false;
 			}
 			return false; // should never reach here, suppress compiler warnings
 		}
@@ -707,47 +688,39 @@ namespace zefDB {
                                                  uzr);
         }
 
+
         // return a pointer: in apply apply_action_blob we want to overwrite this index
         template<class T>
-        blob_index* subsequent_deferred_edge_list_index(T & s) {
-            return &s.edges.indices[s.edges.local_capacity];
+        inline blob_index* subsequent_deferred_edge_list_index(T & edges) {
+            // This is only for edge_info and deferred_edge_info
+            return &edges.indices[edges.local_capacity];
         }
         template<class T>
-        const blob_index* subsequent_deferred_edge_list_index(const T & s) {
-            return &s.edges.indices[s.edges.local_capacity];
+        inline const blob_index* subsequent_deferred_edge_list_index(const T & edges) {
+            // This is only for edge_info and deferred_edge_info
+            return &edges.indices[edges.local_capacity];
         }
-        template<>
+
         inline blob_index* subsequent_deferred_edge_list_index(EZefRef & uzr) {
-            return visit_blob_with_edges([](auto & s) { return subsequent_deferred_edge_list_index(s); }, uzr);
+            return visit_blob_with_edges([](auto & edges) { return subsequent_deferred_edge_list_index(edges); }, uzr);
         }
 
         // return a pointer: in apply apply_action_blob we want to overwrite this index
-        template<class T>
-        blob_index* last_edge_holding_blob(T & s) {
-            return &s.edges.last_edge_holding_blob;
-        }
-
-        template<>
-        inline blob_index* last_edge_holding_blob(blobs_ns::DEFERRED_EDGE_LIST_NODE & s) {
-            throw std::runtime_error("Should never get here!");
-        }
-
-        template<>
         inline blob_index* last_edge_holding_blob(EZefRef & uzr) {
-            return visit_blob_with_edges([](auto & x) { return(last_edge_holding_blob(x)); }, uzr);
+            return visit_blob_with_edges(overloaded {
+                    [](blobs_ns::DEFERRED_EDGE_LIST_NODE::deferred_edge_info &) -> blob_index* {
+                        throw std::runtime_error("Should never get here!");
+                    },
+                    [](auto & x) { return &x.last_edge_holding_blob; },
+                }, uzr);
         }
         
-        template<class T>
-        blob_index* edge_indexes(const T & s) {
-            return (blob_index*)s.edges.indices;
-        }
-        template<>
         inline blob_index* edge_indexes(const EZefRef & uzr) {
-            return visit_blob_with_edges([](auto & x) { return(edge_indexes(x)); }, uzr);
+            return visit_blob_with_edges([](auto & edges) { return (blob_index*)edges.indices; }, uzr);
         }
 
-        inline blob_index local_edge_indexes_capacity(EZefRef uzr) {
-            return visit_blob_with_edges([](auto & s) { return s.edges.local_capacity; },
+        inline blob_index local_edge_indexes_capacity(const EZefRef & uzr) {
+            return visit_blob_with_edges([](auto & edges) { return edges.local_capacity; },
                                          uzr);
 		}
 
@@ -771,9 +744,9 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED int subindex_in_last_blob(blob_index * last_blob);
         LIBZEF_DLL_EXPORTED blob_index last_set_edge_index(EZefRef uzr);
 
-        inline char* get_data_buffer(blobs_ns::ATOMIC_VALUE_NODE & blob) {
-            // The data sits right after the edge list
-            return (char*)&blob.edges.indices[blob.edges.local_capacity+1];
+        inline char* get_data_buffer(blobs_ns::VALUE_NODE & blob) {
+            // The value data sits right after the VRT, although the "value" itself begins at the VRT.
+            return (char*)&blob.rep_type + sizeof(decltype(blob.rep_type));
 		};
         inline char* get_data_buffer(blobs_ns::ASSIGN_TAG_NAME_EDGE & blob) {
             // The data sits right after the edge list
@@ -784,9 +757,9 @@ namespace zefDB {
             return blob.data_buffer;
 		};
 
-        inline const char* get_data_buffer(const blobs_ns::ATOMIC_VALUE_NODE & blob) {
-            // The data sits right after the edge list
-            return (char*)&blob.edges.indices[blob.edges.local_capacity+1];
+        inline const char* get_data_buffer(const blobs_ns::VALUE_NODE & blob) {
+            // The value data sits right after the VRT, although the "value" itself begins at the VRT.
+            return (char*)&blob.rep_type + sizeof(decltype(blob.rep_type));
 		};
         inline const char* get_data_buffer(const blobs_ns::ASSIGN_TAG_NAME_EDGE & blob) {
             // The data sits right after the edge list
@@ -805,7 +778,7 @@ namespace zefDB {
         inline size_t get_data_buffer_size(const T & blob) {
             return blob.buffer_size_in_bytes;
 		};
-        template size_t get_data_buffer_size(const blobs_ns::ATOMIC_VALUE_NODE & blob);
+        template size_t get_data_buffer_size(const blobs_ns::VALUE_NODE & blob);
         template size_t get_data_buffer_size(const blobs_ns::ASSIGN_TAG_NAME_EDGE & blob);
         template size_t get_data_buffer_size(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE & blob);
 
@@ -859,119 +832,121 @@ namespace zefDB {
 
 
 
-//                   _ _                 _                  __                         _                _           _                                  
-//                  (_) |_ ___ _ __ __ _| |_ ___  _ __     / _| ___  _ __      ___  __| | __ _  ___    (_)_ __   __| | _____  _____  ___               
-//    _____ _____   | | __/ _ \ '__/ _` | __/ _ \| '__|   | |_ / _ \| '__|    / _ \/ _` |/ _` |/ _ \   | | '_ \ / _` |/ _ \ \/ / _ \/ __|  _____ _____ 
-//   |_____|_____|  | | ||  __/ | | (_| | || (_) | |      |  _| (_) | |      |  __/ (_| | (_| |  __/   | | | | | (_| |  __/>  <  __/\__ \ |_____|_____|
-//                  |_|\__\___|_|  \__,_|\__\___/|_|      |_|  \___/|_|       \___|\__,_|\__, |\___|   |_|_| |_|\__,_|\___/_/\_\___||___/              
-//                                                                                       |___/                                                   
+    //                   _ _                 _                  __                         _                _           _                                  
+    //                  (_) |_ ___ _ __ __ _| |_ ___  _ __     / _| ___  _ __      ___  __| | __ _  ___    (_)_ __   __| | _____  _____  ___               
+    //    _____ _____   | | __/ _ \ '__/ _` | __/ _ \| '__|   | |_ / _ \| '__|    / _ \/ _` |/ _` |/ _ \   | | '_ \ / _` |/ _ \ \/ / _ \/ __|  _____ _____ 
+    //   |_____|_____|  | | ||  __/ | | (_| | || (_) | |      |  _| (_) | |      |  __/ (_| | (_| |  __/   | | | | | (_| |  __/>  <  __/\__ \ |_____|_____|
+    //                  |_|\__\___|_|  \__,_|\__\___/|_|      |_|  \___/|_|       \___|\__,_|\__, |\___|   |_|_| |_|\__,_|\___/_/\_\___||___/              
+    //                                                                                       |___/                                                   
 
 
 
-struct LIBZEF_DLL_EXPORTED AllEdgeIndexes {
-	struct Iterator;
-	struct Sentinel;
-	EZefRef uzr_with_edges;
-    bool force_to_write_head;
+    struct LIBZEF_DLL_EXPORTED AllEdgeIndexes {
+        struct Iterator;
+        struct Sentinel;
+        EZefRef uzr_with_edges;
+        bool force_to_write_head;
 
-	AllEdgeIndexes() = delete;
-    AllEdgeIndexes(EZefRef uzr, bool force_to_write_head=false)
-    : uzr_with_edges(uzr),
-    force_to_write_head(force_to_write_head) {};
-    AllEdgeIndexes(ZefRef zr, bool force_to_write_head=false)
-    : uzr_with_edges(zr.blob_uzr),
-    force_to_write_head(force_to_write_head) {};
+        AllEdgeIndexes() = delete;
+        AllEdgeIndexes(EZefRef uzr, bool force_to_write_head=false)
+        : uzr_with_edges(uzr),
+        force_to_write_head(force_to_write_head) {};
+        AllEdgeIndexes(ZefRef zr, bool force_to_write_head=false)
+        : uzr_with_edges(zr.blob_uzr),
+        force_to_write_head(force_to_write_head) {};
 
-	Iterator begin() const;
-	Sentinel end() const;
-};
+        Iterator begin() const;
+        Sentinel end() const;
+    };
 
-struct AllEdgeIndexes::Iterator {
-	// we need to specify these: pre-C++17 this was done by inheriting from std::Iterator
-	using value_type = blob_index;
-	using reference = blob_index&;
-	using pointer = blob_index*;
-	using iterator_category = std::input_iterator_tag;
-	using difference_type = ptrdiff_t;
+    struct AllEdgeIndexes::Iterator {
+        // we need to specify these: pre-C++17 this was done by inheriting from std::Iterator
+        using value_type = blob_index;
+        using reference = blob_index&;
+        using pointer = blob_index*;
+        using iterator_category = std::input_iterator_tag;
+        using difference_type = ptrdiff_t;
 
-	blob_index* ptr_to_current_edge_element = nullptr;
-	EZefRef current_blob_pointed_to{ nullptr };
-	blob_index* ptr_to_last_edge_element_in_current_blob = nullptr;
-    // The read head is recorded at the start of the iteration, so that we have
-    // stability in accessing the graph. For read-only graphs this is the
-    // read-head, but for graphs that we are writing to, this is the write_head.
-    blob_index stable_last_blob = 0;
+        blob_index* ptr_to_current_edge_element = nullptr;
+        EZefRef current_blob_pointed_to{ nullptr };
+        blob_index* ptr_to_last_edge_element_in_current_blob = nullptr;
+        // The read head is recorded at the start of the iteration, so that we have
+        // stability in accessing the graph. For read-only graphs this is the
+        // read-head, but for graphs that we are writing to, this is the write_head.
+        blob_index stable_last_blob = 0;
 
-	// pre-increment op: this one is used mostly
-	Iterator& operator++();
+        // pre-increment op: this one is used mostly
+        Iterator& operator++();
 
-	// post incremenet
-	void operator++(int) {
-		//AllEdgeIndexes::Iterator holder(*this);  // create copy to return before incrementing
-		(void)++* this;
-		//return holder;
-	}
+        // post incremenet
+        void operator++(int) {
+            //AllEdgeIndexes::Iterator holder(*this);  // create copy to return before incrementing
+            (void)++* this;
+            //return holder;
+        }
 
-	reference operator*() {return *ptr_to_current_edge_element; }
-	std::add_const_t<reference> operator*() const { return *ptr_to_current_edge_element; }
-
-
-	bool operator==(const AllEdgeIndexes::Sentinel& sent) const;
-	bool operator!=(const AllEdgeIndexes::Sentinel& sent) const;
-	bool operator!=(const AllEdgeIndexes::Iterator& it) const { return true; };
-	
-	template <typename T>
-	bool operator==(T&& t) const { return !(*this != std::forward<T>(t)); }
-};
+        reference operator*() {return *ptr_to_current_edge_element; }
+        std::add_const_t<reference> operator*() const { return *ptr_to_current_edge_element; }
 
 
-struct AllEdgeIndexes::Sentinel {
-	bool operator!=(const Iterator& it) const
-	{
-		return it != *this;
-	}
-	template <typename T>
-	bool operator==(T&& t) const { return !(*this != std::forward<T>(t)); }
-};
+        bool operator==(const AllEdgeIndexes::Sentinel& sent) const;
+        bool operator!=(const AllEdgeIndexes::Sentinel& sent) const;
+        bool operator!=(const AllEdgeIndexes::Iterator& it) const { return true; };
+    
+        template <typename T>
+        bool operator==(T&& t) const { return !(*this != std::forward<T>(t)); }
+    };
 
 
-
-
+    struct AllEdgeIndexes::Sentinel {
+        bool operator!=(const Iterator& it) const
+        {
+            return it != *this;
+        }
+        template <typename T>
+        bool operator==(T&& t) const { return !(*this != std::forward<T>(t)); }
+    };
 
 
 
 
 
 
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ROOT_NODE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::TX_EVENT_NODE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::NEXT_TX_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::RAE_INSTANCE_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::TO_DELEGATE_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ENTITY_NODE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_ENTITY_NODE& this_blob);
-std::string value_blob_to_str(ValueRepType buffer_type, const char* buffer_ptr, unsigned int buffer_size=0);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_VALUE_NODE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::RELATION_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::DELEGATE_INSTANTIATION_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::DELEGATE_RETIREMENT_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::INSTANTIATION_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::TERMINATION_EDGE& this_blob);
-	// local representation only: only show edge indexes saved in this DEFERRED_EDGE_LIST_NODE
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::DEFERRED_EDGE_LIST_NODE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ASSIGN_TAG_NAME_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::NEXT_TAG_NAME_ASSIGNMENT_EDGE& this_blob);
 
 
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_GRAPH_NODE& this_blob);
 
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ORIGIN_RAE_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ORIGIN_GRAPH_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ENTITY_NODE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_RELATION_EDGE& this_blob);
-LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::VALUE_TYPE_EDGE& this_blob);
+
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ROOT_NODE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::TX_EVENT_NODE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::NEXT_TX_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::RAE_INSTANCE_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::TO_DELEGATE_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ENTITY_NODE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ATTRIBUTE_ENTITY_NODE& this_blob);
+    std::string value_blob_to_str(ValueRepType buffer_type, const char* buffer_ptr, unsigned int buffer_size=0);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::VALUE_NODE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::RELATION_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::DELEGATE_INSTANTIATION_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::DELEGATE_RETIREMENT_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::INSTANTIATION_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::TERMINATION_EDGE& this_blob);
+    // local representation only: only show edge indexes saved in this DEFERRED_EDGE_LIST_NODE
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::DEFERRED_EDGE_LIST_NODE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ASSIGN_TAG_NAME_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::NEXT_TAG_NAME_ASSIGNMENT_EDGE& this_blob);
+
+
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_GRAPH_NODE& this_blob);
+
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ORIGIN_RAE_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::ORIGIN_GRAPH_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ENTITY_NODE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_ATTRIBUTE_ENTITY_NODE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::FOREIGN_RELATION_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::VALUE_TYPE_EDGE& this_blob);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::VALUE_EDGE& this_blob);
 
     // If anyone can understand why I need this, and can't just use << (in
     // butler_handlers_graph_manager.cpp) then please fix it and tell me!
@@ -983,48 +958,51 @@ LIBZEF_DLL_EXPORTED std::ostream& operator<< (std::ostream& os, const blobs_ns::
 
 
 
-using ScalarVariant = std::variant<
-    bool,
-    int,
-    double,
-    str,
-    Time,
-    ZefEnumValue,
-    QuantityFloat,
-    QuantityInt,
+    using ScalarVariant = std::variant<
+        bool,
+        int,
+        double,
+        str,
+        Time,
+        ZefEnumValue,
+        QuantityFloat,
+        QuantityInt,
 
-    BlobType,
-    EntityType,
-    RelationType
->;
+        BlobType,
+        EntityType,
+        RelationType
+        >;
 
 
-	inline bool is_zef_subtype(EZefRef uzr, BlobType bt) { return BT(uzr) == bt; }
+    inline bool is_zef_subtype(EZefRef uzr, BlobType bt) { return BT(uzr) == bt; }
 
-	inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct VRT) { return is_zef_subtype(uzr, BT.ATOMIC_ENTITY_NODE) || is_zef_subtype(uzr, BT.ATOMIC_VALUE_NODE); }
-	inline bool is_zef_subtype(EZefRef uzr, EntityTypeStruct ET) { return is_zef_subtype(uzr, BT.ENTITY_NODE); }
-	inline bool is_zef_subtype(EZefRef uzr, RelationTypeStruct RT) { return is_zef_subtype(uzr, BT.RELATION_EDGE); }
+    inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct VRT) {
+        return is_zef_subtype(uzr, BT.ATTRIBUTE_ENTITY_NODE)
+            || is_zef_subtype(uzr, BT.VALUE_NODE);
+    }
+    inline bool is_zef_subtype(EZefRef uzr, EntityTypeStruct ET) { return is_zef_subtype(uzr, BT.ENTITY_NODE); }
+    inline bool is_zef_subtype(EZefRef uzr, RelationTypeStruct RT) { return is_zef_subtype(uzr, BT.RELATION_EDGE); }
 
-	inline bool is_zef_subtype(EZefRef uzr, EntityType et) { return is_zef_subtype(uzr, ET) && (ET(uzr) == et); }
+    inline bool is_zef_subtype(EZefRef uzr, EntityType et) { return is_zef_subtype(uzr, ET) && (ET(uzr) == et); }
     inline bool is_zef_subtype(EZefRef uzr, RelationType rt) { return is_zef_subtype(uzr, RT) && (RT(uzr) == rt); }
 
 
-	inline bool is_zef_subtype(EZefRef uzr, ValueRepType vrt_super) { return is_zef_subtype(uzr, VRT) && is_zef_subtype(VRT(uzr), vrt_super); }
+    inline bool is_zef_subtype(EZefRef uzr, ValueRepType vrt_super) { return is_zef_subtype(uzr, VRT) && is_zef_subtype(VRT(uzr), vrt_super); }
     inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct::Enum_ vrt_super) { return is_zef_subtype(uzr, VRT) && is_zef_subtype(VRT(uzr), vrt_super); }
     inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct::QuantityFloat_ vrt_super) { return is_zef_subtype(uzr, VRT) && is_zef_subtype(VRT(uzr), vrt_super); }
     inline bool is_zef_subtype(EZefRef uzr, ValueRepTypeStruct::QuantityInt_ vrt_super) { return is_zef_subtype(uzr, VRT) && is_zef_subtype(VRT(uzr), vrt_super); }
 
-	inline bool is_zef_subtype(ZefRef zr, BlobType bt) { return is_zef_subtype(zr.blob_uzr, bt); }
+    inline bool is_zef_subtype(ZefRef zr, BlobType bt) { return is_zef_subtype(zr.blob_uzr, bt); }
 
-	inline bool is_zef_subtype(ZefRef zr, ValueRepTypeStruct VRT) { return is_zef_subtype(zr.blob_uzr, VRT); }
-	inline bool is_zef_subtype(ZefRef zr, EntityTypeStruct ET) { return is_zef_subtype(zr.blob_uzr, ET); }
-	inline bool is_zef_subtype(ZefRef zr, RelationTypeStruct RT) { return is_zef_subtype(zr.blob_uzr, RT); }
+    inline bool is_zef_subtype(ZefRef zr, ValueRepTypeStruct VRT) { return is_zef_subtype(zr.blob_uzr, VRT); }
+    inline bool is_zef_subtype(ZefRef zr, EntityTypeStruct ET) { return is_zef_subtype(zr.blob_uzr, ET); }
+    inline bool is_zef_subtype(ZefRef zr, RelationTypeStruct RT) { return is_zef_subtype(zr.blob_uzr, RT); }
 
-	inline bool is_zef_subtype(ZefRef zr, EntityType et) { return is_zef_subtype(zr.blob_uzr, et); }
-	inline bool is_zef_subtype(ZefRef zr, RelationType rt) { return is_zef_subtype(zr.blob_uzr, rt); }
+    inline bool is_zef_subtype(ZefRef zr, EntityType et) { return is_zef_subtype(zr.blob_uzr, et); }
+    inline bool is_zef_subtype(ZefRef zr, RelationType rt) { return is_zef_subtype(zr.blob_uzr, rt); }
 
 
-	inline bool is_zef_subtype(ZefRef zr, ValueRepType vrt_super) { return is_zef_subtype(zr.blob_uzr, vrt_super); }
+    inline bool is_zef_subtype(ZefRef zr, ValueRepType vrt_super) { return is_zef_subtype(zr.blob_uzr, vrt_super); }
     inline bool is_zef_subtype(ZefRef zr, ValueRepTypeStruct::Enum_ vrt_super) { return is_zef_subtype(zr.blob_uzr, vrt_super); }
     inline bool is_zef_subtype(ZefRef zr, ValueRepTypeStruct::QuantityFloat_ vrt_super) { return is_zef_subtype(zr.blob_uzr, vrt_super); }
     inline bool is_zef_subtype(ZefRef zr, ValueRepTypeStruct::QuantityInt_ vrt_super) { return is_zef_subtype(zr.blob_uzr, vrt_super); }

@@ -33,8 +33,8 @@ namespace zefDB {
         //////////////////////////////////////////////////
         // * Stuff from other files
 
-        LIBZEF_DLL_EXPORTED AtomicEntityType operator| (EZefRef uzr, const AtomicEntityTypeStruct& AET_); 
-        LIBZEF_DLL_EXPORTED AtomicEntityType operator| (ZefRef zr, const AtomicEntityTypeStruct& AET_);
+        LIBZEF_DLL_EXPORTED AttributeEntityType operator| (EZefRef uzr, const AttributeEntityTypeStruct& AET_); 
+        LIBZEF_DLL_EXPORTED AttributeEntityType operator| (ZefRef zr, const AttributeEntityTypeStruct& AET_);
 
 
 		//                        _                            
@@ -284,7 +284,7 @@ namespace zefDB {
 			// -------------------- various functions to init filter object --------------------------
 			Filter operator[] (EntityType my_entity_type) const ;
 			Filter operator[] (RelationType my_relation_type) const ;
-			// Filter operator[] (AtomicEntityType my_entity_type) const ;
+			// Filter operator[] (AttributeEntityType my_entity_type) const ;
 			Filter operator[] (BlobType my_BlobType) const ;			
 			Filter operator[] (Tensor<RelationType, 1> my_relation_types) const;
 			Filter operator[] (Tensor<BlobType, 1> my_blob_types) const;
@@ -875,10 +875,16 @@ namespace zefDB {
 		//                      |_____|                    |_____|_|                                                  
 		struct LIBZEF_DLL_EXPORTED IsZefRefPromotable {
 			bool operator() (EZefRef rel_ent) const {
-				return zefDB::find_element<BlobType>(
-					{ BlobType::RELATION_EDGE, BlobType::ENTITY_NODE, BlobType::ATOMIC_ENTITY_NODE, BlobType::TX_EVENT_NODE, BlobType::ROOT_NODE },
-					get<BlobType>(rel_ent)				
-					);
+                return zefDB::find_element<BlobType>({
+                        BlobType::RELATION_EDGE,
+                        BlobType::ENTITY_NODE,
+                        BlobType::ATTRIBUTE_ENTITY_NODE,
+                        BlobType::VALUE_NODE,
+                        BlobType::TX_EVENT_NODE,
+                        BlobType::ROOT_NODE,
+                    },
+                    get<BlobType>(rel_ent)				
+                    );
 			}
 		};
 		constexpr IsZefRefPromotable is_zefref_promotable;

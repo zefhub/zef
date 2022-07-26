@@ -66,8 +66,8 @@ namespace zefDB {
 		TO_DELEGATE_EDGE,
 		NEXT_TX_EDGE,
 		ENTITY_NODE,
-		ATOMIC_ENTITY_NODE,
-		ATOMIC_VALUE_NODE,
+		ATTRIBUTE_ENTITY_NODE,
+		VALUE_NODE,
 		RELATION_EDGE,
 		DELEGATE_INSTANTIATION_EDGE,
 		DELEGATE_RETIREMENT_EDGE,
@@ -81,12 +81,11 @@ namespace zefDB {
 		ORIGIN_RAE_EDGE,
 		ORIGIN_GRAPH_EDGE,
 		FOREIGN_ENTITY_NODE,
-		FOREIGN_ATOMIC_ENTITY_NODE,
+		FOREIGN_ATTRIBUTE_ENTITY_NODE,
 		FOREIGN_RELATION_EDGE,
         VALUE_TYPE_EDGE,
 		VALUE_EDGE,
-		ATOMIC_ENTITY_NODE2,
-		ATOMIC_VALUE_ASSIGNMENT_EDGE2,
+		ATTRIBUTE_VALUE_ASSIGNMENT_EDGE,
 	};
 
 	struct LIBZEF_DLL_EXPORTED BlobTypeStruct {
@@ -97,8 +96,8 @@ namespace zefDB {
 		static constexpr BlobType TO_DELEGATE_EDGE = BlobType::TO_DELEGATE_EDGE;
 		static constexpr BlobType NEXT_TX_EDGE = BlobType::NEXT_TX_EDGE;
 		static constexpr BlobType ENTITY_NODE = BlobType::ENTITY_NODE;
-		static constexpr BlobType ATOMIC_ENTITY_NODE = BlobType::ATOMIC_ENTITY_NODE;
-		static constexpr BlobType ATOMIC_VALUE_NODE = BlobType::ATOMIC_VALUE_NODE;
+		static constexpr BlobType ATTRIBUTE_ENTITY_NODE = BlobType::ATTRIBUTE_ENTITY_NODE;
+		static constexpr BlobType VALUE_NODE = BlobType::VALUE_NODE;
 		static constexpr BlobType RELATION_EDGE = BlobType::RELATION_EDGE;
 		static constexpr BlobType DELEGATE_INSTANTIATION_EDGE = BlobType::DELEGATE_INSTANTIATION_EDGE;
 		static constexpr BlobType DELEGATE_RETIREMENT_EDGE = BlobType::DELEGATE_RETIREMENT_EDGE;
@@ -112,12 +111,11 @@ namespace zefDB {
 		static constexpr BlobType ORIGIN_RAE_EDGE = BlobType::ORIGIN_RAE_EDGE;
 		static constexpr BlobType ORIGIN_GRAPH_EDGE = BlobType::ORIGIN_GRAPH_EDGE;
 		static constexpr BlobType FOREIGN_ENTITY_NODE = BlobType::FOREIGN_ENTITY_NODE;
-		static constexpr BlobType FOREIGN_ATOMIC_ENTITY_NODE = BlobType::FOREIGN_ATOMIC_ENTITY_NODE;
+		static constexpr BlobType FOREIGN_ATTRIBUTE_ENTITY_NODE = BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE;
 		static constexpr BlobType FOREIGN_RELATION_EDGE = BlobType::FOREIGN_RELATION_EDGE;
 		static constexpr BlobType VALUE_TYPE_EDGE = BlobType::VALUE_TYPE_EDGE;
 		static constexpr BlobType VALUE_EDGE = BlobType::VALUE_EDGE;
-		static constexpr BlobType ATOMIC_VALUE_ASSIGNMENT_EDGE2 = BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE2;
-		static constexpr BlobType ATOMIC_ENTITY_NODE2 = BlobType::ATOMIC_ENTITY_NODE2;
+		static constexpr BlobType ATTRIBUTE_VALUE_ASSIGNMENT_EDGE = BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE;
 
 		BlobType operator() (EZefRef uzr) const;
 		BlobType operator() (ZefRef zr) const;
@@ -286,6 +284,7 @@ namespace zefDB {
 		enum_indx value;
         operator str() const;
         constexpr bool operator==(const ValueRepType & other) const { return this->value == other.value; }
+        constexpr bool operator!=(const ValueRepType & other) const { return !(*this == other); }
 	};
 	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, ValueRepType aet);
     inline void to_json(json& j, const ValueRepType & aet) {
@@ -326,7 +325,8 @@ namespace zefDB {
 		static constexpr ValueRepType Int{ 4 };
 		static constexpr ValueRepType Time{ 5 };
 		static constexpr ValueRepType Serialized{ 6 };
-		static constexpr ValueRepType Complex{ 7 };
+		static constexpr ValueRepType Any{ 7 };
+		static constexpr ValueRepType Type{ 8 };
 
 		ValueRepType operator() (EZefRef uzr) const;
 		ValueRepType operator() (ZefRef zr) const;
@@ -528,6 +528,15 @@ namespace std {
     struct hash<zefDB::ZefEnumValue> {
         size_t operator()(const zefDB::ZefEnumValue & en) {
             return zefDB::get_hash(en.value);
+        }
+    };
+
+    template<>
+    struct hash<zefDB::ValueRepType> {
+        std::size_t operator() (const zefDB::ValueRepType& vrt) const { 
+            size_t s = zefDB::hash_char_array("ValueRepType");
+            zefDB::hash_combine(s, zefDB::get_hash(vrt.value));
+            return s;
         }
     };
 }

@@ -23,35 +23,45 @@
 namespace zefDB {
     
     //////////////////////////////////////
-    // * AtomicEntityType
+    // * AttributeEntityType
 
-	AtomicEntityTypeStruct AET;
+	AttributeEntityTypeStruct AET;
 
     // TODO: There seems to be something missing here with the string lookups - it's not the same pattern as ET,RT
 
-	AtomicEntityType AtomicEntityTypeStruct::operator() (const blobs_ns::ATOMIC_ENTITY_NODE & ae) const {
-        auto maybe_type = internals::get_AE_complex_type(ae);
-        if(maybe_type)
-            return AtomicEntityType(*maybe_type);
-        else
-            return AtomicEntityType(ae.rep_type);
+	AttributeEntityType AttributeEntityTypeStruct::operator() (const blobs_ns::ATTRIBUTE_ENTITY_NODE & ae) const {
+        // The first edge is a REL_ENT_INSTANCE and the second must be the VALUE_TYPE_EDGE
+#ifdef ZEF_DEBUG
+        if(ae.edges.indices[1] <= 0)
+            throw std::runtime_error("Complex value type edge is missing");
+#endif
+        EZefRef maybe_edge{ae.edges.indices[1], *graph_data(&ae)};
+#ifdef ZEF_DEBUG
+        if(BT(maybe_edge) != BT.VALUE_TYPE_EDGE)
+            throw std::runtime_error("Complex value type edge is missing");
+#endif
+
+        EZefRef z_value_node = imperative::target(maybe_edge);
+        auto & value_node = get<blobs_ns::VALUE_NODE>(z_value_node);
+
+        return internals::value_from_node<AttributeEntityType>(value_node);
 	}
-	AtomicEntityType AtomicEntityTypeStruct::operator() (EZefRef uzr) const {
-		if (get<BlobType>(uzr) != BlobType::ATOMIC_ENTITY_NODE) throw std::runtime_error("AET(EZefRef uzr) called for a uzr which is not an atomic entity.");
-		return AET(get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr));
+	AttributeEntityType AttributeEntityTypeStruct::operator() (EZefRef uzr) const {
+		if (get<BlobType>(uzr) != BlobType::ATTRIBUTE_ENTITY_NODE) throw std::runtime_error("AET(EZefRef uzr) called for a uzr which is not an atomic entity.");
+		return AET(get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(uzr));
 	}
-	AtomicEntityType AtomicEntityTypeStruct::operator() (ZefRef zr) const {
+	AttributeEntityType AttributeEntityTypeStruct::operator() (ZefRef zr) const {
 		return AET(zr.blob_uzr);
 	}
 
-	AtomicEntityType::operator str () const {
+	AttributeEntityType::operator str () const {
         std::string temp = internals::get_string_name_from_value_rep_type(this->rep_type);
-        if(is_AET_complex(*this))
+        if(_is_complex())
             temp += "[Complex type]";
         return temp;
     }
 
-	std::ostream& operator << (std::ostream& o, const AtomicEntityType & aet) {
+	std::ostream& operator << (std::ostream& o, const AttributeEntityType & aet) {
         o << "AET.";
 		o << str(aet);
 		return o;
@@ -75,7 +85,7 @@ namespace zefDB {
             os << " " << ET(uzr);
         else if (BT(uzr) == BT.RELATION_EDGE)
             os << " " << RT(uzr);
-        else if (BT(uzr) == BT.ATOMIC_ENTITY_NODE) {
+        else if (BT(uzr) == BT.ATTRIBUTE_ENTITY_NODE) {
             // We have to branch here as delegates which are atomic entities are
             // really value rep delegates... this is because of backwards
             // compatibility.
@@ -85,7 +95,7 @@ namespace zefDB {
                 os << " " << AET(uzr);
             }
         }
-        else if (BT(uzr) == BT.ATOMIC_VALUE_NODE)
+        else if (BT(uzr) == BT.VALUE_NODE)
             os << " " << VRT(uzr);
         else if (BT(uzr) == BT.TX_EVENT_NODE)
             os << " TX at slice=" << TimeSlice(uzr).value;
@@ -152,7 +162,7 @@ namespace zefDB {
                 }
 
                 EZefRef ezr_other{other_indx, gd};
-                auto & other_node = get<blobs_ns::ATOMIC_VALUE_NODE>(ezr_other);
+                auto & other_node = get<blobs_ns::VALUE_NODE>(ezr_other);
                 auto other_value = value_from_node<value_variant_t>(other_node);
 
                 if(variant_eq(*value, other_value)) {
@@ -185,12 +195,12 @@ namespace zefDB {
             case BlobType::RAE_INSTANCE_EDGE: { new (new_ptr) RAE_INSTANCE_EDGE; break; }
             case BlobType::TO_DELEGATE_EDGE: { new (new_ptr) TO_DELEGATE_EDGE; break; }
             case BlobType::ENTITY_NODE: { new (new_ptr) ENTITY_NODE; break; }
-            case BlobType::ATOMIC_ENTITY_NODE: { new (new_ptr) ATOMIC_ENTITY_NODE; break; }
+            case BlobType::ATTRIBUTE_ENTITY_NODE: { new (new_ptr) ATTRIBUTE_ENTITY_NODE; break; }
             case BlobType::RELATION_EDGE: { new (new_ptr) RELATION_EDGE; break; }
             case BlobType::DEFERRED_EDGE_LIST_NODE: { new (new_ptr) DEFERRED_EDGE_LIST_NODE; break; }
             case BlobType::FOREIGN_GRAPH_NODE: { new (new_ptr) FOREIGN_GRAPH_NODE; break; }
             case BlobType::FOREIGN_ENTITY_NODE: { new (new_ptr) FOREIGN_ENTITY_NODE; break; }
-            case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: { new (new_ptr) FOREIGN_ATOMIC_ENTITY_NODE; break; }
+            case BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE: { new (new_ptr) FOREIGN_ATTRIBUTE_ENTITY_NODE; break; }
             case BlobType::FOREIGN_RELATION_EDGE: { new (new_ptr) FOREIGN_RELATION_EDGE; break; }
             case BlobType::NEXT_TX_EDGE: { new (new_ptr) NEXT_TX_EDGE; break; }
             default: {throw std::runtime_error("instantiate(BlobType bt, GraphData& gd) called for BlobType an unhandled case."); }
@@ -263,24 +273,32 @@ namespace zefDB {
         template std::optional<EZefRef> search_value_node(const QuantityFloat & value, GraphData& gd);
         template std::optional<EZefRef> search_value_node(const QuantityInt & value, GraphData& gd);
         template std::optional<EZefRef> search_value_node(const SerializedValue & value, GraphData& gd);
+        template std::optional<EZefRef> search_value_node(const AttributeEntityType & value, GraphData& gd);
 
         
         template<typename T>
         EZefRef instantiate_value_node(const T & value, GraphData& gd) {
-            auto vrt = get_vrt_from_value(value);
+            auto vrt = get_vrt_from_ctype(value);
             value_hash_t hash = value_hash(value);
 
-            blobs_ns::ATOMIC_VALUE_NODE& ent = internals::get_next_free_writable_blob<blobs_ns::ATOMIC_VALUE_NODE>(gd);
+            blobs_ns::VALUE_NODE& ent = internals::get_next_free_writable_blob<blobs_ns::VALUE_NODE>(gd);
             MMap::ensure_or_alloc_range(&ent, blobs_ns::max_basic_blob_size);
-            new(&ent) blobs_ns::ATOMIC_VALUE_NODE(vrt, hash);
+            ent.this_BlobType = BlobType::VALUE_NODE;
+            ent.rep_type = vrt;
 
             char * data_buffer = internals::get_data_buffer(ent);
             internals::copy_to_buffer(data_buffer, ent.buffer_size_in_bytes, value);
 
+            // The edges come after, and we need to prepare that structure
+            auto & edges = blob_edge_info(ent);
+            size_t edges_size = sizeof(blobs_ns::edge_info) + sizeof(blob_index)*(constants::default_local_edge_indexes_capacity_VALUE_NODE+1);
+            MMap::ensure_or_alloc_range(&edges, edges_size);
+            new(&edges) blobs_ns::edge_info(constants::default_local_edge_indexes_capacity_VALUE_NODE);
+
             internals::move_head_forward(gd);
 
             EZefRef z_ent((void*)&ent);
-            internals::apply_action_ATOMIC_VALUE_NODE(gd, z_ent, true);
+            internals::apply_action_VALUE_NODE(gd, z_ent, true);
 
             return z_ent;
         }
@@ -294,6 +312,7 @@ namespace zefDB {
         template EZefRef instantiate_value_node(const QuantityFloat & value, GraphData& g);
         template EZefRef instantiate_value_node(const QuantityInt & value, GraphData& g);
         template EZefRef instantiate_value_node(const SerializedValue & value, GraphData& g);
+        template EZefRef instantiate_value_node(const AttributeEntityType & value, GraphData& g);
 
 
 
@@ -647,13 +666,28 @@ namespace zefDB {
             std::memcpy(cur, value_to_be_assigned.data.data(), value_to_be_assigned.data.size());
         }
 
+        template<>
+        void copy_to_buffer(char* data_buffer_ptr, unsigned int& buffer_size_in_bytes, const AttributeEntityType & value) {
+            if(value._is_complex()) {
+                MMap::ensure_or_alloc_range(data_buffer_ptr, sizeof(enum_indx));
+                *(enum_indx*)data_buffer_ptr = VRT._unspecified.value;
+                unsigned int serialized_size;
+                copy_to_buffer(data_buffer_ptr + sizeof(enum_indx), serialized_size, *value.complex_value);
+                buffer_size_in_bytes = sizeof(enum_indx) + serialized_size;
+            } else {
+                buffer_size_in_bytes = sizeof(enum_indx);
+                MMap::ensure_or_alloc_range(data_buffer_ptr, buffer_size_in_bytes);
+                *(enum_indx*)data_buffer_ptr = value.rep_type.value;
+            }
+        }
+
         ////////////////////////////////
         // * Is compatible funcs
 
         // The flow here is:
         //
         // is_compatible -> pass_to_value_type_check
-        //            or -> is_compatible_native -> is_compatible_rep_type
+        //            or -> is_compatible_primitive -> is_compatible_rep_type
 
         template<typename T>
         bool is_compatible_rep_type(const ValueRepType & vrt);
@@ -666,6 +700,7 @@ namespace zefDB {
         template<> bool is_compatible_rep_type<const char*>(const ValueRepType & vrt) { return vrt == VRT.String; }
         template<> bool is_compatible_rep_type<Time>(const ValueRepType & vrt) { return vrt == VRT.Time; }
         template<> bool is_compatible_rep_type<SerializedValue>(const ValueRepType & vrt) { return vrt == VRT.Serialized; }
+        template<> bool is_compatible_rep_type<AttributeEntityType>(const ValueRepType & vrt) { return vrt == VRT.Type; }
 
         template<> bool is_compatible_rep_type<ZefEnumValue>(const ValueRepType & vrt) {
             int offset = vrt.value % 16;
@@ -684,50 +719,52 @@ namespace zefDB {
         }
 
         template<typename T>
-        bool is_compatible_native(T val, const ValueRepType & vrt) {
+        bool is_compatible_primitive(const T & val, const ValueRepType & vrt) {
             return is_compatible_rep_type<T>(vrt); 
         }
 
         template<>
-        bool is_compatible_native(ZefEnumValue en, const ValueRepType & vrt) {
+        bool is_compatible_primitive(const ZefEnumValue & en, const ValueRepType & vrt) {
             int offset = vrt.value % 16;
             return is_compatible_rep_type<ZefEnumValue>(vrt)
                 && (ZefEnumValue{ (vrt.value - offset) }.enum_type() == en.enum_type());
         }
         template<>
-        bool is_compatible_native(QuantityFloat q, const ValueRepType & vrt) {
+        bool is_compatible_primitive(const QuantityFloat & q, const ValueRepType & vrt) {
             int offset = vrt.value % 16;
             return is_compatible_rep_type<QuantityFloat>(vrt)
                 && ((vrt.value - offset) == q.unit.value);
         }
         template<>
-        bool is_compatible_native(QuantityInt q, const ValueRepType & vrt) {
+        bool is_compatible_primitive(const QuantityInt & q, const ValueRepType & vrt) {
             int offset = vrt.value % 16;
             return is_compatible_rep_type<QuantityInt>(vrt)
                 && ((vrt.value - offset) == q.unit.value);
         }
 
         template<typename T>
-        bool is_compatible(const T & val, const AtomicEntityType & aet) {
-            if(is_AET_complex(aet))
+        bool is_compatible(const T & val, const AttributeEntityType & aet) {
+            if(aet._is_complex())
                 return internals::pass_to_value_type_check(val, *aet.complex_value);
-            return is_compatible_native(val, aet.rep_type);
+            return is_compatible_primitive(val, aet.rep_type);
         }
 
-        template bool is_compatible(const bool & val, const AtomicEntityType & aet);
-        template bool is_compatible(const int & val, const AtomicEntityType & aet);
-        template bool is_compatible(const double & val, const AtomicEntityType & aet);
-        template bool is_compatible(const str & val, const AtomicEntityType & aet);
-        template bool is_compatible(const Time & val, const AtomicEntityType & aet);
-        template bool is_compatible(const SerializedValue & val, const AtomicEntityType & aet);
-        template bool is_compatible(const ZefEnumValue & en, const AtomicEntityType & aet);
-        template bool is_compatible(const QuantityFloat & q, const AtomicEntityType & aet);
-        template bool is_compatible(const QuantityInt & q, const AtomicEntityType & aet);
+        template bool is_compatible(const bool & val, const AttributeEntityType & aet);
+        template bool is_compatible(const int & val, const AttributeEntityType & aet);
+        template bool is_compatible(const double & val, const AttributeEntityType & aet);
+        template bool is_compatible(const str & val, const AttributeEntityType & aet);
+        template bool is_compatible(const Time & val, const AttributeEntityType & aet);
+        template bool is_compatible(const SerializedValue & val, const AttributeEntityType & aet);
+        template bool is_compatible(const ZefEnumValue & en, const AttributeEntityType & aet);
+        template bool is_compatible(const QuantityFloat & q, const AttributeEntityType & aet);
+        template bool is_compatible(const QuantityInt & q, const AttributeEntityType & aet);
+        template bool is_compatible(const AttributeEntityType & val, const AttributeEntityType & aet);
         template<>
-        bool is_compatible(const EZefRef & z, const AtomicEntityType & aet) {
-            if(!is_zef_subtype(z, BT.ATOMIC_VALUE_NODE))
+        bool is_compatible(const EZefRef & z, const AttributeEntityType & aet) {
+            if(!is_zef_subtype(z, BT.VALUE_NODE))
                 throw std::runtime_error("Got to is_compatible with a non-AVN EZefRef");
-            auto & ent = get<blobs_ns::ATOMIC_VALUE_NODE>(z);
+            auto & ent = get<blobs_ns::VALUE_NODE>(z);
+            // In the future, this can just be a ZefValue pointer.
             auto val = value_from_node<value_variant_t>(ent);
             return std::visit([&aet](auto & x) {
                 return is_compatible(x, aet);
@@ -735,30 +772,11 @@ namespace zefDB {
                 val);
         }
 
-        std::optional<SerializedValue> get_AE_complex_type(const blobs_ns::ATOMIC_ENTITY_NODE & ae) {
-            if (!is_AE_complex(ae))
-                return {};
-
-            // The first edge is a REL_ENT_INSTANCE and the second must be the VALUE_TYPE_EDGE
-            if(ae.edges.indices[1] <= 0)
-                throw std::runtime_error("Complex value type edge is missing");
-            EZefRef maybe_edge{ae.edges.indices[1], *graph_data(&ae)};
-            if(BT(maybe_edge) != BT.VALUE_TYPE_EDGE)
-                throw std::runtime_error("Complex value type edge is missing");
-
-            EZefRef z_value_node = imperative::target(maybe_edge);
-            auto & value_node = get<blobs_ns::ATOMIC_VALUE_NODE>(z_value_node);
-            if (value_node.rep_type != VRT.Serialized)
-                throw std::runtime_error("Complex value type node is not VRT.Serialized");
-
-            return value_from_node<SerializedValue>(value_node);
+        template<>
+        bool is_compatible(const value_variant_t & val, const AttributeEntityType & aet) {
+            return std::visit([&aet](auto & x) { return is_compatible(x, aet); },
+                       val);
         }
-
-        bool is_AE_complex(const blobs_ns::ATOMIC_ENTITY_NODE & ae) {
-            // return (bool)get_AE_complex_type(ae);
-            return (ae.rep_type == VRT.Complex);
-        }
-
 
         //////////////////////////////////////////////
         // * Obtaining raw values
@@ -767,10 +785,10 @@ namespace zefDB {
         // string values are saved as a char array. We could return a string_view, but for simplicity and pybind11, instantiate an std::string for now
 
         template<typename T>
-        T value_from_node_ptr(const char * buf, unsigned int size, ValueRepType vrt);
+        T value_from_ptr(const char * buf, unsigned int size, ValueRepType vrt);
 
         template<>
-        str value_from_node_ptr<str>(const char * buf, unsigned int size, ValueRepType vrt) {
+        str value_from_ptr<str>(const char * buf, unsigned int size, ValueRepType vrt) {
             if(vrt != VRT.String)
                 throw std::runtime_error("Can't extract a string from anything other than a VRT.String");
             Butler::ensure_or_get_range(buf, size);
@@ -778,7 +796,7 @@ namespace zefDB {
         }
 
         template<>
-        SerializedValue value_from_node_ptr<SerializedValue>(const char * buf, unsigned int size, ValueRepType vrt) {
+        SerializedValue value_from_ptr<SerializedValue>(const char * buf, unsigned int size, ValueRepType vrt) {
             if(vrt != VRT.Serialized)
                 throw std::runtime_error("Can't extract a SerializedValue from anything other than a VRT.Serialized");
             Butler::ensure_or_get_range(buf, size);
@@ -794,7 +812,7 @@ namespace zefDB {
         }
 
         template<>
-        double value_from_node_ptr<double>(const char * buf, unsigned int size, ValueRepType vrt) {
+        double value_from_ptr<double>(const char * buf, unsigned int size, ValueRepType vrt) {
             // This needs to be specialised to convert, while allowing the other variants to avoid this unncessary check
             if (vrt == VRT.Float)
                 return value_cast<double>(*(double*)(buf));
@@ -804,7 +822,7 @@ namespace zefDB {
                 throw std::runtime_error("Can't extract a double from anything other than VRT.Float or VRT.Int");
         }
         template<>
-        int value_from_node_ptr<int>(const char * buf, unsigned int size, ValueRepType vrt) {
+        int value_from_ptr<int>(const char * buf, unsigned int size, ValueRepType vrt) {
             // This needs to be specialised to convert, while allowing the other variants to avoid this unncessary check
             if (vrt == VRT.Float)
                 return value_cast<int>(*(double*)(buf));
@@ -817,20 +835,56 @@ namespace zefDB {
         }
 
         template<>
-        value_variant_t value_from_node_ptr<value_variant_t>(const char * buf, unsigned int size, ValueRepType vrt) {
+        ValueRepType value_from_ptr<ValueRepType>(const char * buf, unsigned int size, ValueRepType vrt) {
+            if(vrt != VRT.Type)
+                throw std::runtime_error("Not a VRT");
+            return ValueRepType{*(enum_indx*)(buf)};
+        }
+
+        template<>
+        AttributeEntityType value_from_ptr<AttributeEntityType>(const char * buf, unsigned int size, ValueRepType vrt) {
+            if(vrt != VRT.Type)
+                throw std::runtime_error("Not a type");
+
+            // FIXME we may need to worry about unaligned accesses later on
+
+            // Here we can use that we know how big the buffer is to determine
+            // whether there's a single enum_index to identify a primitive VRT
+            // or a complex one. However, this is not always available so let's
+            // do it properly here too.
+
+            // If the primitive VRT is zero, then it must be a complex type
+
+            auto value_vrt = value_from_ptr<ValueRepType>(buf, sizeof(ValueRepType), VRT.Type);
+            if(value_vrt == VRT._unspecified) {
+                // This is a complex type which must be serialized (for now).
+
+                // Need a better way to know what the size is that we are up to,
+                // as this could be necessary in the future.
+                auto serialized = value_from_ptr<SerializedValue>(buf + sizeof(ValueRepType), size - sizeof(ValueRepType), VRT.Serialized);
+                return AttributeEntityType{serialized};
+            } else {
+                return AttributeEntityType{value_vrt};
+            }
+        }
+
+        template<>
+        value_variant_t value_from_ptr<value_variant_t>(const char * buf, unsigned int size, ValueRepType vrt) {
             // We get the actual value from the VRT and just return that unconverted
             switch (vrt.value) {
-            case VRT.Float.value: { return value_from_node_ptr<double>(buf, size, vrt); }
-            case VRT.Int.value: { return value_from_node_ptr<int>(buf, size, vrt); }
-            case VRT.Bool.value: { return value_from_node_ptr<bool>(buf, size, vrt); }
-            case VRT.String.value: { return value_from_node_ptr<std::string>(buf, size, vrt); }
-            case VRT.Time.value: { return value_from_node_ptr<Time>(buf, size, vrt); }
-            case VRT.Serialized.value: { return value_from_node_ptr<SerializedValue>(buf, size, vrt); }
+            case VRT.Float.value: { return value_from_ptr<double>(buf, size, vrt); }
+            case VRT.Int.value: { return value_from_ptr<int>(buf, size, vrt); }
+            case VRT.Bool.value: { return value_from_ptr<bool>(buf, size, vrt); }
+            case VRT.String.value: { return value_from_ptr<std::string>(buf, size, vrt); }
+            case VRT.Time.value: { return value_from_ptr<Time>(buf, size, vrt); }
+            case VRT.Serialized.value: { return value_from_ptr<SerializedValue>(buf, size, vrt); }
+            case VRT.Type.value: { return value_from_ptr<AttributeEntityType>(buf, size, vrt); }
+            case VRT.Any.value: { throw std::runtime_error("Should never get to a point where a concrete value has a representation type of VRT.Any"); }
             default: {
                 switch (vrt.value % 16) {
-                case 1: { return value_from_node_ptr<ZefEnumValue>(buf, size, vrt); }
-                case 2: { return value_from_node_ptr<QuantityFloat>(buf, size, vrt); }
-                case 3: { return value_from_node_ptr<QuantityInt>(buf, size, vrt); }
+                case 1: { return value_from_ptr<ZefEnumValue>(buf, size, vrt); }
+                case 2: { return value_from_ptr<QuantityFloat>(buf, size, vrt); }
+                case 3: { return value_from_ptr<QuantityInt>(buf, size, vrt); }
                 default: throw std::runtime_error("Return type not implemented.");
                 }
             }
@@ -839,7 +893,7 @@ namespace zefDB {
 
         // for contiguous POD types with compile-time determined size, we can use this template
         template <typename T>
-        T value_from_node_ptr(const char * buf, unsigned int size, ValueRepType vrt) {
+        T value_from_ptr(const char * buf, unsigned int size, ValueRepType vrt) {
             return *(T*)(buf);  // project onto type
         }
 
@@ -854,22 +908,15 @@ namespace zefDB {
         T value_from_node_(const C & aae_or_avn) {
             const char * data_buffer = get_data_buffer(aae_or_avn);
             unsigned int size = get_data_buffer_size(aae_or_avn);
-            return value_from_node_ptr<T>(data_buffer, size, aae_or_avn.rep_type);
+            return value_from_ptr<T>(data_buffer, size, aae_or_avn.rep_type);
         }
 
         template<class T>
         T value_from_node(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae) {
-            if(aae.rep_type == VRT.Complex) {
-                // The data buffer contains the index that points to the real value node.
-                blob_index value_node_index = *(blob_index*)aae.data_buffer;
-                EZefRef z_value_node{value_node_index, *graph_data(&aae)};
-                auto & value_node = get<blobs_ns::ATOMIC_VALUE_NODE>(z_value_node);
-                return value_from_node_<T>(value_node);
-            } else
-                return value_from_node_<T>(aae);
+            return value_from_node_<T>(aae);
         }
         template<class T>
-        T value_from_node(const blobs_ns::ATOMIC_VALUE_NODE& av) {
+        T value_from_node(const blobs_ns::VALUE_NODE& av) {
             return value_from_node_<T>(av);
         }
 
@@ -882,18 +929,20 @@ namespace zefDB {
         template SerializedValue value_from_node<SerializedValue>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
         template double value_from_node<double>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
         template int value_from_node<int>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
+        template AttributeEntityType value_from_node<AttributeEntityType>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
         template value_variant_t value_from_node<value_variant_t>(const blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& aae);
 
-        template QuantityInt value_from_node<QuantityInt>(const blobs_ns::ATOMIC_VALUE_NODE& av);
-        template QuantityFloat value_from_node<QuantityFloat>(const blobs_ns::ATOMIC_VALUE_NODE& av);
-        template ZefEnumValue value_from_node<ZefEnumValue>(const blobs_ns::ATOMIC_VALUE_NODE& av);
-        template Time value_from_node<Time>(const blobs_ns::ATOMIC_VALUE_NODE& av);
-        template bool value_from_node<bool>(const blobs_ns::ATOMIC_VALUE_NODE& av);
-        template str value_from_node<str>(const blobs_ns::ATOMIC_VALUE_NODE& av);
-        template SerializedValue value_from_node<SerializedValue>(const blobs_ns::ATOMIC_VALUE_NODE& av);
-        template double value_from_node<double>(const blobs_ns::ATOMIC_VALUE_NODE& av);
-        template int value_from_node<int>(const blobs_ns::ATOMIC_VALUE_NODE& av);
-        template value_variant_t value_from_node<value_variant_t>(const blobs_ns::ATOMIC_VALUE_NODE& av);
+        template QuantityInt value_from_node<QuantityInt>(const blobs_ns::VALUE_NODE& av);
+        template QuantityFloat value_from_node<QuantityFloat>(const blobs_ns::VALUE_NODE& av);
+        template ZefEnumValue value_from_node<ZefEnumValue>(const blobs_ns::VALUE_NODE& av);
+        template Time value_from_node<Time>(const blobs_ns::VALUE_NODE& av);
+        template bool value_from_node<bool>(const blobs_ns::VALUE_NODE& av);
+        template str value_from_node<str>(const blobs_ns::VALUE_NODE& av);
+        template SerializedValue value_from_node<SerializedValue>(const blobs_ns::VALUE_NODE& av);
+        template double value_from_node<double>(const blobs_ns::VALUE_NODE& av);
+        template int value_from_node<int>(const blobs_ns::VALUE_NODE& av);
+        template AttributeEntityType value_from_node<AttributeEntityType>(const blobs_ns::VALUE_NODE& aae);
+        template value_variant_t value_from_node<value_variant_t>(const blobs_ns::VALUE_NODE& av);
 
     }
 }

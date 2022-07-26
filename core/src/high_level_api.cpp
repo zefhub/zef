@@ -54,9 +54,9 @@ namespace zefDB {
         return imperative::filter<EZefRef>(blobs(graph),
                                [](EZefRef x) {
                                    return ((BT(x) == BT.ENTITY_NODE)
-                                           || (BT(x) == BT.ATOMIC_ENTITY_NODE)
+                                           || (BT(x) == BT.ATTRIBUTE_ENTITY_NODE)
                                            || (BT(x) == BT.RELATION_EDGE)
-                                           || (BT(x) == BT.ATOMIC_VALUE_NODE))
+                                           || (BT(x) == BT.VALUE_NODE))
                                        && !is_delegate(x);
                                });
     }
@@ -76,7 +76,7 @@ namespace zefDB {
             o << " " << ET(zr);
         else if (BT(zr) == BT.RELATION_EDGE)
             o << " " << RT(zr);
-        else if (BT(zr) == BT.ATOMIC_ENTITY_NODE)
+        else if (BT(zr) == BT.ATTRIBUTE_ENTITY_NODE)
             o << " " << AET(zr);
         else if (BT(zr) == BT.TX_EVENT_NODE)
             o << " TX at slice=" << TimeSlice(zr.blob_uzr).value << " seen from";
@@ -106,23 +106,23 @@ namespace zefDB {
 	}
 
 	bool is_promotable_to_zefref(EZefRef uzr_to_promote) {
-		if( BT(uzr_to_promote) == BT.ATOMIC_ENTITY_NODE
+		if( BT(uzr_to_promote) == BT.ATTRIBUTE_ENTITY_NODE
 			|| BT(uzr_to_promote) == BT.ENTITY_NODE
 			|| BT(uzr_to_promote) == BT.RELATION_EDGE
-			|| BT(uzr_to_promote) == BT.ATOMIC_VALUE_NODE
+			|| BT(uzr_to_promote) == BT.VALUE_NODE
 			|| BT(uzr_to_promote) == BT.TX_EVENT_NODE
 			|| BT(uzr_to_promote) == BT.ROOT_NODE)
             return true;
         return false;
     }
 
-    std::variant<EntityType, RelationType, AtomicEntityType> rae_type(EZefRef uzr) {
+    std::variant<EntityType, RelationType, AttributeEntityType> rae_type(EZefRef uzr) {
         // Given any ZefRef or EZefRef, return the ET, RT or AET. Throw an error if it is a different blob type.
         if (BT(uzr)==BT.ENTITY_NODE)
             return ET(uzr);
         else if (BT(uzr)==BT.RELATION_EDGE)
             return RT(uzr);
-        else if (BT(uzr)==BT.ATOMIC_ENTITY_NODE)
+        else if (BT(uzr)==BT.ATTRIBUTE_ENTITY_NODE)
             return AET(uzr);
         else
             throw std::runtime_error("Item is not a RAE blob type: " + to_str(BT(uzr)));
@@ -433,36 +433,46 @@ namespace zefDB {
 	}
 
 	// for ATOMIC_ENTITY_NODE
-	ZefRef instantiate(AtomicEntityType aet, GraphData& gd, std::optional<BaseUID> given_uid_maybe) {
+	ZefRef instantiate(AttributeEntityType aet, GraphData& gd, std::optional<BaseUID> given_uid_maybe) {
 		if (!gd.is_primary_instance)
 			throw std::runtime_error("'instantiate atomic entity' called for a graph which is not a primary instance. This is not allowed. Shame on you!");
 		auto my_tx_to_keep_this_open_in_this_fct = Transaction(gd);
 
-		EZefRef my_entity = internals::instantiate(BT.ATOMIC_ENTITY_NODE, gd);
-		auto& entity_struct = get<blobs_ns::ATOMIC_ENTITY_NODE>(my_entity);		
+		EZefRef my_entity = internals::instantiate(BT.ATTRIBUTE_ENTITY_NODE, gd);
+		auto& entity_struct = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(my_entity);		
 
 		EZefRef tx_node{ gd.index_of_open_tx_node, gd };
 		entity_struct.instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx_node).time_slice;
 
+
+        // TODO:
+        // 1. Always create value node for value type
+        // 2. Determine primitive VRT for type
+        // 3. Hook up to schema nodes
+        // 4. Create value type
+
+
+        ValueRepType primitive_vrt;
+        if(aet._is_complex()) {
+            // Determine VRT from python
+            throw std::runtime_error("Not implemented");
+            // primitive_vrt = ...
+            primitive_vrt = VRT.Any;
+        } else {
+            primitive_vrt = aet.rep_type;
+        }
+            
+
 		// AtomicEntityType has a const member and we can't set this afterwards. Construct into place (call constructor on specified address)
 		// 'placement new': see https://www.stroustrup.com/C++11FAQ.html#unions
-        if(is_AET_complex(aet)) {
-            new(&entity_struct.rep_type) ValueRepType{ VRT.Complex.value };  // take on same type for the atomic entity delegate
-            // Weirdly, we can't do this just yet - we need to wait until after the hook_up_to_schema_nodes has done its thing. However that function needs the already VRT set...
-            // EZefRef value_node = internals::instantiate_value_node(*aet.complex_value, gd);
-            // internals::instantiate(my_entity, BT.VALUE_TYPE_EDGE, value_node, gd);
-        } else {
-            new(&entity_struct.rep_type) ValueRepType{ aet.rep_type.value };  // take on same type for the atomic entity delegate
-        }
+        new(&entity_struct.primitive_type) ValueRepType{ primitive_vrt.value };  // take on same type for the atomic entity delegate
 
         internals::hook_up_to_schema_nodes(my_entity, gd, given_uid_maybe);
 
-        if(is_AET_complex(aet)) {
-            ZefRef value_node = instantiate_value_node(*aet.complex_value, gd);
-            internals::instantiate(my_entity, BT.VALUE_TYPE_EDGE, value_node.blob_uzr, gd);
-        }
+        EZefRef value_node = internals::instantiate_value_node(aet, gd);
+        internals::instantiate(my_entity, BT.VALUE_TYPE_EDGE, value_node, gd);
 
-        internals::apply_action_ATOMIC_ENTITY_NODE(gd, my_entity, true);
+        internals::apply_action_ATTRIBUTE_ENTITY_NODE(gd, my_entity, true);
 		
 		auto new_entity = ZefRef{ my_entity, tx_node };
 		return new_entity;
@@ -530,7 +540,7 @@ namespace zefDB {
 
         auto can_be_cloned = [](ZefRef zz)->bool { return
 			(BT(zz) == BT.ENTITY_NODE ||
-				BT(zz) == BT.ATOMIC_ENTITY_NODE ||
+				BT(zz) == BT.ATTRIBUTE_ENTITY_NODE ||
 				BT(zz) == BT.RELATION_EDGE
 				) && !is_delegate(zz);
 		};
@@ -581,7 +591,7 @@ namespace zefDB {
 		}
 
 
-		EZefRef get_or_create_and_get_foreign_rae(Graph& target_graph, std::variant<EntityType, AtomicEntityType, std::tuple<EZefRef, RelationType, EZefRef>> ae_or_entity_type, const BaseUID& origin_entity_uid, const BaseUID& origin_graph_uid) {
+		EZefRef get_or_create_and_get_foreign_rae(Graph& target_graph, std::variant<EntityType, AttributeEntityType, std::tuple<EZefRef, RelationType, EZefRef>> ae_or_entity_type, const BaseUID& origin_entity_uid, const BaseUID& origin_graph_uid) {
 			if (target_graph.contains(origin_entity_uid)) {
 				//if (rae_type != (target_graph[origin_entity_uid])) throw std::runtime_error("the entity type of the RAE's uid did not match the expected entity type in get_or_create_and_get_foreign_rae");
 				return target_graph[origin_entity_uid];
@@ -594,17 +604,14 @@ namespace zefDB {
 					reinterpret_cast<blobs_ns::FOREIGN_ENTITY_NODE*>(new_foreign_entity_uzr.blob_ptr)->entity_type = et;
 					return new_foreign_entity_uzr;
 				},
-				[&](AtomicEntityType aet) {
-					EZefRef new_foreign_entity_uzr = internals::instantiate(BT.FOREIGN_ATOMIC_ENTITY_NODE, gd);
+				[&](AttributeEntityType aet) {
+					EZefRef new_foreign_entity_uzr = internals::instantiate(BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, gd);
 					// AtomicEntityType has a const member and we can't set this afterwards. Construct into place (call constructor on specified address)
 					// 'placement new': see https://www.stroustrup.com/C++11FAQ.html#unions
 
-                    if(is_AET_complex(aet)) {
-                        throw std::runtime_error("Need to handle this case");
-                        // TODO: Copy in the value node as well
-                    } else {
-                        new(&(reinterpret_cast<blobs_ns::FOREIGN_ATOMIC_ENTITY_NODE*>(new_foreign_entity_uzr.blob_ptr)->rep_type)) ValueRepType{ aet.rep_type.value };  // take on same type for the atomic entity delegate
-                    }
+                    throw std::runtime_error("Need to handle this case");
+                    // TODO: Copy in the value node as well
+                    new(&(reinterpret_cast<blobs_ns::FOREIGN_ATTRIBUTE_ENTITY_NODE*>(new_foreign_entity_uzr.blob_ptr)->primitive_type)) ValueRepType{ aet.rep_type.value };  // take on same type for the atomic entity delegate
 					return new_foreign_entity_uzr;
 				},	
 				[&](const std::tuple<EZefRef, RelationType, EZefRef>& trip) {
@@ -628,7 +635,7 @@ namespace zefDB {
 		bool is_rae_foregin(EZefRef z) {
 			// small utility function to distinguish e.g. FOREIGN_ENTITY_NODE vs ENTITY_NODE
 			return BT(z) == BT.FOREIGN_ENTITY_NODE
-				|| BT(z) == BT.FOREIGN_ATOMIC_ENTITY_NODE
+				|| BT(z) == BT.FOREIGN_ATTRIBUTE_ENTITY_NODE
 				|| BT(z) == BT.FOREIGN_RELATION_EDGE;
 		}
 
@@ -649,7 +656,7 @@ namespace zefDB {
 
 
 		
-		EZefRef merge_atomic_entity_(Graph & target_graph, AtomicEntityType atomic_entity_type, const BaseUID & origin_entity_uid, const BaseUID & origin_graph_uid) {
+		EZefRef merge_atomic_entity_(Graph & target_graph, AttributeEntityType atomic_entity_type, const BaseUID & origin_entity_uid, const BaseUID & origin_graph_uid) {
 			/*
 			* This function is called once it is clear that no living member of the RAE's lineage exists.
 			* It will definitely create a new instance and possibly a ForeignEntity (if this does not exist yet).
@@ -681,7 +688,7 @@ namespace zefDB {
         EZefRef local_entity(EZefRef uzr) {
             if (BT(uzr) != BT.FOREIGN_ENTITY_NODE &&
                 BT(uzr) != BT.FOREIGN_RELATION_EDGE &&
-                BT(uzr) != BT.FOREIGN_ATOMIC_ENTITY_NODE)
+                BT(uzr) != BT.FOREIGN_ATTRIBUTE_ENTITY_NODE)
                 throw std::runtime_error("local_entity can only be applied to BT.FOREIGN_* blobs, not" + to_str(BT(uzr)));
 
             return imperative::target(imperative::traverse_in_node(uzr, BT.ORIGIN_RAE_EDGE));
@@ -744,19 +751,19 @@ namespace zefDB {
 
 
     template <typename T>
-    std::optional<T> value_from_ae(ZefRef my_atomic_entity) {
+    std::optional<T> value_from_ae(ZefRef z_ae) {
         using namespace internals;
         // check that the type T corresponds to the type of atomic entity of the zefRef
-        if (get<BlobType>(my_atomic_entity.blob_uzr) != BlobType::ATOMIC_ENTITY_NODE) 
+        if (get<BlobType>(z_ae.blob_uzr) != BlobType::ATTRIBUTE_ENTITY_NODE) 
             throw std::runtime_error("ZefRef | value.something called for a ZefRef not pointing to an ATOMIC_ENTITY_NODE blob.");			
-        auto & ae = get<blobs_ns::ATOMIC_ENTITY_NODE>(my_atomic_entity.blob_uzr);
-        if (!is_compatible_rep_type<T>(ae.rep_type))
-            throw std::runtime_error("ZefRef | value called, but the specified return type does not agree with the type of the ATOMIC_ENTITY_NODE pointed to (" + to_str(ae.rep_type) + ")");
+        auto & ae = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(z_ae.blob_uzr);
+        if (!is_compatible_rep_type<T>(ae.primitive_type))
+            throw std::runtime_error("ZefRef | value called, but the specified return type does not agree with the type of the ATOMIC_ENTITY_NODE pointed to (" + to_str(ae.primitive_type) + ")");
 
-        GraphData& gd = *graph_data(my_atomic_entity);
-        EZefRef ref_tx = my_atomic_entity.tx;
+        GraphData& gd = *graph_data(z_ae);
+        EZefRef ref_tx = z_ae.tx;
             
-        if (!imperative::exists_at(my_atomic_entity.blob_uzr, my_atomic_entity.tx))
+        if (!imperative::exists_at(z_ae.blob_uzr, z_ae.tx))
             throw std::runtime_error("ZefRef | value.something called, but the rel_ent pointed to does not exists in the reference frame tx specified.");
 
         auto tx_time_slice = [](EZefRef uzr)->TimeSlice { return get<blobs_ns::TX_EVENT_NODE>(uzr).time_slice; };
@@ -765,104 +772,140 @@ namespace zefDB {
         // Ranges don't work for AllEdgeIndexes class and we want this part to be lazy, do it the ugly imperative way for now
         // This is one of the critical parts where we want lazy evaluation.
         // Enter the pyramid of death. 
-        for (auto ind : AllEdgeIndexes(imperative::traverse_in_edge(my_atomic_entity.blob_uzr, BT.RAE_INSTANCE_EDGE))) {
+        for (auto ind : AllEdgeIndexes(imperative::traverse_in_edge(z_ae.blob_uzr, BT.RAE_INSTANCE_EDGE))) {
             if (ind < 0) {
                 auto incoming_val_assignment_edge = EZefRef(-ind, gd);
-                if (get<BlobType>(incoming_val_assignment_edge) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE) {
-                    if (tx_time_slice(incoming_val_assignment_edge | source) <= ref_time_slice) result_candidate_edge = incoming_val_assignment_edge;
+                if (get<BlobType>(incoming_val_assignment_edge) == BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE ||
+                    get<BlobType>(incoming_val_assignment_edge) == BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE) {
+                    if (tx_time_slice(imperative::source(incoming_val_assignment_edge)) <= ref_time_slice) result_candidate_edge = incoming_val_assignment_edge;
                     else break;
                 }
             }
         }
         if (result_candidate_edge.blob_ptr == nullptr) return {};  // no assignment edge was found
-        else return internals::value_from_node<T>(get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge));
+        else if (get<BlobType>(result_candidate_edge) == BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE) {
+            auto & avae = get<blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge);
+            // FIXME: can optimise this by assuming node types, leaving as is for debugging purposes.
+            EZefRef value_edge{avae.value_edge_index, *graph_data(&avae)};
+            EZefRef value_node = imperative::target(value_edge);
+            return internals::value_from_node<T>(get<blobs_ns::VALUE_NODE>(value_node));
+        } else {
+            // Deprecated
+            return internals::value_from_node<T>(get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(result_candidate_edge));
+        }
     }
-    template std::optional<double> value_from_ae<double>(ZefRef my_atomic_entity);
-    template std::optional<int> value_from_ae<int>(ZefRef my_atomic_entity);
-    template std::optional<bool> value_from_ae<bool>(ZefRef my_atomic_entity);
-    template std::optional<std::string> value_from_ae<std::string>(ZefRef my_atomic_entity);
-    template std::optional<Time> value_from_ae<Time>(ZefRef my_atomic_entity);
-    template std::optional<SerializedValue> value_from_ae<SerializedValue>(ZefRef my_atomic_entity);
-    template std::optional<ZefEnumValue> value_from_ae<ZefEnumValue>(ZefRef my_atomic_entity);
-    template std::optional<QuantityFloat> value_from_ae<QuantityFloat>(ZefRef my_atomic_entity);
-    template std::optional<QuantityInt> value_from_ae<QuantityInt>(ZefRef my_atomic_entity);
-    template std::optional<value_variant_t> value_from_ae<value_variant_t>(ZefRef my_atomic_entity);
+    template std::optional<double> value_from_ae<double>(ZefRef ae);
+    template std::optional<int> value_from_ae<int>(ZefRef ae);
+    template std::optional<bool> value_from_ae<bool>(ZefRef ae);
+    template std::optional<std::string> value_from_ae<std::string>(ZefRef ae);
+    template std::optional<Time> value_from_ae<Time>(ZefRef ae);
+    template std::optional<SerializedValue> value_from_ae<SerializedValue>(ZefRef ae);
+    template std::optional<ZefEnumValue> value_from_ae<ZefEnumValue>(ZefRef ae);
+    template std::optional<QuantityFloat> value_from_ae<QuantityFloat>(ZefRef ae);
+    template std::optional<QuantityInt> value_from_ae<QuantityInt>(ZefRef ae);
+    template std::optional<value_variant_t> value_from_ae<value_variant_t>(ZefRef ae);
+    template std::optional<AttributeEntityType> value_from_ae<AttributeEntityType>(ZefRef ae);
         
 
 
-    template <typename T>
-    void assign_value(EZefRef my_atomic_entity, const T & value_to_be_assigned) {
-        GraphData& gd = *graph_data(my_atomic_entity);
+    // Deliberate name change here - assign_value should now work by creating a
+    // value node and then calling this function.
+    void assign_value_node(EZefRef z_ae, EZefRef z_value_node) {
+        GraphData& gd = *graph_data(z_ae);
         if (!gd.is_primary_instance)
             throw std::runtime_error("'assign value' called for a graph which is not a primary instance. This is not allowed. Shame on you!");
-        // tasks::apply_immediate_updates_from_zm();
-        using namespace internals;
-        if (*(BlobType*)my_atomic_entity.blob_ptr != BlobType::ATOMIC_ENTITY_NODE)
-            throw std::runtime_error("assign_value called for node that is not of type ATOMIC_ENTITY_NODE. This is not possible.");
-        auto & ae = get<blobs_ns::ATOMIC_ENTITY_NODE>(my_atomic_entity);
-        if (is_terminated(my_atomic_entity))
-            throw std::runtime_error("assign_value called on already terminated entity or relation");
-        if (!is_compatible(value_to_be_assigned, AET(ae)))
-            throw std::runtime_error("assign value called with type (" + to_str(value_to_be_assigned) + ") that cannot be assigned to this aet of type " + to_str(AET(my_atomic_entity)));
+        if (graph_data(z_ae) != graph_data(z_value_node))
+            throw std::runtime_error("Can't assign a value node from a different GraphData.");
+        if (get<BlobType>(z_ae) != BlobType::ATTRIBUTE_ENTITY_NODE)
+            throw std::runtime_error("assign_value_node called for node that is not of type ATOMIC_ENTITY_NODE. This is not possible.");
+        if (get<BlobType>(z_value_node) != BlobType::VALUE_NODE)
+            throw std::runtime_error("assign_value_node called with value node that is not of type VALUE_NODE.");
 
-        // only perform any value assignment if the new value to be assigned here is different from the most recent one
-        //auto most_recent_value = my_atomic_entity | now | value.Float;   // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+        auto & ae = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(z_ae);
+        auto & value_node = get<blobs_ns::VALUE_NODE>(z_value_node);
+        if (internals::is_terminated(z_ae))
+            throw std::runtime_error("assign_value_node called on already terminated entity or relation");
+        if (!internals::is_compatible(internals::value_from_node<value_variant_t>(value_node), AET(ae)))
+            throw std::runtime_error("assign value called with type (...FIXME...) that cannot be assigned to this aet of type " + to_str(AET(ae)));
+
+        // TODO: only perform any value assignment if the new value to be assigned
+        // here is different from the most recent one
+        //
+        // can check the last edge and see if it points to the same value node
 
         auto my_tx_to_keep_this_open_in_this_fct = Transaction(gd);
-        EZefRef tx_event = get_or_create_and_get_tx(gd);
-        EZefRef my_rel_ent_instance = internals::get_RAE_INSTANCE_EDGE(my_atomic_entity);
-        blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE& my_value_assignment_edge = get_next_free_writable_blob<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(gd);
-        // Note: for strings, going to ensure even more memory later
-        MMap::ensure_or_alloc_range(&my_value_assignment_edge, blobs_ns::max_basic_blob_size);
-        my_value_assignment_edge.this_BlobType = BlobType::ATOMIC_VALUE_ASSIGNMENT_EDGE;		
-        // TODO: The AET here should be of the value coming in, and with below
-        // we shouldn't need to cast the value. The is_compatible call is the
-        // place to validate whether we can assign here. Note that this will
-        // change the behaviour subtly, as there will be no auto conversion.
-        //
-        // TODO: However, we could have a function that understands about making
-        // a conversion of the representation type. But the logic and
-        // representation types can be different! Is this the responsibility of
-        // the caller, to manage the representation type they get out? The only
-        // place that matters is int<->float I think.
-        // 
+        EZefRef tx_event = internals::get_or_create_and_get_tx(gd);
+        EZefRef my_rel_ent_instance = internals::get_RAE_INSTANCE_EDGE(z_ae);
+        blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE& avae = internals::get_next_free_writable_blob<blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE>(gd);
+        MMap::ensure_or_alloc_range(&avae, blobs_ns::max_basic_blob_size);
+        avae.this_BlobType = BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE;		
+        blob_index avae_index = index(EZefRef((void*)&avae));
 
-        auto assignment_func = overloaded {
-                [&](const EZefRef & z) {
-                    if(!is_zef_subtype(z, BT.ATOMIC_VALUE_NODE))
-                        throw std::runtime_error("Trying to assign a value from a non-AVN EZefRef");
-                    new(&my_value_assignment_edge.rep_type) ValueRepType{ VRT.Complex.value };
-                    // Assign the index of the value node into the buffer as the substitute.
-                    internals::copy_to_buffer(my_value_assignment_edge.data_buffer, my_value_assignment_edge.buffer_size_in_bytes, index(z));
-                },
-                [&](const auto & value_to_be_assigned) {
-                    auto deduced_vrt = get_vrt_from_value(value_to_be_assigned);
-                    // In this branch we know that the aet will always be a VRT
-                    new(&my_value_assignment_edge.rep_type) ValueRepType{ deduced_vrt.value };  // set the const value
-                    internals::copy_to_buffer(my_value_assignment_edge.data_buffer, my_value_assignment_edge.buffer_size_in_bytes, value_to_be_assigned);
-                },
-        };
-        assignment_func(value_to_be_assigned);
+        internals::move_head_forward(gd);   // keep this low level function here! The buffer size is not fixed and 'instantiate' was not designed for this case
 
-        move_head_forward(gd);   // keep this low level function here! The buffer size is not fixed and 'instantiate' was not designed for this case
-        my_value_assignment_edge.source_node_index = index(tx_event);
-        my_value_assignment_edge.target_node_index = index(my_rel_ent_instance);
-        blob_index this_val_assignment_edge_index = index(EZefRef((void*)&my_value_assignment_edge));
-        append_edge_index(tx_event, this_val_assignment_edge_index);
-        append_edge_index(my_rel_ent_instance, -this_val_assignment_edge_index);
+        // The value edge to link to the value node
+        blobs_ns::VALUE_EDGE& value_edge = internals::get_next_free_writable_blob<blobs_ns::VALUE_EDGE>(gd);
+        MMap::ensure_or_alloc_range(&value_edge, blobs_ns::max_basic_blob_size);
+        value_edge.this_BlobType = BlobType::VALUE_EDGE;		
+        value_edge.source_node_index = avae_index;
+        value_edge.target_node_index = index(z_value_node);
+        blob_index value_edge_index = index(EZefRef((void*)&value_edge));
+        internals::append_edge_index(z_value_node, -value_edge_index);
 
-        apply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(gd, EZefRef((void*)&my_value_assignment_edge), true);
+        // Now fill in the avae struct
+        avae.source_node_index = index(tx_event);
+        avae.target_node_index = index(my_rel_ent_instance);
+        avae.value_edge_index = value_edge_index;
+        internals::append_edge_index(tx_event, avae_index);
+        internals::append_edge_index(my_rel_ent_instance, -avae_index);
     }
 
-    template void assign_value(EZefRef my_atomic_entity, const bool & value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, const int & value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, const double & value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, const str & value_to_be_assigned);
-    // template void assign_value(EZefRef my_atomic_entity, const charconst * value_to_be_assigned &);
-    template void assign_value(EZefRef my_atomic_entity, const Time & value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, const SerializedValue & value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, const ZefEnumValue & value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, const QuantityFloat & value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, const QuantityInt & value_to_be_assigned);
-    template void assign_value(EZefRef my_atomic_entity, const EZefRef & value_to_be_assigned);
+    template<>
+    void assign_value(EZefRef z_ae, const EZefRef & value) {
+        if(get<BlobType>(z_ae) != BlobType::ATTRIBUTE_ENTITY_NODE)
+            throw std::runtime_error("assign_value called for node that is not of type ATTRIBUTE_ENTITY_NODE.");
+        if(get<BlobType>(value) != BlobType::VALUE_NODE)
+            throw std::runtime_error("assign_value called for value EZefRef that is not of type VALUE_NODE.");
+        if(graph_data(z_ae) != graph_data(value)) {
+            assign_value(z_ae,
+                         internals::value_from_node<value_variant_t>(get<blobs_ns::VALUE_NODE>(value)));
+            return;
+        } else {
+            assign_value_node(z_ae, value);
+        }
+    }
+
+    template<>
+    void assign_value(EZefRef z_ae, const value_variant_t & value) {
+        std::visit([&z_ae](auto & x) { assign_value(z_ae, x); },
+                   value);
+    }
+
+    template<class T>
+    void assign_value(EZefRef z_ae, const T & value) {
+        if(get<BlobType>(z_ae) != BlobType::ATTRIBUTE_ENTITY_NODE)
+            throw std::runtime_error("assign_value called for node that is not of type ATTRIBUTE_ENTITY_NODE.");
+        auto & ae = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(z_ae);
+        ValueRepType primitive_type = get_vrt_from_ctype(value);
+
+        if(!is_zef_subtype(primitive_type, ae.primitive_type))
+            throw std::runtime_error("assign_value got value which can't fit into this attribute entity. FIXME: details");
+
+        EZefRef z_value_node = internals::instantiate_value_node(value, *graph_data(z_ae));
+
+        assign_value_node(z_ae, z_value_node);
+    }
+
+    template void assign_value(EZefRef z_ae, const bool & value);
+    template void assign_value(EZefRef z_ae, const int & value);
+    template void assign_value(EZefRef z_ae, const double & value);
+    template void assign_value(EZefRef z_ae, const str & value);
+    // template void assign_value(EZefRef z_ae, const charconst * value &);
+    template void assign_value(EZefRef z_ae, const Time & value);
+    template void assign_value(EZefRef z_ae, const SerializedValue & value);
+    template void assign_value(EZefRef z_ae, const ZefEnumValue & value);
+    template void assign_value(EZefRef z_ae, const QuantityFloat & value);
+    template void assign_value(EZefRef z_ae, const QuantityInt & value);
+
+
 }

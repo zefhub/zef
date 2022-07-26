@@ -240,8 +240,8 @@ namespace zefDB {
                     x.target_node_index *= -1;
                 }, ezr);
             } else if(style == 3) {
-                visit_blob_with_edges([](auto & x) {
-                    x.edges.indices[0] = 42;
+                visit_blob_with_edges([](auto & edges) {
+                    edges.indices[0] = 42;
                 }, ezr);
             } else if(style == 4) {
                 // Find a RAE instance that has been terminated and flip it
@@ -259,10 +259,10 @@ namespace zefDB {
                 if(num_inst_term < 2)
                     throw std::runtime_error("RAE needs two inst/terms");
 
-                visit_blob_with_edges([](auto & x) {
-                    blob_index temp = x.edges.indices[1];
-                    x.edges.indices[1] = x.edges.indices[0];
-                    x.edges.indices[0] = temp;
+                visit_blob_with_edges([](auto & edges) {
+                    blob_index temp = edges.indices[1];
+                    edges.indices[1] = edges.indices[0];
+                    edges.indices[0] = temp;
                 }, ezr);
 
             } else {
