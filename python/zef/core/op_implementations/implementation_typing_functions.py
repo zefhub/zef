@@ -3244,6 +3244,8 @@ def take_implementation(v, n):
     """
     if isinstance(v, ZefRef) or isinstance(v, EZefRef):
         return take(v, n)
+    elif isinstance(v, str):
+        return v[:n] if n>=0 else v[n:]
     else:
         if n >= 0:
             def wrapper():
@@ -3280,6 +3282,15 @@ def take_while_imp(v, predicate):
 
     ---- Signature ----
     (List[T], (T->Bool)) -> List[T]
+
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: take
+    - related zefop: take_until
+    - related zefop: skip
+    - related zefop: skip_while
     """
     def wrapper():
         it = iter(v)
@@ -4083,7 +4094,9 @@ def slice_imp(v, start_end: tuple):
 
     ---- Examples ----
     >>> ['a', 'b', 'c', 'd'] | slice[1:2]    # => ['b', 'c']
-    >>> 'abcdefgh' | slice[1,6,2]        # => 'bdf'
+    >>> 'abcdefgh' | slice[1,6,2]            # => 'bdf'
+    >>> 'hello' | slice[1,3]                 # => 'el'
+    >>> 'hello' | slice[1,-1]                # => 'ello'
     
     ---- Tags ----
     - operates on: List
