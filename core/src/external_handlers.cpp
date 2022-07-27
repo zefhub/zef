@@ -77,5 +77,25 @@ namespace zefDB {
                 std::cerr << "Warning, no value_type_check registered to be removed." << std::endl;
             value_type_check.reset();
         }
+
+        // ** Primitive type determination
+        std::optional<std::function<determine_primitive_type_t>> determine_primitive_type;
+        ValueRepType pass_to_determine_primitive_type(AttributeEntityType aet) {
+            if(!determine_primitive_type)
+                throw std::runtime_error("Value type check handler has not been assigned.");
+            return (*determine_primitive_type)(aet);
+        }
+
+        void register_determine_primitive_type(std::function<determine_primitive_type_t> func) {
+            if(determine_primitive_type)
+                throw std::runtime_error("determine_primitive_type has already been registered.");
+            determine_primitive_type = func;
+        }
+
+        void remove_determine_primitive_type() {
+            if(!determine_primitive_type)
+                std::cerr << "Warning, no determine_primitive_type registered to be removed." << std::endl;
+            determine_primitive_type.reset();
+        }
     }
 }

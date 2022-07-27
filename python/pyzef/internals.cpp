@@ -805,4 +805,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     internals_submodule.def("register_value_type_check", &internals::register_value_type_check);
     internals_submodule.add_object("_cleanup_value_type_check", py::capsule(&internals::remove_value_type_check));
+
+    internals_submodule.def("register_determine_primitive_type", &internals::register_determine_primitive_type);
+    internals_submodule.add_object("_cleanup_determine_primitive_type", py::capsule(&internals::remove_determine_primitive_type));
 }

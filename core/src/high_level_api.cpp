@@ -16,6 +16,7 @@
 #include "zefops.h"
 #include "ops_imperative.h"
 #include "synchronization.h"
+#include "external_handlers.h"
 #include <iterator>
 #include <unordered_set>
 #include <doctest/doctest.h>
@@ -455,9 +456,7 @@ namespace zefDB {
         ValueRepType primitive_vrt;
         if(aet._is_complex()) {
             // Determine VRT from python
-            throw std::runtime_error("Not implemented");
-            // primitive_vrt = ...
-            primitive_vrt = VRT.Any;
+            primitive_vrt = internals::pass_to_determine_primitive_type(aet);
         } else {
             primitive_vrt = aet.rep_type;
         }

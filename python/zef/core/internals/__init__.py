@@ -127,6 +127,8 @@ from .schema import register_schema_validator
 register_schema_validator()
 from .value_type_check import register_value_type_check
 register_value_type_check()
+from .determine_primitive_type import register_determine_primitive_type
+register_determine_primitive_type()
 
 BT = BlobTypeStruct()
 

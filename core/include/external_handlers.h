@@ -45,5 +45,11 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED void remove_value_type_check();
         LIBZEF_DLL_EXPORTED bool pass_to_value_type_check(value_variant_t val, SerializedValue type);
 
+        // ** Primitive type determination
+        typedef ValueRepType (determine_primitive_type_t)(AttributeEntityType aet);
+        LIBZEF_DLL_EXPORTED void register_determine_primitive_type(std::function<determine_primitive_type_t> func);
+        LIBZEF_DLL_EXPORTED void remove_determine_primitive_type();
+        LIBZEF_DLL_EXPORTED ValueRepType pass_to_determine_primitive_type(AttributeEntityType aet);
+
     }
 }
