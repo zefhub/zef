@@ -37,17 +37,17 @@ def value_or_type(node):
         
         return default
 
-def generate_rows(nodes, mapping, et_type = None):
-    @func
-    def traverse_rt(rt, et):
-        outs = et | Outs[rt] | collect
-        if len(outs) == 1:
-            return outs[0] | value_or_type | func[str] | collect
-        elif len(outs) > 1:
-            return outs | map[value_or_type | func[str]] | join[','] | collect
-        else:
-            return "-" 
+@func
+def traverse_rt(rt, et, traverse_op = Outs):
+    outs_or_ins = et | traverse_op[rt] | collect
+    if len(outs_or_ins) == 1:
+        return outs_or_ins[0] | value_or_type | func[str] | collect
+    elif len(outs_or_ins) > 1:
+        return outs_or_ins | map[value_or_type | func[str]] | join[','] | collect
+    else:
+        return "-" 
 
+def generate_rows(nodes, mapping, et_type = None):
     if et_type: return nodes | map[lambda et: mapping | map[traverse_rt[et]] | prepend[et_type] | func[tuple] | collect] | collect
     return nodes | map[lambda et: mapping | map[traverse_rt[et]] | func[tuple] | collect] | collect
 
@@ -131,9 +131,8 @@ def generate_table_from_query(query, compact = False, limit=10):
 
 #------------------------Card View------------------------------
 def generate_rows_for_node(node, is_out = True):
-    traverse_op, edge_end_op = [(in_rels, source), (out_rels, target)][is_out]
-    return node | traverse_op[RT] | sort[lambda rt: str(rae_type(rt))] | map[lambda rt: (str(rae_type(rt)), value_or_type(edge_end_op(rt)))] | collect
-
+    traverse_op, traverse_op_end = [(in_rels, Ins), (out_rels, Outs)][is_out]
+    return node | traverse_op[RT] | map[rae_type] | func[set] | map[lambda rt: (str(rt), traverse_rt(rt, node, traverse_op_end))] | collect
 
 def generate_rts_table(zr, is_out, compact):
     colors = ["#ff7e74","#ffe596","#81d76d","#57acf9","#baaee1"]

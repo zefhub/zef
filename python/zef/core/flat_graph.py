@@ -23,6 +23,19 @@ class Val:
     arg: VT.Any
 
 class FlatGraph_:
+    """
+    Internal data representation:
+    1) self.blobs: a tuple of blobs
+    2) self.key_dict: a dictionary mapping keys to indices in self.blobs
+
+    Each element of self.blobs is a tuple of the form 
+    (
+        index: Int, 
+        blob_type: e.g. ET.Foo / 'BT.ValueNode' / RT.Bar / AET.Int,
+        edge_list: a list of blob indexes (integers). Positive for outgoing, negative for incoming
+        origin_uid (optional)
+    )
+    """
     def __init__(self, *args):
         if args == ():
             self.key_dict = {}

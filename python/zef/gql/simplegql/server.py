@@ -100,39 +100,52 @@ def query(request, context):
 
     q = json.loads(request["request_body"])
 
+    if context["debug_level"] >= 3:
+        log.debug("DEBUG 3: incoming query", q=q)
+
     # We pass in the graph as a fixed slice, so that the queries can be done
     # consistently.
     success,data = graphql_sync(
         context["ari_schema"],
         q,
         context_value={"gs": now(context["g_data"]),
-                       "auth": auth_context},
+                       "auth": auth_context,
+                       "debug_level": context["debug_level"]},
     )
     if not success or "errors" in data:
         log.error("Failure in GQL query.", data=data, q=q, auth_context=auth_context)
+
+    response = json.dumps(data)
+    if context["debug_level"] >= 3:
+        log.debug("DEBUG 3: response", response=response)
+
     return {
-        "response_body": json.dumps(data),
+        "response_body": response,
         **request
     }
 
 def start_server(z_gql_root,
                  g_data,
+                 *,
                  port=443,
                  bind_address="0.0.0.0",
                  logging=True,
+                 debug_level=0,
                  ):
 
     schema,objects = generate_resolvers_fcts(z_gql_root)
     ari_schema = make_executable_schema(schema, objects)
 
     from logging import getLogger
-    logger = getLogger("ariadne").disabled = True
-    log.debug("Disabled ariadne logging")
+    if debug_level < 4:
+        logger = getLogger("ariadne").disabled = True
+        log.debug("Disabled ariadne logging")
     
     context = {
         "z_gql_root": z_gql_root,
         "g_data": g_data,
         "ari_schema": ari_schema,
+        "debug_level": debug_level,
     }
 
     if z_gql_root | has_out[RT.AuthJWKURL] | collect:

@@ -148,7 +148,7 @@ nil                = make_custom_entity(name_to_display='nil',         predeterm
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
-
+from .symbolic_expression import SV, SVs, unwrap_vars_hack
 
 pyzef.internals.finished_loading_python_core()
 
