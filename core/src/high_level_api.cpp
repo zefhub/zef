@@ -891,7 +891,7 @@ namespace zefDB {
         auto & ae = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(z_ae);
         ValueRepType primitive_type = get_vrt_from_ctype(value);
 
-        if(!is_zef_subtype(primitive_type, ae.primitive_type))
+        if(!internals::is_compatible(value, AET(z_ae)))
             throw std::runtime_error("assign_value got value which can't fit into this attribute entity. FIXME: details");
 
         auto & gd = *graph_data(z_ae);
