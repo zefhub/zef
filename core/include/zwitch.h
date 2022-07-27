@@ -122,4 +122,15 @@ namespace zefDB {
         std::chrono::duration<double> elapsed = std::chrono::steady_clock::now() - time_start_of_process;
         std::cerr << elapsed.count() << " seconds: " << msg << std::endl;
     }
+
+    inline void developer_output(std::string s) {
+        if(!zwitch.developer_output())
+            return;
+
+        std::time_t t = std::time(nullptr);
+        std::tm tm = *std::localtime(&t);
+
+        std::cerr << "DEV-" << std::put_time(&tm, "%T") << ": ";
+        std::cerr << s << std::endl;
+    }
 }
