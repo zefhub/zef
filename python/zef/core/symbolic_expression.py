@@ -94,7 +94,7 @@ Query[
 from .VT import FlatGraph, Pattern, Any, SetOf
 from ._ops import match, collect, insert, split_if, get, filter, map, Z
 from .zef_functions import func
-from ..pyzef.internals import ET, RT, AET
+from .internals import ET, RT, AET
 from .flat_graph import Val
 
 def merge_flatgraphs(g1, g2) -> FlatGraph:
