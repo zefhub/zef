@@ -8504,8 +8504,12 @@ def fg_insert_imp(fg, new_el):
             idx = new_key_dict[hash_vn]
 
         elif isinstance(new_el, FlatRef):
-            assert new_el.fg == fg, "The FlatRef's origin FlatGraph doesn't match current FlatGraph."
-            idx = new_el.idx
+            if new_el.fg == fg:
+                idx = new_el.idx
+            else:
+                # If the flatgraphs are different then merge the FlatGraph in and return the
+                # new index of the blob originally in the other FlatGraph
+                idx = fr_merge_and_retrieve_idx(new_blobs, new_key_dict,next_idx, new_el)
 
         elif type(new_el) in list(map_scalar_to_aet_type.keys()): 
             aet = map_scalar_to_aet_type[type(new_el)](new_el)
@@ -8604,6 +8608,53 @@ def fg_insert_imp(fg, new_el):
     new_fg.key_dict = new_key_dict
     new_fg.blobs = (*new_blobs,)
     return new_fg
+
+def fr_merge_and_retrieve_idx(blobs, k_dict, next_idx, fr):
+    fr_idx = fr.idx
+    fg2 = fr.fg
+
+    idx_key_2 = {i:k for k,i in fg2.key_dict.items()}
+    old_to_new = {}
+
+    def retrieve_or_insert_blob(new_b):
+        old_idx = new_b[0]
+        key = idx_key_2.get(new_b[0], None)
+
+        if old_idx in old_to_new:
+            idx = old_to_new[old_idx]
+            new_b = blobs[idx]
+        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], uid)) and key in k_dict:
+            new_b = blobs[k_dict[key]]
+            idx = new_b[0]
+        else:
+            idx = next_idx()
+            new_b = (idx, new_b[1], [], *new_b[3:])
+            blobs.append(new_b)
+        old_to_new[old_idx] = idx
+        return new_b
+
+    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RelationType)] | sort[lambda b: -len(b[2])]:
+        src_b, trgt_b = fg2.blobs[b[4]], fg2.blobs[b[5]]
+        src_b  = retrieve_or_insert_blob(src_b)
+        trgt_b = retrieve_or_insert_blob(trgt_b)
+        
+        idx = next_idx()
+        rt_b = (idx, b[1], [], None, src_b[0], trgt_b[0])
+        src_b[2].append(idx)
+        trgt_b[2].append(-idx)
+        blobs.append(rt_b)
+        old_to_new[b[0]] = idx
+
+            
+    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RelationType)]:
+        if b[0] not in old_to_new: retrieve_or_insert_blob(b)
+
+    # If there is no overlab with the main k_dict, we insert
+    # the old key with the new index
+    for k,v in fg2.key_dict.items():
+        if k not in k_dict: k_dict[k] = old_to_new[v]
+
+    return old_to_new[fr_idx]
 
 def fg_get_imp(fg, key):
     kdict = fg.key_dict
@@ -8876,11 +8927,6 @@ def fg_merge_imp(fg1, fg2):
     new_fg.blobs = blobs
     new_fg.key_dict = k_dict
     return new_fg
-
-
-
-
-
 
 
 #-----------------------------Range----------------------------------------
