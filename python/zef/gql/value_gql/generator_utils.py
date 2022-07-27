@@ -17,6 +17,92 @@ from ...ops import *
 from ariadne import ObjectType,MutationType,QueryType,InterfaceType,SubscriptionType
 
 
+#--------------------------Schema Generator-------------------------
+def generate_schema_str(schema_dict: dict) -> str:
+    def parse_scalars(scalars_list):
+        return (
+            scalars_list
+            | map[lambda x: f"scalar {x}"]
+            | join["\n"]
+            | collect
+        )
+
+    @func
+    def parse_interfaces_or_types(lst, prefix):
+        def parse_implements(interfaces):
+            if interfaces: return f"implements {''.join(interfaces)} "
+            return ""
+
+        def parse_interface_or_type(interface_or_type):
+            name, fields_d = list(interface_or_type.items())[0]
+            return (
+                f"{prefix} {name} {parse_implements(fields_d.get('_interfaces', []))}" + "{\n"
+                + parse_fields(fields_d)
+                + "\n}"
+            )
+        return (
+            lst
+            | map[parse_interface_or_type]
+            | join["\n\n"]
+            | collect
+        )
+    
+    
+    
+    def parse_args(args):
+        def parse_arg(arg):
+            def parse_default_arg():
+                if "default" in arg_dict: return f" = {arg_dict['default']}"
+                return ""
+            arg_name, arg_dict = list(arg.items())[0]
+            return f"{arg_name}: {arg_dict['type']}{parse_default_arg()}"
+
+        if args:
+            args = (args
+            | map[parse_arg]
+            | join[", "]
+            | collect
+            )
+            return f"({args})"
+        
+        return ""
+
+
+    def parse_fields(fields_d):
+        def parse_field(tup):
+            field_name, field_dict = tup
+            if field_name.startswith("_"): return ""
+            return f"  {field_name}{parse_args(field_dict.get('args', []))}: {field_dict['type']}" 
+
+        return (
+            fields_d
+            | items
+            | map[parse_field]
+            | join["\n"]
+            | collect
+        )
+
+
+    allowed_keys = ["_Interfaces", "_Subscriptions", "_Types", "_Scalars"]
+    schema_dict = select_keys(schema_dict, *allowed_keys)
+    dispatch = {
+        "_Interfaces":  parse_interfaces_or_types["interface"],
+        "_Types":       parse_interfaces_or_types["type"],
+        "_Scalars":     parse_scalars,
+    }
+
+    return (
+        schema_dict
+        | items
+        | map[lambda x: dispatch[x[0]](x[1])]
+        | join["\n"]
+        | collect
+    )
+
+
+
+
+
 #--------------------------Resolvers Generator-------------------------
 def initialize_object_type(object_type):
     if "Mutation" == object_type:
