@@ -60,6 +60,14 @@ class MyTestCase(unittest.TestCase):
 
         self.assertEqual(g | now | all | length | collect, 7)
 
+    def test_type_nodes(self):
+        g = Graph()
+
+        ae = AET.Type
+        ae | assign[AET.Int] | g | run
+
+        self.assertEqual(value(ae | now), AET.Int)
+
     def test_logic_type(self):
         g = Graph()
 

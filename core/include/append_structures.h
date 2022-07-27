@@ -766,7 +766,7 @@ namespace zefDB {
             Element * cur_el;
             std::tie(last_el, cur_el) = find_element(compare_func);
             if(cur_el != nullptr)
-                throw std::runtime_error("AppendOnlyCollisionHashMap already contains key: " + to_str(key));
+                throw std::runtime_error("AppendOnlyCollisionHashMap already contains key/val: " + to_str(key) + "/" + to_str(val));
 
             size_t el_indx = element_to_index(last_el);
             AppendOnlyCollisionHashMap * new_this;

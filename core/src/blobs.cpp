@@ -81,7 +81,7 @@ namespace zefDB {
             assert(has_edge_list(uzr));
             // Check the default edge list sizes, that they are perfectly aligned with a blob.
             return visit_blob_with_edges([&uzr](auto & edges) {
-                size_t start_offset = (uintptr_t)(&edges.indices) - (uintptr_t)(&uzr.blob_ptr);
+                size_t start_offset = (uintptr_t)(&edges.indices) - (uintptr_t)(uzr.blob_ptr);
 
                 // std::cerr << "Start: " << start_offset;
                 // std::cerr << " capacity: " << obj.edges.local_capacity;

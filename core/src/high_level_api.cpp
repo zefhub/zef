@@ -469,8 +469,8 @@ namespace zefDB {
 
         internals::hook_up_to_schema_nodes(my_entity, gd, given_uid_maybe);
 
-        EZefRef value_node = internals::instantiate_value_node(aet, gd);
-        internals::instantiate(my_entity, BT.VALUE_TYPE_EDGE, value_node, gd);
+        ZefRef value_node = instantiate_value_node(aet, gd);
+        internals::instantiate(my_entity, BT.VALUE_TYPE_EDGE, value_node.blob_uzr, gd);
 
         internals::apply_action_ATTRIBUTE_ENTITY_NODE(gd, my_entity, true);
 		
@@ -895,9 +895,13 @@ namespace zefDB {
         if(!is_zef_subtype(primitive_type, ae.primitive_type))
             throw std::runtime_error("assign_value got value which can't fit into this attribute entity. FIXME: details");
 
-        EZefRef z_value_node = internals::instantiate_value_node(value, *graph_data(z_ae));
+        auto & gd = *graph_data(z_ae);
+        // Need a transaction to keep both the value node and assignment together
+        auto this_tx = Transaction(gd);
 
-        assign_value_node(z_ae, z_value_node);
+        ZefRef z_value_node = instantiate_value_node(value, gd);
+
+        assign_value_node(z_ae, z_value_node.blob_uzr);
     }
 
     template void assign_value(EZefRef z_ae, const bool & value);

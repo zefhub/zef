@@ -1394,6 +1394,8 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
 	zefops_submodule.def("assign_value", py::overload_cast<ZefRef,const QuantityFloat&>(&imperative::assign_value<QuantityFloat>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
 	zefops_submodule.def("assign_value", py::overload_cast<EZefRef,const QuantityInt&>(&imperative::assign_value<QuantityInt>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("assign_value", py::overload_cast<ZefRef,const QuantityInt&>(&imperative::assign_value<QuantityInt>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<EZefRef,const AttributeEntityType&>(&imperative::assign_value<AttributeEntityType>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
+	zefops_submodule.def("assign_value", py::overload_cast<ZefRef,const AttributeEntityType&>(&imperative::assign_value<AttributeEntityType>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
 	zefops_submodule.def("assign_value", py::overload_cast<EZefRef,const EZefRef&>(&imperative::assign_value<EZefRef>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("assign_value", py::overload_cast<ZefRef,const EZefRef&>(&imperative::assign_value<EZefRef>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());
     zefops_submodule.def("assign_value", py::overload_cast<ZefRef,const ZefRef&>(&imperative::assign_value<ZefRef>), "Assign a value to an atomic entity.", py::call_guard<py::gil_scoped_release>());

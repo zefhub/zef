@@ -462,7 +462,14 @@ namespace zefDB {
 
     template<>
     inline blobs_ns::edge_info & blob_edge_info(blobs_ns::VALUE_NODE & s) {
-        return *(blobs_ns::edge_info*)((char*)&s.rep_type + sizeof(decltype(s.rep_type)) + s.buffer_size_in_bytes);
+        uintptr_t ptr = (uintptr_t)&s.rep_type + sizeof(decltype(s.rep_type)) + s.buffer_size_in_bytes;
+        // We need to make sure the blob edge info is aligned to a blob_index so
+        // that our requirements for edges to be able to exist in sets of 4 per
+        // blob.
+        if(ptr % sizeof(blob_index) != 0)
+            ptr += sizeof(blob_index) - (ptr % sizeof(blob_index));
+
+        return *(blobs_ns::edge_info*)ptr;
     }
     template<>
     inline const blobs_ns::edge_info & blob_edge_info(const blobs_ns::VALUE_NODE & s) {

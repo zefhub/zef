@@ -174,7 +174,10 @@ def graphviz_imp(zz, *flags):
         if BT(z) == BT.ENTITY_NODE:
             return hex_color_for_type(ET(z))
         if BT(z) == BT.ATTRIBUTE_ENTITY_NODE:
-            return hex_color_for_type(AET(z))
+            if internals.is_delegate(z):
+                return hex_color_for_type(VRT(z))
+            else:
+                return hex_color_for_type(AET(z))
             
         if BT(z) in {BT.TX_EVENT_NODE, BT.NEXT_TX_EDGE}:
             return "#991155"

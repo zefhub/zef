@@ -48,7 +48,14 @@ namespace zefDB {
 	}
 	AttributeEntityType AttributeEntityTypeStruct::operator() (EZefRef uzr) const {
 		if (get<BlobType>(uzr) != BlobType::ATTRIBUTE_ENTITY_NODE) throw std::runtime_error("AET(EZefRef uzr) called for a uzr which is not an atomic entity.");
-		return AET(get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(uzr));
+        if(internals::is_delegate(uzr)) {
+            // If this is a delegate, then it has no external value type, only
+            // the primitive VRT. But casting it to an AET implies that this is
+            // actually the logic type. So don't allow this
+            throw std::runtime_error("Can't take an AET from a delegate attribute entity.");
+        } else {
+            return AET(get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(uzr));
+        }
 	}
 	AttributeEntityType AttributeEntityTypeStruct::operator() (ZefRef zr) const {
 		return AET(zr.blob_uzr);
@@ -291,9 +298,19 @@ namespace zefDB {
 
             // The edges come after, and we need to prepare that structure
             auto & edges = blob_edge_info(ent);
-            size_t edges_size = sizeof(blobs_ns::edge_info) + sizeof(blob_index)*(constants::default_local_edge_indexes_capacity_VALUE_NODE+1);
+            assert((uintptr_t)&edges % sizeof(blob_index) == 0);
+            // We need to calculate the number of edges to use because of the
+            // dynamic data buffer means it's impossible to precalculate the
+            // number to align the end of the edge list to a blob.
+            int edge_list_size = constants::default_local_edge_indexes_capacity_VALUE_NODE;
+            static_assert(constants::blob_indx_step_in_bytes == 4*sizeof(blob_index));
+            uintptr_t start_offset = (uintptr_t)&edges + offsetof(blobs_ns::edge_info, indices);
+            // This will overcompensate by an extra blob if it was already perfectly aligned... no big deal.
+            edge_list_size += 4 - (start_offset/sizeof(blob_index) + edge_list_size + 1) % 4;
+
+            size_t edges_size = sizeof(blobs_ns::edge_info) + sizeof(blob_index)*(edge_list_size+1);
             MMap::ensure_or_alloc_range(&edges, edges_size);
-            new(&edges) blobs_ns::edge_info(constants::default_local_edge_indexes_capacity_VALUE_NODE);
+            new(&edges) blobs_ns::edge_info(edge_list_size);
 
             internals::move_head_forward(gd);
 
@@ -396,6 +413,9 @@ namespace zefDB {
             el.first_blob = first_blob;
             EZefRef uzr{(void*)&el};
             if(edge_list_end_offset(uzr) != 0) {
+                // std::cerr << "Blob alignment: " << ((uintptr_t)&el) % sizeof(blob_index) << std::endl;
+                // std::cerr << "length requested: " << edge_list_length << std::endl;
+                // std::cerr << "Problem offset: " << edge_list_end_offset(uzr) << std::endl;
                 throw std::runtime_error("Shouldn't be automatically enlarging edge lists anymore!");
                 // std::cerr << "Warning, enlarging deferred edge list size to match the blob spacing." << std::endl;
                 // std::cerr << "Offset: " << edge_list_end_offset(uzr) << std::endl;

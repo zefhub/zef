@@ -166,6 +166,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.value("FOREIGN_ENTITY_NODE", BlobType::FOREIGN_ENTITY_NODE)
 		.value("FOREIGN_ATTRIBUTE_ENTITY_NODE", BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE)
 		.value("FOREIGN_RELATION_EDGE", BlobType::FOREIGN_RELATION_EDGE)
+		.value("VALUE_TYPE_EDGE", BlobType::VALUE_TYPE_EDGE)
+		.value("VALUE_EDGE", BlobType::VALUE_EDGE)
+		.value("ATTRIBUTE_VALUE_ASSIGNMENT_EDGE", BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE)
 		;
 
 	py::class_<BlobTypeStruct>(internals_submodule, "BlobTypeStruct", py::buffer_protocol())
@@ -319,6 +322,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_property_readonly("String", [](const AttributeEntityTypeStruct& self) { return self.String; })
 		.def_property_readonly("Time", [](const AttributeEntityTypeStruct& self) { return self.Time; })
 		.def_property_readonly("Serialized", [](const AttributeEntityTypeStruct& self) { return self.Serialized; })
+		.def_property_readonly("Any", [](const AttributeEntityTypeStruct& self) { return self.Any; })
+		.def_property_readonly("Type", [](const AttributeEntityTypeStruct& self) { return self.Type; })
 		.def_property_readonly("Enum", [](const AttributeEntityTypeStruct& self) { return self.Enum; })
 		.def_property_readonly("QuantityFloat", [](const AttributeEntityTypeStruct& self) { return self.QuantityFloat; })
 		.def_property_readonly("QuantityInt", [](const AttributeEntityTypeStruct& self) { return self.QuantityInt; })
