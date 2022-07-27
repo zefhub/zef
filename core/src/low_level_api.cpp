@@ -766,6 +766,9 @@ namespace zefDB {
         bool is_compatible(const T & val, const AttributeEntityType & aet) {
             if(aet._is_complex())
                 return internals::pass_to_value_type_check(val, *aet.complex_value);
+            // This is a little out of place but is simpler.
+            if(aet.rep_type == VRT.Any)
+                return true;
             return is_compatible_primitive(val, aet.rep_type);
         }
 

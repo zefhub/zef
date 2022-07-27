@@ -824,8 +824,12 @@ namespace zefDB {
         auto & value_node = get<blobs_ns::VALUE_NODE>(z_value_node);
         if (internals::is_terminated(z_ae))
             throw std::runtime_error("assign_value_node called on already terminated entity or relation");
-        if (!internals::is_compatible(internals::value_from_node<value_variant_t>(value_node), AET(ae)))
-            throw std::runtime_error("assign value called with type (...FIXME...) that cannot be assigned to this aet of type " + to_str(AET(ae)));
+        if (!internals::is_compatible(internals::value_from_node<value_variant_t>(value_node), AET(ae))) {
+            ValueRepType vrt = std::visit([](auto x) { return get_vrt_from_ctype(x); },
+                                          internals::value_from_node<value_variant_t>(value_node));
+
+            throw std::runtime_error("assign value called with value node (primitive type " + to_str(vrt) + ") that cannot be assigned to this aet of type " + to_str(AET(ae)));
+        }
 
         // TODO: only perform any value assignment if the new value to be assigned
         // here is different from the most recent one

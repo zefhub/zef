@@ -175,8 +175,24 @@ def Transaction(g, wait=None, rollback_empty=None, check_schema=None):
 def assign_value_imp(z, value):
     from .._ops import is_a
     from ...pyzef.zefops import SerializedValue, assign_value as c_assign_value
+    from ..VT import ValueType_
 
     assert isinstance(z, ZefRef) or isinstance(z, EZefRef)
     if is_a(z, AET.Serialized):
         value = SerializedValue.serialize(value)
+    if isinstance(value, ValueType_):
+        value = AET[value]
+    c_assign_value(z, value)
+
+
+def instantiate_value_node_imp(value, gd):
+    from .._ops import is_a
+    from ...pyzef.zefops import SerializedValue, assign_value as c_assign_value
+    from ..VT import ValueType_
+
+    assert isinstance(z, ZefRef) or isinstance(z, EZefRef)
+    if is_a(z, AET.Serialized):
+        value = SerializedValue.serialize(value)
+    if isinstance(value, ValueType_):
+        value = AET[value]
     c_assign_value(z, value)

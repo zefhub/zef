@@ -63,7 +63,7 @@ class MyTestCase(unittest.TestCase):
     def test_type_nodes(self):
         g = Graph()
 
-        ae = AET.Type
+        ae = AET.Type | g | run
         ae | assign[AET.Int] | g | run
 
         self.assertEqual(value(ae | now), AET.Int)
@@ -94,7 +94,7 @@ class MyTestCase(unittest.TestCase):
         even_type = Int & Is[modulo[2] | equals[0]]
         s_typ = SerializedValue.serialize(even_type)
 
-        ae = instantiate(AtomicEntityType(s_typ), g)
+        ae = instantiate(AttributeEntityType(s_typ), g)
 
         ae | assign[2] | g | run
         with self.assertRaises(Exception):
@@ -123,23 +123,23 @@ class MyTestCase(unittest.TestCase):
 
         # There shouldn't be an extra value node after assigning the same value.
         g = Graph()
-        num_before = g | all | filter[is_a[BT.ATOMIC_VALUE_NODE]] | length | collect
+        num_before = g | all | filter[is_a[BT.VALUE_NODE]] | length | collect
         vn = Val({"something": 42}) | g | run
-        ae = AET[Any] | g | run
+        ae = AET.Any | g | run
         ae | assign[Val({"something": 42})] | g | run
-        num_after = g | all | filter[is_a[BT.ATOMIC_VALUE_NODE]] | length | collect
+        num_after = g | all | filter[is_a[BT.VALUE_NODE]] | length | collect
         self.assertEqual(num_after, num_before + 2)
 
         # There shouldn't be an extra value node if the value is used as a value
         # and a value type
         g = Graph()
-        num_before = g | all | filter[is_a[BT.ATOMIC_VALUE_NODE]] | length | collect
+        num_before = g | all | filter[is_a[BT.VALUE_NODE]] | length | collect
         vn = Val(VT.Graph) | g | run
-        ae = AET[Any] | g | run
+        ae = AET.Any | g | run
         ae2 = AET[VT.Graph] | g | run
         ae | assign[Val(VT.Graph)] | g | run
-        num_after = g | all | filter[is_a[BT.ATOMIC_VALUE_NODE]] | length | collect
-        self.assertEqual(num_after, num_before + 2)
+        num_after = g | all | filter[is_a[BT.VALUE_NODE]] | length | collect
+        self.assertEqual(num_after - num_before, 2)
 
 if __name__ == '__main__':
     unittest.main()
