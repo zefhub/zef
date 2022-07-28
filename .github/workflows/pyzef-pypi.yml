@@ -6,6 +6,7 @@ on:
       - "pyzef-*"
       - "!pyzef-*a*"
       - "!pyzef-*dev*"
+  workflow_dispatch:
 
 jobs:
   check-license:
@@ -102,6 +103,7 @@ jobs:
 
   push_to_docker_hub:
     name: Push Docker image to Docker Hub
+    environment: Release
     runs-on: ubuntu-latest
     steps:
       - name: Check out the repo
@@ -130,6 +132,7 @@ jobs:
 
   push_to_github_packages:
     name: Push Docker image to Github Packages
+    environment: Release
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository

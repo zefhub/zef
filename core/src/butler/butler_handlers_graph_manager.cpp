@@ -479,8 +479,8 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                 LockGraphData gd_lock{me.gd};
                 UpdateHeads heads = parse_message_update_heads(response.j);
                 apply_sync_heads(*me.gd, heads);
-                if(zwitch.developer_output())
-                    std::cerr << "Upstream head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
+                developer_output("Upstream head: " + to_str(me.gd->sync_head.load()) + "/" + to_str(me.gd->read_head.load()));
+
                 if(me.gd->sync_head < me.gd->read_head.load()) {
                     std::cerr << "WARNING:" << std::endl;
                     std::cerr << "WARNING:" << std::endl;

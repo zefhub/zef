@@ -17,6 +17,7 @@ from ... import *
 from ...ops import *
 from functools import partial as P
 from ...core.logger import log
+import functools
 
 from ariadne import ObjectType, QueryType, MutationType, EnumType, ScalarType
 
@@ -724,14 +725,22 @@ def obtain_initial_list(type_node, filter_opts, info):
               | map[lambda id: find_existing_entity_by_id(info, type_node, id)]
               | filter[Not[equals[None]]])
 
+        if info.context["debug_level"] >= 3:
+            log.debug("DEBUG 3: built initial list from ids", length_ids=len(ids), length_list=length(zs))
+
         return zs
     else:
-        return gs | all[type_et] | filter[pass_query_auth[type_node][info]]
+        zs = gs | all[type_et] | filter[pass_query_auth[type_node][info]]
+        if info.context["debug_level"] >= 3:
+            log.debug("DEBUG 3: built initial list from type and auth", length_list=length(zs))
+        return zs
 
     
 
 def handle_list_params(opts, z_node, params, info):
     opts = maybe_filter_result(opts, z_node, info, params.get("filter", None))
+    if info.context["debug_level"] >= 3:
+        log.debug("DEBUG 3: after filtering", length_list=length(opts))
     opts = maybe_sort_result(opts, z_node, info, params.get("order", None))
     opts = maybe_paginate_result(opts, params.get("first", None), params.get("offset", None))
     return opts
@@ -752,7 +761,15 @@ def maybe_filter_result(opts, z_node, info, fil=None):
         return opts
 
     temp_fil = build_filter_zefop(fil, z_node, info)
-    return opts | filter[build_filter_zefop(fil, z_node, info)]
+    if info.context["debug_level"] >= 4:
+        log.debug("DEBUG 4: filter is", fil=temp_fil)
+        temp_fil = (apply[identity, temp_fil]
+                    | tap[match[
+                        (Is[second], lambda x: log.debug("DEBUG 4: filter passed", item=first(x))),
+                        (Any, lambda x: log.debug("DEBUG 4: filter failed", item=first(x)))
+                        ]]
+                    | second)
+    return opts | filter[temp_fil]
 
 def build_filter_zefop(fil, z_node, info):
     field_resolver = field_resolver_by_name[z_node][info]

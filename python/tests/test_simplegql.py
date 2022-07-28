@@ -89,7 +89,10 @@ def dynamicHook(z, info):
         self.port = 4991
         root = create_schema_graph(schema_gql, hooks_string)
         g_data = Graph()
-        self.server_uuid = start_server(root, g_data, self.port, "localhost", logging=False)
+        self.server_uuid = start_server(root, g_data,
+                                        port=self.port,
+                                        bind_address="localhost",
+                                        logging=False)
 
     def tearDown(self):
         {

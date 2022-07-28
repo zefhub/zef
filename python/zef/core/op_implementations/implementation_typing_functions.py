@@ -3223,12 +3223,31 @@ def take_implementation(v, n):
     negative n: take n last items. Must evaluate entire iterable, does not terminate 
     for infinite iterables.
 
+    ---- Examples ----
+    >>> ['a', 'b', 'c'] | take[2]       # => ['a', 'b']
+    >>> ['a', 'b', 'c'] | take[-2]      # => ['b', 'c']
+    >>> 'hello' | take[3]               # => 'hel'
+    >>> 'hello' | take[-3]              # => 'llo'
 
     ---- Signature ----
     (List[T], Int) -> List[T]
+    (String, Int)  -> String
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: slice
+    - related zefop: reverse
+    - related zefop: first
+    - related zefop: last
+    - related zefop: nth    
     """
     if isinstance(v, ZefRef) or isinstance(v, EZefRef):
         return take(v, n)
+    elif isinstance(v, str):
+        return v[:n] if n>=0 else v[n:]
     else:
         if n >= 0:
             def wrapper():
@@ -3241,8 +3260,10 @@ def take_implementation(v, n):
 
             return ZefGenerator(wrapper)
         else:
-            vv = list(v)
+            if isinstance(v, str): return v[n:]
+            vv = tuple(v)
             return vv[n:]
+
 
 
         
@@ -3263,6 +3284,15 @@ def take_while_imp(v, predicate):
 
     ---- Signature ----
     (List[T], (T->Bool)) -> List[T]
+
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: take
+    - related zefop: take_until
+    - related zefop: skip
+    - related zefop: skip_while
     """
     def wrapper():
         it = iter(v)
@@ -4066,7 +4096,9 @@ def slice_imp(v, start_end: tuple):
 
     ---- Examples ----
     >>> ['a', 'b', 'c', 'd'] | slice[1:2]    # => ['b', 'c']
-    >>> 'abcdefgh' | slice_imp[1,6,2]        # => 'bdf'
+    >>> 'abcdefgh' | slice[1,6,2]            # => 'bdf'
+    >>> 'hello' | slice[1,3]                 # => 'el'
+    >>> 'hello' | slice[1,-1]                # => 'ello'
     
     ---- Tags ----
     - operates on: List
@@ -4087,7 +4119,8 @@ def slice_imp(v, start_end: tuple):
     
     if type(v) in {list, tuple, str}:
         if len(start_end) == 2:
-            return v[start_end[0]: start_end[1]]
+            end = start_end[1] if start_end[1]>=0 else start_end[1]+1
+            return v[start_end[0]: end] if start_end[1] !=-1 else v[start_end[0]:]
         if len(start_end) == 3:
             return v[start_end[0]: start_end[1] : start_end[2]]
     elif isinstance(v, Generator) or isinstance(v, ZefGenerator):
@@ -4095,10 +4128,9 @@ def slice_imp(v, start_end: tuple):
         # don't returns a custom slice object, but a generator to make it uniform.
         def wrapper():
             yield from itertools.islice(v, start, end)        
-        return wrapper()
+        return ZefGenerator(wrapper)
     else:
         raise TypeError(f"`slice` not implemented for type {type(v)}: {v}")
-
 
 
 def slice_tp(*args):
@@ -6302,7 +6334,8 @@ def is_a_implementation(x, typ):
             return True
         elif isinstance(x, list) or isinstance(x, tuple):
             for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
-                if not isinstance(p_e, ValueType_): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
+                if type(p_e) not in {ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct}:
+                    raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")
                 if not is_a(x_e, p_e): return False  
             return True
         
@@ -8469,8 +8502,12 @@ def fg_insert_imp(fg, new_el):
             idx = new_key_dict[hash_vn]
 
         elif isinstance(new_el, FlatRef):
-            assert new_el.fg == fg, "The FlatRef's origin FlatGraph doesn't match current FlatGraph."
-            idx = new_el.idx
+            if new_el.fg == fg:
+                idx = new_el.idx
+            else:
+                # If the flatgraphs are different then merge the FlatGraph in and return the
+                # new index of the blob originally in the other FlatGraph
+                idx = fr_merge_and_retrieve_idx(new_blobs, new_key_dict,next_idx, new_el)
 
         elif type(new_el) in list(map_scalar_to_aet_type.keys()): 
             aet = map_scalar_to_aet_type[type(new_el)](new_el)
@@ -8569,6 +8606,53 @@ def fg_insert_imp(fg, new_el):
     new_fg.key_dict = new_key_dict
     new_fg.blobs = (*new_blobs,)
     return new_fg
+
+def fr_merge_and_retrieve_idx(blobs, k_dict, next_idx, fr):
+    fr_idx = fr.idx
+    fg2 = fr.fg
+
+    idx_key_2 = {i:k for k,i in fg2.key_dict.items()}
+    old_to_new = {}
+
+    def retrieve_or_insert_blob(new_b):
+        old_idx = new_b[0]
+        key = idx_key_2.get(new_b[0], None)
+
+        if old_idx in old_to_new:
+            idx = old_to_new[old_idx]
+            new_b = blobs[idx]
+        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], uid)) and key in k_dict:
+            new_b = blobs[k_dict[key]]
+            idx = new_b[0]
+        else:
+            idx = next_idx()
+            new_b = (idx, new_b[1], [], *new_b[3:])
+            blobs.append(new_b)
+        old_to_new[old_idx] = idx
+        return new_b
+
+    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RelationType)] | sort[lambda b: -len(b[2])]:
+        src_b, trgt_b = fg2.blobs[b[4]], fg2.blobs[b[5]]
+        src_b  = retrieve_or_insert_blob(src_b)
+        trgt_b = retrieve_or_insert_blob(trgt_b)
+        
+        idx = next_idx()
+        rt_b = (idx, b[1], [], None, src_b[0], trgt_b[0])
+        src_b[2].append(idx)
+        trgt_b[2].append(-idx)
+        blobs.append(rt_b)
+        old_to_new[b[0]] = idx
+
+            
+    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RelationType)]:
+        if b[0] not in old_to_new: retrieve_or_insert_blob(b)
+
+    # If there is no overlab with the main k_dict, we insert
+    # the old key with the new index
+    for k,v in fg2.key_dict.items():
+        if k not in k_dict: k_dict[k] = old_to_new[v]
+
+    return old_to_new[fr_idx]
 
 def fg_get_imp(fg, key):
     kdict = fg.key_dict
@@ -8841,11 +8925,6 @@ def fg_merge_imp(fg1, fg2):
     new_fg.blobs = blobs
     new_fg.key_dict = k_dict
     return new_fg
-
-
-
-
-
 
 
 #-----------------------------Range----------------------------------------

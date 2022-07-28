@@ -37,6 +37,8 @@ parser.add_argument("--hooks", type=str, dest="hooks_file", default=os.environ.g
                     help="If present, a python file containing the hooks to make available for the schema file")
 parser.add_argument("--init-hook", type=str, dest="init_hook", default=os.environ.get("SIMPLEGQL_INIT_HOOK", None),
                     help="If present, a function in the hooks file to run on initialisation of the data graph")
+parser.add_argument("--debug-level", type=int, dest="debug_level", default=os.environ.get("SIMPLEGQL_DEBUG_LEVEL", "0"),
+                    help="The amount of debug messages to output")
 args = parser.parse_args()
 
 
@@ -88,7 +90,10 @@ if args.init_hook is not None:
     log.info(f"Ran init hook: {args.init_hook}")
     
 
-server_uuid = start_server(root, g_data, args.port, args.bind)
+server_uuid = start_server(root, g_data,
+                           port=args.port,
+                           bind_address=args.bind,
+                           debug_level=args.debug_level)
 
 import time
 try:
