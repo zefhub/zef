@@ -74,15 +74,16 @@ bool Butler::wait_for_auth(std::chrono::duration<double> timeout) {
     return true;
 }
 
-void Butler::determine_refresh_token() {
+void Butler::determine_login_token() {
     std::optional<std::string> key_string = load_forced_zefhub_key();
     if(key_string) {
+        refresh_token = "";
         if(*key_string == constants::zefhub_guest_key) {
             std::cerr << "Connecting as guest user" << std::endl;
-            refresh_token = "";
             have_logged_in_as_guest = true;
-        } else 
-            refresh_token = get_firebase_refresh_token_email(*key_string);
+        } else  {
+            api_key = *key_string;
+        }
         return;
     } else if(!have_auth_credentials()) {
         no_credentials_warning = true;
@@ -108,9 +109,7 @@ std::string Butler::who_am_i() {
         if(*key_string == constants::zefhub_guest_key) {
             name = "GUEST via forced key";
         } else {
-            // This is  duplicated with get_firebase_refresh_token_email which is annoying
-            int colon = key_string->find(':');
-            name = key_string->substr(0,colon) + " via forced key";
+            name = "API key beginning with " + key_string->substr(0, 4) + "...";
         }
     } else if(!have_auth_credentials()) {
         name = "";
@@ -147,10 +146,14 @@ std::string Butler::who_am_i() {
 }
 
 Butler::header_list_t Butler::prepare_send_headers(void) {
-    determine_refresh_token();
+    determine_login_token();
     decltype(network)::header_list_t headers;
-    std::string auth_token = get_firebase_token_refresh_token(refresh_token);
-    headers.emplace_back("X-Auth-Token", auth_token);
+    if(api_key != "") {
+        headers.emplace_back("X-API-Key", api_key);
+    } else {
+        std::string auth_token = get_firebase_token_refresh_token(refresh_token);
+        headers.emplace_back("X-Auth-Token", auth_token);
+    }
     headers.emplace_back("X-Requested-Version", to_str(zefdb_protocol_version_max));
     return headers;
 }
@@ -293,27 +296,14 @@ std::optional<std::string> Butler::load_forced_zefhub_key() {
         return output;
     }
 
-    // Old location for fallback
-#ifdef ZEF_WIN32
-    env = std::getenv("LOCALAPPDATA");
-#else
-    env = std::getenv("HOME");
-#endif
-    std::filesystem::path path2(env);
-    path2 /= ".zefdb";
-    path2 /= "zefhub.key";
-    if (std::filesystem::exists(path2)) {
-        std::ifstream file(path2);
-        std::string output;
-        std::getline(file, output);
-        return output;
-    }
-
     return {};
 }
 
 bool Butler::have_auth_credentials() {
     // TODO: This should become more sophisticated in the future
+    if(api_key != "" || refresh_token != "")
+        return true;
+    
     if(load_forced_zefhub_key())
         return true;
 
@@ -358,7 +348,7 @@ void Butler::ensure_auth_credentials() {
         if(*forced_zefhub_key == constants::zefhub_guest_key)
             have_logged_in_as_guest = true;
         else
-            get_firebase_refresh_token_email(*forced_zefhub_key);
+            api_key = *forced_zefhub_key;
     } else {
         auto credentials_file = credentials_path();
         if(is_credentials_file_valid())
@@ -426,34 +416,11 @@ void Butler::user_login() {
 }
 
 void Butler::user_logout() {
-    // // Always remove any graphs that were being synced with ZefHub. Do
-    // // this first as the sync messages might require the right
-    // // credentials.
-    // std::vector<std::shared_ptr<Butler::GraphTrackingData>> saved_list;
-    // {
-    //     std::lock_guard lock(butler->graph_manager_list_mutex);
-    //     saved_list = butler->graph_manager_list;
-    // }
-    // for(auto data : butler->graph_manager_list) {
-    //     if(!data->gd->should_sync)
-    //         continue;
-
-    //     std::cerr << "Going to stop graph manager: " << uid(*(data->gd)) << std::endl;
-
-    //     try {
-    //         data->queue.set_closed(false);
-    //         long_wait_or_kill(*data->managing_thread, data->return_value, data->uid);
-    //     } catch(const std::exception & e) {
-    //         std::cerr << "Exception while trying to close queue for graph manager thread: " << e.what() << std::endl;
-    //     }
-    // }
-            
-
     auto butler = get_butler();
     butler->session_auth_key.reset();
 
     // Now remove credentials
-    if(load_forced_zefhub_key())
+    if(api_key != "" || load_forced_zefhub_key())
         throw std::runtime_error("Can't logout when an explicit key is given in ZEFHUB_AUTH_KEY or zefhub.key");
     if(have_auth_credentials()) {
         auto credentials_file = credentials_path();

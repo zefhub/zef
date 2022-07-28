@@ -134,6 +134,16 @@ namespace zefDB {
                 if(response_code == 401) {
                     std::cerr << "Upstream rejected connection: " << response_code << " \"" << con->get_response_msg() << "\"." << std::endl;
                     std::cerr << "Please logout and login again." << std::endl;
+                    auto & response = con->get_response();
+                    if(response.get_header("Content-Length") != "") {
+                        int supposed_length = std::stoi(response.get_header("Content-Length"));
+                        while(!response.ready()) {}
+                        std::string raw;
+                        raw = response.get_body();
+                        if(raw.size() != supposed_length)
+                            std::cerr << "Response is not long enough" << std::endl;
+                        std::cerr << "Response was: " << response.raw() << std::endl;
+                    }
                     close();
                 } else {
                     if(zwitch.zefhub_communication_output())
