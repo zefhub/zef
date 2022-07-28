@@ -889,11 +889,10 @@ namespace zefDB {
             if(zefdb_protocol_version == -1)
                 throw std::runtime_error("Shouldn't be asking for upstream layout when we haven't connected and done a handshake.");
 
-            if(zefdb_protocol_version <= 5)
+            if(zefdb_protocol_version <= 6)
                 return "0.2.0";
-            if(zefdb_protocol_version == 6)
-                return "0.3.0";
-
+            throw std::runtime_error("Don't know what the upstream layout should be for this protocol version");
+        }
 
         // ** Merge handler
         std::optional<std::function<merge_handler_t>> merge_handler;
