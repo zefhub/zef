@@ -364,6 +364,8 @@ used_for        = make_zefop(RT.UsedFor)
 # TODO: implement
 on              = make_zefop(RT.On)         
 gather          = make_zefop(RT.Gather)
+alias           = make_zefop(RT.Alias)
+splice          = make_zefop(RT.Splice)
 
           
 # match

@@ -25,7 +25,17 @@ from zef.core.logger import log
 from .schema_file_parser import parse_partial_graphql, json_to_minimal_nodes
 
 def create_schema_graph(schema_string, hooks_string=None):
+    """Create a Zef representation of the GraphQL schema given in `schema_string`
+along with the zef functions given in hooks_string on a new blank graph `g`.
+
+    The graph `g` is marked keep alive. If the server is manually restarted in
+    the same python session multiple times, then this should be removed by the
+    calling function.
+    """
+
     g_schema = Graph()
+    set_keep_alive(g_schema, True)
+
     if hooks_string is not None:
         # Prep the schema graph with the hooks, so that the schema nodes can point directly at these
         prepare_hooks(g_schema, hooks_string)

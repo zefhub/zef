@@ -64,18 +64,45 @@ def generate_resolvers_fcts(schema_root, resolvers_destination):
         print(f'An exception was raised when processing file {exc}')
 
 
-def generate_api_schema_file(schema_root, destination):
+@func
+def generate_api_schema_file(schema_root, file_path):
     """
-    Creates a variable that holds the schema file which is represented by the passed schema graph.
+    Given a ZefRef to a schema_root, a file, defined in the file_path,
+    containing a 'generated_schema' string variable is generated.
+
+    If the requirement is to just produce a string holding the schema, this effect could be used:
+
+    Effect({
+        type: FX.GraphQL.GenerateSchemaString,
+        schema_root: schema_root,
+    })
     """
-    file_generator.generate_api_schema_file(schema_root, destination)
+    file_generator.generate_api_schema_file(schema_root, file_path)
 
 
-def generate_graph_from_file(schema_root, g):
+@func
+def generate_graph_from_file(schema_str, g):
     """
-    Creates a graph from a given schema.
+    The schema_str is parsed and then all required RAEs are instantiated on the passed graph.
     """
-    return graph_generator.parse_schema(g, schema_root)
+    return graph_generator.parse_schema(g, schema_str)
+
+
+@func
+def schema_str_to_flatgraph(schema_str):
+    """
+    Generate a Flatgraph containing all the RAEs defining the schema_str.
+    """
+    from zef.core.VT import FlatGraph
+    from zef import  BT
+    g = Graph()
+    generate_graph_from_file(schema_str, g)
+    all_raes = g | now | all | map[lambda zr: origin_rae(zr) if is_a(zr, BT.RELATION_EDGE) else zr] | collect
+    return FlatGraph(all_raes)
+
+
+    # return graph_generator.parse_schema(g, schema_str)
+
 
 
 def make_api(schema_root, schema_destination=None, resolvers_destination=None):

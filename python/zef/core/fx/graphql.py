@@ -133,3 +133,19 @@ def graphql_start_playground_handler(eff: dict):
 def graphql_stop_playground_handler(eff: dict):    
     return run({**eff, 'type': FX.HTTP.StopServer})
     
+
+def graphql_generate_schema_string_handler(eff: dict):   
+    """
+    Given a ZefRef to a ET.GQL_Schema node, this effect generates a
+    GraphQL string representation of the schema.
+
+    Usage:
+
+    Effect({
+        type: FX.GraphQL.GenerateSchemaString,
+        schema_root: zr_schema_root,
+    })
+    """
+    from zef.gql.schema_graph_to_file import generate_api_schema_string
+    schema_root = eff["schema_root"] 
+    return generate_api_schema_string(schema_root)

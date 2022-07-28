@@ -190,6 +190,7 @@ namespace zefDB {
             void handle_incoming_message(json & j, std::vector<std::string> & rest);
 
             void handle_incoming_terminate(json & j);
+            void handle_incoming_force_unsubscribe(json & j);
             void handle_incoming_graph_update(json & j, std::vector<std::string> & rest);
             void handle_incoming_update_tag_list(json & j);
             void handle_incoming_merge_request(json & j);
@@ -210,11 +211,13 @@ namespace zefDB {
             std::atomic_bool no_credentials_warning = false;
             // The authentication string. This is set on connection.
             std::string refresh_token = "";
+            std::string api_key = "";
             // The protocol version chosen for communication. This may have to be autodetected in earlier versions.
             std::atomic_int zefdb_protocol_version = -1;
             constexpr static int zefdb_protocol_version_min = 4;
-            constexpr static int zefdb_protocol_version_max = 5;
+            constexpr static int zefdb_protocol_version_max = 6;
             AtomicLockWrapper auth_locker;
+            std::string upstream_layout();
 
             int chunked_transfer_size_user = -1;
             int chunked_transfer_size = 10*1024;
@@ -271,7 +274,7 @@ namespace zefDB {
             bool want_upstream_connection();
             // wait_for_auth: will start_connection if not already connected
             bool wait_for_auth(std::chrono::duration<double> timeout=std::chrono::seconds(-1));
-            void determine_refresh_token();
+            void determine_login_token();
             std::string who_am_i();
             // ensure_auth_credentials: if no credentials will pop up browser
             void ensure_auth_credentials();

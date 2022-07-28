@@ -35,6 +35,8 @@ class GraphSlice:
             if not (isinstance(z, ZefRef) or isinstance(z, EZefRef)):
                 raise TypeError(f'When calling the GraphSlice constructor with a single arguments, this has to be a ZefRef[TX] / EZefRef[TX]. Called with: args={args}')
             self.tx = to_ezefref(z)
+            # Hold a reference to the graph open
+            self._g = Graph(self.tx)
             return
 
         if len(args) == 2:
@@ -54,6 +56,8 @@ class GraphSlice:
                 if t >= time(last_tx) else
                 txs | filter[lambda x: time(x) >= t] | ops.first | ops.collect
             )
+            # Hold a reference to the graph open
+            self._g = Graph(self.tx)
             return
 
         raise TypeError(f'The GraphSlice constructor can only be called with one or two args. Called with args={args}')

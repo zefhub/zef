@@ -70,6 +70,40 @@ def verify_zef_list(z_list: ZefRef):
 
 
 
+
+class ZefGenerator:
+    """
+    A class that acts as a uniform interface instead of Python's
+    builtin generator. Defining a regular generator using yield
+    in Python does not always obey value semantics. It still keeps
+    state when iterated over.
+    
+    Example:
+    >>> def repeat(x, n=None):    
+    >>>  def make_wrapper():
+    >>>      if n is None:
+    >>>          while True:
+    >>>              yield x
+    >>>      else:
+    >>>             for _ in range(n):
+    >>>                 yield x
+    >>>  
+    >>>     return ZefGenerator(make_wrapper)
+
+    Returning `wrapper()` directly is equivalent to the class
+    where `__iter__` returns self, thus maintaining state from
+    previous iterations.
+    """
+    def __init__(self, generator_fct):
+        self.generator_fct = generator_fct
+
+    def __iter__(self):
+        return self.generator_fct()
+
+
+
+
+
 ####################################################
 # * TEMPLATE FOR DOCSTRINGS
 #--------------------------------------------------
@@ -400,11 +434,11 @@ def zip_imp(x, second=None, *args):
     if second is None:
         def wrapper1():
             yield from builtins.zip(*x)
-        return wrapper1()
+        return ZefGenerator(wrapper1)
         
     def wrapper2():
         yield from builtins.zip( *(x, second, *args) )    
-    return wrapper2()
+    return ZefGenerator(wrapper2)
 
 
 
@@ -460,12 +494,21 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
         else:
             return [v, first_curried_list_maybe, *args] | join[''] | collect
     else:
-        import more_itertools as mi
-        import itertools
         if first_curried_list_maybe is None:
-            return (el for sublist in v for el in sublist)
+            def wrapper():
+                it = iter(v)
+                try:
+                    while True:
+                        yield from next(it)
+                except StopIteration:
+                    return
+            
+            return ZefGenerator(wrapper)
         else:
-            return (el for sublist in (v, first_curried_list_maybe, *args)  for el in sublist)
+            def wrapper():
+                yield from (el for sublist in (v, first_curried_list_maybe, *args)  for el in sublist)
+            return ZefGenerator(wrapper)
+            
 
 
 
@@ -555,11 +598,11 @@ def prepend_imp(v, item, *additional_items):
         return (item, *v)
     elif isinstance(v, str):
         return item + v
-    elif isinstance(v, Generator) or isinstance(v, Iterator):
+    elif isinstance(v, Generator) or isinstance(v, Iterator) or isinstance(v, ZefGenerator):
         def generator_wrapper():
             yield item
             yield from v
-        return generator_wrapper()
+        return ZefGenerator(generator_wrapper)
     else:
         raise TypeError(f'prepend not implemented for type {type(v)}')
 
@@ -644,11 +687,11 @@ def append_imp(v, item, *additional_items):
 
     elif isinstance(v, str):
         return v + item
-    elif isinstance(v, Generator) or isinstance(v, Iterator):
+    elif isinstance(v, Generator) or isinstance(v, Iterator) or isinstance(v, ZefGenerator):
         def generator_wrapper():
             yield from v
             yield item
-        return generator_wrapper()
+        return ZefGenerator(generator_wrapper)
     else:
         raise TypeError(f'append not implemented for type {type(v)}')
 
@@ -830,8 +873,8 @@ def update_at_imp(v: list, n, f):
     assert isinstance(n, int)
     assert callable(f)
 
-    it = iter(v)
     def wrapper():
+        it = iter(v)
         if n>=0:
             try:
                 for _ in range(n):
@@ -841,7 +884,7 @@ def update_at_imp(v: list, n, f):
             except StopIteration:
                 return        
         else:
-            # we want to enable this lazily=, but only know which
+            # we want to enable this lazily, but only know which
             # element to apply the function to once the iterable completes.
             # This means we need to cache n values at any point in time.
             # Do this mutatingly here to optimize the tight loop.
@@ -865,7 +908,7 @@ def update_at_imp(v: list, n, f):
                 yield from cached[:offset]
                 return
 
-    return wrapper()
+    return ZefGenerator(wrapper)
 
 
 
@@ -960,7 +1003,7 @@ def insert_at_imp(v, n, new_value):
                 yield from cached[:offset]
                 return
 
-    return wrapper()    
+    return ZefGenerator(wrapper)    
 
 
 
@@ -1125,9 +1168,9 @@ def stride_imp(v, step: int):
     related zefop: sliding
     related zefop: slice
     """
-    it = iter(v)  
     # shield the yield for when we extend this.  
     def wrapper():
+        it = iter(v)  
         while True:
             try:
                 yield next(it)
@@ -1135,7 +1178,7 @@ def stride_imp(v, step: int):
                     next(it)                
             except StopIteration:            
                 return
-    return wrapper()
+    return ZefGenerator(wrapper)
 
 
 def stride_tp(v_tp, step_tp):
@@ -1182,31 +1225,36 @@ def chunk_imp(iterable, chunk_size: int):
     related zefop: sliding
     related zefop: slice
     """
-    it = iter(iterable)
     if isinstance(iterable, str):
-        c = 0
-        while c*chunk_size < len(iterable):
-            yield iterable[c*chunk_size:(c+1)*chunk_size]
-            c+=1
-        return
-
-    while True:
-        try:
-            # evaluate the entire chunk. Otherwise we have to share 
-            # state between the generators that are returned            
-            # this_chunk = [next(it) for _ in range(chunk_size)]
-            # we need to do this imperatively to treat the very last
-            # chunk correctly: the iterable may raise a StopIteration,
-            # but we want to have the list up to that point.
-            # A list comprehension doesn't do this easily.
-            this_chunk = []
-            for _ in range(chunk_size):
-                this_chunk.append(next(it))
-            yield this_chunk
-        except StopIteration:            
-            if this_chunk != []:
-                yield this_chunk
+        def wrapper():
+            c = 0        
+            while c*chunk_size < len(iterable):
+                yield iterable[c*chunk_size:(c+1)*chunk_size]
+                c+=1
             return
+        return ZefGenerator(wrapper)
+
+    def wrapper():
+        it = iter(iterable)
+        while True:
+            try:
+                # evaluate the entire chunk. Otherwise we have to share 
+                # state between the generators that are returned            
+                # this_chunk = [next(it) for _ in range(chunk_size)]
+                # we need to do this imperatively to treat the very last
+                # chunk correctly: the iterable may raise a StopIteration,
+                # but we want to have the list up to that point.
+                # A list comprehension doesn't do this easily.
+                this_chunk = []
+                for _ in range(chunk_size):
+                    this_chunk.append(next(it))
+                yield this_chunk
+            except StopIteration:            
+                if this_chunk != []:
+                    yield this_chunk
+                return
+
+    return ZefGenerator(wrapper)
 
 
 def chunk_tp(v_tp, step_tp):
@@ -1236,28 +1284,30 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
     - related zefop: slice
     - operates on: List
     """
-    it = iter(iterable)
-    try:
-        w = []
-        for c in range(window_size):
-            w.append(next(it))
-        yield tuple(w)
-    except StopIteration:
-        yield tuple(w)
-        return    
-    while True:
+    def wrapper():
+        it = iter(iterable)
         try:
-            new_vals = []
-            for c in range(stride_step):
-                new_vals.append(next(it))
-            w = (*w[stride_step:], *new_vals[-window_size:])
-            yield w
-        
+            w = []
+            for c in range(window_size):
+                w.append(next(it))
+            yield tuple(w)
         except StopIteration:
-            if new_vals == []: return
-            yield (*w[stride_step:], *new_vals)
-            return      #TODO!!!!!!!!!!!!!
+            yield tuple(w)
+            return    
+        while True:
+            try:
+                new_vals = []
+                for c in range(stride_step):
+                    new_vals.append(next(it))
+                w = (*w[stride_step:], *new_vals[-window_size:])
+                yield w
+            
+            except StopIteration:
+                if new_vals == []: return
+                yield (*w[stride_step:], *new_vals)
+                return      #TODO!!!!!!!!!!!!!
     
+    return ZefGenerator(wrapper)
         
 
 def sliding_tp(v_tp, step_tp):
@@ -1376,22 +1426,26 @@ def insert_into_imp(key_val_pair, x):
     # TODO: make this work: (10, 'a') | insert_into[range(10) | map[add[100]]] | take[5] | c
 
     """
+    from typing import Generator
     if not isinstance(key_val_pair, (list, tuple)):
         return Error(f'in "insert_into": key_val_pair must be a list or tuple. It was type(x)={type(x)}     x={x}')
     
     k, v = key_val_pair
     if isinstance(x, dict):
         return {**x, k:v}
-    if type(x) in {list, tuple, range}:
+    if type(x) in {list, tuple, range, Generator, ZefGenerator}:        
         assert isinstance(k, int)
         # So much laziness!
-        it = iter(x)
-        def tmp():
-            for c in range(k):
-                yield next(it)
-            yield v
-            yield from it
-        return tmp()
+        def wrapper():
+            it = iter(x)
+            try:
+                for c in range(k):
+                    yield next(it)
+                yield v
+                yield from it
+            except StopIteration:
+                return
+        return ZefGenerator(wrapper)
 
 
 
@@ -1462,7 +1516,7 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
         return fg_get_imp(d, key)
     elif isinstance(d, dict):
         return d.get(key, default)
-    elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator):
+    elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator) or isinstance(d, ZefGenerator):
         return Error(f"get called on a list. Use 'nth' to get an element at a specified index.")
     elif isinstance(d, Graph) or isinstance(d, GraphSlice):
         try:
@@ -1620,7 +1674,7 @@ def reverse_imp(v):
     - operates on: List
     """
     from typing import Generator
-    if isinstance(v, Generator): return (tuple(v))[::-1]
+    if isinstance(v, (Generator, ZefGenerator)): return (tuple(v))[::-1]
     if isinstance(v, str): return v[::-1]
     if isinstance(v, list): return v[::-1]
     if isinstance(v, tuple): return v[::-1]
@@ -1651,21 +1705,23 @@ def cycle_imp(iterable, n=None):
     - used for: stream manipulation
     - operates on: List
     """
-    if n==0:
-        return
-    cached = []
-    for x in iterable:
-        cached.append(x)
-        yield x
-
-    rerun = 1
-    while True:
-        rerun += 1
-        if n is not None and rerun > n:
+    def wrapper():
+        cached = []
+        if n==0:
             return
-        for x in cached:
+
+        for x in iterable:
+            cached.append(x)
             yield x
 
+        rerun = 1
+        while True:
+            rerun += 1
+            if n is not None and rerun > n:
+                return
+            for x in cached:
+                yield x
+    return ZefGenerator(wrapper)
 
 
 def cycle_tp(iterable_tp, n_tp):
@@ -1674,7 +1730,7 @@ def cycle_tp(iterable_tp, n_tp):
 
 
 #---------------------------------------- repeat -----------------------------------------------
-def repeat_imp(iterable, n=None):
+def repeat_imp(x, n=None):
     """
     Repeat an element a given number of times 
     None (default) means infinite).
@@ -1687,9 +1743,18 @@ def repeat_imp(iterable, n=None):
     - related zefop: cycle
     - operates on: Any
     """
-    import itertools
-    if isinstance(iterable, Generator) or isinstance(iterable, Iterator): iterable = [i for i in iterable]
-    return itertools.repeat(iterable) if n is None else itertools.repeat(iterable, n)
+    def wrapper():
+        try:
+            if n is None:
+                while True:
+                    yield x
+            else:
+                for _ in range(n):
+                    yield x
+        except StopIteration:
+            return
+
+    return ZefGenerator(wrapper)
 
 
 def repeat_tp(iterable_tp, n_tp):
@@ -1726,7 +1791,7 @@ def contains_tp(x_tp, el_tp):
 
 #---------------------------------------- contained_in -----------------------------------------------
 def contained_in_imp(x, el):
-    if isinstance(x, Generator) or isinstance(x, Iterator): x = [i for i in x]
+    if isinstance(x, (Generator, ZefGenerator)) or isinstance(x, Iterator): x = [i for i in x]
     return x in el
 
 
@@ -1862,7 +1927,7 @@ def all_imp(*args):
     # once we're here, we interpret it like the Python "all"
     v = args[0]
     assert len(args) == 1
-    assert isinstance(v, list) or isinstance(v, tuple) or isinstance(v, Generator) or isinstance(v, Iterator)
+    assert isinstance(v, list) or isinstance(v, tuple) or isinstance(v, (Generator, ZefGenerator)) or isinstance(v, Iterator)
     # TODO: extend to awaitables
     return builtins.all(v)
             
@@ -1956,7 +2021,7 @@ def trim_left_imp(v, el_to_trim):
                 yield next(it)        
         except StopIteration:
             return
-    return wrapper()
+    return ZefGenerator(wrapper)
 
 
 def trim_left_tp(v_tp, el_to_trim_tp):
@@ -2058,7 +2123,7 @@ def tap_imp(x, fct):
     - related zefop: apply
     """
     # As we can receive a generator, we need to collect it up first before continuing
-    if isinstance(x, Generator):
+    if isinstance(x, (Generator, ZefGenerator)):
         x = list(x)
     fct(x)
     return x
@@ -3039,12 +3104,12 @@ def skip_imp(v, n: int):
     # if isinstance(v, ZefRefs) or isinstance(v, EZefRefs):
     #     return pyzefops.drop(v, n)
     if n>=0:
-        it = iter(v)
-        for _ in range(n):
-            next(it)
-        def gen():
+        def wrapper():
+            it = iter(v)
+            for _ in range(n):
+                next(it)
             yield from it
-        return gen()    
+        return ZefGenerator(wrapper)    
     # n<0
     else:
         cached = tuple(v)
@@ -3121,8 +3186,18 @@ def iterate_implementation(x, f):
     ---- Signature ----
     (T, (T->T)) -> List[T]
     """
-    # TODO: assert that fct is an endomorphism on zef_type(x)
-    return itertools.accumulate(itertools.repeat(x), lambda fx, _: f(fx))
+    def wrapper():
+        current_val = x
+        try:
+            yield current_val
+            while True:
+                new_val = f(current_val)
+                current_val = new_val
+                yield new_val
+        except StopIteration:
+            return
+
+    return ZefGenerator(wrapper)
 
 
 def iterate_type_info(op, curr_type):
@@ -3146,19 +3221,49 @@ def take_implementation(v, n):
     negative n: take n last items. Must evaluate entire iterable, does not terminate 
     for infinite iterables.
 
+    ---- Examples ----
+    >>> ['a', 'b', 'c'] | take[2]       # => ['a', 'b']
+    >>> ['a', 'b', 'c'] | take[-2]      # => ['b', 'c']
+    >>> 'hello' | take[3]               # => 'hel'
+    >>> 'hello' | take[-3]              # => 'llo'
 
     ---- Signature ----
     (List[T], Int) -> List[T]
+    (String, Int)  -> String
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: slice
+    - related zefop: reverse
+    - related zefop: first
+    - related zefop: last
+    - related zefop: nth    
     """
-    import itertools
     if isinstance(v, ZefRef) or isinstance(v, EZefRef):
         return take(v, n)
+    elif isinstance(v, str):
+        return v[:n] if n>=0 else v[n:]
     else:
-        if n >= 0:            
-            return (x for x in itertools.islice(v, n))
+        if n >= 0:
+            def wrapper():
+                it = iter(v)
+                try:
+                    for _ in range(n):
+                        yield next(it)
+                except StopIteration:
+                    return
+
+            return ZefGenerator(wrapper)
         else:
-            vv = list(v)
+            if isinstance(v, str): return v[n:]
+            vv = tuple(v)
             return vv[n:]
+
+
+
         
         
 def take_type_info(op, curr_type):
@@ -3167,9 +3272,34 @@ def take_type_info(op, curr_type):
 
 
 #---------------------------------------- take_while -----------------------------------------------
-def take_while_imp(it, predicate):
-    import itertools
-    return itertools.takewhile(predicate, it)
+def take_while_imp(v, predicate):
+    """ 
+    Similar to take_until, but with positive predicate and 
+    it does not include the bounding element.
+    
+    ---- Examples ----
+    >>> range(10) | take_while[lambda x: x<4]       # => [0, 1, 2, 3]
+
+    ---- Signature ----
+    (List[T], (T->Bool)) -> List[T]
+
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: take
+    - related zefop: take_until
+    - related zefop: skip
+    - related zefop: skip_while
+    """
+    def wrapper():
+        it = iter(v)
+        for el in it:
+            if predicate(el):
+                yield el                
+            else:
+                return
+    return ZefGenerator(wrapper)
 
 def take_while_tp(it_tp, pred_type):
     return it_tp
@@ -3178,24 +3308,27 @@ def take_while_tp(it_tp, pred_type):
 
 
 #---------------------------------------- take_until -----------------------------------------------
-def take_until_imp(it, predicate):
+def take_until_imp(v, predicate):
     """ 
     Similar to take_while, but with negated predicate and 
     it includes the bounding element. Useful in some cases,
     but take_while is more common.
     
     ---- Examples ----
-    >>> range(10) | take_until[lambda x: x>4] | collect       # => [0, 1, 2, 3, 4, 5]
+    >>> range(10) | take_until[lambda x: x>4]       # => [0, 1, 2, 3, 4, 5]
 
     ---- Signature ----
     (List[T], (T->Bool)) -> List[T]
     """
-    for el in it:
-        if not predicate(el):
-            yield el
-        else:
-            yield el
-            break
+    def wrapper():
+        it = iter(v)
+        for el in it:
+            if not predicate(el):
+                yield el
+            else:
+                yield el
+                break
+    return ZefGenerator(wrapper)
 
 def take_until_tp(it_tp, pred_type):
     return it_tp
@@ -3224,19 +3357,21 @@ def take_while_pair_imp(iterable, binary_predicate):
         pass
     sentinel = Sentinel()       # don't reuse any value the user could have given
     _prev_value = sentinel
-    
-    it = iter(iterable)
-    val = next(it)
-    yield val
-    while True:
-        _prev_value = val
-        try:
-            val = next(it)
-        except StopIteration:
-            return
-        if not binary_predicate(_prev_value, val):
-            return
+    def wrapper():
+        it = iter(iterable)
+        val = next(it)
         yield val
+        while True:
+            _prev_value = val
+            try:
+                val = next(it)
+            except StopIteration:
+                return
+            if not binary_predicate(_prev_value, val):
+                return
+            yield val
+
+    return ZefGenerator(wrapper)
 
 
 
@@ -3730,7 +3865,8 @@ def distinct_imp(v):
         except StopIteration:
             return
 
-    return wrapper()
+    return ZefGenerator(wrapper)
+
 
 
 def distinct_tp(x):
@@ -3776,7 +3912,7 @@ def distinct_by_imp(v, fct):
         except StopIteration:
             return
 
-    return wrapper()
+    return ZefGenerator(wrapper)
 
 
 def distinct_by_tp(x):
@@ -3896,14 +4032,14 @@ def replace_imp(collection, old_val, new_val):
         raise TypeError('Dont use "replace", but "insert" to replace a key value pair in a dictionary')
   
     if isinstance(collection, Iterable):
-        it = iter(collection)
-        def my_gen():
+        def wrapper():
+            it = iter(collection)
             try:
                 while True:
                     yield rep(next(it))            
             except StopIteration:
                 return
-        return my_gen()
+        return ZefGenerator(wrapper)
     
     raise TypeError('not implemented')
 
@@ -3958,7 +4094,9 @@ def slice_imp(v, start_end: tuple):
 
     ---- Examples ----
     >>> ['a', 'b', 'c', 'd'] | slice[1:2]    # => ['b', 'c']
-    >>> 'abcdefgh' | slice_imp[1,6,2]        # => 'bdf'
+    >>> 'abcdefgh' | slice[1,6,2]            # => 'bdf'
+    >>> 'hello' | slice[1,3]                 # => 'el'
+    >>> 'hello' | slice[1,-1]                # => 'ello'
     
     ---- Tags ----
     - operates on: List
@@ -3979,18 +4117,18 @@ def slice_imp(v, start_end: tuple):
     
     if type(v) in {list, tuple, str}:
         if len(start_end) == 2:
-            return v[start_end[0]: start_end[1]]
+            end = start_end[1] if start_end[1]>=0 else start_end[1]+1
+            return v[start_end[0]: end] if start_end[1] !=-1 else v[start_end[0]:]
         if len(start_end) == 3:
             return v[start_end[0]: start_end[1] : start_end[2]]
-    elif isinstance(v, Generator):
+    elif isinstance(v, Generator) or isinstance(v, ZefGenerator):
         start, end = start_end
         # don't returns a custom slice object, but a generator to make it uniform.
         def wrapper():
             yield from itertools.islice(v, start, end)        
-        return wrapper()
+        return ZefGenerator(wrapper)
     else:
         raise TypeError(f"`slice` not implemented for type {type(v)}: {v}")
-
 
 
 def slice_tp(*args):
@@ -4038,7 +4176,7 @@ def split_imp(collection, val):
         except StopIteration:
             yield s
             return
-    return wrapper()
+    return ZefGenerator(wrapper)
     
 
 def split_tp(*args):
@@ -4087,7 +4225,7 @@ def split_left_imp(v, val):
         except StopIteration:
             if s!=[]: yield s
             return
-    return wrapper()
+    return ZefGenerator(wrapper)
 
 
 # ---------------------------------------- split_right -----------------------------------------------
@@ -4131,7 +4269,7 @@ def split_right_imp(v, val):
         except StopIteration:
             if s!=[]: yield s
             return
-    return wrapper()
+    return ZefGenerator(wrapper)
 
 
 # ------------------------------------------ split_if ---------------------------------------------
@@ -4174,7 +4312,7 @@ def split_if_imp(v, split_function):
         except StopIteration:
             yield s
             return
-    return wrapper()
+    return ZefGenerator(wrapper)
 
 
 
@@ -5047,7 +5185,7 @@ def apply_functions_imp(x, fns):
     from typing import Generator
     if not (isinstance(fns, list) or isinstance(fns, tuple)):
         raise TypeError(f"apply_functions must be given a tuple of functions.")
-    if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, Generator)):
+    if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, (Generator, ZefGenerator))):
         raise TypeError(f"apply_functions must be given a tuple of input args.")
     xx = tuple(x)
     if not len(fns) == len(xx):
@@ -5095,12 +5233,12 @@ def map_implementation(v, f):
             def wrapper_list():
                 for el in v:            
                     yield tuple(ff(el) for ff in f)
-            return wrapper_list()
+            return ZefGenerator(wrapper_list)
         else:
             def wrapper():
                 for el in v:
                     yield f(el)
-            return wrapper()       
+            return ZefGenerator(wrapper)
 
 
 
@@ -5194,7 +5332,7 @@ def group_imp(v, f=lambda x: x):
                 yield tuple(current_list)
             return
 
-    return wrapper()
+    return ZefGenerator(wrapper)
 
 
 
@@ -5273,12 +5411,15 @@ def nth_implementation(iterable, n):
         
     if isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, str):
         return iterable[n]
+    
+    # it must be a generator or zef generator
+    if n<0: 
+        return tuple(iterable)[n]    # if we're taking from the back, it must be non-infinite in length
+    
     it = iter(iterable)
     for cc in range(n):
         next(it)
-    return next(it)
-    #   TODO: implementation for awaitables
-            
+    return next(it)    
 
 
 
@@ -5417,6 +5558,34 @@ def sort_implementation(v, key_fct=None, reverse=False):
 
 
 def to_delegate_implementation(first_arg, *curried_args):
+    """
+    Convert the Graph delegate representation to the Delegate representation,
+    which is not specific to any graph, or vice versa.
+    
+    Converting from a Graph EZefRef to a Delegate requires no additional curried
+    arguments.
+
+    Converting from a Delegate to a Graph EZefRef requires one argument of a
+    Graph and can take an additional argument specifying whether the EZefRef
+    should be created if it doesn't already exist. If this is not given, and the
+    delegate doesn't exist, then this function returns None.
+
+    ---- Examples ----
+    >>> z_entity_del | to_delegate      # A Delegate(...) of the entity
+    >>> delegate | to_delegate[g][True] # A EZefRef of the delegate
+    >>> delegate | to_delegate          # => delegate
+
+    ---- Signature ----
+    Delegate -> Delegate
+    (Delegate, Graph) -> EZefRef | Nil
+    (Delegate, Graph, True) -> EZefRef
+    EZefRef[Delegate] -> Delegate
+
+    ---- Tags ----
+    - related zefop: delegate_of
+
+    """
+
     if isinstance(first_arg, Delegate):
         if len(curried_args) == 0:
             return first_arg
@@ -5447,6 +5616,47 @@ def attempt_to_delegate(args):
         return Delegate(args)
 
 def delegate_of_implementation(x, arg1=None, arg2=None):
+    """
+    With no additional arguments, takes the input and produces an abstract
+    Delegate from it. The input could be a ZefRef on a graph, an
+    ET/RT/AET/RelationTriple type, or another delegate. The output will always
+    be one order of delegate higher than the input.
+    
+    With one additional argument, which must be a Graph, this will lookup the
+    ZefRef of the equivalent delegate on the graph, if it exists. A second
+    additional argument, set to True, forces the creation of the ZefRef on the
+    graph.
+    
+    This and `to_delegate` can be used interchangably in many ways.
+
+    ---- Examples ----
+    >>> z | delegate_of
+    >>> z | delegate_of | to_delegate == z | to_delegate | delegate_of
+    >>> ET.Machine | delegate_of == Delegate(ET.Machine) | delegate_of
+    >>> (ET.A, RT.B, ET.C) | delegate_of | source == ET.A | delegate_of
+    >>> z | delegate_of | all    # Get all instances that are the same type as z
+    
+    >>> ET.Machine | delegate_of[g] | now | all == g | now | all[ET.Machine]
+    >>> ET.Machine | delegate_of[g][True]   # Creates the delegate ZefRef on the graph g
+    
+    >>> z = ET.Machine | g | run
+    ... dz = z | delegate_of | collect
+    ... a,b,c = (dz, RT.Meta, "metadata") | g | run
+    ... b | delegate_of | discard_frame == (delegate_of(ET.Machine), RT.Meta, AET.String) | delegate_of[g]
+
+    ---- Signature ----
+    Delegate -> Delegate
+    AnyRAEType -> Delegate
+    ZefRef -> ZefRef | Nil
+    EZefRef -> EZefRef | Nil
+    (Delegate | AnyRAEType, Graph) -> EZefRef | Nil
+    (Delegate | AnyRAEType, Graph, Bool) -> EZefRef
+
+    where AnyRAEType = ET | AET | RT | RelationTriple
+
+    ---- Tags ----
+    - related zefop: to_delegate
+    """
     if isinstance(x, EZefRef) or isinstance(x, ZefRef):
         assert arg2 is None
         if arg1 is None:
@@ -6126,7 +6336,8 @@ def is_a_implementation(x, typ):
             return True
         elif isinstance(x, list) or isinstance(x, tuple):
             for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
-                if not isinstance(p_e, ValueType_): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
+                if type(p_e) not in {ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct}:
+                    raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")
                 if not is_a(x_e, p_e): return False  
             return True
         
@@ -6136,11 +6347,11 @@ def is_a_implementation(x, typ):
     def list_matching(x, tp):
         import sys
         from typing import Generator
-        if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, Generator)):
+        if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, (Generator, ZefGenerator))):
             return False
         ab = tp.d['absorbed']
         if ab != ():
-            if isinstance(x, Generator):
+            if isinstance(x, (Generator, ZefGenerator)):
                 raise NotImplementedError()
             if len(ab)!=1:    # List takes only one Type argument
                 print('Something went wrong in `is_a[List[...]]`: multiple args curried into ', file=sys.stderr)
@@ -6832,7 +7043,7 @@ def merge_imp(a, second=None, *args):
     if is_a(a, FlatGraph) and is_a(second, FlatGraph):
         return fg_merge_imp(a, second)
     elif second is None:
-        assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, Generator)
+        assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, (Generator, ZefGenerator))
         return {k: v for d in a for k, v in d.items()}
     else:
         assert isinstance(a, dict)
@@ -7222,7 +7433,7 @@ def to_pipeline_imp(ops: list):
     - related zefop: bypass
     """
     from typing import Generator, Iterable, Iterator
-    if isinstance(ops, Generator) or isinstance(ops, Iterator): ops = [op for op in ops]
+    if isinstance(ops, (Generator, ZefGenerator)) or isinstance(ops, Iterator): ops = [op for op in ops]
     return identity if len(ops) == 0 else (ops[1:] | reduce[lambda v, el: v | el][ops[0]] | collect)
 
 
@@ -7548,7 +7759,7 @@ def replace_at_imp(str_or_list, index, new_el):
         if index >= len(s) or index < 0: return s
         if index == len(s) - 1: return s[:index] + char
         return s[:index] + char + s[index+1:] 
-    elif isinstance(str_or_list, list) or isinstance(str_or_list, tuple) or isinstance(str_or_list, Generator):
+    elif isinstance(str_or_list, list) or isinstance(str_or_list, tuple) or isinstance(str_or_list, Generator) or isinstance(str_or_list, ZefGenerator):
         def wrapper():
             it = iter(str_or_list)
             c = 0
@@ -7561,7 +7772,7 @@ def replace_at_imp(str_or_list, index, new_el):
                 yield from it
             except StopIteration:
                 return
-        return wrapper()
+        return ZefGenerator(wrapper)
     else:
         return Error.TypeError(f"Expected an string or a list. Got {type(str_or_list)} instead.")
 
@@ -8293,8 +8504,12 @@ def fg_insert_imp(fg, new_el):
             idx = new_key_dict[hash_vn]
 
         elif isinstance(new_el, FlatRef):
-            assert new_el.fg == fg, "The FlatRef's origin FlatGraph doesn't match current FlatGraph."
-            idx = new_el.idx
+            if new_el.fg == fg:
+                idx = new_el.idx
+            else:
+                # If the flatgraphs are different then merge the FlatGraph in and return the
+                # new index of the blob originally in the other FlatGraph
+                idx = fr_merge_and_retrieve_idx(new_blobs, new_key_dict,next_idx, new_el)
 
         elif type(new_el) in list(map_scalar_to_aet_type.keys()): 
             aet = map_scalar_to_aet_type[type(new_el)](new_el)
@@ -8393,6 +8608,53 @@ def fg_insert_imp(fg, new_el):
     new_fg.key_dict = new_key_dict
     new_fg.blobs = (*new_blobs,)
     return new_fg
+
+def fr_merge_and_retrieve_idx(blobs, k_dict, next_idx, fr):
+    fr_idx = fr.idx
+    fg2 = fr.fg
+
+    idx_key_2 = {i:k for k,i in fg2.key_dict.items()}
+    old_to_new = {}
+
+    def retrieve_or_insert_blob(new_b):
+        old_idx = new_b[0]
+        key = idx_key_2.get(new_b[0], None)
+
+        if old_idx in old_to_new:
+            idx = old_to_new[old_idx]
+            new_b = blobs[idx]
+        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], uid)) and key in k_dict:
+            new_b = blobs[k_dict[key]]
+            idx = new_b[0]
+        else:
+            idx = next_idx()
+            new_b = (idx, new_b[1], [], *new_b[3:])
+            blobs.append(new_b)
+        old_to_new[old_idx] = idx
+        return new_b
+
+    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RelationType)] | sort[lambda b: -len(b[2])]:
+        src_b, trgt_b = fg2.blobs[b[4]], fg2.blobs[b[5]]
+        src_b  = retrieve_or_insert_blob(src_b)
+        trgt_b = retrieve_or_insert_blob(trgt_b)
+        
+        idx = next_idx()
+        rt_b = (idx, b[1], [], None, src_b[0], trgt_b[0])
+        src_b[2].append(idx)
+        trgt_b[2].append(-idx)
+        blobs.append(rt_b)
+        old_to_new[b[0]] = idx
+
+            
+    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RelationType)]:
+        if b[0] not in old_to_new: retrieve_or_insert_blob(b)
+
+    # If there is no overlab with the main k_dict, we insert
+    # the old key with the new index
+    for k,v in fg2.key_dict.items():
+        if k not in k_dict: k_dict[k] = old_to_new[v]
+
+    return old_to_new[fr_idx]
 
 def fg_get_imp(fg, key):
     kdict = fg.key_dict
@@ -8595,7 +8857,7 @@ def transact_imp(data, g, **kwargs):
         commands = flatgraph_to_commands(data)
     elif type(data) in {list, tuple}:
         commands = construct_commands(data)
-    elif isinstance(data, Generator):
+    elif isinstance(data, (Generator, ZefGenerator)):
         commands = construct_commands(tuple(data))
     else:
         raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
@@ -8667,11 +8929,6 @@ def fg_merge_imp(fg1, fg2):
     return new_fg
 
 
-
-
-
-
-
 #-----------------------------Range----------------------------------------
 def range_imp(*args):
     """
@@ -8740,7 +8997,7 @@ def range_imp(*args):
     def generator_wrapper1():
         yield from range(lo, hi)
     # don't expose the yield directly, keep this a function
-    return generator_wrapper2() if hi==infinity else generator_wrapper1()
+    return ZefGenerator(generator_wrapper2 if hi==infinity else generator_wrapper1)
 
 
 def range_tp(op, curr_type):
@@ -9290,16 +9547,20 @@ def split_on_next_imp(s, el_to_split_on):
         ind = s.find(el_to_split_on)
         if ind == -1: return s, ''    # not found
         return s[:ind], s[ind+len(el_to_split_on):]
-    if isinstance(s, list) or isinstance(s, tuple) or isinstance(s, Generator):
-        it = iter(s)
-        part1 = []
-        while True:
-            val = next(it)
-            if val == el_to_split_on: break
-            part1.append(val)
-        def wrapper():      # keep split_on_next a function
-            yield from it
-        return part1, wrapper()
+    if isinstance(s, list) or isinstance(s, tuple) or isinstance(s, Generator) or isinstance(s, ZefGenerator):
+        def outer_wrapper():
+            it = iter(s)
+            part1 = []
+            while True:
+                val = next(it)
+                if val == el_to_split_on: break
+                part1.append(val)
+            yield part1
+            def wrapper():      # keep split_on_next a function
+                yield from it
+            yield wrapper()
+
+        return ZefGenerator(outer_wrapper)
 
     raise TypeError(f"expected a String or a List in `split_on_next`, got a {type(s)}")
 
@@ -9719,5 +9980,71 @@ def gather_imp(z_initial, rules=None):
 
 
 
+# ----------------------------- alias -----------------------------
+def alias_imp(vt, name: str):
+    """ 
+    Give a ValueType an alias: a name to show in the
+    repr's output to shorten and make the output more readable.
+
+    ---- Examples ----
+    >>> StringOrFloat = (String | Float) | alias('StringOrFloat')
+
+    ---- Signature ----
+    (ValueType, String)    -> ValueType
+
+    ---- Tags ----
+    - operates on: ValueType
+    - used for: readability
+    """
+    vt2 = ValueType_(type_name=vt.d['type_name'], absorbed=vt.d['absorbed'])
+    vt2.d['alias'] = name
+    return vt2
+
+
+
+
+
+# ----------------------------- splice -----------------------------
+def splice_imp(x, start_pos, els_to_replace, replacement):
+    """
+    "splice in" or insert a replacement sequence or string into
+    a sequence at a given position.
+
+    ---- Examples ----
+    >>> 'good morning world' | splice[5][7]['afternoon']         # 'good afternoon world'
+    >>> Range(0, 5) | splice[2][1][('a','b', 'c')]               # (0, 1, 'a', 'b', 'c', 3, 4)
+
+    ---- Signature ----
+    (Graph, str, bool) -> Effect
+    (ZefRef, str, bool) -> LazyValue
+
+    ---- Tags ----
+    - operates on: String
+    - operates on: List
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: replace_at
+    - related zefop: replace
+    """
+    if isinstance(x, str):
+        return x[:start_pos] + replacement + x[start_pos + els_to_replace:]
+    elif isinstance(x, list) or isinstance(x, tuple):
+        return (*x[:start_pos], *replacement, *x[start_pos + els_to_replace:])
+    
+    elif isinstance(x, ZefGenerator):        
+        # handle both the dataflow arg and the replacement as generators
+        def wrapper():
+            it1 = iter(x)
+            it2 = iter(replacement)
+            for _ in range(start_pos):
+                yield next(it1)
+            yield from it2
+            for _ in range(els_to_replace):
+                next(it1)     # throw these away
+            yield from it1
+        return ZefGenerator(wrapper)
+
+    else:
+        return Error(f'Unsupported type passed to "splice": {type(x)}')
 
 

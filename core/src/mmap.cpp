@@ -390,8 +390,7 @@ namespace zefDB {
                     }
                 }
             } else {
-                if(zwitch.developer_output())
-                    std::cerr << "Did not find existing file." << std::endl;
+                developer_output("Did not find existing file.");
             }
 
             // We get here if the file doesn't exist, or we fallback from a corrupted file.

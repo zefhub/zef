@@ -28,6 +28,7 @@ from .fx.fx_types import FXElement, Effect
 from .flat_graph import FlatGraph_, FlatRef, FlatRefs
 from ..pyzef import internals as pyinternals
 from .VT import ValueType_
+from .symbolic_expression import SymbolicExpression_
 
 ##############################
 # * Definition
@@ -286,6 +287,14 @@ def serialize_valuetype(vt):
     }
 
 
+def serialize_symbolicexpression(se):
+    return {
+        "_zeftype": "SymbolicExpression",
+        "name": se.name,
+        "root_node": serialize_internal(se.root_node),
+        "absorbed": serialize_internal(se.absorbed)
+    }
+
 
 def deserialize_tuple(json_d: dict) -> tuple:
     return tuple(deserialize_internal(el) for el in json_d["items"])
@@ -453,6 +462,13 @@ def deserialize_valuetype(d):
             return ValueType_(type_name=d["type_name"], absorbed=absorbed)
     raise Exception(f"Couldn't find a ValueType of type '{d['type_name']}'")
 
+def deserialize_symbolicexpression(d):
+    return SymbolicExpression_(
+        name = d["name"],
+        root_node= deserialize_internal(d["root_node"]),
+        absorbed = deserialize_internal(d["absorbed"]),
+    )
+
 serialization_mapping[ZefRef] = serialize_zeftypes
 # serialization_mapping[ZefRefs] = serialize_zeftypes
 serialization_mapping[EZefRef] = serialize_zeftypes
@@ -488,6 +504,7 @@ serialization_mapping[pyinternals.DelegateTX] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRoot] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRelationTriple] = serialize_delegate
 serialization_mapping[ValueType_] = serialize_valuetype
+serialization_mapping[SymbolicExpression_] = serialize_symbolicexpression
 
 
 deserialization_mapping["dict"] = deserialize_dict
@@ -526,3 +543,4 @@ deserialization_mapping["pyinternals.DelegateTX"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateRoot"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateRelationTriple"] = deserialize_delegate
 deserialization_mapping["ValueType"] = deserialize_valuetype
+deserialization_mapping["SymbolicExpression"] = deserialize_symbolicexpression

@@ -84,6 +84,7 @@ class _GraphQL_Class():
     StopServer = FXElement(('GraphQL', 'StopServer'))
     StartPlayground = FXElement(('GraphQL', 'StartPlayground'))
     StopPlayground = FXElement(('GraphQL', 'StopPlayground'))
+    GenerateSchemaString = FXElement(('GraphQL', 'GenerateSchemaString'))
 
 
 class _LocalFile_Class():

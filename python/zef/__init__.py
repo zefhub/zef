@@ -24,6 +24,7 @@ __version__ = _version.get_versions()['version']
 from . import core
 from . import pyzef
 from . import ops
+from . import ui
 
 from .core import *
 

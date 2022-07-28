@@ -83,3 +83,5 @@ python3 -m pip install -qr python/requirements.txt || exit 1
 
 ln -fs $(realpath python/pyzef/build/pyzef.* --relative-to=python/zef) python/zef/
 ln -fs $(realpath core/auth.html --relative-to=python/zef) python/zef/
+# Generate the rel_ent_instances.pyi file inplace
+python3 core/scripts/run_cog_gen.py python/zef/core/internals/ python/zef/core/internals/ python/pyzef/build/zef-build/

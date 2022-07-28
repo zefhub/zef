@@ -311,4 +311,6 @@ _op_to_functions = {
         RT.UsedFor:            (used_for_imp, None),
 
         RT.Gather:             (gather_imp, None),
+        RT.Alias:              (alias_imp, None),
+        RT.Splice:             (splice_imp, None),
 }

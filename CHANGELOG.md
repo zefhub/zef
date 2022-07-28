@@ -1,3 +1,39 @@
+pyzef-0.15.8
+============
+
+New features:
+-------------
+
+- Rich output in `zef.ui`, via `show`, `to_table` and `to_card`.
+- `splice`, `alias`, ... zefops.
+- Filegraphs and credentials are stored together in directory for ZefHub URL.
+  This may require a new login with your credentials.
+
+Breaking changes:
+-----------------
+
+- `ZEFHUB_AUTH_KEY` is repurposed for API keys for service jobs. API keys can be
+  created for your account at `console.zefhub.io`.
+
+Fixes:
+------
+
+- SimpleGQL graphs are kept alive by default.
+- Fixes in ordering of graph delta commands.
+- Zefops `ZefGenerator`s internally now for reliable iteration.
+
+Improvements:
+-------------
+
+- FlatGraphs:
+  - FlatGraphs can absorbed other FlatGraphs from FlatRefs
+- SimpleGQL:
+  - Faster queries/updates with explicit IDs.
+  - Queries work in consistent graph slice.
+  - `debug-level` for extra info
+- Core:
+  - GraphSlices now hold a reference to their corresponding Graph.
+
 pyzef-0.15.7
 ============
 
