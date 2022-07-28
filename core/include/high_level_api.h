@@ -271,6 +271,7 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const QuantityFloat & value, Graph& g);
     LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const QuantityInt & value, Graph& g);
     LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const SerializedValue & value, Graph& g);
+    LIBZEF_DLL_EXPORTED extern template ZefRef instantiate_value_node(const AttributeEntityType & value, Graph& g);
 
 
 

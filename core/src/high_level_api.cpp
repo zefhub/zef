@@ -403,6 +403,7 @@ namespace zefDB {
     template ZefRef instantiate_value_node(const QuantityFloat & value, Graph& g);
     template ZefRef instantiate_value_node(const QuantityInt & value, Graph& g);
     template ZefRef instantiate_value_node(const SerializedValue & value, Graph& g);
+    template ZefRef instantiate_value_node(const AttributeEntityType & value, Graph& g);
 
 
 

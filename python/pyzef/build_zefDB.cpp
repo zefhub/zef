@@ -579,6 +579,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	main_module.def("instantiate_value_node", &instantiate_value_node<QuantityFloat>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
 	main_module.def("instantiate_value_node", &instantiate_value_node<QuantityInt>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
 	main_module.def("instantiate_value_node", &instantiate_value_node<SerializedValue>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<AttributeEntityType>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
 	
 
 //                                   _                    __      _                            

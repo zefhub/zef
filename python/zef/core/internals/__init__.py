@@ -185,14 +185,15 @@ def assign_value_imp(z, value):
     c_assign_value(z, value)
 
 
-def instantiate_value_node_imp(value, gd):
+def instantiate_value_node_imp(value, g):
+    from ...pyzef.zefops import SerializedValue
+    from ...pyzef.main import instantiate_value_node as c_instantiate_value_node
     from .._ops import is_a
-    from ...pyzef.zefops import SerializedValue, assign_value as c_assign_value
     from ..VT import ValueType_
+    from ..graph_delta import scalar_types
 
-    assert isinstance(z, ZefRef) or isinstance(z, EZefRef)
-    if is_a(z, AET.Serialized):
-        value = SerializedValue.serialize(value)
     if isinstance(value, ValueType_):
         value = AET[value]
-    c_assign_value(z, value)
+    elif type(value) not in scalar_types:
+        value = SerializedValue.serialize(value)
+    return c_instantiate_value_node(value, g)

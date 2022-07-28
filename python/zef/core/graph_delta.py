@@ -28,7 +28,8 @@ from .graph_slice import GraphSlice
 from .abstract_raes import Entity, Relation, AttributeEntity, TXNode, Root
 from ..pyzef.zefops import SerializedValue
 from .logger import log
-from .VT import Is, Any
+from .VT import Is, Any, ValueType_
+from .internals import instantiate_value_node_imp
 
 from abc import ABC
 class ListOrTuple(ABC):
@@ -631,7 +632,7 @@ def cmds_for_lv_assign(x, gen_id: Callable):
 
     val = LazyValue(op) | absorbed | single | collect
     if type(val) == Val:
-        cmd['value_node'] = TaggedVal(val.arg, None).primitive
+        cmd['value'] = TaggedVal(val.arg, None).primitive
     else:
         cmd['value'] = val
 
@@ -990,7 +991,7 @@ def verify_and_compact_commands(cmds: tuple):
 def validate_and_compress_unique_assignment(cmds):
     @func
     def check_list_is_distinct(cmds):
-        values = cmds | map[lambda x: x["value"] if "value" in x else x["value_node"]] | distinct | collect
+        values = cmds | map[get["value"]] | distinct | collect
         if length(values) == 1:
             return cmds[0]
         raise ValueError(f'There may be at most one assignment commands for each AE. There were multiple for assignment to {get_id(cmds[0])!r} with values {values}')
@@ -1260,7 +1261,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                     zz = instantiate(to_ezefref(d_raes[cmd['source']]), cmd['rae_type'], to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
                 
                 elif cmd['cmd'] == 'instantiate_value_node':
-                    zz = instantiate_value_node(cmd['value'], g)
+                    zz = instantiate_value_node_imp(cmd['value'], g)
                 
                 elif cmd['cmd'] == 'assign':
                     this_id = cmd['internal_id']
@@ -1272,10 +1273,6 @@ def perform_transaction_commands(commands: list, g: Graph):
                         if zz | value | collect != cmd['value']:
                             # print("Assigning value of ", cmd['value'], "to a", AET(z))
                             internals.assign_value_imp(zz, cmd['value'])
-                    elif 'value_node' in cmd:
-                        if zz | value | collect != cmd['value_node']:
-                            vn = instantiate_value_node(cmd['value_node'], g)
-                            internals.assign_value_imp(zz, vn)
                     else:
                         raise Exception("Assignment without an value")
                             
@@ -1457,7 +1454,7 @@ class TaggedVal:
         self.iid = iid
 
 
-scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue}
+scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue, ValueType_}
 
 def make_enum_aet(x):
     """ hacky work around function for now:
