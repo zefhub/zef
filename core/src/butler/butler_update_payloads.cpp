@@ -334,10 +334,12 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
 
     UpdatePayload payload;
     if(upstream_layout() == "0.2.0")
-        payload = conversions::create_update_payload_as_if_0_2_0(*me.gd, update_heads);
+        // payload = conversions::create_update_payload_as_if_0_2_0(*me.gd, update_heads);
+        payload = create_update_payload(*me.gd, update_heads);
     else {
         force_assert(upstream_layout() == "0.3.0");
-        payload = create_update_payload(*me.gd, update_heads);
+        throw std::runtime_error("Shouldn't get here yet!");
+        // payload = create_update_payload(*me.gd, update_heads);
     }
 
 

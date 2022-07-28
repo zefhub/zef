@@ -194,11 +194,13 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload_in, 
     LockGraphData lock{&gd};
 
     UpdatePayload payload;
-    if(working_layout == "0.2.0")
-        payload = conversions::convert_payload_0_2_0_to_0_3_0(payload_in);
-    else {
-        force_assert(working_layout == "0.3.0");
+    if(working_layout == "0.2.0") {
+        // payload = conversions::convert_payload_0_2_0_to_0_3_0(payload_in);
         payload = payload_in;
+    } else {
+        force_assert(working_layout == "0.3.0");
+        // payload = payload_in;
+        throw std::runtime_error("Shouldn't get here yet!");
     }
 
     UpdateHeads heads = parse_payload_update_heads(payload);
