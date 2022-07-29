@@ -12,8 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ...core import *
-from ...ops import *
+from ..core import *
+from ..ops import *
 from ariadne import ObjectType,MutationType,QueryType,InterfaceType,SubscriptionType
 
 
