@@ -807,7 +807,7 @@ namespace zefDB {
             // caller is popping the right thing.
             int to_pop_ind = this->_size - 1;
             auto to_pop = this->index_to_element(to_pop_ind);
-            if(compare_func(to_pop->key, to_pop->val) == 0) {
+            if(compare_func(to_pop->key, to_pop->val) != 0) {
                 throw std::runtime_error("Pop called with something that doesn't match the final element in the tree");
             }
             auto before_el = find_element(compare_func).first;

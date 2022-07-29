@@ -1081,7 +1081,7 @@ namespace zefDB {
         };
 
         // ----------------------------------------- AE value updates ------------------------------------
-        for (auto z : outgoing_from_tx | filter[BT.ATOMIC_VALUE_ASSIGNMENT_EDGE]) {
+        for (auto z : outgoing_from_tx | filter[BT.ATOMIC_VALUE_ASSIGNMENT_EDGE, BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE]) {
             EZefRef my_ae = z | target | target;
             auto my_ae_uid = uid(my_ae);
             if (obs->g_observables->contains(my_ae_uid)) {		// if there is a subscription to z, its uid is definitely in the subscription graph (it's the uid of the cloning edge)

@@ -77,8 +77,12 @@ namespace zefDB {
             o << " " << ET(zr);
         else if (BT(zr) == BT.RELATION_EDGE)
             o << " " << RT(zr);
-        else if (BT(zr) == BT.ATTRIBUTE_ENTITY_NODE)
-            o << " " << AET(zr);
+        else if (BT(zr) == BT.ATTRIBUTE_ENTITY_NODE) {
+            if(internals::is_delegate(zr.blob_uzr))
+                o << " " << VRT(zr);
+            else
+                o << " " << AET(zr);
+        }
         else if (BT(zr) == BT.TX_EVENT_NODE)
             o << " TX at slice=" << TimeSlice(zr.blob_uzr).value << " seen from";
         else
@@ -123,9 +127,12 @@ namespace zefDB {
             return ET(uzr);
         else if (BT(uzr)==BT.RELATION_EDGE)
             return RT(uzr);
-        else if (BT(uzr)==BT.ATTRIBUTE_ENTITY_NODE)
-            return AET(uzr);
-        else
+        else if (BT(uzr)==BT.ATTRIBUTE_ENTITY_NODE) {
+            if(internals::is_delegate(uzr))
+                return VRT(uzr);
+            else
+                return AET(uzr);
+        } else
             throw std::runtime_error("Item is not a RAE blob type: " + to_str(BT(uzr)));
     }
 
@@ -600,24 +607,32 @@ namespace zefDB {
 			GraphData& gd = target_graph.my_graph_data();
 			EZefRef new_foreign_entity_uzr = std::visit(overloaded{
 				[&](EntityType et) {
-					EZefRef new_foreign_entity_uzr = internals::instantiate(BT.FOREIGN_ENTITY_NODE, gd);
+					EZefRef new_foreign_entity_uzr = instantiate(BT.FOREIGN_ENTITY_NODE, gd);
 					reinterpret_cast<blobs_ns::FOREIGN_ENTITY_NODE*>(new_foreign_entity_uzr.blob_ptr)->entity_type = et;
 					return new_foreign_entity_uzr;
 				},
 				[&](AttributeEntityType aet) {
-					EZefRef new_foreign_entity_uzr = internals::instantiate(BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, gd);
-					// AtomicEntityType has a const member and we can't set this afterwards. Construct into place (call constructor on specified address)
-					// 'placement new': see https://www.stroustrup.com/C++11FAQ.html#unions
+					EZefRef new_foreign_entity_uzr = instantiate(BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, gd);
 
-                    throw std::runtime_error("Need to handle this case");
-                    // TODO: Copy in the value node as well
-                    new(&(reinterpret_cast<blobs_ns::FOREIGN_ATTRIBUTE_ENTITY_NODE*>(new_foreign_entity_uzr.blob_ptr)->primitive_type)) ValueRepType{ aet.rep_type.value };  // take on same type for the atomic entity delegate
+                    ValueRepType primitive_vrt;
+                    if(aet._is_complex()) {
+                        // Determine VRT from python
+                        primitive_vrt = pass_to_determine_primitive_type(aet);
+                    } else {
+                        primitive_vrt = aet.rep_type;
+                    }
+
+                    new(&(reinterpret_cast<blobs_ns::FOREIGN_ATTRIBUTE_ENTITY_NODE*>(new_foreign_entity_uzr.blob_ptr)->primitive_type)) ValueRepType{ primitive_vrt.value };  // take on same type for the atomic entity delegate
+
+                    ZefRef value_node = zefDB::instantiate_value_node(aet, gd);
+                    instantiate(new_foreign_entity_uzr, BT.VALUE_TYPE_EDGE, value_node.blob_uzr, gd);
+
 					return new_foreign_entity_uzr;
 				},	
 				[&](const std::tuple<EZefRef, RelationType, EZefRef>& trip) {
 					EZefRef src = find_origin_rae(std::get<0>(trip));
 					EZefRef trg = find_origin_rae(std::get<2>(trip));
-					EZefRef new_foreign_entity_uzr = internals::instantiate(src, BT.FOREIGN_RELATION_EDGE, trg, gd);				// Init with 0: we don't know the src or trg nodes yet in all cases
+					EZefRef new_foreign_entity_uzr = instantiate(src, BT.FOREIGN_RELATION_EDGE, trg, gd);				// Init with 0: we don't know the src or trg nodes yet in all cases
 					reinterpret_cast<blobs_ns::FOREIGN_RELATION_EDGE*>(new_foreign_entity_uzr.blob_ptr)->relation_type = std::get<1>(trip);
 					return new_foreign_entity_uzr;
 				},				

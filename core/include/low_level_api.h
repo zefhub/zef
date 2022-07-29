@@ -168,7 +168,8 @@ namespace zefDB {
         template<class T>
         std::function<int(value_hash_t,blob_index)> create_compare_func_for_value_node(GraphData & gd, const T * value);
 
-        extern template std::function<int(value_hash_t,blob_index)> create_compare_func_for_value_node(GraphData & gd, const value_variant_t * value);
+        template<>
+        std::function<int(value_hash_t,blob_index)> create_compare_func_for_value_node(GraphData & gd, const value_variant_t * value);
 
 		// have similar API to instantiate and link low level blobs / EZefRefs
 		LIBZEF_DLL_EXPORTED EZefRef instantiate(BlobType bt, GraphData& gd);

@@ -1489,6 +1489,7 @@ map_scalar_to_aet_type = {
     ZefEnumValue:       make_enum_aet,
     QuantityFloat:      make_qf_aet, 
     QuantityInt:        make_qi_aet, 
+    ValueType_:         lambda x: AET.Type,
     }
 
 def get_curried_arg(op, n):

@@ -184,7 +184,13 @@ namespace zefDB {
             };
         }
 
-        template std::function<int(value_hash_t,blob_index)> create_compare_func_for_value_node(GraphData & gd, const value_variant_t * value);
+
+        template<>
+        std::function<int(value_hash_t,blob_index)> create_compare_func_for_value_node(GraphData & gd, const value_variant_t * value) {
+            return std::visit([&gd](const auto & x) {
+                return create_compare_func_for_value_node(gd, &x);
+            }, *value);
+        }
 
 
 

@@ -1250,24 +1250,24 @@ namespace zefDB {
 	//                         \_/ \__,_|_|\__,_|\___|___\__,_|___/___/_|\__, |_| |_|_| |_| |_|\___|_| |_|\__|___\__/_/\_\___/                    
 	//                                              |_____|              |___/                              |_____|                               
 
-	EZefRefs ValueAssignmentTxs::operator() (EZefRef uzrs) const { return (uzrs < BT.RAE_INSTANCE_EDGE) << L[BT.ATOMIC_VALUE_ASSIGNMENT_EDGE]; }
+        EZefRefs ValueAssignmentTxs::operator() (EZefRef uzrs) const { return (uzrs < BT.RAE_INSTANCE_EDGE) << L[BT.ATOMIC_VALUE_ASSIGNMENT_EDGE, BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE]; }
 	
 	ZefRefs ValueAssignmentTxs::operator() (ZefRef zrs) const { 
 		ZefRef frame = zrs | tx; 
 		auto frame_ts = frame | time_slice; 
-		return  ((
-			zrs 
-			| to_ezefref) 
-			< BT.RAE_INSTANCE_EDGE) 
-			<< L[BT.ATOMIC_VALUE_ASSIGNMENT_EDGE] 
-			| filter[([frame_ts](EZefRef z) { return (z | time_slice) <= frame_ts; })] 
-			| to_zefref[frame]; 
-	}
+		return (((zrs 
+                 | to_ezefref) 
+                < BT.RAE_INSTANCE_EDGE)
+                << L[BT.ATOMIC_VALUE_ASSIGNMENT_EDGE, BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE]
+                | filter[([frame_ts](EZefRef z) { return (z | time_slice) <= frame_ts; })] 
+                | to_zefref[frame]
+                );
+    }
 
 
 
 
-	//                        _   _                   _                       _                     
+    //                        _   _                   _                       _                     
 	//                       | |_(_)_ __ ___   ___   | |_ _ __ __ ___   _____| |                    
 	//    _____ _____ _____  | __| | '_ ` _ \ / _ \  | __| '__/ _` \ \ / / _ \ |  _____ _____ _____ 
 	//   |_____|_____|_____| | |_| | | | | | |  __/  | |_| | | (_| |\ V /  __/ | |_____|_____|_____|
@@ -1522,11 +1522,7 @@ namespace zefDB {
 		if (BT(my_tx) != BT.TX_EVENT_NODE)
 			throw std::runtime_error("The EZefRef passed to the zefop 'value_assigned' has to be a transaction, but was not: " + to_str(my_tx));
 		return my_tx
-			| outs
-			| filter[std::function<bool(EZefRef)>([](EZefRef z)->bool {
-				return BT(z) == BT.ATOMIC_VALUE_ASSIGNMENT_EDGE;
-				})]
-			| target
+			>> L[BT.ATOMIC_VALUE_ASSIGNMENT_EDGE, BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE]
 			| target
 			| to_zefref[allow_terminated_relent_promotion][my_tx];
 	}
