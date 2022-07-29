@@ -142,20 +142,23 @@ def Transaction(g, wait=None, rollback_empty=None, check_schema=None):
     from ...pyzef.zefops import uid
 
     cur_task = safe_current_task()
-    prev_val = global_transaction_task.get(uid(g), None)
 
-    if prev_val is not None and prev_val != cur_task:
-        raise Exception("Can't open a Transaction from a different task to the original Transaction. Note that ZefDB is not safe to create simultaneous transactions from different asyncio tasks. Ideally, there should be no asyncio task switch occuring during a transaction.")
+    if cur_task is not None:
+        prev_val = global_transaction_task.get(uid(g), None)
+        if prev_val is not None and prev_val != cur_task:
+            raise Exception("Can't open a Transaction from a different task to the original Transaction. Note that ZefDB is not safe to create simultaneous transactions from different asyncio tasks. Ideally, there should be no asyncio task switch occuring during a transaction.")
 
-    global_transaction_task[uid(g)] = cur_task
+        global_transaction_task[uid(g)] = cur_task
+
     current_tx = StartTransactionReturnTx(g)
     try:
         yield current_tx
     finally:
-        if prev_val is None and uid(g) in global_transaction_task:
-            del global_transaction_task[uid(g)]
-        else:
-            global_transaction_task[uid(g)] = prev_val
+        if cur_task is not None:
+            if prev_val is None and uid(g) in global_transaction_task:
+                del global_transaction_task[uid(g)]
+            else:
+                global_transaction_task[uid(g)] = prev_val
 
         if wait is None:
             wait = zwitch.default_wait_for_tx_finish()
