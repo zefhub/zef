@@ -22,8 +22,10 @@ from ...ops import *
 from graphql import parse
 from graphql.language.ast import ScalarTypeDefinitionNode, ObjectTypeDefinitionNode, NamedTypeNode, ListTypeNode, NonNullTypeNode, InterfaceTypeDefinitionNode
 
-def schema_str_to_dict(schema_str):
-
+def generate_schema_dict(schema_str: str) -> dict:
+    """
+    Given a GraphQL schema string, generate a dictionary representation of the schema.
+    """
     def resolve_interfaces(interfaces):
         if interfaces: return {'_interfaces': interfaces | map[lambda i: i.name.value] | collect}
         return {}
