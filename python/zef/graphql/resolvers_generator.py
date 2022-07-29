@@ -40,28 +40,38 @@ def resolve_args(args):
         | collect
     )
 
+def get_zef_function_args(z_fct, g):
+    from ..core.zef_functions import zef_function_args
+    full_arg_spec = zef_function_args(g[peel(z_fct)[0][1][0][1]] | now  | collect)
+    args, defaults =  full_arg_spec.args, full_arg_spec.defaults
+    return args[:len(args) - len(defaults)]
+
 def generate_fct(field_dict, g):
     kwargs = resolve_args(field_dict.get('args', []))
     resolver = field_dict["resolver"]
 
     def resolve_field(obj, info, **kwargs):
-        args = [
-            obj,
-            g,
-        ]
-        kwargs_all = {
-            "context": info,
-            **kwargs,
+        context = {
+            "obj": obj,
+            "query_args": kwargs,
+            "qraphql_info": info,
+            # To be extended
         }
-
         if is_a(resolver, ZefOp):
             if peel(resolver)[0][0] == RT.Function:
-                return resolver(*args, **kwargs_all)
+                args = get_zef_function_args(resolver, g)
+                arg_values = select_keys(context, *args).values()
+                # Check if some args that are present in the Zef Function aren't present in context dict
+                if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
+                return resolver(*select_keys(context, *args).values())
             else:
                 return resolver(obj)
-
-        return resolver(*args,**kwargs_all)
-
+        elif isinstance(resolver, LazyValue):
+            return resolver()
+        elif resolver is None:
+            return None
+        else:
+            raise NotImplementedError(f"Cannot generate resolver using the passed object {resolver} of type {type(resolver)}")
     return resolve_field
 
 def assign_field_resolver(object_type, field_name, field_dict, g):

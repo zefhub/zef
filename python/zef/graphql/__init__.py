@@ -29,7 +29,7 @@ def make_graphql_api(schema_dict: dict, g = None):
     """
     from ariadne import make_executable_schema
 
-    object_types = generate_resolvers(schema_dict, None)
+    object_types = generate_resolvers(schema_dict, g)
     simple_schema = generate_schema_str(schema_dict)
     schema = make_executable_schema(simple_schema, object_types)
     return schema
