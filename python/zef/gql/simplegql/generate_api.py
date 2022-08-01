@@ -581,7 +581,8 @@ def resolve_add(_, info, *, type_node, **params):
     except ExternalError:
         raise
     except Exception as exc:
-        log.error("There was an error in resolve_add", exc_info=exc)
+        if info.context["debug_level"] >= 0:
+            log.error("There was an error in resolve_add", exc_info=exc)
         raise Exception("Unexpected error")
             
 def resolve_upfetch(_, info, *, type_node, **params):
@@ -628,7 +629,8 @@ def resolve_upfetch(_, info, *, type_node, **params):
     except ExternalError:
         raise
     except Exception as exc:
-        log.error("There was an error in resolve_upfetch", exc_info=exc)
+        if info.context["debug_level"] >= 0:
+            log.error("There was an error in resolve_upfetch", exc_info=exc)
         raise Exception("Unexpected error")
             
         
@@ -661,7 +663,8 @@ def resolve_update(_, info, *, type_node, **params):
     except ExternalError:
         raise
     except Exception as exc:
-        log.error("There was an error in resolve_update", exc_info=exc)
+        if info.context["debug_level"] >= 0:
+            log.error("There was an error in resolve_update", exc_info=exc)
         raise Exception("Unexpected error")
 
 def resolve_delete(_, info, *, type_node, **params):
@@ -687,7 +690,8 @@ def resolve_delete(_, info, *, type_node, **params):
     except ExternalError:
         raise
     except Exception as exc:
-        log.error("There was an error in resolve_delete", exc_info=exc)
+        if info.context["debug_level"] >= 0:
+            log.error("There was an error in resolve_delete", exc_info=exc)
         raise Exception("Unexpected error")
 
 def resolve_filter_response(obj, info, *, type_node, **params):
@@ -1035,7 +1039,8 @@ def add_new_entity(info, type_node, params, name_gen):
             if op_is_unique(z_field):
                 others = info.context["gs"] | all[et] | filter[fvalue[rt][None] | equals[val]] | func[set] | collect
                 if len(others) > 0:
-                    log.error("Trying to add a new entity with unique field that conflicts with others", et=et, field=field_name, others=others)
+                    if info.context["debug_level"] >= 0:
+                        log.error("Trying to add a new entity with unique field that conflicts with others", et=et, field=field_name, others=others)
                     raise ExternalError(f"Unique field '{field_name}' conflicts with existing items.")
             if z_field | op_is_list | collect:
                 l = val
@@ -1229,7 +1234,8 @@ def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
         val = field_resolver_by_name(z, type_node, info, field_name)
     except:
         # Going to assume this is because traversal failed auth along the way somewhere.
-        log.error("auth_field helper got an exception, assuming failure of auth")
+        if info.context["debug_level"] >= 0:
+            log.error("auth_field helper got an exception, assuming failure of auth")
         return False
 
     if val is None:
@@ -1306,13 +1312,15 @@ def commit_with_post_checks(actions, post_checks, info):
                     print(vals)
                     print(dis)
                     if len(dis) != len(vals):
-                        log.error("Non-unique values", vals=set(vals) - set(dis))
+                        if info.context["debug_level"] >= 0:
+                            log.error("Non-unique values", vals=set(vals) - set(dis))
                         raise ExternalError(f"Non-unique values found for field '{z_field | F.Name | collect}' of type_node '{type_name}'")
 
 
         except Exception as exc:
-            log.error("Aborting transaction",
-                      exc_info=exc)
+            if info.context["debug_level"] >= 0:
+                log.error("Aborting transaction",
+                          exc_info=exc)
             from ...pyzef.internals import AbortTransaction
             AbortTransaction(g)
             if type(exc) == ExternalError:

@@ -92,7 +92,8 @@ def dynamicHook(z, info):
         self.server_uuid = start_server(root, g_data,
                                         port=self.port,
                                         bind_address="localhost",
-                                        logging=False)
+                                        logging=False,
+                                        debug_level=-1)
 
     def tearDown(self):
         {

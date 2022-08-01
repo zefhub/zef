@@ -45,7 +45,8 @@ def resolve_token(context, request):
     parts = token_header.split()
     if len(parts) != 2 or parts[0] != "Bearer":
         # raise Exception(f"x-auth-header is of the wrong format ({token_header})")
-        log.error("x-auth-header is of the wrong format", token_header=token_header)
+        if context["debug_level"] >= 0:
+            log.error("x-auth-header is of the wrong format", token_header=token_header)
         raise Exception("Invalid auth header")
     token = parts[1]
 
@@ -81,7 +82,8 @@ def query(request, context):
             if auth_context is None and not (root | Outs[RT.AuthPublic] | single_or[None] | value_or[True] | collect):
                 raise Exception("No auth and public is False.")
         except Exception as exc:
-            log.error("Auth failed", exc_info=exc)
+            if context["debug_level"] >= 0:
+                log.error("Auth failed", exc_info=exc)
             return {
                 "response_body": "Auth failed",
                 "response_status": 400,
@@ -112,8 +114,9 @@ def query(request, context):
                        "auth": auth_context,
                        "debug_level": context["debug_level"]},
     )
-    if not success or "errors" in data:
-        log.error("Failure in GQL query.", data=data, q=q, auth_context=auth_context)
+    if context["debug_level"] >= 0:
+        if not success or "errors" in data:
+            log.error("Failure in GQL query.", data=data, q=q, auth_context=auth_context)
 
     response = json.dumps(data)
     if context["debug_level"] >= 3:
