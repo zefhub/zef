@@ -702,10 +702,16 @@ namespace zefDB {
         using compare_func_t = const std::function<char(const KEY & key, const VAL & val)> &;
 
         Element* index_to_element(size_t index) const {
-            return (Element*)((uintptr_t)this + sizeof(AppendOnlyCollisionHashMap) + index*sizeof(Element));
+            if(index == -1)
+                return nullptr;
+            else
+                return (Element*)((uintptr_t)this + sizeof(AppendOnlyCollisionHashMap) + index*sizeof(Element));
         }
         size_t element_to_index(Element* el) const {
-            return (el - index_to_element(0));
+            if(el == nullptr)
+                return -1;
+            else
+                return (el - index_to_element(0));
         }
 
         std::vector<Element> as_vector() {
@@ -717,25 +723,25 @@ namespace zefDB {
                 return std::pair(nullptr, nullptr);
 
             Element * cur = index_to_element(0);
-            Element * last = cur;
+            Element * last = nullptr;
 
             while(true) {
                 int compare_ret = compare_func(cur->key, cur->val);
                 if(compare_ret == 0)
                     break;
-                else if(compare_ret < 0) {
+
+                last = cur;
+                if(compare_ret < 0) {
                     if(cur->left == 0) {
                         cur = nullptr;
                         break;
                     }
-                    last = cur;
                     cur = index_to_element(cur->left);
-                } else { //if(needle > cur->key) {
+                } else {
                     if(cur->right == 0) {
                         cur = nullptr;
                         break;
                     }
-                    last = cur;
                     cur = index_to_element(cur->right);
                 }
             }
@@ -780,7 +786,7 @@ namespace zefDB {
             auto at_end = new_this->index_to_element(new_this->_size);
             at_end->key = key;
             at_end->val = val;
-            if(new_this->_size > 0) {
+            if(last_el != nullptr) {
                 if(compare_func(last_el->key, last_el->val) < 0)
                     last_el->left = new_this->_size;
                 else
@@ -810,8 +816,13 @@ namespace zefDB {
             if(compare_func(to_pop->key, to_pop->val) != 0) {
                 throw std::runtime_error("Pop called with something that doesn't match the final element in the tree");
             }
-            auto before_el = find_element(compare_func).first;
-            if(before_el->left == to_pop_ind) {
+            auto p = find_element(compare_func);
+            Element * before_el = p.first;
+            if(p.second == nullptr)
+                throw std::runtime_error("Couldn't find element to pop it.");
+            if(before_el == nullptr) {
+                // Nothing to do
+            } else if(before_el->left == to_pop_ind) {
                 before_el->left = 0;
             } else if(before_el->right == to_pop_ind) {
                 before_el->right = 0;
