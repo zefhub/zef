@@ -157,15 +157,17 @@ def start_server(z_gql_root,
         from jwt import PyJWKClient
         context["jwk_client"] = PyJWKClient(url)
 
+    additional_routes = create_additional_routes(z_gql_root | Outs[RT.Route] | collect, context)
 
     http_r = {
         'type': FX.HTTP.StartServer,
         'port': port,
-        'pipe_into': (map[middleware_worker[permit_cors,
-                                            route["/"][insert_in[["response_body"]]["Healthy"]],
-                                            route["/gql"][P(query, context=context)],
-                                            fallback_not_found,
-                                            send_response]]
+        'pipe_into': (map[middleware_worker[[permit_cors,
+                                             route["/"][insert_in[["response_body"]]["Healthy"]],
+                                             route["/gql"][P(query, context=context)],
+                                             *additional_routes,
+                                             fallback_not_found,
+                                             send_response]]]
                       | subscribe[run]),
         'logging': logging,
         'bind_address': bind_address,
@@ -174,3 +176,18 @@ def start_server(z_gql_root,
         raise Exception("Error in creating server") from http_r.args[0]
 
     return http_r["server_uuid"]
+
+
+def create_additional_route(z_route, context):
+    s_route = z_route | F.Route | collect
+    hook = func[z_route | F.Hook | collect]
+
+    curried_hook = P(hook, context=context)
+
+    return route[s_route][curried_hook]
+
+def create_additional_routes(z_routes, context):
+    return z_routes | map[P(create_additional_route, context=context)] | collect
+
+
+        

@@ -1,3 +1,31 @@
+pyzef-0.15.9
+============
+
+New features:
+-------------
+
+- 
+
+Breaking changes:
+-----------------
+
+- 
+
+Fixes:
+------
+
+- 
+
+Improvements:
+-------------
+
+- SimpleGQL:
+  - Custom routes handled by hooks can be given as Zef.Route lines in the
+    graphql file.
+
+
+
+
 pyzef-0.15.8
 ============
 

@@ -22,6 +22,7 @@ class MyTestCase(unittest.TestCase):
         schema_gql = """
 # Zef.SchemaVersion: v1
 # Zef.Authentication: {"Algo": "HS256", "VerificationKey": \"""" + self.key + """\", "Audience": "test", "Header": "X-Auth-Token"}
+# Zef.Route: {"route": "/customroute", "hook": "customRoute"}
         
 type User
   @auth(
@@ -82,6 +83,10 @@ def userCreate(z):
 @func(g)
 def dynamicHook(z, info):
     return "dynamic"
+
+@func(g)
+def customRoute(req, context):
+    return {**req, "response_status": 400}
 """
 
         from zef.gql.simplegql.main import create_schema_graph
@@ -256,6 +261,11 @@ testString: ""
         # TODO: List set
         # TODO: List manipulation
         # TODO: List remove
+
+
+        # Custom routes
+        r = requests.get(f"http://localhost:{self.port}/customroute")
+        self.assertEqual(r.status_code, 400)
 
 
 
