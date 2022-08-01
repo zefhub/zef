@@ -124,7 +124,19 @@ Response Butler::wait_on_zefhub_message_any(json & j, const std::vector<std::str
 void Butler::fill_out_ZH_message(json & j) { //, bool add_hints) {
     j["protocol_type"] = "ZEFDB";
     j["protocol_version"] = zefdb_protocol_version.load();
-    j["who"] = get_firebase_token_refresh_token(refresh_token);
+    if(zefdb_protocol_version <= 5) {
+        if(api_key != "")
+            throw std::runtime_error("We got to a point of a using an API key but ZefHub is too old (" + to_str(zefdb_protocol_version) + ") to understand it.");
+        j["who"] = get_firebase_token_refresh_token(refresh_token);
+    } else {
+        if(api_key != "") {
+            j["who"] = json{{"api_key", api_key}};
+        } else {
+            j["who"] = json{
+                {"token", get_firebase_token_refresh_token(refresh_token)}
+            };
+        }
+    }
     // if(add_hints) {
     if(estimated_transfer_speed_accum_time > 0) {
         double speed = estimated_transfer_speed_accum_bytes / estimated_transfer_speed_accum_time;

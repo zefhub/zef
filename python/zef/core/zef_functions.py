@@ -218,13 +218,21 @@ def compile_zef_function(z_fct: ZefRef):
 
 def zef_function_signature(z_fct):
     from inspect import signature
-    from .core import rae_type, ET, ZefRef
     assert isinstance(z_fct, ZefRef)
     assert rae_type(z_fct) == ET.ZEF_Function
     
     compile_zef_function(z_fct)
     fct = _local_compiled_zef_functions[time_resolved_hashable(z_fct)]
     return signature(fct)
+
+def zef_function_args(z_fct):
+    from inspect import getfullargspec
+    assert isinstance(z_fct, ZefRef)
+    assert rae_type(z_fct) == ET.ZEF_Function
+    
+    compile_zef_function(z_fct)
+    fct = _local_compiled_zef_functions[time_resolved_hashable(z_fct)]
+    return getfullargspec(fct)
 
 
 

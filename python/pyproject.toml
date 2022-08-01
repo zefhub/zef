@@ -1,8 +1,8 @@
 [tool.cibuildwheel]
 skip = ["pp*", "*musllinux*"]
 archs = ["auto64"]
-before-test = "python3 -mpip install -r {project}/python/tests/requirements_tests.txt"
-test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST ZEFDB_QUIET=YES pytest {project}/python/tests && python {project}/python/tests/quick_start.py"
+before-test = "python -mpip install -r {project}/python/tests/requirements_tests.txt"
+test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST ZEFDB_QUIET=YES python -mpytest {project}/python/tests && python {project}/python/tests/quick_start.py"
 
 [tool.cibuildwheel.linux]
 before-all = "yum install -y openssl-devel"
@@ -11,7 +11,7 @@ before-all = "yum install -y openssl-devel"
 before-all = "brew install openssl"
 
 [tool.cibuildwheel.windows]
-test-command = "set \"ZEFHUB_AUTH_KEY=GUEST\" && set \"ZEFDB_QUIET=YES\" && pytest {project}/python/tests && python {project}/python/tests/quick_start.py"
+test-command = "set \"ZEFHUB_AUTH_KEY=GUEST\" && set \"ZEFDB_QUIET=YES\" && python -mpytest {project}/python/tests && python {project}/python/tests/quick_start.py"
 # test-command = ""
 
 [build-system]
