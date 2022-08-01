@@ -26,14 +26,18 @@ namespace zefDB {
         using Messages::UpdatePayload;
         using Butler::UpdateHeads;
 
-        uint64_t can_convert_0_3_0_to_0_2_0(void * start, size_t len);
+        bool can_convert_0_3_0_to_0_2_0(void * start, size_t len);
         uint64_t hash_0_3_0_as_if_0_2_0(void * start, size_t len, uint64_t seed);
         std::string convert_blobs_0_3_0_to_0_2_0(std::string && blobs);
-        UpdatePayload create_update_payload_as_if_0_2_0(GraphData & gd, UpdateHeads update_heads);
+        UpdatePayload create_update_payload_as_if_0_2_0(const GraphData & gd, UpdateHeads update_heads);
 
         std::string convert_blobs_0_2_0_to_0_3_0(std::string && blobs);
         UpdatePayload convert_payload_0_2_0_to_0_3_0(const UpdatePayload & payload);
 
         void modify_update_heads(json & cache_heads, std::string working_layout);
+
+        LIBZEF_DLL_EXPORTED std::string version_layout(int version);
+
+        LIBZEF_DLL_EXPORTED bool can_represent_graph_as_payload(const GraphData & gd, std::string target_layout);
     }
 }

@@ -1217,8 +1217,8 @@ namespace zefDB {
             return heads;
         }
 
-        Butler::UpdatePayload graph_as_UpdatePayload(const GraphData& gd) {
-            return Butler::create_update_payload(gd, full_graph_heads(gd));
+        Butler::UpdatePayload graph_as_UpdatePayload(const GraphData& gd, std::string target_layout) {
+            return Butler::create_update_payload(gd, full_graph_heads(gd), target_layout);
         }
 
 		// Blob_and_uid_bytes is assumed to be of size m*2*constants::blob_indx_step_in_bytes, where m is integer.

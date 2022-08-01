@@ -190,9 +190,10 @@ int resolve_memory_style(int mem_style, bool synced) {
     return mem_style;
 }
 
-void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload_in, bool double_link, bool update_upstream, std::string working_layout) {
+void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload_in, bool double_link, bool update_upstream) {
     LockGraphData lock{&gd};
 
+    std::string working_layout = payload_in.j["data_layout_version"];
     UpdatePayload payload;
     if(working_layout == "0.2.0")
         payload = conversions::convert_payload_0_2_0_to_0_3_0(payload_in);
@@ -318,9 +319,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
         me.gd->should_sync = false;
 
         if(content.payload) {
-            std::string working_layout = upstream_layout();
-
-            apply_update_with_caches(*me.gd, *content.payload, false, false, working_layout);
+            apply_update_with_caches(*me.gd, *content.payload, false, false);
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
             // Note: don't set sync_head here, it should remain at 0.
         }
@@ -517,7 +516,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
 
             LockGraphData gd_lock{me.gd};
             UpdatePayload payload{response.j, response.rest};
-            apply_update_with_caches(*me.gd, payload, false, true, working_layout);
+            apply_update_with_caches(*me.gd, payload, false, true);
 
             me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
             // internals::apply_actions_to_blob_range(*me.gd, index_lo, index_hi, true, false);
@@ -841,9 +840,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, GraphUp
     if(me.gd->is_primary_instance)
         throw std::runtime_error("Shouldn't be receiving updates if we are the primary role!");
 
-    std::string working_layout = upstream_layout();
-
-    apply_update_with_caches(*me.gd, content.payload, true, true, working_layout);
+    apply_update_with_caches(*me.gd, content.payload, true, true);
 
     // TODO: In the future, we need to acknowledge that we have applied this update successfully.
 }

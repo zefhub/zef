@@ -894,9 +894,7 @@ namespace zefDB {
             if(zefdb_protocol_version == -1)
                 throw std::runtime_error("Shouldn't be asking for upstream layout when we haven't connected and done a handshake.");
 
-            if(zefdb_protocol_version <= 6)
-                return "0.2.0";
-            throw std::runtime_error("Did not have a way to say what the upstream layout was for zefdb protocol version: " + to_str(zefdb_protocol_version));
+            return conversions::version_layout(zefdb_protocol_version);
         }
     }
 }

@@ -214,7 +214,7 @@ namespace zefDB {
             // The protocol version chosen for communication. This may have to be autodetected in earlier versions.
             std::atomic_int zefdb_protocol_version = -1;
             constexpr static int zefdb_protocol_version_min = 4;
-            constexpr static int zefdb_protocol_version_max = 6;
+            constexpr static int zefdb_protocol_version_max = 7;
             AtomicLockWrapper auth_locker;
             std::string upstream_layout();
 
@@ -439,14 +439,15 @@ namespace zefDB {
 
         LIBZEF_DLL_EXPORTED bool is_up_to_date(const UpdateHeads & update_heads);
         LIBZEF_DLL_EXPORTED bool heads_apply(const UpdateHeads & update_heads, const GraphData & gd);
-        LIBZEF_DLL_EXPORTED UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & update_heads);
+        LIBZEF_DLL_EXPORTED UpdatePayload create_update_payload_current(const GraphData & gd, const UpdateHeads & update_heads);
+        LIBZEF_DLL_EXPORTED UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & update_heads, std::string target_layout="");
         LIBZEF_DLL_EXPORTED UpdateHeads client_create_update_heads(const GraphData & gd);
         LIBZEF_DLL_EXPORTED json create_heads_json_from_sync_head(const GraphData & gd, const UpdateHeads & update_heads);
         LIBZEF_DLL_EXPORTED void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j, std::string working_layout);
         LIBZEF_DLL_EXPORTED UpdateHeads parse_payload_update_heads(const UpdatePayload & payload);
         LIBZEF_DLL_EXPORTED UpdateHeads parse_message_update_heads(const json & j);
         // UpdateHeads client_create_update_heads(const GraphData & gd);
-        LIBZEF_DLL_EXPORTED void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, bool double_linking, bool update_upstream, std::string working_layout);
+        LIBZEF_DLL_EXPORTED void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, bool double_linking, bool update_upstream);
         LIBZEF_DLL_EXPORTED void apply_sync_heads(GraphData & gd, const UpdateHeads & update_heads);
 
     }

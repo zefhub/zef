@@ -29,7 +29,7 @@ bool is_up_to_date(const UpdateHeads & update_heads) {
     return true;
 }
 
-UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & update_heads) {
+UpdatePayload create_update_payload_current(const GraphData & gd, const UpdateHeads & update_heads) {
     if(update_heads.blobs.from > update_heads.blobs.to)
         throw std::runtime_error("Somehow upstream is ahead of us and we're primary!");
 
@@ -86,6 +86,15 @@ UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & up
     p.j["caches"] = caches;
 
     return p;
+}
+UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & update_heads, std::string target_layout) {
+    if(target_layout == "")
+        target_layout = "0.3.0";
+    if(target_layout == "0.3.0")
+        return create_update_payload_current(gd, update_heads);
+    if(target_layout == "0.2.0")
+        return conversions::create_update_payload_as_if_0_2_0(gd, update_heads);
+    throw std::runtime_error("Don't know how to create update payload for layout: " + to_str(target_layout));
 }
 
 json create_heads_json_from_sync_head(const GraphData & gd, const UpdateHeads & update_heads) {

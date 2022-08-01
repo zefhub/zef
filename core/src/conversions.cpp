@@ -18,10 +18,11 @@
 #include "conversions.h"
 #include "low_level_api.h"
 #include "xxhash64.h"
+#include "butler/butler.h"
 
 namespace zefDB {
     namespace conversions {
-        uint64_t can_convert_0_3_0_to_0_2_0(void * start, size_t len) {
+        bool can_convert_0_3_0_to_0_2_0(void * start, size_t len) {
             char * ptr = (char*)start;
             char * end = ptr + len;
 
@@ -43,6 +44,25 @@ namespace zefDB {
                 ptr += _blob_index_size(ptr) * constants::blob_indx_step_in_bytes;
             }
             return true;
+        }
+
+        bool can_represent_graph_as_payload(const GraphData & gd, std::string target_layout) {
+            if(target_layout == "")
+                return true;
+
+            // Assuming the graph is of data layout 0.3.0
+            if(target_layout == "0.2.0") {
+                void * ptr = ptr_from_blob_index(constants::ROOT_NODE_blob_index, gd);
+                void * end_ptr = ptr_from_blob_index(gd.read_head, gd);
+                size_t len = (char*)end_ptr - (char*)ptr;
+                Butler::ensure_or_get_range(ptr, len);
+                return can_convert_0_3_0_to_0_2_0(ptr, len);
+            }
+
+            if(target_layout == "")
+                return true;
+
+            throw std::runtime_error("Don't know target layout: " + target_layout);
         }
 
         uint64_t hash_with_only_layout_version_different(std::string new_layout, void * start, size_t len, uint64_t seed) {
@@ -115,8 +135,8 @@ namespace zefDB {
             return blobs;
         }
 
-        UpdatePayload create_update_payload_as_if_0_2_0(GraphData & gd, UpdateHeads update_heads) {
-            UpdatePayload payload = create_update_payload(gd, update_heads);
+        UpdatePayload create_update_payload_as_if_0_2_0(const GraphData & gd, UpdateHeads update_heads) {
+            UpdatePayload payload = create_update_payload_current(gd, update_heads);
 
             payload.rest[0] = convert_blobs_0_3_0_to_0_2_0(std::move(payload.rest[0]));
 
@@ -214,6 +234,15 @@ namespace zefDB {
             if(working_layout == "0.2.0") {
                 cache_heads.erase("_av_hash_lookup");
             }
+        }
+
+
+        std::string version_layout(int version) {
+            if(version <= 6)
+                return "0.2.0";
+            if(version == 7)
+                return "0.3.0";
+            throw std::runtime_error("Did not have a way to say what the upstream layout was for zefdb protocol version: " + to_str(version));
         }
     }
 }
