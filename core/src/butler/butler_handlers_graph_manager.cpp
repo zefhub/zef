@@ -328,6 +328,9 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
     if(is_BaseUID(content.tag_or_uid) && str(me.uid) != content.tag_or_uid)
         throw std::runtime_error("Shouldn't get here with wrong uid: '" + str(me.uid) + "' - '" + content.tag_or_uid + "'");
 
+    if(content.callback)
+        (*content.callback)("Loading graph with UID " + to_str(me.uid));
+
     if(me.gd != nullptr) {
         msg->promise.set_value(GraphLoaded(Graph{me.gd, false}));
         return;
@@ -537,6 +540,9 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
 
         // Now we can kick off the sync thread.
         spawn_graph_sync_thread(me);
+
+        if(content.callback)
+            (*content.callback)("Finished loading graph");
 
         msg->promise.set_value(GraphLoaded(_g));
     } catch (const std::runtime_error & e) {
