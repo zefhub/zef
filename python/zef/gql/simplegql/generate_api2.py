@@ -77,39 +77,54 @@ op_has_upfetch = op_upfetch_field | Not[equals[None]] | collect
 #--------------------------------------
 
 def generate_resolvers_fcts(schema_root):
-    Query = QueryType()
-    Mutation = MutationType()
+    query_dict = {}
+    mutation_dict = {}
 
-    all_objects = [Query, Mutation]
-    query_fields = []
-    mutation_fields = []
-    type_schemas = []
-    enum_schemas = []
+    types_dict = {"query": query_dict,
+                  "mutation": mutation_dict}
+    input_types_dict = {}
+    enums_dict = {}
+    scalars_dict = {}
 
-    extra_filters = {}
+    full_dict = {"_Types": types_dict,
+                 "_Inputs": input_types_dict,
+                 "_Enums": enums_dict,
+                 "_Scalars": scalars_dict}
 
+    scalars_dict["DateTime"] = {
+        "serializer": apply[lambda t: datetime.datetime.fromtimestamp(t.seconds_since_1970).isoformat()],
+        "parser": apply[Time]
+    }
 
-    TimeScalar = ScalarType("DateTime")
-    all_objects += [TimeScalar]
-    import datetime
-    TimeScalar.set_serializer(lambda t: datetime.datetime.fromtimestamp(t.seconds_since_1970).isoformat())
-    TimeScalar.set_value_parser(Time)
 
     for z_type in schema_root | Outs[RT.GQL_Type]:
         name = z_type | F.Name | collect
-        Type = ObjectType(name)
-        all_objects += [Type]
 
-        field_schemas = []
-        ref_field_schemas = []
-        add_field_schemas = []
-        upfetch_field_schemas = []
-        aggregate_outs = []
+        lower_name = to_camel_case(name)
+        has_upfetch = op_has_upfetch(z_type)
 
+        ref_name = name + "Ref"
+        add_input_name = "Add" + name + "Input"
+        update_input_name = "Update" + name + "Input"
+        filter_name = name + "Filter"
+        mutate_response_name = "Mutate" + name + "Response"
+        aggregate_response_name = "Aggregate" + name + "Response"
+
+        type_dict = {"id": {
+            "type": "ID!", "resolver": resolve_id
+        }}
+        ref_input_dict = {"id": "ID"}
+        add_input_dict = {"id": "ID"}
+        aggregate_fields_dict = {
+            "count": {"type": "Int"},
+        }
+        if has_upfetch:
+            # Note: upfetch does not get an id field
+            upfetch_input_dict = {}
+            upfetch_input_name = "Upfetch" + name + "Input"
+            
         for z_field in z_type | out_rels[RT.GQL_Field]:
             field_name = z_field | F.Name | collect
-            Type.set_field(field_name,
-                            P(resolve_field, z_field=z_field))
 
             is_scalar = z_field | target | op_is_scalar | collect
             is_required = z_field | op_is_required | collect
@@ -137,127 +152,116 @@ def generate_resolvers_fcts(schema_root):
             else:
                 maybe_required = ""
             if is_list:
-                maybe_params = "(" + schema_generate_list_params(target(z_field), extra_filters) + ")"
+                maybe_params = schema_generate_list_params(target(z_field), full_dict)
                 ref_field_type = "[" + base_ref_field_type + "]"
-                # add_field_type = "[" + base_ref_field_type + maybe_required + "]"
                 add_field_type = ref_field_type
                 upfetch_field_type = "[" + base_ref_field_type + maybe_required + "]" + maybe_required
                 field_type = "[" + base_field_type + maybe_required + "]" + maybe_required
             else:
-                maybe_params = ""
+                maybe_params = []
                 ref_field_type = base_ref_field_type
-                # add_field_type = base_ref_field_type + maybe_required
                 add_field_type = ref_field_type
                 upfetch_field_type = base_ref_field_type + maybe_required
                 field_type = base_field_type + maybe_required
-            field_schemas += [f"{field_name}{maybe_params}: {field_type}"]
-            add_field_schemas += [f"{field_name}: {add_field_type}"]
-            ref_field_schemas += [f"{field_name}: {ref_field_type}"]
-            upfetch_field_schemas += [f"{field_name}: {upfetch_field_type}"]
+
+            type_dict[field_name] = {
+                "type": field_type,
+                "resolver": P(resolve_field, z_field=z_field),
+                "args": maybe_params,
+            }
+
+            add_input_dict[field_name] = add_field_type
+            ref_input_dict[field_name] = ref_field_type
+            if has_upfetch:
+                upfetch_input_dict[field_name] = upfetch_field_type
 
             if is_aggregable:
                 if is_orderable:
-                    aggregate_outs += [
-                        f"{field_name}Min: {ref_field_type}",
-                        f"{field_name}Max: {ref_field_type}",
-                    ]
+                    aggregate_fields_dict[f"{field_name}Min"] = {
+                        "type": ref_field_type,
+                    }
+                    aggregate_fields_dict[f"{field_name}Max"] = {
+                        "type": ref_field_type,
+                    }
                 if is_summable:
-                    aggregate_outs += [f"{field_name}Sum: {ref_field_type}"]
-                    aggregate_outs += [f"{field_name}Avg: {ref_field_type}"]
+                    aggregate_fields_dict[f"{field_name}Sum"] = {
+                        "type": ref_field_type,
+                    }
+                    aggregate_fields_dict[f"{field_name}Avg"] = {
+                        "type": ref_field_type,
+                    }
 
-        field_schemas += ["id: ID!"]
-        add_field_schemas += ["id: ID"]
-        ref_field_schemas += ["id: ID"]
-        # Note: upfetch does not get an id field
-        Type.set_field("id", resolve_id)
+        query_params = schema_generate_list_params(z_type, full_dict)
+
+        types_dict[name] = type_dict
+        input_types_dict[ref_name] = ref_input_dict
+        input_types_dict[add_input_name] = add_input_dict
+        input_types_dict[update_input_name] = {
+            "filter": filter_name + "!",
+            "set": ref_name,
+            "remove": ref_name,
+        }
+        types_dict[mutate_response_name] = {
+            "count": {"type": "Int"},
+            lower_name: {
+                "type": "[name]",
+                "args": query_params,
+                "resolver": apply[P(resolve_filter_response, type_node=z_type)],
+            }
+        }
+        types_dict[aggregate_response_name] = aggregate_fields_dict
+
+        if has_upfetch:
+            input_types_dict[upfetch_input_name] = upfetch_input_dict
 
         # Add the 3 top-level queries
-        Query.set_field(f"get{name}",
-                        P(resolve_get, type_node=z_type))
-        Query.set_field(f"query{name}",
-                        P(resolve_query, type_node=z_type))
-        Query.set_field(f"aggregate{name}",
-                        P(resolve_aggregate, type_node=z_type))
+        query_dict[f"get{name}"] = {
+            "type": name,
+            "args": [{"get": {"type": "ID!"}}],
+            "resolver": apply[P(resolve_get, type_node=z_type)],
+        }
+        query_dict[f"query{name}"] = {
+            "type": f"[{name}]",
+            "args": query_params,
+            "resolver": apply[P(resolve_query, type_node=z_type)],
+        }
+        query_dict[f"aggregate{name}"] = {
+            "type": aggregate_response_name,
+            "args": query_params,
+            "resolver": apply[P(resolve_aggregate, type_node=z_type)],
+        }
+
         # Add the 3 top-level mutations
-        Mutation.set_field(f"add{name}",
-                            P(resolve_add, type_node=z_type))
-        Mutation.set_field(f"update{name}",
-                            P(resolve_update, type_node=z_type))
-        Mutation.set_field(f"delete{name}",
-                            P(resolve_delete, type_node=z_type))
-        has_upfetch = op_has_upfetch(z_type)
+        mutation_dict[f"add{name}"] = {
+            "type": mutate_response_name,
+            "args": [
+                {"input": {"type": f"[{add_input_name}!]!"}},
+                {"upsert": {"type": "Boolean"}}
+            ],
+            "resolver": apply[P(resolve_add, type_node=z_type)],
+        }
+        mutation_dict[f"update{name}"] = {
+            "type": mutate_response_name,
+            "args": [
+                {"input": {"type": f"{update_input_name}!"}},
+            ],
+            "resolver": apply[P(resolve_update, type_node=z_type)],
+        }
+        mutation_dict[f"delete{name}"] = {
+            "type": mutate_response_name,
+            "args": [
+                {"filter": {"type": f"{filter_name}!"}},
+            ],
+            "resolver": apply[P(resolve_delete, type_node=z_type)],
+        }
         if has_upfetch:
-            Mutation.set_field(f"upfetch{name}",
-                               P(resolve_upfetch, type_node=z_type))
-
-        MutateResponse = ObjectType(f"Mutate{name}Response")
-        all_objects += [MutateResponse]
-
-        # MutateResponse.set_field(f"count", lambda x,*args,**kwds: x["count"])
-        MutateResponse.set_field(to_camel_case(name), P(resolve_filter_response, type_node=z_type))
-
-        query_params = schema_generate_list_params(z_type, extra_filters)
-        field_schemas = '\n\t'.join(field_schemas)
-        ref_field_schemas = '\n\t'.join(ref_field_schemas)
-        add_field_schemas = '\n\t'.join(add_field_schemas)
-        upfetch_field_schemas = '\n\t'.join(upfetch_field_schemas)
-        aggregate_outs = '\n\t'.join(aggregate_outs)
-
-        type_schemas += [f"""type {name} {{
-        {field_schemas}
-}}
-
-input {name}Ref {{
-        {ref_field_schemas}
-}}
-
-input Add{name}Input {{
-        {add_field_schemas}
-}}
-        
-input Update{name}Input {{
-        filter: {name}Filter!
-        set: {name}Ref
-        remove: {name}Ref
-}}
-
-type Mutate{name}Response {{
-        {to_camel_case(name)}({query_params}): [{name}]
-        count: Int
-}}
-
-type Aggregate{name}Response {{
-        count: Int
-        {aggregate_outs}
-}}
-
-"""]
-        if has_upfetch:
-            type_schemas += [f"""
-input Upfetch{name}Input {{
-        {upfetch_field_schemas}
-}}
-"""]
-
-        # id_fields = z_type > L[RT.GQL_Field] | filter[Z >> O[RT.IsID] | value_or[False]]
-
-        # get_params = id_fields | map[lambda z: f"{value(z >> RT.Name)}: {value(z | target >> RT.Name)}"] | collect
-        # get_params = ", ".join(get_params)
-        get_params = "id: ID!"
-        query_fields += [
-            f"get{name}({get_params}): {name}",
-            f"query{name}({query_params}): [{name}]",
-            f"aggregate{name}({query_params}): Aggregate{name}Response",
-        ]
-        mutation_fields += [
-            f"add{name}(input: [Add{name}Input!]!, upsert: Boolean): Mutate{name}Response",
-            f"update{name}(input: Update{name}Input!): Mutate{name}Response",
-            f"delete{name}(filter: {name}Filter!): Mutate{name}Response",
-        ]
-        if has_upfetch:
-            mutation_fields += [
-                f"upfetch{name}(input: [Upfetch{name}Input!]!): Mutate{name}Response",
-            ]
+            mutation_dict[f"upfetch{name}"] = {
+                "type": mutate_response_name,
+                "args": [
+                    {"input": {"type": f"[{upfetch_input_name}!]!"}},
+                ],
+                "resolver": apply[P(resolve_upfetch, type_node=z_type)],
+            }
 
     for z_enum in schema_root | Outs[RT.GQL_Enum]:
         name = z_enum | F.Name | collect
@@ -268,95 +272,67 @@ input Upfetch{name}Input {{
             opt_en = value(z_opt)
             opts[opt_en.enum_value] = opt_en
 
-        Enum = EnumType(name, opts)
-
-        opt_list = '\n\t'.join(opts.keys())
-
-        enum_schemas += [f"""enum {name} {{
-\t{opt_list}
-}}"""]
-
-        all_objects += [Enum]
+        enums_dict[name] = opts
 
     # Always generate the Int scalar type 
     int_type = schema_root | Outs[RT.GQL_CoreScalarType][AET.Int] | single | collect
-    if rae_type(int_type) not in [rae_type(x) for x in extra_filters.keys()]:
-        extra_filters[int_type] = schema_generate_scalar_filter(int_type)
+    schema_generate_type_dispatch(int_type, full_dict)
 
-    query_fields = '\n\t'.join(query_fields)
-    mutation_fields = '\n\t'.join(mutation_fields)
-    type_schemas = '\n\n'.join(type_schemas)
-    enum_schemas = '\n\n'.join(enum_schemas)
-    extra_filters = '\n\n'.join(x["schema"] for x in extra_filters.values())
-    schema = f"""
-{type_schemas}
-
-{enum_schemas}
-
-type Query {{
-\t{query_fields}
-}}
-
-type Mutation {{
-    {mutation_fields}
-}}
-    
-scalar DateTime
-    
-{extra_filters}
-    
-"""
-
-    return schema, all_objects
+    return full_dict
 
 ################################################
 # * Schema specific parts
 #----------------------------------------------
 
-def schema_generate_type_dispatch(z_type, extra_filters):
-    if z_type not in extra_filters:
-        extra_filters[z_type] = None
+def schema_generate_type_dispatch(z_type, full_dict):
+    filter_name = (z_type | F.Name | collect) + "Filter"
+    if filter_name not in full_dict["_Inputs"]:
+        full_dict["_Inputs"][filter_name] = None
+        # These will update the full_dict automatically
         if op_is_scalar(z_type):
-            extra_filters[z_type] = schema_generate_scalar_filter(z_type)
+            schema_generate_scalar_filter(z_type, full_dict)
         else:
-            extra_filters[z_type] = schema_generate_type_filter(z_type, extra_filters)
+            schema_generate_type_filter(z_type, full_dict)
+        assert full_dict["_Inputs"][filter_name] is not None 
 
-def schema_generate_list_params(z_type, extra_filters):
+def schema_generate_list_params(z_type, full_dict):
     name = z_type | F.Name | collect
-    schema_generate_type_dispatch(z_type, extra_filters)
+    filter_name = f"{name}Filter"
+    schema_generate_type_dispatch(z_type, full_dict)
 
     query_params = [
-        f"filter: {name}Filter",
+        {"filter": filter_name},
         # We probably want to change these to be proper cursors.
-        "first: Int",
-        "offset: Int",
+        {"first": "Int"},
+        {"offset": "Int"},
     ]
-    if extra_filters[z_type]["orderable"]:
-        query_params += [f"order: {name}Order"]
 
-    query_params = ", ".join(query_params)
+    order_name = f"{name}Order"
+    if order_name in full_dict["_Inputs"]:
+        query_params += [{"order": {"type": order_name}}]
+
     return query_params
 
-def schema_generate_type_filter(z_type, extra_filters):
+def schema_generate_type_filter(z_type, full_dict):
     name = z_type | F.Name | collect
     fil_name = f"{name}Filter"
     list_fil_name = f"{name}FilterList"
     order_name = f"{name}Order"
     orderable_name = f"{name}Orderable"
 
-    fields = [
+    fields = {
         # TODO: I Think this is if the field is present?
         # "has: [{fil_name}]",
-        f"and: [{fil_name}]",
-        f"or: [{fil_name}]",
-        f"not: {fil_name}",
-    ]
+        "and": f"[{fil_name}]",
+        "or": f"[{fil_name}]",
+        "not": fil_name,
+    }
 
     orderable_fields = []
 
     # Every type has an ID field, which is slightly custom - functions as an
     # automatically generated "in"
-    fields += [f"id: [ID!]"]
+    fields["id"] = "[ID!]"
 
     for field in z_type | out_rels[RT.GQL_Field] | filter[op_is_searchable]:
         field_name = field | F.Name | collect
@@ -366,46 +342,33 @@ def schema_generate_type_filter(z_type, extra_filters):
             filter_name = Boolean
         else:
             filter_name = f"{field_type_name}Filter"
-            schema_generate_type_dispatch(field_type, extra_filters)
+            schema_generate_type_dispatch(field_type, full_dict)
 
         if op_is_list(field):
-            fields += [f"{field_name}: {filter_name}List"]
+            fields[field_name] = f"{filter_name}List"
         else:
-            fields += [f"{field_name}: {filter_name}"]
+            fields[field_name] = filter_name
 
     for field in z_type | out_rels[RT.GQL_Field] | filter[target | op_is_orderable]:
         orderable_fields += [field | F.Name | collect]
 
-    fields = "\n\t".join(fields)
-    orderable_fields = "\n\t".join(orderable_fields)
+    full_dict["_Inputs"][fil_name] = fields
 
-    out = f"""input {fil_name} {{
-\t{fields}
-}}
-"""
     if len(orderable_fields) > 0:
-        out += f"""
-input {order_name} {{
-        asc: {orderable_name}
-        desc: {orderable_name}
-        then: {order_name}
-}}
-        
-input {list_fil_name} {{
-\tany: {fil_name}
-\tall: {fil_name}
-\tsize: IntFilter
-}}
-    
-enum {orderable_name} {{
-\t{orderable_fields}
-}}
-"""
-    return {"schema": out,
-            "orderable": len(orderable_fields) > 0}
+        full_dict["_Inputs"][order_name] = {
+            "asc": orderable_name,
+            "desc": orderable_name,
+            "then": order_name,
+        }
+        full_dict["_Inputs"][list_fil_name] = {
+            "any": fil_name,
+            "all": fil_name,
+            "size": "IntFilter",
+        }
+        full_dict["_Enums"][orderable_name] = orderable_fields
         
 
-def schema_generate_scalar_filter(z_node):
+def schema_generate_scalar_filter(z_node, full_dict):
     type_name = z_node | F.Name | collect
     fil_name = f"{type_name}Filter"
     list_fil_name = f"{type_name}FilterList"
@@ -414,40 +377,33 @@ def schema_generate_scalar_filter(z_node):
         # Shoudln't need to do anything here, as it is true/false.
         return
 
-    schema = f"""input {fil_name} {{
-\teq: {type_name}
-\tin: [{type_name}]
-"""
+    fil_dict = {}
+    full_dict["_Inputs"][fil_name] = fil_dict
+
+    fil_dict["eq"] = type_name
+    fil_dict["in"] = f"[{type_name}]"
 
     if op_is_orderable(z_node):
-        schema += f"""\tle: {type_name}
-\tlt: {type_name}
-\tge: {type_name}
-\tgt: {type_name}
-\tbetween: {type_name}Range
-"""
+        fil_dict["le"] = type_name
+        fil_dict["lt"] = type_name
+        fil_dict["ge"] = type_name
+        fil_dict["gt"] = type_name
+        fil_dict["between"] = f"{type_name}Range"
 
     if op_is_stringlike(z_node):
-        schema += f"""\tcontains: String
-"""
+        fil_dict["contains"] = "String"
 
-    schema += f"""}}
-
-input {list_fil_name} {{
-\tany: {fil_name}
-\tall: {fil_name}
-\tsize: IntFilter
-}}
-"""
+    full_dict["_Inputs"][list_fil_name] = {
+        "any": fil_name,
+        "all": fil_name,
+        "size": "IntFilter",
+    }
     
     if op_is_orderable(z_node):
-        schema += f"""\ninput {type_name}Range {{
-\tmin: {type_name}!
-\tmax: {type_name}!
-}}"""
-
-    return {"schema": schema,
-            "orderable": op_is_orderable(z_node)}
+        full_dict["_Inputs"][f"{type_name}Range"] = {
+            "min": f"{type_name}!",
+            "max": f"{type_name}!",
+        }
 
 ####################################
 # * Query resolvers

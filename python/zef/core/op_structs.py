@@ -242,7 +242,7 @@ def is_supported_value(o):
 
 def is_supported_zef_value(o):
     from .abstract_raes import Entity, Relation, AtomicEntity
-    if type(o) in {ZefRef, EZefRef, Graph, BaseUID, EternalUID, ZefRefUID, QuantityFloat, QuantityInt, Entity, Relation, AtomicEntity, Delegate, EntityType, RelationType, AtomicEntityType}: return True
+    if type(o) in {ZefRef, EZefRef, Graph, BaseUID, EternalUID, ZefRefUID, QuantityFloat, QuantityInt, ZefEnumValue, Entity, Relation, AtomicEntity, Delegate, EntityType, RelationType, AtomicEntityType}: return True
     return False
 
 def is_supported_on_subscription(o, op):

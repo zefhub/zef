@@ -314,7 +314,7 @@ def json_to_minimal_nodes(json, g):
                     (Z[type_name], RT.GQL_Field[qual_name], Z[field["type"]]),
                     (Z[qual_name], RT.Name, field_name)
                 ]
-                for bool_key in ["search", "unique", "incoming", "list", "required"]:
+                for bool_key in ["search", "unique", "incoming", "list", "required", "listNonNullItem"]:
                     if bool_key in field:
                         actions += [(Z[qual_name], RT(simple_capitalize(bool_key)), field[bool_key])]
                         del field[bool_key]
