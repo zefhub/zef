@@ -376,6 +376,8 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
         // play.
 
         if (existed) {
+            if(content.callback)
+                (*content.callback)("Loading from existing FileGraph");
             // TODO: Need to send hash along to confirm we're right if we've
             // actually got the latest
             // TODO: It is possible that we could change

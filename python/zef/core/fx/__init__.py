@@ -84,7 +84,8 @@ from .sync import (
 from .graph import (
     graph_take_transactor_role_handler,
     graph_release_transactor_role_handler,
-    graph_transaction_handler
+    graph_transaction_handler,
+    graph_load_handler,
 )
 
 
@@ -141,6 +142,7 @@ _effect_handlers = {
     FX.Graph.TakeTransactorRole.d: graph_take_transactor_role_handler,
     FX.Graph.ReleaseTransactorRole.d: graph_release_transactor_role_handler,
     FX.Graph.Transact.d: graph_transaction_handler,
+    FX.Graph.Load.d: graph_load_handler,
 
     
     FX.Clipboard.CopyTo.d: clipboard_copy_to_handler,
