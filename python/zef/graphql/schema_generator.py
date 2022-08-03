@@ -106,15 +106,40 @@ def generate_schema_str(schema_dict: dict) -> str:
             | join["\n"]
             | collect
         )
+    
+    def parse_inputs(input_d):
+        def parse_input_field(fields_d):
+            return (
+                fields_d
+                | items
+                | map[lambda x: f"    {x[0]}: {x[1]}"]
+                | join["\n"]
+                | collect
+            )
+        def parse_input_type(tup):
+            name, fields_d = tup
+            return (
+                f"input {name}" + "{\n"
+                + parse_input_field(fields_d)
+                + "\n}"
+            )
+        return (
+            input_d
+            | items
+            | map[parse_input_type]
+            | join["\n\n"]
+            | collect
+        )
 
 
-    allowed_keys = ["_Interfaces", "_Types", "_Scalars", "_Enums"]
+    allowed_keys = ["_Interfaces", "_Types", "_Scalars", "_Enums", "_Inputs"]
     schema_dict = select_keys(schema_dict, *allowed_keys)
     dispatch = {
         "_Interfaces":  parse_interfaces_or_types["interface"],
         "_Types":       parse_interfaces_or_types["type"],
         "_Scalars":     parse_scalars,
         "_Enums":       parse_enums,
+        "_Inputs":      parse_inputs,
     }
 
     return (
