@@ -882,10 +882,12 @@ def realise_single_node(x, gen_id):
     elif type(x) == Val:
         iid = gen_id()
         exprs = [TaggedVal(x.arg, iid)]
-    elif type(x) in scalar_types:
+    elif type(x) in shorthand_scalar_types:
         iid = gen_id()
         aet = map_scalar_to_aet_type[type(x)](x)
         exprs = [aet[iid], LazyValue(Z[iid]) | assign[x]]
+    elif type(x) in scalar_types:
+        raise Exception("A value of type {type(x)} is not allowed to be given in a GraphDelta in the shorthand syntax as it is ambiguous. You might want to explicitly create an AET and assign, or a value node, or a custom AET.")
     elif isinstance(x, ZefOp):
         assert len(x) == 1
         params = LazyValue(x) | peel | first | second
@@ -1207,7 +1209,7 @@ def encode(xx):
                 return tuple((step(el, False) for el in x))
         
         # These next few ifs are for checks on syntax only
-        if type(x) in scalar_types:
+        if type(x) in shorthand_scalar_types:
             if not allow_scalar:
                 raise Exception("Scalars are not allowed on their own to avoid accidental typos such as (ET.X, ET.Y, 'z') when (ET.X, RT.Y, 'z') is meant. If you want this behaviour, then create an explicit AET, i.e. (AET.String <= 'z').")
         
@@ -1455,6 +1457,7 @@ class TaggedVal:
 
 
 scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue, ValueType_}
+shorthand_scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue}
 
 def make_enum_aet(x):
     """ hacky work around function for now:
