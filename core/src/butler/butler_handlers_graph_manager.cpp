@@ -329,9 +329,10 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
         throw std::runtime_error("Shouldn't get here with wrong uid: '" + str(me.uid) + "' - '" + content.tag_or_uid + "'");
 
     if(content.callback)
-        (*content.callback)("Loading graph with UID " + to_str(me.uid));
+        (*content.callback)("GRAPH UID:" + str(me.uid));
 
     if(me.gd != nullptr) {
+        (*content.callback)("Graph " + str(me.uid) + " already present in butler");
         msg->promise.set_value(GraphLoaded(Graph{me.gd, false}));
         return;
     }
@@ -477,12 +478,17 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                 }
             }
         } else {
+            if(content.callback)
+                (*content.callback)("Requesing full graph of " + str(me.uid) + " from upstream");
             auto response = wait_on_zefhub_message({
                     {"msg_type", "subscribe_to_graph"},
                     {"graph_uid_or_tag", str(me.uid)},
                 },
-                {}
-                // constants::zefhub_subscribe_to_graph_timeout_default
+                {},
+                zefhub_generic_timeout,
+                false,
+                false,
+                content.callback
             );
             if(!response.generic.success) {
                 msg->promise.set_value(GraphLoaded(response.generic.reason));
