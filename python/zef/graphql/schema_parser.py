@@ -74,13 +74,18 @@ def generate_schema_dict(schema_str: str) -> dict:
         }
 
     def dispatch_on_scalar(type_node):
-        return type_node.name.value 
+        return {
+            type_node.name.value: {
+                'parser': None,
+                'serializer': None,
+            }
+        } 
 
     
 
     dispatch = match[
         (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": g[1] | map[dispatch_on_type] | merge | collect}),
-        (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": map(g[1], dispatch_on_scalar)}),
+        (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": g[1] | map[dispatch_on_scalar] | merge | collect}),
         (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"_Interfaces": g[1] | map[dispatch_on_type] | merge | collect})
     ]
 

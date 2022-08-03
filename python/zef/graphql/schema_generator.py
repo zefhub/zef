@@ -39,10 +39,11 @@ def generate_schema_str(schema_dict: dict) -> str:
             | collect
         )
 
-    def parse_scalars(scalars_list):
+    def parse_scalars(scalars):
         return (
-            scalars_list
-            | map[lambda x: f"scalar {x}"]
+            scalars
+            | items
+            | map[lambda x: f"scalar {x[0]}"]
             | join["\n"]
             | collect
         )

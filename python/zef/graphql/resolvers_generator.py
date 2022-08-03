@@ -14,7 +14,7 @@
 
 from ..core import *
 from ..ops import *
-from ariadne import ObjectType,MutationType,QueryType,InterfaceType,SubscriptionType, EnumType
+from ariadne import ObjectType, MutationType, SubscriptionType, EnumType, ScalarType
 
 
 #--------------------------Resolvers Generator-------------------------
@@ -27,7 +27,13 @@ def initialize_object_type(object_type):
         return ObjectType(object_type)
 
 def resolve_enum_type(object_type, options):
-    return EnumType(object_type, options )
+    return EnumType(object_type, options)
+
+def resolve_scalar_type(object_type, options):
+    # TODO: Should we check the passed ZefOp/Zef Functions?
+    value_parser = options.get("parser", None)
+    serializer = options.get("serializer", None)
+    return ScalarType(object_type, serializer=serializer, value_parser=value_parser)
 
 def resolve_args(args):
     def handle_arg_dict(d):
@@ -90,7 +96,6 @@ def generate_resolvers(schema_dict, g):
     fallback_resolver = schema_dict.get("fallback_resolvers", [])
 
     types = schema_dict.get("_Types", {})
-    interfaces = schema_dict.get("_Interfaces", {})
     object_types = []
 
     for object_type, fields_dict in types.items():
@@ -108,5 +113,9 @@ def generate_resolvers(schema_dict, g):
     enums = schema_dict.get("_Enums", [])
     for object_type, options in enums.items():
         object_types.append(resolve_enum_type(object_type, options))
+
+    scalars = schema_dict.get("_Scalars", [])
+    for object_type, options in scalars.items():
+        object_types.append(resolve_scalar_type(object_type, options))
 
     return object_types
