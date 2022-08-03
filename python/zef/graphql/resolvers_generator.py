@@ -14,7 +14,7 @@
 
 from ..core import *
 from ..ops import *
-from ariadne import ObjectType,MutationType,QueryType,InterfaceType,SubscriptionType
+from ariadne import ObjectType,MutationType,QueryType,InterfaceType,SubscriptionType, EnumType
 
 
 #--------------------------Resolvers Generator-------------------------
@@ -25,6 +25,9 @@ def initialize_object_type(object_type):
         return SubscriptionType()
     else:
         return ObjectType(object_type)
+
+def resolve_enum_type(object_type, options):
+    return EnumType(object_type, options )
 
 def resolve_args(args):
     def handle_arg_dict(d):
@@ -102,6 +105,9 @@ def generate_resolvers(schema_dict, g):
             for field_name, field_dict in fields_dict.items():
                 if field_name.startswith("_"): continue
                 assign_field_resolver(object_type, field_name, field_dict, g)
-
+    
+    enums = schema_dict.get("_Enums", [])
+    for e_dict in enums:
+        object_types.append(resolve_enum_type(*list(e_dict.items())[0]))
 
     return object_types

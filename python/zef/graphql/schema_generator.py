@@ -22,6 +22,22 @@ def generate_schema_str(schema_dict: dict) -> str:
     """
     Generate a GraphQL schema string from a GraphQL schema dict.
     """
+
+    def parse_enums(enums_list):
+        def parse_enum(enum_d):
+            enum, options = list(enum_d.items())[0]
+            return (f"enum {enum}" + "{\n" 
+                    + "\n".join(f"    {option}" for option in options.keys())
+                    + "\n}"
+            )
+        
+        return (
+            enums_list
+            | map[parse_enum]
+            | join["\n"]
+            | collect
+        )
+
     def parse_scalars(scalars_list):
         return (
             scalars_list
@@ -86,12 +102,13 @@ def generate_schema_str(schema_dict: dict) -> str:
         )
 
 
-    allowed_keys = ["_Interfaces", "_Subscriptions", "_Types", "_Scalars"]
+    allowed_keys = ["_Interfaces", "_Subscriptions", "_Types", "_Scalars", "_Enums"]
     schema_dict = select_keys(schema_dict, *allowed_keys)
     dispatch = {
         "_Interfaces":  parse_interfaces_or_types["interface"],
         "_Types":       parse_interfaces_or_types["type"],
         "_Scalars":     parse_scalars,
+        "_Enums":       parse_enums,
     }
 
     return (
