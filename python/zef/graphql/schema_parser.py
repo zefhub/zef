@@ -65,11 +65,14 @@ def generate_schema_dict(schema_str: str) -> dict:
             }
         }
 
-    def dispatch_on_type(type_node):
+    @func
+    def dispatch_on_type_or_interface(type_node, is_interface = False):
+        interface_resolver = {"_interface_resolver": None} if is_interface else {}
         return {
             type_node.name.value : {
                 **(list(type_node.fields) | map[resolve_field] | merge | collect),
-                **resolve_interfaces(list(type_node.interfaces))
+                **resolve_interfaces(list(type_node.interfaces)),
+                **interface_resolver,
             }
         }
 
@@ -84,9 +87,9 @@ def generate_schema_dict(schema_str: str) -> dict:
     
 
     dispatch = match[
-        (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": g[1] | map[dispatch_on_type] | merge | collect}),
+        (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": g[1] | map[dispatch_on_type_or_interface] | merge | collect}),
+        (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"_Interfaces": g[1] | map[dispatch_on_type_or_interface[True]] | merge | collect}),
         (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": g[1] | map[dispatch_on_scalar] | merge | collect}),
-        (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"_Interfaces": g[1] | map[dispatch_on_type] | merge | collect})
     ]
 
     document = parse(schema_str, no_location=True)

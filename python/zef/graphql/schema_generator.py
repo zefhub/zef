@@ -108,7 +108,7 @@ def generate_schema_str(schema_dict: dict) -> str:
         )
 
 
-    allowed_keys = ["_Interfaces", "_Subscriptions", "_Types", "_Scalars", "_Enums"]
+    allowed_keys = ["_Interfaces", "_Types", "_Scalars", "_Enums"]
     schema_dict = select_keys(schema_dict, *allowed_keys)
     dispatch = {
         "_Interfaces":  parse_interfaces_or_types["interface"],
