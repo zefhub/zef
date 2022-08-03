@@ -50,7 +50,7 @@ def get_zef_function_args(z_fct, g):
     return args[:len(args) - len(defaults)]
 
 def generate_fct(field_dict, g):
-    kwargs = resolve_args(field_dict.get('args', []))
+    # kwargs = resolve_args(field_dict.get('args', []))
     resolver = field_dict["resolver"]
 
     def resolve_field(obj, info, **kwargs):
@@ -89,25 +89,24 @@ def generate_resolvers(schema_dict, g):
     skip_generation_list = schema_dict.get("skip_generation_list", [])
     fallback_resolver = schema_dict.get("fallback_resolvers", [])
 
-    types = schema_dict.get("_Types", [])
-    interfaces = schema_dict.get("_Interfaces", [])
+    types = schema_dict.get("_Types", {})
+    interfaces = schema_dict.get("_Interfaces", {})
     object_types = []
 
-    for t_dict in types:
-        for object_type, fields_dict in t_dict.items():
-        
-            # Don't generate resolvers for function in this list
-            if object_type in skip_generation_list: continue
-
-            object_type = initialize_object_type(object_type)
-            object_types.append(object_type)
-
-            for field_name, field_dict in fields_dict.items():
-                if field_name.startswith("_"): continue
-                assign_field_resolver(object_type, field_name, field_dict, g)
+    for object_type, fields_dict in types.items():
     
+        # Don't generate resolvers for function in this list
+        if object_type in skip_generation_list: continue
+
+        object_type = initialize_object_type(object_type)
+        object_types.append(object_type)
+
+        for field_name, field_dict in fields_dict.items():
+            if field_name.startswith("_"): continue
+            assign_field_resolver(object_type, field_name, field_dict, g)
+
     enums = schema_dict.get("_Enums", [])
-    for e_dict in enums:
-        object_types.append(resolve_enum_type(*list(e_dict.items())[0]))
+    for object_type, options in enums.items():
+        object_types.append(resolve_enum_type(object_type, options))
 
     return object_types

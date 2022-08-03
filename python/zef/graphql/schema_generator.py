@@ -24,8 +24,8 @@ def generate_schema_str(schema_dict: dict) -> str:
     """
 
     def parse_enums(enums_list):
-        def parse_enum(enum_d):
-            enum, options = list(enum_d.items())[0]
+        def parse_enum(tup):
+            enum, options = tup
             return (f"enum {enum}" + "{\n" 
                     + "\n".join(f"    {option}" for option in options.keys())
                     + "\n}"
@@ -33,6 +33,7 @@ def generate_schema_str(schema_dict: dict) -> str:
         
         return (
             enums_list
+            | items
             | map[parse_enum]
             | join["\n"]
             | collect
@@ -47,20 +48,22 @@ def generate_schema_str(schema_dict: dict) -> str:
         )
 
     @func
-    def parse_interfaces_or_types(lst, prefix):
+    def parse_interfaces_or_types(d, prefix):
         def parse_implements(interfaces):
             if interfaces: return f"implements {''.join(interfaces)} "
             return ""
 
-        def parse_interface_or_type(interface_or_type):
-            name, fields_d = list(interface_or_type.items())[0]
+        def parse_interface_or_type(tup):
+            name, fields_d = tup
             return (
                 f"{prefix} {name} {parse_implements(fields_d.get('_interfaces', []))}" + "{\n"
                 + parse_fields(fields_d)
                 + "\n}"
             )
+
         return (
-            lst
+            d
+            | items
             | map[parse_interface_or_type]
             | join["\n\n"]
             | collect
@@ -69,15 +72,17 @@ def generate_schema_str(schema_dict: dict) -> str:
     
     
     def parse_args(args):
-        def parse_arg(arg):
+        def parse_arg(tup):
             def parse_default_arg():
                 if "default" in arg_dict: return f" = {arg_dict['default']}"
                 return ""
-            arg_name, arg_dict = list(arg.items())[0]
+            arg_name, arg_dict = tup
             return f"{arg_name}: {arg_dict['type']}{parse_default_arg()}"
 
         if args:
-            args = (args
+            args = (
+            args
+            | items
             | map[parse_arg]
             | join[", "]
             | collect

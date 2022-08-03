@@ -22,6 +22,8 @@ from ..ops import *
 from graphql import parse
 from graphql.language.ast import ScalarTypeDefinitionNode, ObjectTypeDefinitionNode, NamedTypeNode, ListTypeNode, NonNullTypeNode, InterfaceTypeDefinitionNode
 
+# TODO add support for parsing enums
+
 def generate_schema_dict(schema_str: str) -> dict:
     """
     Given a GraphQL schema string, generate a dictionary representation of the schema.
@@ -44,7 +46,7 @@ def generate_schema_dict(schema_str: str) -> dict:
                 }
             }
         
-        if args: return {'args': args | map[resolve_arg] | collect}
+        if args: return {'args': args | map[resolve_arg] | merge | collect}
         return {}
 
     def resolve_type(type):
@@ -74,10 +76,12 @@ def generate_schema_dict(schema_str: str) -> dict:
     def dispatch_on_scalar(type_node):
         return type_node.name.value 
 
+    
+
     dispatch = match[
-        (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": map(g[1], dispatch_on_type)}),
+        (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": g[1] | map[dispatch_on_type] | merge | collect}),
         (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": map(g[1], dispatch_on_scalar)}),
-        (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"_Interfaces": map(g[1], dispatch_on_type)})
+        (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"_Interfaces": g[1] | map[dispatch_on_type] | merge | collect})
     ]
 
     document = parse(schema_str, no_location=True)
