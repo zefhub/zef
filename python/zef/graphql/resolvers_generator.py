@@ -14,7 +14,7 @@
 
 from ..core import *
 from ..ops import *
-from ariadne import ObjectType, MutationType, SubscriptionType, EnumType, ScalarType
+from ariadne import ObjectType, MutationType, SubscriptionType, EnumType, ScalarType, InterfaceType
 
 
 #--------------------------Resolvers Generator-------------------------
@@ -34,6 +34,17 @@ def resolve_scalar_type(object_type, options):
     value_parser = options.get("parser", None)
     serializer = options.get("serializer", None)
     return ScalarType(object_type, serializer=serializer, value_parser=value_parser)
+
+def resolve_interface_type(interface_name, interface_d, g):
+    interface_resolver = interface_d.get("_interface_resolver", None)
+    if interface_resolver is None: raise ValueError(f"{interface_name} Interface's type resolver must be definied")
+
+    interface_type = InterfaceType(interface_name, interface_resolver)
+    for field_name, field_dict in interface_d.items():
+        if field_name.startswith("_"): continue
+        assign_field_resolver(interface_type, field_name, field_dict, g)
+    
+    return interface_type
 
 def resolve_args(args):
     def handle_arg_dict(d):
@@ -94,10 +105,9 @@ def generate_resolvers(schema_dict, g):
     """
     skip_generation_list = schema_dict.get("skip_generation_list", [])
     fallback_resolver = schema_dict.get("fallback_resolvers", [])
-
-    types = schema_dict.get("_Types", {})
     object_types = []
 
+    types = schema_dict.get("_Types", {})
     for object_type, fields_dict in types.items():
     
         # Don't generate resolvers for function in this list
@@ -117,5 +127,10 @@ def generate_resolvers(schema_dict, g):
     scalars = schema_dict.get("_Scalars", [])
     for object_type, options in scalars.items():
         object_types.append(resolve_scalar_type(object_type, options))
+
+    
+    interfaces = schema_dict.get("_Interfaces", [])
+    for interface_name, interface_d in interfaces.items():
+        object_types.append(resolve_interface_type(interface_name, interface_d, g))
 
     return object_types
