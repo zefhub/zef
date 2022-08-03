@@ -91,6 +91,8 @@ namespace zefDB {
         void apply_action_FOREIGN_RELATION_EDGE(GraphData & gd, EZefRef uzr_to_blob, bool fill_key_dict);
         void apply_action_TERMINATION_EDGE(GraphData & gd, EZefRef uzr_to_blob, bool fill_key_dict);
         LIBZEF_DLL_EXPORTED void apply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(GraphData & gd, EZefRef uzr, bool fill_key_dict);
+        void apply_action_TO_DELEGATE_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches);
+        void apply_action_DELEGATE_INSTANTIATION_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches);
 
         void unapply_action_blob(GraphData& gd, EZefRef uzr_to_blob, bool fill_caches);
         void unapply_action_ROOT_NODE(GraphData& gd, EZefRef uzr_to_blob, bool fill_caches);
@@ -106,6 +108,8 @@ namespace zefDB {
         void unapply_action_FOREIGN_RELATION_EDGE(GraphData & gd, EZefRef uzr_to_blob, bool fill_caches);
         void unapply_action_TERMINATION_EDGE(GraphData & gd, EZefRef uzr_to_blob, bool fill_caches);
         void unapply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches);
+        void unapply_action_TO_DELEGATE_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches);
+        void unapply_action_DELEGATE_INSTANTIATION_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches);
 
 
 

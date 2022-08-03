@@ -300,6 +300,14 @@ namespace zefDB {
                 apply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(gd, uzr_to_blob, fill_caches);
 				break;
 			}
+            case BlobType::TO_DELEGATE_EDGE: {
+                apply_action_TO_DELEGATE_EDGE(gd, uzr_to_blob, fill_caches);
+				break;
+			}
+            case BlobType::DELEGATE_INSTANTIATION_EDGE: {
+                apply_action_DELEGATE_INSTANTIATION_EDGE(gd, uzr_to_blob, fill_caches);
+				break;
+			}
 			default: return;
 			};
 		}
@@ -358,6 +366,14 @@ namespace zefDB {
                 unapply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(gd, uzr_to_blob, fill_caches);
                 break;
             }
+            case BlobType::TO_DELEGATE_EDGE: {
+                unapply_action_TO_DELEGATE_EDGE(gd, uzr_to_blob, fill_caches);
+				break;
+			}
+            case BlobType::DELEGATE_INSTANTIATION_EDGE: {
+                unapply_action_DELEGATE_INSTANTIATION_EDGE(gd, uzr_to_blob, fill_caches);
+				break;
+			}
             default: return;
 			};
 		}
