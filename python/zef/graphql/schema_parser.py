@@ -26,7 +26,7 @@ from graphql.language.ast import (
     ListTypeNode, NonNullTypeNode,
     InterfaceTypeDefinitionNode,
     InputObjectTypeDefinitionNode,
-    InputValueDefinitionNode
+    EnumTypeDefinitionNode,
 )
 
 # TODO add support for parsing enums
@@ -100,12 +100,20 @@ def generate_schema_dict(schema_str: str) -> dict:
             }
         } 
 
+    def dispatch_on_enum(enum_node):
+        return {
+            enum_node.name.value: {
+                **(list(enum_node.values) | map[lambda v: {v.name.value:v.name.value}] | merge | collect),
+            }
+        } 
+
     
     dispatch = match[
         (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": g[1] | map[dispatch_on_type_or_interface] | merge | collect}),
         (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"_Interfaces": g[1] | map[dispatch_on_type_or_interface[True]] | merge | collect}),
         (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": g[1] | map[dispatch_on_scalar] | merge | collect}),
         (Is[lambda t: t[0] == InputObjectTypeDefinitionNode], lambda g: {"_Inputs": g[1] | map[dispatch_on_input] | merge | collect}),
+        (Is[lambda t: t[0] == EnumTypeDefinitionNode], lambda g: {"_Enums": g[1] | map[dispatch_on_enum] | merge | collect}),
     ]
 
     document = parse(schema_str, no_location=True)
