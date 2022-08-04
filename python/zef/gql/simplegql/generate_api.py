@@ -522,7 +522,12 @@ def resolve_field(z, info, *, z_field, **params):
     if is_list:
         return opts
     else:
-        if not is_required and len(opts) == 0:
+        if len(opts) == 0:
+            if is_required:
+                log.error("A single field has no option and is required!", z=z, z_field=z_field, z_name=fvalue(source(z_field), RT.Name, None), field_name=fvalue(z_field, RT.Name, None))
+            return None
+        if len(opts) >= 2:
+            log.error("A single field has multiple options!", z=z, z_field=z_field, type_name=fvalue(source(z_field), RT.Name, None), field_name=fvalue(z_field, RT.Name, None))
             return None
         return single(opts)
 

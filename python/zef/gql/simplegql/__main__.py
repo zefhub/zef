@@ -24,8 +24,10 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument("--schema-file", type=str, metavar="schema_file", default=os.environ.get("SIMPLEGQL_SCHEMA_FILE", None),
                     help="The graphql schema file.")
-parser.add_argument("--data-tag", type=str, metavar="data_tag", default=os.environ.get("SIMPLEGQL_DATA_TAG"),
+parser.add_argument("--data-tag", type=str, metavar="data_tag", default=os.environ.get("SIMPLEGQL_DATA_TAG", None),
                     help="The tag of the Zef graph with the data (not the schema).")
+parser.add_argument("--scratch", action="store_true", default=(False if "SIMPLEGQL_SCRATCH" in os.environ else None),
+                    help="Use a temporary disposable local graph instead of persisting it on ZefHub.")
 parser.add_argument("--port", type=int, default=int(os.environ.get("SIMPLEGQL_PORT", "443")))
 parser.add_argument("--bind", type=str, default=os.environ.get("SIMPLEGQL_BIND", "0.0.0.0"),
                     help="IP address to bind to.")
@@ -41,6 +43,13 @@ parser.add_argument("--debug-level", type=int, dest="debug_level", default=os.en
                     help="The amount of debug messages to output")
 args = parser.parse_args()
 
+if args.data_tag is not None and args.scratch:
+    print("Can't specify both a data tag and scratch")
+    raise SystemExit(4)
+if args.data_tag is None and not args.scratch:
+    print("Need one of data-tag or scratch specified.")
+    raise SystemExit(4)
+
 
 schema_gql = args.schema_file | read_file | run | get["content"] | collect
 if args.hooks_file is not None:
@@ -52,21 +61,26 @@ else:
 root = create_schema_graph(schema_gql, hooks_string)
 log.info(f"Created schema graph from '{args.schema_file}'")
 
-guid = lookup_uid(args.data_tag)
-if guid is None:
-    if not args.create:
-        print("Graph is not known to us, and create is False. Exiting.")
-        raise SystemExit(2)
-    g_data = Graph(True)
-    try:
-        g_data | tag[args.data_tag] | run
-    except:
-        print("Unable to create and tag graph with '{args.data_tag}'. Maybe this tag is already taken by another user?")
-        raise SystemExit(2)
-    log.info("Created data graph with tag", tag=args.data_tag)
+if args.data_tag is not None:
+    guid = lookup_uid(args.data_tag)
+    if guid is None:
+        if not args.create:
+            print("Graph is not known to us, and create is False. Exiting.")
+            raise SystemExit(2)
+        g_data = Graph(True)
+        try:
+            g_data | tag[args.data_tag] | run
+        except:
+            print("Unable to create and tag graph with '{args.data_tag}'. Maybe this tag is already taken by another user?")
+            raise SystemExit(2)
+        log.info("Created data graph with tag", tag=args.data_tag)
+    else:
+        g_data = Graph(args.data_tag)
+        log.info("Loaded existing data graph")
 else:
-    g_data = Graph(args.data_tag)
-    log.info("Loaded existing data graph")
+    assert args.scratch
+    g_data = Graph()
+    log.info("Created blank scratch data graph")
 
 if args.host_role:
     try:
