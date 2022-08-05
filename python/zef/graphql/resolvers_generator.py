@@ -80,7 +80,10 @@ def get_zef_function_args(z_fct, g):
 
 def generate_fct(field_dict, g):
     # kwargs = resolve_args(field_dict.get('args', []))
-    resolver = field_dict.get("resolver", None)
+    # resolver = field_dict.get("resolver", None)
+    # if resolver is None:
+    #     return None
+    resolver = field_dict["resolver"]
 
     def resolve_field(obj, info, **kwargs):
         context = {
@@ -101,15 +104,14 @@ def generate_fct(field_dict, g):
                 return resolver(obj)
         elif isinstance(resolver, LazyValue):
             return resolver()
-        elif resolver is None:
-            return None
         else:
             raise NotImplementedError(f"Cannot generate resolver using the passed object {resolver} of type {type(resolver)}")
     return resolve_field
 
 def assign_field_resolver(object_type, field_name, field_dict, g):
     fct = generate_fct(field_dict, g)
-    object_type.field(field_name)(fct)
+    if fct is not None:
+        object_type.field(field_name)(fct)
 
 def generate_resolvers(schema_dict, g):
     """

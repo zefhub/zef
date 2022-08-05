@@ -89,8 +89,8 @@ def customRoute(req, context):
     return {**req, "response_status": 400}
 """
 
-        from zef.gql.simplegql.main import create_schema_graph
-        from zef.gql.simplegql.server import start_server
+        from zef.graphql.simplegql.main import create_schema_graph
+        from zef.graphql.simplegql.server2 import start_server
         self.port = 4991
         root = create_schema_graph(schema_gql, hooks_string)
         g_data = Graph()

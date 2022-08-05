@@ -116,7 +116,7 @@ def generate_resolvers_fcts(schema_root):
         ref_input_dict = {"id": "ID"}
         add_input_dict = {"id": "ID"}
         aggregate_fields_dict = {
-            "count": {"type": "Int"},
+            "count": {"type": "Int", "resolver": get["count"]},
         }
         if has_upfetch:
             # Note: upfetch does not get an id field
@@ -180,16 +180,20 @@ def generate_resolvers_fcts(schema_root):
                 if is_orderable:
                     aggregate_fields_dict[f"{field_name}Min"] = {
                         "type": ref_field_type,
+                        "resolver": get[f"{field_name}Min"],
                     }
                     aggregate_fields_dict[f"{field_name}Max"] = {
                         "type": ref_field_type,
+                        "resolver": get[f"{field_name}Max"],
                     }
                 if is_summable:
                     aggregate_fields_dict[f"{field_name}Sum"] = {
                         "type": ref_field_type,
+                        "resolver": get[f"{field_name}Sum"],
                     }
                     aggregate_fields_dict[f"{field_name}Avg"] = {
                         "type": ref_field_type,
+                        "resolver": get[f"{field_name}Avg"],
                     }
 
         query_params = schema_generate_list_params(z_type, full_dict)
@@ -203,11 +207,12 @@ def generate_resolvers_fcts(schema_root):
             "remove": ref_name,
         }
         types_dict[mutate_response_name] = {
-            "count": {"type": "Int"},
+            "count": {"type": "Int", "resolver": get["count"]},
             lower_name: {
                 "type": f"[{name}]",
                 "args": query_params,
-                "resolver": apply[P(resolve_filter_response, type_node=z_type)],
+                # "resolver": apply[P(resolve_filter_response, type_node=z_type)],
+                "resolver": resolve_filter_response2[z_type],
             }
         }
         types_dict[aggregate_response_name] = aggregate_fields_dict
@@ -218,8 +223,9 @@ def generate_resolvers_fcts(schema_root):
         # Add the 3 top-level queries
         query_dict[f"get{name}"] = {
             "type": name,
-            "args": {"get": {"type": "ID!"}},
-            "resolver": apply[P(resolve_get, type_node=z_type)],
+            "args": {"id": {"type": "ID!"}},
+            # "resolver": apply[P(resolve_get, type_node=z_type)],
+            "resolver": resolve_get2[z_type],
         }
         query_dict[f"query{name}"] = {
             "type": f"[{name}]",
@@ -230,7 +236,8 @@ def generate_resolvers_fcts(schema_root):
         query_dict[f"aggregate{name}"] = {
             "type": aggregate_response_name,
             "args": query_params,
-            "resolver": apply[P(resolve_aggregate, type_node=z_type)],
+            # "resolver": apply[P(resolve_aggregate, type_node=z_type)],
+            "resolver": resolve_aggregate2[z_type],
         }
 
         # Add the 3 top-level mutations
@@ -240,23 +247,27 @@ def generate_resolvers_fcts(schema_root):
                 "input": {"type": f"[{add_input_name}!]!"},
                 "upsert": {"type": "Boolean"}
             },
-            "resolver": apply[P(resolve_add, type_node=z_type)],
+            # "resolver": apply[P(resolve_add, type_node=z_type)],
+            "resolver": resolve_add2[z_type],
         }
         mutation_dict[f"update{name}"] = {
             "type": mutate_response_name,
             "args": {"input": {"type": f"{update_input_name}!"}},
-            "resolver": apply[P(resolve_update, type_node=z_type)],
+            # "resolver": apply[P(resolve_update, type_node=z_type)],
+            "resolver": resolve_update2[z_type],
         }
         mutation_dict[f"delete{name}"] = {
             "type": mutate_response_name,
             "args": {"filter": {"type": f"{filter_name}!"}},
-            "resolver": apply[P(resolve_delete, type_node=z_type)],
+            # "resolver": apply[P(resolve_delete, type_node=z_type)],
+            "resolver": resolve_delete2[z_type],
         }
         if has_upfetch:
             mutation_dict[f"upfetch{name}"] = {
                 "type": mutate_response_name,
                 "args": {"input": {"type": f"[{upfetch_input_name}!]!"}},
-                "resolver": apply[P(resolve_upfetch, type_node=z_type)],
+                # "resolver": apply[P(resolve_upfetch, type_node=z_type)],
+                "resolver": resolve_upfetch2[z_type],
             }
 
     for z_enum in schema_root | Outs[RT.GQL_Enum]:
@@ -647,6 +658,9 @@ def resolve_update(_, info, *, type_node, **params):
         if info.context["debug_level"] >= 0:
             log.error("There was an error in resolve_update", exc_info=exc)
         raise Exception("Unexpected error")
+@func
+def resolve_update2(obj, type_node, graphql_info, query_args):
+    return resolve_update(obj, graphql_info, type_node=type_node, **query_args)
 
 def resolve_delete(_, info, *, type_node, **params):
     try:
@@ -674,6 +688,9 @@ def resolve_delete(_, info, *, type_node, **params):
         if info.context["debug_level"] >= 0:
             log.error("There was an error in resolve_delete", exc_info=exc)
         raise Exception("Unexpected error")
+@func
+def resolve_delete2(obj, type_node, graphql_info, query_args):
+    return resolve_delete(obj, graphql_info, type_node=type_node, **query_args)
 
 def resolve_filter_response(obj, info, *, type_node, **params):
     ents = obj["ents"]
@@ -681,6 +698,9 @@ def resolve_filter_response(obj, info, *, type_node, **params):
     ents = handle_list_params(ents, type_node, params, info)
 
     return ents | collect
+@func
+def resolve_filter_response2(obj, type_node, graphql_info, query_args):
+    return resolve_filter_response(obj, graphql_info, type_node=type_node, **query_args)
 
 
 
