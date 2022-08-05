@@ -137,7 +137,7 @@ def start_server(z_gql_root,
                  ):
 
     gql_dict = generate_resolvers_fcts(z_gql_root)
-    from ...graphql import make_graphql_api
+    from .. import make_graphql_api
     ari_schema = make_graphql_api(gql_dict)
 
     from logging import getLogger
