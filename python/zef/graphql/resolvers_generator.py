@@ -62,19 +62,31 @@ def resolve_args(args):
 
 def get_zef_function_args(z_fct, g):
     from ..core.zef_functions import zef_function_args
-    full_arg_spec = zef_function_args(g[peel(z_fct)[0][1][0][1]] | now  | collect)
-    args, defaults =  full_arg_spec.args, full_arg_spec.defaults
-    return args[:len(args) - len(defaults)]
+    zefref_or_func = peel(z_fct)[0][1][0][1]
+    if type(zefref_or_func) == Entity:
+        full_arg_spec = zef_function_args(g[zefref_or_func] | now  | collect)
+        args, defaults =  full_arg_spec.args, full_arg_spec.defaults
+        return args[:len(args) - len(defaults)]
+    else:
+        import types
+        assert type(zefref_or_func) == types.FunctionType
+        import inspect
+        args = inspect.getargs(zefref_or_func.__code__).args
+        # Remove the already curried args
+        curried = peel(z_fct)[0][1][1:]
+        # args = args[:-len(curried)]
+        args = args[0:1] + args[1+len(curried):]
+        return args
 
 def generate_fct(field_dict, g):
     # kwargs = resolve_args(field_dict.get('args', []))
-    resolver = field_dict["resolver"]
+    resolver = field_dict.get("resolver", None)
 
     def resolve_field(obj, info, **kwargs):
         context = {
             "obj": obj,
             "query_args": kwargs,
-            "qraphql_info": info,
+            "graphql_info": info,
             # To be extended
         }
         if is_a(resolver, ZefOp):
@@ -83,7 +95,8 @@ def generate_fct(field_dict, g):
                 arg_values = select_keys(context, *args).values()
                 # Check if some args that are present in the Zef Function aren't present in context dict
                 if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
-                return resolver(*select_keys(context, *args).values())
+                arg_values = [context[x] for x in args]
+                return resolver(*arg_values)
             else:
                 return resolver(obj)
         elif isinstance(resolver, LazyValue):
@@ -120,16 +133,16 @@ def generate_resolvers(schema_dict, g):
             if field_name.startswith("_"): continue
             assign_field_resolver(object_type, field_name, field_dict, g)
 
-    enums = schema_dict.get("_Enums", [])
+    enums = schema_dict.get("_Enums", {})
     for object_type, options in enums.items():
         object_types.append(resolve_enum_type(object_type, options))
 
-    scalars = schema_dict.get("_Scalars", [])
+    scalars = schema_dict.get("_Scalars", {})
     for object_type, options in scalars.items():
         object_types.append(resolve_scalar_type(object_type, options))
 
     
-    interfaces = schema_dict.get("_Interfaces", [])
+    interfaces = schema_dict.get("_Interfaces", {})
     for interface_name, interface_d in interfaces.items():
         object_types.append(resolve_interface_type(interface_name, interface_d, g))
 

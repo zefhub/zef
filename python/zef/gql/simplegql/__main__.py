@@ -15,7 +15,7 @@
 from ... import *
 from ...ops import *
 from .main import create_schema_graph
-from .server import start_server
+from .server2 import start_server
 
 from zef.core.logger import log
 
@@ -82,7 +82,7 @@ else:
     g_data = Graph()
     log.info("Created blank scratch data graph")
 
-if args.host_role:
+if args.host_role and not args.scratch:
     try:
         g_data | take_transactor_role | run
     except:

@@ -80,8 +80,8 @@ def generate_resolvers_fcts(schema_root):
     query_dict = {}
     mutation_dict = {}
 
-    types_dict = {"query": query_dict,
-                  "mutation": mutation_dict}
+    types_dict = {"Query": query_dict,
+                  "Mutation": mutation_dict}
     input_types_dict = {}
     enums_dict = {}
     scalars_dict = {}
@@ -111,7 +111,7 @@ def generate_resolvers_fcts(schema_root):
         aggregate_response_name = "Aggregate" + name + "Response"
 
         type_dict = {"id": {
-            "type": "ID!", "resolver": resolve_id
+            "type": "ID!", "resolver": resolve_id2
         }}
         ref_input_dict = {"id": "ID"}
         add_input_dict = {"id": "ID"}
@@ -158,7 +158,7 @@ def generate_resolvers_fcts(schema_root):
                 upfetch_field_type = "[" + base_ref_field_type + maybe_required + "]" + maybe_required
                 field_type = "[" + base_field_type + maybe_required + "]" + maybe_required
             else:
-                maybe_params = []
+                maybe_params = {}
                 ref_field_type = base_ref_field_type
                 add_field_type = ref_field_type
                 upfetch_field_type = base_ref_field_type + maybe_required
@@ -166,7 +166,8 @@ def generate_resolvers_fcts(schema_root):
 
             type_dict[field_name] = {
                 "type": field_type,
-                "resolver": P(resolve_field, z_field=z_field),
+                # "resolver": P(resolve_field, z_field=z_field),
+                "resolver": resolve_field2[z_field],
                 "args": maybe_params,
             }
 
@@ -204,7 +205,7 @@ def generate_resolvers_fcts(schema_root):
         types_dict[mutate_response_name] = {
             "count": {"type": "Int"},
             lower_name: {
-                "type": "[name]",
+                "type": f"[{name}]",
                 "args": query_params,
                 "resolver": apply[P(resolve_filter_response, type_node=z_type)],
             }
@@ -217,13 +218,14 @@ def generate_resolvers_fcts(schema_root):
         # Add the 3 top-level queries
         query_dict[f"get{name}"] = {
             "type": name,
-            "args": [{"get": {"type": "ID!"}}],
+            "args": {"get": {"type": "ID!"}},
             "resolver": apply[P(resolve_get, type_node=z_type)],
         }
         query_dict[f"query{name}"] = {
             "type": f"[{name}]",
             "args": query_params,
-            "resolver": apply[P(resolve_query, type_node=z_type)],
+            # "resolver": apply[P(resolve_query, type_node=z_type)],
+            "resolver": resolve_query2[z_type],
         }
         query_dict[f"aggregate{name}"] = {
             "type": aggregate_response_name,
@@ -234,32 +236,26 @@ def generate_resolvers_fcts(schema_root):
         # Add the 3 top-level mutations
         mutation_dict[f"add{name}"] = {
             "type": mutate_response_name,
-            "args": [
-                {"input": {"type": f"[{add_input_name}!]!"}},
-                {"upsert": {"type": "Boolean"}}
-            ],
+            "args": {
+                "input": {"type": f"[{add_input_name}!]!"},
+                "upsert": {"type": "Boolean"}
+            },
             "resolver": apply[P(resolve_add, type_node=z_type)],
         }
         mutation_dict[f"update{name}"] = {
             "type": mutate_response_name,
-            "args": [
-                {"input": {"type": f"{update_input_name}!"}},
-            ],
+            "args": {"input": {"type": f"{update_input_name}!"}},
             "resolver": apply[P(resolve_update, type_node=z_type)],
         }
         mutation_dict[f"delete{name}"] = {
             "type": mutate_response_name,
-            "args": [
-                {"filter": {"type": f"{filter_name}!"}},
-            ],
+            "args": {"filter": {"type": f"{filter_name}!"}},
             "resolver": apply[P(resolve_delete, type_node=z_type)],
         }
         if has_upfetch:
             mutation_dict[f"upfetch{name}"] = {
                 "type": mutate_response_name,
-                "args": [
-                    {"input": {"type": f"[{upfetch_input_name}!]!"}},
-                ],
+                "args": {"input": {"type": f"[{upfetch_input_name}!]!"}},
                 "resolver": apply[P(resolve_upfetch, type_node=z_type)],
             }
 
@@ -300,16 +296,16 @@ def schema_generate_list_params(z_type, full_dict):
     filter_name = f"{name}Filter"
     schema_generate_type_dispatch(z_type, full_dict)
 
-    query_params = [
-        {"filter": filter_name},
+    query_params = {
+        "filter": {"type": filter_name},
         # We probably want to change these to be proper cursors.
-        {"first": "Int"},
-        {"offset": "Int"},
-    ]
+        "first": {"type": "Int"},
+        "offset": {"type": "Int"},
+    }
 
     order_name = f"{name}Order"
     if order_name in full_dict["_Inputs"]:
-        query_params += [{"order": {"type": order_name}}]
+        query_params["order"] = {"type": order_name}
 
     return query_params
 
@@ -365,7 +361,8 @@ def schema_generate_type_filter(z_type, full_dict):
             "all": fil_name,
             "size": "IntFilter",
         }
-        full_dict["_Enums"][orderable_name] = orderable_fields
+        orderable_dict = {x: x for x in orderable_fields}
+        full_dict["_Enums"][orderable_name] = orderable_dict
         
 
 def schema_generate_scalar_filter(z_node, full_dict):
@@ -416,6 +413,9 @@ def resolve_get(_, info, *, type_node, **params):
     # Look for something that fits exactly what has been given in the params, assuming
     # that ariadne has done its work and validated the query.
     return find_existing_entity_by_id(info, type_node, params["id"])
+@func
+def resolve_get2(obj, type_node, graphql_info, query_args):
+    return resolve_get(obj, graphql_info, type_node=type_node, **query_args)
 
 def resolve_query(_, info, *, type_node, **params):
     ents = obtain_initial_list(type_node, params.get("filter", None), info)
@@ -423,6 +423,10 @@ def resolve_query(_, info, *, type_node, **params):
     ents = handle_list_params(ents, type_node, params, info)
 
     return ents | collect
+
+@func
+def resolve_query2(obj, type_node, graphql_info, query_args):
+    return resolve_query(obj, graphql_info, type_node=type_node, **query_args)
 
 def resolve_aggregate(_, info, *, type_node, **params):
     # We can potentially defer the aggregation till later, by returning a kind
@@ -463,6 +467,9 @@ def resolve_aggregate(_, info, *, type_node, **params):
             out[f"{field_name}Avg"] = val_avg
 
     return out
+@func
+def resolve_aggregate2(obj, type_node, graphql_info, query_args):
+    return resolve_aggregate(obj, graphql_info, type_node=type_node, **query_args)
 
 def resolve_field(z, info, *, z_field, **params):
     is_list = z_field | op_is_list | collect
@@ -481,9 +488,16 @@ def resolve_field(z, info, *, z_field, **params):
         if not is_required and len(opts) == 0:
             return None
         return single(opts)
+@func
+def resolve_field2(obj, z_field, graphql_info, query_args):
+    return resolve_field(obj, graphql_info, z_field=z_field, **query_args)
 
 def resolve_id(z, info):
     return str(origin_uid(z))
+
+@func
+def resolve_id2(obj, graphql_info):
+    return resolve_id(obj, graphql_info)
 
 
 ##############################
@@ -540,6 +554,9 @@ def resolve_add(_, info, *, type_node, **params):
         if info.context["debug_level"] >= 0:
             log.error("There was an error in resolve_add", exc_info=exc)
         raise Exception("Unexpected error")
+@func
+def resolve_add2(obj, type_node, graphql_info, query_args):
+    return resolve_add(obj, graphql_info, type_node=type_node, **query_args)
             
 def resolve_upfetch(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
@@ -588,6 +605,9 @@ def resolve_upfetch(_, info, *, type_node, **params):
         if info.context["debug_level"] >= 0:
             log.error("There was an error in resolve_upfetch", exc_info=exc)
         raise Exception("Unexpected error")
+@func
+def resolve_upfetch2(obj, type_node, graphql_info, query_args):
+    return resolve_upfetch(obj, graphql_info, type_node=type_node, **query_args)
             
         
 def resolve_update(_, info, *, type_node, **params):
