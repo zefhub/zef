@@ -42,6 +42,26 @@ def read_localfile_handler(eff: Effect):
     except Exception as e:
         raise RuntimeError(f"Error reading file in FX.LocalFile.Read for effect={eff}:\n {repr(e)}")
 
+def readbinary_localfile_handler(eff: Effect):
+    """
+    Reads a localfile in binary mode and returns the content as bytes.
+    >>> FX.LocalFile.ReadBinary(filename='my_file.txt')
+
+    Response example:
+    {
+        'content': some_dict,
+        'filename': 'my_file.txt',
+    }
+    """
+    try:
+        filename  = eff["filename"]
+        f = open(filename, "rb")
+        f = f.read()
+        return {"content": f, "filename": filename}
+    except Exception as e:
+        raise RuntimeError(f"Error reading file in FX.LocalFile.Read for effect={eff}:\n {repr(e)}")
+
+
 
 def load_localfile_handler(eff: Effect):
     """
