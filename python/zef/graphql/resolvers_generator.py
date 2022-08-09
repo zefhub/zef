@@ -18,6 +18,15 @@ from ariadne import ObjectType, MutationType, SubscriptionType, EnumType, Scalar
 
 
 #--------------------------Resolvers Generator-------------------------
+def fill_types_default_resolvers(schema_d):
+    for _, fields_dict in schema_d["_Types"].items():
+        for field_name, field_dict in fields_dict.items():
+            if field_name.startswith("_"): continue
+            if field_dict["resolver"] is None:
+                field_dict["resolver"] = get[field_name]
+    
+    return schema_d
+
 def initialize_object_type(object_type):
     if "Mutation" == object_type:
         return MutationType()
@@ -42,7 +51,7 @@ def resolve_interface_type(interface_name, interface_d, g):
     interface_type = InterfaceType(interface_name, interface_resolver)
     for field_name, field_dict in interface_d.items():
         if field_name.startswith("_"): continue
-        assign_field_resolver(interface_type, field_name, field_dict, g)
+        assign_field_resolver(interface_type, field_name, field_dict, g, True)
     
     return interface_type
 
@@ -78,12 +87,11 @@ def get_zef_function_args(z_fct, g):
         args = args[0:1] + args[1+len(curried):]
         return args
 
-def generate_fct(field_dict, g):
-    # kwargs = resolve_args(field_dict.get('args', []))
-    # resolver = field_dict.get("resolver", None)
-    # if resolver is None:
-    #     return None
+def generate_fct(field_dict, g, allow_none):
     resolver = field_dict["resolver"]
+    if resolver is None and not allow_none:
+        raise ValueError("A type's field resolver shouldn't be set to None! \
+            To use default values for your resolver, explicitly call fill_types_default_resolvers on your schema dictionary!")
 
     def resolve_field(obj, info, **kwargs):
         context = {
@@ -108,8 +116,8 @@ def generate_fct(field_dict, g):
             raise NotImplementedError(f"Cannot generate resolver using the passed object {resolver} of type {type(resolver)}")
     return resolve_field
 
-def assign_field_resolver(object_type, field_name, field_dict, g):
-    fct = generate_fct(field_dict, g)
+def assign_field_resolver(object_type, field_name, field_dict, g, allow_none=False):
+    fct = generate_fct(field_dict, g, allow_none)
     if fct is not None:
         object_type.field(field_name)(fct)
 
@@ -118,16 +126,12 @@ def generate_resolvers(schema_dict, g):
     Given a schema dict with definied resolvers fields, generates the ariadane resolvers.
     Returns back ariadne object types list.
     """
-    skip_generation_list = schema_dict.get("skip_generation_list", [])
     fallback_resolver = schema_dict.get("fallback_resolvers", [])
     object_types = []
 
     types = schema_dict.get("_Types", {})
     for object_type, fields_dict in types.items():
     
-        # Don't generate resolvers for function in this list
-        if object_type in skip_generation_list: continue
-
         object_type = initialize_object_type(object_type)
         object_types.append(object_type)
 

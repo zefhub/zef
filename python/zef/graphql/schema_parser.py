@@ -122,6 +122,5 @@ def generate_schema_dict(schema_str: str) -> dict:
         | group_by[type]
         | map[dispatch]
         | merge
-        | insert["skip_generation_list"][[]]
         | collect
     )
