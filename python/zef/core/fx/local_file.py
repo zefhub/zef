@@ -174,7 +174,8 @@ def write_localfile_handler(eff: Effect):
     content   = eff["content"]
     filename  = eff["filename"]
 
-    with open(filename, "w") as file: file.write(content)
+    mode = "wb"  if isinstance(content, bytes) else "w"
+    with open(filename, mode) as f: f.write(content)
     return {"filename": filename}
 
 
