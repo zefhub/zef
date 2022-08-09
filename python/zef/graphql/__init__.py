@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .resolvers_generator import generate_resolvers
+from .resolvers_generator import generate_resolvers, fill_types_default_resolvers
 from .schema_generator import generate_schema_str
 from .schema_parser import generate_schema_dict
 
@@ -21,6 +21,7 @@ __all__ = [
     "generate_schema_str",
     "generate_schema_dict",
     "make_graphql_api",
+    "fill_types_default_resolvers"
 ]
 
 def make_graphql_api(schema_dict: dict, g = None):

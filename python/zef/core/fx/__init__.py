@@ -95,6 +95,7 @@ from .clipboard import (
 
 from .local_file import (
     read_localfile_handler,
+    readbinary_localfile_handler,
     write_localfile_handler,
     save_localfile_handler,
     load_localfile_handler,
@@ -146,6 +147,7 @@ _effect_handlers = {
     FX.Clipboard.CopyFrom.d: clipboard_copy_from_handler,
 
     FX.LocalFile.Read.d:  read_localfile_handler,
+    FX.LocalFile.ReadBinary.d:  readbinary_localfile_handler,
     FX.LocalFile.Load.d:  load_localfile_handler,
     FX.LocalFile.Write.d: write_localfile_handler,
     FX.LocalFile.Save.d:  save_localfile_handler,
