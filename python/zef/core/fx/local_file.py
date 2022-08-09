@@ -31,13 +31,14 @@ def read_localfile_handler(eff: Effect):
     Response example:
     {
         'content': some_dict,
+        'filename': 'my_file.txt',
     }
     """
     try:
         filename  = eff["filename"]
         f = open(filename, "r")
         f = f.read()
-        return {"content": f}
+        return {"content": f, "filename": filename}
     except Exception as e:
         raise RuntimeError(f"Error reading file in FX.LocalFile.Read for effect={eff}:\n {repr(e)}")
 
@@ -62,6 +63,7 @@ def load_localfile_handler(eff: Effect):
     {
         'content': some_dict,
         'format': 'json',
+        'filename': 'my_file.json',
     }
     """
     try:
@@ -89,7 +91,7 @@ def load_localfile_handler(eff: Effect):
         elif format == "json":
             content = json.loads(content)
 
-        return {"content": content, "format": format}
+        return {"content": content, "format": format, "filename": filename}
     except Exception as e:
         return Error(f'executing FX.LocalFile.Load for effect {eff}:\n{repr(e)}')
 
