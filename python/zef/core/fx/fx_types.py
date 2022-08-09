@@ -61,6 +61,7 @@ class _HTTP_Class():
 
 class _Websocket_Class():
     _name = "Websocket"
+    ConnectToServer = FXElement(('Websocket', 'ConnectToServer'))
     StartServer = FXElement(('Websocket', 'StartServer'))
     StopServer = FXElement(('Websocket', 'StopServer'))
     SendMessage = FXElement(('Websocket', 'SendMessage'))
