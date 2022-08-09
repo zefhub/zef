@@ -7169,7 +7169,7 @@ def to_clipboard_imp(x):
     assert type(x) in {str, int, float, bool}
     return {
         'type': FX.Clipboard.CopyTo,
-        'value': x
+        'content': x
     }
 
 
