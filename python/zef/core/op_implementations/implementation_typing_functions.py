@@ -4139,13 +4139,17 @@ def slice_tp(*args):
 
 # ---------------------------------------- split -----------------------------------------------
 
-def split_imp(collection, val):
+def split_imp(collection, val, max_split=-1):
     """ 
     Split a List into a List[List] based on the occurrence of val.
     The value that is split on is not contained in any of the output lists.
 
+    If max_split is set to a positive integer, the split is truncated after
+    that number. If max_split is set to -1, the split is unlimited.
+
     ---- Examples ----
     >>> 'abcdeabfb' | split['b']            # => ['a', 'cdea', 'f', '']
+    >>> 'abcdeabfb' | split['b'][1]         # => ['a', 'cdeabfb']
     >>> [0,1,6,2,3,4,2,] | split[2]         # => [[0, 1, 6], [3, 4], []]    
 
     ---- Signature ----
@@ -4162,22 +4166,45 @@ def split_imp(collection, val):
     - related zefop: trim
     """
     if isinstance(collection, str):
-        return collection.split(val)
-    def wrapper():
-        it = iter(collection)
-        try:
-            while True:
-                s = []
-                next_val = next(it)
-                while next_val != val:                
-                    s.append(next_val)
-                    next_val = next(it)                    
+        return collection.split(val, max_split)
+
+    if max_split == -1:       
+        def wrapper():
+            it = iter(collection)
+            try:
+                while True:
+                    s = []
+                    next_val = next(it)
+                    while next_val != val:                
+                        s.append(next_val)
+                        next_val = next(it)                    
+                    yield s
+            except StopIteration:
                 yield s
-        except StopIteration:
-            yield s
-            return
-    return ZefGenerator(wrapper)
-    
+                return
+        return ZefGenerator(wrapper)
+
+    else:
+        assert (max_split >= 0)
+        def wrapper2():
+            run_no=0
+            it = iter(collection)
+            try:
+                while run_no < max_split:
+                    s = []
+                    next_val = next(it)
+                    while next_val != val:                
+                        s.append(next_val)
+                        next_val = next(it)                    
+                    yield s
+                    run_no += 1
+                yield list(it)
+            except StopIteration:
+                yield s
+                return
+
+        return ZefGenerator(wrapper2)
+
 
 def split_tp(*args):
     return VT.Any
@@ -5406,6 +5433,9 @@ def nth_implementation(iterable, n):
     (LazyValue[List[T]], Int) -> LazyValue[Union[T, Error]]
     (Awaitable[List[T]], Int) -> Awaitable[Union[T, Error]]    
     """
+    if isinstance(iterable, dict): 
+        raise TypeError(f"`nth` was called on a dict, but is only supported for Lists")
+
     if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
         return iterable | all | nth[n] | collect
         
