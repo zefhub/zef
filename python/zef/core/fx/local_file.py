@@ -36,8 +36,8 @@ def read_localfile_handler(eff: Effect):
     """
     try:
         filename  = eff["filename"]
-        f = open(filename, "r")
-        f = f.read()
+        with open(filename, "r") as f:
+            f = f.read()
         return {"content": f, "filename": filename}
     except Exception as e:
         raise RuntimeError(f"Error reading file in FX.LocalFile.Read for effect={eff}:\n {repr(e)}")
@@ -55,8 +55,8 @@ def readbinary_localfile_handler(eff: Effect):
     """
     try:
         filename  = eff["filename"]
-        f = open(filename, "rb")
-        f = f.read()
+        with open(filename, "rb") as f:
+            f = f.read()
         return {"content": f, "filename": filename}
     except Exception as e:
         raise RuntimeError(f"Error reading file in FX.LocalFile.Read for effect={eff}:\n {repr(e)}")
@@ -96,8 +96,8 @@ def load_localfile_handler(eff: Effect):
             else: format = filename[filename.rindex(".") + 1:]
         elif "." not in filename: filename = filename + f".{format}"
 
-        f = open(filename, "r")
-        content = f.read()
+        with open(filename, "r") as f:
+            content = f.read()
 
         if format in {"svg", "png", "jpg", "jpeg"}:
             content = bytes(content, "UTF-8")
