@@ -96,20 +96,22 @@ def load_localfile_handler(eff: Effect):
             else: format = filename[filename.rindex(".") + 1:]
         elif "." not in filename: filename = filename + f".{format}"
 
-        with open(filename, "r") as f:
-            content = f.read()
 
         if format in {"svg", "png", "jpg", "jpeg"}:
-            content = bytes(content, "UTF-8")
+            with open(filename, "rb") as f:
+                content = f.read()
             content = Image(content, format)
-        elif format in {"yaml", "yml"}:
-            content = yaml.safe_load(content)
-        elif format == "toml":
-            content = toml.loads(content)
-        elif format == "csv":
-            content = pd.read_csv(io.StringIO(content), **settings)
-        elif format == "json":
-            content = json.loads(content)
+        else:
+            with open(filename, "rb") as f:
+                content = f.read()  
+            if format in {"yaml", "yml"}:
+                content = yaml.safe_load(content)
+            elif format == "toml":
+                content = toml.loads(content)
+            elif format == "csv":
+                content = pd.read_csv(io.StringIO(content), **settings)
+            elif format == "json":
+                content = json.loads(content)
 
         return {"content": content, "format": format, "filename": filename}
     except Exception as e:

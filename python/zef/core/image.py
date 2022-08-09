@@ -27,7 +27,7 @@ class Image:
         return zstd.decompress(self.buffer) if self.format=='png' else None
     def _repr_jpeg_(self):
         # this function must return bytes
-        return zstd.decompress(self.buffer) if self.format=='jpg' else None
+        return zstd.decompress(self.buffer) if self.format in {'jpeg','jpg'} else None
 
     def _view(self, format=None):
         if format is None:
