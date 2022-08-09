@@ -31,6 +31,7 @@ from .http import (
 
 
 from .websocket import (
+    websocket_connect_to_server_handler,
     websocket_start_server_handler, 
     websocket_stop_server_handler, 
     websocket_send_message_handler, 
@@ -107,6 +108,7 @@ _effect_handlers = {
     FX.HTTP.SendResponse.d: http_send_response_handler,
     FX.HTTP.Request.d: http_send_request_handler,
     
+    FX.Websocket.ConnectToServer.d: websocket_connect_to_server_handler,
     FX.Websocket.StartServer.d: websocket_start_server_handler,
     FX.Websocket.StopServer.d: websocket_stop_server_handler,
     FX.Websocket.SendMessage.d: websocket_send_message_handler,
