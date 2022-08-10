@@ -19,13 +19,25 @@ from ariadne import ObjectType, MutationType, SubscriptionType, EnumType, Scalar
 
 #--------------------------Resolvers Generator-------------------------
 def fill_types_default_resolvers(schema_d):
-    for _, fields_dict in schema_d["_Types"].items():
+    if "_Types" not in schema_d: return schema_d
+
+    new_schema_d = {**schema_d}
+    new_schema_d["_Types"] = {**schema_d["_Types"]}
+
+    for type_name, fields_dict in new_schema_d["_Types"].items():
+        fields_dict = {**fields_dict}
+        new_schema_d["_Types"][type_name] = fields_dict
+
         for field_name, field_dict in fields_dict.items():
+            field_dict = {**field_dict}
+            new_schema_d["_Types"][type_name][field_name] = field_dict
+
             if field_name.startswith("_"): continue
-            if field_dict["resolver"] is None:
-                field_dict["resolver"] = get[field_name]
+
+            resolver = field_dict.get("resolver", None)
+            if not resolver: field_dict["resolver"] = get[field_name]
     
-    return schema_d
+    return new_schema_d
 
 def initialize_object_type(object_type):
     if "Mutation" == object_type:
