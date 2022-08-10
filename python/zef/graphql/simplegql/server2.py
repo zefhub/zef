@@ -89,6 +89,9 @@ def query(request, context):
                 "response_status": 400,
                 **request
             }
+
+        if context["debug_level"] >= 4:
+            log.debug("DEBUG 4: auth_context", auth_context=auth_context)
     else:
         auth_context = None
 
