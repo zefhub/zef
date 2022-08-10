@@ -21,23 +21,33 @@ from ariadne import ObjectType, MutationType, SubscriptionType, EnumType, Scalar
 def fill_types_default_resolvers(schema_d):
     if "_Types" not in schema_d: return schema_d
 
-    new_schema_d = {**schema_d}
-    new_schema_d["_Types"] = {**schema_d["_Types"]}
+    def generate_default_if_unset(type_name, field_name, field_dict):
+        # If resolver is either unset or set None
+        resolver = field_dict.get("resolver", None)
+        if resolver: return None
+        return (('_Types', type_name, field_name, 'resolver'), get[field_name])
 
-    for type_name, fields_dict in new_schema_d["_Types"].items():
-        fields_dict = {**fields_dict}
-        new_schema_d["_Types"][type_name] = fields_dict
 
-        for field_name, field_dict in fields_dict.items():
-            field_dict = {**field_dict}
-            new_schema_d["_Types"][type_name][field_name] = field_dict
+    # Generate a list of Tuples[path, default_resolver] for fields where resolver is either unset or set to None
+    paths_and_defaults = (
+        schema_d['_Types']
+        | items
+        | map[lambda type_t: (type_t[1] 
+                            | items 
+                            | map[lambda field_t: generate_default_if_unset(type_t[0], *field_t)] 
+                            | collect)
+            ] 
+        | concat
+        | filter[Not[equals[None]]]
+        | collect
+    )
 
-            if field_name.startswith("_"): continue
-
-            resolver = field_dict.get("resolver", None)
-            if not resolver: field_dict["resolver"] = get[field_name]
-    
-    return new_schema_d
+    # Apply each tuple on the resulting intermediate dict without mutations and return the last dict with every path set
+    return (
+        paths_and_defaults
+        | reduce[lambda d, tup: d | insert_in[tup[0]][tup[1]] | collect][schema_d]
+        | collect
+    )
 
 def initialize_object_type(object_type):
     if "Mutation" == object_type:
