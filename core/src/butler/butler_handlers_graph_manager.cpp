@@ -332,7 +332,8 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
         (*content.callback)("GRAPH UID:" + str(me.uid));
 
     if(me.gd != nullptr) {
-        (*content.callback)("Graph " + str(me.uid) + " already present in butler");
+        if(content.callback)
+            (*content.callback)("Graph " + str(me.uid) + " already present in butler");
         msg->promise.set_value(GraphLoaded(Graph{me.gd, false}));
         return;
     }
