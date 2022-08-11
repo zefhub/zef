@@ -60,7 +60,7 @@ def is_RT_triple(x):
 
 
 def wrap_error_raising(e, maybe_context=None):
-    from ..op_structs import EvalEngineCoreError, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
+    from ..error import EvalEngineCoreError, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
     if type(e) == EvalEngineCoreError:
         if maybe_context is not None:
             e = prepend_error_contexts(e, maybe_context)
@@ -143,7 +143,7 @@ class ZefGenerator:
     def __iter__(self):
         # return self.generator_fct()
         def wrap_errors():
-            from ..op_structs import EvalEngineCoreError, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
+            from ..error import EvalEngineCoreError, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
             from ..error import _ErrorType, Error
             it = iter(self.generator_fct())
             i = 0
@@ -9707,7 +9707,7 @@ def apply_imp(x, f):
     if isinstance(f, tuple) or isinstance(f, list):
         return tuple(apply(x, ff) for ff in f)
     else:
-        from ..op_structs import convert_python_exception, add_error_context, process_python_tb
+        from ..error import convert_python_exception, add_error_context, process_python_tb
         return call_wrap_errors_as_unexpected(f, x)
             
         
