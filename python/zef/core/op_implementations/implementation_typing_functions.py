@@ -3224,7 +3224,7 @@ def skip_while_imp(it, predicate):
     - related zefop: skip
     - related zefop: skip_until
     - uses: Logic Type
-    - also named (in itertools): drop_while
+    - also named (in itertools): dropwhile
     """
     import itertools
     return itertools.dropwhile(predicate, it)
@@ -3310,6 +3310,7 @@ def take_while_imp(v, predicate):
     - related zefop: take_until
     - related zefop: skip
     - related zefop: skip_while
+    - related zefop: skip_until
     - uses: Logic Type
     """
     def wrapper():
@@ -3363,6 +3364,43 @@ def take_until_imp(v, predicate):
 def take_until_tp(it_tp, pred_type):
     return it_tp
 
+
+
+
+#---------------------------------------- take_until -----------------------------------------------
+def skip_until_imp(v: List, predicate):
+    """ 
+    Skips the elements of the sequence while the predicate is true.    
+    
+    ---- Examples ----
+    >>> range(10) | skip_until[lambda x: x>5]   # => [6, 7, 8, 9]
+
+    ---- Signature ----
+    (List[T], (T->Bool)) -> List[T]
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: skip
+    - related zefop: skip_while
+    - related zefop: take_until
+    - related zefop: take_while
+    - uses: Logic Type    
+    """
+    def wrapper():
+        it = iter(v)
+        while True:
+            try:
+                x = next(it)
+                if predicate(x):
+                    yield x
+                    break                
+            except StopIteration:
+                return None
+        yield from it
+        return None
+
+    return ZefGenerator(wrapper)
 
 
 
