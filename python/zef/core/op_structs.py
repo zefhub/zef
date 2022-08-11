@@ -394,6 +394,8 @@ def zef_error_context_as_str(context):
     if "chain" in context:
         try:
             chain_s = str_truncate(str(context['chain']))
+            for loc in context["chain"].construction_locs:
+                chain_s += f"\nLocation: {loc['filename']} @ {loc['lineno']}"
         except:
             chain_s = "ERROR PRINTING CHAIN"
         s += f" of chain ({chain_s})"
@@ -518,12 +520,26 @@ class Evaluating:
         return "evaluating"
 evaluating = Evaluating()
 
+def get_caller_frame(caller_depth):
+    import traceback
+    frame = traceback.extract_stack(limit=caller_depth+1)[0]
+    return {"filename": frame.filename, "lineno": frame.lineno}
+
+def combine_ops(one, two, caller_depth=1):
+    return ZefOp(
+        (*one.el_ops, *two.el_ops),
+        caller_depth=caller_depth+1,
+        other_locs=one.construction_locs + two.construction_locs
+    )
+    
 class ZefOp:    
-    def __init__(self, el_ops: tuple):
+    def __init__(self, el_ops: tuple, caller_depth=1, other_locs=[]):
         if isinstance(el_ops, tuple):
             self.el_ops = el_ops
         else:
             self.el_ops = (el_ops, )
+
+        self.construction_locs = [get_caller_frame(caller_depth+1), *other_locs]
     
     def __len__(self):
          return len(self.el_ops)
@@ -561,7 +577,7 @@ class ZefOp:
 
     def __or__(self, other):
         if isinstance(other, ZefOp):
-            res = ZefOp( (*self.el_ops, *other.el_ops) )
+            res = combine_ops(self, other, caller_depth=2)
             return res
         return NotImplemented
         
@@ -664,10 +680,10 @@ class ZefOp:
         if not len(self.el_ops)==1: 
             raise Exception(f'You can only curry arguments / parameters into an elementary zefop, i.e. one that is not chained. It was attempted to curry [{self.el_ops}] into {self}')
 
-        return ZefOp(((self.el_ops[0][0], (*self.el_ops[0][1], x)), ))
+        return ZefOp(((self.el_ops[0][0], (*self.el_ops[0][1], x)), ), caller_depth=2, other_locs=self.construction_locs)
 
     def __iter__(self):
-        return (ZefOp((op,)) for op in self.el_ops)
+        return (ZefOp((op,), caller_depth=2, other_locs=self.construction_locs) for op in self.el_ops)
 
 
     def __call__(self, *args, **kwargs):
@@ -711,17 +727,18 @@ class ZefOp:
 OpLike.register(ZefOp)
 
 class CollectingOp:
-    def __init__(self, other: ZefOp):
+    def __init__(self, other: ZefOp, caller_depth=1):
         self.el_ops = other.el_ops
+        self.construction_locs = [get_caller_frame(caller_depth+1), *other.construction_locs]
 
     def __repr__(self):
         return f"CollectingOp({op_chain_pretty_print(self.el_ops)})"
         
-    def __ror__(self, other):
+    def __ror__(self, other, caller_depth=1):
         if isinstance(other, ZefOp): 
-            return CollectingOp(ZefOp((*other.el_ops, *self.el_ops)))
+            return CollectingOp(combine_ops(other, self, caller_depth=caller_depth+1), caller_depth=caller_depth+1)
         if isinstance(other, LazyValue):
-            other.el_ops = CollectingOp(ZefOp((*other.el_ops, *self.el_ops)))
+            other.el_ops = CollectingOp(combine_ops(other, self, caller_depth=2))
             return evaluate_lazy_value(other)
         if isinstance(other, TraversableABC):
             return CollectingOp(ZefOp(((RT.TmpZefOp, (other,)), *self.el_ops)))
@@ -1042,7 +1059,7 @@ OpLike.register(SubscribingOp)
 
 
 class LazyValue:
-    def __init__(self, arg):
+    def __init__(self, arg, caller_depth=1, other_locs=[]):
         # if type(arg) == LazyValue:
         #     # Create a copy
         #     self.initial_val = arg.initial_val
@@ -1051,6 +1068,7 @@ class LazyValue:
             # Allow LazyValue to encapsulate a LazyValue, if something breaks uncomment above part
             self.initial_val = arg
             self.el_ops = ()
+            self.construction_locs = [get_caller_frame(caller_depth+1), *other_locs]
     
     def __repr__(self):
         if type(self.el_ops) in {CollectingOp, ForEachingOp} or len(self.el_ops) > 0:
@@ -1062,11 +1080,16 @@ class LazyValue:
             return NotImplemented
 
         if len(self.el_ops) > 0:
-            res = self.el_ops | other
+            # res = self.el_ops | other
+            if type(other) == ZefOp:
+                res = combine_ops(self.el_ops, other, caller_depth=2)
+            else:
+                # This is really hard coded nonsense, need to fix.
+                res = other.__ror__(self.el_ops, caller_depth=2)
         else:
             res = other
         
-        res_lazyval = LazyValue(self.initial_val)
+        res_lazyval = LazyValue(self.initial_val, caller_depth=2, other_locs=res.construction_locs)
         res_lazyval.el_ops = res
         if should_trigger_eval(res_lazyval): return evaluate_lazy_value(res_lazyval)
         return res_lazyval

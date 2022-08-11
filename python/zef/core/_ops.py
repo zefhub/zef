@@ -36,7 +36,7 @@ subscribe       = SubscribingOp(ZefOp(()))
 run             = ZefOp(((RT.Run, (evaluating,)), ))
 
 def make_zefop(rt):
-    return ZefOp(((rt, ()), ))
+    return ZefOp(((rt, ()), ), caller_depth=2)
 
 cycle           = make_zefop(RT.Cycle)
 repeat          = make_zefop(RT.Repeat)
