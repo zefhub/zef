@@ -14,7 +14,6 @@
 
 #include "butler/locking.h"
 
-void handle_token_response(Butler & butler, json & j);
 void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr & task);
 
 
@@ -188,9 +187,6 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
             // However, a task_uid of null means we are meant to handle this ourselves.
             if(j["task_uid"].is_null()) {
                 try {
-                if(msg_type == "token_response")
-                    handle_token_response(*this, j);
-                else
                     throw std::runtime_error("Unknown msg meant to be handled by WS loop: " + msg_type);
                 } catch(const std::exception & exc) {
                     std::cerr << std::endl;
@@ -257,7 +253,7 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
 
 
 
-void handle_token_response(Butler & butler, json & j) {
+void handle_token_response_list(Butler & butler, json & j) {
     auto& tokens = global_token_store();
 
     auto reason = j["reason"].get<std::string>();
@@ -340,6 +336,8 @@ void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr &
                 else if(group == "EN")
                     tokens.force_add_enum_type(indx, name);
             }
+        } else if (reason == "list") {
+            handle_token_response_list(butler, j);
         } else {
             std::cerr << "WARNING: unexpected reason (" << response.generic.reason << ") during handle_token_response" << std::endl;
         }
