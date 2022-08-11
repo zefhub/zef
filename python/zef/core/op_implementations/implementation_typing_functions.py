@@ -25,6 +25,7 @@ from ..op_structs import _call_0_args_translation, type_spec
 from .._ops import *
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
 from ..logger import log
+from ..error import _ErrorType, Error
 
 from ...pyzef import zefops as pyzefops, main as pymain
 from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
@@ -56,6 +57,47 @@ def is_RT_triple(x):
     if not is_a(x[1], RT):
         return False
     return True
+
+
+def wrap_error_raising(e, maybe_context=None):
+    from ..op_structs import EvalEngineCoreError, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
+    if type(e) == EvalEngineCoreError:
+        if maybe_context is not None:
+            e = prepend_error_contexts(e, maybe_context)
+        raise e
+    elif type(e) == _ErrorType:
+        if e.name == "Panic":
+            # Continue the panic, attaching more tb info
+            tb = e.__traceback__
+            frames = process_python_tb(tb)
+            new_e = Error.UnexpectedError(*e.args)
+            if hasattr(e, "contexts"):
+                new_e.contexts = e.contexts
+            new_e = add_error_context(new_e, {"frames": frames})
+            e = new_e
+        if maybe_context is not None:
+            e = prepend_error_contexts(e, maybe_context)
+        raise e
+    else:
+        py_e = convert_python_exception(e)
+        frames = py_e.pop("frames")
+        e = Error.UnexpectedError(py_e)
+        e = add_error_context(e, {"frames": frames})
+        if maybe_context is not None:
+            e = prepend_error_contexts(e, maybe_context)
+        raise e
+
+def call_wrap_errors_as_unexpected(func, *args, maybe_context=None, **kwargs):
+    from ..op_structs import EvalEngineCoreError
+    try:
+        return func(*args, **kwargs)
+    # Below here is sort of a repeat of what's in op_structs.py, but not quite
+    except EvalEngineCoreError as e:
+        wrap_error_raising(e, maybe_context)
+    except _ErrorType as e:
+        wrap_error_raising(e, maybe_context)
+    except Exception as e:
+        wrap_error_raising(e, maybe_context)
 
 @func 
 def verify_zef_list(z_list: ZefRef):
@@ -96,9 +138,47 @@ class ZefGenerator:
     """
     def __init__(self, generator_fct):
         self.generator_fct = generator_fct
+        self.contexts = []
 
     def __iter__(self):
-        return self.generator_fct()
+        # return self.generator_fct()
+        def wrap_errors():
+            from ..op_structs import EvalEngineCoreError, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
+            from ..error import _ErrorType, Error
+            it = iter(self.generator_fct())
+            i = 0
+            last_output = None
+            while True:
+                cur_context = [*self.contexts,
+                               {"state": "generator",
+                                "i": i,
+                                "last_output": last_output}]
+                    
+                try:
+                    item = next(it)
+                    yield item
+                    i += 1
+                    last_output = item
+                except StopIteration:
+                    return
+                except GeneratorExit:
+                    raise
+                except EvalEngineCoreError as e:
+                    wrap_error_raising(e, cur_context)
+                except _ErrorType as e:
+                    wrap_error_raising(e, cur_context)
+                except Exception as e:
+                    wrap_error_raising(e, cur_context)
+        return wrap_errors()
+
+    def __str__(self):
+        return "ZefGenerator"
+
+    def add_context(self, context):
+        new_gen = ZefGenerator(self.generator_fct)
+        new_gen.contexts = [context, *self.contexts]
+        return new_gen
+        
 
 
 
@@ -175,7 +255,8 @@ def function_imp(x0, func_repr, *args, **kwargs):
         from zef.core.zef_functions import abstract_entity_call
         return abstract_entity_call(fct, x0, *args, **kwargs)
     if repr_indx == 1:
-        return fct(x0, *args, **kwargs)
+        # return fct(x0, *args, **kwargs)
+        return call_wrap_errors_as_unexpected(fct, x0, *args, **kwargs)
     else:
         raise NotImplementedError('Zef Lambda expressions is not implemented yet.')
 
@@ -5324,16 +5405,22 @@ def map_implementation(v, f):
         return observable_chain.pipe(rxops.map(f))
     else:
         if not isinstance(v, Iterable): raise TypeError(f"Map only accepts values that are Iterable. Type {type(v)} was passed")
-        if isinstance(f, list) or isinstance(f, tuple):
-            def wrapper_list():
-                for el in v:            
-                    yield tuple(ff(el) for ff in f)
-            return ZefGenerator(wrapper_list)
-        else:
-            def wrapper():
-                for el in v:
-                    yield f(el)
-            return ZefGenerator(wrapper)
+        def wrapper():
+            for el in v:
+                # yield apply(el, f)
+                # yield call_wrap_errors_as_unexpected(f, el)
+                try:
+                    yield call_wrap_errors_as_unexpected(f, el)
+                except _ErrorType as exc:
+                    # TODO: Really want to wrap this error rather than convert only UnexpectedErrors
+                    if exc.name == "UnexpectedError":
+                        new_e = Error.MapError(*exc.args, {"last_input": el})
+                        new_e.contexts = exc.contexts
+                        raise new_e
+                    else:
+                        raise exc
+    
+        return ZefGenerator(wrapper)
 
 
 
@@ -5597,7 +5684,11 @@ def filter_implementation(itr, pred_or_vt):
     input_type = parse_input_type(type_spec(itr))
     if input_type == "tools":
         # As this is an intermediate, we return an explicit generator
-        return (x for x in builtins.filter(pred, itr))
+        # return (x for x in builtins.filter(pred, itr))
+        def wrapper():
+            return (x for x in builtins.filter(pred, itr))
+        return ZefGenerator(wrapper)
+            
     elif input_type == "zef":
         return pyzefops.filter(itr, pred)
     elif input_type == "awaitable":
@@ -9614,8 +9705,12 @@ def apply_imp(x, f):
     - used for: function application
     """
     if isinstance(f, tuple) or isinstance(f, list):
-        return tuple(ff(x) for ff in f)
-    else: return f(x)
+        return tuple(apply(x, ff) for ff in f)
+    else:
+        from ..op_structs import convert_python_exception, add_error_context, process_python_tb
+        return call_wrap_errors_as_unexpected(f, x)
+            
+        
 
 
 

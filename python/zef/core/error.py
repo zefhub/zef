@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class _ErrorType():
+class _ErrorType(Exception):
     def __set_name__(self, parent, name):
         self.name = name
 
@@ -42,6 +42,9 @@ class _Error:
     ValueError   = _ErrorType()
     NotImplementedError = _ErrorType()
     BasicError = _ErrorType()
+    UnexpectedError = _ErrorType()
+    MapError = _ErrorType()
+    Panic = _ErrorType()
 
     def __call__(self, *args):
         return self.BasicError(*args)
