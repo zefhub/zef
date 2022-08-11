@@ -66,13 +66,31 @@ void Butler::cancel_online_tasks() {
                         );
 }
 
-Response wait_future(Butler::task_ptr task) {
+Response wait_future(Butler::task_ptr task, std::optional<activity_callback_t> activity_callback={}) {
     if(task->timeout > 0) {
         while(true) {
-            // TODO: We might have to make last_activity an atomic to make sure updates come through.
             auto wait_time = Time(task->last_activity.load()) + task->timeout*seconds - now();
-            auto status = task->future.wait_for(std::chrono::duration<double>(wait_time.value));
-            if(status == std::future_status::ready) {
+            wait_pred(task->locker,
+                      [&task, &activity_callback]() { return (((bool)activity_callback) && task->messages.size() > 0)
+                              || is_future_ready(task->future); },
+                      std::chrono::duration<double>(wait_time.value));
+
+            if (activity_callback) {
+                // Taking manual control over the locker cv and mutex
+                std::unique_lock lock(task->locker.mutex);
+                while(!task->messages.empty()) {
+                    std::string & item = task->messages.front();
+                    // Let other messages arrive while we are computing
+                    lock.unlock();
+
+                    (*activity_callback)(item);
+
+                    lock.lock();
+                    task->messages.pop_front();
+                }
+            }
+
+            if(is_future_ready(task->future)) {
                 if(zwitch.developer_output())
                     std::cerr << "Zefhub message took " << (now() - task->started_time) << std::endl;
                 break;
@@ -86,9 +104,10 @@ Response wait_future(Butler::task_ptr task) {
     }
     return task->future.get();
 }
-Response Butler::wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest, double timeout, bool throw_on_failure, bool chunked) {
+Response Butler::wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest, double timeout, bool throw_on_failure, bool chunked, std::optional<activity_callback_t> activity_callback) {
     std::string msg_type = j["msg_type"].get<std::string>();
     task_ptr task = add_task(true, timeout);
+    task->wants_messages = (bool)activity_callback;
     j["task_uid"] = task->task_uid;
 
     if(chunked) {
@@ -106,7 +125,7 @@ Response Butler::wait_on_zefhub_message_any(json & j, const std::vector<std::str
     });
             
     // The timeout is an inactivity timeout
-    auto result = wait_future(task);
+    auto result = wait_future(task, activity_callback);
 
     if(throw_on_failure) {
         GenericResponse generic = std::visit(overloaded {

@@ -20,8 +20,8 @@ namespace zefDB {
 
 
         template<class T>
-        T Butler::wait_on_zefhub_message(json & j, const std::vector<std::string> & rest, double timeout, bool throw_on_failure, bool chunked) {
-            auto response = wait_on_zefhub_message_any(j, rest, timeout, throw_on_failure, chunked);
+        T Butler::wait_on_zefhub_message(json & j, const std::vector<std::string> & rest, double timeout, bool throw_on_failure, bool chunked, std::optional<activity_callback_t> activity_callback) {
+            auto response = wait_on_zefhub_message_any(j, rest, timeout, throw_on_failure, chunked, activity_callback);
 
             return std::visit(overloaded {
                     [](const T & response) { return response; },

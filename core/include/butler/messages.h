@@ -118,9 +118,11 @@ namespace zefDB {
             bool new_graph;
         };
 
+        using load_graph_callback_t = std::function<void(std::string)>;
         struct LoadGraph {
             std::string tag_or_uid;
             int mem_style = MMap::MMAP_STYLE_AUTO;
+            std::optional<load_graph_callback_t> callback;
         };
         struct GraphLoaded {
             GenericResponse generic;
