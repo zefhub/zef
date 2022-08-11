@@ -20,7 +20,16 @@
 from ..core import *
 from ..ops import *
 from graphql import parse
-from graphql.language.ast import ScalarTypeDefinitionNode, ObjectTypeDefinitionNode, NamedTypeNode, ListTypeNode, NonNullTypeNode, InterfaceTypeDefinitionNode
+from graphql.language.ast import (
+    ScalarTypeDefinitionNode,
+    ObjectTypeDefinitionNode, NamedTypeNode,
+    ListTypeNode, NonNullTypeNode,
+    InterfaceTypeDefinitionNode,
+    InputObjectTypeDefinitionNode,
+    EnumTypeDefinitionNode,
+)
+
+# TODO add support for parsing enums
 
 def generate_schema_dict(schema_str: str) -> dict:
     """
@@ -44,7 +53,7 @@ def generate_schema_dict(schema_str: str) -> dict:
                 }
             }
         
-        if args: return {'args': args | map[resolve_arg] | collect}
+        if args: return {'args': args | map[resolve_arg] | merge | collect}
         return {}
 
     def resolve_type(type):
@@ -63,21 +72,48 @@ def generate_schema_dict(schema_str: str) -> dict:
             }
         }
 
-    def dispatch_on_type(type_node):
+    @func
+    def dispatch_on_type_or_interface(type_node, is_interface = False):
+        interface_resolver = {"_interface_resolver": None} if is_interface else {}
         return {
             type_node.name.value : {
                 **(list(type_node.fields) | map[resolve_field] | merge | collect),
-                **resolve_interfaces(list(type_node.interfaces))
+                **resolve_interfaces(list(type_node.interfaces)),
+                **interface_resolver,
             }
         }
 
     def dispatch_on_scalar(type_node):
-        return type_node.name.value 
+        return {
+            type_node.name.value: {
+                'parser': None,
+                'serializer': None,
+            }
+        } 
+    
+    def dispatch_on_input(input_node):
+        def resolve_input_field(field):
+            return { field.name.value: resolve_type(field.type) } 
+        return {
+            input_node.name.value: {
+                **(list(input_node.fields) | map[resolve_input_field] | merge | collect),
+            }
+        } 
 
+    def dispatch_on_enum(enum_node):
+        return {
+            enum_node.name.value: {
+                **(list(enum_node.values) | map[lambda v: {v.name.value:v.name.value}] | merge | collect),
+            }
+        } 
+
+    
     dispatch = match[
-        (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": map(g[1], dispatch_on_type)}),
-        (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": map(g[1], dispatch_on_scalar)}),
-        (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"_Interfaces": map(g[1], dispatch_on_type)})
+        (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": g[1] | map[dispatch_on_type_or_interface] | merge | collect}),
+        (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"_Interfaces": g[1] | map[dispatch_on_type_or_interface[True]] | merge | collect}),
+        (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": g[1] | map[dispatch_on_scalar] | merge | collect}),
+        (Is[lambda t: t[0] == InputObjectTypeDefinitionNode], lambda g: {"_Inputs": g[1] | map[dispatch_on_input] | merge | collect}),
+        (Is[lambda t: t[0] == EnumTypeDefinitionNode], lambda g: {"_Enums": g[1] | map[dispatch_on_enum] | merge | collect}),
     ]
 
     document = parse(schema_str, no_location=True)
@@ -86,6 +122,5 @@ def generate_schema_dict(schema_str: str) -> dict:
         | group_by[type]
         | map[dispatch]
         | merge
-        | insert["skip_generation_list"][[]]
         | collect
     )

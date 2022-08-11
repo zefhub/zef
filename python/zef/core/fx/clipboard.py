@@ -77,7 +77,7 @@ def clipboard_copy_to_handler(eff: dict):
     sample effect:
     {
         'type': FX.Clipboard.CopyTo,
-        'value': 'hello',
+        'content': 'hello',
     }
     """    
     try:
@@ -89,7 +89,7 @@ def clipboard_copy_to_handler(eff: dict):
         """
         raise RuntimeError(err)
     try:
-        val = eff['value']
+        val = eff['content']
         if type(val) in {str, float, int, bool}:
             pyperclip.copy(str(val))
         else:
@@ -104,11 +104,16 @@ def clipboard_copy_to_handler(eff: dict):
 
 def clipboard_copy_from_handler(eff: dict):
     """ 
-    For now with pyperclip, images can't be pasted
-    {
-        'type': FX.Clipboard.CopyFrom,
-    }
+    Get the content from the OS's clipboard. This is returned 
+    in the dictionary as the value associated with the 'content'
+    key.
+
+    ---- Examples ----
+    >>> {
+            'type': FX.Clipboard.CopyFrom,            
+        }
     """
+
     try:
         import pyperclip
     except:
@@ -120,7 +125,7 @@ def clipboard_copy_from_handler(eff: dict):
 
     try:
         val = pyperclip.paste()
-        return {'value': val}
+        return {'content': val}
     except Exception as e:
         return Error(f'executing FX.Clipboard.CopyFrom for effect {eff}:\n{repr(e)}')
 

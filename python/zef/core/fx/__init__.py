@@ -31,6 +31,7 @@ from .http import (
 
 
 from .websocket import (
+    websocket_connect_to_server_handler,
     websocket_start_server_handler, 
     websocket_stop_server_handler, 
     websocket_send_message_handler, 
@@ -83,7 +84,8 @@ from .sync import (
 from .graph import (
     graph_take_transactor_role_handler,
     graph_release_transactor_role_handler,
-    graph_transaction_handler
+    graph_transaction_handler,
+    graph_load_handler,
 )
 
 
@@ -94,6 +96,7 @@ from .clipboard import (
 
 from .local_file import (
     read_localfile_handler,
+    readbinary_localfile_handler,
     write_localfile_handler,
     save_localfile_handler,
     load_localfile_handler,
@@ -107,6 +110,7 @@ _effect_handlers = {
     FX.HTTP.SendResponse.d: http_send_response_handler,
     FX.HTTP.Request.d: http_send_request_handler,
     
+    FX.Websocket.ConnectToServer.d: websocket_connect_to_server_handler,
     FX.Websocket.StartServer.d: websocket_start_server_handler,
     FX.Websocket.StopServer.d: websocket_stop_server_handler,
     FX.Websocket.SendMessage.d: websocket_send_message_handler,
@@ -138,12 +142,14 @@ _effect_handlers = {
     FX.Graph.TakeTransactorRole.d: graph_take_transactor_role_handler,
     FX.Graph.ReleaseTransactorRole.d: graph_release_transactor_role_handler,
     FX.Graph.Transact.d: graph_transaction_handler,
+    FX.Graph.Load.d: graph_load_handler,
 
     
     FX.Clipboard.CopyTo.d: clipboard_copy_to_handler,
     FX.Clipboard.CopyFrom.d: clipboard_copy_from_handler,
 
     FX.LocalFile.Read.d:  read_localfile_handler,
+    FX.LocalFile.ReadBinary.d:  readbinary_localfile_handler,
     FX.LocalFile.Load.d:  load_localfile_handler,
     FX.LocalFile.Write.d: write_localfile_handler,
     FX.LocalFile.Save.d:  save_localfile_handler,

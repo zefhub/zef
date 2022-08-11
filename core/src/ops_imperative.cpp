@@ -1186,7 +1186,10 @@ namespace zefDB {
                         get<blobs_ns::ENTITY_NODE>(new_z).entity_type = et;
                         get<blobs_ns::ENTITY_NODE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
-                        internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        EZefRef new_del_inst_edge = internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        internals::apply_action_ENTITY_NODE(gd, new_z, true);
+                        internals::apply_action_DELEGATE_INSTANTIATION_EDGE(gd, new_del_inst_edge, true);
+                        internals::apply_action_TO_DELEGATE_EDGE(gd, new_to_delegate_edge, true);
                         z = new_z;
                     } else
                         return {};
@@ -1211,7 +1214,10 @@ namespace zefDB {
                         get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(new_z).primitive_type = vrt;
                         get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
-                        internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        EZefRef new_del_inst_edge = internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        internals::apply_action_ATTRIBUTE_ENTITY_NODE(gd, new_z, true);
+                        internals::apply_action_DELEGATE_INSTANTIATION_EDGE(gd, new_del_inst_edge, true);
+                        internals::apply_action_TO_DELEGATE_EDGE(gd, new_to_delegate_edge, true);
                         z = new_z;
                     } else
                         return {};
@@ -1241,7 +1247,10 @@ namespace zefDB {
                         internals::append_edge_index(new_z, index(new_z));
                         internals::append_edge_index(new_z, -index(new_z));
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
-                        internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        EZefRef new_del_inst_edge = internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        internals::apply_action_RELATION_EDGE(gd, new_z, true);
+                        internals::apply_action_TO_DELEGATE_EDGE(gd, new_to_delegate_edge, true);
+                        internals::apply_action_DELEGATE_INSTANTIATION_EDGE(gd, new_del_inst_edge, true);
                         z = new_z;
                     } else
                         return {};
@@ -1276,7 +1285,10 @@ namespace zefDB {
                         get<blobs_ns::RELATION_EDGE>(new_z).relation_type = d.rt;
                         get<blobs_ns::RELATION_EDGE>(new_z).instantiation_time_slice = get<blobs_ns::TX_EVENT_NODE>(tx).time_slice;
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
-                        internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        EZefRef new_del_inst_edge = internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        internals::apply_action_RELATION_EDGE(gd, new_z, true);
+                        internals::apply_action_TO_DELEGATE_EDGE(gd, new_to_delegate_edge, true);
+                        internals::apply_action_DELEGATE_INSTANTIATION_EDGE(gd, new_del_inst_edge, true);
                         z = new_z;
                     } else
                         return {};
@@ -1306,7 +1318,10 @@ namespace zefDB {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef new_z = internals::instantiate(BT.TX_EVENT_NODE, gd);
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
-                        internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        EZefRef new_del_inst_edge = internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        internals::apply_action_TX_EVENT_NODE(gd, new_z, true);
+                        internals::apply_action_TO_DELEGATE_EDGE(gd, new_to_delegate_edge, true);
+                        internals::apply_action_DELEGATE_INSTANTIATION_EDGE(gd, new_del_inst_edge, true);
                         z = new_z;
                     } else
                         return {};
@@ -1331,7 +1346,10 @@ namespace zefDB {
                         EZefRef tx = internals::get_or_create_and_get_tx(gd);
                         EZefRef new_z = internals::instantiate(BT.ROOT_NODE, gd);
                         EZefRef new_to_delegate_edge = internals::instantiate(z, BT.TO_DELEGATE_EDGE, new_z, gd);
-                        internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        EZefRef new_del_inst_edge = internals::instantiate(tx, BT.DELEGATE_INSTANTIATION_EDGE, new_to_delegate_edge, gd);
+                        internals::apply_action_ROOT_NODE(gd, new_z, true);
+                        internals::apply_action_TO_DELEGATE_EDGE(gd, new_to_delegate_edge, true);
+                        internals::apply_action_DELEGATE_INSTANTIATION_EDGE(gd, new_del_inst_edge, true);
                         z = new_z;
                     } else
                         return {};

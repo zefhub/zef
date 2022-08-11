@@ -342,7 +342,12 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
     if(is_BaseUID(content.tag_or_uid) && str(me.uid) != content.tag_or_uid)
         throw std::runtime_error("Shouldn't get here with wrong uid: '" + str(me.uid) + "' - '" + content.tag_or_uid + "'");
 
+    if(content.callback)
+        (*content.callback)("GRAPH UID:" + str(me.uid));
+
     if(me.gd != nullptr) {
+        if(content.callback)
+            (*content.callback)("Graph " + str(me.uid) + " already present in butler");
         msg->promise.set_value(GraphLoaded(Graph{me.gd, false}));
         return;
     }
@@ -391,6 +396,8 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
         std::string working_layout = upstream_layout();
 
         if (existed) {
+            if(content.callback)
+                (*content.callback)("Loading from existing FileGraph");
             // TODO: Need to send hash along to confirm we're right if we've
             // actually got the latest
             // TODO: It is possible that we could change
@@ -487,12 +494,17 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                 }
             }
         } else {
+            if(content.callback)
+                (*content.callback)("Requesing full graph of " + str(me.uid) + " from upstream");
             auto response = wait_on_zefhub_message({
                     {"msg_type", "subscribe_to_graph"},
                     {"graph_uid_or_tag", str(me.uid)},
                 },
-                {}
-                // constants::zefhub_subscribe_to_graph_timeout_default
+                {},
+                zefhub_generic_timeout,
+                false,
+                false,
+                content.callback
             );
             if(!response.generic.success) {
                 msg->promise.set_value(GraphLoaded(response.generic.reason));
@@ -550,6 +562,9 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
 
         // Now we can kick off the sync thread.
         spawn_graph_sync_thread(me);
+
+        if(content.callback)
+            (*content.callback)("Finished loading graph");
 
         msg->promise.set_value(GraphLoaded(_g));
     } catch (const std::runtime_error & e) {

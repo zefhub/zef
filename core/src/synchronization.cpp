@@ -306,12 +306,18 @@ namespace zefDB {
                 apply_action_VALUE_NODE(gd, uzr_to_blob, fill_caches);
 				break;
 			}
+            case BlobType::TO_DELEGATE_EDGE: {
+                apply_action_TO_DELEGATE_EDGE(gd, uzr_to_blob, fill_caches);
+				break;
+			}
+            case BlobType::DELEGATE_INSTANTIATION_EDGE: {
+                apply_action_DELEGATE_INSTANTIATION_EDGE(gd, uzr_to_blob, fill_caches);
+				break;
+			}
             case BlobType::NEXT_TX_EDGE:
             case BlobType::RAE_INSTANCE_EDGE:
-            case BlobType::TO_DELEGATE_EDGE:
             case BlobType::VALUE_EDGE:
             case BlobType::VALUE_TYPE_EDGE:
-            case BlobType::DELEGATE_INSTANTIATION_EDGE:
             case BlobType::DELEGATE_RETIREMENT_EDGE:
             case BlobType::INSTANTIATION_EDGE:
             case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
@@ -382,12 +388,18 @@ namespace zefDB {
                 unapply_action_VALUE_NODE(gd, uzr_to_blob, fill_caches);
 				break;
 			}
+            case BlobType::TO_DELEGATE_EDGE: {
+                unapply_action_TO_DELEGATE_EDGE(gd, uzr_to_blob, fill_caches);
+				break;
+			}
+            case BlobType::DELEGATE_INSTANTIATION_EDGE: {
+                unapply_action_DELEGATE_INSTANTIATION_EDGE(gd, uzr_to_blob, fill_caches);
+				break;
+			}
             case BlobType::NEXT_TX_EDGE:
             case BlobType::RAE_INSTANCE_EDGE:
-            case BlobType::TO_DELEGATE_EDGE:
             case BlobType::VALUE_EDGE:
             case BlobType::VALUE_TYPE_EDGE:
-            case BlobType::DELEGATE_INSTANTIATION_EDGE:
             case BlobType::DELEGATE_RETIREMENT_EDGE:
             case BlobType::INSTANTIATION_EDGE:
             case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:

@@ -426,6 +426,9 @@ namespace zefDB {
             try {
                 auto content = std::get<LoadGraph>(msg->content);
 
+                if(content.callback)
+                    (*content.callback)("Looking up UID for '" + content.tag_or_uid + "'");
+
                 auto response = wait_on_zefhub_message({
                         {"msg_type", "lookup_uid"},
                         {"tag", content.tag_or_uid},

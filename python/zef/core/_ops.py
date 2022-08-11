@@ -154,6 +154,7 @@ take_while      = make_zefop(RT.TakeWhile)
 take_while_pair = make_zefop(RT.TakeWhilePair)
 take_until      = make_zefop(RT.TakeUntil)                 # TODO: use 'take_until' in the RX-sense: complete the stream based on another stream emitting an item. Add 'including' to take_while as a flag for the current behavior?
 skip_while      = make_zefop(RT.SkipWhile)
+skip_until      = make_zefop(RT.SkipUntil)
 skip            = make_zefop(RT.Skip)
 length          = make_zefop(RT.Length) 
 nth             = make_zefop(RT.Nth) 

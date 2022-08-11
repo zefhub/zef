@@ -31,15 +31,36 @@ def read_localfile_handler(eff: Effect):
     Response example:
     {
         'content': some_dict,
+        'filename': 'my_file.txt',
     }
     """
     try:
         filename  = eff["filename"]
-        f = open(filename, "r")
-        f = f.read()
-        return {"content": f}
+        with open(filename, "r") as f:
+            f = f.read()
+        return {"content": f, "filename": filename}
     except Exception as e:
         raise RuntimeError(f"Error reading file in FX.LocalFile.Read for effect={eff}:\n {repr(e)}")
+
+def readbinary_localfile_handler(eff: Effect):
+    """
+    Reads a localfile in binary mode and returns the content as bytes.
+    >>> FX.LocalFile.ReadBinary(filename='my_file.txt')
+
+    Response example:
+    {
+        'content': some_dict,
+        'filename': 'my_file.txt',
+    }
+    """
+    try:
+        filename  = eff["filename"]
+        with open(filename, "rb") as f:
+            f = f.read()
+        return {"content": f, "filename": filename}
+    except Exception as e:
+        raise RuntimeError(f"Error reading file in FX.LocalFile.Read for effect={eff}:\n {repr(e)}")
+
 
 
 def load_localfile_handler(eff: Effect):
@@ -62,6 +83,7 @@ def load_localfile_handler(eff: Effect):
     {
         'content': some_dict,
         'format': 'json',
+        'filename': 'my_file.json',
     }
     """
     try:
@@ -74,22 +96,24 @@ def load_localfile_handler(eff: Effect):
             else: format = filename[filename.rindex(".") + 1:]
         elif "." not in filename: filename = filename + f".{format}"
 
-        f = open(filename, "r")
-        content = f.read()
 
         if format in {"svg", "png", "jpg", "jpeg"}:
-            content = bytes(content, "UTF-8")
+            with open(filename, "rb") as f:
+                content = f.read()
             content = Image(content, format)
-        elif format in {"yaml", "yml"}:
-            content = yaml.safe_load(content)
-        elif format == "toml":
-            content = toml.loads(content)
-        elif format == "csv":
-            content = pd.read_csv(io.StringIO(content), **settings)
-        elif format == "json":
-            content = json.loads(content)
+        else:
+            with open(filename, "rb") as f:
+                content = f.read()  
+            if format in {"yaml", "yml"}:
+                content = yaml.safe_load(content)
+            elif format == "toml":
+                content = toml.loads(content)
+            elif format == "csv":
+                content = pd.read_csv(io.StringIO(content), **settings)
+            elif format == "json":
+                content = json.loads(content)
 
-        return {"content": content, "format": format}
+        return {"content": content, "format": format, "filename": filename}
     except Exception as e:
         return Error(f'executing FX.LocalFile.Load for effect {eff}:\n{repr(e)}')
 
@@ -152,7 +176,8 @@ def write_localfile_handler(eff: Effect):
     content   = eff["content"]
     filename  = eff["filename"]
 
-    with open(filename, "w") as file: file.write(content)
+    mode = "wb"  if isinstance(content, bytes) else "w"
+    with open(filename, mode) as f: f.write(content)
     return {"filename": filename}
 
 

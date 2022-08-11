@@ -225,10 +225,12 @@ void Butler::handle_successful_auth() {
         });
 
     // Request our tokens
+    task_ptr task = add_task(true, 0);
     send_ZH_message({
             {"msg_type", "token"},
             {"msg_version", 1},
-            {"action", "list"}
+            {"action", "list"},
+            {"task_uid", task->task_uid}
         });
 
     // To tell the managers about the reconnection, we should jump out

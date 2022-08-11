@@ -61,6 +61,12 @@ def parse_partial_graphql(schema):
                 assert key in ["Algo", "JWKURL", "Audience", "Header", "Namespace",
                                "VerificationKey", "VerificationKeyEnv", "Public"], f"Unknown auth key '{key}'"
             output["auth"] = details
+        elif name == "Route":
+            assert set(keys(details)) == {"route", "hook"}
+            if "route" in ["/", "/gql"]:
+                raise Exception("Custom route should not alias '/' or '/gql'")
+            routes = output.setdefault("routes", [])
+            routes.append((details["route"], details["hook"]))
         else:
             raise Exception(f"Unsupported Zef.{name} directive")
 
@@ -244,6 +250,14 @@ def json_to_minimal_nodes(json, g):
                 vkey = os.environ[env]
             vkey = vkey.replace("\\n", '\n')
             actions += [(Z["root"], RT.AuthPresharedKey, vkey)]
+    if "routes" in json:
+        for route,hook in json["routes"]:
+            if hook not in now(g):
+                raise Exception(f"Hook named {hook} not found on schema graph")
+            actions += [(Z["root"], RT.Route,
+                         {ET.Route: {RT.Route: route,
+                                     RT.Hook: g | now | get[hook] | collect}})]
+                
 
     for gql_name,typ in core_types.items():
         actions += [
@@ -300,7 +314,7 @@ def json_to_minimal_nodes(json, g):
                     (Z[type_name], RT.GQL_Field[qual_name], Z[field["type"]]),
                     (Z[qual_name], RT.Name, field_name)
                 ]
-                for bool_key in ["search", "unique", "incoming", "list", "required"]:
+                for bool_key in ["search", "unique", "incoming", "list", "required", "listNonNullItem"]:
                     if bool_key in field:
                         actions += [(Z[qual_name], RT(simple_capitalize(bool_key)), field[bool_key])]
                         del field[bool_key]

@@ -114,6 +114,18 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		})
 		;
 
+    main_module.def("load_graph",
+                    // &effect_load_graph,
+                    [](std::string tag_or_uid, int mem_style, std::optional<Messages::load_graph_callback_t> callback) {
+                        auto butler = Butler::get_butler();
+                        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::LoadGraph{tag_or_uid, mem_style, callback});
+                        if(!response.generic.success)
+                            throw std::runtime_error("Unable to load graph: " + response.generic.reason);
+                        return response.g;
+                    },
+                    py::arg("tag_or_uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::arg("callback") = std::nullopt,
+                    py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid or tag");
+
 	py::class_<zefDB::Zwitch>(main_module, "Zwitch", py::buffer_protocol())
 		.def(py::init<>())
 		.def("__repr__", [](const Zwitch& self) { return to_str(self); })

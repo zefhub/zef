@@ -95,12 +95,18 @@ void pop_av_hash_lookup(GraphData & gd, const value_variant_t & value) {
 void apply_action_ROOT_NODE(GraphData& gd, EZefRef uzr, bool fill_caches) {
     assert(get<BlobType>(uzr) == BlobType::ROOT_NODE);
     if(fill_caches) {
-        insert_uid_lookup(gd, get_blob_uid(uzr), index(uzr));
+        if(is_delegate(uzr)) {
+        } else {
+            insert_uid_lookup(gd, get_blob_uid(uzr), index(uzr));
+        }
     }
 }
 
 void unapply_action_ROOT_NODE(GraphData& gd, EZefRef uzr, bool fill_caches) {
-    throw std::runtime_error("Should never be undoing the root node.");
+    if(is_delegate(uzr)) {
+    } else {
+        throw std::runtime_error("Should never be undoing the root node.");
+    }
 }
 
 void apply_action_ATTRIBUTE_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
@@ -231,14 +237,20 @@ void unapply_action_RELATION_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches)
 void apply_action_TX_EVENT_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
     assert(get<BlobType>(uzr) == BlobType::TX_EVENT_NODE);
     if(fill_caches) {
-        // gd->key_dict.map[get_uid_as_hex_str(uzr)] = index(uzr);
-        insert_uid_lookup(gd, get_blob_uid(uzr), index(uzr));
+        if (is_delegate(uzr)) {
+        } else {
+            insert_uid_lookup(gd, get_blob_uid(uzr), index(uzr));
+        }
     }
 }
 
 void unapply_action_TX_EVENT_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
-    if(fill_caches)
-        pop_uid_lookup(gd, get_blob_uid(uzr), index(uzr));
+    if(fill_caches){
+        if (is_delegate(uzr)) {
+        } else {
+            pop_uid_lookup(gd, get_blob_uid(uzr), index(uzr));
+        }
+    }
 }
 
 void apply_action_DEFERRED_EDGE_LIST_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
@@ -403,3 +415,9 @@ void apply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(GraphData & gd, EZefRef uzr, bool
 }
 
 void unapply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches) {}
+
+// These ones are here for future compatibility
+void apply_action_TO_DELEGATE_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches) {}
+void unapply_action_TO_DELEGATE_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches) {}
+void apply_action_DELEGATE_INSTANTIATION_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches) {}
+void unapply_action_DELEGATE_INSTANTIATION_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches) {}

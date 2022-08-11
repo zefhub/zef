@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fx_types import Effect
+from .._ops import *
 
 def graph_take_transactor_role_handler(eff: dict):
     from ...pyzef.main import make_primary
@@ -50,3 +50,19 @@ def graph_transaction_handler(eff: dict):
     receipt = filter_temporary_ids(receipt)
     return receipt
     
+
+def graph_load_handler(eff: dict):
+    # TODO: Make the underlying function be asynchronous and then update this to return an awaitable
+
+    from ...pyzef.main import load_graph
+    kwargs = {}
+    if "mem_style" in eff:
+        kwargs["mem_style"] = eff["mem_style"]
+    if "progress_stream" in eff:
+        kwargs["callback"] = lambda progress,stream=eff["progress_stream"]: progress | push[stream] | run
+    if "progress_callback" in eff:
+        kwargs["callback"] = eff["progress_callback"]
+
+    g = load_graph(eff["tag_or_uid"], **kwargs)
+
+    return {"g": g}
