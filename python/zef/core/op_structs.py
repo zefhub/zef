@@ -176,7 +176,7 @@ from inspect import isfunction, getfullargspec
 from types import LambdaType
 from typing import Generator, Iterable, Iterator
 from ._core import *
-from .error import Error, _ErrorType
+from .error import Error, _ErrorType, EvalEngineCoreError, add_error_context
 from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
@@ -270,248 +270,21 @@ def op_chain_pretty_print(el_ops):
 #  |_____| \__,_|/___| \__, | \___/ | .__/ |___/   |___||_| |_| |_|| .__/ |_| \___||_| |_| |_| \___||_| |_| \__| \__,_| \__||_| \___/ |_| |_|
 #                      |___/        |_|                            |_|                                                                       
 
-class EvalEngineCoreError(Exception):
-    def __init__(self, exc):
-        self.exc_data = convert_python_exception(exc)
-
-    def __str__(self):
-        return f"This is a failure in the core evaluation, {self.exc_data['type']}: {self.exc_data['args']}"
-
-def filter_tb_to_before_zef(tb):
-    import traceback
-    # Want to avoid frames that first enter the zef codebase
-    l = traceback.extract_tb(tb)
-    for i,item in enumerate(l):
-        if "op_structs.py" in item.filename:
-            break
-    l = l[:i]
-    return l
-
-def print_tb_up_to_zef(tb):
-    import traceback
-    l = filter_tb_to_before_zef(tb)
-    traceback.print_list(l)
-
-def str_frame_info(frames):
-    s = []
-    for frame in reversed(frames):
-        s.append(f"-- Frame: in func({frame['func_name']}) in '{frame['filename']}'@{frame['lineno']}")
-    return '\n'.join(s)
-
-def zef_error_as_str(error):
-    s = ""
-    if type(error) == _ErrorType:
-        if error.name == "Panic":
-            # THe arg is either a wrapper ErrorType or a python exception
-            if len(error.args) > 1:
-                print("WARNING DON'T KNOW HOW TO INTERPRET MORE THAN ONE ARG FOR A PANIC")
-                print("WARNING DON'T KNOW HOW TO INTERPRET MORE THAN ONE ARG FOR A PANIC")
-                print("WARNING DON'T KNOW HOW TO INTERPRET MORE THAN ONE ARG FOR A PANIC")
-                print("WARNING DON'T KNOW HOW TO INTERPRET MORE THAN ONE ARG FOR A PANIC")
-                print("WARNING DON'T KNOW HOW TO INTERPRET MORE THAN ONE ARG FOR A PANIC")
-                print(error.args[1:])
-            arg = error.args[0]
-            if type(arg) == _ErrorType:
-                s += zef_error_as_str(arg)
-            elif type(arg) == dict:
-                s += str_python_exception_dict(arg)
-            s += "\n^^^^^\nCaused Panic"
-        else:
-            arg = error.args[0]
-            if type(arg) == _ErrorType:
-                s += zef_error_as_str(arg)
-            elif type(arg) == dict:
-                s += str_python_exception_dict(arg)
-            s += f"\n^^^^^\nCaused {error.name}"
-            if type(arg) not in [_ErrorType, dict]:
-                print_args = error.args
-            else:
-                print_args = error.args[1:]
-            if len(print_args) > 0:
-                s += ": " + str(print_args)
-                
-    elif type(error) == EvalEngineCoreError:
-        s += "CORE EVALUATION ENGINE ERROR!"
-        s += "CORE EVALUATION ENGINE ERROR!"
-        s += "CORE EVALUATION ENGINE ERROR!"
-        import traceback
-        s += '\n'.join(traceback.format_exception(error))
-        # s += str_python_exception_dict(exc_info)
-    else:
-        s = str(error)
-    # Now make the context/traceback up
-    for context in reversed(getattr(error, "contexts", [])):
-        try:
-            s += '\n' + zef_error_context_as_str(context)
-        except Exception as exc:
-            s += "\ncontext couldn't be printed"
-            s += " " + str(exc)
-
-    s += "\n==============================================="
-    return s
-
-def str_truncate(s):
-    # return s
-    if len(s) > 30:
-        s = s[:15] + " ... " + s[-15:]
-    return s
-
-
-def str_op_chain(op):
-    if op[0] == RT.Function:
-        func = op[1][0][1]
-        import types
-        if isinstance(func, types.FunctionType):
-            name = func.__name__
-        else:
-            name = str(func)
-        return f"Function: {name}"
-    elif op[0] == RT.Apply:
-        return f"Apply: {str_op_chain(op[1][0].el_ops[0])}"
-    else:
-        try:
-            return str_truncate(str(op))
-        except:
-            return "ERROR PRINTING OP"
-
-def zef_error_context_as_str(context):
-
-    s = ""
-
-    if "frames" in context:
-        s += str_frame_info(context["frames"])
-        return s
-
-    if "op" in context:
-        # op_s = str_truncate(str(op_chain_pretty_print(context['op'])))
-        s += f" evaling op {str_op_chain(context['op'])}"
-    if "input" in context:
-        try:
-            input_s = str_truncate(str(context['input']))
-        except:
-            input_s = "ERROR PRINTING INPUT"
-        s += f" using input ({input_s})"
-    if "chain" in context:
-        try:
-            chain_s = str_truncate(str(context['chain']))
-        except:
-            chain_s = "ERROR PRINTING CHAIN"
-        s += f" of chain ({chain_s})"
-    if "state" in context:
-        if context["state"] == "generator":
-            s += f" up to i={context['i']} in generator"
-            if context['i'] > 0:
-                s += f" and last output was {context['last_output']}"
-
-    if s == "":
-        s = "WHY IS THIS EMPTY???"
-        s += "\n" + str(context)
-    return s
-    
-# For base python error handling
-import sys
-def zef_error_hook(typ, value, tb, *, prior_hook):
-    if typ in [EvalEngineCoreError, _ErrorType]:
-        try:
-            print(zef_error_as_str(value))
-            print_tb_up_to_zef(tb)
-        except Exception as exc:
-            print("Error in exception handler")
-            import traceback
-            traceback.print_tb(exc.__traceback__)
-    else:
-        return prior_hook(typ, value, tb)
-_old_excepthook = sys.excepthook
-sys.excepthook = lambda *args, prior_hook=_old_excepthook: zef_error_hook(*args, prior_hook=prior_hook)
-
-# For ipython
-try:
-    import IPython
-    ip = IPython.get_ipython()
-    def ipy_zef_error_hook(self, typ, value, tb, tb_offset=None):
-        try:
-            print(zef_error_as_str(value))
-            print_tb_up_to_zef(tb)
-        except Exception as exc:
-            print("Error in exception handler")
-            try:
-                print(f"Error {exc}")
-                import traceback
-                traceback.print_tb(exc.__traceback__)
-            except:
-                print("can't print traceback")
-    ip.set_custom_exc((EvalEngineCoreError, _ErrorType),
-                      ipy_zef_error_hook)
-except Exception as exc:
-    pass
-
-def convert_python_exception(exc):
-    tb = exc.__traceback__
-    frames = process_python_tb(tb)
-        
-
-    out = {
-        "type": str(type(exc)),
-        # Might need to serialize this?
-        "args": exc.args,
-        "frames": frames,
-    }
-
-    if exc.__context__ is not None:
-        out["nested"] = convert_python_exception(exc.__context__)
-    elif exc.__cause__ is not None:
-        out["nested"] = convert_python_exception(exc.__cause__)
-
-    return out
-
-def str_python_exception_dict(d):
-    s = ""
-    s += f"{d['type']} - {d['args']}"
-    # str_frame_info(d['frames'])
-    if "nested" in d:
-        s += "\n++++" + str_python_exception_dict(d["nested"])
-        s += "\n++++" + str_frame_info(d["nested"]["frames"])
-    return s
-    
-
-def process_python_tb(tb, filter=True):
-    # Not sure if ops are available here so doing this in pure python
-    frames = []
-    while tb is not None:
-        frames.append(tb.tb_frame)
-        tb = tb.tb_next
-
-    # Get rid of the first one - at least where this is currently called from we don't
-    # want to include "evaluate". In the future, maybe this will have to be a switch.
-    frames = frames[1:]
-
-    def process_frame(frame):
-        return {
-            "locals": frame.f_locals,
-            "lineno": frame.f_lineno,
-            "filename": frame.f_code.co_filename,
-            "func_name": frame.f_code.co_name,
-        }
-
-    frame_info = [process_frame(frame) for frame in frames]
-
-    if filter:
-        frame_info = [frame for frame in frame_info if "op_structs.py" not in frame["filename"]]
-
-    return frame_info
-
-def add_error_context(error, context):
-    return prepend_error_contexts(error, [context])
-def prepend_error_contexts(error, contexts):
-    from copy import copy
-    out = copy(error)
-    if getattr(out, "contexts", None) is None:
-        out.contexts = []
-
-    out.contexts = [*contexts, *out.contexts]
-
-    return out
-
+# # For base python error handling
+# import sys
+# def zef_error_hook(typ, value, tb, *, prior_hook):
+#     if typ in [EvalEngineCoreError, _ErrorType]:
+#         try:
+#             print(zef_error_as_str(value))
+#             print_tb_up_to_zef(tb)
+#         except Exception as exc:
+#             print("Error in exception handler")
+#             import traceback
+#             traceback.print_tb(exc.__traceback__)
+#     else:
+#         return prior_hook(typ, value, tb)
+# _old_excepthook = sys.excepthook
+# sys.excepthook = lambda *args, prior_hook=_old_excepthook: zef_error_hook(*args, prior_hook=prior_hook)
 
 class Evaluating:
     def __repr__(self):
@@ -1238,7 +1011,7 @@ class LazyValue:
                         new_value = new_value.add_context(cur_context)
 
                 if got_error is not None:
-                    raise add_error_context(got_error, cur_context)
+                    raise add_error_context(got_error, cur_context) from None
 
                 if isinstance(new_value, (Generator, Iterator)):
                     print("Operator produced a raw generator or iterator")
@@ -1285,14 +1058,14 @@ class LazyValue:
                         except EvalEngineCoreError as e:
                             raise add_error_context(e, cur_context)
                         except _ErrorType as e:
-                            raise add_error_context(e, cur_context)
+                            raise add_error_context(e, cur_context) from None
                         except Exception as e:
                             py_e = convert_python_exception(e)
                             e = Error.Panic(py_e)
-                            raise add_error_context(e, cur_context)
+                            raise add_error_context(e, cur_context) from None
 
                         if type(val) == _ErrorType:
-                            raise add_error_context(val, cur_context)
+                            raise add_error_context(val, cur_context) from None
 
                         return_list.append(val)
                     return return_list
@@ -1309,7 +1082,7 @@ class LazyValue:
             # raise
             if exc.name != "Panic":
                 new_e = Error.Panic(exc)
-                raise new_e
+                raise new_e from None
             else:
                 raise exc from None
                 
