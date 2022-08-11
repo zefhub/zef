@@ -4,7 +4,9 @@ pyzef-0.15.9
 New features:
 -------------
 
-- 
+- `VALUE_NODE`s as low level blobs. Attribute entities now reference values and
+  reuse stored blobs.
+- `Val(...)` syntax in a GraphDelta will create a value node.
 
 Breaking changes:
 -----------------
@@ -14,7 +16,7 @@ Breaking changes:
 Fixes:
 ------
 
-- 
+- Graphs record which ET/RT/ENs they are using again.
 
 Improvements:
 -------------
