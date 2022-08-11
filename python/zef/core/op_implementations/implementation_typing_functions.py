@@ -3207,6 +3207,25 @@ def iterate_type_info(op, curr_type):
 
 #---------------------------------------- skip_while -----------------------------------------------
 def skip_while_imp(it, predicate):
+    """ 
+    Skips the elements of the sequence while the predicate is true.    
+    
+    ---- Examples ----
+    >>> range(10) | skip_while[lambda x: x<4]       # => [4,5,6,7,8,9]
+
+    ---- Signature ----
+    (List[T], (T->Bool)) -> List[T]
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: take
+    - related zefop: take_until
+    - related zefop: skip
+    - related zefop: skip_until
+    - uses: Logic Type
+    - also named (in itertools): drop_while
+    """
     import itertools
     return itertools.dropwhile(predicate, it)
 
@@ -3291,6 +3310,7 @@ def take_while_imp(v, predicate):
     - related zefop: take_until
     - related zefop: skip
     - related zefop: skip_while
+    - uses: Logic Type
     """
     def wrapper():
         it = iter(v)
@@ -3319,6 +3339,15 @@ def take_until_imp(v, predicate):
 
     ---- Signature ----
     (List[T], (T->Bool)) -> List[T]
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: take
+    - related zefop: take_while
+    - related zefop: skip
+    - related zefop: skip_while
+    - uses: Logic Type
     """
     def wrapper():
         it = iter(v)
@@ -3329,6 +3358,7 @@ def take_until_imp(v, predicate):
                 yield el
                 break
     return ZefGenerator(wrapper)
+
 
 def take_until_tp(it_tp, pred_type):
     return it_tp
@@ -9188,6 +9218,7 @@ def to_bytes_imp(x: String) -> Bytes:
     ---- Tags ----
     used for: type conversion
     operates on: String
+    related zefop: utf8bytes_to_string
     """
     from zef.core.bytes import Bytes_
     if isinstance(x, str): return Bytes(x.encode())     # default: utf8
@@ -9212,6 +9243,7 @@ def utf8bytes_to_string_imp(b: Bytes) -> String | VT.Error:
     ---- Tags ----
     used for: type conversion
     operates on: Bytes
+    related zefop: to_bytes
     """
     return bytes(b).decode()
 
