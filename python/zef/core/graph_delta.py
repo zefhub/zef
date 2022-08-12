@@ -352,7 +352,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
             else:
                 return
         for item in x:
-            verify_input_el(item, id_definitions, False, False)
+            verify_input_el(item, id_definitions, False, allow_scalar)
         return
     elif isinstance(x, RelationType):
         if allow_rt:
