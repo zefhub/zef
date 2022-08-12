@@ -755,6 +755,8 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
         return;
     }
 
+    wait_for_auth();
+    
     if(upstream_layout() == "0.2.0") {
         // Only allow sync to turn on if we can convert the layout for this graph. (it is compatible)
         char * blobs_ptr = (char*)(me.gd) + constants::ROOT_NODE_blob_index * constants::blob_indx_step_in_bytes;
