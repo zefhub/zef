@@ -158,6 +158,8 @@ UpdateHeads client_create_update_heads(const GraphData & gd) {
 
 void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j, std::string working_layout) {
     j["blobs_head"] = fg.get_latest_blob_index();
+    if(j["blobs_head"] == 0)
+        j["blobs_head"] = constants::ROOT_NODE_blob_index;
 
     json cache_heads;
     auto prefix = fg.get_prefix();

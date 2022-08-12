@@ -390,6 +390,8 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
         // This shouldn't ever be needed.
         // me.gd->managing_thread_id = std::this_thread::get_id();
 
+        wait_for_auth();
+
         // This is where all of the user-requested
         // options (like primary role) should come into
         // play.
@@ -444,8 +446,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                         // We were ahead of upstream, see if we agree with what they had.
                         auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>(), 0, working_layout);
                         if(our_hash == response.j["hash"].get<uint64_t>()) {
-                            if(zwitch.developer_output())
-                                std::cerr << "We were ahead of upstream but our hashes agree." << std::endl;
+                            developer_output("We were ahead of upstream but our hashes agree.");
                             bad = false;
                         }
                     }
@@ -467,8 +468,24 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                         _g = Graph{me.gd, false};
                         me.gd->is_primary_instance = false;
 
-                        if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
-                            // TODO: We need to inform upstream that we had to reset.
+                        // We need to inform upstream that we had to reset.
+                        if(zefdb_protocol_version >= 7) {
+                            json j{
+                                {"msg_type", "graph_heads"},
+                                {"msg_version", 1},
+                                {"graph_uid", str(me.uid)},
+                            };
+                            parse_filegraph_update_heads(*fg, j, working_layout);
+                            std::cerr << j << std::endl;
+                            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
+                            j["hash_index"] = j["blobs_head"];
+                            auto response = wait_on_zefhub_message(j);
+                            if(!response.generic.success) {
+                                developer_output("Problem letting ZefHub know that we reset our heads.");
+                                msg->promise.set_value(GraphLoaded(response.generic.reason));
+                                me.please_stop = true;
+                                return;
+                            }
                         }
                     }
                 }
