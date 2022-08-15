@@ -184,7 +184,6 @@ _op_to_functions = {
         RT.Split:           (split_imp, split_tp),
         RT.SplitLeft:       (split_left_imp, None),
         RT.SplitRight:      (split_right_imp, None),
-        RT.SplitIf:         (split_if_imp, None),
         RT.Graphviz:        (graphviz_imp, graphviz_tp),
         
         RT.Always:              (always_imp, always_tp),

@@ -215,7 +215,6 @@ shuffle         = make_zefop(RT.Shuffle)
 split           = make_zefop(RT.Split)
 split_left      = make_zefop(RT.SplitLeft)
 split_right     = make_zefop(RT.SplitRight)
-split_if        = make_zefop(RT.SplitIf)
 graphviz        = make_zefop(RT.Graphviz)
 
 blueprint       = make_zefop(RT.Blueprint)

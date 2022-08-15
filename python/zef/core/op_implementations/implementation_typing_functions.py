@@ -4252,7 +4252,6 @@ def split_imp(collection, val, max_split=-1):
     - used for: string manipulation
     - related zefop: split_left
     - related zefop: split_right
-    - related zefop: split_if
     - related zefop: trim
     """
     if isinstance(collection, str):
@@ -4322,7 +4321,6 @@ def split_left_imp(v, val):
     - used for: string manipulation
     - related zefop: split
     - related zefop: split_right
-    - related zefop: split_if
     - related zefop: trim
     """
     if isinstance(v, str):
@@ -4368,7 +4366,6 @@ def split_right_imp(v, val):
     - used for: string manipulation
     - related zefop: split
     - related zefop: split_left
-    - related zefop: split_if
     - related zefop: trim
     """
     if isinstance(v, str):
@@ -4390,54 +4387,6 @@ def split_right_imp(v, val):
             if s!=[]: yield s
             return
     return ZefGenerator(wrapper)
-
-
-# ------------------------------------------ split_if ---------------------------------------------
-def split_if_imp(v, split_function):
-    """ 
-    Similar to split, but the user provides a predicate function 
-    that determines the positions to split on.
-
-    The symbols that are split on, are not included in the result.
-
-    ---- Examples ----
-    >>> 'good4morning2to6you' | split_if[is_numeric]    # => ['good', 'morning', 'to', 'you']
-    >>> range(10) | split_if[lambda x: x % 3 == 0 ]     # => [[], [1, 2], [4, 5], [7, 8], []]
-
-    ---- Signature ----
-    (List[T], T->Bool) -> List[List[T]]
-
-    ---- Tags ----
-    - operates on: List
-    - operates on: String
-    - used for: list manipulation
-    - used for: string manipulation
-    - related zefop: split
-    - related zefop: concat
-    - related zefop: trim
-    - used for: predicate
-    """
-    if isinstance(v, str):
-        return v | func[tuple] | split_if[split_function] | map[join] | collect
-    
-    split_function = make_predicate(split_function)
-    def wrapper():
-        it = iter(v)
-        try:
-            while True:
-                s = []
-                next_val = next(it)
-                while not split_function(next_val):                
-                    s.append(next_val)
-                    next_val = next(it)                    
-                yield s
-        except StopIteration:
-            yield s
-            return
-    return ZefGenerator(wrapper)
-
-
-
 
 
 # --------------------------------------- now ------------------------------------------------
@@ -9659,7 +9608,6 @@ def split_on_next_imp(s, el_to_split_on):
 
     ---- Tags ----
     - related zefop: split
-    - related zefop: split_if
     - related zefop: chunk
     - operates on: List
     - operates on: String
