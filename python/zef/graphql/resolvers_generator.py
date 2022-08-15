@@ -129,9 +129,14 @@ def generate_fct(field_dict, g, allow_none):
                 # Check if some args that are present in the Zef Function aren't present in context dict
                 if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
                 arg_values = [context[x] for x in args]
-                return resolver(*arg_values)
+                output = resolver(*arg_values)
             else:
-                return resolver(obj)
+                output = resolver(obj)
+            from ..core.error import _ErrorType
+            if type(output) == _ErrorType:
+                print("There was an error obtained after resolving the field")
+                raise Exception(*output.args)
+            return output
         elif isinstance(resolver, LazyValue):
             return resolver()
         else:
