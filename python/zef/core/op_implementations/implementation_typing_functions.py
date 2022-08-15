@@ -4258,6 +4258,7 @@ def split_imp(collection, val, max_split=-1):
     if isinstance(collection, str):
         return collection.split(val, max_split)
 
+    split_function = make_predicate(val)
     if max_split == -1:       
         def wrapper():
             it = iter(collection)
@@ -4265,7 +4266,7 @@ def split_imp(collection, val, max_split=-1):
                 while True:
                     s = []
                     next_val = next(it)
-                    while next_val != val:                
+                    while not split_function(next_val):                
                         s.append(next_val)
                         next_val = next(it)                    
                     yield s
@@ -4283,7 +4284,7 @@ def split_imp(collection, val, max_split=-1):
                 while run_no < max_split:
                     s = []
                     next_val = next(it)
-                    while next_val != val:                
+                    while not split_function(next_val):                
                         s.append(next_val)
                         next_val = next(it)                    
                     yield s
@@ -4327,6 +4328,7 @@ def split_left_imp(v, val):
     if isinstance(v, str):
         return split_left_imp(iter(v), val) | map[concat] | collect
 
+    split_function = make_predicate(val)
     def wrapper():
         it = iter(v)
         try:
@@ -4335,7 +4337,7 @@ def split_left_imp(v, val):
                 s = []
                 s.append(next_val)
                 next_val = next(it)
-                while next_val != val:                
+                while not split_function(next_val):                
                     s.append(next_val)
                     next_val = next(it)                    
                 yield s
@@ -4372,6 +4374,7 @@ def split_right_imp(v, val):
     if isinstance(v, str):
         return split_right_imp(iter(v), val) | map[concat] | collect
 
+    split_function = make_predicate(val)
     def wrapper():
         it = iter(v)
         try:
@@ -4379,7 +4382,7 @@ def split_right_imp(v, val):
                 s = []
                 next_val = next(it)
                 s.append(next_val)
-                while next_val != val:                
+                while not split_function(next_val):                
                     next_val = next(it)                    
                     s.append(next_val)
                 yield s
