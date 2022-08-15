@@ -3221,6 +3221,8 @@ def make_predicate(maybe_predicate):
     
     # Anything that didn't match will be matched for equality 
     else:
+        log.warning(f"A value {maybe_predicate} was passed to be used as a ValueType. You should use " + \
+         "{" + str(maybe_predicate) + "} or SetOf[" + str(maybe_predicate) + "] instead!")
         predicate = lambda x: x == maybe_predicate
     
     return predicate
