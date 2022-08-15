@@ -85,6 +85,7 @@ class _Error:
     BasicError = _ErrorType()
     UnexpectedError = _ErrorType()
     MapError = _ErrorType()
+    MatchError = _ErrorType()
     Panic = _ErrorType()
 
     def __call__(self, *args):

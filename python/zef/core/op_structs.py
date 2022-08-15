@@ -176,7 +176,7 @@ from inspect import isfunction, getfullargspec
 from types import LambdaType
 from typing import Generator, Iterable, Iterator
 from ._core import *
-from .error import Error, _ErrorType, ExceptionWrapper, EvalEngineCoreError, add_error_context
+from .error import Error, _ErrorType, ExceptionWrapper, EvalEngineCoreError, add_error_context, convert_python_exception
 from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
@@ -237,8 +237,9 @@ def is_supported_value(o):
     from ..pyzef.main import Keyword
     from ..core.bytes import Bytes_
     from types import ModuleType
+    from .op_implementations.implementation_typing_functions import ZefGenerator
     if is_python_scalar_type(o): return True
-    if type(o) in {set, range, GeneratorType, list, tuple, dict, ValueType_, GraphSlice, Time, Image, Bytes_, _ErrorType, Keyword, ModuleType}: return True
+    if type(o) in {set, range, list, ZefGenerator, tuple, dict, ValueType_, GraphSlice, Time, Image, Bytes_, _ErrorType, Keyword, ModuleType}: return True
     return False
 
 def is_supported_zef_value(o):
