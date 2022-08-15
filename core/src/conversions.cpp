@@ -59,7 +59,7 @@ namespace zefDB {
                 return can_convert_0_3_0_to_0_2_0(ptr, len);
             }
 
-            if(target_layout == "")
+            if(target_layout == "0.3.0")
                 return true;
 
             throw std::runtime_error("Don't know target layout: " + target_layout);
