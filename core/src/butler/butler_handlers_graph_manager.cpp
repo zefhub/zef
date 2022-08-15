@@ -68,8 +68,6 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     j["hash_index"] = hash_to;
 
     auto response = butler.wait_on_zefhub_message<GenericZefHubResponse>(j);
-    if(zwitch.graph_event_output())
-        std::cerr << "Got response: " << response.j << std::endl;
 
     if(!response.generic.success) {
         me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
@@ -147,6 +145,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         }
     }
 
+    if(zwitch.graph_event_output())
     me.debug_last_action = "Resubscribed to zefhub";
     me.gd->currently_subscribed = true;
 
@@ -154,8 +153,10 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     // not automatically wake up. So we trigger the heads_locker just in case.
     wake(me.gd->heads_locker);
 
-    if(zwitch.graph_event_output())
-        std::cerr << "Upstream head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
+    if(zwitch.graph_event_output()) {
+        std::cerr << "Resubscribed to graph: " << str(me.uid) << std::endl;
+        std::cerr << "Upstream/our head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
+    }
 }
 
 
