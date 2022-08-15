@@ -2920,6 +2920,7 @@ def not_imp(x, pred_fct=lambda x: x):
     related zefop: And
     related zefop: xor
     """
+    pred_fct = make_predicate(pred_fct)
     return not pred_fct(x)
 
 
@@ -3032,6 +3033,7 @@ def or_imp(x, *args):
               
     # used as combinator on predicates
     for fct in args:
+        fct = make_predicate(fct)
         res = fct(x)
         assert isinstance(res, bool)
         if res is True:
@@ -3752,11 +3754,8 @@ def If_imp(x, pred, true_case_func, false_case_func):
     - related zefop: filter
     """
     try:
-        if isinstance(pred, ValueType_):
-            case = is_a(x, pred)
-        else:
-            # if not a VT: assume it is callable            
-            case = pred(x)
+        pred = make_predicate(pred)
+        case = pred(x)
     except Exception as e:            
         raise RuntimeError(f'\nError within `If` zefop evaluating predicate function: `{pred}` for value  `{x}`: {e}')
     try:
@@ -3826,7 +3825,7 @@ def bypass_imp(x, bypass_type, fct):
     operates on: ZefOp
     """
     type_tup = bypass_type if isinstance(bypass_type, tuple) else (bypass_type,)
-    return if_then_else(
+    return If(
         x, 
         type_tup | reduce[lambda op, el: op[el]][is_a],
         lambda x: x,
