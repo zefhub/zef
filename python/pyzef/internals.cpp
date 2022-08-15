@@ -493,14 +493,27 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("delete_graphdata", [](Graph & g) { g.delete_graphdata(); }, "This is a low-level graph destructor function. Do not use if you don't know what you are doing.");
 
     py::class_<Messages::UpdatePayload>(internals_submodule, "UpdatePayload", py::buffer_protocol())
-        .def(py::init<nlohmann::json, std::vector<std::string>>())
+        // .def(py::init<nlohmann::json, std::vector<std::string>>())
         .def(py::init([](py::dict & j, std::vector<py::bytes> & b) {
             Messages::UpdatePayload out{j};
+            // Because pybind_json may turn uint64 into signed integers, we need
+            // to manually override this.
+            if(out.j.contains("hash_full_graph"))
+                out.j["hash_full_graph"] = out.j["hash_full_graph"].get<uint64_t>();
             std::transform(b.begin(), b.end(), std::back_inserter(out.rest),
                                [](const auto & it) { return it; });
             return out;
         }))
-        .def_readonly("j", &Messages::UpdatePayload::j)
+        // .def_readonly("j", &Messages::UpdatePayload::j)
+        .def_property_readonly("j", [](const Messages::UpdatePayload & self) {
+            py::dict d(self.j);
+
+            if(d.contains("hash_full_graph")) {
+                d["hash_full_graph"] = (uint64_t)py::cast<int64_t>(d["hash_full_graph"]);
+            }
+
+            return d;
+        })
         // .def_readonly("rest", &Messages::UpdatePayload::rest);
         .def_property_readonly("rest", [](Messages::UpdatePayload & self)->std::vector<py::bytes> {
                 std::vector<py::bytes> out;
