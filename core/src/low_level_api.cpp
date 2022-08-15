@@ -29,17 +29,21 @@ namespace zefDB {
 
     // TODO: There seems to be something missing here with the string lookups - it's not the same pattern as ET,RT
 
+    AttributeEntityType fallback_old_style_AET(const blobs_ns::ATTRIBUTE_ENTITY_NODE & ae) {
+        return AttributeEntityType(ae.primitive_type);
+    }
+
 	AttributeEntityType AttributeEntityTypeStruct::operator() (const blobs_ns::ATTRIBUTE_ENTITY_NODE & ae) const {
         // The first edge is a REL_ENT_INSTANCE and the second must be the VALUE_TYPE_EDGE
-#ifdef ZEF_DEBUG
-        if(ae.edges.indices[1] <= 0)
-            throw std::runtime_error("Complex value type edge is missing");
-#endif
+        if(ae.edges.indices[1] <= 0) {
+            // std::cerr << "Warning: Complex value type edge is missing" << std::endl;
+            return fallback_old_style_AET(ae);
+        }
         EZefRef maybe_edge{ae.edges.indices[1], *graph_data(&ae)};
-#ifdef ZEF_DEBUG
-        if(BT(maybe_edge) != BT.VALUE_TYPE_EDGE)
-            throw std::runtime_error("Complex value type edge is missing");
-#endif
+        if(BT(maybe_edge) != BT.VALUE_TYPE_EDGE) {
+            // std::cerr << "Warning: Complex value type edge is missing" << std::endl;
+            return fallback_old_style_AET(ae);
+        }
 
         EZefRef z_value_node = imperative::target(maybe_edge);
         auto & value_node = get<blobs_ns::VALUE_NODE>(z_value_node);
