@@ -92,7 +92,7 @@ Query[
 
 
 from .VT import FlatGraph, Pattern, Any, SetOf
-from ._ops import match, collect, insert, split_if, get, filter, map, Z
+from ._ops import match, collect, insert, split, get, filter, map, Z
 from .zef_functions import func
 from .internals import ET, RT, AET
 from .flat_graph import Val
@@ -258,7 +258,7 @@ def SVs(names: str):
         raise TypeError("name must be a string")    
 
     return (names 
-        | split_if[lambda c: c==' ' or c==','] 
+        | split[lambda c: c==' ' or c==','] 
         | filter[~SetOf['',' ', ',']] 
         | map[SV]
         | collect

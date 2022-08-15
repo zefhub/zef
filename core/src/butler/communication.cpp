@@ -125,6 +125,7 @@ namespace zefDB {
 
 
         void PersistentConnection::fail_handler(websocketpp::connection_hdl hdl) {
+            developer_output("Fail handler");
             visit_endpoint([this,&hdl](auto & endpoint) {
                 auto con = endpoint->get_con_from_hdl(hdl);
                 if(!con)
@@ -205,14 +206,17 @@ namespace zefDB {
             }
         };
         void PersistentConnection::close_handler(websocketpp::connection_hdl hdl) {
+            developer_output("Close handler");
             visit_endpoint([this,&hdl](auto & endpoint) {
                 auto con = endpoint->get_con_from_hdl(hdl);
                 if(con) {
                     auto ec = con->get_ec();
-                    if(ec) {
-                        if(zwitch.developer_output()) {
-                            std::cerr << "Remote close reason: " << con->get_remote_close_reason() << std::endl;
-                            std::cerr << "Local close reason: " << con->get_local_close_reason() << std::endl;
+                    if(ec || con->get_remote_close_code() != 1000) {
+                        developer_output("Remote close (" + to_str(con->get_remote_close_code()) + ") reason: " + con->get_remote_close_reason());
+                        developer_output("Local close reason: " + con->get_local_close_reason());
+                        if(con->get_remote_close_code() == 4000) {
+                            std::cerr << "Upstream told us to stop connecting: " << to_str(con->get_remote_close_code()) << " \"" << con->get_remote_close_reason() << "\"." << std::endl;
+                            close();
                         }
                         last_was_failure = true;
                     }

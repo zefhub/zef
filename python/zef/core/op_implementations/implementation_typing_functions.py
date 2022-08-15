@@ -2922,6 +2922,7 @@ def not_imp(x, pred_fct=lambda x: x):
     related zefop: And
     related zefop: xor
     """
+    pred_fct = make_predicate(pred_fct)
     return not pred_fct(x)
 
 
@@ -3034,6 +3035,7 @@ def or_imp(x, *args):
               
     # used as combinator on predicates
     for fct in args:
+        fct = make_predicate(fct)
         res = fct(x)
         assert isinstance(res, bool)
         if res is True:
@@ -3206,6 +3208,27 @@ def iterate_type_info(op, curr_type):
     return VT.List
 
 
+def make_predicate(maybe_predicate):
+    # Wrap ValueType or any RAE Type in is_a
+    if isinstance(maybe_predicate, ValueType_) or type(maybe_predicate) in {EntityType, AtomicEntityType, RelationType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct}: 
+        predicate = is_a[maybe_predicate]
+    
+    # If a set is passed check the existance of the passed element in the set
+    elif isinstance(maybe_predicate, set): 
+        predicate = lambda x: x in maybe_predicate
+
+    # ZefOps, ZefFunctions, Lambdas, Python Functions
+    elif callable(maybe_predicate) and not isinstance(maybe_predicate, int): 
+        predicate = maybe_predicate
+    
+    # Anything that didn't match will be matched for equality 
+    else:
+        log.warning(f"A value {maybe_predicate} was passed to be used as a ValueType. You should use " + \
+         "{" + str(maybe_predicate) + "} or SetOf[" + str(maybe_predicate) + "] instead!")
+        predicate = lambda x: x == maybe_predicate
+    
+    return predicate
+
 
 #---------------------------------------- skip_while -----------------------------------------------
 def skip_while_imp(it, predicate):
@@ -3229,6 +3252,7 @@ def skip_while_imp(it, predicate):
     - also named (in itertools): dropwhile
     """
     import itertools
+    predicate = make_predicate(predicate)
     return itertools.dropwhile(predicate, it)
 
 def skip_while_tp(it_tp, pred_type):
@@ -3315,6 +3339,7 @@ def take_while_imp(v, predicate):
     - related zefop: skip_until
     - uses: Logic Type
     """
+    predicate = make_predicate(predicate)
     def wrapper():
         it = iter(v)
         for el in it:
@@ -3352,6 +3377,7 @@ def take_until_imp(v, predicate):
     - related zefop: skip_while
     - uses: Logic Type
     """
+    predicate = make_predicate(predicate)
     def wrapper():
         it = iter(v)
         for el in it:
@@ -3389,6 +3415,7 @@ def skip_until_imp(v: List, predicate):
     - related zefop: take_while
     - uses: Logic Type    
     """
+    predicate = make_predicate(predicate)
     def wrapper():
         it = iter(v)
         while True:
@@ -3731,11 +3758,8 @@ def If_imp(x, pred, true_case_func, false_case_func):
     - related zefop: filter
     """
     try:
-        if isinstance(pred, ValueType_):
-            case = is_a(x, pred)
-        else:
-            # if not a VT: assume it is callable            
-            case = pred(x)
+        pred = make_predicate(pred)
+        case = pred(x)
     except Exception as e:            
         raise RuntimeError(f'\nError within `If` zefop evaluating predicate function: `{pred}` for value  `{x}`: {e}')
     try:
@@ -3805,7 +3829,7 @@ def bypass_imp(x, bypass_type, fct):
     operates on: ZefOp
     """
     type_tup = bypass_type if isinstance(bypass_type, tuple) else (bypass_type,)
-    return if_then_else(
+    return If(
         x, 
         type_tup | reduce[lambda op, el: op[el]][is_a],
         lambda x: x,
@@ -4232,12 +4256,12 @@ def split_imp(collection, val, max_split=-1):
     - used for: string manipulation
     - related zefop: split_left
     - related zefop: split_right
-    - related zefop: split_if
     - related zefop: trim
     """
     if isinstance(collection, str):
         return collection.split(val, max_split)
 
+    split_function = make_predicate(val)
     if max_split == -1:       
         def wrapper():
             it = iter(collection)
@@ -4245,7 +4269,7 @@ def split_imp(collection, val, max_split=-1):
                 while True:
                     s = []
                     next_val = next(it)
-                    while next_val != val:                
+                    while not split_function(next_val):                
                         s.append(next_val)
                         next_val = next(it)                    
                     yield s
@@ -4263,7 +4287,7 @@ def split_imp(collection, val, max_split=-1):
                 while run_no < max_split:
                     s = []
                     next_val = next(it)
-                    while next_val != val:                
+                    while not split_function(next_val):                
                         s.append(next_val)
                         next_val = next(it)                    
                     yield s
@@ -4301,12 +4325,12 @@ def split_left_imp(v, val):
     - used for: string manipulation
     - related zefop: split
     - related zefop: split_right
-    - related zefop: split_if
     - related zefop: trim
     """
     if isinstance(v, str):
         return split_left_imp(iter(v), val) | map[concat] | collect
 
+    split_function = make_predicate(val)
     def wrapper():
         it = iter(v)
         try:
@@ -4315,7 +4339,7 @@ def split_left_imp(v, val):
                 s = []
                 s.append(next_val)
                 next_val = next(it)
-                while next_val != val:                
+                while not split_function(next_val):                
                     s.append(next_val)
                     next_val = next(it)                    
                 yield s
@@ -4346,12 +4370,12 @@ def split_right_imp(v, val):
     - used for: string manipulation
     - related zefop: split
     - related zefop: split_left
-    - related zefop: split_if
     - related zefop: trim
     """
     if isinstance(v, str):
         return split_right_imp(iter(v), val) | map[concat] | collect
 
+    split_function = make_predicate(val)
     def wrapper():
         it = iter(v)
         try:
@@ -4359,7 +4383,7 @@ def split_right_imp(v, val):
                 s = []
                 next_val = next(it)
                 s.append(next_val)
-                while next_val != val:                
+                while not split_function(next_val):                
                     next_val = next(it)                    
                     s.append(next_val)
                 yield s
@@ -4367,52 +4391,6 @@ def split_right_imp(v, val):
             if s!=[]: yield s
             return
     return ZefGenerator(wrapper)
-
-
-# ------------------------------------------ split_if ---------------------------------------------
-def split_if_imp(v, split_function):
-    """ 
-    Similar to split, but the user provides a predicate function 
-    that determines the positions to split on.
-
-    The symbols that are split on, are not included in the result.
-
-    ---- Examples ----
-    >>> 'good4morning2to6you' | split_if[is_numeric]    # => ['good', 'morning', 'to', 'you']
-    >>> range(10) | split_if[lambda x: x % 3 == 0 ]     # => [[], [1, 2], [4, 5], [7, 8], []]
-
-    ---- Signature ----
-    (List[T], T->Bool) -> List[List[T]]
-
-    ---- Tags ----
-    - operates on: List
-    - operates on: String
-    - used for: list manipulation
-    - used for: string manipulation
-    - related zefop: split
-    - related zefop: concat
-    - related zefop: trim
-    - used for: predicate
-    """
-    if isinstance(v, str):
-        return v | func[tuple] | split_if[split_function] | map[join] | collect
-    def wrapper():
-        it = iter(v)
-        try:
-            while True:
-                s = []
-                next_val = next(it)
-                while not split_function(next_val):                
-                    s.append(next_val)
-                    next_val = next(it)                    
-                yield s
-        except StopIteration:
-            yield s
-            return
-    return ZefGenerator(wrapper)
-
-
-
 
 
 # --------------------------------------- now ------------------------------------------------
@@ -5592,10 +5570,7 @@ def filter_implementation(itr, pred_or_vt):
     - used for: control flow
     - operates on: List
     """
-    if isinstance(pred_or_vt, ValueType_): pred = is_a[pred_or_vt]
-    elif isinstance(pred_or_vt, set): pred = lambda x: x in pred_or_vt
-    else: pred = pred_or_vt
-    
+    pred = make_predicate(pred_or_vt)
     input_type = parse_input_type(type_spec(itr))
     if input_type == "tools":
         # As this is an intermediate, we return an explicit generator
@@ -9633,7 +9608,6 @@ def split_on_next_imp(s, el_to_split_on):
 
     ---- Tags ----
     - related zefop: split
-    - related zefop: split_if
     - related zefop: chunk
     - operates on: List
     - operates on: String

@@ -346,7 +346,7 @@ def schema_generate_type_filter(z_type, full_dict):
         field_type = target(field)
         field_type_name = field_type | F.Name | collect
         if is_a(field_type, AET.Bool):
-            filter_name = Boolean
+            filter_name = "Boolean"
         else:
             filter_name = f"{field_type_name}Filter"
             schema_generate_type_dispatch(field_type, full_dict)
