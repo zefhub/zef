@@ -989,8 +989,9 @@ class LazyValue:
 
                 except Exception as e:
                     py_e,frames = convert_python_exception(e)
-                    got_error = Error.Panic(py_e)
-                    got_error = add_error_context(got_error, frames)
+                    got_error = Error.Panic()
+                    got_error.nested = py_e
+                    got_error = add_error_context(got_error, {"frames": frames})
                 else:
                     if type(new_value) == _ErrorType:
                         # Here we have a choice - depends on what the caller expects, an Error or an exception
@@ -1063,8 +1064,9 @@ class LazyValue:
                             raise add_error_context(e, cur_context) from None
                         except Exception as e:
                             py_e,frames = convert_python_exception(e)
-                            e = Error.Panic(py_e)
-                            e = add_error_context(e, frames)
+                            e = Error.Panic()
+                            e.nested = py_e
+                            e = add_error_context(e, {"frames": frames})
                             e = add_error_context(e, cur_context)
                             raise e from None
 

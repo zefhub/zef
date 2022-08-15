@@ -462,9 +462,9 @@ def match_imp(item, patterns):
                 else is_a(item, tp)
                 ): return call_wrap_errors_as_unexpected(f_to_apply, item)
         except _ErrorType as e:
-            e = add_error_context(e, {"metadata": {"match_case": tp, "func": f_to_apply}})
+            e = add_error_context(e, {"metadata": {"match_case": tp, "func": f_to_apply, "input": item}})
             raise e from None
-    raise Error.MatchError("No case matched")
+    raise Error.MatchError("No case matched", item)
 
 def match_tp(op, curr_type):
     return VT.Any
