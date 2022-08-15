@@ -3210,7 +3210,7 @@ def iterate_type_info(op, curr_type):
 
 def make_predicate(maybe_predicate):
     # Wrap ValueType or any RAE Type in is_a
-    if isinstance(maybe_predicate, ValueType_) or type(maybe_predicate) in {EntityType, AtomicEntityType, RelationType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct}: 
+    if isinstance(maybe_predicate, ValueType_) or type(maybe_predicate) in {EntityType, AttributeEntityType, RelationType, EntityTypeStruct, AttributeEntityTypeStruct, RelationTypeStruct}: 
         predicate = is_a[maybe_predicate]
     
     # If a set is passed check the existance of the passed element in the set
