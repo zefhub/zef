@@ -176,7 +176,7 @@ from inspect import isfunction, getfullargspec
 from types import LambdaType
 from typing import Generator, Iterable, Iterator
 from ._core import *
-from .error import Error, _ErrorType, EvalEngineCoreError, add_error_context
+from .error import Error, _ErrorType, ExceptionWrapper, EvalEngineCoreError, add_error_context
 from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
@@ -978,17 +978,16 @@ class LazyValue:
                     # current evaluation information along with this.
                     got_error = e
                     # Probably want to add in python traceback here
+                except ExceptionWrapper as e:
+                    # Continue the panic, attaching more tb info
+                    tb = e.__traceback__
+                    frames = process_python_tb(tb)
+                    got_error = add_error_context(e.wrapped, {"frames": frames})
                 except _ErrorType as e:
-                    if e.name == "Panic":
-                        # Continue the panic, attaching more tb info
-                        tb = e.__traceback__
-                        frames = process_python_tb(tb)
-                        e = add_error_context(e, {"frames": frames})
                     got_error = e
 
                 except Exception as e:
-                    py_e = convert_python_exception(e)
-                    frames = py_e.pop("frames")
+                    py_e,frames = convert_python_exception(e)
                     got_error = Error.Panic(py_e)
                     got_error = add_error_context(got_error, frames)
                 else:
@@ -1057,12 +1056,16 @@ class LazyValue:
                             break
                         except EvalEngineCoreError as e:
                             raise add_error_context(e, cur_context)
+                        except ExceptionWrapper as e:
+                            raise add_error_context(e.wrapped, cur_context) from None
                         except _ErrorType as e:
                             raise add_error_context(e, cur_context) from None
                         except Exception as e:
-                            py_e = convert_python_exception(e)
+                            py_e,frames = convert_python_exception(e)
                             e = Error.Panic(py_e)
-                            raise add_error_context(e, cur_context) from None
+                            e = add_error_context(e, frames)
+                            e = add_error_context(e, cur_context)
+                            raise e from None
 
                         if type(val) == _ErrorType:
                             raise add_error_context(val, cur_context) from None
@@ -1077,15 +1080,10 @@ class LazyValue:
             return curr_value
         except EvalEngineCoreError:
             raise
+        except ExceptionWrapper as exc:
+            raise exc from None
         except _ErrorType as exc:
-            # Maybe change to panic here as this is exiting the zef evaluation control?
-            # raise
-            if exc.name != "Panic":
-                new_e = Error.Panic(exc)
-                raise new_e from None
-            else:
-                raise exc from None
-                
+            raise ExceptionWrapper(exc) from None
         except Exception as exc:
             e = EvalEngineCoreError(exc)
             e = add_error_context(e, {"chain": self})

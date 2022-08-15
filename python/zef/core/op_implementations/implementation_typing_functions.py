@@ -26,6 +26,7 @@ from .._ops import *
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
 from ..logger import log
 from ..error import _ErrorType, Error
+from ..error import EvalEngineCoreError, ExceptionWrapper, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
 
 from ...pyzef import zefops as pyzefops, main as pymain
 from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
@@ -60,32 +61,31 @@ def is_RT_triple(x):
 
 
 def wrap_error_raising(e, maybe_context=None):
-    from ..error import EvalEngineCoreError, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
     if type(e) == EvalEngineCoreError:
         if maybe_context is not None:
             e = prepend_error_contexts(e, maybe_context)
         raise e
-    elif type(e) == _ErrorType:
-        if e.name == "Panic":
-            # Continue the panic, attaching more tb info
-            tb = e.__traceback__
-            frames = process_python_tb(tb)
-            new_e = Error.UnexpectedError(*e.args)
-            if hasattr(e, "contexts"):
-                new_e.contexts = e.contexts
-            new_e = add_error_context(new_e, {"frames": frames})
-            e = new_e
-        if maybe_context is not None:
-            e = prepend_error_contexts(e, maybe_context)
-        raise e
-    else:
-        py_e = convert_python_exception(e)
-        frames = py_e.pop("frames")
-        e = Error.UnexpectedError(py_e)
+    elif type(e) == ExceptionWrapper:
+        # Continue the panic, attaching more tb info
+        tb = e.__traceback__
+        frames = process_python_tb(tb)
+        e = e.wrapped
         e = add_error_context(e, {"frames": frames})
         if maybe_context is not None:
             e = prepend_error_contexts(e, maybe_context)
-        raise e
+        raise e from None
+    elif type(e) == _ErrorType:
+        if maybe_context is not None:
+            e = prepend_error_contexts(e, maybe_context)
+        raise e from None
+    else:
+        py_e,frames = convert_python_exception(e)
+        e = Error.UnexpectedError()
+        e.nested = py_e
+        e = add_error_context(e, {"frames": frames})
+        if maybe_context is not None:
+            e = prepend_error_contexts(e, maybe_context)
+        raise e from None
 
 def call_wrap_errors_as_unexpected(func, *args, maybe_context=None, **kwargs):
     from ..op_structs import EvalEngineCoreError
@@ -93,6 +93,8 @@ def call_wrap_errors_as_unexpected(func, *args, maybe_context=None, **kwargs):
         return func(*args, **kwargs)
     # Below here is sort of a repeat of what's in op_structs.py, but not quite
     except EvalEngineCoreError as e:
+        wrap_error_raising(e, maybe_context)
+    except ExceptionWrapper as e:
         wrap_error_raising(e, maybe_context)
     except _ErrorType as e:
         wrap_error_raising(e, maybe_context)
@@ -143,8 +145,6 @@ class ZefGenerator:
     def __iter__(self):
         # return self.generator_fct()
         def wrap_errors():
-            from ..error import EvalEngineCoreError, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
-            from ..error import _ErrorType, Error
             it = iter(self.generator_fct())
             i = 0
             last_output = None
@@ -164,6 +164,8 @@ class ZefGenerator:
                 except GeneratorExit:
                     raise
                 except EvalEngineCoreError as e:
+                    wrap_error_raising(e, cur_context)
+                except ExceptionWrapper as e:
                     wrap_error_raising(e, cur_context)
                 except _ErrorType as e:
                     wrap_error_raising(e, cur_context)
@@ -5412,13 +5414,8 @@ def map_implementation(v, f):
                 try:
                     yield call_wrap_errors_as_unexpected(f, el)
                 except _ErrorType as exc:
-                    # TODO: Really want to wrap this error rather than convert only UnexpectedErrors
-                    if exc.name == "UnexpectedError":
-                        new_e = Error.MapError(*exc.args, {"last_input": el})
-                        new_e.contexts = exc.contexts
-                        raise new_e
-                    else:
-                        raise exc
+                    exc = add_error_context(exc, {"metadata": {"last_input": el}})
+                    raise exc from None
     
         return ZefGenerator(wrapper)
 
@@ -9707,7 +9704,6 @@ def apply_imp(x, f):
     if isinstance(f, tuple) or isinstance(f, list):
         return tuple(apply(x, ff) for ff in f)
     else:
-        from ..error import convert_python_exception, add_error_context, process_python_tb
         return call_wrap_errors_as_unexpected(f, x)
             
         
