@@ -3204,6 +3204,25 @@ def iterate_type_info(op, curr_type):
     return VT.List
 
 
+def make_predicate(maybe_predicate):
+    # Wrap ValueType or any RAE Type in is_a
+    if isinstance(maybe_predicate, ValueType_) or type(maybe_predicate) in {EntityType, AtomicEntityType, RelationType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct}: 
+        predicate = is_a[maybe_predicate]
+    
+    # If a set is passed check the existance of the passed element in the set
+    elif isinstance(maybe_predicate, set): 
+        predicate = lambda x: x in maybe_predicate
+
+    # ZefOps, ZefFunctions, Lambdas, Python Functions
+    elif callable(maybe_predicate) and not isinstance(maybe_predicate, int): 
+        predicate = maybe_predicate
+    
+    # Anything that didn't match will be matched for equality 
+    else:
+        predicate = lambda x: x == maybe_predicate
+    
+    return predicate
+
 
 #---------------------------------------- skip_while -----------------------------------------------
 def skip_while_imp(it, predicate):
@@ -3227,6 +3246,7 @@ def skip_while_imp(it, predicate):
     - also named (in itertools): dropwhile
     """
     import itertools
+    predicate = make_predicate(predicate)
     return itertools.dropwhile(predicate, it)
 
 def skip_while_tp(it_tp, pred_type):
@@ -3313,6 +3333,7 @@ def take_while_imp(v, predicate):
     - related zefop: skip_until
     - uses: Logic Type
     """
+    predicate = make_predicate(predicate)
     def wrapper():
         it = iter(v)
         for el in it:
@@ -3350,6 +3371,7 @@ def take_until_imp(v, predicate):
     - related zefop: skip_while
     - uses: Logic Type
     """
+    predicate = make_predicate(predicate)
     def wrapper():
         it = iter(v)
         for el in it:
@@ -3387,6 +3409,7 @@ def skip_until_imp(v: List, predicate):
     - related zefop: take_while
     - uses: Logic Type    
     """
+    predicate = make_predicate(predicate)
     def wrapper():
         it = iter(v)
         while True:
@@ -4394,6 +4417,8 @@ def split_if_imp(v, split_function):
     """
     if isinstance(v, str):
         return v | func[tuple] | split_if[split_function] | map[join] | collect
+    
+    split_function = make_predicate(split_function)
     def wrapper():
         it = iter(v)
         try:
@@ -5590,10 +5615,7 @@ def filter_implementation(itr, pred_or_vt):
     - used for: control flow
     - operates on: List
     """
-    if isinstance(pred_or_vt, ValueType_): pred = is_a[pred_or_vt]
-    elif isinstance(pred_or_vt, set): pred = lambda x: x in pred_or_vt
-    else: pred = pred_or_vt
-    
+    pred = make_predicate(pred_or_vt)
     input_type = parse_input_type(type_spec(itr))
     if input_type == "tools":
         # As this is an intermediate, we return an explicit generator
