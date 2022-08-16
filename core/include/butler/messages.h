@@ -153,7 +153,7 @@ namespace zefDB {
             // is true.
             Graph g;
             bool sync;
-            NotifySync(Graph & g, bool & sync) : g(g), sync(sync) {}
+            NotifySync(const Graph & g, bool sync) : g(g), sync(sync) {}
         };
         struct SetKeepAlive {
             Graph g;

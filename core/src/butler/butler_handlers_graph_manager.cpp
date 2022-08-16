@@ -70,7 +70,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     auto response = butler.wait_on_zefhub_message<GenericZefHubResponse>(j);
 
     if(!response.generic.success) {
-        me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+        butler.set_into_invalid_state(me);
         std::cerr << "UNKNOWN ERROR WHEN RESUBSCRIBING FOR GRAPH (" << me.uid << "): " << response.generic.reason << std::endl;
         std::cerr << "UNKNOWN ERROR WHEN RESUBSCRIBING FOR GRAPH (" << me.uid << "): " << response.generic.reason << std::endl;
         std::cerr << "UNKNOWN ERROR WHEN RESUBSCRIBING FOR GRAPH (" << me.uid << "): " << response.generic.reason << std::endl;
@@ -104,7 +104,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
         if(bad) {
             // TODO: Make sure we unsubscribe to the graph
-            me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+            butler.set_into_invalid_state(me);
             std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
             std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
             std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
@@ -157,6 +157,16 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         std::cerr << "Resubscribed to graph: " << str(me.uid) << std::endl;
         std::cerr << "Upstream/our head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
     }
+}
+
+
+void Butler::set_into_invalid_state(Butler::GraphTrackingData & me) {
+    me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+    if(me.gd->is_primary_instance) {
+        std::cerr << "Giving up transactor role" << std::endl;
+        me.queue.push(std::make_shared<RequestWrapper>(MakePrimary{Graph(*me.gd), false}), true);
+    }
+    // TODO: Maybe also unsubscribe here?
 }
 
 
@@ -756,16 +766,22 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
         return;
     }
 
-    wait_for_auth();
     
-    if(upstream_layout() == "0.2.0") {
-        // Only allow sync to turn on if we can convert the layout for this graph. (it is compatible)
-        char * blobs_ptr = (char*)(me.gd) + constants::ROOT_NODE_blob_index * constants::blob_indx_step_in_bytes;
-        char * end = (char*)(me.gd) + me.gd->read_head.load() * constants::blob_indx_step_in_bytes;
-        size_t len = end - blobs_ptr;
-        if(!conversions::can_convert_0_3_0_to_0_2_0(blobs_ptr, len)) {
-            msg->promise.set_value(GenericResponse{false, "Can't sync a graph which is not comptabile with 0.2.0 data layout"});
-            return;
+    if(content.sync) {
+        // Try and send out an update. We add in a wait on the
+        // network, as the user calling sync() will expect us to
+        // make more of an effort to get any updates to upstream.
+        // network.wait_for_connected(constants::zefhub_reconnect_timeout);
+        wait_for_auth(constants::zefhub_reconnect_timeout);
+        if(upstream_layout() == "0.2.0") {
+            // Only allow sync to turn on if we can convert the layout for this graph. (it is compatible)
+            char * blobs_ptr = (char*)(me.gd) + constants::ROOT_NODE_blob_index * constants::blob_indx_step_in_bytes;
+            char * end = (char*)(me.gd) + me.gd->read_head.load() * constants::blob_indx_step_in_bytes;
+            size_t len = end - blobs_ptr;
+            if(!conversions::can_convert_0_3_0_to_0_2_0(blobs_ptr, len)) {
+                msg->promise.set_value(GenericResponse{false, "Can't sync a graph which is not comptabile with 0.2.0 data layout"});
+                return;
+            }
         }
     }
 
@@ -780,11 +796,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
 
     if(me.gd->is_primary_instance) {
         if (content.sync) {
-            // Try and send out an update. We add in a wait on the
-            // network, as the user calling sync() will expect us to
-            // make more of an effort to get any updates to upstream.
-            // network.wait_for_connected(constants::zefhub_reconnect_timeout);
-            wait_for_auth(constants::zefhub_reconnect_timeout);
             // wait_for_auth();
             if(!network.connected) {
                 msg->promise.set_value(GenericResponse{false, "Network did not reconnect in time."});
@@ -1062,7 +1073,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, Disconn
 
 template<>
 void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePrimary & content, Butler::msg_ptr & msg) {
-    if(me.gd->error_state != GraphData::ErrorState::OK) {
+    if(me.gd->error_state != GraphData::ErrorState::OK && content.make_primary) {
         msg->promise.set_value(GenericResponse{false, "Graph is in error state"});
         return;
     }

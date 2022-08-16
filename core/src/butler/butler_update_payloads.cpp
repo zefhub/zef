@@ -400,7 +400,7 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
                 } else {
                     // Unknown error - wait a bit
                     std::cerr << "Unknown error received from ZH from our graph update ('" << response.generic.reason << "'). Setting graph to invalid state." << std::endl;
-                    me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                    set_into_invalid_state(me);
                     // std::this_thread::sleep_for(std::chrono::seconds(1));
                 }
 
@@ -414,7 +414,7 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
             continue;
         } catch(const std::exception & e) {
             std::cerr << "An exception occurred during a send_update ('" << e.what() << "'). Setting graph to invalid state." << std::endl;
-            me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+            set_into_invalid_state(me);
             wake(me.gd->heads_locker);
             return;
         }

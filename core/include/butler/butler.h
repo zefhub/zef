@@ -386,6 +386,7 @@ namespace zefDB {
             void load_graph_from_tag_worker(msg_ptr msg);
             void load_graph_from_file(msg_ptr & msg, std::filesystem::path dir);
             void send_update(GraphTrackingData & me);
+            void set_into_invalid_state(GraphTrackingData & me);
 
 
             std::string upstream_name();
