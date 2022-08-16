@@ -368,6 +368,7 @@ alias           = make_zefop(RT.Alias)
 splice          = make_zefop(RT.Splice)
 
           
+profile         = make_zefop(RT.Profile)
 # match
 # split_before
 # split_after

@@ -10122,3 +10122,30 @@ def splice_imp(x, start_pos, els_to_replace, replacement):
         return Error(f'Unsupported type passed to "splice": {type(x)}')
 
 
+# ----------------------------- Profiling -----------------------------
+def profile_imp(lazy_val: VT.LazyValue) -> VT.Any:
+    """Calls the evaluation engine directly with profiling flag set."""
+    return lazy_val.evaluate(profiling=True)
+
+def profiling_view(profiling_lst: VT.List, lazy_val: VT.LazyValue):
+    """Creates a table view of the profiling result an displays it"""
+    from ...ui import Column, Text, Frame, Table, VStack, show, Style
+
+    rows = profiling_lst | map[lambda d: (str(d['op']), str(builtins.round(d['time'] * 1000, 4)) + "ms")] | collect
+    columns = [ Column(Text("Operation",justify = "center"), header_style = Style(background_color="#2a3240")), Column(Text("Elapsed Time",justify = "center"), header_style = Style(background_color="#2a3240"))]
+    
+    title = Frame(Text(f" Profiling of {str(lazy_val)}", bold= True, justify="center"), box ="head")
+    table = Table(
+        show_edge=False,
+        expand=True,     
+        show_header=True,
+        padding= (1,1,1,1),
+        box = 'simple_head',        
+        rows = rows,
+        cols = columns,
+    )   
+
+    VStack([
+            title,
+            table
+    ]) | show

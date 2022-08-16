@@ -313,4 +313,6 @@ _op_to_functions = {
         RT.Gather:             (gather_imp, None),
         RT.Alias:              (alias_imp, None),
         RT.Splice:             (splice_imp, None),
+
+        RT.Profile:            (profile_imp, None),
 }

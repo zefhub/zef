@@ -968,7 +968,9 @@ class LazyValue:
             curr_value = [i for i in curr_value]
             if profiling:  profiling_lst.append({"op": "Unpacking Generator", "time": time() - start})
                 
-        if profiling: print('\n'.join([f"{pad_right(str(d['op']), 50)} took {round(d['time'] * 1000, 4)}ms" for d in profiling_lst]))
+        if profiling: 
+            from .op_implementations.implementation_typing_functions import profiling_view
+            profiling_view(profiling_lst, self)
         return curr_value      
 
 def find_type_of_current_value(curr_value):
