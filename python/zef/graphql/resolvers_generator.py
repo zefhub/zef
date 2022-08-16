@@ -116,6 +116,7 @@ def generate_fct(field_dict, g, allow_none):
             To use default values for your resolver, explicitly call fill_types_default_resolvers on your schema dictionary!")
 
     def resolve_field(obj, info, **kwargs):
+        from ..core.logger import log
         context = {
             "obj": obj,
             "query_args": kwargs,
@@ -123,19 +124,31 @@ def generate_fct(field_dict, g, allow_none):
             # To be extended
         }
         if is_a(resolver, ZefOp):
-            if peel(resolver)[0][0] == RT.Function:
-                args = get_zef_function_args(resolver, g)
-                arg_values = select_keys(context, *args).values()
-                # Check if some args that are present in the Zef Function aren't present in context dict
-                if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
-                arg_values = [context[x] for x in args]
-                output = resolver(*arg_values)
-            else:
-                output = resolver(obj)
+            from ..core.error import ExceptionWrapper
+            try:
+                if peel(resolver)[0][0] == RT.Function:
+                    args = get_zef_function_args(resolver, g)
+                    arg_values = select_keys(context, *args).values()
+                    # Check if some args that are present in the Zef Function aren't present in context dict
+                    if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
+                    arg_values = [context[x] for x in args]
+                    output = resolver(*arg_values)
+                else:
+                    output = resolver(obj)
+            except ExceptionWrapper as exc:
+                # TODO: Include debug flag in here somehow
+                log.error("Couldn't resolve field", exc_info=exc.wrapped)
+                print(str(exc.wrapped))
+                raise Exception("Unexpected error")
+            except Exception as exc:
+                log.error("Couldn't resolve field", exc_info=exc)
+                print(str(exc))
+                raise Exception("Unexpected error")
+
             from ..core.error import _ErrorType
             if type(output) == _ErrorType:
-                print("There was an error obtained after resolving the field")
-                raise Exception(*output.args)
+                log.error("Resolve field returned error", err=output)
+                raise Exception(output.name, *output.args)
             return output
         elif isinstance(resolver, LazyValue):
             return resolver()
