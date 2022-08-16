@@ -914,9 +914,11 @@ class LazyValue:
             return True
         raise Exception("Shouldn't cast LazyValue to bool (this may change in the future to automatic evaluation)")
 
-    def evaluate(self, unpack_generator = True):
+    def evaluate(self, unpack_generator = True, profiling = False):
         from .op_implementations.dispatch_dictionary import _op_to_functions
         from .op_implementations.implementation_typing_functions import ZefGenerator
+        from ._ops import pad_right
+        from time import time
         curr_value = self.initial_val
         
         # TODO: Type info has been disabled due to typespecing of long lists/sets/dicts which consumes
@@ -931,7 +933,9 @@ class LazyValue:
         #     warnings.warn("Failed to create type info using primary method. Falling back to backup type info!")
         # if not primary_type_info: back_up_type_info = [type_spec(curr_value)]
 
+        profiling_lst = []
         for op in self.el_ops.el_ops: 
+            if profiling: start = time()
             if op[0] == RT.Collect: continue
             if op[0] == RT.Run:
                 if isinstance(curr_value, dict): 
@@ -940,6 +944,7 @@ class LazyValue:
                     curr_value = op[1][1](curr_value)
                 else:
                     raise NotImplementedError(f"only effects or nullary functions can be passed to 'run' to be executed in the imperative shell. Received {curr_value}")
+                if profiling: profiling_lst.append({"op": ZefOp((op,)), "time": time() - start})
                 break
             
 
@@ -952,13 +957,18 @@ class LazyValue:
             from .error import _ErrorType
             if isinstance(curr_value, _ErrorType): raise RuntimeError(f"The evaluation engine returned an Error from '{ZefOp((op,))}'.\nThe error was {curr_value}")
             
+            if profiling: profiling_lst.append({"op": ZefOp((op,)), "time": time() - start})
+            
             # if not primary_type_info: 
             #     curr_type, curr_value = find_type_of_current_value(curr_value)
             #     back_up_type_info.append(curr_type)
         # self.type_info = type_info if primary_type_info else back_up_type_info
-        
         if unpack_generator and (isinstance(curr_value, Iterator) or isinstance(curr_value, Generator) or isinstance(curr_value, ZefGenerator)):
-            return [i for i in curr_value]
+            if profiling: start = time()
+            curr_value = [i for i in curr_value]
+            if profiling:  profiling_lst.append({"op": "Unpacking Generator", "time": time() - start})
+                
+        if profiling: print('\n'.join([f"{pad_right(str(d['op']), 50)} took {round(d['time'] * 1000, 4)}ms" for d in profiling_lst]))
         return curr_value      
 
 def find_type_of_current_value(curr_value):
