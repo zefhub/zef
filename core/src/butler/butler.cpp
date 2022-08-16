@@ -510,8 +510,13 @@ namespace zefDB {
                     } catch(const std::exception & e) {
                         std::cerr << "THROW IN GRAPH MANAGER: " << e.what() << std::endl;
                         std::cerr << "While handling msg variant type: " << msg->content.index() << std::endl;
-                        std::cerr << "Setting graph into error state" << std::endl;
-                        me->gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                        if(me->gd) {
+                            std::cerr << "Setting graph into error state" << std::endl;
+                            set_into_invalid_state(*me);
+                        } else {
+                            // Since no graphdata exists, no reason to hang around
+                            me->please_stop = true;
+                        }
                         // Failsafe
                         msg->promise.set_exception(std::current_exception());
                     }
@@ -550,7 +555,7 @@ namespace zefDB {
                 std::cerr << e.what() << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH WORKER THREAD!!!! ***" << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH WORKER THREAD!!!! ***" << std::endl;
-                me->gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                set_into_invalid_state(*me);
                 me->return_value.set_exception(std::current_exception());
             }
 
@@ -642,8 +647,8 @@ namespace zefDB {
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 std::cerr << "Some kind of exception occurred in the sync thread at the highest level: " << e.what() << std::endl;
                 std::cerr << "Setting graph into error state" << std::endl;
-                update(me.gd->heads_locker, [&me]() {
-                        me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                update(me.gd->heads_locker, [this,&me]() {
+                        set_into_invalid_state(me);
                     });
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;

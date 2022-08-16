@@ -69,7 +69,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         std::cerr << "Got response: " << response.j << std::endl;
 
     if(!response.generic.success) {
-        me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+        butler.set_into_invalid_state(me);
         std::cerr << "UNKNOWN ERROR WHEN RESUBSCRIBING FOR GRAPH (" << me.uid << "): " << response.generic.reason << std::endl;
         std::cerr << "UNKNOWN ERROR WHEN RESUBSCRIBING FOR GRAPH (" << me.uid << "): " << response.generic.reason << std::endl;
         std::cerr << "UNKNOWN ERROR WHEN RESUBSCRIBING FOR GRAPH (" << me.uid << "): " << response.generic.reason << std::endl;
@@ -103,7 +103,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
         if(bad) {
             // TODO: Make sure we unsubscribe to the graph
-            me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+            butler.set_into_invalid_state(me);
             std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
             std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
             std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
@@ -153,6 +153,16 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
     if(zwitch.graph_event_output())
         std::cerr << "Upstream head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
+}
+
+
+void Butler::set_into_invalid_state(Butler::GraphTrackingData & me) {
+    me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+    if(me.gd->is_primary_instance) {
+        std::cerr << "Giving up transactor role" << std::endl;
+        me.queue.push(std::make_shared<RequestWrapper>(MakePrimary{Graph(*me.gd), false}), true);
+    }
+    // TODO: Maybe also unsubscribe here?
 }
 
 
@@ -723,6 +733,14 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
         return;
     }
 
+    if(content.sync) {
+        // Try and send out an update. We add in a wait on the
+        // network, as the user calling sync() will expect us to
+        // make more of an effort to get any updates to upstream.
+        // network.wait_for_connected(constants::zefhub_reconnect_timeout);
+        wait_for_auth(constants::zefhub_reconnect_timeout);
+    }
+
     update(me.gd->heads_locker, me.gd->should_sync, content.sync);
 
     // Note: if the graph was already set to sync, the manager should be
@@ -734,11 +752,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
 
     if(me.gd->is_primary_instance) {
         if (content.sync) {
-            // Try and send out an update. We add in a wait on the
-            // network, as the user calling sync() will expect us to
-            // make more of an effort to get any updates to upstream.
-            // network.wait_for_connected(constants::zefhub_reconnect_timeout);
-            wait_for_auth(constants::zefhub_reconnect_timeout);
             // wait_for_auth();
             if(!network.connected) {
                 msg->promise.set_value(GenericResponse{false, "Network did not reconnect in time."});
@@ -1016,7 +1029,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, Disconn
 
 template<>
 void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePrimary & content, Butler::msg_ptr & msg) {
-    if(me.gd->error_state != GraphData::ErrorState::OK) {
+    if(me.gd->error_state != GraphData::ErrorState::OK && content.make_primary) {
         msg->promise.set_value(GenericResponse{false, "Graph is in error state"});
         return;
     }
