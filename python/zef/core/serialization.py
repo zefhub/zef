@@ -225,9 +225,9 @@ def serialize_zeftypes(z) -> dict:
         return {"_zeftype": "UID", "value": str(z)}
 
     elif isinstance(z, Image):
-        import zstd
+        import zstd, base64
         encoded_buffer = z.buffer
-        encoded_buffer = zstd.decompress(encoded_buffer).decode()
+        encoded_buffer = base64.b64encode(zstd.decompress(encoded_buffer)).decode('utf8')
         return {"_zeftype": "Image", "format": z.format, "compression": z.compression, "buffer" : encoded_buffer}
 
     elif type(z) in [Entity, Relation, AtomicEntity]:
@@ -384,8 +384,9 @@ def deserialize_zeftypes(z) -> dict:
         return uid(z['value'])
 
     elif z['_zeftype'] == "Image":
+        import base64
         encoded_buffer = z['buffer']
-        compressed_buffer = bytes(encoded_buffer,"UTF-8")
+        compressed_buffer = base64.b64decode(encoded_buffer)
         return Image(compressed_buffer, z['format'])
 
     elif z['_zeftype']  in {"Entity", "Relation", "AtomicEntity"}:
