@@ -506,7 +506,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
         }))
         // .def_readonly("j", &Messages::UpdatePayload::j)
         .def_property_readonly("j", [](const Messages::UpdatePayload & self) {
-            py::dict d(self.j);
+            py::dict d = self.j;
 
             if(d.contains("hash_full_graph")) {
                 d["hash_full_graph"] = (uint64_t)py::cast<int64_t>(d["hash_full_graph"]);
