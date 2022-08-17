@@ -179,9 +179,16 @@ namespace zefDB {
                         [](blobs_ns::VALUE_NODE & x) {
                             throw std::runtime_error("No value nodes should exist on a 0.2.0 graph.");
                         },
-                        [](blobs_ns::ROOT_NODE & x) {
-                            memcpy(x.data_layout_version_info, "0.3.0", strlen("0.3.0"));
-                            force_assert(x.actual_written_data_layout_version_info_size == strlen("0.3.0"));
+                        [start,ptr](blobs_ns::ROOT_NODE & x) {
+                            // If this one is a delegate then it'll have no data layout version
+                            // Note: because we are looking at raw pointers, we
+                            // can't use the usually methods to travesre the
+                            // graph. So instead of calling is_delegate, we see
+                            // if this is the first blob in the graph.
+                            if(start == ptr) {
+                                memcpy(x.data_layout_version_info, "0.3.0", strlen("0.3.0"));
+                                force_assert(x.actual_written_data_layout_version_info_size == strlen("0.3.0"));
+                            }
                         },
                         [](auto & x) {},
                     },
