@@ -25,7 +25,8 @@ from ..image import Image
 
 def read_localfile_handler(eff: Effect):
     """
-    Unopinionated reading of file. Returns a Bytes object.
+    Reads the file as a string. Returns a str object.
+    To read as a binary file, use FX.LocalFile.ReadBinary.
     >>> FX.LocalFile.Read(filename='my_file.txt')
 
     Response example:
