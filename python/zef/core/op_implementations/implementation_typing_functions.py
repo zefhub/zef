@@ -2010,11 +2010,13 @@ def trim_left_imp(v, el_to_trim):
     """
     if isinstance(v, str):        
         return v.lstrip(el_to_trim)
+    
+    predicate = make_predicate(el_to_trim)
     def wrapper():
         it = iter(v)
         try:
             next_el = next(it)
-            while next_el == el_to_trim:
+            while predicate(next_el):
                 next_el = next(it)
             yield next_el
             while True:
@@ -2057,7 +2059,8 @@ def trim_right_imp(v, el_to_trim):
     # we need to know all elements before deciding what is at the end
     vv = tuple(v)
     vv_rev = vv[::-1]
-    ind = len(list(itertools.takewhile(lambda x: x==el_to_trim, vv_rev)))
+    predicate = make_predicate(el_to_trim)
+    ind = len(list(itertools.takewhile(predicate, vv_rev)))
     return vv if ind==0 else vv[:-ind]
 
 
@@ -2094,8 +2097,9 @@ def trim_imp(v, el_to_trim):
     # we need to know all elements before deciding what is at the end
     vv = tuple(v)
     vv_rev = vv[::-1]
-    ind_left = len(list(itertools.takewhile(lambda x: x==el_to_trim, vv)))
-    ind_right = len(list(itertools.takewhile(lambda x: x==el_to_trim, vv_rev)))    
+    predicate = make_predicate(el_to_trim)
+    ind_left = len(list(itertools.takewhile(predicate, vv)))
+    ind_right = len(list(itertools.takewhile(predicate, vv_rev)))    
     return vv[ind_left:] if ind_right==0 else vv[ind_left:-ind_right]
 
 
