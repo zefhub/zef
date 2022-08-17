@@ -78,6 +78,7 @@ def load_localfile_handler(eff: Effect):
     - png
     - jpg
     - jpeg
+    - gif
 
     Response example:
     {
@@ -97,7 +98,7 @@ def load_localfile_handler(eff: Effect):
         elif "." not in filename: filename = filename + f".{format}"
 
 
-        if format in {"svg", "png", "jpg", "jpeg"}:
+        if format in {"svg", "png", "jpg", "jpeg", "gif"}:
             with open(filename, "rb") as f:
                 content = f.read()
             content = Image(content, format)
