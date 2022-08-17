@@ -219,6 +219,32 @@ def dispatch_rich_stack(component):
         [rich_grid.add_row(row) for row in data]
     return rich_grid
 
+#--------------------------Bullet/Numbered List--------------------------------------
+def dispatch_bullet_or_numbered_list(component):
+        list_type = str(component | without_absorbed | collect)
+        if list_type == 'BulletList':
+            dispatch_type = lambda _: '- ' 
+        else:
+            dispatch_type = lambda i: str(i + 1) +'. '
+        
+        internals = component | absorbed | collect
+        assert isinstance(internals[0], dict), f"First absorbed argument for ZefUI {list_type} should be of type dict!"
+        data  = internals[0].get('data', [])
+        
+        data_modified = []
+        for i, el in enumerate(data):
+            if isinstance(el, str): 
+                data_modified.append(dispatch_type(i) + el)
+            else:
+                data_modified.append(HStack(data=[dispatch_type(i), el]))
+
+        heading = internals[0].get('heading', "")
+        if heading: data_modified = data_modified | prepend[heading] | collect
+
+        allowed_keys = ["padding", "expand"]
+        attributes = select_keys(internals[0], *allowed_keys)
+
+        return dispatch_rich_stack(VStack(data_modified, **attributes))
 
 #--------------------------Markdown--------------------------------------
 def dispatch_rich_markdown(component):
@@ -311,9 +337,9 @@ def match_and_dispatch(component):
         (Is[is_a_component[Frame]], dispatch_rich_panel),
         (Is[is_a_component[HStack]], dispatch_rich_stack),
         (Is[is_a_component[VStack]], dispatch_rich_stack),
-        (Is[is_a_component[BulletList]], dispatch_rich_markdown),
-        (Is[is_a_component[NumberedList]], dispatch_rich_markdown),
         (Is[is_a_component[Paragraph]], dispatch_rich_markdown),
+        (Is[is_a_component[BulletList]], dispatch_bullet_or_numbered_list),
+        (Is[is_a_component[NumberedList]], dispatch_bullet_or_numbered_list),
     ] | collect
 
 def print_rich(displayable):
