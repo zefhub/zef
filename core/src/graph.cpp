@@ -1212,7 +1212,7 @@ namespace zefDB {
             GEN_CACHE("_uid_lookup", uid_lookup)
             GEN_CACHE("_euid_lookup", euid_lookup)
             GEN_CACHE("_tag_lookup", tag_lookup)
-            GEN_CACHE("_av_hash_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
 #undef GEN_CACHE
 
             return heads;
