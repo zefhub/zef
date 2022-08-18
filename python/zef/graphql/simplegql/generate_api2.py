@@ -20,6 +20,8 @@ from ...core.logger import log
 from ...core.error import _ErrorType, ExceptionWrapper
 import functools
 
+from . import compiling
+
 from ariadne import ObjectType, QueryType, MutationType, EnumType, ScalarType
 
 ############################################
@@ -103,6 +105,12 @@ def profile_print(sort_by="total_time"):
                      ))
         
     show(Table(rows=rows, cols=cols))
+
+
+def stmts_profile(name, op):
+    # Going to optimise this out
+    return compiling.maybe_compile_func(op, allow_const=True)
+compiling.compilable_funcs[peel(profile)[0][1][0][1]] = stmts_profile
 
 ##############################
 # * Utils
@@ -873,7 +881,8 @@ def handle_list_params(opts, z_node, params, info):
     return opts
 
 @func
-def field_resolver_by_name(z, type_node, info, name):
+def field_resolver_by_name(arg, type_node, name):
+    z,info = arg
     # Note name goes last because it is curried last... this is weird
     if name == "id":
         return resolve_id(z, info=info)
@@ -897,10 +906,69 @@ def maybe_filter_result(z_node, info, fil=None):
                         (Any, lambda x: log.debug("DEBUG 4: filter failed", item=first(x)))
                         ]]
                     | second)
-    return filter[temp_fil]
+    # return filter[temp_fil]
+
+    hacked = func[lambda x: (x,info)] | temp_fil
+    return filter[hacked]
+
+# def build_filter_zefop(fil, z_node, info):
+#     field_resolver = field_resolver_by_name[z_node][info]
+#     # top level is ands
+#     top = And
+#     for key,sub in fil.items():
+#         if key == "and":
+#             this = And
+#             for part in sub:
+#                 this = this[build_filter_zefop(part, z_node, info)]
+#         elif key == "or":
+#             this = Or
+#             for part in sub:
+#                 this = this[build_filter_zefop(part, z_node, info)]
+#         elif key == "not":
+#             this = Not[build_filter_zefop(sub, z_node, info)]
+#         elif key == "id":
+#             # This is handled specially - functions like an "in".
+#             val = field_resolver["id"]
+#             this = val | contained_in[sub]
+#         else:
+#             # This must be a field
+#             z_field = get_field_rel_by_name(z_node, key)
+#             z_field_node = target(z_field)
+
+#             val = field_resolver[key]
+#             if op_is_list(z_field):
+#                 list_top = And
+#                 for list_key,list_sub in sub.items():
+#                     if list_key == "any":
+#                         sub_fil = build_filter_zefop(list_sub, z_field_node, info)
+#                         list_top = list_top[val | map[sub_fil] | any]
+#                     elif list_key == "all":
+#                         sub_fil = build_filter_zefop(list_sub, z_field_node, info)
+#                         list_top = list_top[val | map[sub_fil] | all]
+#                     elif list_key == "size":
+#                         temp = val | length | scalar_comparison_op(list_sub)
+#                         list_top = list_top[temp]
+#                     else:
+#                         raise Exception(f"Unknown list filter keyword: {list_key}")
+#                 this = list_top
+#             elif op_is_scalar(z_field_node):
+#                 if isinstance(sub, bool):
+#                     this = val | equals[sub]
+#                 else:
+#                     this = val | scalar_comparison_op(sub)
+#             else:
+#                 sub_fil = build_filter_zefop(sub, z_field_node, info)
+#                 this = val | And[Not[equals[None]]][sub_fil]
+
+
+#         p_name = f"filter internal '{key}' on {z_node | F.Name | collect}"
+#         this = profile[p_name][this]
+#         top = top[this]
+
+#     return top
 
 def build_filter_zefop(fil, z_node, info):
-    field_resolver = field_resolver_by_name[z_node][info]
+    field_resolver = field_resolver_by_name[z_node]
     # top level is ands
     top = And
     for key,sub in fil.items():
@@ -949,10 +1017,18 @@ def build_filter_zefop(fil, z_node, info):
                 this = val | And[Not[equals[None]]][sub_fil]
 
 
+        this = compiling.maybe_compile_func(this)
+        print("There is a this:",this)
         p_name = f"filter internal '{key}' on {z_node | F.Name | collect}"
         this = profile[p_name][this]
         top = top[this]
 
+    # Testing compiling
+    before = top
+    top = compiling.maybe_compile_func(top)
+    print("Compiiling comparison")
+    print(before)
+    print(top)
     return top
 
 def scalar_comparison_op(sub):

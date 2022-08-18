@@ -375,7 +375,15 @@ class ZefOp:
         return NotImplemented
 
     def __hash__(self):
-        return hash(self.el_ops)
+        def freeze(obj):
+            if isinstance(obj, dict):
+                return frozenset({ k:freeze(v) for k,v in obj.items()}.items())
+
+            if isinstance(obj, (list, tuple, set)):
+                return tuple([freeze(v) for v in obj])
+
+            return obj
+        return hash(freeze(self.el_ops))
 
     def lt_gt_behavior(self, other, rt):
         # other could be one of 3 cases
