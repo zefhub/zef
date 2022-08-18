@@ -108,8 +108,10 @@ def query(request, context):
     if context["debug_level"] >= 3:
         log.debug("DEBUG 3: incoming query", q=q)
 
+    from .generate_api2 import profile_reset, profile_print
     # We pass in the graph as a fixed slice, so that the queries can be done
     # consistently.
+    profile_reset()
     success,data = graphql_sync(
         context["ari_schema"],
         q,
@@ -117,6 +119,9 @@ def query(request, context):
                        "auth": auth_context,
                        "debug_level": context["debug_level"]},
     )
+    profile_print(sort_by="name")
+    profile_print(sort_by="per_call")
+    profile_print()
     if context["debug_level"] >= 0:
         if not success or "errors" in data:
             log.error("Failure in GQL query.", data=data, q=q, auth_context=auth_context)

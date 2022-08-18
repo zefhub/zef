@@ -22,6 +22,88 @@ import functools
 
 from ariadne import ObjectType, QueryType, MutationType, EnumType, ScalarType
 
+############################################
+# * Temporary profiling
+#------------------------------------------
+
+profile_cache = {}
+
+
+# TODO: Some magic with ZefGenerator outputs
+from ...core.op_implementations.implementation_typing_functions import ZefGenerator
+
+@func
+def profile(input, name, op):
+    details = profile_cache.setdefault(name, {
+        "measurements": 0,
+        "time": 0.0,
+    })
+    
+    start = now()
+    if type(op) == ZefOp:
+        lv = input | op
+        output = lv.evaluate(unpack_generator=False)
+    else:
+        output = op(input)
+
+    dt = (now() - start).value
+    
+    details["measurements"] += 1
+    details["time"] += dt
+
+    if type(output) == ZefGenerator:
+        # We convert this into a generator that adds to the details each time it pulls from the source generator
+        def profile_item():
+            item_details = profile_cache.setdefault(name + "::items", {
+                "measurements": 0,
+                "time": 0.0,
+            })
+            iterator = iter(output)
+            while True:
+                try:
+                    item_start = now()
+                    next_val = next(iterator)
+                    dt = (now() - item_start).value
+                    item_details["measurements"] += 1
+                    item_details["time"] += dt
+                    yield next_val
+                except StopIteration:
+                    break
+        new_output = ZefGenerator(profile_item)
+        return new_output
+
+    return output
+
+def profile_reset():
+    profile_cache.clear()
+    
+def profile_print(sort_by="total_time"):
+    per_call_func = func[lambda x: x["time"] / x["measurements"]]
+    lines = profile_cache | items | collect
+    lines = lines | filter[second | get["measurements"] | greater_than[0]] | collect
+    if sort_by == "total_time":
+        sort_key = second | get["time"]
+    elif sort_by == "per_call":
+        sort_key = second | per_call_func
+    elif sort_by == "name":
+        sort_key = first
+    else:
+        raise Exception(f"Unknown sort by {sort_by}")
+    lines = lines | sort[sort_key] | reverse | collect
+    
+    from ...ui import Table, Column, show, Text
+    cols = [Column("name"), Column("count"), Column("per call"), Column("total")]
+    rows = []
+    for name,details in lines:
+        per_call = per_call_func(details)
+        rows.append((Text(name),
+                     Text(str(details["measurements"])),
+                     Text(f"{per_call:.2}s"),
+                     Text(f"{details['time']:.2}s"),
+                     ))
+        
+    show(Table(rows=rows, cols=cols))
+
 ##############################
 # * Utils
 #----------------------------
@@ -449,15 +531,18 @@ def resolve_get2(obj, type_node, graphql_info, query_args):
         return Error(exc)
 
 def resolve_query(_, info, *, type_node, **params):
-    ents = obtain_initial_list(type_node, params.get("filter", None), info)
+    # ents = obtain_initial_list(type_node, params.get("filter", None), info)
+    ents = profile(None, "obtain_initial_list_prep", lambda _: obtain_initial_list(type_node, params.get("filter", None), info))
 
-    ents = handle_list_params(ents, type_node, params, info)
+    # ents = handle_list_params(ents, type_node, params, info)
+    ents = profile(None, "handle_list_params_prep", lambda _: handle_list_params(ents, type_node, params, info))
 
     return ents | collect
 
 @func
 def resolve_query2(obj, type_node, graphql_info, query_args):
-    return resolve_query(obj, graphql_info, type_node=type_node, **query_args)
+    # return resolve_query(obj, graphql_info, type_node=type_node, **query_args)
+    return profile(None, "resolve_query", lambda _: resolve_query(obj, graphql_info, type_node=type_node, **query_args))
 
 def resolve_aggregate(_, info, *, type_node, **params):
     # We can potentially defer the aggregation till later, by returning a kind
@@ -526,7 +611,9 @@ def resolve_field(z, info, *, z_field, **params):
         return single(opts)
 @func
 def resolve_field2(obj, z_field, graphql_info, query_args):
-    return resolve_field(obj, graphql_info, z_field=z_field, **query_args)
+    # return resolve_field(obj, graphql_info, z_field=z_field, **query_args)
+    name = "resolve_field " + (z_field | source | F.Name | collect) + "." + (z_field | F.Name | collect)
+    return profile(None, name, lambda _: resolve_field(obj, graphql_info, z_field=z_field, **query_args))
 
 def resolve_id(z, info):
     return str(origin_uid(z))
@@ -766,7 +853,8 @@ def obtain_initial_list(type_node, filter_opts, info):
 
         return zs
     else:
-        zs = gs | all[type_et] | filter[pass_query_auth[type_node][info]]
+        # zs = gs | all[type_et] | filter[pass_query_auth[type_node][info]]
+        zs = gs | profile["gs | all"][all[type_et]] | profile["initial_query_auth_filter"][filter[profile["initial_query_auth"][pass_query_auth[type_node][info]]]]
         if info.context["debug_level"] >= 3:
             log.debug("DEBUG 3: built initial list from type and auth", length_list=length(zs))
         return zs
@@ -774,11 +862,14 @@ def obtain_initial_list(type_node, filter_opts, info):
     
 
 def handle_list_params(opts, z_node, params, info):
-    opts = maybe_filter_result(opts, z_node, info, params.get("filter", None))
+    # opts = maybe_filter_result(opts, z_node, info, params.get("filter", None))
+    opts = opts | profile["result_filter"][maybe_filter_result(z_node, info, params.get("filter", None))]
     if info.context["debug_level"] >= 3:
         log.debug("DEBUG 3: after filtering", length_list=length(opts))
-    opts = maybe_sort_result(opts, z_node, info, params.get("order", None))
-    opts = maybe_paginate_result(opts, params.get("first", None), params.get("offset", None))
+    # opts = maybe_sort_result(opts, z_node, info, params.get("order", None))
+    opts = opts | profile["result_sort"][maybe_sort_result(z_node, info, params.get("order", None))]
+    # opts = maybe_paginate_result(opts, params.get("first", None), params.get("offset", None))
+    opts = opts | profile["result_paginate"][maybe_paginate_result(params.get("first", None), params.get("offset", None))]
     return opts
 
 @func
@@ -792,11 +883,12 @@ def field_resolver_by_name(z, type_node, info, name):
 
 # ** Filtering
 
-def maybe_filter_result(opts, z_node, info, fil=None):
+def maybe_filter_result(z_node, info, fil=None):
     if fil is None:
-        return opts
+        return identity
 
     temp_fil = build_filter_zefop(fil, z_node, info)
+    temp_fil = profile["result_filter_pred"][temp_fil]
     if info.context["debug_level"] >= 4:
         log.debug("DEBUG 4: filter is", fil=temp_fil)
         temp_fil = (apply[identity, temp_fil]
@@ -805,7 +897,7 @@ def maybe_filter_result(opts, z_node, info, fil=None):
                         (Any, lambda x: log.debug("DEBUG 4: filter failed", item=first(x)))
                         ]]
                     | second)
-    return opts | filter[temp_fil]
+    return filter[temp_fil]
 
 def build_filter_zefop(fil, z_node, info):
     field_resolver = field_resolver_by_name[z_node][info]
@@ -857,6 +949,8 @@ def build_filter_zefop(fil, z_node, info):
                 this = val | And[Not[equals[None]]][sub_fil]
 
 
+        p_name = f"filter internal '{key}' on {z_node | F.Name | collect}"
+        this = profile[p_name][this]
         top = top[this]
 
     return top
@@ -893,9 +987,9 @@ def get_field_rel_by_name(z_type, name):
 
 # ** Sorting
 
-def maybe_sort_result(opts, z_node, info, sort_decl=None):
+def maybe_sort_result(z_node, info, sort_decl=None):
     if sort_decl is None:
-        return opts
+        return identity
 
     field_resolver = field_resolver_by_name[z_node][info]
 
@@ -915,25 +1009,29 @@ def maybe_sort_result(opts, z_node, info, sort_decl=None):
 
     sort_list.reverse()
 
-    for action in sort_list:
-        opts = opts | action
-
-    return opts
+    full_action = sort_list[1:] | reduce[lambda x,y: x | y][sort_list[0]]
+    return full_action
 
 # ** Pagination
 
-def maybe_paginate_result(opts, first=None, offset=None):
+def maybe_paginate_result(first=None, offset=None):
+    action = identity
     if offset is not None:
-        opts = opts | skip[offset]
+        action = action | skip[offset]
     if first is not None:
-        opts = opts | take[first]
-    return opts
+        action = action | take[first]
+    return action
 
 
 # ** Resolution
 
 @func
 def internal_resolve_field(z, info, z_field, auth_required=True):
+    p_name = f"internal field {z_field | source | F.Name | collect}.{z_field | F.Name | collect}"
+    return profile(None, p_name, lambda _: internal_resolve_field_profiled(z, info, z_field, auth_required))
+
+@func
+def internal_resolve_field_profiled(z, info, z_field, auth_required=True):
     # This returns a LazyValue so we can deal with whatever comes out without
     # instantiating the whole list.
 
@@ -974,7 +1072,8 @@ def internal_resolve_field(z, info, z_field, auth_required=True):
         raise Exception(f"Don't know how to resolve this field: {z_field}")
 
     if auth_required:
-        opts = opts | filter[pass_query_auth[target(z_field)][info]]
+        p_name = f"internal field auth filter {z_field | source | F.Name | collect}.{z_field | F.Name | collect}"
+        opts = opts | profile[p_name][filter[pass_query_auth[target(z_field)][info]]]
 
     # We must convert final objects from AEs to python types.
     # if z_field | target | is_core_scalar | collect:
