@@ -1993,7 +1993,7 @@ def trim_left_imp(v, el_to_trim):
     element / character from the left side of a list / string.
 
     ---- Examples ----
-    >>> '..hello..' | trim_left['.']            # => ['hello..']
+    >>> '..hello..' | trim_left['.']            # => 'hello..'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2009,7 +2009,15 @@ def trim_left_imp(v, el_to_trim):
     - used for: string manipulation
     """
     if isinstance(v, str):        
-        return v.lstrip(el_to_trim)
+        if isinstance(el_to_trim, str):
+            return v.lstrip(el_to_trim)
+        elif isinstance(el_to_trim, set):
+            vv = v
+            for el in el_to_trim:
+                vv = vv | chunk[len(el)] | trim_left[{el}] | join[''] | collect
+            return vv
+        else:
+            raise ValueError("Triming a str only takes a string or a set as argument.")
     
     predicate = make_predicate(el_to_trim)
     def wrapper():
@@ -2038,7 +2046,7 @@ def trim_right_imp(v, el_to_trim):
     element / character from the right side of a list / string.
 
     ---- Examples ----
-    >>> '..hello..' | trim_right['.']            # => ['..hello']
+    >>> '..hello..' | trim_right['.']            # => '..hello'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2055,7 +2063,15 @@ def trim_right_imp(v, el_to_trim):
     """
     import itertools 
     if isinstance(v, str):
-        return v.rstrip(el_to_trim)
+        if isinstance(el_to_trim, str):
+            return v.rstrip(el_to_trim)
+        elif isinstance(el_to_trim, set):
+            vv = v
+            for el in el_to_trim:
+                vv = vv | chunk[len(el)] | trim_right[{el}] | join[''] | collect
+            return vv
+        else:
+            raise ValueError("Triming a str only takes a string or a set as argument.")
     # we need to know all elements before deciding what is at the end
     vv = tuple(v)
     vv_rev = vv[::-1]
@@ -2076,7 +2092,7 @@ def trim_imp(v, el_to_trim):
     element / character from both sides of a list / string.
 
     ---- Examples ----
-    >>> '..hello..' | trim['.']            # => ['..hello']
+    >>> '..hello..' | trim['.']            # => 'hello'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2093,7 +2109,18 @@ def trim_imp(v, el_to_trim):
     """
     import itertools 
     if isinstance(v, str):
-        return v.strip(el_to_trim)
+        if isinstance(el_to_trim, str):
+            return v.strip(el_to_trim)
+        elif isinstance(el_to_trim, set):
+            vv = v
+            for el in el_to_trim:
+                # TODO: Need to add padding after chunking to remove correctly from the right
+                vv = vv | chunk[len(el)] | trim[{el}] | join[''] | collect
+            return vv
+        else:
+            raise ValueError("Triming a str only takes a string or a set as argument.")
+                
+
     # we need to know all elements before deciding what is at the end
     vv = tuple(v)
     vv_rev = vv[::-1]
