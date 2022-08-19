@@ -4246,7 +4246,9 @@ def split_imp(collection, val, max_split=-1):
     ---- Examples ----
     >>> 'abcdeabfb' | split['b']            # => ['a', 'cdea', 'f', '']
     >>> 'abcdeabfb' | split['b'][1]         # => ['a', 'cdeabfb']
-    >>> [0,1,6,2,3,4,2,] | split[2]         # => [[0, 1, 6], [3, 4], []]    
+    >>> [0,1,6,2,3,4,2,] | split[2]         # => [[0, 1, 6], [3, 4], []]  
+    >>> '..hello..' | split['..']         # => ['', 'hello', '']
+    >>> '..hello..' | split['.']         # => ['','', 'hello', '', '']
 
     ---- Signature ----
     (List[T], T) -> List[List[T]]
