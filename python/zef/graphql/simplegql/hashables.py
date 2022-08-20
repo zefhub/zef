@@ -17,7 +17,7 @@ def freeze(obj):
     if isinstance(obj, dict):
         return frozenset({ k:freeze(v) for k,v in obj.items()}.items())
 
-    if isinstance(obj, list):
+    if isinstance(obj, (tuple, list, set)):
         return tuple([freeze(v) for v in obj])
     
     return obj

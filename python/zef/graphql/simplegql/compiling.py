@@ -15,23 +15,32 @@
 from zef import *
 from zef.ops import *
 import zef
+import zef.pyzef.zefops as pyzefops
 
 import types
+import ast
+from zef.core.op_implementations.implementation_typing_functions import ZefGenerator
 
 compilable_ops = {}
 compilable_funcs = {}
 
 def maybe_compile_func(obj, *args, allow_const=False, **kwargs):
-    if type(obj) == types.FunctionType:
+    if type(obj) in [types.FunctionType, types.BuiltinFunctionType]:
         if obj in compilable_funcs:
             out_func = compile_func(obj.__name__, compilable_funcs[obj], *args, **kwargs, allow_const=allow_const)
         elif len(args) == 0 and len(kwargs) == 0:
             out_func = obj
         else:
             out_func = lambda *more_args,**more_kwargs: obj(*more_args, *args, **more_kwargs, **kwargs)
+            out_func._lines = "obj call with args"
+            out_func._ann = [("obj", obj)]
+            if len(args) > 0:
+                out_func._ann += [("args",args)]
+            if len(kwargs) > 0:
+                out_func._ann += [("kwargs", kwargs)]
     elif type(obj) == ZefOp:
-        assert len(args) == 0 and len(kwargs) == 0
         if len(obj) >= 2:
+            assert len(args) == 0 and len(kwargs) == 0, f"Got a zefop chain {obj} with input args {args} or kwargs {kwargs}"
             # Chain zefop logic
             op_chain = list(obj)
             op_chain = [maybe_compile_func(x, allow_const=True) for x in op_chain]
@@ -49,19 +58,28 @@ def maybe_compile_func(obj, *args, allow_const=False, **kwargs):
             # Single zefop logic
             if peel(obj)[0][0] == RT.Function:
                 func = peel(obj)[0][1][0][1]
-                args = peel(obj)[0][1][1:]
-                print(peel(obj))
-                print(func)
-                print(args)
-                out_func = maybe_compile_func(func, *args)
+                curried_args = peel(obj)[0][1][1:]
+                out_func = maybe_compile_func(func, *curried_args, *args, **kwargs)
             else:
+                assert len(args) == 0 and len(kwargs) == 0
                 op,args = peel(obj)[0]
                 if op in compilable_ops:
                     out_func = compile_func(repr(op).replace('.', '__'), compilable_ops[op], *args, allow_const=allow_const)
                 else:
                     out_func = obj
     else:
-        raise Exception(f"Don't know how to maybe compile this {type(obj)}")
+        # raise Exception(f"Don't know how to maybe compile this {type(obj)}")
+        # This is duplication
+        if len(args) == 0 and len(kwargs) == 0:
+            out_func = obj
+        else:
+            out_func = lambda *more_args,**more_kwargs: obj(*more_args, *args, **more_kwargs, **kwargs)
+            out_func._lines = "obj call with args"
+            out_func._ann = [("obj", obj)]
+            if len(args) > 0:
+                out_func._ann += [("args",args)]
+            if len(kwargs) > 0:
+                out_func._ann += [("kwargs", kwargs)]
 
     if out_func is None:
         return obj
@@ -76,24 +94,20 @@ def chain_as_func(op_chain):
     inputs = ["x"]
     stmts = []
     for op in op_chain:
-        if type(op) == ZefOp:
-            # Magic with ZefGenerator
-            pass
-        else:
-            stmts.append(PartialStatement("x",
-                                          op,
-                                          "x"))
+        stmts.append(PartialStatement("x",
+                                      op,
+                                      "x"))
     stmts.append(ReturnStatement("x"))
         
     return stmts_to_pyfunc("chain", inputs, stmts)
 
-def zefop_call(op, starargs, *args):
-    if starargs:
-        from zef.ops import unpack
-        lv = args | unpack[op]
+def zefop_call(op, *args):
+    if len(args) == 1:
+        lv = LazyValue(args[0]) | op
     else:
-        lv = args | op
-    return lv.evalute(unpack_generators=False)
+        from zef.ops import unpack
+        lv = LazyValue(args) | unpack[op]
+    return lv.evaluate(unpack_generator=False)
     
 
 
@@ -104,17 +118,19 @@ def compile_func(name, stmts_func, *args, allow_const=False, **kwargs):
     key = (name, *freeze(args), "*", *freeze(sorted(kwargs.items())))
     pyfunc = func_cache.get(key, None)
     if pyfunc is None:
-        print(f"Going to compile pyfunc for {name} with args={args}")
+        # print(f"Going to compile pyfunc for {key}")
         stmts_ret = stmts_func(*args, **kwargs)
         if stmts_ret is None:
             pyfunc = None
         elif type(stmts_ret) == ConstResult:
             pyfunc = stmts_ret
-        elif type(stmts_ret) == types.FunctionType:
-            pyfunc = stmts_ret
-        else:
+        elif type(stmts_ret) in [types.FunctionType, ZefOp, types.BuiltinFunctionType]:
+            pyfunc = maybe_compile_func(stmts_ret, allow_const=True)
+        elif type(stmts_ret) == tuple:
             inputs,stmts = stmts_ret
             pyfunc = stmts_to_pyfunc(name, inputs, stmts)
+        else:
+            raise Exception(f"stmts_func ({stmts_func}) returned something unexpected: {type(stmts_ret)}")
         func_cache[key] = pyfunc
 
     if not allow_const:
@@ -131,15 +147,27 @@ class PartialStatement:
         self.op = op
         self.outputs = outputs
         self.starargs = starargs
+    def __str__(self):
+        return f"PartialStatement(in={self.inputs}, op={self.op}, out={self.outputs}, starargs={self.starargs})"
 
 class AssignStatement:
     def __init__(self, const, outputs):
         self.const = const
         self.outputs = outputs
+    def __str__(self):
+        return f"AssignStatement(const={self.const}, out={self.outputs})"
 
 class ReturnStatement:
     def __init__(self, names):
         self.names = names
+    def __str__(self):
+        return f"ReturnStatement(name={self.names}))"
+
+class RawASTStatement:
+    def __init__(self, ast):
+        self.ast = ast
+    def __str__(self):
+        return f"RawASTStatement(ast={self.ast})"
 
 class ConstResult:
     def __init__(self, const):
@@ -153,8 +181,6 @@ def stmts_to_pyfunc(name, inputs, stmts):
 
         return f"{prefix}__{last_i}"
     
-    import ast
-
     boring = {"lineno": 0, "col_offset": 0}
 
     body = []
@@ -168,12 +194,20 @@ def stmts_to_pyfunc(name, inputs, stmts):
             return ast.Tuple(elts=[ast.Name(id=x, ctx=ctx, **boring) for x in names], ctx=ctx, **boring)
         
     for stmt in stmts:
-        if type(stmt) == AssignStatement:
+        if type(stmt) == RawASTStatement:
+            if type(stmt.ast) == str:
+                parsed_mod = ast.parse(stmt.ast)
+                body += parsed_mod.body
+            elif type(stmt.ast) == ast.Module:
+                body += stmt.ast.body
+            else:
+                raise Exception(f"Don't know how to handle raw ast of type {type(stmt.ast)}")
+        elif type(stmt) == AssignStatement:
             # Repetition!!!
             output_var = var_or_tuple(stmt.outputs, ast.Store())
 
             if type(stmt.const) in [str, int, float, types.NoneType]:
-                value = ast.Const(value=stmt.const)
+                value = ast.Constant(value=stmt.const)
             else:
                 const_name = name_gen("const")
                 globs[const_name] = stmt.const
@@ -194,7 +228,7 @@ def stmts_to_pyfunc(name, inputs, stmts):
                 output_var = var_or_tuple(stmt.outputs, ast.Store())
 
                 if type(compiled_op.const) in [str, int, float, types.NoneType]:
-                    value = ast.Const(value=compiled_op.const)
+                    value = ast.Constant(value=compiled_op.const)
                 else:
                     const_name = name_gen("const")
                     globs[const_name] = compiled_op.const
@@ -208,23 +242,27 @@ def stmts_to_pyfunc(name, inputs, stmts):
 
                 body += [const_stmt]
             else:
-                input_name = name_gen("input")
-                value = var_or_tuple(stmt.inputs, ast.Load())
-                input_stmt = ast.Assign(
-                    targets=[ast.Name(id=input_name, ctx=ast.Store(), **boring)],
-                    value=value,
-                    **boring
-                )
+                # input_name = name_gen("input")
+                # value = var_or_tuple(stmt.inputs, ast.Load())
+                # input_stmt = ast.Assign(
+                #     targets=[ast.Name(id=input_name, ctx=ast.Store(), **boring)],
+                #     value=value,
+                #     **boring
+                # )
+                input_item = var_or_tuple(stmt.inputs, ast.Load())
 
                 output_var = var_or_tuple(stmt.outputs, ast.Store())
 
                 func_name = name_gen("func")
                 if type(compiled_op) == ZefOp:
-                    globs[func_name] = lambda *args, op=compiled_op: zefop_call(compiled_op, stmt.starargs, *args)
+                    globs[func_name] = lambda *args, op=compiled_op: zefop_call(op, *args)
+                    globs[func_name]._lines = "zefop_call(...)"
+                    globs[func_name]._ann = [("op", compiled_op)]
                 else:
                     globs[func_name] = compiled_op
 
-                call_args = ast.Name(id=input_name, ctx=ast.Load(), **boring)
+                # call_args = ast.Name(id=input_name, ctx=ast.Load(), **boring)
+                call_args = input_item
                 if stmt.starargs:
                     call_args = ast.Starred(call_args)
                 call_expr = ast.Call(
@@ -238,7 +276,8 @@ def stmts_to_pyfunc(name, inputs, stmts):
                     **boring,
                 )
 
-                body += [input_stmt, assign_stmt]
+                # body += [input_stmt, assign_stmt]
+                body += [assign_stmt]
         elif type(stmt) == ReturnStatement:
             ret_var = var_or_tuple(stmt.names, ast.Load())
             ret_stmt = ast.Return(value=ret_var, **boring)
@@ -271,7 +310,35 @@ def stmts_to_pyfunc(name, inputs, stmts):
 
 
 
+def add_indent(s):
+    return s | split['\n'] | map[lambda x: "|  " + x] | collect
+
+def compiled_func_as_str(f):
+    s = []
+    if hasattr(f, "_lines"):
+        s += [f"{f} with code:\n{f._lines}"]
+        globs = f.__code__.co_names | filter[contains["__"]] | collect
+        for glob in globs:
+            s += [f"With glob {glob}:"]
+            nested = compiled_func_as_str(f.__globals__[glob])
+            s += add_indent(nested)
+    else:
+        s += [f"obj: {f!r}"]
+    if hasattr(f, "_ann"):
+        for name,val in f._ann:
+            val_s = compiled_func_as_str(val)
+            if '\n' in val_s:
+                s += [f"Annotation, {name}::"] + add_indent(val_s)
+            else:
+                s += [f"Annotation, {name} = {val_s}"]
+    return '\n'.join(s)
+
     
+        
+
+##############################
+# * Test case
+#----------------------------
 
 def stmts_simple_func(copy_rt, is_out=True, pred=None):
     inputs = ["z"]
@@ -309,6 +376,11 @@ def stmts_simple_func(copy_rt, is_out=True, pred=None):
     
 
 
+##############################
+# * Ops
+#----------------------------
+
+
 def stmts_And(*preds):
     inputs = ["z"]
     stmts = []
@@ -317,7 +389,7 @@ def stmts_And(*preds):
         return ConstResult(True)
 
     if len(preds) == 1:
-        return maybe_compile_func(preds[0], allow_const=True)
+        return preds[0]
 
     # # This will just fallback to a call to And_implementation.
     # return None
@@ -331,26 +403,257 @@ def stmts_And(*preds):
     if compiled_preds | map[lambda x: type(x) == ConstResult and x.const is False] | any | collect:
         return ConstResult(False)
 
-    # from zef.core.op_implementations.implementation_typing_functions import and_imp
-    # stmts += [PartialStatement("z",
-    #                            lambda x: and_imp(x, *compiled_preds),
-    #                            "out"),
-    #           ReturnStatement("out")]
-
+    all_names = []
+    for i,pred in enumerate(compiled_preds):
+        name = f"pred_{i}"
+        stmts += [AssignStatement(pred, name)]
+        all_names += [name]
+    stmts += [RawASTStatement("preds = [" + ', '.join(all_names) + "]")]
     from zef.core.op_implementations.implementation_typing_functions import and_imp
-    stmts += [AssignStatement(compiled_preds,
-                              "preds"),
-              PartialStatement(["z", "preds"],
-                               lambda z, preds: and_imp(z, *preds),
-                               "out",
-                               starargs=True),
-              ReturnStatement("out")]
+    stmts += [
+        PartialStatement(["z", *all_names],
+                         and_imp,
+                         "out",
+                         starargs=True),
+        ReturnStatement("out")
+    ]
 
     return inputs,stmts
 
 compilable_ops[RT.And] = stmts_And
 
+def stmts_Or(*preds):
+    inputs = ["z"]
+    stmts = []
+
+    if len(preds) == 0:
+        return ConstResult(False)
+
+    if len(preds) == 1:
+        return preds[0]
+
+    # # This will just fallback to a call to And_implementation.
+    # return None
+
+    compiled_preds = (preds
+                      | map[lambda x: maybe_compile_func(x, allow_const=True)]
+                      | filter[Not[lambda x: type(x) == ConstResult and x.const is False]]
+                      | collect)
+    if len(compiled_preds) == 0:
+        return ConstResult(False)
+    if compiled_preds | map[lambda x: type(x) == ConstResult and x.const is True] | any | collect:
+        return ConstResult(True)
+
+    all_names = []
+    for i,pred in enumerate(compiled_preds):
+        name = f"pred_{i}"
+        stmts += [AssignStatement(pred, name)]
+        all_names += [name]
+    stmts += [RawASTStatement("preds = [" + ', '.join(all_names) + "]")]
+    from zef.core.op_implementations.implementation_typing_functions import or_imp
+    stmts += [
+        PartialStatement(["z", *all_names],
+                         or_imp,
+                         "out",
+                         starargs=True),
+        ReturnStatement("out")
+    ]
+
+    return inputs,stmts
+
+compilable_ops[RT.Or] = stmts_Or
+
 def stmts_always(val):
     return ConstResult(val)
 
 compilable_ops[RT.Always] = stmts_always
+
+def stmts_not(func):
+    cfunc = maybe_compile_func(func, allow_const=True)
+    if type(cfunc) == ConstResult:
+        return ConstResult(not(cfunc))
+
+    stmts = [
+        PartialStatement("x",
+                         func,
+                         "result"),
+        RawASTStatement("return not result"),
+    ]
+    return ["x"], stmts
+
+compilable_ops[RT.Not] = stmts_not
+
+def stmts_equals(val):
+    stmts = [
+        AssignStatement(val,
+                        "val"),
+        RawASTStatement("return x == val"),
+    ]
+    return ["x"], stmts
+
+compilable_ops[RT.Equals] = stmts_equals
+
+def stmts_contained_in(l):
+    stmts = [
+        AssignStatement(l,
+                        "l"),
+        RawASTStatement("return x in l"),
+    ]
+    return ["x"], stmts
+
+compilable_ops[RT.ContainedIn] = stmts_contained_in
+
+def stmts_identity():
+    return ["x"], [ReturnStatement("x")]
+
+compilable_ops[RT.Identity] = stmts_identity
+
+def stmts_filter(pred):
+    inputs = ["input"]
+    stmts = []
+
+    cpred = maybe_compile_func(pred, allow_const=True)
+    if type(cpred) == ConstResult:
+        if cpred.const is True:
+            return identity
+        elif cpred.const is False:
+            return ConstResult([])
+        else:
+            raise Exception("Filter doesn't return Bool")
+
+    from zef.core.op_implementations.implementation_typing_functions import filter_implementation
+    stmts += [
+        AssignStatement(cpred, "pred"),
+        AssignStatement(filter_implementation, "filter_implementation"),
+        RawASTStatement("out = filter_implementation(input, pred)"),
+        ReturnStatement("out")
+    ]
+
+    return inputs,stmts
+
+compilable_ops[RT.Filter] = stmts_filter
+
+def stmts_map(func):
+    inputs = ["input"]
+    stmts = []
+
+    cfunc = maybe_compile_func(func)
+
+    # from zef.core.op_implementations.implementation_typing_functions import map_implementation
+    def map_fast(v, f):
+        def wrapper():
+            for el in v:
+                yield(f(el))
+        return ZefGenerator(wrapper)
+    stmts += [
+        AssignStatement(cfunc, "func"),
+        PartialStatement(["input", "func"], map_fast, "out", starargs=True),
+        ReturnStatement("out")
+    ]
+
+    return inputs,stmts
+
+compilable_ops[RT.Map] = stmts_map
+
+def stmts_first():
+    inputs = ["x"]
+    stmts = [RawASTStatement("return x[0]")]
+    return inputs,stmts
+
+compilable_ops[RT.First] = stmts_first
+
+def stmts_get_field(field):
+    inputs = ["x"]
+    stmts = [RawASTStatement(f"return x.{field}")]
+    return inputs,stmts
+
+compilable_ops[RT.GetField] = stmts_get_field
+
+def stmts_get(name):
+    inputs = ["x"]
+    stmts = [RawASTStatement(f"return x['{name}']")]
+    return inputs,stmts
+
+compilable_ops[RT.Get] = stmts_get
+
+def stmts_Outs(rt=None, target_filter=None):
+    return out_rels[rt][target_filter] | map[target]
+
+compilable_ops[RT.Outs] = stmts_Outs
+
+def stmts_out_rels(rt=None, target_filter=None):
+    # Being lazy
+    if type(rt) != RelationType:
+        return None
+    if target_filter is not None:
+        return None
+
+    return maybe_compile_func(pyzefops.traverse_out_edge_multi, rt)
+
+compilable_ops[RT.OutRels] = stmts_out_rels
+
+def stmts_single_or(default):
+    # inputs = ["l"]
+    # stmts = [
+    #     AssignStatement(default, "default"),
+    #     RawASTStatement("res = default if len(l) == 1 else l[0]"),
+    #     ReturnStatement("res")
+    # ]
+    # return inputs,stmts
+    from zef.core.op_implementations.implementation_typing_functions import single_or_imp
+    return lambda l: single_or_imp(l, default)
+
+compilable_ops[RT.SingleOr] = stmts_single_or
+
+def stmts_value_or(default):
+    inputs = ["z"]
+    stmts = [
+        AssignStatement(default, "default"),
+        AssignStatement(value, "value"),
+        RawASTStatement("res = default if z is None else value(z)"),
+        ReturnStatement("res")
+    ]
+    return inputs,stmts
+
+compilable_ops[RT.ValueOr] = stmts_value_or
+
+def stmts_target():
+    return pyzefops.target
+
+compilable_ops[RT.Target] = stmts_target
+
+def stmts_match(opts):
+    inputs = ["z"]
+    stmts = []
+
+    for case,action in opts:
+        c_action = maybe_compile_func(action)
+        stmts += [
+            PartialStatement("z", is_a[case], "res"),
+            AssignStatement(c_action, "action"),
+            RawASTStatement("if res: return action(z)")
+        ]
+        
+    stmts += [RawASTStatement("raise Exception('no match')")]
+    return inputs,stmts
+
+compilable_ops[RT.Match] = stmts_match
+
+def stmts_is_a(typ):
+    inputs = ["z"]
+    stmts = []
+
+    if typ == Any:
+        return ConstResult(True)
+    elif typ in [ZefRef, EZefRef, Graph]:
+        stmts += [AssignStatement(typ, "typ"),
+                  RawASTStatement("return type(z) == typ")]
+    elif type(typ) in [EntityType, RelationType, AttributeEntityType]:
+        stmts += [AssignStatement(typ, "typ"),
+                  PartialStatement("z", rae_type, "z_typ"),
+                  RawASTStatement("return z_typ == typ")]
+    else:
+        raise Exception(f"Don't know how to compile is_a for {typ!r}")
+    return inputs,stmts
+
+compilable_ops[RT.IsA] = stmts_is_a
