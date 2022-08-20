@@ -1011,8 +1011,8 @@ class LazyValue:
 
                         # Build details here
                         # if user_wants_exception:
-                        # if True:
-                        if False:
+                        if True:
+                        # if False:
                             got_error = new_value
                         else:
                             # Stuff

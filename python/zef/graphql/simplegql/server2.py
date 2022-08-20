@@ -119,8 +119,8 @@ def query(request, context):
                        "auth": auth_context,
                        "debug_level": context["debug_level"]},
     )
-    profile_print(sort_by="name")
-    profile_print(sort_by="per_call")
+    # profile_print(sort_by="name")
+    # profile_print(sort_by="per_call")
     profile_print()
     if context["debug_level"] >= 0:
         if not success or "errors" in data:
