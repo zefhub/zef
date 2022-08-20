@@ -758,14 +758,14 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
 	internals_submodule.def("get_blobs_as_bytes", [](Graph& g, blob_index start_index, blob_index end_index)->py::bytes {
         return py::bytes(internals::get_blobs_as_bytes(g.my_graph_data(), start_index, end_index)); 
-		}, "read the content of the memory pool filled with blobs_ns for a given graph");
-	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload);
+		}, "read the content of the memory pool filled with blobs_ns for a given graph", py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload, py::call_guard<py::gil_scoped_release>());
 	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads);
 	// internals_submodule.def("convert_payload_0_3_0_to_0_2_0", &conversions::convert_payload_0_3_0_to_0_2_0);
 
-    internals_submodule.def("version_layout", &conversions::version_layout);
-    internals_submodule.def("can_represent_graph_as_payload", &conversions::can_represent_graph_as_payload);
-    internals_submodule.def("convert_payload_0_2_0_to_0_3_0", &conversions::convert_payload_0_2_0_to_0_3_0);
+    internals_submodule.def("version_layout", &conversions::version_layout, py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("can_represent_graph_as_payload", &conversions::can_represent_graph_as_payload, py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("convert_payload_0_2_0_to_0_3_0", &conversions::convert_payload_0_2_0_to_0_3_0, py::call_guard<py::gil_scoped_release>());
 		
 	internals_submodule.def("apply_update", &Butler::apply_update_with_caches, py::call_guard<py::gil_scoped_release>());
 
