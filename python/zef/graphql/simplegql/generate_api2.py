@@ -605,28 +605,16 @@ def static_context(info):
 ExternalError = Error.BasicError()
 ExternalError.name = "External"
 
-def resolve_get(_, info, *, type_node, **params):
-    # try:
-        # Look for something that fits exactly what has been given in the params, assuming
-        # that ariadne has done its work and validated the query.
-        return find_existing_entity_by_id(info, type_node, params["id"], context)
-    # except ExternalError:
-    #     raise
-    # except Exception as exc:
-    #     if info.context["debug_level"] >= 0:
-    #         #log.error("There was an error in resolve_get", exc_info=exc)
-    #         from ...core.error import _ErrorType, str_zef_error
-    #         if type(exc) == _ErrorType:
-    #             log.error("There was an error in resolve_get")
-    #             log.error(str_zef_error(exc))
-    #         else:
-    #             log.error("There was an error in resolve_get", exc_info=exc)
-
-    #     raise Exception("Unexpected error") from None
+def resolve_get(info, *, type_node, context, **params):
+    # Look for something that fits exactly what has been given in the params, assuming
+    # that ariadne has done its work and validated the query.
+    return find_existing_entity_by_id(info, type_node, params["id"], context)
 @func
 def resolve_get2(obj, type_node, graphql_info, query_args):
     try:
-        return resolve_get(obj, graphql_info, type_node=type_node, **query_args)
+        context = static_context(graphql_info)
+        cfunc = maybe_compile_func(resolve_get, type_node=type_node, context=context, **query_args)
+        return profile(graphql_info, "resolve_get", cfunc)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -815,12 +803,13 @@ def resolve_field2(obj, z_field, graphql_info, query_args):
     except _ErrorType as exc:
         return exc
 
-def resolve_id(z, info):
+def resolve_id(arg):
+    z, info = arg
     return str(origin_uid(z))
 
 @func
 def resolve_id2(obj, graphql_info):
-    return resolve_id(obj, graphql_info)
+    return resolve_id((obj, graphql_info))
 
 
 ##############################
@@ -829,7 +818,7 @@ def resolve_id2(obj, graphql_info):
 from threading import Lock
 mutation_lock = Lock()
 
-def resolve_add(_, info, *, type_node, **params):
+def resolve_add(info, *, type_node, context, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     # try:
@@ -862,7 +851,7 @@ def resolve_add(_, info, *, type_node, **params):
                     post_checks += more_post_checks
                     new_obj_names += [obj_name]
 
-            r = commit_with_post_checks(actions, post_checks, info)
+            r = commit_with_post_checks(actions, post_checks, info, context)
 
             ents = updated_objs + [r[name] for name in new_obj_names]
             # Note: we return the details after any updates
@@ -880,7 +869,9 @@ def resolve_add(_, info, *, type_node, **params):
 @func
 def resolve_add2(obj, type_node, graphql_info, query_args):
     try:
-        return resolve_add(obj, graphql_info, type_node=type_node, **query_args)
+        context = static_context(graphql_info)
+        cfunc = maybe_compile_func(resolve_add, type_node=type_node, context=context, **query_args)
+        return profile(graphql_info, "resolve_add", cfunc)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -888,7 +879,7 @@ def resolve_add2(obj, type_node, graphql_info, query_args):
     except _ErrorType as exc:
         return exc
             
-def resolve_upfetch(_, info, *, type_node, **params):
+def resolve_upfetch(info, *, type_node, context, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     # try:
@@ -921,7 +912,7 @@ def resolve_upfetch(_, info, *, type_node, **params):
                     post_checks += new_post_checks
                     updated_objs += [obj]
 
-            r = commit_with_post_checks(actions, post_checks, info)
+            r = commit_with_post_checks(actions, post_checks, info, context)
 
             ents = updated_objs + [r[name] for name in new_obj_names]
             # Note: we return the details after any updates
@@ -938,7 +929,9 @@ def resolve_upfetch(_, info, *, type_node, **params):
 @func
 def resolve_upfetch2(obj, type_node, graphql_info, query_args):
     try:
-        return resolve_upfetch(obj, graphql_info, type_node=type_node, **query_args)
+        context = static_context(graphql_info)
+        cfunc = maybe_compile_func(resolve_upfetch, type_node=type_node, context=context, **query_args)
+        return profile(graphql_info, "resolve_upfetch", cfunc)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -947,25 +940,25 @@ def resolve_upfetch2(obj, type_node, graphql_info, query_args):
         return exc
             
         
-def resolve_update(_, info, *, type_node, **params):
+def resolve_update(info, *, type_node, context, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     # try:
         with mutation_lock:
             if "input" not in params or "filter" not in params["input"]:
                 raise Exception("Not allowed to update everything!")
-            ents = resolve_query(_, info, type_node=type_node, filter=params["input"]["filter"])
+            ents = resolve_query(info, type_node=type_node, filter=params["input"]["filter"], context=context)
 
             actions = []
             post_checks = []
 
             name_gen = NameGen()
             for ent in ents:
-                new_actions,new_post_checks = update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen)
+                new_actions,new_post_checks = update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen, context)
                 actions += new_actions
                 post_checks += new_post_checks
 
-            commit_with_post_checks(actions, post_checks, info)
+            commit_with_post_checks(actions, post_checks, info, context)
 
             count = len(ents)
 
@@ -982,7 +975,9 @@ def resolve_update(_, info, *, type_node, **params):
 @func
 def resolve_update2(obj, type_node, graphql_info, query_args):
     try:
-        return resolve_update(obj, graphql_info, type_node=type_node, **query_args)
+        context = static_context(graphql_info)
+        cfunc = maybe_compile_func(resolve_update, type_node=type_node, context=context, **query_args)
+        return profile(graphql_info, "resolve_update", cfunc)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -990,13 +985,13 @@ def resolve_update2(obj, type_node, graphql_info, query_args):
     except _ErrorType as exc:
         return exc
 
-def resolve_delete(_, info, *, type_node, **params):
+def resolve_delete(info, *, type_node, context, **params):
     # try:
         with mutation_lock:
             # Do the same thing as a resolve_query but delete the entities instead.
             if "filter" not in params:
                 raise ExtenalError("Not allowed to delete everything!")
-            ents = resolve_query(_, info, type_node=type_node, **params)
+            ents = resolve_query(info, type_node=type_node, context=context, **params)
 
             if not ents | map[pass_delete_auth[type_node][info]] | all | collect:
                 raise ExtenalError("Auth check returned False")
@@ -1005,7 +1000,7 @@ def resolve_delete(_, info, *, type_node, **params):
             for ent in ents:
                 post_checks += [("remove", ent, type_node)]
             actions = [terminate(ent) for ent in ents]
-            r = commit_with_post_checks(actions, post_checks, info)
+            r = commit_with_post_checks(actions, post_checks, info, context)
 
             count = len(ents)
 
@@ -1019,7 +1014,9 @@ def resolve_delete(_, info, *, type_node, **params):
 @func
 def resolve_delete2(obj, type_node, graphql_info, query_args):
     try:
-        return resolve_delete(obj, graphql_info, type_node=type_node, **query_args)
+        context = static_context(graphql_info)
+        cfunc = maybe_compile_func(resolve_delete, type_node=type_node, context=context, **query_args)
+        return profile(graphql_info, "resolve_delete", cfunc)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -1027,15 +1024,18 @@ def resolve_delete2(obj, type_node, graphql_info, query_args):
     except _ErrorType as exc:
         return exc
 
-def resolve_filter_response(obj, info, *, type_node, **params):
+def resolve_filter_response(arg, *, type_node, context, **params):
+    obj, info = arg
     ents = obj["ents"]
 
-    ents = handle_list_params((ents,info), type_node, params, info)
+    ents = handle_list_params((ents,info), type_node, params, context)
 
     return ents | collect
 @func
 def resolve_filter_response2(obj, type_node, graphql_info, query_args):
-    return resolve_filter_response(obj, graphql_info, type_node=type_node, **query_args)
+    context = static_context(graphql_info)
+    cfunc = maybe_compile_func(resolve_filter_response, type_node=type_node, context=context, **query_args)
+    profile((obj,graphql_info), "resolve_filter_response", cfunc)
 
 
 
@@ -1131,7 +1131,7 @@ def handle_list_params(arg, z_node, params, context):
 def field_resolver_by_name(arg, type_node, context, name):
     z,info = arg
     if name == "id":
-        return resolve_id(z, info=info)
+        return resolve_id(arg)
     sub_field = get_field_rel_by_name(type_node, name)
     # return resolve_field(z, info=info, z_field=sub_field)
     return resolve_field((z, info), z_field=sub_field, context=context)
@@ -1477,9 +1477,9 @@ def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
                                            filter[is_a[rae_type(target(relation))]],
                                            "opts")]
     elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
-        opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, info)
+        cfunc = maybe_compile_func(func[z_field | Out[RT.GQL_FunctionResolver] | collect])
         stmts += [PartialStatement(["z","info"],
-                                   func[z_field | Out[RT.GQL_FunctionResolver] | collect],
+                                   cfunc,
                                    "opts",
                                    starargs=True)]
 
@@ -1491,6 +1491,7 @@ def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
                     return []
                 else:
                     return [opts]
+            return opts
         stmts += [PartialStatement("opts", empty_as_list, "opts")]
     else:
         raise Exception(f"Don't know how to resolve this field: {z_field}")
@@ -1522,8 +1523,8 @@ def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
                                    "opts")]
 
     stmts += [ReturnStatement("opts")]
-    for stmt in stmts:
-        print(stmt)
+    # for stmt in stmts:
+    #     print(stmt)
 
     return inputs,stmts
 
@@ -1660,7 +1661,7 @@ def find_or_add_entity(val, info, target_node, name_gen):
         return Z[obj_name], actions, post_checks
     
 
-def update_entity(z, info, type_node, set_d, remove_d, name_gen):
+def update_entity(z, info, type_node, set_d, remove_d, name_gen, context):
     type_name = type_node | F.Name | collect
 
     # Refuse to set and remove the same thing. Just too confusing to deal with
@@ -1670,7 +1671,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
 
     # This is the pre-update auth only
     # TODO: Post-update auth
-    if not pass_pre_update_auth(z, type_node, info):
+    if not pass_pre_update_auth((z, info), type_node, context):
         raise ExternalError("Not allowed to update")
 
     actions = []
@@ -1750,12 +1751,20 @@ def pass_auth_generic(arg, schema_node, context, rt_list):
         return True
 
     # TODO: Later on these will be zef functions so easier to call
-    return temporary__call_string_as_func(
-        to_call | value | collect,
-        z=z,
-        info=info,
-        type_node=schema_node
-    )
+    # return temporary__call_string_as_func(
+    #     to_call | value | collect,
+    #     z=z,
+    #     info=info,
+    #     type_node=schema_node
+    # )
+    s = to_call | value | collect
+    user_func = compile_user_string(s)
+
+    return user_func({
+        'z': z,
+        'auth': info.context.get('auth', None),
+        'type_node': schema_node
+    })
 
 def stmts_pass_auth_generic(schema_node, context, rt_list):
     inputs = ["arg"]
@@ -1798,23 +1807,19 @@ compiling.compilable_funcs[get_zfunc_func(pass_query_auth)] = stmts_pass_query_a
 
 @func
 def pass_add_auth(arg, schema_node, context):
-    z,info = arg
-    return pass_auth_generic(z, info, schema_node, context, [RT.AllowAdd, RT.AllowQuery])
+    return pass_auth_generic(arg, schema_node, context, [RT.AllowAdd, RT.AllowQuery])
 
 @func
 def pass_pre_update_auth(arg, schema_node, context):
-    z,info = arg
-    return pass_auth_generic(z, info, schema_node, context, [RT.AllowUpdate, RT.AllowQuery])
+    return pass_auth_generic(arg, schema_node, context, [RT.AllowUpdate, RT.AllowQuery])
 
 @func
 def pass_post_update_auth(arg, schema_node, context):
-    z,info = arg
-    return pass_auth_generic(z, info, schema_node, context, [RT.AllowUpdatePost, RT.AllowUpdate, RT.AllowQuery])
+    return pass_auth_generic(arg, schema_node, context, [RT.AllowUpdatePost, RT.AllowUpdate, RT.AllowQuery])
 
 @func
 def pass_delete_auth(arg, schema_node, context):
-    z,info = arg
-    return pass_auth_generic(z, info, schema_node, context, [RT.AllowDelete, RT.AllowUpdate, RT.AllowQuery])
+    return pass_auth_generic(arg, schema_node, context, [RT.AllowDelete, RT.AllowUpdate, RT.AllowQuery])
 
 def temporary__call_string_as_func(s, **kwds):
     from ... import core, ops
@@ -1894,7 +1899,7 @@ def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
 
 
 
-def commit_with_post_checks(actions, post_checks, info):
+def commit_with_post_checks(actions, post_checks, info, context):
     g = Graph(info.context["gs"])
     with Transaction(g):
         try:
@@ -1917,7 +1922,7 @@ def commit_with_post_checks(actions, post_checks, info):
                             func[z_func](obj)
                         except:
                             raise ExternalError(f"OnCreate hook for type_node of '{type_name}' threw an exception")
-                    if not pass_add_auth(obj, type_node, info):
+                    if not pass_add_auth((obj, info), type_node, context):
                         raise ExternalError(f"Add auth check for type_node of '{type_name}' returned False")
                 elif kind == "update":
                     for z_func in type_node | Outs[RT.OnUpdate]:
@@ -1925,7 +1930,7 @@ def commit_with_post_checks(actions, post_checks, info):
                             func[z_func](obj)
                         except:
                             raise ExternalError(f"OnUpdate hook for type_node of '{type_name}' threw an exception")
-                    if not pass_post_update_auth(obj, type_node, info):
+                    if not pass_post_update_auth((obj, info), type_node, context):
                         raise ExternalError(f"Post-update auth check for type_node of '{type_name}' returned False")
                 elif kind == "remove":
                     for z_func in type_node | Outs[RT.OnRemove]:
