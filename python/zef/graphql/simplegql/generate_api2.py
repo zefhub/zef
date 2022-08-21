@@ -841,12 +841,12 @@ def resolve_add(info, *, type_node, context, **params):
                         raise Exception("Item doesn't exist")
                     set_d = {**item}
                     set_d.pop("id")
-                    new_actions,new_post_checks = update_entity(obj, info, type_node, set_d, {}, name_gen)
+                    new_actions,new_post_checks = update_entity(obj, info, type_node, set_d, {}, name_gen, context)
                     actions += new_actions
                     post_checks += new_post_checks
                     updated_objs += [obj]
                 else:
-                    obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen)
+                    obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen, context)
                     actions += more_actions
                     post_checks += more_post_checks
                     new_obj_names += [obj_name]
@@ -902,12 +902,12 @@ def resolve_upfetch(info, *, type_node, context, **params):
 
                 obj = find_existing_entity_by_field(info, type_node, upfetch_field, item[field_name], context)
                 if obj is None:
-                    obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen)
+                    obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen, context)
                     actions += more_actions
                     post_checks += more_post_checks
                     new_obj_names += [obj_name]
                 else:
-                    new_actions,new_post_checks = update_entity(obj, info, type_node, item, {}, name_gen)
+                    new_actions,new_post_checks = update_entity(obj, info, type_node, item, {}, name_gen, context)
                     actions += new_actions
                     post_checks += new_post_checks
                     updated_objs += [obj]
@@ -1035,7 +1035,7 @@ def resolve_filter_response(arg, *, type_node, context, **params):
 def resolve_filter_response2(obj, type_node, graphql_info, query_args):
     context = static_context(graphql_info)
     cfunc = maybe_compile_func(resolve_filter_response, type_node=type_node, context=context, **query_args)
-    profile((obj,graphql_info), "resolve_filter_response", cfunc)
+    return profile((obj,graphql_info), "resolve_filter_response", cfunc)
 
 
 
@@ -1577,7 +1577,7 @@ def find_existing_entity_by_field(info, type_node, z_field, val, context):
 
     return ent
 
-def add_new_entity(info, type_node, params, name_gen):
+def add_new_entity(info, type_node, params, name_gen, context):
 
     actions = []
     post_checks = []
@@ -1637,7 +1637,7 @@ def add_new_entity(info, type_node, params, name_gen):
                 l = [val]
 
             for item in l:
-                obj,obj_actions,obj_post_checks = find_or_add_entity(item, info, target(z_field), name_gen)
+                obj,obj_actions,obj_post_checks = find_or_add_entity(item, info, target(z_field), name_gen, context)
                 actions += obj_actions
                 post_checks += obj_post_checks
                 if z_field | op_is_incoming | collect:
@@ -1647,7 +1647,7 @@ def add_new_entity(info, type_node, params, name_gen):
 
     return this, actions, post_checks
 
-def find_or_add_entity(val, info, target_node, name_gen):
+def find_or_add_entity(val, info, target_node, name_gen, context):
     if isinstance(val, dict) and val.get("id", None) is not None:
         # There should be no other fields given for this entity, otherwise the meaning is unclear.
         if set(val.keys()) != {"id"}:
@@ -1657,7 +1657,7 @@ def find_or_add_entity(val, info, target_node, name_gen):
             raise ExternalError(f"Unable to find entity of kind '{target_node | F.Name | collect}' with id '{val['id']}'.")
         return obj,[],[]
     else:
-        obj_name,actions,post_checks = add_new_entity(info, target_node, val, name_gen)
+        obj_name,actions,post_checks = add_new_entity(info, target_node, val, name_gen, context)
         return Z[obj_name], actions, post_checks
     
 
