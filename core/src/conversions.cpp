@@ -121,9 +121,16 @@ namespace zefDB {
                             // Going to need a lot more to do...
                             // So much that it's not really worth it.
                         },
-                        [](blobs_ns::ROOT_NODE & x) {
-                            memcpy(x.data_layout_version_info, "0.2.0", strlen("0.2.0"));
-                            force_assert(x.actual_written_data_layout_version_info_size == strlen("0.2.0"));
+                        [start,ptr](blobs_ns::ROOT_NODE & x) {
+                            // If this one is a delegate then it'll have no data layout version
+                            // Note: because we are looking at raw pointers, we
+                            // can't use the usually methods to travesre the
+                            // graph. So instead of calling is_delegate, we see
+                            // if this is the first blob in the graph.
+                            if(start == ptr) {
+                                memcpy(x.data_layout_version_info, "0.2.0", strlen("0.2.0"));
+                                force_assert(x.actual_written_data_layout_version_info_size == strlen("0.2.0"));
+                            }
                         },
                         [](auto & x) {},
                     },
