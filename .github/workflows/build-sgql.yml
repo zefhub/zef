@@ -23,12 +23,11 @@ jobs:
       - name: Build
         run: "docker build -f dockerfiles/Dockerfile.sgql -t us-docker.pkg.dev/zefhub-io/sgql/sgql:latest ."
       - name: Upload to Artifact Registry
-        run: "docker push us-docker.pkg.dev/zefhub-io/sgql/sgql:latest"
         run: |
           gcloud config set artifacts/repository sgql
           gcloud config set artifacts/location us-central1
           gcloud config set account github-gcr-service-account@zefhub-io.iam.gserviceaccount.com
-          
+
           gcloud auth activate-service-account github-gcr-service-account@zefhub-io.iam.gserviceaccount.com --key-file=$GOOGLE_APPLICATION_CREDENTIALS --project=zefhub-io
-          
+
           docker push us-docker.pkg.dev/zefhub-io/sgql/sgql:latest
