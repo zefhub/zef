@@ -8841,14 +8841,14 @@ def flatgraph_to_commands(fg):
             if idx in idx_key:
                 key = idx_key[idx]
                 if is_a(key, uid):
-                    if b[-1]: return AtomicEntity({"type": b[1], "uid": key}) <= b[-1]
+                    if b[-1] != None: return AtomicEntity({"type": b[1], "uid": key}) <= b[-1]
                     else:     return AtomicEntity({"type": b[1], "uid": key})
                 else:
                     if for_rt: return Z[key]
-                    if b[-1]: return b[1][key] <= b[-1]
+                    if b[-1] != None: return b[1][key] <= b[-1]
                     else:     return b[1][key]
             else:
-                if b[-1]: 
+                if b[-1] != None: 
                     if (b[1][idx] <= b[-1]) in return_elements: return Z[idx] <= b[-1]
                     return b[1][idx] <= b[-1]
                 else:     
