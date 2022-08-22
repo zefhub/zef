@@ -16,6 +16,7 @@ from .._core import RT
 from .implementation_typing_functions import * 
 from .yo import yo_implementation, yo_type_info
 from .graphviz import graphviz_imp, graphviz_tp
+from . to_flatgraph import flat_graph_imp
 from .func import unpack_implementation, unpack_type_info
 
 _op_to_functions = {
@@ -185,6 +186,7 @@ _op_to_functions = {
         RT.SplitLeft:       (split_left_imp, None),
         RT.SplitRight:      (split_right_imp, None),
         RT.Graphviz:        (graphviz_imp, graphviz_tp),
+        RT.ToFlatGraph:     (flat_graph_imp, None),
         
         RT.Always:              (always_imp, always_tp),
         

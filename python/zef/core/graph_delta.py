@@ -842,7 +842,7 @@ def realise_single_node(x, gen_id):
     if isinstance(x, LazyValue):
         target,op = x | peel | collect
         if is_a(op, terminate) or is_a(op, tag):
-            iid = origin_uid(target)
+            iid,exprs = realise_single_node(target, gen_id)
             exprs = [x]
         elif is_a(op, assign):
             iid,exprs = realise_single_node(target, gen_id)
@@ -889,14 +889,23 @@ def realise_single_node(x, gen_id):
     elif type(x) in scalar_types:
         raise Exception("A value of type {type(x)} is not allowed to be given in a GraphDelta in the shorthand syntax as it is ambiguous. You might want to explicitly create an AET and assign, or a value node, or a custom AET.")
     elif isinstance(x, ZefOp):
-        assert len(x) == 1
-        params = LazyValue(x) | peel | first | second
-        if is_a(x, Z):
-            iid = params | first | collect
-            # No expr to perform
-            exprs = []
+        if len(x) == 1:
+            if is_a(x, Z):
+                iid = LazyValue(x) | peel | first | second | first | collect
+                # No expr to perform
+                exprs = []
+            else:
+                raise NotImplementedError(f"Can't pass zefops to GraphDelta: for {x}")
         else:
-            raise NotImplementedError(f"Can't pass zefops to GraphDelta: for {x}")
+            ops = LazyValue(x) | peel | collect
+            first_op = ops[0]
+            rest = ops[1:]
+            if is_a(first_op, Z):
+                new_op = LazyValue(first_op) | to_pipeline(rest)
+                iid,exprs = realise_single_node(new_op, gen_id)
+                print(iid)
+            else:
+                raise NotImplementedError(f"Can't pass zefops to GraphDelta: for {x}")
     elif is_a(x, Delegate):
         iid = x
         exprs = [x]

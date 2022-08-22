@@ -25,7 +25,8 @@ from ..image import Image
 
 def read_localfile_handler(eff: Effect):
     """
-    Unopinionated reading of file. Returns a Bytes object.
+    Reads the file as a string. Returns a str object.
+    To read as a binary file, use FX.LocalFile.ReadBinary.
     >>> FX.LocalFile.Read(filename='my_file.txt')
 
     Response example:
@@ -78,6 +79,7 @@ def load_localfile_handler(eff: Effect):
     - png
     - jpg
     - jpeg
+    - gif
 
     Response example:
     {
@@ -97,7 +99,7 @@ def load_localfile_handler(eff: Effect):
         elif "." not in filename: filename = filename + f".{format}"
 
 
-        if format in {"svg", "png", "jpg", "jpeg"}:
+        if format in {"svg", "png", "jpg", "jpeg", "gif"}:
             with open(filename, "rb") as f:
                 content = f.read()
             content = Image(content, format)

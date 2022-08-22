@@ -350,7 +350,7 @@ fields          = make_zefop(RT.Fields)
 apply           = make_zefop(RT.Apply)
 split_on_next   = make_zefop(RT.SplitOnNext)
 indexes_of      = make_zefop(RT.IndexesOf)
-
+to_flatgraph    = make_zefop(RT.ToFlatGraph)
 
 
 examples        = make_zefop(RT.Examples)

@@ -1292,6 +1292,8 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
                 w.append(next(it))
             yield tuple(w)
         except StopIteration:
+            if len(w) < window_size:
+                return
             yield tuple(w)
             return    
         while True:
@@ -1308,6 +1310,7 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
                 return      #TODO!!!!!!!!!!!!!
     
     return ZefGenerator(wrapper)
+
         
 
 def sliding_tp(v_tp, step_tp):
@@ -1993,7 +1996,7 @@ def trim_left_imp(v, el_to_trim):
     element / character from the left side of a list / string.
 
     ---- Examples ----
-    >>> '..hello..' | trim_left['.']            # => ['hello..']
+    >>> '..hello..' | trim_left['.']            # => 'hello..'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2009,12 +2012,22 @@ def trim_left_imp(v, el_to_trim):
     - used for: string manipulation
     """
     if isinstance(v, str):        
-        return v.lstrip(el_to_trim)
+        if isinstance(el_to_trim, str):
+            return v.lstrip(el_to_trim)
+        elif isinstance(el_to_trim, set):
+            vv = v
+            for el in el_to_trim:
+                vv = vv | chunk[len(el)] | trim_left[{el}] | join[''] | collect
+            return vv
+        else:
+            raise ValueError("Triming a str only takes a string or a set as argument.")
+    
+    predicate = make_predicate(el_to_trim)
     def wrapper():
         it = iter(v)
         try:
             next_el = next(it)
-            while next_el == el_to_trim:
+            while predicate(next_el):
                 next_el = next(it)
             yield next_el
             while True:
@@ -2036,7 +2049,7 @@ def trim_right_imp(v, el_to_trim):
     element / character from the right side of a list / string.
 
     ---- Examples ----
-    >>> '..hello..' | trim_right['.']            # => ['..hello']
+    >>> '..hello..' | trim_right['.']            # => '..hello'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2053,11 +2066,20 @@ def trim_right_imp(v, el_to_trim):
     """
     import itertools 
     if isinstance(v, str):
-        return v.rstrip(el_to_trim)
+        if isinstance(el_to_trim, str):
+            return v.rstrip(el_to_trim)
+        elif isinstance(el_to_trim, set):
+            vv = v
+            for el in el_to_trim:
+                vv = vv | chunk[len(el)] | trim_right[{el}] | join[''] | collect
+            return vv
+        else:
+            raise ValueError("Triming a str only takes a string or a set as argument.")
     # we need to know all elements before deciding what is at the end
     vv = tuple(v)
     vv_rev = vv[::-1]
-    ind = len(list(itertools.takewhile(lambda x: x==el_to_trim, vv_rev)))
+    predicate = make_predicate(el_to_trim)
+    ind = len(list(itertools.takewhile(predicate, vv_rev)))
     return vv if ind==0 else vv[:-ind]
 
 
@@ -2073,7 +2095,7 @@ def trim_imp(v, el_to_trim):
     element / character from both sides of a list / string.
 
     ---- Examples ----
-    >>> '..hello..' | trim['.']            # => ['..hello']
+    >>> '..hello..' | trim['.']            # => 'hello'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2090,12 +2112,24 @@ def trim_imp(v, el_to_trim):
     """
     import itertools 
     if isinstance(v, str):
-        return v.strip(el_to_trim)
+        if isinstance(el_to_trim, str):
+            return v.strip(el_to_trim)
+        elif isinstance(el_to_trim, set):
+            vv = v
+            for el in el_to_trim:
+                # TODO: Need to add padding after chunking to remove correctly from the right
+                vv = vv | chunk[len(el)] | trim[{el}] | join[''] | collect
+            return vv
+        else:
+            raise ValueError("Triming a str only takes a string or a set as argument.")
+                
+
     # we need to know all elements before deciding what is at the end
     vv = tuple(v)
     vv_rev = vv[::-1]
-    ind_left = len(list(itertools.takewhile(lambda x: x==el_to_trim, vv)))
-    ind_right = len(list(itertools.takewhile(lambda x: x==el_to_trim, vv_rev)))    
+    predicate = make_predicate(el_to_trim)
+    ind_left = len(list(itertools.takewhile(predicate, vv)))
+    ind_right = len(list(itertools.takewhile(predicate, vv_rev)))    
     return vv[ind_left:] if ind_right==0 else vv[ind_left:-ind_right]
 
 
@@ -4244,7 +4278,9 @@ def split_imp(collection, val, max_split=-1):
     ---- Examples ----
     >>> 'abcdeabfb' | split['b']            # => ['a', 'cdea', 'f', '']
     >>> 'abcdeabfb' | split['b'][1]         # => ['a', 'cdeabfb']
-    >>> [0,1,6,2,3,4,2,] | split[2]         # => [[0, 1, 6], [3, 4], []]    
+    >>> [0,1,6,2,3,4,2,] | split[2]         # => [[0, 1, 6], [3, 4], []]  
+    >>> '..hello..' | split['..']         # => ['', 'hello', '']
+    >>> '..hello..' | split['.']         # => ['','', 'hello', '', '']
 
     ---- Signature ----
     (List[T], T) -> List[List[T]]
@@ -8671,10 +8707,21 @@ def fg_insert_imp(fg, new_el):
         else: 
             raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\nnew_el={new_el}")
         
-    if isinstance(new_el, list): [_insert_single(el) for el in new_el]
+    if isinstance(new_el, list): 
+        def sorting_key(el):
+            if isinstance(el, dict): return 1
+            elif isinstance(el, Relation): return 2
+            elif isinstance(el, tuple) and len(el) == 3: 
+                is_z = lambda el: isinstance(el, ZefOp) and inner_zefop_type(el, RT.Z)
+                has_internal_id = lambda rt: isinstance(rt, RelationType) and (LazyValue(rt) | absorbed | attempt[single][None] | collect) != None
+                return 3 + sum([is_z(el) for el in el]) - has_internal_id(el[1])
+            return 0
+        new_el.sort(key=sorting_key)
+        [_insert_single(el) for el in new_el]
     elif isinstance(new_el, dict): 
         _insert_dict(new_el)
-    else: _insert_single(new_el)
+    else: 
+        _insert_single(new_el)
         
     new_fg.key_dict = new_key_dict
     new_fg.blobs = (*new_blobs,)
@@ -8806,14 +8853,14 @@ def flatgraph_to_commands(fg):
             if idx in idx_key:
                 key = idx_key[idx]
                 if is_a(key, uid):
-                    if b[-1]: return AttributeEntity({"type": b[1], "uid": key}) <= b[-1]
+                    if b[-1] != None: return AttributeEntity({"type": b[1], "uid": key}) <= b[-1]
                     else:     return AttributeEntity({"type": b[1], "uid": key})
                 else:
                     if for_rt: return Z[key]
-                    if b[-1]: return b[1][key] <= b[-1]
+                    if b[-1] != None: return b[1][key] <= b[-1]
                     else:     return b[1][key]
             else:
-                if b[-1]: 
+                if b[-1] != None: 
                     if (b[1][idx] <= b[-1]) in return_elements: return Z[idx] <= b[-1]
                     return b[1][idx] <= b[-1]
                 else:     
