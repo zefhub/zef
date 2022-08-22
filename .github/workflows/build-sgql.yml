@@ -1,0 +1,19 @@
+name: Build sgql
+
+on:
+  push:
+    branches:
+      - sgql
+
+jobs:
+  build_push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v3
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v1
+      - name: Build
+        bash: "docker build -f dockerfiles/Dockerfile.sgql -t us-docker.pkg.dev/zefhub-io/sgql/sgql:latest ."
+      - name: Push to google
+        bash: "docker push us-docker.pkg.dev/zefhub-io/sgql/sgql:latest"
