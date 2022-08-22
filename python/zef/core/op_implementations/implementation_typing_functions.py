@@ -1292,6 +1292,8 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
                 w.append(next(it))
             yield tuple(w)
         except StopIteration:
+            if len(w) < window_size:
+                return
             yield tuple(w)
             return    
         while True:
@@ -1308,6 +1310,7 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
                 return      #TODO!!!!!!!!!!!!!
     
     return ZefGenerator(wrapper)
+
         
 
 def sliding_tp(v_tp, step_tp):
