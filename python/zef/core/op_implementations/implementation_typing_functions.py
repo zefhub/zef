@@ -8706,10 +8706,21 @@ def fg_insert_imp(fg, new_el):
         else: 
             raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\nnew_el={new_el}")
         
-    if isinstance(new_el, list): [_insert_single(el) for el in new_el]
+    if isinstance(new_el, list): 
+        def sorting_key(el):
+            if isinstance(el, dict): return 1
+            elif isinstance(el, Relation): return 2
+            elif isinstance(el, tuple) and len(el) == 3: 
+                is_z = lambda el: isinstance(el, ZefOp) and inner_zefop_type(el, RT.Z)
+                has_internal_id = lambda rt: isinstance(rt, RelationType) and (LazyValue(rt) | absorbed | attempt[single][None] | collect) != None
+                return 3 + sum([is_z(el) for el in el]) - has_internal_id(el[1])
+            return 0
+        new_el.sort(key=sorting_key)
+        [_insert_single(el) for el in new_el]
     elif isinstance(new_el, dict): 
         _insert_dict(new_el)
-    else: _insert_single(new_el)
+    else: 
+        _insert_single(new_el)
         
     new_fg.key_dict = new_key_dict
     new_fg.blobs = (*new_blobs,)
