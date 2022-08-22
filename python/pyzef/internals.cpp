@@ -581,10 +581,10 @@ void fill_internals_module(py::module_ & internals_submodule) {
         .def_readonly("revision", &Butler::UpdateHeads::NamedHeadRange::revision)
         ;
 
-    internals_submodule.def("create_update_payload", &Butler::create_update_payload, "Low-level function to serialize a graph update.");
-    internals_submodule.def("is_up_to_date", &Butler::is_up_to_date, "Low-level function to see if an update needs to be sent out.");
-    internals_submodule.def("heads_apply", &Butler::heads_apply, "Low-level function to see an update can be applied onto a graph.");
-    internals_submodule.def("parse_payload_update_heads", &Butler::parse_payload_update_heads);
+    internals_submodule.def("create_update_payload", &Butler::create_update_payload, "Low-level function to serialize a graph update.", py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("is_up_to_date", &Butler::is_up_to_date, "Low-level function to see if an update needs to be sent out.", py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("heads_apply", &Butler::heads_apply, "Low-level function to see an update can be applied onto a graph.", py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("parse_payload_update_heads", &Butler::parse_payload_update_heads, py::call_guard<py::gil_scoped_release>());
 
     internals_submodule.def("create_update_heads", [](GraphData & gd, blob_index blob_head, py::dict cache_heads) {
         LockGraphData lock{&gd};
@@ -613,11 +613,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
         return update_heads;
     },
-        "Low-level function to see if an update needs to be sent out.");
+        "Low-level function to see if an update needs to be sent out.", py::call_guard<py::gil_scoped_release>());
 
     internals_submodule.def("create_update_heads", [](GraphData & gd) {
         return internals::full_graph_heads(gd);
-    });
+    }, py::call_guard<py::gil_scoped_release>());
 
 	
 	py::class_<zefDB::GraphData>(internals_submodule, "GraphData", py::buffer_protocol())
@@ -737,17 +737,17 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
 
 
-	internals_submodule.def("merge_entity_", &zefDB::internals::merge_entity_,  "A low level function to merge an entity (given type and origin uid) into a graph.");
-	internals_submodule.def("merge_atomic_entity_", &zefDB::internals::merge_atomic_entity_,  "A low level function to merge an atomic entity (given type and origin uid) into a graph.");
-	internals_submodule.def("merge_relation_", &zefDB::internals::merge_relation_,  "A low level function to merge an relation (given type and origin uid) into a graph.");
+	internals_submodule.def("merge_entity_", &zefDB::internals::merge_entity_,  "A low level function to merge an entity (given type and origin uid) into a graph.", py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("merge_atomic_entity_", &zefDB::internals::merge_atomic_entity_,  "A low level function to merge an atomic entity (given type and origin uid) into a graph.", py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("merge_relation_", &zefDB::internals::merge_relation_,  "A low level function to merge an relation (given type and origin uid) into a graph.", py::call_guard<py::gil_scoped_release>());
 
 	
-	internals_submodule.def("get_latest_complete_tx_node", &internals::get_latest_complete_tx_node, "graph"_a, "index_of_latest_complete_tx_node_hint"_a=0,  "give it a hint as an index, otherwise it will start traversing from the root onwards");
+	internals_submodule.def("get_latest_complete_tx_node", &internals::get_latest_complete_tx_node, "graph"_a, "index_of_latest_complete_tx_node_hint"_a=0,  "give it a hint as an index, otherwise it will start traversing from the root onwards", py::call_guard<py::gil_scoped_release>());
 
 	// internals_submodule.def("start_zefscription_manager", &internals::start_zefscription_manager, "start_python_script_manually");
-	internals_submodule.def("initialise_butler", py::overload_cast<>(&Butler::initialise_butler));
-	internals_submodule.def("initialise_butler", py::overload_cast<std::string>(&Butler::initialise_butler));
-	internals_submodule.def("initialise_butler_as_master", &Butler::initialise_butler_as_master);
+	internals_submodule.def("initialise_butler", py::overload_cast<>(&Butler::initialise_butler), py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("initialise_butler", py::overload_cast<std::string>(&Butler::initialise_butler), py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("initialise_butler_as_master", &Butler::initialise_butler_as_master, py::call_guard<py::gil_scoped_release>());
     // Note: stopping the butler can cause python functions to be removed from
     // subscriptions, so the GIL needs to be released.
 	internals_submodule.def("stop_butler", &Butler::stop_butler, py::call_guard<py::gil_scoped_release>());
