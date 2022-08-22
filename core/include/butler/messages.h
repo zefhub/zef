@@ -141,9 +141,9 @@ namespace zefDB {
         struct LoadPage {
             // We need to hold onto the graph reference
             Graph g;
-            void * ptr;
+            const void * ptr;
             size_t size;
-            LoadPage(void * ptr, size_t size)
+            LoadPage(const void * ptr, size_t size)
                 : ptr(ptr),
                   size(size),
                   g((GraphData*)MMap::blobs_ptr_from_blob(ptr), false) {}

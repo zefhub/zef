@@ -17,7 +17,6 @@
 #pragma once
 
 #include "export_statement.h"
-#include "butler/utils.h"
 #include "butler/locking.h"
 
 #define ASIO_STANDALONE

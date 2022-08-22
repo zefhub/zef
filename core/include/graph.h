@@ -341,6 +341,7 @@ namespace zefDB {
         std::unique_ptr<MMap::WholeFileMapping<AppendOnlyBinaryTree<BaseUID,blob_index>>> uid_lookup;
         std::unique_ptr<MMap::WholeFileMapping<AppendOnlyBinaryTree<EternalUID,blob_index>>> euid_lookup;
         std::unique_ptr<MMap::WholeFileMapping<AppendOnlyDictVariable<VariableString,VariableBlobIndex>>> tag_lookup;
+        std::unique_ptr<MMap::WholeFileMapping<AppendOnlyCollisionHashMap<value_hash_t,blob_index>>> av_hash_lookup;
 
         // std::unique_ptr<TokenStore> local_tokens;
 
@@ -356,8 +357,8 @@ namespace zefDB {
 		// which gets this GraphData struct froma bit of memory arithmetics (relative to its own address)
 		EZefRef get_ROOT_node() { return EZefRef(constants::ROOT_NODE_blob_index ,*this); }
 		std::uintptr_t ptr_to_write_head_location() { return (std::uintptr_t(this) + constants::blob_indx_step_in_bytes * write_head); }
-		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed=0) const;
-		uint64_t hash_partial(blob_index blob_index_hi, uint64_t seed=0) const;
+		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
+		uint64_t hash_partial(blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
 
 
 		// GraphData() { get_all_active_graph_data_tracker().register_graph_data(this); }
@@ -434,7 +435,7 @@ namespace zefDB {
         void delete_graphdata(void);
 
 
-		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed=0) const;
+		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
         // GraphData::key_map & key_dict();
 		bool contains(const std::string&) const;  // check if a key is contained
 		bool contains(const TagString&) const;
@@ -455,8 +456,10 @@ namespace zefDB {
 		bool operator== (const Graph& g2) const;
 	};
 
+	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, Graph& g);
+
     LIBZEF_DLL_EXPORTED Graph create_partial_graph(Graph old_g, blob_index index_hi);
-    LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed=0);
+    LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string working_layout);
     LIBZEF_DLL_EXPORTED void roll_back_using_only_existing(GraphData& gd);
     LIBZEF_DLL_EXPORTED void roll_back_to(GraphData& gd, blob_index index_hi, bool fill_caches);
 
@@ -563,7 +566,7 @@ namespace zefDB {
 		// exposed to python to get access to the serialized form
         LIBZEF_DLL_EXPORTED std::string get_blobs_as_bytes(GraphData& gd, blob_index start_index, blob_index end_index);
         LIBZEF_DLL_EXPORTED Butler::UpdateHeads full_graph_heads(const GraphData & gd);
-		LIBZEF_DLL_EXPORTED Messages::UpdatePayload graph_as_UpdatePayload(const GraphData& gd);
+		LIBZEF_DLL_EXPORTED Messages::UpdatePayload graph_as_UpdatePayload(const GraphData& gd, std::string target_layout="");
 
 
 		// Blob_and_uid_bytes is assumed to be of size m*2*constants::blob_indx_step_in_bytes, where m is integer.
@@ -575,6 +578,8 @@ namespace zefDB {
 		LIBZEF_DLL_EXPORTED str get_data_layout_version_info(const GraphData& gd);
 		LIBZEF_DLL_EXPORTED void set_graph_revision_info(const str& new_val, GraphData& gd);
 		LIBZEF_DLL_EXPORTED str get_graph_revision_info(GraphData& gd);
+
+        uint64_t hash_memory_range(const void * lo_ptr, size_t len, uint64_t seed=0);
 
 	} //internals
 

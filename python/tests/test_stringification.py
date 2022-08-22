@@ -25,7 +25,7 @@ class TestStringMethods(unittest.TestCase):
         aet = instantiate(AET.String, g)
 
         self.assertEqual(str(BT(et)), 'ENTITY_NODE')
-        self.assertEqual(str(BT(aet)), 'ATOMIC_ENTITY_NODE')
+        self.assertEqual(str(BT(aet)), 'ATTRIBUTE_ENTITY_NODE')
         self.assertEqual(str(BT(rt)), 'RELATION_EDGE')
 
         self.assertEqual(str(ET(et)), 'Entity')

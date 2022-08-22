@@ -12,11 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# from ...pyzef.internals import EntityTypeStruct, RelationTypeStruct, ZefEnumStruct, AtomicEntityTypeStruct
+# from ...pyzef.internals import EntityTypeStruct, RelationTypeStruct, ZefEnumStruct, AttributeEntityTypeStruct
 
 # ET = EntityTypeStruct(None)
 # RT = RelationTypeStruct()
 # EN = ZefEnumStruct()
-# AET = AtomicEntityTypeStruct()
+# AET = AttributeEntityTypeStruct()
 
 from ...pyzef.internals import ET, RT, EN, AET

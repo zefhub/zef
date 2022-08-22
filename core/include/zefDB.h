@@ -36,9 +36,15 @@
 
 #include "low_level_api.h"
 #include "high_level_api.h"
+#include "ops_imperative.h"
+#include "zefops.h"
 #include "tools.h"
 
 #include "butler/butler.h"
 
 #include "from_json.h"
 #include "zef_config.h"
+
+#include "external_handlers.h"
+
+#include "conversions.h"

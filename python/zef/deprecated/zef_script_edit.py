@@ -31,7 +31,7 @@ def rae_type(z):
         return ET(z)
     elif BT(z)==BT.RELATION_EDGE:
         return RT(z)
-    elif BT(z)==BT.ATOMIC_ENTITY_NODE:
+    elif BT(z)==BT.ATTRIBUTE_ENTITY_NODE:
         return AET(z)
     else:
         return BT(z)    # e.g. for tx nodes, graph root nodes etc. 

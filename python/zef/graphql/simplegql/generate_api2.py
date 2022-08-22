@@ -721,8 +721,6 @@ def obtain_initial_list(type_node, filter_opts, info):
         # items exist even if they don't have auth access. A missing id is hence
         # just "not passing" the filter.
 
-        log.debug("In the explicit ID path")
-
         ids = filter_opts["id"]
         zs = []
 
@@ -1300,7 +1298,6 @@ def commit_with_post_checks(actions, post_checks, info):
                         except:
                             raise ExternalError(f"OnRemove hook for type_node of '{type_name}' threw an exception")
                 elif kind == "unique":
-                    print("Doing a unqiue check for", obj, type_name)
                     # In this case, obj is the field which must be unique
                     z_field = obj
                     assert op_is_unique(z_field)
@@ -1310,8 +1307,6 @@ def commit_with_post_checks(actions, post_checks, info):
                     vals = ents | map[internal_resolve_field[info][z_field][False]] | concat | collect
 
                     dis = distinct(vals)
-                    print(vals)
-                    print(dis)
                     if len(dis) != len(vals):
                         if info.context["debug_level"] >= 0:
                             log.error("Non-unique values", vals=set(vals) - set(dis))

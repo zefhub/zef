@@ -156,6 +156,7 @@ runs:
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
       shell: bash
       run: |
+        export PATH=$(python3 -m site --user-base)/bin:$PATH
         bash compile_for_local_dev.sh
 
     #########
@@ -164,8 +165,8 @@ runs:
       if: inputs.run-tests == 'true'
       shell: bash
       run: |
-        pip3 install -r python/requirements.txt
-        pip3 install -r python/tests/requirements_tests.txt
+        pip3 install --user -r python/requirements.txt
+        pip3 install --user -r python/tests/requirements_tests.txt
 
     - name: Check no created tokens
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}

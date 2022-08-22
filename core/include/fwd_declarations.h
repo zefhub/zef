@@ -49,6 +49,7 @@ inline void print_backtrace_force(int fd=STDERR_FILENO) {
 #ifdef DEBUG
 inline void print_backtrace(int fd = STDERR_FILENO) {
     print_backtrace_force(fd);    
+    abort();
 }
 #else
 inline void print_backtrace(int fd=STDERR_FILENO) {}
@@ -67,21 +68,21 @@ namespace zefDB {
 	struct TimeSlice;
 	struct GraphData;
 	struct Graph;
-	enum class BlobType : unsigned char;
+	// enum class BlobType : unsigned char;
 
 	//template <typename T> T& get(EZefRef uzr);
 
 	//bool is_promotable_to_zefref(EZefRef uzr_to_promote, EZefRef reference_tx);	
 	//std::ostream& operator << (std::ostream& os, EZefRef uzr);
 
-	namespace blobs_ns {
-		struct ROOT_NODE;
-		struct ENTITY_NODE;
-	}
+	// namespace blobs_ns {
+	// 	struct ROOT_NODE;
+	// 	struct ENTITY_NODE;
+	// }
 
 
 
-	struct AtomicEntityType;
+	// struct AttributeEntityType;
 	// struct AllActiveGraphDataTracker;
 	// AllActiveGraphDataTracker& get_all_active_graph_data_tracker();
 	//ENTITY_TYPE get_entity_type_from_string(const std::string& name);
@@ -91,21 +92,16 @@ namespace zefDB {
 
 	
 	namespace internals {
-		LIBZEF_DLL_EXPORTED EZefRef instantiate(BlobType bt, GraphData& gd);
-		LIBZEF_DLL_EXPORTED EZefRef instantiate(EZefRef src, BlobType bt, EZefRef trg, GraphData& gd);
+		// LIBZEF_DLL_EXPORTED EZefRef instantiate(BlobType bt, GraphData& gd);
+		// LIBZEF_DLL_EXPORTED EZefRef instantiate(EZefRef src, BlobType bt, EZefRef trg, GraphData& gd);
 
-		LIBZEF_DLL_EXPORTED EZefRef get_or_create_and_get_tx(GraphData& gd);
+		// LIBZEF_DLL_EXPORTED EZefRef get_or_create_and_get_tx(GraphData& gd);
 
-		template <typename T> T& get_next_free_writable_blob(GraphData& gd);
-		LIBZEF_DLL_EXPORTED void move_head_forward(GraphData& gd);		
+		// template <typename T> T& get_next_free_writable_blob(GraphData& gd);
+		// LIBZEF_DLL_EXPORTED void move_head_forward(GraphData& gd);		
 				
 
 		// void apply_actions_to_blob_range(Graph& g, blob_index blob_index_lo, blob_index blob_index_hi, bool ensure_idempotency);
 		// void set_blobs_and_uids_from_bytes(Graph& g, blob_index start_index, blob_index end_index, const std::string& blob_bytes, const std::string& uid_bytes);
-	
-
-		// AtomicEntityType get_aet_from_enum_type_name_string(const std::string& name);
-		// AtomicEntityType get_aet_from_quantity_float_name_string(const std::string& name);
-		// AtomicEntityType get_aet_from_quantity_int_name_string(const std::string& name);
 	}
 }

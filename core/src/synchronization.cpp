@@ -18,6 +18,8 @@
 #include "high_level_api.h"
 #include "blobs.h"
 
+#include "zefops.h"
+
 #include <algorithm>
 
 namespace zefDB {
@@ -252,8 +254,8 @@ namespace zefDB {
                 apply_action_ROOT_NODE(gd, uzr_to_blob, fill_caches);
                 break;
             }
-            case BlobType::ATOMIC_ENTITY_NODE: {
-               apply_action_ATOMIC_ENTITY_NODE(gd, uzr_to_blob, fill_caches); 
+            case BlobType::ATTRIBUTE_ENTITY_NODE: {
+               apply_action_ATTRIBUTE_ENTITY_NODE(gd, uzr_to_blob, fill_caches); 
                 break;
             }
             case BlobType::ENTITY_NODE: {
@@ -284,8 +286,8 @@ namespace zefDB {
                apply_action_FOREIGN_ENTITY_NODE(gd, uzr_to_blob, fill_caches); 
                 break;
             }
-            case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: {
-               apply_action_FOREIGN_ATOMIC_ENTITY_NODE(gd, uzr_to_blob, fill_caches); 
+            case BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE: {
+               apply_action_FOREIGN_ATTRIBUTE_ENTITY_NODE(gd, uzr_to_blob, fill_caches); 
                 break;
             }
             case BlobType::FOREIGN_RELATION_EDGE: {
@@ -300,6 +302,10 @@ namespace zefDB {
                 apply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(gd, uzr_to_blob, fill_caches);
 				break;
 			}
+            case BlobType::VALUE_NODE: {
+                apply_action_VALUE_NODE(gd, uzr_to_blob, fill_caches);
+				break;
+			}
             case BlobType::TO_DELEGATE_EDGE: {
                 apply_action_TO_DELEGATE_EDGE(gd, uzr_to_blob, fill_caches);
 				break;
@@ -308,7 +314,19 @@ namespace zefDB {
                 apply_action_DELEGATE_INSTANTIATION_EDGE(gd, uzr_to_blob, fill_caches);
 				break;
 			}
-			default: return;
+            case BlobType::NEXT_TX_EDGE:
+            case BlobType::RAE_INSTANCE_EDGE:
+            case BlobType::VALUE_EDGE:
+            case BlobType::VALUE_TYPE_EDGE:
+            case BlobType::DELEGATE_RETIREMENT_EDGE:
+            case BlobType::INSTANTIATION_EDGE:
+            case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
+            case BlobType::ORIGIN_GRAPH_EDGE:
+            case BlobType::ORIGIN_RAE_EDGE:
+            case BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
+                return;
+			default:
+                throw std::runtime_error("Unhandled apply action: " + to_str(get<BlobType>(uzr_to_blob)));
 			};
 		}
 
@@ -318,8 +336,8 @@ namespace zefDB {
                 unapply_action_ROOT_NODE(gd, uzr_to_blob, fill_caches);
                 break;
             }
-            case BlobType::ATOMIC_ENTITY_NODE: {
-                unapply_action_ATOMIC_ENTITY_NODE(gd, uzr_to_blob, fill_caches);
+            case BlobType::ATTRIBUTE_ENTITY_NODE: {
+                unapply_action_ATTRIBUTE_ENTITY_NODE(gd, uzr_to_blob, fill_caches);
                 break;
             }
             case BlobType::ENTITY_NODE: {
@@ -350,8 +368,8 @@ namespace zefDB {
                 unapply_action_FOREIGN_ENTITY_NODE(gd, uzr_to_blob, fill_caches);
                 break;
             }
-            case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: {
-                unapply_action_FOREIGN_ATOMIC_ENTITY_NODE(gd, uzr_to_blob, fill_caches);
+            case BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE: {
+                unapply_action_FOREIGN_ATTRIBUTE_ENTITY_NODE(gd, uzr_to_blob, fill_caches);
                 break;
             }
             case BlobType::FOREIGN_RELATION_EDGE: {
@@ -366,6 +384,10 @@ namespace zefDB {
                 unapply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(gd, uzr_to_blob, fill_caches);
                 break;
             }
+            case BlobType::VALUE_NODE: {
+                unapply_action_VALUE_NODE(gd, uzr_to_blob, fill_caches);
+				break;
+			}
             case BlobType::TO_DELEGATE_EDGE: {
                 unapply_action_TO_DELEGATE_EDGE(gd, uzr_to_blob, fill_caches);
 				break;
@@ -374,7 +396,18 @@ namespace zefDB {
                 unapply_action_DELEGATE_INSTANTIATION_EDGE(gd, uzr_to_blob, fill_caches);
 				break;
 			}
-            default: return;
+            case BlobType::NEXT_TX_EDGE:
+            case BlobType::RAE_INSTANCE_EDGE:
+            case BlobType::VALUE_EDGE:
+            case BlobType::VALUE_TYPE_EDGE:
+            case BlobType::DELEGATE_RETIREMENT_EDGE:
+            case BlobType::INSTANTIATION_EDGE:
+            case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
+            case BlobType::ORIGIN_GRAPH_EDGE:
+            case BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
+                return;
+			default:
+                throw std::runtime_error("Unhandled apply action");
 			};
 		}
 

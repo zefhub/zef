@@ -38,6 +38,8 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
     me.debug_last_action = "About to resubscribe";
 
+    std::string working_layout = butler.upstream_layout();
+
     // Interesting point here - we could send out read_head, but
     // if we've written more to it then upstream would get
     // confused. But it is possible for sync_head to be 0 in
@@ -55,7 +57,8 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
             hash_to = me.gd->write_head.load();
         else
             hash_to = me.gd->sync_head.load();
-        hash = partial_hash(Graph(me.gd, false), hash_to);
+
+        hash = partial_hash(Graph(me.gd, false), hash_to, 0, working_layout);
     }
     json j = create_heads_json_from_sync_head(*me.gd, update_heads);
     j["msg_type"] = "subscribe_to_graph";
@@ -65,8 +68,6 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     j["hash_index"] = hash_to;
 
     auto response = butler.wait_on_zefhub_message<GenericZefHubResponse>(j);
-    if(zwitch.graph_event_output())
-        std::cerr << "Got response: " << response.j << std::endl;
 
     if(!response.generic.success) {
         butler.set_into_invalid_state(me);
@@ -93,7 +94,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         bool bad = true;
         if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
             // We were ahead of upstream, see if we agree with what they had.
-            auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>());
+            auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>(), 0, working_layout);
             if(our_hash == response.j["hash"].get<uint64_t>()) {
                 if(zwitch.graph_event_output())
                     std::cerr << "We were ahead of upstream but our hashes agree." << std::endl;
@@ -144,6 +145,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         }
     }
 
+    if(zwitch.graph_event_output())
     me.debug_last_action = "Resubscribed to zefhub";
     me.gd->currently_subscribed = true;
 
@@ -151,8 +153,10 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     // not automatically wake up. So we trigger the heads_locker just in case.
     wake(me.gd->heads_locker);
 
-    if(zwitch.graph_event_output())
-        std::cerr << "Upstream head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
+    if(zwitch.graph_event_output()) {
+        std::cerr << "Resubscribed to graph: " << str(me.uid) << std::endl;
+        std::cerr << "Upstream/our head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
+    }
 }
 
 
@@ -197,8 +201,17 @@ int resolve_memory_style(int mem_style, bool synced) {
     return mem_style;
 }
 
-void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, bool double_link, bool update_upstream) {
+void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload_in, bool double_link, bool update_upstream) {
     LockGraphData lock{&gd};
+
+    std::string working_layout = payload_in.j["data_layout_version"];
+    UpdatePayload payload;
+    if(working_layout == "0.2.0")
+        payload = conversions::convert_payload_0_2_0_to_0_3_0(payload_in);
+    else {
+        force_assert(working_layout == "0.3.0");
+        payload = payload_in;
+    }
 
     UpdateHeads heads = parse_payload_update_heads(payload);
 
@@ -236,6 +249,7 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, boo
         GEN_CACHE("_uid_lookup", uid_lookup)
         GEN_CACHE("_euid_lookup", euid_lookup)
         GEN_CACHE("_tag_lookup", tag_lookup)
+        GEN_CACHE("_av_hash_lookup", av_hash_lookup)
         else
             throw std::runtime_error("Unknown cache");
 #undef GEN_CACHE
@@ -248,14 +262,15 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, boo
     // if(!verification::verify_graph_double_linking(g))
     //     throw std::runtime_error("Bad double linking");
 
-    if(payload.j.contains("hash_full_graph")){
-        if(payload.j["hash_full_graph"].get<uint64_t>() != gd.hash(constants::ROOT_NODE_blob_index, gd.write_head)) {
+    // Note: we use payload_in here instead of payload as that may have clobbered the hash.
+    if(payload_in.j.contains("hash_full_graph")){
+        if(payload_in.j["hash_full_graph"].get<uint64_t>() != gd.hash(constants::ROOT_NODE_blob_index, gd.write_head, 0, working_layout)) {
             // This must be somewhere I can't find, but redoing here
             blob_index indx = constants::ROOT_NODE_blob_index;
             while(indx < gd.write_head) {
                 EZefRef uzr{indx, gd};
                 // visit([](auto & x) { std::cerr << x << std::endl; }, uzr);
-                visit([](auto & x) { manual_os_call(std::cerr, x) << std::endl; }, uzr);
+                visit_blob([](auto & x) { manual_os_call(std::cerr, x) << std::endl; }, uzr);
                 indx += num_blob_indexes_to_move(size_of_blob(uzr));
             }
 
@@ -386,9 +401,12 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
         // This shouldn't ever be needed.
         // me.gd->managing_thread_id = std::this_thread::get_id();
 
+        wait_for_auth();
+
         // This is where all of the user-requested
         // options (like primary role) should come into
         // play.
+        std::string working_layout = upstream_layout();
 
         if (existed) {
             if(content.callback)
@@ -410,9 +428,9 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                     {"msg_version", 3},
                     {"graph_uid", str(me.uid)},
             };
-            parse_filegraph_update_heads(*fg, j);
+            parse_filegraph_update_heads(*fg, j, working_layout);
             
-            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"]);
+            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
             j["hash_index"] = j["blobs_head"];
             auto response = wait_on_zefhub_message(j);
             int msg_version = 0;
@@ -437,10 +455,9 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                     bool bad = true;
                     if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
                         // We were ahead of upstream, see if we agree with what they had.
-                        auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>());
+                        auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>(), 0, working_layout);
                         if(our_hash == response.j["hash"].get<uint64_t>()) {
-                            if(zwitch.developer_output())
-                                std::cerr << "We were ahead of upstream but our hashes agree." << std::endl;
+                            developer_output("We were ahead of upstream but our hashes agree.");
                             bad = false;
                         }
                     }
@@ -462,8 +479,24 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                         _g = Graph{me.gd, false};
                         me.gd->is_primary_instance = false;
 
-                        if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
-                            // TODO: We need to inform upstream that we had to reset.
+                        // We need to inform upstream that we had to reset.
+                        if(zefdb_protocol_version >= 7) {
+                            json j{
+                                {"msg_type", "graph_heads"},
+                                {"msg_version", 1},
+                                {"graph_uid", str(me.uid)},
+                            };
+                            parse_filegraph_update_heads(*fg, j, working_layout);
+                            std::cerr << j << std::endl;
+                            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
+                            j["hash_index"] = j["blobs_head"];
+                            auto response = wait_on_zefhub_message(j);
+                            if(!response.generic.success) {
+                                developer_output("Problem letting ZefHub know that we reset our heads.");
+                                msg->promise.set_value(GraphLoaded(response.generic.reason));
+                                me.please_stop = true;
+                                return;
+                            }
                         }
                     }
                 }
@@ -733,12 +766,23 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
         return;
     }
 
+    
     if(content.sync) {
         // Try and send out an update. We add in a wait on the
         // network, as the user calling sync() will expect us to
         // make more of an effort to get any updates to upstream.
         // network.wait_for_connected(constants::zefhub_reconnect_timeout);
         wait_for_auth(constants::zefhub_reconnect_timeout);
+        if(upstream_layout() == "0.2.0") {
+            // Only allow sync to turn on if we can convert the layout for this graph. (it is compatible)
+            char * blobs_ptr = (char*)(me.gd) + constants::ROOT_NODE_blob_index * constants::blob_indx_step_in_bytes;
+            char * end = (char*)(me.gd) + me.gd->read_head.load() * constants::blob_indx_step_in_bytes;
+            size_t len = end - blobs_ptr;
+            if(!conversions::can_convert_0_3_0_to_0_2_0(blobs_ptr, len)) {
+                msg->promise.set_value(GenericResponse{false, "Can't sync a graph which is not comptabile with 0.2.0 data layout"});
+                return;
+            }
+        }
     }
 
     update(me.gd->heads_locker, me.gd->should_sync, content.sync);
@@ -914,7 +958,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
                     // py::gil_scoped_acquire acquire;
                     // auto pymerge = py::module_::import("zef.core.internals.merges").attr("_graphdelta_merge");
                     // json receipt = pymerge(Graph(*me.gd), payload.delta);
-                    json receipt = pass_to_merge_handler(Graph(*me.gd), payload.commands);
+                    json receipt = internals::pass_to_merge_handler(Graph(*me.gd), payload.commands);
 
                     if(content.task_uid) {
                         if(content.msg_version <= 0) {

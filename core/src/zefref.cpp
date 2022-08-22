@@ -35,7 +35,7 @@ namespace zefDB {
         // auto bt = get<BlobType>(ezr.blob_ptr);
         // Note: the above creates a new EZefRef so we end up in an infinite chain
         auto bt = *(BlobType*)(ezr.blob_ptr);
-        if(bt == BlobType::_unspecified || bt > BlobType::FOREIGN_RELATION_EDGE) {
+        if(bt == BlobType::_unspecified || bt >= BlobType::_last_blobtype) {
             print_backtrace();
 
             std::cerr << "Shouldn't be making a EZefRef that points at anything other than a blob." << std::endl;
@@ -51,6 +51,7 @@ namespace zefDB {
 			if (my_blob_index < 0 || my_blob_index > graph_data_to_get_graph_from.write_head) {
 				std::cout << "EZefRef ctor called with index " << my_blob_index << std::endl;
                 print_backtrace();
+                abort();
 				throw std::runtime_error("EZefRef initialized with index outside of valid range for this graph");
 			}
             Butler::ensure_or_get_range(blob_ptr, blobs_ns::max_basic_blob_size);
@@ -103,8 +104,8 @@ namespace zefDB {
 	}
 
 	// for any given ZefRef: get access to the associated graph_data struct sitting at the very beginning of the mempool
-	GraphData* graph_data(void* blob_ptr) {
-		assert(blob_ptr != nullptr);			
+	GraphData* graph_data(const void* blob_ptr) {
+		assert(blob_ptr != nullptr);
 		return (GraphData*)(blobs_ptr_from_blob(blob_ptr));
 	}
 

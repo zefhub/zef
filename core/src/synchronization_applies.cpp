@@ -17,8 +17,8 @@
 // might not know when calling this one.
 void apply_action_lookup(GraphData& gd, EZefRef uzr, bool fill_caches) {
     switch (get<BlobType>(uzr)) {
-    case BlobType::ATOMIC_ENTITY_NODE: {
-        apply_action_ATOMIC_ENTITY_NODE(gd, uzr, fill_caches); 
+    case BlobType::ATTRIBUTE_ENTITY_NODE: {
+        apply_action_ATTRIBUTE_ENTITY_NODE(gd, uzr, fill_caches); 
         break;
     }
     case BlobType::ENTITY_NODE: {
@@ -33,8 +33,8 @@ void apply_action_lookup(GraphData& gd, EZefRef uzr, bool fill_caches) {
         apply_action_FOREIGN_ENTITY_NODE(gd, uzr, fill_caches);
         break;
     }
-    case BlobType::FOREIGN_ATOMIC_ENTITY_NODE: {
-        apply_action_FOREIGN_ATOMIC_ENTITY_NODE(gd, uzr, fill_caches);
+    case BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE: {
+        apply_action_FOREIGN_ATTRIBUTE_ENTITY_NODE(gd, uzr, fill_caches);
         break;
     }
     case BlobType::FOREIGN_RELATION_EDGE: {
@@ -62,6 +62,12 @@ void insert_tag_lookup(GraphData & gd, std::string tag, blob_index indx) {
     auto ptr = gd.tag_lookup->get_writer();
     ptr->append(tag, indx, ptr.ensure_func());
 }
+    
+void insert_av_hash_lookup(GraphData & gd, const value_variant_t & value, blob_index indx) {
+    auto compare_func = internals::create_compare_func_for_value_node(gd, &value);
+    auto ptr = gd.av_hash_lookup->get_writer();
+    ptr->append(value_hash(value), indx, compare_func, ptr.ensure_func());
+}
 
 void pop_uid_lookup(GraphData & gd, BaseUID uid, blob_index indx) {
     if(uid == BaseUID()) {
@@ -79,6 +85,11 @@ void remove_tag_lookup(GraphData & gd, std::string tag, blob_index indx) {
     // (*gd.key_dict)[name] = index(uzr);
     auto ptr = gd.tag_lookup->get_writer();
     ptr->_pop(tag, indx, ptr.ensure_func(true));
+}
+void pop_av_hash_lookup(GraphData & gd, const value_variant_t & value) {
+    auto ptr = gd.av_hash_lookup->get_writer();
+    auto compare_func = internals::create_compare_func_for_value_node(gd, &value);
+    ptr->_pop(compare_func, ptr.ensure_func(true));
 }
 
 void apply_action_ROOT_NODE(GraphData& gd, EZefRef uzr, bool fill_caches) {
@@ -98,9 +109,9 @@ void unapply_action_ROOT_NODE(GraphData& gd, EZefRef uzr, bool fill_caches) {
     }
 }
 
-void apply_action_ATOMIC_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
-    assert(get<BlobType>(uzr) == BlobType::ATOMIC_ENTITY_NODE);
-    auto & node = get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr);
+void apply_action_ATTRIBUTE_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
+    assert(get<BlobType>(uzr) == BlobType::ATTRIBUTE_ENTITY_NODE);
+    auto & node = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(uzr);
     // we need to distinguish whether this is a delegate entity or an instance: these get different keys				
     if(fill_caches) {
         if (is_delegate(uzr)) {
@@ -113,10 +124,10 @@ void apply_action_ATOMIC_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_cach
             insert_uid_lookup(gd, get_blob_uid(uzr), index(uzr));
         }
         if(is_delegate(uzr)) {
-            if(node.my_atomic_entity_type <= AET.Enum ||
-               node.my_atomic_entity_type <= AET.QuantityFloat ||
-               node.my_atomic_entity_type <= AET.QuantityInt) {
-                auto v = node.my_atomic_entity_type.value;
+            if(is_zef_subtype(node.primitive_type, VRT.Enum) ||
+               is_zef_subtype(node.primitive_type, VRT.QuantityFloat) ||
+               is_zef_subtype(node.primitive_type, VRT.QuantityInt)) {
+                auto v = node.primitive_type.value;
                 enum_indx indx = v - v % 16;
                 auto p = gd.ENs_used->get_writer();
                 if(!p->contains(indx))
@@ -126,8 +137,8 @@ void apply_action_ATOMIC_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_cach
     }
 }
 
-void unapply_action_ATOMIC_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
-    auto & node = get<blobs_ns::ATOMIC_ENTITY_NODE>(uzr);
+void unapply_action_ATTRIBUTE_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
+    auto & node = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(uzr);
     if (is_delegate(uzr)) {
     } else {
         if(fill_caches)
@@ -135,6 +146,25 @@ void unapply_action_ATOMIC_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_ca
     }
     // TODO Going to ignore undoing from ENs_used
     // WARNING THIS COULD MAKE A CLIENT GET OUT OF SYNC IN WEIRD ORDERING OF TAKING TRANSACTOR ROLE.
+}
+
+void apply_action_VALUE_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
+    assert(get<BlobType>(uzr) == BlobType::VALUE_NODE);
+    auto & node = get<blobs_ns::VALUE_NODE>(uzr);
+
+    if(fill_caches) {
+        auto this_val = value_from_node<value_variant_t>(node);
+        insert_av_hash_lookup(gd, this_val, index(uzr));
+    }
+}
+
+void unapply_action_VALUE_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
+    auto & node = get<blobs_ns::VALUE_NODE>(uzr);
+    if(fill_caches) {
+        // TODO: Pop the hash from a lookup
+        auto this_val = value_from_node<value_variant_t>(node);
+        pop_av_hash_lookup(gd, this_val);
+    }
 }
 
 void apply_action_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
@@ -283,8 +313,8 @@ void unapply_action_FOREIGN_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_c
     }
 }
 
-void apply_action_FOREIGN_ATOMIC_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
-    assert(get<BlobType>(uzr) == BlobType::FOREIGN_ATOMIC_ENTITY_NODE);
+void apply_action_FOREIGN_ATTRIBUTE_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
+    assert(get<BlobType>(uzr) == BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE);
     if(fill_caches) {
         BaseUID uid = get_blob_uid(uzr);
         // insert_uid_lookup(gd, uid, index(uzr));
@@ -294,7 +324,7 @@ void apply_action_FOREIGN_ATOMIC_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool f
     }
 }
 
-void unapply_action_FOREIGN_ATOMIC_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
+void unapply_action_FOREIGN_ATTRIBUTE_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
     if(fill_caches) {
         BaseUID uid = get_blob_uid(uzr);
         // pop_uid_lookup(gd, uid, index(uzr));
@@ -331,8 +361,8 @@ void apply_action_TERMINATION_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches
     auto rel_ent_that_was_terminated = EZefRef(target_node_index(this_rel_ent_instance_edge), gd);
     TimeSlice termination_ts = get<blobs_ns::TX_EVENT_NODE>(EZefRef(source_node_index(uzr), gd)).time_slice;
     switch (get<BlobType>(rel_ent_that_was_terminated)) {   // For an entity, relation, atomic entity, root_node, add the uid to the dict
-    case BlobType::ATOMIC_ENTITY_NODE: {
-        get<blobs_ns::ATOMIC_ENTITY_NODE>(rel_ent_that_was_terminated).termination_time_slice = termination_ts;
+    case BlobType::ATTRIBUTE_ENTITY_NODE: {
+        get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(rel_ent_that_was_terminated).termination_time_slice = termination_ts;
         break;
     }
     case BlobType::ENTITY_NODE: {
@@ -352,8 +382,8 @@ void unapply_action_TERMINATION_EDGE(GraphData & gd, EZefRef uzr, bool fill_cach
     auto rel_ent_that_was_terminated = EZefRef(target_node_index(this_rel_ent_instance_edge), gd);
     std::cerr << "Going to set " << rel_ent_that_was_terminated << " to have a zero termination slice" << std::endl;
     switch (get<BlobType>(rel_ent_that_was_terminated)) {
-    case BlobType::ATOMIC_ENTITY_NODE: {
-        get<blobs_ns::ATOMIC_ENTITY_NODE>(rel_ent_that_was_terminated).termination_time_slice.value = 0;
+    case BlobType::ATTRIBUTE_ENTITY_NODE: {
+        get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(rel_ent_that_was_terminated).termination_time_slice.value = 0;
         break;
     }
     case BlobType::ENTITY_NODE: {
@@ -373,7 +403,7 @@ void apply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(GraphData & gd, EZefRef uzr, bool
     auto & node = get<blobs_ns::ATOMIC_VALUE_ASSIGNMENT_EDGE>(uzr);
 
     if(fill_caches) {
-        if(node.my_atomic_entity_type <= AET.Enum) {
+        if(is_zef_subtype(node.rep_type, VRT.Enum)) {
             ZefEnumValue & en = *(ZefEnumValue*)node.data_buffer;
             enum_indx indx = en.value;
 

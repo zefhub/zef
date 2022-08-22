@@ -41,7 +41,7 @@ namespace zefDB {
 		EZefRef() = default;
 		EZefRef(const EZefRef& b) = default;
 		explicit EZefRef(ZefRef uzr);
-		EZefRef(void* ptr);
+		explicit EZefRef(void* ptr);
 		// first cast on uintptr_t to be able to shift by the my_blob_index 
 		EZefRef(blob_index my_blob_index, const GraphData& graph_data_to_get_graph_from);
 		EZefRef(blob_index my_blob_index, const Graph& graph);
@@ -57,7 +57,7 @@ namespace zefDB {
 		ZefRef(EZefRef blob_uzr_, EZefRef tx_) : blob_uzr(blob_uzr_), tx(tx_) {};
 		ZefRef(blob_index my_blob_index, GraphData& graph_data_to_get_graph_from, EZefRef tx_):
 			blob_uzr(EZefRef(my_blob_index, graph_data_to_get_graph_from)), tx(tx_) {};
-		ZefRef(void* ptr, EZefRef tx_): blob_uzr(EZefRef(ptr)), tx(tx_) {};
+		explicit ZefRef(void* ptr, EZefRef tx_): blob_uzr(EZefRef(ptr)), tx(tx_) {};
 		explicit ZefRef(EZefRef uzr) : blob_uzr(EZefRef(uzr)), tx(EZefRef{ nullptr }) {};
 	};
 
@@ -79,7 +79,7 @@ namespace zefDB {
 	LIBZEF_DLL_EXPORTED GraphData* graph_data(ZefRef zr);
 
 	// for any given ZefRef: get access to the associated graph_data struct sitting at the very beginning of the mempool
-	LIBZEF_DLL_EXPORTED GraphData* graph_data(void* blob_ptr);
+	LIBZEF_DLL_EXPORTED GraphData* graph_data(const void* blob_ptr);
 
 	template <typename T>
 	T& get(EZefRef uzr) {
@@ -89,6 +89,11 @@ namespace zefDB {
 	template <typename T>
 	T& get(ZefRef zr) {
 		return *(T*)zr.blob_uzr.blob_ptr;
+	}
+
+	template <typename T>
+	T& get(void * ptr) {
+		return *(T*)ptr;
 	}
 
 
@@ -455,7 +460,7 @@ namespace zefDB {
 		struct PyIterator;    // used as a Python Iterator: here the Iterator also needs to store the end Iterator
 		
 		std::vector<ZefRefs> v;
-		EZefRef reference_frame_tx = nullptr;
+		EZefRef reference_frame_tx = EZefRef{nullptr};
 
 		ZefRefss() = delete;
 		ZefRefss(std::vector<ZefRefs>&& v_) : v(std::move(v_)) {};
@@ -481,6 +486,14 @@ namespace zefDB {
 	};
 
 
+
+
+    LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& os, EZefRef uzr);
+    LIBZEF_DLL_EXPORTED std::string low_level_blob_info(const EZefRef & uzr);
+
+
+    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const EZefRefs& uzrs);
+    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& o, const EZefRefss& uzrss);
 
 
 

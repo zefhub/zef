@@ -27,8 +27,11 @@ using json = nlohmann::json;
 
 // I want to not have to use this:
 #include "high_level_api.h"
+#include "zefops.h"
 #include "synchronization.h"
 #include "zef_config.h"
+#include "external_handlers.h"
+#include "conversions.h"
 
 namespace zefDB {
     bool initialised_python_core = false;
@@ -818,7 +821,7 @@ namespace zefDB {
         ////////////////////////////////////////
         // * Memory management
 
-        void ensure_or_get_range(void * ptr, size_t size) {
+        void ensure_or_get_range(const void * ptr, size_t size) {
 #ifndef ZEFDB_TEST_NO_MMAP_CHECKS
 
             if(!MMap::is_range_alloced(ptr, size)) {
@@ -888,58 +891,13 @@ namespace zefDB {
             return *local_process_graph;
         }
 
-        ////////////////////////////////////////////////////////
-        // * External handlers
         std::string Butler::upstream_layout() {
             if(butler_is_master)
                 return data_layout_version;
-
             if(zefdb_protocol_version == -1)
                 throw std::runtime_error("Shouldn't be asking for upstream layout when we haven't connected and done a handshake.");
 
-            if(zefdb_protocol_version <= 6)
-                return "0.2.0";
-            throw std::runtime_error("Don't know what the upstream layout should be for this protocol version");
-        }
-
-        // ** Merge handler
-        std::optional<std::function<merge_handler_t>> merge_handler;
-        json pass_to_merge_handler(Graph g, const json & payload) {
-            if(!merge_handler)
-                throw std::runtime_error("Merge handler has not been assigned.");
-
-            return (*merge_handler)(g, payload);
-        }
-
-        void register_merge_handler(std::function<merge_handler_t> func) {
-            if(merge_handler)
-                throw std::runtime_error("Merge handler has already been registered.");
-            merge_handler = func;
-        }
-
-        void remove_merge_handler() {
-            if(!merge_handler)
-                std::cerr << "Warning, no merge_handler registered to be removed." << std::endl;
-            merge_handler.reset();
-        }
-
-        // ** Schema validator
-        std::optional<std::function<schema_validator_t>> schema_validator;
-        void pass_to_schema_validator(ZefRef tx) {
-            if(schema_validator)
-                (*schema_validator)(tx);
-        }
-
-        void register_schema_validator(std::function<schema_validator_t> func) {
-            if(schema_validator)
-                throw std::runtime_error("schema_validator has already been registered.");
-            schema_validator = func;
-        }
-
-        void remove_schema_validator() {
-            if(!schema_validator)
-                std::cerr << "Warning, no schema_validator registered to be removed." << std::endl;
-            schema_validator.reset();
+            return conversions::version_layout(zefdb_protocol_version);
         }
     }
 }

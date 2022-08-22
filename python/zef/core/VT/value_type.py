@@ -90,7 +90,7 @@ class ValueType_:
                 _value_type_get_item_funcs[type_name] = get_item_func
 
             self.pass_self = pass_self
-            self.allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct, BlobTypeStruct, BlobType, AtomicEntityType, EntityType, RelationType)
+            self.allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct, BlobTypeStruct, BlobType, AttributeEntityType, EntityType, RelationType)
 
     def __repr__(self):
         if self.d['alias'] != None:
