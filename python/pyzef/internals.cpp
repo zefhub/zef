@@ -814,6 +814,13 @@ void fill_internals_module(py::module_ & internals_submodule) {
     },
         py::call_guard<py::gil_scoped_release>());
 
+    // Message encoding/decoding, exposed for ZefHub
+    internals_submodule.def("prepare_ZH_message", [](const json & j, const std::vector<std::string> & list) {
+        std::string s = Communication::prepare_ZH_message(j, list);
+        return py::bytes(s);
+    });
+    internals_submodule.def("parse_ZH_message", &Communication::parse_ZH_message);
+
     internals_submodule.def("register_merge_handler", &internals::register_merge_handler);
     internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&internals::remove_merge_handler));
 

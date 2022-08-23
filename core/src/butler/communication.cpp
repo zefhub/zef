@@ -104,7 +104,7 @@ namespace zefDB {
             return std::make_tuple(main_j, strings);
         }
 
-        std::string prepare_ZH_message(json & main_json, const std::vector<std::string> & vec) {
+        std::string prepare_ZH_message(const json & main_json, const std::vector<std::string> & vec) {
             std::string main_msg = main_json.dump();
 
             std::stringstream ss;

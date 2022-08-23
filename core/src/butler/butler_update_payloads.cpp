@@ -397,8 +397,10 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
                 if(response.j.contains("blobs_head")) {
                     UpdateHeads parsed_heads = parse_message_update_heads(response.j);
                     apply_sync_heads(*me.gd, parsed_heads);
+                    developer_output("Sync head response was a failure but got an updated heads in response so going to try with that.");
                 } else {
                     // Unknown error - wait a bit
+                    std::cerr << response.j << std::endl;
                     std::cerr << "Unknown error received from ZH from our graph update ('" << response.generic.reason << "'). Setting graph to invalid state." << std::endl;
                     set_into_invalid_state(me);
                     // std::this_thread::sleep_for(std::chrono::seconds(1));
