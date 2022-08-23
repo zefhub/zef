@@ -394,7 +394,7 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
                 // sync loop. It's better to just keep retrying rather
                 // than crashing.
 
-                if(response.j.contains("upstream_head")) {
+                if(response.j.contains("blobs_head")) {
                     UpdateHeads parsed_heads = parse_message_update_heads(response.j);
                     apply_sync_heads(*me.gd, parsed_heads);
                 } else {
