@@ -97,7 +97,7 @@ Response wait_future(Butler::task_ptr task, std::optional<activity_callback_t> a
             }
 
             if(now() > Time(task->last_activity.load()) + task->timeout*seconds) {
-                std::cerr << "Throwing timeout exception because last_activity was " << task->last_activity << " and now is " << now() << std::endl;
+                std::cerr << "Throwing timeout exception because last_activity was " << std::fixed << task->last_activity << " and now is " << now() << std::endl;
                 throw Butler::timeout_exception();
             }
         }
