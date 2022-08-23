@@ -815,11 +815,36 @@ void fill_internals_module(py::module_ & internals_submodule) {
         py::call_guard<py::gil_scoped_release>());
 
     // Message encoding/decoding, exposed for ZefHub
-    internals_submodule.def("prepare_ZH_message", [](const json & j, const std::vector<std::string> & list) {
+    internals_submodule.def("prepare_ZH_message", [](const py::dict & d, const std::vector<std::string> & list) {
+        json j{d};
         std::string s = Communication::prepare_ZH_message(j, list);
-        return py::bytes(s);
-    });
-    internals_submodule.def("parse_ZH_message", &Communication::parse_ZH_message);
+        {
+            py::gil_scoped_acquire acquire;
+            return py::bytes(s);
+        }
+    }, py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("prepare_ZH_message", [](const std::string & j_s, const std::vector<std::string> & list) {
+        json j = json::parse(j_s);
+        if(!j.is_object())
+            throw std::runtime_error("When passing json as a string, need it to parse into an object.");
+            
+        std::string s = Communication::prepare_ZH_message(j, list);
+        {
+            py::gil_scoped_acquire acquire;
+            return py::bytes(s);
+        }
+    }, py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("parse_ZH_message", [](const std::string & s) {
+        auto tup = Communication::parse_ZH_message(s);
+        auto v_in = std::get<1>(tup);
+        std::vector<py::bytes> v;
+        {
+            py::gil_scoped_acquire acquire;
+            std::transform(v_in.cbegin(), v_in.cend(), std::back_inserter(v),
+                           [](auto & x) { return py::bytes(x); });
+            return std::make_tuple(std::get<0>(tup), v);
+        }
+    },  py::call_guard<py::gil_scoped_release>());
 
     internals_submodule.def("register_merge_handler", &internals::register_merge_handler);
     internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&internals::remove_merge_handler));
