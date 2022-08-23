@@ -816,24 +816,26 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     // Message encoding/decoding, exposed for ZefHub
     internals_submodule.def("prepare_ZH_message", [](const py::dict & d, const std::vector<std::string> & list) {
-        json j{d};
-        std::string s = Communication::prepare_ZH_message(j, list);
+        json j = d;
+        std::string s;
         {
-            py::gil_scoped_acquire acquire;
-            return py::bytes(s);
+            py::gil_scoped_release release;
+            s = Communication::prepare_ZH_message(j, list);
         }
-    }, py::call_guard<py::gil_scoped_release>());
+        return py::bytes(s);
+    });
     internals_submodule.def("prepare_ZH_message", [](const std::string & j_s, const std::vector<std::string> & list) {
         json j = json::parse(j_s);
         if(!j.is_object())
             throw std::runtime_error("When passing json as a string, need it to parse into an object.");
             
-        std::string s = Communication::prepare_ZH_message(j, list);
+        std::string s;
         {
-            py::gil_scoped_acquire acquire;
-            return py::bytes(s);
+            py::gil_scoped_release release;
+            s = Communication::prepare_ZH_message(j, list);
         }
-    }, py::call_guard<py::gil_scoped_release>());
+        return py::bytes(s);
+    });
     internals_submodule.def("parse_ZH_message", [](const std::string & s) {
         auto tup = Communication::parse_ZH_message(s);
         auto v_in = std::get<1>(tup);
