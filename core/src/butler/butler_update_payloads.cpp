@@ -386,7 +386,7 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
         try {
             if(zwitch.developer_output())
                 std::cerr << "Trying to send update for graph " << me.uid << " of range " << update_heads.blobs.from << " to " << update_heads.blobs.to << std::endl;
-            response = wait_on_zefhub_message(payload.j, payload.rest, zefhub_generic_timeout, true, true);
+            response = wait_on_zefhub_message(payload.j, payload.rest, zefhub_generic_timeout, false, true);
 
             if(!response.generic.success) {
                 // There's generally only one reason for a failure. But
