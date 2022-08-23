@@ -10167,3 +10167,68 @@ def splice_imp(x, start_pos, els_to_replace, replacement):
         return Error(f'Unsupported type passed to "splice": {type(x)}')
 
 
+
+
+
+
+def parse_imp(data: str, grammar: str) -> FlatGraph:
+    """
+    Parse a string with a given grammar and return a flat graph.
+    Uses the Lark parser.
+
+    
+    ---- Examples ----
+    >>> grammar = '''
+    ... ?start: sum
+    ... 
+    ... ?sum: term
+    ...   | sum "+" term        -> add
+    ...   | sum "-" term        -> subtract
+    ... 
+    ... ?term: item
+    ...   | term "*"  item      -> multiply
+    ...   | term "/"  item      -> divide
+    ... 
+    ... ?item: NUMBER           -> number
+    ...   | "-" item            -> negative
+    ...   | CNAME               -> variable
+    ...   | "(" start ")"
+    ... 
+    ... %import common.NUMBER
+    ... %import common.WS
+    ... %import common.CNAME
+    ... %ignore WS
+    ... '''
+    ... 
+    ... "(5 * (3 / x)) + y - 1 + 7" | parse[grammar] | graphviz | c
+
+
+    ---- Tags ----
+    - operates on: String
+    - used for: parsing
+    """    
+    import lark
+    from .to_flatgraph import flat_graph_imp
+    def lark_2_dict(tr):
+        """convert lark tree to dict"""
+
+        get_val_as_str = lambda x: x if isinstance(x, str) else x.value
+
+        if isinstance(tr, lark.tree.Tree):
+            return {
+                # 'type': tr.data.value,        # we don't need to know that this is a RULE. 
+                'type': get_val_as_str(tr.data),        # we don't need to know that this is a RULE. 
+                'children': [lark_2_dict(c) for c in tr.children]
+            }
+        elif isinstance(tr, lark.lexer.Token):
+            return {
+                'type': tr.type,
+                'value': tr.value
+            }
+
+    parser = lark.Lark(grammar)
+    tree = parser.parse(data)    
+    return flat_graph_imp(lark_2_dict(tree))
+
+
+

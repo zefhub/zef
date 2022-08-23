@@ -351,6 +351,7 @@ apply           = make_zefop(RT.Apply)
 split_on_next   = make_zefop(RT.SplitOnNext)
 indexes_of      = make_zefop(RT.IndexesOf)
 to_flatgraph    = make_zefop(RT.ToFlatGraph)
+parse           = make_zefop(RT.Parse)
 
 
 examples        = make_zefop(RT.Examples)
