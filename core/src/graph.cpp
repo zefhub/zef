@@ -467,9 +467,9 @@ namespace zefDB {
             // if(index_hi == old_gd.write_head)
             //     return old_gd.hash(index_lo, index_hi);
             if(index_hi > old_gd.write_head)
-                throw std::runtime_error("index_hi is larger than old graph");
+                throw std::runtime_error("in create_partial_graph: index_hi is larger than old graph");
             if(index_hi < index_lo)
-                throw std::runtime_error("index_hi (" + to_str(index_hi) + ") is before the root node!");
+                throw std::runtime_error("in create_partial_graph: index_hi (" + to_str(index_hi) + ") is before the root node!");
         }
 
         // We create a proper graph here so that we can access it like normal.
@@ -615,9 +615,9 @@ namespace zefDB {
         LockGraphData lock(&gd);
 
         if(index_hi > gd.write_head)
-            throw std::runtime_error("index_hi is larger than old graph");
+            throw std::runtime_error("in roll_back_to: index_hi is larger than old graph");
         if(index_hi < gd.read_head)
-            throw std::runtime_error("index_hi (" + to_str(index_hi) + ") is before the read_head!");
+            throw std::runtime_error("in roll_back_to: index_hi (" + to_str(index_hi) + ") is before the read_head!");
 
         // First run all unapplies. Since we can only traverse forwards in
         // indices, build a list and reverse it to unapply things in FILO order

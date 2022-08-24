@@ -97,7 +97,7 @@ UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & up
     throw std::runtime_error("Don't know how to create update payload for layout: " + to_str(target_layout));
 }
 
-json create_heads_json_from_sync_head(const GraphData & gd, const UpdateHeads & update_heads) {
+json create_json_from_heads_from(const UpdateHeads & update_heads) {
     json j{
         {"blobs_head", update_heads.blobs.from},
     };
@@ -108,6 +108,41 @@ json create_heads_json_from_sync_head(const GraphData & gd, const UpdateHeads & 
             caches[x] = {                           \
                 {"name", x},                        \
                 {"head", cache.from},               \
+                {"revision", cache.revision},       \
+            };                                      \
+        }                                           \
+
+        if(false) {}
+        GEN_CACHE("_ETs_used", ETs_used)
+            GEN_CACHE("_RTs_used", RTs_used)
+            GEN_CACHE("_ENs_used", ENs_used)
+            GEN_CACHE("_uid_lookup", uid_lookup)
+            GEN_CACHE("_euid_lookup", euid_lookup)
+            GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
+        else {
+            throw std::runtime_error("Unknown cache");
+        }
+#undef GEN_CACHE
+
+    }
+
+    j["cache_heads"] = caches;
+
+    return j;
+}
+
+json create_json_from_heads_latest(const UpdateHeads & update_heads) {
+    json j{
+        {"blobs_head", update_heads.blobs.to},
+    };
+    json caches;
+
+    for(auto & cache : update_heads.caches) {
+#define GEN_CACHE(x, y) else if(cache.name == x) {  \
+            caches[x] = {                           \
+                {"name", x},                        \
+                {"head", cache.to},               \
                 {"revision", cache.revision},       \
             };                                      \
         }                                           \

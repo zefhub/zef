@@ -60,7 +60,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
         hash = partial_hash(Graph(me.gd, false), hash_to, 0, working_layout);
     }
-    json j = create_heads_json_from_sync_head(*me.gd, update_heads);
+    json j = create_json_from_heads_from(update_heads);
     j["msg_type"] = "subscribe_to_graph";
     j["msg_version"] = 3;
     j["graph_uid"] = str(me.uid);
@@ -1090,19 +1090,37 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePri
         return;
     }
 
+    UpdateHeads heads;
+    {
+        LockGraphData lock{me.gd};
+        heads = client_create_update_heads(*me.gd);
+    }
+
+    // First make sure we believe we have everything that upstream has
+    if(me.gd->read_head != me.gd->sync_head) {
+        developer_output("Retrying syncing while taking transactor role");
+        me.queue.push(std::move(msg), true);
+        return;
+    }
+
+    json j = create_json_from_heads_from(heads);
+    j["msg_type"] = "make_primary";
+    j["graph_uid"] = str(me.uid);
+    j["take_on"] = content.make_primary;
+
     // Add a new task to the list.
-    auto response = wait_on_zefhub_message({
-            {"msg_type", "make_primary"},
-            {"graph_uid", str(me.uid)},
-            {"take_on", content.make_primary},
-        });
+    auto response = wait_on_zefhub_message(j);
     if(!response.generic.success) {
+        if(response.j.contains("blobs_head")) {
+            developer_output("While trying to take transactor role, we were told we were out of date. Going to sync and try again.");
+            me.queue.push(std::move(msg), true);
+            return;
+        }
         if(content.make_primary)
             msg->promise.set_value(GenericResponse("Couldn't make graph primary: " + response.generic.reason));
         else
             msg->promise.set_value(GenericResponse("Couldn't take primary role away from graph: " + response.generic.reason));
-    }
-    else {
+    } else {
         me.gd->is_primary_instance = content.make_primary;
         msg->promise.set_value(GenericResponse(true));
     }
