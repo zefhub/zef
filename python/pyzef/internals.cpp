@@ -504,16 +504,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
                                [](const auto & it) { return it; });
             return out;
         }))
-        // .def_readonly("j", &Messages::UpdatePayload::j)
-        .def_property_readonly("j", [](const Messages::UpdatePayload & self) {
-            py::dict d = self.j;
-
-            if(d.contains("hash_full_graph")) {
-                d["hash_full_graph"] = (uint64_t)py::cast<int64_t>(d["hash_full_graph"]);
-            }
-
-            return d;
-        })
+        .def_readonly("j", &Messages::UpdatePayload::j)
         // .def_readonly("rest", &Messages::UpdatePayload::rest);
         .def_property_readonly("rest", [](Messages::UpdatePayload & self)->std::vector<py::bytes> {
                 std::vector<py::bytes> out;
