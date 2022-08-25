@@ -575,11 +575,20 @@ namespace zefDB {
             try {
                 me.gd->sync_thread_id = std::this_thread::get_id();
 
+                // We use asynchronous send_updates so that we can allow
+                // multiple transactions to continue, without waiting for
+                // updates to finish going to zefhub.
+                //
+                // An alternative to this would be to have another thread that
+                // just deals with this, this would be less complicated...
+                std::unique_ptr<std::future<void>> send_update_future;
+
                 while(true) {
                     wait_pred(me.gd->heads_locker,
                               [&]() {
                                   return me.please_stop
                                       || (network.connected && me.gd->should_sync
+                                          && (!send_update_future || send_update_future->wait_for(std::chrono::seconds(0)) == std::future_status::ready)
                                           && (me.gd->sync_head == 0 || (me.gd->sync_head < me.gd->read_head.load())))
                                       || (me.gd->latest_complete_tx > me.gd->manager_tx_head.load());
                               });
@@ -631,14 +640,26 @@ namespace zefDB {
 
                     if(me.gd->error_state != GraphData::ErrorState::OK)
                         throw std::runtime_error("Sync worker for graph detected invalid state and is aborting");
+
                     // After doing everything, now is a good time to send out updates.
                     // TODO: Maybe this is better left to the main thread, and we just trigger it from here by placing a message on the queue.
+
+                    // First check if a previous send_updates has finished.
+                    if(send_update_future && send_update_future->wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+                        send_update_future.release();
+
                     if(me.gd->should_sync
                        && me.gd->is_primary_instance
                        && me.gd->sync_head < me.gd->read_head.load()
-                       && want_upstream_connection())
-                        send_update(me);
+                       && want_upstream_connection()
+                       && !send_update_future) {
+                        // send_update(me);
+                        send_update_future = std::make_unique<std::future<void>>(std::async(&Butler::send_update, this, std::ref(me)));
+                    }
                 }
+
+                if(send_update_future)
+                    send_update_future.get();
 
                 // This is the last hail mary before we shut down. Required for the logic of remove_graph_manager.
                 if(me.gd->should_sync && me.gd->is_primary_instance)
