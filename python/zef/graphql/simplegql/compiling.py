@@ -87,6 +87,18 @@ def maybe_compile_func(obj, *args, allow_const=False, **kwargs):
                 else:
                     print(f"WARNING: Op {op} is not compilable!")
                     out_func = obj
+    elif type(obj) == CollectingOp:
+        collect_func = compile_func("collect", compilable_ops[RT.Collect], allow_const=allow_const)
+        if len(obj.el_ops) > 0:
+            # First compile the chain as the zefop part
+            assert len(args) == 0 and len(kwargs) == 0
+            chain_func = maybe_compile_func(ZefOp(obj.el_ops), allow_const=False)
+
+            out_func = lambda x: collect_func(chain_func(x))
+        else:
+            out_func = collect_func
+    elif not hasattr(obj, "__call__"):
+        raise Exception(f"Got a non-callable object! {obj}")
     else:
         # raise Exception(f"Don't know how to maybe compile this {type(obj)}")
         # This is duplication
@@ -169,7 +181,7 @@ class PartialStatement:
         self.outputs = outputs
         self.starargs = starargs
     def __str__(self):
-        return f"PartialStatement(in={self.inputs}, op={self.op}, out={self.outputs}, starargs={self.starargs})"
+        return f"PartialStatement(in={self.inputs}, op={compiled_func_summary(self.op)}, out={self.outputs}, starargs={self.starargs})"
 
 class AssignStatement:
     def __init__(self, const, outputs):
@@ -352,7 +364,6 @@ def compiled_func_as_str(f):
     else:
         s += [f"obj: {f!r}"]
     if hasattr(f, "_ann"):
-        print(f._ann)
         for name,val in f._ann:
             val_s = compiled_func_as_str(val)
             if '\n' in val_s:
@@ -360,6 +371,11 @@ def compiled_func_as_str(f):
             else:
                 s += [f"Annotation, {name} = {val_s}"]
     return '\n'.join(s)
+
+def compiled_func_summary(f):
+    if type(f) == types.FunctionType:
+        return f"Func: {f.__name__}"
+    return str(f)
 
     
         
@@ -408,6 +424,14 @@ def stmts_simple_func(copy_rt, is_out=True, pred=None):
 # * Ops
 #----------------------------
 
+
+def stmts_All(et):
+    if type(et) != EntityType:
+        raise Exception("Fast all is only for ETs.")
+
+    return lambda gs: gs.tx | pyzefops.instances[et]
+
+compilable_ops[RT.All] = stmts_All
 
 def stmts_And(*preds):
     inputs = ["z"]
@@ -549,11 +573,17 @@ def stmts_filter(pred):
         else:
             raise Exception("Filter doesn't return Bool")
 
+    def filter_fast(v, f):
+        for el in v:
+            if f(el):
+                yield el
+
     from zef.core.op_implementations.implementation_typing_functions import filter_implementation
     stmts += [
         AssignStatement(cpred, "pred"),
-        AssignStatement(filter_implementation, "filter_implementation"),
-        RawASTStatement("out = filter_implementation(input, pred)"),
+        # AssignStatement(filter_implementation, "filter_implementation"),
+        # RawASTStatement("out = filter_implementation(input, pred)"),
+        PartialStatement(["input", "pred"], filter_fast, "out", starargs=True),
         ReturnStatement("out")
     ]
 
@@ -569,10 +599,8 @@ def stmts_map(func):
 
     # from zef.core.op_implementations.implementation_typing_functions import map_implementation
     def map_fast(v, f):
-        def wrapper():
-            for el in v:
-                yield(f(el))
-        return ZefGenerator(wrapper)
+        for el in v:
+            yield(f(el))
     stmts += [
         AssignStatement(cfunc, "func"),
         PartialStatement(["input", "func"], map_fast, "out", starargs=True),
@@ -583,12 +611,61 @@ def stmts_map(func):
 
 compilable_ops[RT.Map] = stmts_map
 
+def stmts_greater_than(limit):
+    inputs = ["x"]
+    stmts = [AssignStatement(limit, "limit")]
+    stmts += [RawASTStatement("return x > limit")]
+    return FunctionDecl(inputs=inputs, stmts=stmts)
+
+compilable_ops[RT.GreaterThan] = stmts_greater_than
+
+def stmts_take(n):
+    def take_fast(v):
+        i = 0
+        for el in v:
+            yield(el)
+            i += 1
+            if i >= n:
+                break
+        
+    return take_fast
+
+compilable_ops[RT.Take] = stmts_take
+
+def stmts_length():
+    inputs = ["x"]
+    stmts = [PartialStatement("x", len, "out")]
+    stmts += [ReturnStatement("out")]
+    return FunctionDecl(inputs=inputs, stmts=stmts)
+
+compilable_ops[RT.Length] = stmts_length
+
+def stmts_single():
+    inputs = ["x"]
+    stmts = [RawASTStatement("assert len(x) == 1")]
+    stmts += [RawASTStatement("return x[0]")]
+    return FunctionDecl(inputs=inputs, stmts=stmts)
+
+compilable_ops[RT.Single] = stmts_single
+
 def stmts_first():
     inputs = ["x"]
     stmts = [RawASTStatement("return x[0]")]
     return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.First] = stmts_first
+
+def stmts_second():
+    inputs = ["x"]
+    stmts = [RawASTStatement("return x[1]")]
+    return FunctionDecl(inputs=inputs, stmts=stmts)
+
+compilable_ops[RT.Second] = stmts_second
+
+def stmts_to_ezefref():
+    return lambda x: pyzefops.to_ezefref(x)
+
+compilable_ops[RT.ToEZefRef] = stmts_to_ezefref
 
 def stmts_get_field(field):
     inputs = ["x"]
@@ -628,6 +705,28 @@ def stmts_out_rels(rt=None, target_filter=None):
     return maybe_compile_func(pyzefops.traverse_out_edge_multi, rt)
 
 compilable_ops[RT.OutRels] = stmts_out_rels
+
+def stmts_Out(rt=None, target_filter=None):
+    return Outs[rt][target_filter] | single
+
+compilable_ops[RT.Out] = stmts_Out
+
+
+def stmts_in_rels(rt=None, source_filter=None):
+    # Being lazy
+    if type(rt) != RelationType:
+        return None
+    if source_filter is not None:
+        return None
+
+    return maybe_compile_func(pyzefops.traverse_in_edge_multi, rt)
+
+compilable_ops[RT.InRels] = stmts_in_rels
+
+def stmts_in_rel(rt=None, source_filter=None):
+    return in_rels[rt][source_filter] | single
+
+compilable_ops[RT.InRel] = stmts_in_rel
 
 def stmts_single_or(default):
     # inputs = ["l"]
@@ -701,6 +800,11 @@ def stmts_is_a(typ):
         stmts += [AssignStatement(BT.ATTRIBUTE_ENTITY_NODE, "target_bt"),
                   PartialStatement("z", BT, "bt"),
                   RawASTStatement("return bt == target_bt")]
+    elif type(typ) == ValueType_ and typ.d["type_name"] == "Is":
+        stmts += [PartialStatement("z",
+                                   maybe_compile_func(typ.d["absorbed"][0]),
+                                   "res"),
+                  ReturnStatement("res")]
     else:
         raise Exception(f"Don't know how to compile is_a for {typ!r}")
     return FunctionDecl(inputs=inputs, stmts=stmts)
@@ -746,3 +850,45 @@ def stmts_value():
     return pyzefops.value
 
 compilable_ops[RT.Value] = stmts_value
+
+def stmts_collect():
+    def collect_fast(x):
+        if hasattr(x, "__iter__"):
+            return list(x)
+        else:
+            return x
+    return collect_fast
+
+compilable_ops[RT.Collect] = stmts_collect
+
+def stmts_origin_uid():
+    inputs = ["z"]
+    stmts = []
+
+    stmts += [AssignStatement(ZefRef, "ZefRef")]
+    stmts += [RawASTStatement("assert type(z) == ZefRef, f'type is not ZefRef: {type(z)}: {z}'")]
+    stmts += [PartialStatement("z",
+                               to_ezefref | in_rel[BT.RAE_INSTANCE_EDGE] | Outs[BT.ORIGIN_RAE_EDGE] | collect,
+                               "origin_candidates")]
+                               
+    stmts += [PartialStatement(["z","origin_candidates"],
+                               match[(Is[second | length | greater_than[0]],
+                                      second | only | Out[BT.ORIGIN_GRAPH_EDGE] | base_uid),
+                                     (Any, first | to_ezefref | uid)],
+                               "out")]
+    stmts += [ReturnStatement("out")]
+
+    return FunctionDecl(inputs=inputs, stmts=stmts)
+
+compilable_ops[RT.OriginUid] = stmts_origin_uid
+
+
+def stmts_uid():
+    return lambda x: pyzefops.uid(x)
+
+compilable_ops[RT.Uid] = stmts_uid
+
+def stmts_base_uid():
+    return lambda x: pyzefops.uid(x).blob_uid
+
+compilable_ops[RT.BaseUid] = stmts_base_uid

@@ -120,6 +120,27 @@ def query(request, context):
                        "auth": auth_context,
                        "debug_level": context["debug_level"]},
     )
+#     import cProfile
+#     print("========== BEFORE ==============")
+#     print("========== BEFORE ==============")
+#     print("========== BEFORE ==============")
+#     print("========== BEFORE ==============")
+#     print("========== BEFORE ==============")
+#     print("========== BEFORE ==============")
+#     cProfile.runctx('''
+# success,data = graphql_sync(
+#     context["ari_schema"],
+#     q,
+#     context_value={"gs": now(context["g_data"]),
+#                     "auth": auth_context,
+#                     "debug_level": context["debug_level"]},
+#     )''', globals(), locals(), filename="p.stats")
+#     print("========== AFTER ==============")
+#     print("========== AFTER ==============")
+#     print("========== AFTER ==============")
+#     print("========== AFTER ==============")
+#     print("========== AFTER ==============")
+#     print("========== AFTER ==============")
     # profile_print(sort_by="name")
     # profile_print(sort_by="per_call")
     profile_print()

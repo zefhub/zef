@@ -111,6 +111,9 @@ def get_zef_function_args(z_fct, g):
 
 def generate_fct(field_dict, g, allow_none):
     from ..core.logger import log
+    def now():
+        import time
+        return time.time()
     resolver = field_dict["resolver"]
     if resolver is None and not allow_none:
         raise ValueError("A type's field resolver shouldn't be set to None! \
@@ -186,7 +189,8 @@ def generate_fct(field_dict, g, allow_none):
                 # log.debug("graphql.resolve_field time", dt=dt)
                 details = profile_cache.setdefault("graphql.resolve_field", {"measurements": 0, "time": 0.0})
                 details["measurements"] += 1
-                details["time"] += dt.value
+                details["time"] += dt
+
             return output
 
         return exc_wrapping

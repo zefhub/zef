@@ -121,15 +121,15 @@ def profile_print(sort_by="total_time"):
     show(Table(rows=rows, cols=cols))
 
 
-# def stmts_profile(name, op):
-#     # Going to optimise this out
-#     return op
 def stmts_profile(name, op):
-    cop = maybe_compile_func(op)
-    profile_func = get_zfunc_func(profile)
-    out_func = lambda x, **kwargs: profile_func(x, name, cop, **kwargs)
-    out_func._ann = [("compiled_op", cop), ("name", name)]
-    return out_func
+    # Going to optimise this out
+    return op
+# def stmts_profile(name, op):
+#     cop = maybe_compile_func(op)
+#     profile_func = get_zfunc_func(profile)
+#     out_func = lambda x, **kwargs: profile_func(x, name, cop, **kwargs)
+#     out_func._ann = [("compiled_op", cop), ("name", name)]
+#     return out_func
 # def stmts_profile(name, op):
 #     inputs = ["input"]
 #     stmts = []
@@ -225,6 +225,10 @@ def as_list(x):
     return [x]
 
 def as_opts_info(opts, info):
+    raise Exception("Shouldn't be here")
+    print("Tracing as_opts_info call")
+    import traceback
+    traceback.print_stack()
     return opts | map[as_list | append[info]]
 
 def as_opts_info_fast(opts, info):
@@ -292,7 +296,7 @@ def generate_resolvers_fcts(schema_root):
         aggregate_response_name = "Aggregate" + name + "Response"
 
         type_dict = {"id": {
-            "type": "ID!", "resolver": resolve_id
+            "type": "ID!", "resolver": maybe_compile_func(resolve_id)
         }}
         ref_input_dict = {"id": "ID"}
         add_input_dict = {"id": "ID"}
@@ -669,7 +673,7 @@ def stmts_resolve_query(type_node, context, **params):
                                profile["handle_list_params_prep"][maybe_compile_func(handle_list_params, type_node, params, context)],
                                "ents")]
                                
-    stmts += [PartialStatement("ents", lambda x: collect(x), "ents")]
+    stmts += [PartialStatement("ents", collect, "ents")]
     stmts += [ReturnStatement("ents")]
 
     return FunctionDecl(inputs=inputs, stmts=stmts)
@@ -701,7 +705,8 @@ def resolve_query3(obj, info, type_node, **params):
         cfunc = maybe_compile_func(resolve_query, type_node=type_node, context=context, **params)
         # print("resolve_query compiled: ", compiling.compiled_func_as_str(cfunc))
         # print("===========")
-        return profile(info, "resolve_query", cfunc)
+        # return profile(info, "resolve_query", cfunc)
+        return maybe_compile_func(profile, "resolve_query", cfunc)(info)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -760,6 +765,7 @@ def resolve_aggregate2(obj, type_node, graphql_info, query_args):
         return exc
 
 def resolve_field(arg, *, z_field, context, **params):
+    raise Exception("Not allowed here anymore")
     z,info = arg
     is_list = z_field | op_is_list | collect
     is_required = z_field | op_is_required | collect
@@ -800,10 +806,8 @@ def stmts_resolve_field(z_field, context, **params):
                                     maybe_compile_func(handle_list_params, target(z_field), params, context),
                                     "opts")]
 
-    lambda_collect = lambda x: collect(x)
-    lambda_collect._lines = "collect"
     stmts += [PartialStatement("opts",
-                               lambda_collect,
+                               collect,
                                "opts")]
     if not is_list:
         def length_check(z, opts):
@@ -824,6 +828,9 @@ def stmts_resolve_field(z_field, context, **params):
         ]
 
     stmts += [ReturnStatement("opts")]
+    # for stmt in stmts:
+    #     print(stmt)
+    # print("====")
     return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compiling.compilable_funcs[resolve_field] = stmts_resolve_field
@@ -855,13 +862,14 @@ def resolve_field3(obj, info, z_field, **params):
         # return profile(None, name, lambda _: resolve_field((obj, graphql_info), z_field=z_field, info_static=graphql_info, **query_args))
         context = static_context(info)
         cop = compiling.maybe_compile_func(resolve_field, z_field=z_field, context=context, **params)
-        dt = now() - start
-        details = profile_cache.setdefault("resolve_field3 prepare func", {"measurements": 0, "time": 0.0})
-        details["measurements"] += 1
-        details["time"] += dt
+        # dt = now() - start
+        # details = profile_cache.setdefault("resolve_field3 prepare func", {"measurements": 0, "time": 0.0})
+        # details["measurements"] += 1
+        # details["time"] += dt
         # print("resolve_field compiled: ", compiling.compiled_func_as_str(cop))
         # print("===========")
         # return profile((obj,info), name, cop)
+        # return maybe_compile_func(profile, name, cop)((obj,info))
         return cop((obj,info))
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
@@ -869,11 +877,11 @@ def resolve_field3(obj, info, z_field, **params):
         raise
     except _ErrorType as exc:
         return exc
-    finally:
-        dt = now() - start
-        details = profile_cache.setdefault("resolve_field3", {"measurements": 0, "time": 0.0})
-        details["measurements"] += 1
-        details["time"] += dt
+    # finally:
+    #     dt = now() - start
+    #     details = profile_cache.setdefault("resolve_field3", {"measurements": 0, "time": 0.0})
+    #     details["measurements"] += 1
+    #     details["time"] += dt
 
 def resolve_id(z, graphql_info, **params):
     return str(origin_uid(z))
@@ -881,8 +889,10 @@ def stmts_resolve_id():
     return FunctionDecl(
         inputs=["z", "info"],
         kwargs = "params",
-        stmts = [PartialStatement("z", origin_uid | func[str], "out"),
-                 ReturnStatement("out")]
+        stmts = [
+            PartialStatement("z", origin_uid | func[str], "out"),
+            ReturnStatement("out")
+        ]
     )
 compiling.compilable_funcs[resolve_id] = stmts_resolve_id
 
@@ -1119,6 +1129,7 @@ def resolve_filter_response2(obj, type_node, graphql_info, query_args):
 #--------------------------------------------
 
 def obtain_initial_list(info, type_node, filter_opts, context):
+    raise Exception("Shouldn'tg te here anymore")
     gs = info.context["gs"]
 
     type_et = ET(type_node | Out[RT.GQL_Delegate] | collect)
@@ -1152,6 +1163,8 @@ def stmts_obtain_initial_list(type_node, filter_opts, context):
     inputs = ["info"]
     stmts = []
 
+    type_et = ET(type_node | Out[RT.GQL_Delegate] | collect)
+
     if filter_opts is not None and filter_opts.get("id", None) is not None:
         # Not implementing this for now
         return None
@@ -1162,7 +1175,6 @@ def stmts_obtain_initial_list(type_node, filter_opts, context):
                                get_field["context"] | get["gs"],
                                "gs")]
 
-    type_et = ET(type_node | Out[RT.GQL_Delegate] | collect)
     stmts += [PartialStatement("gs",
                                all[type_et],
                                "opts")]
@@ -1189,6 +1201,7 @@ compiling.compilable_funcs[obtain_initial_list] = stmts_obtain_initial_list
     
 
 def handle_list_params(arg, z_node, params, context):
+    raise Exception("Shouldnt' get here anymore")
     opts,info = arg
     opts_info = opts | map[as_list | append[info]]
     # opts = maybe_filter_result(opts, z_node, info, params.get("filter", None))
@@ -1196,23 +1209,59 @@ def handle_list_params(arg, z_node, params, context):
     if context["debug_level"] >= 3:
         log.debug("DEBUG 3: after filtering", length_list=length(opts))
     # opts = maybe_sort_result(opts, z_node, info, params.get("order", None))
-    opts_info = opts_info | profile["result_sort"][maybe_sort_result(z_node, info, params.get("order", None))]
+    opts_info = opts_info | profile["result_sort"][maybe_sort_result(z_node, context, params.get("order", None))]
     # opts = maybe_paginate_result(opts, params.get("first", None), params.get("offset", None))
     opts_info = opts_info | profile["result_paginate"][maybe_paginate_result(params.get("first", None), params.get("offset", None))]
     return opts_info | map[first]
+
+def stmts_handle_list_params(z_node, params, context):
+    inputs = ["arg"]
+    stmts = []
+
+    stmts += [PartialStatement("arg", identity, ["opts", "info"])]
+    if len(params) > 0:
+        stmts += [PartialStatement(["opts", "info"], as_opts_info, "opts_info", starargs=True)]
+        if "filter" in params:
+            stmts += [PartialStatement("opts_info",
+                                       maybe_filter_result(z_node, context, params["filter"]),
+                                       "opts_info")]
+        if "order" in params:
+            stmts += [PartialStatement("opts_info",
+                                       maybe_sort_result(z_node, context, params["order"]),
+                                       "opts_info")]
+        if "first" in params or "offset" in params:
+            stmts += [PartialStatement("opts_info",
+                                       maybe_paginate_result(params.get("first", None), params.get("offset", None)),
+                                       "opts_info")]
+        stmts += [PartialStatement("opts_info",
+                                    map[first],
+                                    "opts")]
+        stmts += [PartialStatement("opts", collect, "opts")]
+    stmts += [ReturnStatement("opts")]
+
+    return FunctionDecl(inputs=inputs, stmts=stmts)
+compiling.compilable_funcs[handle_list_params] = stmts_handle_list_params
 
 @func
 def field_resolver_by_name(arg, type_node, context, name):
     z,info = arg
     if name == "id":
-        return resolve_id(arg)
+        return resolve_id(z, info)
     sub_field = get_field_rel_by_name(type_node, name)
     # return resolve_field(z, info=info, z_field=sub_field)
     return resolve_field((z, info), z_field=sub_field, context=context)
 
 def stmts_field_resolver_by_name(type_node, context, name):
     if name == "id":
-        return compiling.maybe_compile_func(resolve_id)
+        # return compiling.maybe_compile_func(resolve_id)
+        inputs = ["arg"]
+        stmts = [PartialStatement("arg", identity, ["z", "info"]),
+                 PartialStatement(["z", "info"],
+                                  resolve_id,
+                                  "out",
+                                  starargs=True),
+                 ReturnStatement("out")]
+        return FunctionDecl(inputs=inputs, stmts=stmts)
 
     sub_field = get_field_rel_by_name(type_node, name)
     return compiling.maybe_compile_func(resolve_field, z_field=sub_field, context=context)
@@ -1357,9 +1406,9 @@ def build_filter_zefop(fil, z_node, context):
     # Testing compiling
     before = top
     top = compiling.maybe_compile_func(top)
-    print("Compiling comparison")
-    print(before)
-    print(compiling.compiled_func_as_str(top))
+    # print("Compiling comparison")
+    # print(before)
+    # print(compiling.compiled_func_as_str(top))
     return top
 
 def scalar_comparison_op(sub):
@@ -1400,11 +1449,11 @@ def get_field_rel_by_name(z_type, name):
 
 # ** Sorting
 
-def maybe_sort_result(z_node, info, sort_decl=None):
+def maybe_sort_result(z_node, context, sort_decl=None):
     if sort_decl is None:
         return identity
 
-    field_resolver = field_resolver_by_name[z_node][info]
+    field_resolver = field_resolver_by_name[z_node][context]
 
     # First, get the list of things to sort by, so that we can reverse it
     sort_list = []
@@ -1459,6 +1508,7 @@ compiling.compilable_funcs[get_zfunc_func(internal_resolve_field)] = stmts_inter
 
 @func
 def internal_resolve_field_profiled(arg, z_field, context, auth_required=True):
+    raise Exception("Not allowed here anymore")
     z,info = arg
     # This returns a LazyValue so we can deal with whatever comes out without
     # instantiating the whole list.
