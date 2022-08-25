@@ -110,51 +110,86 @@ def get_zef_function_args(z_fct, g):
         return args
 
 def generate_fct(field_dict, g, allow_none):
+    from ..core.logger import log
     resolver = field_dict["resolver"]
     if resolver is None and not allow_none:
         raise ValueError("A type's field resolver shouldn't be set to None! \
             To use default values for your resolver, explicitly call fill_types_default_resolvers on your schema dictionary!")
 
-    def resolve_field(obj, info, **kwargs):
-        from ..core.logger import log
-        context = {
-            "obj": obj,
-            "query_args": kwargs,
-            "graphql_info": info,
-            # To be extended
-        }
-        if is_a(resolver, ZefOp):
-            from ..core.error import ExceptionWrapper
+    if False:
+        def resolve_field(obj, info, **kwargs):
+            start = now()
             try:
-                if peel(resolver)[0][0] == RT.Function:
-                    args = get_zef_function_args(resolver, g)
-                    arg_values = select_keys(context, *args).values()
-                    # Check if some args that are present in the Zef Function aren't present in context dict
-                    if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
-                    arg_values = [context[x] for x in args]
-                    output = resolver(*arg_values)
-                else:
-                    output = resolver(obj)
-            except ExceptionWrapper as exc:
-                # TODO: Include debug flag in here somehow
-                log.error("Couldn't resolve field", exc_info=exc.wrapped)
-                print(str(exc.wrapped))
-                raise Exception("Unexpected error")
-            except Exception as exc:
-                log.error("Couldn't resolve field", exc_info=exc)
-                print(str(exc))
-                raise Exception("Unexpected error")
+                context = {
+                    "obj": obj,
+                    "query_args": kwargs,
+                    "graphql_info": info,
+                    # To be extended
+                }
+                from ..core.error import ExceptionWrapper
+                import types
+                try:
+                    if is_a(resolver, ZefOp):
+                        if peel(resolver)[0][0] == RT.Function:
+                            args = get_zef_function_args(resolver, g)
+                            arg_values = select_keys(context, *args).values()
+                            # Check if some args that are present in the Zef Function aren't present in context dict
+                            if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
+                            arg_values = [context[x] for x in args]
+                            output = resolver(*arg_values)
+                        else:
+                            output = resolver(obj)
+                    elif is_a(resolver, types.FunctionType):
+                        output = resolver(obj, info, **kwargs)
+                    elif isinstance(resolver, LazyValue):
+                        output = resolver()
+                    else:
+                        raise NotImplementedError(f"Cannot generate resolver using the passed object {resolver} of type {type(resolver)}")
+                except ExceptionWrapper as exc:
+                    # TODO: Include debug flag in here somehow
+                    log.error("Couldn't resolve field", exc_info=exc.wrapped)
+                    print(str(exc.wrapped))
+                    raise Exception("Unexpected error")
+                except Exception as exc:
+                    log.error("Couldn't resolve field", exc_info=exc)
+                    print(str(exc))
+                    raise Exception("Unexpected error")
 
-            from ..core.error import _ErrorType
-            if type(output) == _ErrorType:
-                log.error("Resolve field returned error", err=output)
-                raise Exception(output.name, *output.args)
+                from ..core.error import _ErrorType
+                if type(output) == _ErrorType:
+                    log.error("Resolve field returned error", err=output)
+                    raise Exception(output.name, *output.args)
+                return output
+            finally:
+                log.debug("graphql.resolve_field time", dt=now()-start)
+
+        return resolve_field
+    else:
+        # return resolver
+        from .simplegql.compiling import maybe_compile_func
+        from .simplegql.generate_api2 import profile_cache
+        # cresolver = maybe_compile_func(resolver)
+        def exc_wrapping(obj, info, **params):
+            start = now()
+            try:
+                try:
+                    output = resolver(obj, info, **params)
+                except Exception as exc:
+                    log.error("Got an exception in resolver", exc_info=exc)
+                    raise Exception("Unexpected error")
+                from ..core.error import _ErrorType
+                if type(output) == _ErrorType:
+                    log.error("Resolve field returned error", err=output)
+                    raise Exception(output.name, *output.args)
+            finally:
+                dt = now() - start
+                # log.debug("graphql.resolve_field time", dt=dt)
+                details = profile_cache.setdefault("graphql.resolve_field", {"measurements": 0, "time": 0.0})
+                details["measurements"] += 1
+                details["time"] += dt.value
             return output
-        elif isinstance(resolver, LazyValue):
-            return resolver()
-        else:
-            raise NotImplementedError(f"Cannot generate resolver using the passed object {resolver} of type {type(resolver)}")
-    return resolve_field
+
+        return exc_wrapping
 
 def assign_field_resolver(object_type, field_name, field_dict, g, allow_none=False):
     fct = generate_fct(field_dict, g, allow_none)

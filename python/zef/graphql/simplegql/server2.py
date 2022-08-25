@@ -112,6 +112,7 @@ def query(request, context):
     # We pass in the graph as a fixed slice, so that the queries can be done
     # consistently.
     profile_reset()
+    start = now()
     success,data = graphql_sync(
         context["ari_schema"],
         q,
@@ -122,6 +123,9 @@ def query(request, context):
     # profile_print(sort_by="name")
     # profile_print(sort_by="per_call")
     profile_print()
+    if context["debug_level"] >= 1:
+        log.debug("Total query time", dt=now()-start)
+
     if context["debug_level"] >= 0:
         if not success or "errors" in data:
             log.error("Failure in GQL query.", data=data, q=q, auth_context=auth_context)

@@ -22,7 +22,8 @@ from ...core.op_implementations.implementation_typing_functions import call_wrap
 import functools
 
 from . import compiling
-from .compiling import maybe_compile_func, PartialStatement, ReturnStatement, AssignStatement, RawASTStatement, ConstResult
+from .compiling import maybe_compile_func, PartialStatement, ReturnStatement, AssignStatement, RawASTStatement, ConstResult, FunctionDecl
+from .hashables import freeze
 def get_zfunc_func(zfunc):
     return peel(zfunc)[0][1][0][1]
 
@@ -34,12 +35,15 @@ from ariadne import ObjectType, QueryType, MutationType, EnumType, ScalarType
 
 profile_cache = {}
 
+import time
+def now():
+    return time.time()
 
 # TODO: Some magic with ZefGenerator outputs
 from ...core.op_implementations.implementation_typing_functions import ZefGenerator
 
 @func
-def profile(input, name, op, *others):
+def profile(input, name, op, **kwargs):
     details = profile_cache.setdefault(name, {
         "measurements": 0,
         "time": 0.0,
@@ -48,14 +52,14 @@ def profile(input, name, op, *others):
     start = now()
     err_context = {"metadata": {"profile_name": name}}
     if type(op) == ZefOp:
-        assert len(others) == 0
+        assert len(kwargs) == 0
         lv = input | op
         # output = lv.evaluate(unpack_generator=False)
         output = call_wrap_errors_as_unexpected(lv.evaluate, unpack_generator=False, maybe_context=[err_context])
     else:
-        output = call_wrap_errors_as_unexpected(op, input, *others, maybe_context=[err_context])
+        output = call_wrap_errors_as_unexpected(op, input, maybe_context=[err_context], **kwargs)
 
-    dt = (now() - start).value
+    dt = (now() - start)
     
     details["measurements"] += 1
     details["time"] += dt
@@ -72,7 +76,7 @@ def profile(input, name, op, *others):
                 try:
                     item_start = now()
                     next_val = next(iterator)
-                    dt = (now() - item_start).value
+                    dt = (now() - item_start)
                     item_details["measurements"] += 1
                     item_details["time"] += dt
                     yield next_val
@@ -117,15 +121,15 @@ def profile_print(sort_by="total_time"):
     show(Table(rows=rows, cols=cols))
 
 
-def stmts_profile(name, op):
-    # Going to optimise this out
-    return op
 # def stmts_profile(name, op):
-#     cop = maybe_compile_func(op)
-#     profile_func = get_zfunc_func(profile)
-#     out_func = lambda x, *others: profile_func(x, name, cop, *others)
-#     out_func._ann = [("compiled_op", cop), ("name", name)]
-#     return out_func
+#     # Going to optimise this out
+#     return op
+def stmts_profile(name, op):
+    cop = maybe_compile_func(op)
+    profile_func = get_zfunc_func(profile)
+    out_func = lambda x, **kwargs: profile_func(x, name, cop, **kwargs)
+    out_func._ann = [("compiled_op", cop), ("name", name)]
+    return out_func
 # def stmts_profile(name, op):
 #     inputs = ["input"]
 #     stmts = []
@@ -288,7 +292,7 @@ def generate_resolvers_fcts(schema_root):
         aggregate_response_name = "Aggregate" + name + "Response"
 
         type_dict = {"id": {
-            "type": "ID!", "resolver": resolve_id2
+            "type": "ID!", "resolver": resolve_id
         }}
         ref_input_dict = {"id": "ID"}
         add_input_dict = {"id": "ID"}
@@ -344,7 +348,8 @@ def generate_resolvers_fcts(schema_root):
             type_dict[field_name] = {
                 "type": field_type,
                 # "resolver": P(resolve_field, z_field=z_field),
-                "resolver": resolve_field2[z_field],
+                # "resolver": resolve_field2[z_field],
+                "resolver": maybe_compile_func(resolve_field3, z_field),
                 "args": maybe_params,
             }
 
@@ -402,13 +407,16 @@ def generate_resolvers_fcts(schema_root):
             "type": name,
             "args": {"id": {"type": "ID!"}},
             # "resolver": apply[P(resolve_get, type_node=z_type)],
-            "resolver": resolve_get2[z_type],
+            # "resolver": resolve_get2[z_type],
+            # "resolver": maybe_compile_func(resolve_get3[z_type]),
+            "resolver": maybe_compile_func(resolve_get3, type_node=z_type),
         }
         query_dict[f"query{name}"] = {
             "type": f"[{name}]",
             "args": query_params,
             # "resolver": apply[P(resolve_query, type_node=z_type)],
-            "resolver": resolve_query2[z_type],
+            # "resolver": resolve_query2[z_type],
+            "resolver": maybe_compile_func(resolve_query3, z_type),
         }
         query_dict[f"aggregate{name}"] = {
             "type": aggregate_response_name,
@@ -609,12 +617,30 @@ def resolve_get(info, *, type_node, context, **params):
     # Look for something that fits exactly what has been given in the params, assuming
     # that ariadne has done its work and validated the query.
     return find_existing_entity_by_id(info, type_node, params["id"], context)
+
+def stmts_resolve_get(type_node, context, **params):
+    return maybe_compile_func(find_existing_entity_by_id, type_node, params["id"], context)
+compiling.compilable_funcs[resolve_get] = stmts_resolve_get
+
 @func
 def resolve_get2(obj, type_node, graphql_info, query_args):
     try:
         context = static_context(graphql_info)
         cfunc = maybe_compile_func(resolve_get, type_node=type_node, context=context, **query_args)
         return profile(graphql_info, "resolve_get", cfunc)
+    except ExceptionWrapper as exc:
+        if exc.wrapped.name == "External":
+            return exc.wrapped
+        raise
+    except _ErrorType as exc:
+        return exc
+
+@func
+def resolve_get3(obj, info, type_node, **params):
+    try:
+        context = static_context(info)
+        cfunc = maybe_compile_func(resolve_get, type_node=type_node, context=context, **params)
+        return profile(info, "resolve_get", cfunc)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -646,7 +672,7 @@ def stmts_resolve_query(type_node, context, **params):
     stmts += [PartialStatement("ents", lambda x: collect(x), "ents")]
     stmts += [ReturnStatement("ents")]
 
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 compiling.compilable_funcs[resolve_query] = stmts_resolve_query
 
 @func
@@ -659,6 +685,23 @@ def resolve_query2(obj, type_node, graphql_info, query_args):
         # print("resolve_query compiled: ", compiling.compiled_func_as_str(cfunc))
         # print("===========")
         return profile(graphql_info, "resolve_query", cfunc)
+    except ExceptionWrapper as exc:
+        if exc.wrapped.name == "External":
+            return exc.wrapped
+        raise
+    except _ErrorType as exc:
+        return exc
+
+@func
+def resolve_query3(obj, info, type_node, **params):
+    try:
+        context = static_context(info)
+        # return resolve_query(obj, graphql_info, type_node=type_node, **query_args)
+        # return profile(None, "resolve_query", lambda _: resolve_query(obj, graphql_info, type_node=type_node, context=context, **query_args))
+        cfunc = maybe_compile_func(resolve_query, type_node=type_node, context=context, **params)
+        # print("resolve_query compiled: ", compiling.compiled_func_as_str(cfunc))
+        # print("===========")
+        return profile(info, "resolve_query", cfunc)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -781,7 +824,7 @@ def stmts_resolve_field(z_field, context, **params):
         ]
 
     stmts += [ReturnStatement("opts")]
-    return inputs, stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compiling.compilable_funcs[resolve_field] = stmts_resolve_field
 
@@ -803,14 +846,45 @@ def resolve_field2(obj, z_field, graphql_info, query_args):
     except _ErrorType as exc:
         return exc
 
-def resolve_id(arg):
-    z, info = arg
-    return str(origin_uid(z))
-
 @func
-def resolve_id2(obj, graphql_info):
-    return resolve_id((obj, graphql_info))
+def resolve_field3(obj, info, z_field, **params):
+    start = now()
+    try:
+        # return resolve_field(obj, graphql_info, z_field=z_field, **query_args)
+        # name = "resolve_field " + (z_field | source | F.Name | collect) + "." + (z_field | F.Name | collect)
+        # return profile(None, name, lambda _: resolve_field((obj, graphql_info), z_field=z_field, info_static=graphql_info, **query_args))
+        context = static_context(info)
+        cop = compiling.maybe_compile_func(resolve_field, z_field=z_field, context=context, **params)
+        dt = now() - start
+        details = profile_cache.setdefault("resolve_field3 prepare func", {"measurements": 0, "time": 0.0})
+        details["measurements"] += 1
+        details["time"] += dt
+        # print("resolve_field compiled: ", compiling.compiled_func_as_str(cop))
+        # print("===========")
+        # return profile((obj,info), name, cop)
+        return cop((obj,info))
+    except ExceptionWrapper as exc:
+        if exc.wrapped.name == "External":
+            return exc.wrapped
+        raise
+    except _ErrorType as exc:
+        return exc
+    finally:
+        dt = now() - start
+        details = profile_cache.setdefault("resolve_field3", {"measurements": 0, "time": 0.0})
+        details["measurements"] += 1
+        details["time"] += dt
 
+def resolve_id(z, graphql_info, **params):
+    return str(origin_uid(z))
+def stmts_resolve_id():
+    return FunctionDecl(
+        inputs=["z", "info"],
+        kwargs = "params",
+        stmts = [PartialStatement("z", origin_uid | func[str], "out"),
+                 ReturnStatement("out")]
+    )
+compiling.compilable_funcs[resolve_id] = stmts_resolve_id
 
 ##############################
 # * Mutations
@@ -1109,7 +1183,7 @@ def stmts_obtain_initial_list(type_node, filter_opts, context):
                                "opts")]
 
     stmts += [ReturnStatement("opts")]
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compiling.compilable_funcs[obtain_initial_list] = stmts_obtain_initial_list
     
@@ -1379,7 +1453,7 @@ def stmts_internal_resolve_field(z_field, context, auth_required=True):
         ReturnStatement("res")
     ]
 
-    return ["arg"],stmts
+    return FunctionDecl(inputs=["arg"], stmts=stmts)
     
 compiling.compilable_funcs[get_zfunc_func(internal_resolve_field)] = stmts_internal_resolve_field
 
@@ -1414,7 +1488,8 @@ def internal_resolve_field_profiled(arg, z_field, context, auth_required=True):
             if is_triple:
                 opts = opts | filter[is_a[rae_type(target(relation))]]
     elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
-        opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, info)
+        auth = info.context.get('auth', None)
+        opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, auth, z_field, context)
         # This is to mimic the behaviour that people probably expect from a
         # non-list resolver.
         if type(opts) not in [list,tuple]:
@@ -1461,8 +1536,8 @@ def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
                 stmts += [AssignStatement(rae_type(target(relation)), "need_type")]
             else:
                 stmts += [AssignStatement(rae_type(source(relation)), "need_type")]
-            stmts += [AssignStatement(rae_type, "rae_type")]
-            stmts += [RawASTStatement('assert rae_type(z) == need_type, f"The RAET of the object {z} is not the same as that of the delegate relation {need_type}"')]
+            stmts += [PartialStatement("z", rae_type, "found_type")]
+            stmts += [RawASTStatement('assert found_type == need_type, f"The RAET of the object {z} is not the same as that of the delegate relation {need_type}"')]
 
         if is_incoming:
             stmts += [PartialStatement("z", Ins[rt], "opts")]
@@ -1478,8 +1553,26 @@ def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
                                            "opts")]
     elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
         cfunc = maybe_compile_func(func[z_field | Out[RT.GQL_FunctionResolver] | collect])
-        stmts += [PartialStatement(["z","info"],
-                                   cfunc,
+        stmts += [PartialStatement("info",
+                                   get_field["context"] | get["auth"][None],
+                                   "auth")]
+        # stmts += [AssignStatement(z_field, "z_field")]
+        # stmts += [PartialStatement(["z","auth","z_field"],
+        #                            cfunc,
+        #                            "opts",
+        #                            starargs=True)]
+
+        lookup_cache = {}
+        def cached_call(z, auth):
+            key = (z,freeze(auth))
+            val = lookup_cache.get(key, None)
+            if val is None:
+                val = cfunc(z, auth, z_field, context)
+                print("Cache miss")
+                lookup_cache[key] = val
+            return val
+        stmts += [PartialStatement(["z","auth"],
+                                   cached_call,
                                    "opts",
                                    starargs=True)]
 
@@ -1505,7 +1598,8 @@ def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
         # stmts += [AssignStatement(append, "append")]
         # stmts += [AssignStatement(map, "map")]
         # stmts += [RawASTStatement("opts_info = opts | map[as_list | append[info]]")]
-        stmts += [PartialStatement(["opts", "info"], profile["as_opts_info"][as_opts_info], "opts_info", starargs=True)]
+        # stmts += [PartialStatement(["opts", "info"], profile["as_opts_info"][as_opts_info], "opts_info", starargs=True)]
+        stmts += [PartialStatement(["opts", "info"], as_opts_info, "opts_info", starargs=True)]
         stmts += [PartialStatement("opts_info",
                                    (profile[p_name][filter[pass_query_auth[target(z_field)][context]]]
                                     | map[first]),
@@ -1526,7 +1620,7 @@ def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
     # for stmt in stmts:
     #     print(stmt)
 
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compiling.compilable_funcs[get_zfunc_func(internal_resolve_field_profiled)] = stmts_internal_resolve_field_profiled
 
@@ -1556,6 +1650,38 @@ def find_existing_entity_by_id(info, type_node, id, context):
         return None
 
     return ent
+def stmts_find_existing_entity_by_id(type_node, id, context):
+    inputs = ["info"]
+    stmts = []
+
+    if id is None:
+        return ConstResult(None)
+    the_uid = uid(id)
+    if the_uid is None:
+        raise Exception(f"An id of {id} cannot be converted to a uid.")
+    
+    stmts += [PartialStatement("info",
+                               get_field["context"] | get["gs"],
+                               "gs")]
+
+    et = ET(type_node | Out[RT.GQL_Delegate] | collect)
+    stmts += [AssignStatement(et, "et")]
+
+    stmts += [PartialStatement("gs",
+                               get[the_uid],
+                               "ent")]
+    stmts += [PartialStatement("ent",
+                               is_a[et],
+                               "check")]
+    stmts += [RawASTStatement("if not check: return None")]
+    stmts += [PartialStatement(["ent", "info"],
+                               pass_query_auth[type_node][context],
+                               "query_check")]
+    stmts += [RawASTStatement("if not query_check: return None")]
+    stmts += [ReturnStatement("ent")]
+
+    return FunctionDecl(inputs=inputs, stmts=stmts)
+compiling.compilable_funcs[find_existing_entity_by_id] = stmts_find_existing_entity_by_id
 
 def find_existing_entity_by_field(info, type_node, z_field, val, context):
     if val is None:
@@ -1792,7 +1918,7 @@ def stmts_pass_auth_generic(schema_node, context, rt_list):
         ReturnStatement("res"),
     ]
 
-    return ["arg"], stmts
+    return FunctionDecl(inputs=["arg"],  stmts=stmts)
     
 compiling.compilable_funcs[pass_auth_generic] = stmts_pass_auth_generic
 

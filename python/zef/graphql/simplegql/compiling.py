@@ -21,6 +21,14 @@ import types
 import ast
 from zef.core.op_implementations.implementation_typing_functions import ZefGenerator
 
+from dataclasses import dataclass
+@dataclass
+class FunctionDecl:
+    inputs: list
+    stmts: list
+    vararg: str = False
+    kwargs: str = False
+
 compilable_ops = {}
 compilable_funcs = {}
 
@@ -59,6 +67,17 @@ def maybe_compile_func(obj, *args, allow_const=False, **kwargs):
             if peel(obj)[0][0] == RT.Function:
                 func = peel(obj)[0][1][0][1]
                 curried_args = peel(obj)[0][1][1:]
+                if len(curried_args) > 0:
+                    # Only allow this if we have curried everything in apart
+                    # from the initial argument that will be piped.
+                    import inspect
+                    argspec = inspect.getfullargspec(func)
+                    if len(args) + len(curried_args) > 0:
+                        if len(argspec.args) != len(curried_args) + len(args) + 1 or argspec.varargs is not None:
+                            print(argspec)
+                            print(args)
+                            print(curried_args)
+                            raise Exception("Maybe compiling with curried args won't work because of crazy arg ordering!!!")
                 out_func = maybe_compile_func(func, *curried_args, *args, **kwargs)
             else:
                 assert len(args) == 0 and len(kwargs) == 0
@@ -66,6 +85,7 @@ def maybe_compile_func(obj, *args, allow_const=False, **kwargs):
                 if op in compilable_ops:
                     out_func = compile_func(repr(op).replace('.', '__'), compilable_ops[op], *args, allow_const=allow_const)
                 else:
+                    print(f"WARNING: Op {op} is not compilable!")
                     out_func = obj
     else:
         # raise Exception(f"Don't know how to maybe compile this {type(obj)}")
@@ -98,8 +118,10 @@ def chain_as_func(op_chain):
                                       op,
                                       "x"))
     stmts.append(ReturnStatement("x"))
+
+    func_decl = FunctionDecl(inputs=inputs, stmts=stmts)
         
-    return stmts_to_pyfunc("chain", inputs, stmts)
+    return stmts_to_pyfunc("chain", func_decl)
 
 def zefop_call(op, *args):
     if len(args) == 1:
@@ -126,9 +148,8 @@ def compile_func(name, stmts_func, *args, allow_const=False, **kwargs):
             pyfunc = stmts_ret
         elif type(stmts_ret) in [types.FunctionType, ZefOp, types.BuiltinFunctionType]:
             pyfunc = maybe_compile_func(stmts_ret, allow_const=True)
-        elif type(stmts_ret) == tuple:
-            inputs,stmts = stmts_ret
-            pyfunc = stmts_to_pyfunc(name, inputs, stmts)
+        elif type(stmts_ret) == FunctionDecl:
+            pyfunc = stmts_to_pyfunc(name, stmts_ret)
         else:
             raise Exception(f"stmts_func ({stmts_func}) returned something unexpected: {type(stmts_ret)}")
         func_cache[key] = pyfunc
@@ -173,7 +194,7 @@ class ConstResult:
     def __init__(self, const):
         self.const = const
 
-def stmts_to_pyfunc(name, inputs, stmts):
+def stmts_to_pyfunc(name, func_decl):
     last_i = 0
     def name_gen(prefix="anon"):
         nonlocal last_i
@@ -193,7 +214,7 @@ def stmts_to_pyfunc(name, inputs, stmts):
         else:
             return ast.Tuple(elts=[ast.Name(id=x, ctx=ctx, **boring) for x in names], ctx=ctx, **boring)
         
-    for stmt in stmts:
+    for stmt in func_decl.stmts:
         if type(stmt) == RawASTStatement:
             if type(stmt.ast) == str:
                 parsed_mod = ast.parse(stmt.ast)
@@ -290,10 +311,12 @@ def stmts_to_pyfunc(name, inputs, stmts):
                       **boring
                       )]
     args = ast.arguments(posonlyargs=[],
-                         args=[ast.arg(x, **boring) for x in inputs],
+                         args=[ast.arg(x, **boring) for x in func_decl.inputs],
                          kwonlyargs=[],
                          kw_defaults=[],
                          defaults=[],
+                         vararg=(None if func_decl.vararg is False else ast.arg(func_decl.vararg, **boring)),
+                         kwarg=(None if func_decl.kwargs is False else ast.arg(func_decl.kwargs, **boring)),
                          )
     f = ast.FunctionDef(name=name, args=args, body=body, decorator_list=[], **boring)
 
@@ -317,14 +340,19 @@ def compiled_func_as_str(f):
     s = []
     if hasattr(f, "_lines"):
         s += [f"{f} with code:\n{f._lines}"]
-        globs = f.__code__.co_names | filter[contains["__"]] | collect
-        for glob in globs:
-            s += [f"With glob {glob}:"]
-            nested = compiled_func_as_str(f.__globals__[glob])
-            s += add_indent(nested)
+        if hasattr(f, "__code__"):
+            globs = f.__code__.co_names | filter[contains["__"]] | collect
+            for glob in globs:
+                s += [f"With glob {glob}:"]
+                nested = compiled_func_as_str(f.__globals__[glob])
+                s += add_indent(nested)
+        else:
+            print("Can't get globs")
+                
     else:
         s += [f"obj: {f!r}"]
     if hasattr(f, "_ann"):
+        print(f._ann)
         for name,val in f._ann:
             val_s = compiled_func_as_str(val)
             if '\n' in val_s:
@@ -372,7 +400,7 @@ def stmts_simple_func(copy_rt, is_out=True, pred=None):
                                       "out"))
     stmts.append(ReturnStatement("out"))
     
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
     
 
 
@@ -418,7 +446,7 @@ def stmts_And(*preds):
         ReturnStatement("out")
     ]
 
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.And] = stmts_And
 
@@ -459,7 +487,7 @@ def stmts_Or(*preds):
         ReturnStatement("out")
     ]
 
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.Or] = stmts_Or
 
@@ -479,7 +507,7 @@ def stmts_not(func):
                          "result"),
         RawASTStatement("return not result"),
     ]
-    return ["x"], stmts
+    return FunctionDecl(inputs=["x"], stmts=stmts)
 
 compilable_ops[RT.Not] = stmts_not
 
@@ -489,7 +517,7 @@ def stmts_equals(val):
                         "val"),
         RawASTStatement("return x == val"),
     ]
-    return ["x"], stmts
+    return FunctionDecl(inputs=["x"], stmts=stmts)
 
 compilable_ops[RT.Equals] = stmts_equals
 
@@ -499,12 +527,12 @@ def stmts_contained_in(l):
                         "l"),
         RawASTStatement("return x in l"),
     ]
-    return ["x"], stmts
+    return FunctionDecl(inputs=["x"], stmts=stmts)
 
 compilable_ops[RT.ContainedIn] = stmts_contained_in
 
 def stmts_identity():
-    return ["x"], [ReturnStatement("x")]
+    return FunctionDecl(inputs=["x"],  stmts=[ReturnStatement("x")])
 
 compilable_ops[RT.Identity] = stmts_identity
 
@@ -529,7 +557,7 @@ def stmts_filter(pred):
         ReturnStatement("out")
     ]
 
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.Filter] = stmts_filter
 
@@ -551,28 +579,37 @@ def stmts_map(func):
         ReturnStatement("out")
     ]
 
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.Map] = stmts_map
 
 def stmts_first():
     inputs = ["x"]
     stmts = [RawASTStatement("return x[0]")]
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.First] = stmts_first
 
 def stmts_get_field(field):
     inputs = ["x"]
     stmts = [RawASTStatement(f"return x.{field}")]
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.GetField] = stmts_get_field
 
-def stmts_get(name):
+def stmts_get(name, *args):
     inputs = ["x"]
-    stmts = [RawASTStatement(f"return x['{name}']")]
-    return inputs,stmts
+    stmts = []
+    if len(args) == 0:
+        stmts += [RawASTStatement(f"return x['{name}']")]
+    elif len(args) == 1:
+        stmts += [
+            AssignStatement(args[0], "default"),
+            RawASTStatement(f"return x.get('{name}', default)")
+        ]
+    else:
+        raise Exception("get should take 1 or 2 arguments")
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.Get] = stmts_get
 
@@ -613,7 +650,7 @@ def stmts_value_or(default):
         RawASTStatement("res = default if z is None else value(z)"),
         ReturnStatement("res")
     ]
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.ValueOr] = stmts_value_or
 
@@ -635,7 +672,7 @@ def stmts_match(opts):
         ]
         
     stmts += [RawASTStatement("raise Exception('no match')")]
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.Match] = stmts_match
 
@@ -652,8 +689,60 @@ def stmts_is_a(typ):
         stmts += [AssignStatement(typ, "typ"),
                   PartialStatement("z", rae_type, "z_typ"),
                   RawASTStatement("return z_typ == typ")]
+    elif typ == ET:
+        stmts += [AssignStatement(BT.ENTITY_NODE, "target_bt"),
+                  PartialStatement("z", BT, "bt"),
+                  RawASTStatement("return bt == target_bt")]
+    elif typ == RT:
+        stmts += [AssignStatement(BT.RELATION_EDGE, "target_bt"),
+                  PartialStatement("z", BT, "bt"),
+                  RawASTStatement("return bt == target_bt")]
+    elif typ == AET:
+        stmts += [AssignStatement(BT.ATTRIBUTE_ENTITY_NODE, "target_bt"),
+                  PartialStatement("z", BT, "bt"),
+                  RawASTStatement("return bt == target_bt")]
     else:
         raise Exception(f"Don't know how to compile is_a for {typ!r}")
-    return inputs,stmts
+    return FunctionDecl(inputs=inputs, stmts=stmts)
 
 compilable_ops[RT.IsA] = stmts_is_a
+
+def stmts_rae_type():
+    # The lambdas are here so that we don't query things on types but only call them
+    return match[(RT, lambda x: RT(x)),
+                 (ET, lambda x: ET(x)),
+                 (AET, lambda x: AET(x))]
+
+compilable_ops[RT.RaeType] = stmts_rae_type
+
+class Missing:
+    pass
+
+def stmts_get_in(path, *args):
+    inputs = ["d"]
+    stmts = []
+
+    if len(args) == 0:
+        has_default = False
+    elif len(args) == 1:
+        has_default = True
+        stmts += [AssignStatement(args[0], "default")]
+    else:
+        raise Exception("Don't know what extra args mean.")
+
+    stmts += [AssignStatement(Missing, "Missing")]
+    for item in path:
+        stmts += [PartialStatement("d", get[path][Missing], "d")]
+        if has_default:
+            stmts += [RawASTStatement("if d is Missing: return default")]
+        else:
+            stmts += [RawASTStatement("if d is Missing: raise KeyError")]
+    stmts += [ReturnStatement("d")]
+
+compilable_ops[RT.GetIn] = stmts_get_in
+
+
+def stmts_value():
+    return pyzefops.value
+
+compilable_ops[RT.Value] = stmts_value

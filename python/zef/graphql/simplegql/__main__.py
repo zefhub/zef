@@ -85,9 +85,10 @@ else:
 if args.host_role and not args.scratch:
     try:
         g_data | take_transactor_role | run
-    except:
+    except Exception as exc:
+        log.error("Error getting transactor role", exc_info=exc)
         print("""
-Unable to obtain host role for data graph. Either stop other processes from having host role on this graph (`g | release_transactor_role | run` in that process) or run this server with `--no-host-role`).
+Unable to obtain transactor role for data graph. Either stop other processes from having host role on this graph (`g | release_transactor_role | run` in that process) or run this server with `--no-host-role`).
         
 Note that running without the host role is currently dangerous as mutations do not currently verify pre-conditions.
 """) 
