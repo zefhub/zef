@@ -179,10 +179,12 @@ def generate_fct(field_dict, g, allow_none):
                     output = resolver(obj, info, **params)
                 except Exception as exc:
                     log.error("Got an exception in resolver", exc_info=exc)
+                    print(exc)
                     raise Exception("Unexpected error")
                 from ..core.error import _ErrorType
                 if type(output) == _ErrorType:
                     log.error("Resolve field returned error", err=output)
+                    print(output)
                     raise Exception(output.name, *output.args)
             finally:
                 dt = now() - start

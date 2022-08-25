@@ -81,9 +81,9 @@ def maybe_compile_func(obj, *args, allow_const=False, **kwargs):
                 out_func = maybe_compile_func(func, *curried_args, *args, **kwargs)
             else:
                 assert len(args) == 0 and len(kwargs) == 0
-                op,args = peel(obj)[0]
+                op,op_args = peel(obj)[0]
                 if op in compilable_ops:
-                    out_func = compile_func(repr(op).replace('.', '__'), compilable_ops[op], *args, allow_const=allow_const)
+                    out_func = compile_func(repr(op).replace('.', '__'), compilable_ops[op], *op_args, allow_const=allow_const)
                 else:
                     print(f"WARNING: Op {op} is not compilable!")
                     out_func = obj
@@ -114,7 +114,10 @@ def maybe_compile_func(obj, *args, allow_const=False, **kwargs):
                 out_func._ann += [("kwargs", kwargs)]
 
     if out_func is None:
-        return obj
+        if len(args) > 0 or len(kwargs) > 0:
+            return lambda *more_args,**more_kwargs: obj(*more_args, *args, **more_kwargs, **kwargs)
+        else:
+            return obj
 
     return out_func
 
@@ -174,14 +177,12 @@ def compile_func(name, stmts_func, *args, allow_const=False, **kwargs):
     return pyfunc
 
     
+@dataclass
 class PartialStatement:
-    def __init__(self, inputs, op, outputs, *, starargs=False):
-        self.inputs = inputs
-        self.op = op
-        self.outputs = outputs
-        self.starargs = starargs
-    def __str__(self):
-        return f"PartialStatement(in={self.inputs}, op={compiled_func_summary(self.op)}, out={self.outputs}, starargs={self.starargs})"
+    inputs: any
+    op: any
+    outputs: any
+    starargs: bool = False
 
 class AssignStatement:
     def __init__(self, const, outputs):
@@ -555,6 +556,17 @@ def stmts_contained_in(l):
 
 compilable_ops[RT.ContainedIn] = stmts_contained_in
 
+def stmts_contains(needle):
+    inputs = ["x"]
+    stmts = [
+        AssignStatement(needle, "needle"),
+        RawASTStatement("return needle in x")
+    ]
+    return FunctionDecl(inputs=inputs, stmts=stmts)
+
+compilable_ops[RT.Contains] = stmts_contains
+
+
 def stmts_identity():
     return FunctionDecl(inputs=["x"],  stmts=[ReturnStatement("x")])
 
@@ -697,7 +709,8 @@ compilable_ops[RT.Outs] = stmts_Outs
 
 def stmts_out_rels(rt=None, target_filter=None):
     # Being lazy
-    if type(rt) != RelationType:
+    from zef.core.internals import BlobType
+    if type(rt) not in [RelationType, BlobType]:
         return None
     if target_filter is not None:
         return None
@@ -714,7 +727,8 @@ compilable_ops[RT.Out] = stmts_Out
 
 def stmts_in_rels(rt=None, source_filter=None):
     # Being lazy
-    if type(rt) != RelationType:
+    from zef.core.internals import BlobType
+    if type(rt) not in [RelationType, BlobType]:
         return None
     if source_filter is not None:
         return None

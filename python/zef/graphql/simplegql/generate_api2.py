@@ -15,6 +15,7 @@
 # Assuming this file is not imported during zefdb init.
 from ... import *
 from ...ops import *
+from ... import ops as zo
 from functools import partial as P
 from ...core.logger import log
 from ...core.error import _ErrorType, ExceptionWrapper, add_error_context
@@ -121,15 +122,15 @@ def profile_print(sort_by="total_time"):
     show(Table(rows=rows, cols=cols))
 
 
-def stmts_profile(name, op):
-    # Going to optimise this out
-    return op
 # def stmts_profile(name, op):
-#     cop = maybe_compile_func(op)
-#     profile_func = get_zfunc_func(profile)
-#     out_func = lambda x, **kwargs: profile_func(x, name, cop, **kwargs)
-#     out_func._ann = [("compiled_op", cop), ("name", name)]
-#     return out_func
+#     # Going to optimise this out
+#     return op
+def stmts_profile(name, op):
+    cop = maybe_compile_func(op)
+    profile_func = get_zfunc_func(profile)
+    out_func = lambda x, **kwargs: profile_func(x, name, cop, **kwargs)
+    out_func._ann = [("compiled_op", cop), ("name", name)]
+    return out_func
 # def stmts_profile(name, op):
 #     inputs = ["input"]
 #     stmts = []
@@ -398,7 +399,8 @@ def generate_resolvers_fcts(schema_root):
                 "type": f"[{name}]",
                 "args": query_params,
                 # "resolver": apply[P(resolve_filter_response, type_node=z_type)],
-                "resolver": resolve_filter_response2[z_type],
+                # "resolver": resolve_filter_response2[z_type],
+                "resolver": maybe_compile_func(resolve_filter_response3, z_type),
             }
         }
         types_dict[aggregate_response_name] = aggregate_fields_dict
@@ -426,7 +428,8 @@ def generate_resolvers_fcts(schema_root):
             "type": aggregate_response_name,
             "args": query_params,
             # "resolver": apply[P(resolve_aggregate, type_node=z_type)],
-            "resolver": resolve_aggregate2[z_type],
+            # "resolver": resolve_aggregate2[z_type],
+            "resolver": maybe_compile_func(resolve_aggregate3, z_type),
         }
 
         # Add the 3 top-level mutations
@@ -437,26 +440,30 @@ def generate_resolvers_fcts(schema_root):
                 "upsert": {"type": "Boolean"}
             },
             # "resolver": apply[P(resolve_add, type_node=z_type)],
-            "resolver": resolve_add2[z_type],
+            # "resolver": resolve_add2[z_type],
+            "resolver": maybe_compile_func(resolve_add3, z_type),
         }
         mutation_dict[f"update{name}"] = {
             "type": mutate_response_name,
             "args": {"input": {"type": f"{update_input_name}!"}},
             # "resolver": apply[P(resolve_update, type_node=z_type)],
-            "resolver": resolve_update2[z_type],
+            # "resolver": resolve_update2[z_type],
+            "resolver": maybe_compile_func(resolve_update3, z_type),
         }
         mutation_dict[f"delete{name}"] = {
             "type": mutate_response_name,
             "args": {"filter": {"type": f"{filter_name}!"}},
             # "resolver": apply[P(resolve_delete, type_node=z_type)],
-            "resolver": resolve_delete2[z_type],
+            # "resolver": resolve_delete2[z_type],
+            "resolver": maybe_compile_func(resolve_delete3, z_type),
         }
         if has_upfetch:
             mutation_dict[f"upfetch{name}"] = {
                 "type": mutate_response_name,
                 "args": {"input": {"type": f"[{upfetch_input_name}!]!"}},
                 # "resolver": apply[P(resolve_upfetch, type_node=z_type)],
-                "resolver": resolve_upfetch2[z_type],
+                # "resolver": resolve_upfetch2[z_type],
+                "resolver": maybe_compile_func(resolve_upfetch3, z_type),
             }
 
     for z_enum in schema_root | Outs[RT.GQL_Enum]:
@@ -764,6 +771,19 @@ def resolve_aggregate2(obj, type_node, graphql_info, query_args):
     except _ErrorType as exc:
         return exc
 
+@func
+def resolve_aggregate3(_, info, type_node, **params):
+    try:
+        context = static_context(info)
+        cfunc = maybe_compile_func(resolve_aggregate, type_node, context, **params)
+        return maybe_compile_func(profile, "resolve_aggregate", cfunc)(info)
+    except ExceptionWrapper as exc:
+        if exc.wrapped.name == "External":
+            return exc.wrapped
+        raise
+    except _ErrorType as exc:
+        return exc
+
 def resolve_field(arg, *, z_field, context, **params):
     raise Exception("Not allowed here anymore")
     z,info = arg
@@ -939,7 +959,7 @@ def resolve_add(info, *, type_node, context, **params):
 
             ents = updated_objs + [r[name] for name in new_obj_names]
             # Note: we return the details after any updates
-            ents = ents | map[now] | collect
+            ents = ents | map[zo.now] | collect
 
             count = len(new_obj_names)
 
@@ -956,6 +976,19 @@ def resolve_add2(obj, type_node, graphql_info, query_args):
         context = static_context(graphql_info)
         cfunc = maybe_compile_func(resolve_add, type_node=type_node, context=context, **query_args)
         return profile(graphql_info, "resolve_add", cfunc)
+    except ExceptionWrapper as exc:
+        if exc.wrapped.name == "External":
+            return exc.wrapped
+        raise
+    except _ErrorType as exc:
+        return exc
+
+@func
+def resolve_add3(obj, info, type_node, **params):
+    try:
+        context = static_context(info)
+        cfunc = maybe_compile_func(resolve_add, type_node=type_node, context=context, **params)
+        return maybe_compile_func(profile, "resolve_add", cfunc)(info)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -1000,7 +1033,7 @@ def resolve_upfetch(info, *, type_node, context, **params):
 
             ents = updated_objs + [r[name] for name in new_obj_names]
             # Note: we return the details after any updates
-            ents = ents | map[now] | collect
+            ents = ents | map[zo.now] | collect
             count = len(new_obj_names)
 
             return {"count": count, "ents": ents}
@@ -1022,6 +1055,19 @@ def resolve_upfetch2(obj, type_node, graphql_info, query_args):
         raise
     except _ErrorType as exc:
         return exc
+
+@func
+def resolve_upfetch3(obj, info, type_node, **params):
+    try:
+        context = static_context(info)
+        cfunc = maybe_compile_func(resolve_upfetch, type_node=type_node, context=context, **params)
+        return maybe_compile_func(profile, "resolve_upfetch", cfunc)(info)
+    except ExceptionWrapper as exc:
+        if exc.wrapped.name == "External":
+            return exc.wrapped
+        raise
+    except _ErrorType as exc:
+        return exc
             
         
 def resolve_update(info, *, type_node, context, **params):
@@ -1031,7 +1077,8 @@ def resolve_update(info, *, type_node, context, **params):
         with mutation_lock:
             if "input" not in params or "filter" not in params["input"]:
                 raise Exception("Not allowed to update everything!")
-            ents = resolve_query(info, type_node=type_node, filter=params["input"]["filter"], context=context)
+            # ents = resolve_query3(None, info, type_node=type_node, filter=params["input"]["filter"], context=context)
+            ents = maybe_compile_func(resolve_query, type_node, context, filter=params["input"]["filter"])(info)
 
             actions = []
             post_checks = []
@@ -1047,7 +1094,7 @@ def resolve_update(info, *, type_node, context, **params):
             count = len(ents)
 
             # Note: we return the details after the update
-            ents = ents | map[now] | collect
+            ents = ents | map[zo.now] | collect
 
             return {"count": count, "ents": ents}
     # except ExternalError:
@@ -1062,6 +1109,19 @@ def resolve_update2(obj, type_node, graphql_info, query_args):
         context = static_context(graphql_info)
         cfunc = maybe_compile_func(resolve_update, type_node=type_node, context=context, **query_args)
         return profile(graphql_info, "resolve_update", cfunc)
+    except ExceptionWrapper as exc:
+        if exc.wrapped.name == "External":
+            return exc.wrapped
+        raise
+    except _ErrorType as exc:
+        return exc
+
+@func
+def resolve_update3(obj, info, type_node, **params):
+    try:
+        context = static_context(info)
+        cfunc = maybe_compile_func(resolve_update, type_node=type_node, context=context, **params)
+        return maybe_compile_func(profile, "resolve_update", cfunc)(info)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -1108,11 +1168,25 @@ def resolve_delete2(obj, type_node, graphql_info, query_args):
     except _ErrorType as exc:
         return exc
 
+@func
+def resolve_delete3(obj, info, type_node, **params):
+    try:
+        context = static_context(info)
+        cfunc = maybe_compile_func(resolve_delete, type_node=type_node, context=context, **params)
+        return maybe_compile_func(profile, "resolve_delete", cfunc)(info)
+    except ExceptionWrapper as exc:
+        if exc.wrapped.name == "External":
+            return exc.wrapped
+        raise
+    except _ErrorType as exc:
+        return exc
+
 def resolve_filter_response(arg, *, type_node, context, **params):
     obj, info = arg
     ents = obj["ents"]
 
-    ents = handle_list_params((ents,info), type_node, params, context)
+    # ents = handle_list_params((ents,info), type_node, params, context)
+    ents = maybe_compile_func(handle_list_params, type_node, params, context)((ents,info))
 
     return ents | collect
 @func
@@ -1120,6 +1194,12 @@ def resolve_filter_response2(obj, type_node, graphql_info, query_args):
     context = static_context(graphql_info)
     cfunc = maybe_compile_func(resolve_filter_response, type_node=type_node, context=context, **query_args)
     return profile((obj,graphql_info), "resolve_filter_response", cfunc)
+
+@func
+def resolve_filter_response3(obj, info, type_node, **params):
+    context = static_context(info)
+    cfunc = maybe_compile_func(resolve_filter_response, type_node=type_node, context=context, **params)
+    return maybe_compile_func(profile, "resolve_filter_response", cfunc)((obj,info))
 
 
 
@@ -1129,7 +1209,6 @@ def resolve_filter_response2(obj, type_node, graphql_info, query_args):
 #--------------------------------------------
 
 def obtain_initial_list(info, type_node, filter_opts, context):
-    raise Exception("Shouldn'tg te here anymore")
     gs = info.context["gs"]
 
     type_et = ET(type_node | Out[RT.GQL_Delegate] | collect)
@@ -1153,6 +1232,7 @@ def obtain_initial_list(info, type_node, filter_opts, context):
 
         return zs
     else:
+        raise Exception("Shouldn'tg te here anymore")
         # zs = gs | all[type_et] | filter[pass_query_auth[type_node][info]]
         zs = gs | profile["gs | all"][all[type_et]] | map[as_list | append[info]] | profile["initial_query_auth_filter"][filter[profile["initial_query_auth"][pass_query_auth[type_node][info]]]] | map[first]
         if info.context["debug_level"] >= 3:
@@ -1167,6 +1247,7 @@ def stmts_obtain_initial_list(type_node, filter_opts, context):
 
     if filter_opts is not None and filter_opts.get("id", None) is not None:
         # Not implementing this for now
+        # TODO: this needs some proper optimisation
         return None
 
     # zs = gs | all[type_et] | filter[pass_query_auth[type_node][info]]
@@ -1916,6 +1997,8 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen, context):
 #----------------------------
 
 def pass_auth_generic(arg, schema_node, context, rt_list):
+    return maybe_compile_func(pass_auth_generic, schema_node, context, rt_list)(arg)
+    raise Exception("Don't want to get here anymore")
     z,info = arg
 
     to_call = None
@@ -2090,7 +2173,7 @@ def commit_with_post_checks(actions, post_checks, info, context):
                     if type(obj) == str:
                         obj = r[obj]
                     assert type(obj) == ZefRef
-                    obj = obj | in_frame[g | now | collect][allow_tombstone] | collect
+                    obj = obj | in_frame[g | zo.now | collect][allow_tombstone] | collect
 
                 if kind == "add":
                     for z_func in type_node | Outs[RT.OnCreate]:
@@ -2120,7 +2203,7 @@ def commit_with_post_checks(actions, post_checks, info, context):
                     assert op_is_unique(z_field)
                     # Get all values - note this is not filtered by the user's
                     # viewpoint, so we need to be a little careful.
-                    ents = g | now | all[ET(type_node | Out[RT.GQL_Delegate] | collect)]
+                    ents = g | zo.now | all[ET(type_node | Out[RT.GQL_Delegate] | collect)]
                     vals = ents | map[func[lambda x: [x,info]] | internal_resolve_field[z_field][info][False]] | concat | collect
 
                     dis = distinct(vals)
