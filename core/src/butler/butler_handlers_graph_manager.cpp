@@ -649,6 +649,21 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LocalGr
         me.gd->local_path = std::filesystem::absolute(content.dir);
         // me.gd->local_tokens = std::make_unique<TokenStore>(*fg);
 
+        // Check the used tokens in case we need to get a whole batch at once.
+        {
+            auto ptr = me.gd->ETs_used->get();
+            msg_push(TokenQuery{TokenQuery::ET, {}, ptr->as_vector(), false, true}, false, true);
+        }
+        {
+            auto ptr = me.gd->RTs_used->get();
+            msg_push(TokenQuery{TokenQuery::RT, {}, ptr->as_vector(), false, true}, false, true);
+        }
+        {
+            auto ptr = me.gd->ENs_used->get();
+            msg_push(TokenQuery{TokenQuery::EN, {}, ptr->as_vector(), false, true}, false, true);
+        }
+
+
         // Now we can kick off the sync thread, even if we aren't syncing just at the moment.
         spawn_graph_sync_thread(me);
 
