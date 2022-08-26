@@ -44,7 +44,14 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def_property_readonly("uid", [](Graph& g)->BaseUID { return uid(g); })
 		.def("hash", &Graph::hash, py::arg("blob_index_lo"), py::arg("blob_index_hi"), py::arg("seed")=0, py::arg("working_layout")="", "calculate the xxhash of the data within the specified blob range. This is non-cryptographic hash fct.")
 		.def("hash", [](Graph& g) { return g.hash(constants::ROOT_NODE_blob_index, g.my_graph_data().read_head, 0, ""); })
-		.def("__repr__", [](const Graph& self) { return "Graph(\"" + str(uid(self)) + "\")"; })
+		.def("__repr__", [](const Graph& self) {
+            auto& gd = self.my_graph_data();
+            if(gd.local_path == "")
+                return std::string("Graph('") + str(uid(self)) + "')";
+            else
+                return std::string("Graph('file://") + gd.local_path.string() + "')";
+        })
+        .def("__str__", [](const Graph& self) { return to_str(self); })
 		.def("__getitem__", [](const Graph& self, const std::string& key)->std::variant<EZefRef,ZefRef> {try { return self[key]; } catch (...) { throw py::key_error{ "key \"" + to_str(key) + "\" not found in graph with uid " + to_str(self | uid)  }; } }, "key lookup in blob key dictionary for this graph returning a EZefRef")
 		.def("__getitem__", [](const Graph& self, blob_index key_index)->EZefRef {return self[key_index]; }, "blob index lookup for this graph returning a EZefRef")
 		.def("__getitem__", [](const Graph& self, BaseUID key) {return self[key]; }, "key lookup returning EZefRef")

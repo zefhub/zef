@@ -456,6 +456,7 @@ namespace zefDB {
         }
 
         void Butler::load_graph_from_file(Butler::msg_ptr & msg, std::filesystem::path dir) {
+            developer_output("Loading local graph with path: " + dir.string());
             if(std::filesystem::exists(dir) && std::filesystem::is_directory(dir)) {
                 auto uid_file = local_graph_uid_path(dir);
                 if(!MMap::filegraph_exists(local_graph_prefix(dir)) || !std::filesystem::exists(uid_file))
@@ -480,7 +481,8 @@ namespace zefDB {
             if(std::filesystem::exists(dir))
                 throw std::runtime_error("Can't create local graph at '" + dir.string() + "' as it is already a file.");
 
-            std::filesystem::create_directories(dir.parent_path());
+            if(dir.has_parent_path())
+                std::filesystem::create_directories(dir.parent_path());
 
             auto data = spawn_graph_manager(make_random_uid());
             data->queue.push(std::make_shared<RequestWrapper>(std::move(msg->promise), LocalGraph{dir, true}));

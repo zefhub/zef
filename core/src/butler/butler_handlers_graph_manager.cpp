@@ -618,17 +618,23 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LocalGr
         MMap::FileGraph * fg = nullptr;
         auto fg_prefix = local_graph_prefix(content.dir);
         if(content.new_graph) {
+            if(!std::filesystem::exists(content.dir))
+                std::filesystem::create_directory(content.dir);
+
             if(any_files_with_prefix(fg_prefix))
                 throw std::runtime_error("Filegraph (" + str(me.uid) + ") already exists (@ " + fg_prefix.string() + ") but we're trying to create a new graph!"); 
 
             auto uid_file = local_graph_uid_path(content.dir);
             std::ofstream file(uid_file);
             file << str(me.uid);
+            developer_output("Wrote UID '" + to_str(me.uid) + "' for new local graph");
         } else {
             if(!MMap::filegraph_exists(fg_prefix))
                 throw std::runtime_error("Filegraph (" + str(me.uid) + ") doesn't exist (@ " + fg_prefix.string() + ") can't load!"); 
         }
+        developer_output("About to create FileGraph for local graph");
         fg = new MMap::FileGraph(fg_prefix, me.uid, false);
+        developer_output("Created FileGraph for local graph");
 
         // The mmap steals the file graph ptr
         me.gd = create_GraphData(MMap::MMAP_STYLE_FILE_BACKED, fg, me.uid, content.new_graph);
@@ -640,6 +646,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LocalGr
 
         me.gd->is_primary_instance = true;
         me.gd->should_sync = false;
+        me.gd->local_path = std::filesystem::absolute(content.dir);
         // me.gd->local_tokens = std::make_unique<TokenStore>(*fg);
 
         // Now we can kick off the sync thread, even if we aren't syncing just at the moment.
@@ -660,7 +667,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, DoneWit
     if(me.gd->reference_count == 0) {
         me.please_stop = true;
         if(zwitch.graph_event_output())
-            std::cerr << "Closing graph " << me.uid << std::endl;
+            std::cerr << "Closing graph " << str(me.uid) << std::endl;
     }
 }
 
@@ -745,6 +752,11 @@ template<>
 void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifySync & content, Butler::msg_ptr & msg) {
     if(me.gd->error_state != GraphData::ErrorState::OK) {
         msg->promise.set_value(GenericResponse{false, "Graph is in error state"});
+        return;
+    }
+
+    if(me.gd->local_path != "") {
+        msg->promise.set_value(GenericResponse{false, "Can't sync local graphs without giving up consistency"});
         return;
     }
 

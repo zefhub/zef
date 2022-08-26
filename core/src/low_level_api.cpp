@@ -139,25 +139,6 @@ namespace zefDB {
 
 
 
-    std::ostream& operator << (std::ostream& o, Graph& g) {
-        auto& gd = g.my_graph_data();
-        o << "<Zef low level Graph:\n";
-        o << "graph data=" << gd;
-        o << "\n";
-        auto uzr = gd.get_ROOT_node();
-        //while (get_BlobType(uzr.blob_ptr) != BlobType::_unspecified) {
-        while (uzr) {
-            o << uzr;
-            uzr = get_next(uzr);
-        }
-        o << ">\n";
-        return o;
-    }
-
-
-
-
-
 
 
     

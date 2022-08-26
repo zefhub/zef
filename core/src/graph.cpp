@@ -422,6 +422,18 @@ namespace zefDB {
         delete_graphdata();
     }
 
+    std::ostream& operator << (std::ostream& o, Graph& g) {
+        auto& gd = g.my_graph_data();
+        o << "Graph(";
+        o << '"' << str(uid(g)) << '"';
+        if(gd.local_path != "")
+            o << ", local: " << gd.local_path.string();
+        o << ")";
+        return o;
+    }
+
+
+
 
     uint64_t Graph::hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string target_layout_version) const {
         return my_graph_data().hash(blob_index_lo, blob_index_hi, seed, target_layout_version);

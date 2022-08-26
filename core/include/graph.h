@@ -314,6 +314,7 @@ namespace zefDB {
 
 		bool is_primary_instance = true;
         std::atomic<bool> should_sync = true;  // only relevant to the behavior of the owning process: register and send updates to zefhub?
+        std::filesystem::path local_path = "";
 
         // using key_map = thread_safe_unordered_map<std::string, blob_index>;
         using key_map = phmap::parallel_flat_hash_map<

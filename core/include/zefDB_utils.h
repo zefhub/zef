@@ -305,7 +305,16 @@ namespace zefDB {
     }
 
     inline bool any_files_with_prefix(std::filesystem::path prefix) {
-        for(auto const& dir_entry : std::filesystem::directory_iterator{prefix.parent_path()}) {
+        std::filesystem::path parent;
+        if(prefix.has_parent_path())
+            parent = prefix.parent_path();
+        else
+            parent = ".";
+
+        if(!std::filesystem::exists(parent))
+            return false;
+
+        for(auto const& dir_entry : std::filesystem::directory_iterator{parent}) {
             std::string dir_str = dir_entry.path().filename().string();
             std::string prefix_str = prefix.filename().string();
             if(starts_with(dir_str, prefix_str))
