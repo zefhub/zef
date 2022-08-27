@@ -10208,7 +10208,7 @@ def parse_imp(data: str, grammar: str) -> FlatGraph:
     - used for: parsing
     """    
     import lark
-    from .to_flatgraph import flat_graph_imp
+    from .to_flatgraph import to_flatgraph_imp
     def lark_2_dict(tr):
         """convert lark tree to dict"""
 
@@ -10228,7 +10228,7 @@ def parse_imp(data: str, grammar: str) -> FlatGraph:
 
     parser = lark.Lark(grammar)
     tree = parser.parse(data)    
-    return flat_graph_imp(lark_2_dict(tree))
+    return to_flatgraph_imp(lark_2_dict(tree))
 
 
 

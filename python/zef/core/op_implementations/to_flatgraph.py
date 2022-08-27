@@ -121,7 +121,7 @@ def to_deltas(x, name: str) -> List:
 
 
 
-def flat_graph_imp(d: dict):
+def to_flatgraph_imp(d: dict):
     """
     An operator that allows transforming plain Zef values (dicts, lists, 
     scalars and nested forms thereof) to FlatGraphs in a standardized form.
