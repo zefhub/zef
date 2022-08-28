@@ -7582,7 +7582,7 @@ def inject_list_imp(v, injectee):
     as multiple [...][...]...
 
     ---- Examples ----
-    >>> [pred1, pred2, pred3] | inject[And]         # => And[pred1][pred2][pred3]
+    >>> [pred1, pred2, pred3] | inject_list[And]         # => And[pred1][pred2][pred3]
 
     ---- Tags ----
     - used for: control flow
