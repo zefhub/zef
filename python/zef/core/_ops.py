@@ -367,6 +367,8 @@ on              = make_zefop(RT.On)
 gather          = make_zefop(RT.Gather)
 alias           = make_zefop(RT.Alias)
 splice          = make_zefop(RT.Splice)
+flatten_dict    = make_zefop(RT.FlattenDict)
+unflatten_dict  = make_zefop(RT.UnflattenDict)
 
           
 # match

@@ -10232,3 +10232,69 @@ def parse_imp(data: str, grammar: str) -> FlatGraph:
 
 
 
+
+
+def flatten_dict_imp(y):
+    """
+    Given a potentially nested plain data structure 
+    (anything isomorphic to JSON), return a flattened 
+    version where the keys are paths given as tuples.
+
+    ---- Examples ----
+    >>> {'a': 42} | flatten_dict     # => [ ('a',): 42]
+    >>> {'a': 42, b: {'x': 'hello'}} | flatten_dict     # => [ ('a',): 42, ('b', 'x'): 'hello']    
+
+    ---- Tags ----
+    related zefop: unflatten_dict
+    related zefop: get_in
+    related zefop: insert_in
+    operates on: Dict
+    operates on: List    
+    used for: dict manipulation
+    used for: list manipulation
+    """
+    def is_terminal(x):
+        return type(x) in {int, float, str, bool, type(None)}
+    
+    def f(d: Dict, path: tuple) -> tuple:
+        if isinstance(d, dict):
+            return tuple(
+                    (((*path, k), v), ) if is_terminal(v) else f(v, (*path, k)) for k, v in d.items()
+                ) | concat
+        elif type(d) in {list, tuple}:
+            return tuple(
+                    (((*path, i), v), ) if is_terminal(v) else f(v, (*path, i)) for i, v in enumerate(d)
+                ) | concat            
+        else:
+            raise TypeError(f'{type(d)} is not a dict or a list')
+
+    if is_terminal(y):
+        return {(): y}
+    return dict(f(y, ()))
+
+
+
+
+
+def unflatten_dict_imp(d: Dict) -> Dict:
+    """
+    Given a flattened dictionary, return a nested version.
+    
+    *Caution*: integer keys are also used as dictionary keys
+    for now, i.e. no list is constructed. This may change in 
+    the future
+
+    ---- Examples ----
+    >>> {('a',): 42, ('b', 'd'): 'hello'} | unflatten_dict   # => {'a': 42, 'b': {'d': 'hello'}}
+
+    ---- Tags ----
+    related zefop: flatten_dict
+    operates on: Dict
+    used for: dict manipulation
+    """
+    if () in d:
+        return d[()]    
+    op = d | items | map[inject_list[insert_in]] | to_pipeline | collect
+    return op({})
+
+
