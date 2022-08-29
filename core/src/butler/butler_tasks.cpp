@@ -25,6 +25,10 @@ Butler::task_ptr Butler::add_task(bool is_online, double timeout, std::promise<R
     if(waiting_tasks.size() > 100)
         std::cerr << "Warning, there are a lot of tasks building up in the task_list! These should probably be removed at some point." << std::endl;
 #endif
+    // Don't do this, it interrupts the ability to trigger a connection to upstream
+    // if(is_online && !network.connected)
+    //     throw std::runtime_error("Not adding a new network task when we aren't online.");
+   
     task_ptr task = std::make_shared<Task>(now(), is_online, timeout, promise, acquire_future);
     waiting_tasks.emplace_back(std::make_shared<TaskPromise>(task, std::move(promise)));
     return task;

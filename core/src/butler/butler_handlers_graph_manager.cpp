@@ -120,12 +120,19 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
     // Now we try and get the primary role back again, if we had it before.
     if(me.gd->is_primary_instance) {
-        auto response = butler.wait_on_zefhub_message({
-                {"msg_type", "make_primary"},
-                {"graph_uid", str(me.uid)},
-                {"take_on", true},
-            });
+        UpdateHeads our_heads;
+        {
+            LockGraphData lock{me.gd};
+            our_heads = client_create_update_heads(*me.gd);
+        }
+        json j = create_json_from_heads_from(our_heads);
+        j["msg_type"] = "make_primary";
+        j["graph_uid"] = str(me.uid);
+        j["take_on"] = true;
+        auto response = butler.wait_on_zefhub_message(j);
         if(!response.generic.success) {
+            std::cerr << "We were rejected when trying to reclaim transactor role: " << response.generic.reason << std::endl;
+
             if(me.gd->sync_head.load() == me.gd->write_head) {
                 // We were up to date, so warn about this and demote our graph
                 // ourselves.
@@ -1124,8 +1131,9 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePri
     }
 
     // First make sure we believe we have everything that upstream has
-    if(me.gd->read_head != me.gd->sync_head) {
+    if(me.gd->read_head < me.gd->sync_head) {
         developer_output("Retrying syncing while taking transactor role");
+        // TODO: This effectively spin-locks, need to fix up.
         me.queue.push(std::move(msg), true);
         return;
     }
