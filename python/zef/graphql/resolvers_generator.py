@@ -185,7 +185,7 @@ def generate_fct(field_dict, g, allow_none):
                 if type(output) == _ErrorType:
                     log.error("Resolve field returned error", err=output)
                     print(output)
-                    raise Exception(output.name, *output.args)
+                    raise Exception(*output.args)
             finally:
                 dt = now() - start
                 # log.debug("graphql.resolve_field time", dt=dt)

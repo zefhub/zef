@@ -1500,6 +1500,10 @@ def build_filter_zefop(fil, z_node, context):
     # print(compiling.compiled_func_as_str(top))
     return top
 
+@func
+def insensitive_contains(haystack, needle):
+    return needle.lower() in haystack.lower()
+
 def scalar_comparison_op(sub):
     this = And[Not[equals[None]]]
     for scalar_key,scalar_sub in sub.items():
@@ -1508,7 +1512,7 @@ def scalar_comparison_op(sub):
         elif scalar_key == "in":
             this = this[contained_in[scalar_sub]]
         elif scalar_key == "contains":
-            this = this[contains[scalar_sub]]
+            this = this[insensitive_contains[scalar_sub]]
         elif scalar_key == "le":
             this = this[less_than_or_equal[scalar_sub]]
         elif scalar_key == "lt":
