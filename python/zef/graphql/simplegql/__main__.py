@@ -35,6 +35,8 @@ parser.add_argument("--no-host-role", action="store_false", dest="host_role", de
                     help="Whether the server should acquire host role on the data graph.")
 parser.add_argument("--create", action="store_true", default=(True if "SIMPLEGQL_CREATE" in os.environ else None),
                     help="If the data graph does not exist, then create a new blank graph.")
+parser.add_argument("--read-only", action="store_true", default=(True if "SIMPLEGQL_READ_ONLY" in os.environ else None),
+                    help="Whether to allow writes to the graph. If False then the transactor role will NOT be taken.")
 parser.add_argument("--hooks", type=str, dest="hooks_file", default=os.environ.get("SIMPLEGQL_HOOKS_FILE", None),
                     help="If present, a python file containing the hooks to make available for the schema file")
 parser.add_argument("--init-hook", type=str, dest="init_hook", default=os.environ.get("SIMPLEGQL_INIT_HOOK", None),
@@ -90,7 +92,7 @@ else:
     g_data = Graph()
     log.info("Created blank scratch data graph")
 
-if args.host_role and not args.scratch:
+if not args.scratch and args.host_role and not args.read_only:
     try:
         g_data | take_transactor_role | run
     except:
@@ -119,7 +121,8 @@ if args.init_hook is not None:
 server_uuid = start_server(root, g_data,
                            port=args.port,
                            bind_address=args.bind,
-                           debug_level=args.debug_level)
+                           debug_level=args.debug_level,
+                           read_only=args.read_only)
 
 import time
 try:

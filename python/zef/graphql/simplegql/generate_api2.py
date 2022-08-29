@@ -526,6 +526,8 @@ def resolve_add(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     try:
+        if info.context["read_only"]:
+            raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             name_gen = NameGen()
             actions = []
@@ -578,6 +580,8 @@ def resolve_upfetch(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     try:
+        if info.context["read_only"]:
+            raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             # Upfetch is a lot like add with upsert, except it uses the specially
             # indicated upfetch field to work on, rather than id.
@@ -630,6 +634,8 @@ def resolve_update(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     try:
+        if info.context["read_only"]:
+            raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             if "input" not in params or "filter" not in params["input"]:
                 raise Exception("Not allowed to update everything!")
@@ -664,6 +670,8 @@ def resolve_update2(obj, type_node, graphql_info, query_args):
 
 def resolve_delete(_, info, *, type_node, **params):
     try:
+        if info.context["read_only"]:
+            raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             # Do the same thing as a resolve_query but delete the entities instead.
             if "filter" not in params:
