@@ -118,7 +118,8 @@ def query(request, context):
         q,
         context_value={"gs": now(context["g_data"]),
                        "auth": auth_context,
-                       "debug_level": context["debug_level"]},
+                       "debug_level": context["debug_level"],
+                       "read_only": context["read_only"]},
     )
 #     import cProfile
 #     print("========== BEFORE ==============")
@@ -167,6 +168,7 @@ def start_server(z_gql_root,
                  bind_address="0.0.0.0",
                  logging=True,
                  debug_level=0,
+                 read_only=False,
                  ):
 
     gql_dict = generate_resolvers_fcts(z_gql_root)
@@ -183,6 +185,7 @@ def start_server(z_gql_root,
         "g_data": g_data,
         "ari_schema": ari_schema,
         "debug_level": debug_level,
+        "read_only": read_only,
     }
 
     if z_gql_root | has_out[RT.AuthJWKURL] | collect:
