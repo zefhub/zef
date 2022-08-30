@@ -3133,14 +3133,32 @@ def skip_imp(v, n: int):
     ---- Examples ----
     >>> range(10) | skip[3]                         # => [3,4,5,6,7,8,9]
     >>> ['a', 'b', 'c', 'd'] | skip[-2]             # => ['a', 'b']
+    >>> 'hello' | skip[-2]                          # => 'hel'
 
     ---- Signature ----
     (List[T], Int) -> List[T]
+    (String, Int) -> String
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: take
+    - related zefop: slice
+    - related zefop: reverse
+    - related zefop: first
+    - related zefop: last
+    - related zefop: nth
     """
-    if isinstance(v, tuple) or isinstance(v, list) or isinstance(v,str):
-        return itertools.islice(v, n, None)  # None is 'inf' for the upper limit
-    # if isinstance(v, ZefRefs) or isinstance(v, EZefRefs):
-    #     return pyzefops.drop(v, n)
+
+    # handle strings separately: don't return a list, but a string
+    if isinstance(v, str):
+        if n>=0:
+            return v[n:]
+        else:
+            return v[:n]
+
     if n>=0:
         def wrapper():
             it = iter(v)
@@ -3150,7 +3168,8 @@ def skip_imp(v, n: int):
         return ZefGenerator(wrapper)    
     # n<0
     else:
-        cached = tuple(v)
+        # we need to consume all to know where the end is
+        cached = tuple(v)    
         return cached[:n]
     
 
