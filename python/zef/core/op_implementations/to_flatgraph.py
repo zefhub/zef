@@ -54,7 +54,7 @@ def handle_dict(dd: dict, name: str):
         ]
 
     try:
-        type_name = to_pascal_case(dd['type'])     
+        type_name = to_pascal_case(dd['_type'])     
     except KeyError:
         type_name = 'ZEF_Unspecified'
 
@@ -62,7 +62,7 @@ def handle_dict(dd: dict, name: str):
     ET(type_name)[name],
     *(dd 
      | items 
-     | filter[lambda p: p[0] != 'type']
+     | filter[lambda p: p[0] != '_type']
      | map[make_delta]
      | concat     
      | collect
@@ -134,7 +134,7 @@ def to_flatgraph_imp(d: dict):
 
     ---- Examples -----
     >>> d = {
-    ... 'type': 'paragraph',
+    ... '_type': 'paragraph',
     ... 'foo': 42,
     ... 'bar': [1, 2, 'bye', False]
     ... }
