@@ -96,6 +96,7 @@ from ._ops import match, collect, insert, split, get, filter, map, Z
 from .zef_functions import func
 from .internals import ET, RT, AET
 from .flat_graph import Val
+from .z_field import ZField_
 
 def merge_flatgraphs(g1, g2) -> FlatGraph:
     """
@@ -146,6 +147,9 @@ class SymbolicExpression_:
         if self.root_node is not None:
             raise RuntimeError("a composite SymbolicExpression cannot absorb a value")
         return SymbolicExpression_(name=self.name, absorbed=k)
+
+    def __getattr__(self, name):
+        return ZField_(name)
 
     def __add__(self, other):
         return compose_se(ET.Add, self, other)
