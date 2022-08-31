@@ -5338,8 +5338,9 @@ def map_implementation(v, f):
     case.    
 
     ---- Examples -----
-    >>> [3, 4, 5] | map[add[1]]                      # => [4, 5, 6]
-    >>> [1, 2, 3] | map[str, add[100]]               # => [('1', 101), ('2', 102), ('3', 103)]
+    >>> [3, 4, 5] | map[add[1]]                            # => [4, 5, 6]
+    >>> [1, 2, 3] | map[str, add[100]]                     # => [('1', 101), ('2', 102), ('3', 103)]
+    >>> {'a': 1, 'b': 2} | map[lambda k, v: (k+'!', v+1)]  # => {'a!': 2, 'b!': 3}
 
     ---- Signature ----
     (List[T1], (T1 -> T2))  -> List[T2]
@@ -5352,23 +5353,27 @@ def map_implementation(v, f):
     """
     import builtins
     input_type = parse_input_type(type_spec(v))
+
+    if isinstance(v, dict):
+        return dict( (f(k,v) for k,v in v.items() ) )
+
     if input_type == "awaitable":
         observable_chain = v
         # Ugly hack for ZefOp
         f._allow_bool = True
         return observable_chain.pipe(rxops.map(f))
+
+    if not isinstance(v, Iterable): raise TypeError(f"Map only accepts values that are Iterable. Type {type(v)} was passed")
+    if isinstance(f, list) or isinstance(f, tuple):
+        def wrapper_list():
+            for el in v:            
+                yield tuple(ff(el) for ff in f)
+        return ZefGenerator(wrapper_list)
     else:
-        if not isinstance(v, Iterable): raise TypeError(f"Map only accepts values that are Iterable. Type {type(v)} was passed")
-        if isinstance(f, list) or isinstance(f, tuple):
-            def wrapper_list():
-                for el in v:            
-                    yield tuple(ff(el) for ff in f)
-            return ZefGenerator(wrapper_list)
-        else:
-            def wrapper():
-                for el in v:
-                    yield f(el)
-            return ZefGenerator(wrapper)
+        def wrapper():
+            for el in v:
+                yield f(el)
+        return ZefGenerator(wrapper)
 
 
 
