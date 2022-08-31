@@ -1471,8 +1471,8 @@ def remove_imp(d: dict, key_to_remove: tuple):
     
     ---- Tags ----
     - operates on: Dict
-    - related zefop: remote_at
-    - related zefop: remote_in
+    - related zefop: remove_at
+    - related zefop: remove_in
     - related zefop: insert
     - related zefop: get
     """
