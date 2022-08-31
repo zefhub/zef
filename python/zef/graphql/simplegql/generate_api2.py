@@ -122,15 +122,15 @@ def profile_print(sort_by="total_time"):
     show(Table(rows=rows, cols=cols))
 
 
-# def stmts_profile(name, op):
-#     # Going to optimise this out
-#     return op
 def stmts_profile(name, op):
-    cop = maybe_compile_func(op)
-    profile_func = get_zfunc_func(profile)
-    out_func = lambda x, **kwargs: profile_func(x, name, cop, **kwargs)
-    out_func._ann = [("compiled_op", cop), ("name", name)]
-    return out_func
+    # Going to optimise this out
+    return op
+# def stmts_profile(name, op):
+#     cop = maybe_compile_func(op)
+#     profile_func = get_zfunc_func(profile)
+#     out_func = lambda x, **kwargs: profile_func(x, name, cop, **kwargs)
+#     out_func._ann = [("compiled_op", cop), ("name", name)]
+#     return out_func
 # def stmts_profile(name, op):
 #     inputs = ["input"]
 #     stmts = []
