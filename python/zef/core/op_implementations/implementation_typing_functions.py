@@ -1872,10 +1872,14 @@ def all_imp(*args):
             # return list(gs.tx | pyzefops.instances[fil])
             return gs.tx | pyzefops.instances[fil]
         
-        if isinstance(fil, ValueType_):
+        if isinstance(fil, ValueType_) and fil.d['type_name'] in {"Union", "Intersection"}:
             representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (EntityType, AttributeEntityType))] | func[set] | collect
             value_types = set(fil.d['absorbed']) - representation_types
-            if len(value_types) > 0: value_types = Union[tuple(value_types)]        
+            
+            if len(value_types) > 0: 
+                # Wrap the remaining ValueTypes after removing representation_types in the original ValueType
+                value_types = {"Union": Union, "Intersection": Intersection}[fil.d['type_name']][tuple(value_types)]      
+
             if fil.d['type_name'] == "Union":
                 sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in representation_types]))
                 if not value_types: return sets_union
@@ -1886,8 +1890,6 @@ def all_imp(*args):
                 else:  initial = gs.tx | pyzefops.instances
                 if not value_types: return initial
                 return filter(initial, lambda x: is_a(x, value_types))
- 
-
 
         # The remaining options will just use the generic filter and is_a
         return filter(gs.tx | pyzefops.instances, lambda x: is_a(x, fil))
