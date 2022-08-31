@@ -10318,9 +10318,58 @@ def unflatten_dict_imp(d: Dict) -> Dict:
     operates on: Dict
     used for: dict manipulation
     """
+    @func
+    def insert_in_dict_with_idx(d: dict, path, value):
+        assert isinstance(path, list) or isinstance(path, tuple)
+        res = {**d}    
+        # purely side effectful
+        def insert(obj, path):      
+
+            def _insert_list(ll, path):
+                # If the next element in the path is an int then we need to insert a new list
+                if isinstance(path[1], int):
+                    ll.append([])
+
+                # If the next element in the path is a string then we could need to insert a new dict
+                else:
+                    if path[0] == len(ll): # Only insert a new dict if it wasn't inserted before in this path.
+                        ll.append({})
+                
+            def _insert_dict(new_d, path):
+                if path[0] not in new_d:
+
+                    if isinstance(path[1], int):
+                        new_d[path[0]] = []
+                    else: 
+                        new_d[path[0]] = {}
+                else:
+                    if not isinstance(path[1], int):
+                        new_d[path[0]] = {**new_d[path[0]]}
+
+            
+            # If it is the only remaining object, then it is the object to be added or appended
+            if len(path) == 1:
+
+                if isinstance(path[0], int): 
+                    obj.append(value)
+                else: 
+                    obj[path[0]] = value
+
+            # Depending on the current state of our path, we could either have a list or a dict
+            else: 
+                if isinstance(obj, dict):
+                    _insert_dict(obj, path)
+                elif isinstance(obj, list): 
+                    _insert_list(obj, path)
+
+                insert(obj[path[0]], path[1:])        
+
+        insert(res, path)        
+        return res
+
     if () in d:
         return d[()]    
-    op = d | items | map[inject_list[insert_in]] | to_pipeline | collect
+    op = d | items | map[inject_list[insert_in_dict_with_idx]] | to_pipeline | collect
     return op({})
 
 
