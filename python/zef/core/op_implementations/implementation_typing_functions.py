@@ -8610,6 +8610,12 @@ def fg_insert_imp(fg, new_el):
                 except:
                     raise Exception(f"An exception happened while trying to perform {new_el} on {fg}")
 
+        elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Assign):
+            internals = LazyValue(new_el) | absorbed  | collect
+            assert len(internals) == 2, f"assign should have both the entity and the value to be assigned got {internals} instead"
+            ref, val = internals
+            idx = common_logic(ref <= val)
+
 
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
             key = peel(new_el)| first | second | first | collect
