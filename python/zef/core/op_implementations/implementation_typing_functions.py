@@ -8560,6 +8560,8 @@ def fg_insert_imp(fg, new_el):
             return common_logic(rae_class({"type": rae_type, "uid": rae_uid}))
 
     def common_logic(new_el):
+        nonlocal new_blobs, new_key_dict
+
         if isinstance(new_el, EntityType):
             idx = next_idx()
             internal_id = new_el | absorbed | attempt[single][None] | collect
@@ -8592,6 +8594,22 @@ def fg_insert_imp(fg, new_el):
 
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Instantiated):
             raise ValueError("!!!!SHOULD NO LONGER ARRIVE HERE!!!!")
+        
+        elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Terminate):
+            to_be_removed = LazyValue(new_el) | absorbed | attempt[first][None] | collect
+            idx = None
+            if to_be_removed:
+                try:
+                    new_fg = FlatGraph()
+                    new_fg.key_dict = new_key_dict
+                    new_fg.blobs = (*new_blobs,)
+                    new_fg = fg_remove_imp(new_fg, to_be_removed)
+                    new_blobs, new_key_dict = [*new_fg.blobs], {**new_fg.key_dict}
+                except KeyError:
+                    pass
+                except:
+                    raise Exception(f"An exception happened while trying to perform {new_el} on {fg}")
+
 
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
             key = peel(new_el)| first | second | first | collect
