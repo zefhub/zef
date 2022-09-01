@@ -91,7 +91,7 @@ namespace zefDB {
             if(len == 0)
                 return 0;
             if(len < root_size)
-                throw std::runtime_error("Trying to hash a graph with a different layout version, but we don't have enough data to replace the root blob")
+                throw std::runtime_error("Trying to hash a graph with a different layout version, but we don't have enough data to replace the root blob");
             // We can't create a blobs_ns::ROOT_NODE object here as the
             // overflowing indices causes lots of problems. Instead we work with
             // the raw buffer size.
