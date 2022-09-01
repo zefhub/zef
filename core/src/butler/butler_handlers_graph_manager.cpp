@@ -494,7 +494,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                                 {"graph_uid", str(me.uid)},
                             };
                             parse_filegraph_update_heads(*fg, j, working_layout);
-                            std::cerr << j << std::endl;
                             j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
                             j["hash_index"] = j["blobs_head"];
                             auto response = wait_on_zefhub_message(j);
@@ -920,6 +919,37 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, GraphUp
     if(me.gd->is_primary_instance)
         throw std::runtime_error("Shouldn't be receiving updates if we are the primary role!");
 
+    // We first check that this update applies. If it doesn't then send a heads
+    // update to zefhub.
+    UpdateHeads heads = parse_payload_update_heads(content.payload);
+
+    if(!heads_apply(heads, *me.gd)) {
+        if(zefdb_protocol_version < 7) {
+            // Error out
+            throw std::runtime_error("Heads of update don't fit onto graph.");
+        } else {
+            if(zwitch.graph_event_output())
+                std::cerr << "Warning: got an update we couldn't apply. Letting upstream know what our heads are." << std::endl;
+            std::string working_layout = upstream_layout();
+            UpdateHeads our_heads;
+            {
+                LockGraphData lock{me.gd};
+                our_heads = client_create_update_heads(*me.gd);
+            }
+            json j = create_json_from_heads_latest(our_heads);
+            j["msg_type"] = "graph_heads";
+            j["msg_version"] = 1;
+            j["graph_uid"] = str(me.uid);
+            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
+            j["hash_index"] = j["blobs_head"];
+            auto response = wait_on_zefhub_message(j);
+            if(!response.generic.success)
+                throw std::runtime_error("Problem letting ZefHub know our latest heads.");
+            return;
+        }
+    }
+
+    // Everything is good - continue
     apply_update_with_caches(*me.gd, content.payload, true, true);
 
     // TODO: In the future, we need to acknowledge that we have applied this update successfully.
