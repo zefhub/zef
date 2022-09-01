@@ -790,7 +790,7 @@ namespace zefDB {
                 //     send_update(*gtd);
                 // And send out the unsubscribe of course
                 gtd->debug_last_action = "Going to send out unsubscribe";
-                if(gtd->gd->sync_head > 0) {
+                if(gtd->gd->currently_subscribed) {
                     send_ZH_message({
                             {"msg_type", "unsubscribe_from_graph"},
                             {"graph_uid", str(gtd->uid)},
