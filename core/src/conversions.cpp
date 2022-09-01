@@ -82,10 +82,16 @@ namespace zefDB {
             // uint64_t hash = XXH64_digest(state);
             // XXH64_freeState(state);
             // return hash;
+
             XXHash64 xxh(seed);
 
             // Do the root node part
             const size_t root_size = sizeof(blobs_ns::ROOT_NODE);
+
+            if(len == 0)
+                return 0;
+            if(len < root_size)
+                throw std::runtime_error("Trying to hash a graph with a different layout version, but we don't have enough data to replace the root blob")
             // We can't create a blobs_ns::ROOT_NODE object here as the
             // overflowing indices causes lots of problems. Instead we work with
             // the raw buffer size.
