@@ -19,6 +19,7 @@
 #include "zefops.h"
 #include "external_handlers.h"
 #include "conversions.h"
+#include "tar_file.h"
 
 #include <doctest/doctest.h>
 
@@ -723,6 +724,22 @@ namespace zefDB {
         gd.write_head = index_hi;
     }
 
+    void save_local(GraphData & gd) {
+        if(gd.local_path == "")
+            throw std::runtime_error("Graph is not a local file, cannot save it.");
+
+        if(gd.sync_head == gd.read_head.load()) {
+            // No need to save, should be the same.
+            std::cerr << "Not saving, graph hasn't changed since it was loaded." << std::endl;
+            return;
+        }
+
+        Messages::UpdatePayload payload = internals::graph_as_UpdatePayload(gd, "");
+        internals::save_payload_to_local_file(internals::get_graph_uid(gd), payload, gd.local_path);
+        gd.sync_head = gd.read_head.load();
+        std::cerr << "Wrote graph to: '" << gd.local_path << "'" << std::endl;
+    }
+
 	// // thread_safe_unordered_map<std::string, blob_index>& Graph::key_dict() {
     // GraphData::key_map& Graph::key_dict() {
     //     return *my_graph_data().key_dict;
@@ -1341,6 +1358,30 @@ namespace zefDB {
         uint64_t hash_memory_range(const void * lo_ptr, size_t len, uint64_t seed) {
             // This is just so we can adjust it in the future.
             return XXHash64::hash(lo_ptr, len, seed);
+        }
+
+
+        Messages::UpdatePayload payload_from_local_file(std::filesystem::path path) {
+            FileGroup file_group = load_tar_into_memory(path);
+
+            json j;
+            std::vector<std::string> rest;
+
+            auto & encoded_file = file_group.find_file("graph.zefgraph");
+
+            std::tie(j,rest) = Communication::parse_ZH_message(encoded_file.contents);
+
+            return Messages::UpdatePayload{j,rest};
+        }
+
+        void save_payload_to_local_file(const BaseUID & uid, const Messages::UpdatePayload & payload, std::filesystem::path path) {
+            std::string contents = Communication::prepare_ZH_message(payload.j, payload.rest);
+            FileInMemory file_data{"graph.zefgraph", std::move(contents)};
+
+            FileInMemory file_uid{"graph.uid", str(uid)};
+
+            FileGroup file_group({file_uid, file_data});
+            save_filegroup_to_tar(file_group, path);
         }
 	} //internals
 }

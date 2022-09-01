@@ -24,6 +24,9 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         return;
     }
 
+    if(!me.gd->should_sync)
+        return;
+
     if(me.gd->sync_head == 0 && me.gd->is_primary_instance) {
         // We are set to sync, but we have never got around to letting zefhub know about our graph. So instead we'll wait for the sync thread to take care of it. We'll help it along by forcing a wake.
         wake(me.gd->heads_locker);
@@ -169,7 +172,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
 void Butler::set_into_invalid_state(Butler::GraphTrackingData & me) {
     me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
-    if(me.gd->is_primary_instance) {
+    if(me.gd->is_primary_instance && me.gd->should_sync) {
         std::cerr << "Giving up transactor role" << std::endl;
         me.queue.push(std::make_shared<RequestWrapper>(MakePrimary{Graph(*me.gd), false}), true);
     }
@@ -621,39 +624,37 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LocalGr
         }
 
         // Create a new file graph at the location, rather than in the usual place
-        MMap::FileGraph * fg = nullptr;
-        auto fg_prefix = local_graph_prefix(content.dir);
-        if(content.new_graph) {
-            if(!std::filesystem::exists(content.dir))
-                std::filesystem::create_directory(content.dir);
-
-            if(any_files_with_prefix(fg_prefix))
-                throw std::runtime_error("Filegraph (" + str(me.uid) + ") already exists (@ " + fg_prefix.string() + ") but we're trying to create a new graph!"); 
-
-            auto uid_file = local_graph_uid_path(content.dir);
-            std::ofstream file(uid_file);
-            file << str(me.uid);
-            developer_output("Wrote UID '" + to_str(me.uid) + "' for new local graph");
-        } else {
-            if(!MMap::filegraph_exists(fg_prefix))
-                throw std::runtime_error("Filegraph (" + str(me.uid) + ") doesn't exist (@ " + fg_prefix.string() + ") can't load!"); 
-        }
-        developer_output("About to create FileGraph for local graph");
-        fg = new MMap::FileGraph(fg_prefix, me.uid, false);
-        developer_output("Created FileGraph for local graph");
-
-        // The mmap steals the file graph ptr
-        me.gd = create_GraphData(MMap::MMAP_STYLE_FILE_BACKED, fg, me.uid, content.new_graph);
-        // Grab a reference while we are manipulating things in here
+        me.gd = create_GraphData(MMap::MMAP_STYLE_ANONYMOUS, nullptr, me.uid, content.new_graph);
+        // Lock this down for safety while we're in here.
         Graph _g{me.gd, false};
+
+        if(content.new_graph) {
+            if(std::filesystem::exists(content.path))
+                throw std::runtime_error("Local file (" + content.path.string() + ") already exists"); 
+            if(content.path.has_parent_path())
+                std::filesystem::create_directories(content.path.parent_path());
+        } else {
+            // We load the graph from disk and turn it into the same format as
+            // if we received a graph from upstream.
+            auto payload = internals::payload_from_local_file(content.path);
+
+            LockGraphData gd_lock{me.gd};
+            apply_update_with_caches(*me.gd, payload, false, true);
+
+            me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
+            me.gd->sync_head = me.gd->read_head.load();
+        }
 
         if(internals::get_graph_uid(*me.gd) != me.uid)
             throw std::runtime_error("Local graph UID differed from what was passed - weird internal inconsistency.");
 
         me.gd->is_primary_instance = true;
         me.gd->should_sync = false;
-        me.gd->local_path = std::filesystem::absolute(content.dir);
-        // me.gd->local_tokens = std::make_unique<TokenStore>(*fg);
+        me.gd->local_path = std::filesystem::absolute(content.path);
+
+        if(content.new_graph) {
+            save_local(*me.gd);
+        }
 
         // Check the used tokens in case we need to get a whole batch at once.
         {
@@ -669,11 +670,10 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LocalGr
             msg_push(TokenQuery{TokenQuery::EN, {}, ptr->as_vector(), false, true}, false, true);
         }
 
-
         // Now we can kick off the sync thread, even if we aren't syncing just at the moment.
         spawn_graph_sync_thread(me);
 
-        msg->promise.set_value(GraphLoaded(_g));
+        msg->promise.set_value(GraphLoaded(Graph(*me.gd)));
     } catch (const std::runtime_error & e) {
         std::cerr << "Exception in LocalGraph, going to cleanup graph manager thread. (" << e.what() << ")" << std::endl;
         me.please_stop = true;

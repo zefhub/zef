@@ -79,6 +79,7 @@ set(SOURCES
     src/globals.cpp
     src/external_handlers.cpp
     src/conversions.cpp
+    src/tar_file.cpp
 
     src/butler/butler.cpp
     src/butler/communication.cpp
@@ -149,6 +150,7 @@ target_link_libraries(zef PRIVATE libcurl)
 target_link_libraries(zef PRIVATE jwt-cpp)
 # Until I fix up our header deps this will have to be public
 target_link_libraries(zef PUBLIC libzstd_internal)
+target_link_libraries(zef PUBLIC archive)
 
 if (UNIX AND NOT APPLE)
   target_link_libraries(zef PUBLIC rt)
