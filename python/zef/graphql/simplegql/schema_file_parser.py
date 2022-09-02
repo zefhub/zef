@@ -48,6 +48,10 @@ def parse_partial_graphql(schema):
             assert "schema_version" not in output, "Not allowed to have multiple Zef.SchemaVersion directives."
             output["schema_version"] = details.strip()
             continue
+        elif name == "DataTag":
+            assert "data_tag" not in output, "Not allowed to have multiple Zef.DataTag directives."
+            output["data_tag"] = details.strip()
+            continue
 
         # Anything else requires json parsing
         try:
@@ -257,6 +261,8 @@ def json_to_minimal_nodes(json, g):
             actions += [(Z["root"], RT.Route,
                          {ET.Route: {RT.Route: route,
                                      RT.Hook: g | now | get[hook] | collect}})]
+    if "data_tag" in json:
+        actions += [(Z["root"], RT.DataTag, json["data_tag"])]
                 
 
     for gql_name,typ in core_types.items():

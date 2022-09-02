@@ -43,14 +43,6 @@ parser.add_argument("--debug-level", type=int, dest="debug_level", default=os.en
                     help="The amount of debug messages to output")
 args = parser.parse_args()
 
-if args.data_tag is not None and args.scratch:
-    print("Can't specify both a data tag and scratch")
-    raise SystemExit(4)
-if args.data_tag is None and not args.scratch:
-    print("Need one of data-tag or scratch specified.")
-    raise SystemExit(4)
-
-
 schema_gql = args.schema_file | read_file | run | get["content"] | collect
 if args.hooks_file is not None:
     hooks_string = args.hooks_file | read_file | run | get["content"] | collect
@@ -61,21 +53,37 @@ else:
 root = create_schema_graph(schema_gql, hooks_string)
 log.info(f"Created schema graph from '{args.schema_file}'")
 
-if args.data_tag is not None:
-    guid = lookup_uid(args.data_tag)
+graph_data_tag = root | Outs[RT.DataTag] | single_or[None] | value_or[None] | collect
+if graph_data_tag is not None:
+    if(args.data_tag):
+        print("Can't provide a data tag on the commandline and in the schema file.")
+        raise SystemExit(4)
+else:
+    graph_data_tag = args.data_tag
+
+if graph_data_tag is not None and args.scratch:
+    print("Can't specify both a data tag and scratch")
+    raise SystemExit(4)
+if graph_data_tag is None and not args.scratch:
+    print("Need one of data-tag or scratch specified.")
+    raise SystemExit(4)
+
+
+if graph_data_tag is not None:
+    guid = lookup_uid(graph_data_tag)
     if guid is None:
         if not args.create:
             print("Graph is not known to us, and create is False. Exiting.")
             raise SystemExit(2)
         g_data = Graph(True)
         try:
-            g_data | tag[args.data_tag] | run
+            g_data | tag[graph_data_tag] | run
         except:
-            print("Unable to create and tag graph with '{args.data_tag}'. Maybe this tag is already taken by another user?")
+            print("Unable to create and tag graph with '{graph_data_tag}'. Maybe this tag is already taken by another user?")
             raise SystemExit(2)
-        log.info("Created data graph with tag", tag=args.data_tag)
+        log.info("Created data graph with tag", tag=graph_data_tag)
     else:
-        g_data = Graph(args.data_tag)
+        g_data = Graph(graph_data_tag)
         log.info("Loaded existing data graph")
 else:
     assert args.scratch
