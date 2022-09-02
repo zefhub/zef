@@ -137,7 +137,8 @@ class SymbolicExpression_:
     def __repr__(self):
         if self.name is not None:
             # if the name is specified: it is a SV only
-            return f"SV('{self.name}')" if self.absorbed==None else f"SV('{self.name}')['{self.absorbed}']"
+            return f"v.{self.name}" if self.absorbed==None else f"v.{self.name}['{self.absorbed}']"
+            # return f"SV('{self.name}')" if self.absorbed==None else f"SV('{self.name}')['{self.absorbed}']"
             # return f"{self.name}" if self.absorbed==None else f"{self.name}['{self.absorbed}']"
             
         else:
@@ -344,4 +345,18 @@ def unwrap_vars_hack(fg):
     fg2.key_dict = fg.key_dict
     fg2.blobs = tuple((unwrap(x) for x in fg.blobs))
     return fg2
+
+
+
+class ZefVariable_():
+    """
+    A helper class for a shorthand way to 
+    construct a variable called "x2": v.x2
+    """
+    def __getattr__(self, name):
+        return SV(name)
+
+
+v = ZefVariable_()
+
 
