@@ -2360,7 +2360,7 @@ def absorbed_imp(x):
         return ()
     
     elif isinstance(x, ValueType_):
-        return x.d['absorbed']
+        return x._d['absorbed']
 
     else:
         return Error(f'absorbed called on type(x)={type(x)}   x={x}')
@@ -6412,19 +6412,19 @@ def is_a_implementation(x, typ):
     """
     from ..error import _ErrorType
     def union_matching(el, union):
-        for t in union.d['absorbed']: 
+        for t in union._d['absorbed']: 
             if is_a(el, t): 
                 return True
         return False
 
     def intersection_matching(el, intersection):
-        for t in intersection.d['absorbed']: 
+        for t in intersection._d['absorbed']: 
             if not is_a(el, t): return False
         return True
 
     def is_matching(el, setof):
         from typing import Callable
-        for t in setof.d['absorbed']: 
+        for t in setof._d['absorbed']: 
             if isinstance(t, ValueType_): 
                 return Error.ValueError(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
             elif isinstance(t, (ZefOp, Callable)):
@@ -6437,7 +6437,7 @@ def is_a_implementation(x, typ):
     
 
     def rp_matching(x, rp):
-        triple = rp.d['absorbed'][0]
+        triple = rp._d['absorbed'][0]
         v = tuple(el == Z for el in triple)
         try:
             if v == (True, False, False):
@@ -6457,7 +6457,7 @@ def is_a_implementation(x, typ):
 
 
     def has_value_matching(x, vt):
-        my_set = vt.d['absorbed'][0]
+        my_set = vt._d['absorbed'][0]
         try:
             val = value(x)
         except:
@@ -6473,7 +6473,7 @@ def is_a_implementation(x, typ):
 
     def set_of_matching(el, setof):
         from typing import Callable
-        for set_el in setof.d['absorbed'][0]: 
+        for set_el in setof._d['absorbed'][0]: 
             if set_el == el: return True
         return False
     
@@ -6507,7 +6507,7 @@ def is_a_implementation(x, typ):
         from typing import Generator
         if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, (Generator, ZefGenerator))):
             return False
-        ab = tp.d['absorbed']
+        ab = tp._d['absorbed']
         if ab != ():
             if isinstance(x, (Generator, ZefGenerator)):
                 raise NotImplementedError()
@@ -6522,7 +6522,7 @@ def is_a_implementation(x, typ):
         import sys
         if not isinstance(x, set):
             return False
-        ab = tp.d['absorbed']
+        ab = tp._d['absorbed']
         if ab != ():
             if len(ab)!=1:    # List takes only one Type argument
                 print(f'Something went wrong in `is_a[Set[T1]]`: Set takes exactly one subtype, but got {x}', file=sys.stderr)
@@ -6535,7 +6535,7 @@ def is_a_implementation(x, typ):
         import sys
         if not (isinstance(x, dict)):
             return False
-        ab = tp.d['absorbed']
+        ab = tp._d['absorbed']
         if ab != ():
             if (len(ab)==1 and len(ab[0])==2):    # Dict must contain a type in one [] and that must be a pair
                 T1, T2 = ab[0]
@@ -6566,51 +6566,51 @@ def is_a_implementation(x, typ):
             "Bytes": bytes,
         }
 
-        if vt.d['type_name'] in {"Int", "Float", "Bool"}:
-            python_type = vt_name_to_python_type[vt.d['type_name']]
+        if vt._d['type_name'] in {"Int", "Float", "Bool"}:
+            python_type = vt_name_to_python_type[vt._d['type_name']]
             try:
                 return isinstance(el, python_type) or python_type(el) == el
             except:
                 return False
 
-        if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
-        python_type = vt_name_to_python_type[vt.d['type_name']]
+        if vt._d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
+        python_type = vt_name_to_python_type[vt._d['type_name']]
         return isinstance(el, python_type)
     
 
     if isinstance(typ, ValueType_):
-        if typ.d['type_name'] == "Union":
+        if typ._d['type_name'] == "Union":
             return union_matching(x, typ)
 
-        if typ.d['type_name'] == "Intersection":
+        if typ._d['type_name'] == "Intersection":
             return intersection_matching(x, typ)
 
-        if typ.d['type_name'] == "Is":
+        if typ._d['type_name'] == "Is":
             return is_matching(x, typ)
 
-        if typ.d['type_name'] == "RP":
+        if typ._d['type_name'] == "RP":
             return rp_matching(x, typ)
 
-        if typ.d['type_name'] == "HasValue":
+        if typ._d['type_name'] == "HasValue":
             return has_value_matching(x, typ)
         
-        if typ.d['type_name'] == "SetOf":
+        if typ._d['type_name'] == "SetOf":
             return set_of_matching(x, typ)
         
-        if typ.d['type_name'] == "Complement":
-            return not is_a(x, typ.d['absorbed'][0])
+        if typ._d['type_name'] == "Complement":
+            return not is_a(x, typ._d['absorbed'][0])
 
-        if typ.d['type_name'] == "List":
+        if typ._d['type_name'] == "List":
             return list_matching(x, typ)
 
-        if typ.d['type_name'] == "Set":
+        if typ._d['type_name'] == "Set":
             return set_matching(x, typ)
 
-        if typ.d['type_name'] == "Dict":
+        if typ._d['type_name'] == "Dict":
             return dict_matching(x, typ)
 
 
-        if typ.d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
+        if typ._d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
             map_ = {"Instantiated": instantiated, "Assigned": assigned, "Terminated": terminated}
             def compare_absorbed(x, typ):
                 val_absorbed = absorbed(x)
@@ -6619,12 +6619,12 @@ def is_a_implementation(x, typ):
                     if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
                     if not is_a(val_absorbed[i],typ): return False
                 return True
-            return without_absorbed(x) == map_[typ.d['type_name']] and compare_absorbed(x, typ)
+            return without_absorbed(x) == map_[typ._d['type_name']] and compare_absorbed(x, typ)
 
-        if typ.d['type_name'] == "Pattern":
+        if typ._d['type_name'] == "Pattern":
             return pattern_vt_matching(x, typ)
 
-        if typ.d['type_name'] == "FlatGraph":
+        if typ._d['type_name'] == "FlatGraph":
             from zef.core.flat_graph import FlatGraph_
             return isinstance(x, FlatGraph_)
 
@@ -10162,8 +10162,8 @@ def alias_imp(vt, name: str):
     - operates on: ValueType
     - used for: readability
     """
-    vt2 = ValueType_(type_name=vt.d['type_name'], absorbed=vt.d['absorbed'])
-    vt2.d['alias'] = name
+    vt2 = ValueType_(type_name=vt._d['type_name'], absorbed=vt._d['absorbed'])
+    vt2._d['alias'] = name
     return vt2
 
 

@@ -78,8 +78,8 @@ class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name: str, absorbed=(), constructor_func=None, get_item_func=None, pass_self=False):
-            self.d = {
+    def __init__(self, type_name: str, absorbed=(), constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None)):
+            self._d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
                 'alias': None,
@@ -93,39 +93,39 @@ class ValueType_:
             self.allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct, BlobTypeStruct, BlobType, AttributeEntityType, EntityType, RelationType)
 
     def __repr__(self):
-        if self.d['alias'] != None:
-            return self.d['alias']
-        return self.d['type_name'] + (
-            '' if self.d['absorbed'] == () 
-            else ''.join([ f"[{repr(el)}]" for el in self.d['absorbed'] ])
+        if self._d['alias'] != None:
+            return self._d['alias']
+        return self._d['type_name'] + (
+            '' if self._d['absorbed'] == () 
+            else ''.join([ f"[{repr(el)}]" for el in self._d['absorbed'] ])
         )
 
 
     def __call__(self, *args, **kwargs):
         try:
-            f = _value_type_constructor_funcs[self.d["type_name"]]
+            f = _value_type_constructor_funcs[self._d["type_name"]]
         except KeyError:
-            return Error(f'{self.d["type_name"]}(...) was called, but no constructor function was registered for this type')
-        if self.pass_self: return f(self, *args, **kwargs)
+            return Error(f'{self._d["type_name"]}(...) was called, but no constructor function was registered for this type')
+        if self.__pass_self: return f(self, *args, **kwargs)
         return f(*args, **kwargs)
 
 
     def __getitem__(self, x):
         try:
-            f = _value_type_get_item_funcs[self.d["type_name"]]
-            if self.pass_self: return f(self, x)
+            f = _value_type_get_item_funcs[self._d["type_name"]]
+            if self.__pass_self: return f(self, x)
             return f(x)
         except KeyError:
-            return ValueType_(self.d["type_name"], absorbed=(*self.d['absorbed'], x))
+            return ValueType_(self._d["type_name"], absorbed=(*self._d['absorbed'], x))
 
 
     def __eq__(self, other):
         if not isinstance(other, ValueType_): return False
-        return self.d['type_name'] == other.d['type_name'] and self.d['absorbed'] == other.d['absorbed']
+        return self._d['type_name'] == other._d['type_name'] and self._d['absorbed'] == other._d['absorbed']
 
 
     def __hash__(self):
-        return hash(self.d['type_name']) ^ hash(self.d['absorbed'])
+        return hash(self._d['type_name']) ^ hash(self._d['absorbed'])
 
 
     def __or__(self, other):
@@ -168,6 +168,30 @@ class ValueType_:
         """
         from ..op_implementations.implementation_typing_functions import is_a_implementation
         return is_a_implementation(x, self)
+
+    def __getattribute__(self, name):
+        if name.startswith("_"):
+            return object.__getattribute__(self, name)
+
+        get_attr_func, set_attr_func, dir_func = _value_type_attr_funcs.get(self._d["type_name"], (None,None,None))
+        if get_attr_func is None:
+            raise AttributeError
+        return get_attr_func(self, name)
+
+    def __setattribute__(self, name, value):
+        if name.startswith("_"):
+            return object.__getattribute__(self, name)
+
+        get_attr_func, set_attr_func, dir_func = _value_type_attr_funcs.get(self._d["type_name"], (None,None,None))
+        if set_attr_func is None:
+            raise AttributeError
+        return set_attr_func(self, name, value)
+
+    def __dir__(self):
+        get_attr_func, set_attr_func, dir_func = _value_type_attr_funcs.get(self._d["type_name"], (None,None,None))
+        if get_attr_func is None:
+            return object.__dir__(self)
+        return dir_func(self)
     
 
 def make_distinct(v):
@@ -208,24 +232,24 @@ def simplify_value_type(x):
     """
     def is_a_union(y):
         try:
-            return y.d['type_name'] == 'Union'
+            return y._d['type_name'] == 'Union'
         except:
             return False
     def is_a_intersection(y):
         try:
-            return y.d['type_name'] == 'Intersection'
+            return y._d['type_name'] == 'Intersection'
         except:
             return False
 
     if is_a_union(x):
         # flatten out unions: Union[Union[A][B]][C]  == Union[A][B][C]
-        old_abs = x.d['absorbed']
-        absorbed = tuple((el.d['absorbed'] if is_a_union(el) else (el,) for el in old_abs))  # flatten this out
+        old_abs = x._d['absorbed']
+        absorbed = tuple((el._d['absorbed'] if is_a_union(el) else (el,) for el in old_abs))  # flatten this out
         return ValueType_(type_name='Union', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
     elif is_a_intersection(x):
         # flatten out Intersections: Intersection[Intersection[A][B]][C]  == Intersection[A][B][C]
-        old_abs = x.d['absorbed']
-        absorbed = tuple((el.d['absorbed'] if is_a_intersection(el) else (el,) for el in old_abs))  # flatten this out
+        old_abs = x._d['absorbed']
+        absorbed = tuple((el._d['absorbed'] if is_a_intersection(el) else (el,) for el in old_abs))  # flatten this out
         return ValueType_(type_name='Intersection', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
     else:
         return x
