@@ -123,7 +123,7 @@ def generate_table_for_zrs(groups, compact, limit):
     ])
 
 @func
-def generate_table_from_query(query, compact = False, limit=10):
+def generate_table_from_query(query, compact = True, limit=20):
     groups = query | filter[is_a[ET]] | group_by[rae_type] |  collect
     table = generate_table_for_zrs(groups, compact, limit)
     return VStack([table])
