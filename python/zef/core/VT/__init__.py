@@ -178,11 +178,17 @@ LazyValue  = ValueType_(type_name='LazyValue',  constructor_func=None)
 Awaitable  = ValueType_(type_name='Awaitable',  constructor_func=None) 
 
 
+def wrap_attr_readonly(other):
+    def this_get_attr(_, name):
+        return getattr(other, name)
+    def this_dir(_):
+        return dir(other)
+    return (this_get_attr, None, this_dir)
 
-AET        = ValueType_(type_name='AET',        constructor_func=None)
-ET         = ValueType_(type_name='ET',         constructor_func=None)
-RT         = ValueType_(type_name='RT',         constructor_func=None)
-BT         = ValueType_(type_name='BT',         constructor_func=None)
+AET        = ValueType_(type_name='AET',        constructor_func=None, attr_funcs=wrap_attr_readonly(internals.AET))
+ET         = ValueType_(type_name='ET',         constructor_func=None, attr_funcs=wrap_attr_readonly(internals.ET))
+RT         = ValueType_(type_name='RT',         constructor_func=None, attr_funcs=wrap_attr_readonly(internals.RT))
+BT         = ValueType_(type_name='BT',         constructor_func=None, attr_funcs=wrap_attr_readonly(internals.BT))
 Enum       = ValueType_(type_name='Enum',       constructor_func=None)
 Tuple      = ValueType_(type_name='Tuple',     constructor_func=None)       
 Function   = ValueType_(type_name='Function',   constructor_func=None)

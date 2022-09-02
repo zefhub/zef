@@ -73,6 +73,7 @@ from ..internals import *
 # This looks up the associated function 
 _value_type_constructor_funcs = {}
 _value_type_get_item_funcs = {}
+_value_type_attr_funcs = {}
 
 class ValueType_:
     """ 
@@ -89,8 +90,10 @@ class ValueType_:
             if get_item_func is not None:
                 _value_type_get_item_funcs[type_name] = get_item_func
 
-            self.pass_self = pass_self
-            self.allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct, BlobTypeStruct, BlobType, AttributeEntityType, EntityType, RelationType)
+            self.__pass_self = pass_self
+            self.__allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct, BlobTypeStruct, BlobType, AttributeEntityType, EntityType, RelationType)
+            if attr_funcs != (None, None, None):
+                _value_type_attr_funcs[type_name] = attr_funcs
 
     def __repr__(self):
         if self._d['alias'] != None:
