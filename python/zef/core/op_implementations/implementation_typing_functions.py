@@ -6494,7 +6494,7 @@ def is_a_implementation(x, typ):
             return True
         elif isinstance(x, list) or isinstance(x, tuple):
             for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
-                if type(p_e) not in {ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct}:
+                if type(p_e) not in {ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct}:
                     raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")
                 if not is_a(x_e, p_e): return False  
             return True
