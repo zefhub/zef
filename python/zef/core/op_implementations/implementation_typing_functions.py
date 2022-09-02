@@ -24,6 +24,7 @@ from .. import *
 from ..op_structs import _call_0_args_translation, type_spec
 from .._ops import *
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
+from .flatgraph_implementations import *
 from ..logger import log
 
 from ...pyzef import zefops as pyzefops, main as pymain
