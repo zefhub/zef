@@ -114,7 +114,7 @@ namespace zefDB {
         };
 
         struct LocalGraph {
-            std::filesystem::path dir;
+            std::filesystem::path path;
             bool new_graph;
         };
 

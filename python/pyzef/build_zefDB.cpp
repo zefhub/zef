@@ -174,6 +174,8 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 			throw std::runtime_error("currently_open_tx(g) called, but there are currently no open tx's.");
 		return internals::get_or_create_and_get_tx(g.my_graph_data()); 
 		});
+
+    main_module.def("save_local", py::overload_cast<Graph &>(&save_local), py::call_guard<py::gil_scoped_release>());
 		
 
 	/*

@@ -361,7 +361,6 @@ namespace zefDB {
 		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
 		uint64_t hash_partial(blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
 
-
 		// GraphData() { get_all_active_graph_data_tracker().register_graph_data(this); }
 		GraphData(MMap::FileGraph * fg, std::optional<BaseUID> maybe_uid, bool generate_root);
 
@@ -374,6 +373,9 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, const GraphData& gd);
 
     GraphData * create_GraphData(int mem_style, MMap::FileGraph * fg, std::optional<BaseUID> uid, bool generate_root);
+    LIBZEF_DLL_EXPORTED void save_local(GraphData & gd);
+    LIBZEF_DLL_EXPORTED void roll_back_using_only_existing(GraphData& gd);
+    LIBZEF_DLL_EXPORTED void roll_back_to(GraphData& gd, blob_index index_hi, bool fill_caches);
 
 	namespace internals {
 		LIBZEF_DLL_EXPORTED EZefRef get_latest_complete_tx_node(GraphData& gd, blob_index latest_complete_tx_hint = constants::ROOT_NODE_blob_index);
@@ -461,9 +463,10 @@ namespace zefDB {
 
     LIBZEF_DLL_EXPORTED Graph create_partial_graph(Graph old_g, blob_index index_hi);
     LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string working_layout);
-    LIBZEF_DLL_EXPORTED void roll_back_using_only_existing(GraphData& gd);
-    LIBZEF_DLL_EXPORTED void roll_back_to(GraphData& gd, blob_index index_hi, bool fill_caches);
 
+    inline void save_local(Graph & g) {
+        save_local(g.my_graph_data());
+    }
 
 
 //                              _                                  _   _                       _                                         
@@ -581,6 +584,10 @@ namespace zefDB {
 		LIBZEF_DLL_EXPORTED str get_graph_revision_info(GraphData& gd);
 
         uint64_t hash_memory_range(const void * lo_ptr, size_t len, uint64_t seed=0);
+
+
+        LIBZEF_DLL_EXPORTED Messages::UpdatePayload payload_from_local_file(std::filesystem::path path);
+        LIBZEF_DLL_EXPORTED void save_payload_to_local_file(const BaseUID & uid, const Messages::UpdatePayload & payload, std::filesystem::path path);
 
 	} //internals
 

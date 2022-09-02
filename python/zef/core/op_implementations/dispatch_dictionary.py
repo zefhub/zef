@@ -210,6 +210,7 @@ _op_to_functions = {
         RT.Logarithm:           (logarithm_imp, logarithm_tp),
         RT.Max:                 (max_imp, max_tp),
         RT.Min:                 (min_imp, min_tp),
+        RT.Clamp:               (clamp_imp, None),
         RT.MaxBy:               (max_by_imp, max_by_tp),
         RT.MinBy:               (min_by_imp, min_by_tp),
         RT.Equals:              (equals_imp, equals_tp),

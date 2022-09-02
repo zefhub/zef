@@ -2794,6 +2794,30 @@ def min_by_tp(v_tp, min_by_function_tp):
     
     
     
+    
+
+#---------------------------------------- clamp -----------------------------------------------
+def clamp_imp(x, x_min, x_max):
+    """
+    Clamp x to be between x_min and x_max.
+
+    ---- Examples ----
+    2 | clamp[0][42]        # => 2
+    -2 | clamp[0][42]       # => 0
+    100 | clamp[0][42]      # => 42
+
+    ---- Signature ----
+    (Int|Float, Int|Float, Int|Float) -> Int|Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: Int
+    operates on: Float
+    related zefop: min
+    related zefop: max
+    """
+    if x_max < x_min: return Error(f'clamp: x_min={x_min} must be less than or equal to x_max={x_max}')
+    return max(x_min, min(x, x_max))
 
     
     

@@ -236,7 +236,7 @@ namespace zefDB {
                     // Need to choose a file_index - for now will hardcode index 0
                     size_t file_index = 0;
                     prefix.page_info[index].file_index = file_index;
-                    size_t new_offset = file_size_in_pages(file_index) + 1;
+                    size_t new_offset = file_size_in_pages(file_index);
                     // Shouldn't need to ftruncate on windows
 #ifndef ZEF_WIN32
                     ftruncate(get_fd(file_index), ZEF_PAGE_SIZE*(new_offset+1));

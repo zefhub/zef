@@ -255,7 +255,6 @@ void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j, std::string wo
 void apply_sync_heads(GraphData & gd, const UpdateHeads & update_heads) {
     update(gd.heads_locker, [&]() {
         gd.sync_head = update_heads.blobs.to;
-        gd.currently_subscribed = true;
 
         for(auto & cache : update_heads.caches) {
 #define GEN_CACHE(x, y) else if(cache.name == x) {  \
@@ -460,7 +459,6 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
         //     throw std::runtime_error("Somehow zefhub replied with a different blob update than we sent!");
 
         // Getting here should mean we succeeded.
-        me.gd->currently_subscribed = true;
         apply_sync_heads(*me.gd, update_heads);
         return;
     }
