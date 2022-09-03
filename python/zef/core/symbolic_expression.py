@@ -142,7 +142,11 @@ class SymbolicExpression_:
             # return f"{self.name}" if self.absorbed==None else f"{self.name}['{self.absorbed}']"
             
         else:
-            return "SymbolicExpression('todo: give more details')"
+            return "Composed SymbolicExpression (todo: expression output)"
+
+    def __hash__(self):
+        return (hash(self.name)+435677842)^hash(self.absorbed)^(hash(self.root_node)+3424242)
+
 
     def __getitem__(self, k):
         if self.root_node is not None:
