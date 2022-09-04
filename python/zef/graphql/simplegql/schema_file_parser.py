@@ -15,6 +15,8 @@
 from ... import *
 from ...ops import *
 
+from ...core.logger import log
+
 import json
 import graphql
 
@@ -106,12 +108,15 @@ def parse_partial_graphql(schema):
                     if arg.name.value != "field":
                         raise Exception("upfetch directive needs exactly one argument, 'field'")
                     t_def["_Upfetch"] = arg.value.value
-                elif directive.name.value == "ET":
-                    assert len(directive.arguments) == 1, "ET directive needs exactly one argument, 'et'"
+                elif directive.name.value == "RAE":
+                    assert len(directive.arguments) == 1, "RAE directive needs exactly one argument, 'et' or 'rt'"
                     arg = directive.arguments[0]
-                    if arg.name.value != "et":
+                    if arg.name.value not in ["et", "rt"]:
                         raise Exception("ET directive needs exactly one argument, 'et'")
-                    t_def["_ET"] = arg.value.value
+                    if arg.name.value == "et":
+                        t_def["_RAE"] = ET(arg.value.value)
+                    if arg.name.value == "rt":
+                        t_def["_RAE"] = RT(arg.value.value)
                 elif directive.name.value == "hook":
                     for arg in directive.arguments:
                         for hook_name in ["Create", "Remove", "Update"]:
@@ -273,27 +278,27 @@ def json_to_minimal_nodes(json, g):
             (Z["root"], RT.GQL_CoreScalarType, Z[gql_name])
         ]
 
-    def name_to_raet(name):
+    def name_to_raet(name, given_rae):
         if name in core_types:
             return getattr(internals.VRT, core_types[name])
         if name in json["enums"]:
             return getattr(internals.VRT.Enum, name)
-        return ET(name)
+        return given_rae
 
     for type_name,fields in json["types"].items():
 
         actions += [(ET.GQL_Type[type_name], RT.Name, type_name)]
         actions += [(Z["root"], RT.GQL_Type, Z[type_name])]
 
-        et_name = fields.get("_ET", type_name)
-        actions += [(Z[type_name], RT.GQL_Delegate, delegate_of(ET(et_name)))]
+        rae = fields.get("_RAE", ET(type_name))
+        actions += [(Z[type_name], RT.GQL_Delegate, delegate_of(rae))]
 
         for field_name,field in fields.items():
             assert field_name != "id", "id is an automatically generated field, do not explicitly include"
 
             if field_name.startswith("_"):
                 # Special handling here
-                if field_name == "_ET":
+                if field_name == "_RAE":
                     continue
                 elif field_name in ["_AllowQuery", "_AllowAdd", "_AllowUpdate", "_AllowUpdatePost", "_AllowDelete"]:
                     # TODO: Turn into a zef function later on
@@ -337,9 +342,9 @@ def json_to_minimal_nodes(json, g):
                         resolve_with = delegate_of(field["relation"])
                         del field["relation"]
                     else:
-                        this = ET(type_name)
+                        this = rae
                         rt = RT(simple_capitalize(field_name))
-                        other = name_to_raet(field["type"])
+                        other = name_to_raet(field["type"], rae)
                         if field.get("incoming", False):
                             resolve_with = delegate_of((other, rt, this))
                         else:
