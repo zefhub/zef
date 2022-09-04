@@ -64,6 +64,7 @@ op_is_unique = assert_field | fvalue[RT.Unique][False] | collect
 op_is_searchable = assert_field | fvalue[RT.Search][False] | collect
 op_is_aggregable = assert_field | And[Not[op_is_list]][target | Or[op_is_orderable][op_is_summable]]
 op_is_incoming = assert_field | fvalue[RT.Incoming][False] | collect
+op_is_relation = assert_type | Out[RT.GQL_Delegate] | is_a[RT] | collect
 
 op_is_upfetch = assert_field | fvalue[RT.Upfetch][False] | collect
 op_upfetch_field = (assert_type | out_rels[RT.GQL_Field]
@@ -924,9 +925,9 @@ def internal_resolve_field(z, info, z_field, auth_required=True):
 
         if is_triple:
             if is_incoming:
-                assert rae_type(z) == rae_type(target(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {target(relation)}"
+                assert rae_type(z) == rae_type(target(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {target(relation)!r}"
             else:
-                assert rae_type(z) == rae_type(source(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {source(relation)}"
+                assert rae_type(z) == rae_type(source(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {source(relation)!r}"
 
         if is_incoming:
             opts = z | Ins[rt]
@@ -980,6 +981,9 @@ def find_existing_entity_by_id(info, type_node, id):
     
     gs = info.context["gs"]
 
+    if op_is_relation(type_node):
+        raise Exception("Can't query for all types when that type is a relation.")
+
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
     ent = gs[uid(id)] | collect
     if not is_a(ent, et):
@@ -992,6 +996,9 @@ def find_existing_entity_by_id(info, type_node, id):
 def find_existing_entity_by_field(info, type_node, z_field, val):
     if val is None:
         raise Exception("Can't find an entity by a None field value")
+
+    if op_is_relation(type_node):
+        raise Exception("Can't query for all types when that type is a relation.")
 
     gs = info.context["gs"]
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
@@ -1018,6 +1025,9 @@ def add_new_entity(info, type_node, params, name_gen):
     type_name = type_node | F.Name | collect
 
     post_checks += [("add", this, type_node)]
+
+    if op_is_relation(type_node):
+        raise Exception("Can't add type when that type is a relation.")
 
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
     actions += [et[this]]
@@ -1123,7 +1133,29 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
         rt = RT(z_field | Out[RT.GQL_Resolve_With] | collect)
 
         if op_is_list(z_field):
-            raise Exception(f"Updating list things is a todo (for z_field={z_field})")
+            if z_field | target | op_is_scalar | collect:
+                raise Exception("Updating lists with scalars is TODO")
+            else:
+                found_zs = []
+                for ent_val in val:
+                    found_z,new_actions,new_post_checks = find_or_add_entity(ent_val, info, target(z_field), name_gen, context)
+                    actions += new_actions
+                    post_checks += new_post_checks
+                    found_zs += [found_z]
+
+                if op_is_incoming(z_field):
+                    preexisting = z | in_rels[rt] | map[apply[identity, source]] | collect
+                else:
+                    preexisting = z | out_rels[rt] | map[apply[identity, target]] | collect
+
+                to_add = found_zs | without[preexisting | map[second]] | collect
+                to_remove = preexisting | filter[Not[second | contained_in[found_zs]]] | map[first] | collect
+
+                actions += to_remove | map[terminate] | collect
+                if op_is_incoming(z_field):
+                    actions += to_add | map[apply[lambda x: (x, rt, z)]] | collect
+                else:
+                    actions += to_add | map[apply[lambda x: (z, rt, x)]] | collect
         else:
             if op_is_unique(z_field):
                 # This used to be checked directly, here but just in case
@@ -1134,7 +1166,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
             if z_field | target | op_is_scalar | collect:
                 actions += [z | set_field[rt][val][op_is_incoming(z_field)]]
             else:
-                found_z,new_actions,new_post_checks = find_or_add_entity(val, info, target(z_field), name_gen)
+                found_z,new_actions,new_post_checks = find_or_add_entity(val, info, target(z_field), name_gen, context)
                 actions += new_actions
                 post_checks += new_post_checks
 
