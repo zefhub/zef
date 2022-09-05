@@ -53,13 +53,14 @@ def generate_rows(nodes, mapping, et_type = None):
 
 
 @func
-def generate_table_for_single_type_zrs(selected_et, zrs, compact, limit):
+def generate_table_for_single_type_zrs(selected_et, zrs, expand, limit):
     g = Graph(zrs[0])
     mapping = generate_mapping_for_et(selected_et, g)
     mapping_values = [str(m) for m in mapping]
 
     zrs = zrs | take[limit] | collect
-    padding = [(1,1,1,1),(0,0,0,0)][compact]
+    padding = [(0,0,0,0),(1,1,1,1)][expand]
+    
 
     colors = ["#ff7e74","#ffe596","#81d76d","#57acf9","#baaee1"]
     row_styles  = ["", "dim"]
@@ -86,15 +87,15 @@ def generate_table_for_single_type_zrs(selected_et, zrs, compact, limit):
     ])
 
 @func
-def generate_table_for_zrs(groups, compact, limit):
+def generate_table_for_zrs(groups, expand, limit):
     if len(groups) == 0: return Frame()
-    if len(groups) == 1: return generate_table_for_single_type_zrs(*groups[0], compact, limit)
+    if len(groups) == 1: return generate_table_for_single_type_zrs(*groups[0], expand, limit)
 
 
     g = Graph(groups[0][1][0])
     mapping = groups | map[lambda tup: generate_mapping_for_et(tup[0], g)] | concat  | collect
     
-    padding = [(1,1,1,1),(0,0,0,0)][compact]
+    padding = [(0,0,0,0),(1,1,1,1)][expand]
 
     colors = ["#ff7e74","#ffe596","#81d76d","#57acf9","#baaee1"]
     row_styles  = ["", "dim"]
@@ -123,9 +124,9 @@ def generate_table_for_zrs(groups, compact, limit):
     ])
 
 @func
-def generate_table_from_query(query, compact = True, limit=20):
+def generate_table_from_query(query, expand = False, limit=20):
     groups = query | filter[is_a[ET]] | group_by[rae_type] |  collect
-    table = generate_table_for_zrs(groups, compact, limit)
+    table = generate_table_for_zrs(groups, expand, limit)
     return VStack([table])
 
 
@@ -134,9 +135,10 @@ def generate_rows_for_node(node, is_out = True):
     traverse_op, traverse_op_end = [(in_rels, Ins), (out_rels, Outs)][is_out]
     return node | traverse_op[RT] | map[rae_type] | func[set] | map[lambda rt: (str(rt), traverse_rt(rt, node, traverse_op_end))] | collect
 
-def generate_rts_table(zr, is_out, compact):
+def generate_rts_table(zr, is_out, expand):
     colors = ["#ff7e74","#ffe596","#81d76d","#57acf9","#baaee1"]
-    padding = [(1,1,1,1),(0,0,0,0)][compact]
+    padding = [(0,0,0,0),(1,1,1,1)][expand]
+
 
     rows = generate_rows_for_node(zr, is_out)
     if not rows: return ""
@@ -155,12 +157,12 @@ def generate_rts_table(zr, is_out, compact):
     )  
 
 @func
-def generate_card(zr, compact = False):
+def generate_card(zr, expand = False):
     title = Text(f"{(repr(rae_type(zr)))}", bold= True)
     subtitle = Text(f"({uid(zr)})", bold= True)
 
-    outs_table = generate_rts_table(zr, True, compact)
-    ins_table = generate_rts_table(zr, False, compact)
+    outs_table = generate_rts_table(zr, True, expand)
+    ins_table = generate_rts_table(zr, False, expand)
 
     return Frame(HStack([outs_table, ins_table], expand= True), title = title, subtitle=subtitle,  box="horizontals") 
 
