@@ -276,13 +276,13 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload_in, 
     if(payload_in.j.contains("hash_full_graph")){
         if(payload_in.j["hash_full_graph"].get<uint64_t>() != gd.hash(constants::ROOT_NODE_blob_index, gd.write_head, 0, working_layout)) {
             // This must be somewhere I can't find, but redoing here
-            blob_index indx = constants::ROOT_NODE_blob_index;
-            while(indx < gd.write_head) {
-                EZefRef uzr{indx, gd};
-                // visit([](auto & x) { std::cerr << x << std::endl; }, uzr);
-                visit_blob([](auto & x) { manual_os_call(std::cerr, x) << std::endl; }, uzr);
-                indx += num_blob_indexes_to_move(size_of_blob(uzr));
-            }
+            // blob_index indx = constants::ROOT_NODE_blob_index;
+            // while(indx < gd.write_head) {
+            //     EZefRef uzr{indx, gd};
+            //     // visit([](auto & x) { std::cerr << x << std::endl; }, uzr);
+            //     visit_blob([](auto & x) { manual_os_call(std::cerr, x) << std::endl; }, uzr);
+            //     indx += num_blob_indexes_to_move(size_of_blob(uzr));
+            // }
 
             throw std::runtime_error("Hashes disagree");
         }
