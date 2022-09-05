@@ -40,4 +40,4 @@ RUN ["chmod", "+x", "sgql_start.sh"]
 
 EXPOSE 8080
 
-ENTRYPOINT [ "./sgql_start.sh", "--data-tag ikura-production-pt1" ]
+ENTRYPOINT [ "./sgql_start.sh" ]
