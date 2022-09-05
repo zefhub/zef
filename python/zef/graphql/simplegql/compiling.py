@@ -240,7 +240,7 @@ def stmts_to_pyfunc(name, func_decl):
             # Repetition!!!
             output_var = var_or_tuple(stmt.outputs, ast.Store())
 
-            if type(stmt.const) in [str, int, float, types.NoneType]:
+            if type(stmt.const) in [str, int, float, type(None)]:
                 value = ast.Constant(value=stmt.const)
             else:
                 const_name = name_gen("const")
@@ -261,7 +261,7 @@ def stmts_to_pyfunc(name, func_decl):
             if type(compiled_op) == ConstResult:
                 output_var = var_or_tuple(stmt.outputs, ast.Store())
 
-                if type(compiled_op.const) in [str, int, float, types.NoneType]:
+                if type(compiled_op.const) in [str, int, float, type(None)]:
                     value = ast.Constant(value=compiled_op.const)
                 else:
                     const_name = name_gen("const")
