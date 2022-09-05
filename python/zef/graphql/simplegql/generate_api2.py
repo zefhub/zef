@@ -239,6 +239,16 @@ def stmts_as_opts_info():
     return as_opts_info_fast
 compiling.compilable_funcs[as_opts_info] = stmts_as_opts_info
 
+# def append_info(x, info):
+#     raise Exception("Shouldn't be here")
+
+# def append_info_fast(x, info):
+#     return (x,info)
+
+# def stmts_append_info():
+#     return append_info_fast
+# compiling.compilable_funcs[append_info] = stmts_append_info
+
         
 op_is_scalar = assert_type | is_a[AET | ET.GQL_Enum]
 op_is_orderable = assert_type | is_a[AET.Float | AET.Int | AET.Time]
@@ -1252,18 +1262,28 @@ def stmts_obtain_initial_list(type_node, filter_opts, context):
     inputs = ["info"]
     stmts = []
 
-    type_et = ET(type_node | Out[RT.GQL_Delegate] | collect)
-
     if filter_opts is not None and filter_opts.get("id", None) is not None:
-        # Not implementing this for now
-        # TODO: this needs some proper optimisation
-        return None
-
-    # zs = gs | all[type_et] | filter[pass_query_auth[type_node][info]]
+        ids = filter_opts["id"]
+        # This should only compile once, even if different ids are used.
+        find_cfunc = maybe_compile_func(find_existing_entity_by_id_pass_id, type_node, context)
+        stmts += [AssignStatement(ids, "ids")]
+        stmts += [PartialStatement(["ids", "info"], 
+                                   as_opts_info,
+                                   "opts_info",
+                                   starargs=True)]
+        stmts += [PartialStatement("opts_info", 
+                                   map[find_cfunc]
+                                   | filter[Not[equals[None]]],
+                                   "zs")
+                  ]
+        stmts += [ReturnStatement("zs")]
+        return FunctionDecl(inputs=inputs, stmts=stmts)
 
     stmts += [PartialStatement("info",
                                get_field["context"] | get["gs"],
                                "gs")]
+
+    type_et = ET(type_node | Out[RT.GQL_Delegate] | collect)
 
     stmts += [PartialStatement("gs",
                                all[type_et],
@@ -1788,9 +1808,6 @@ def find_existing_entity_by_id(info, type_node, id, context):
     
     gs = info.context["gs"]
 
-    if op_is_relation(type_node):
-        raise Exception("Can't query for all types when that type is a relation.")
-
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
     ent = gs[uid(id)] | collect
     if not is_a(ent, et):
@@ -1813,17 +1830,14 @@ def stmts_find_existing_entity_by_id(type_node, id, context):
                                get_field["context"] | get["gs"],
                                "gs")]
 
-    if op_is_relation(type_node):
-        raise Exception("Can't query for all types when that type is a relation.")
-
-    et = ET(type_node | Out[RT.GQL_Delegate] | collect)
-    stmts += [AssignStatement(et, "et")]
+    rae = rae_type(type_node | Out[RT.GQL_Delegate] | collect)
+    stmts += [AssignStatement(rae, "rae")]
 
     stmts += [PartialStatement("gs",
                                get[the_uid],
                                "ent")]
     stmts += [PartialStatement("ent",
-                               is_a[et],
+                               is_a[rae],
                                "check")]
     stmts += [RawASTStatement("if not check: return None")]
     stmts += [PartialStatement(["ent", "info"],
@@ -1834,6 +1848,45 @@ def stmts_find_existing_entity_by_id(type_node, id, context):
 
     return FunctionDecl(inputs=inputs, stmts=stmts)
 compiling.compilable_funcs[find_existing_entity_by_id] = stmts_find_existing_entity_by_id
+
+def find_existing_entity_by_id_pass_id(arg, type_node, context):
+    id,info = arg
+    # Copy of the above func, only the compilation is different.
+    return find_existing_entity_by_id(input, type_node, id, context)
+
+def stmts_find_existing_entity_by_id_pass_id(type_node, context):
+    inputs = ["arg"]
+    stmts = []
+
+    from ...core.internals import to_uid
+    stmts += [PartialStatement("arg", identity, ["id", "info"])]
+    stmts += [RawASTStatement("if id is None: return None")]
+    stmts += [PartialStatement("id", to_uid, "the_uid")]
+    stmts += [RawASTStatement("if the_uid is None: raise Exception(f'An id of {id} cannot be converted to a uid.')")]
+    
+    stmts += [PartialStatement("info",
+                               get_field["context"] | get["gs"],
+                               "gs")]
+
+    rae = rae_type(type_node | Out[RT.GQL_Delegate] | collect)
+    stmts += [AssignStatement(rae, "rae")]
+
+    stmts += [PartialStatement(["gs", "the_uid"],
+                               lambda x,y: x[y],
+                               "ent",
+                               starargs=True)]
+    stmts += [PartialStatement("ent",
+                               is_a[rae],
+                               "check")]
+    stmts += [RawASTStatement("if not check: return None")]
+    stmts += [PartialStatement(["ent", "info"],
+                               pass_query_auth[type_node][context],
+                               "query_check")]
+    stmts += [RawASTStatement("if not query_check: return None")]
+    stmts += [ReturnStatement("ent")]
+
+    return FunctionDecl(inputs=inputs, stmts=stmts)
+compiling.compilable_funcs[find_existing_entity_by_id_pass_id] = stmts_find_existing_entity_by_id_pass_id
 
 def find_existing_entity_by_field(info, type_node, z_field, val, context):
     if val is None:
