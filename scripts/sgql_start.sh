@@ -13,16 +13,4 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-if [[ -z "${SIMPLE_GQL_SCHEMA_URL}" ]]; then
-  echo "SIMPLE_GQL_SCHEMA_URL is not set"
-else
-  SIMPLE_GQL_SCHEMA_URL="${SIMPLE_GQL_SCHEMA_URL}"
-  curl ${SIMPLE_GQL_SCHEMA_URL} -o schema.graphql
-fi
-
-if [[ -z "${SIMPLE_GQL_HOOKS_URL}" ]]; then
-  echo "SIMPLE_GQL_HOOKS_URL is not set"
-else
-  SIMPLE_GQL_SCHEMA_URL="${SIMPLE_GQL_HOOKS_URL}"
-  curl ${SIMPLE_GQL_HOOKS_URL} -o hooks.py
-fi
+python3 env_to_file.py && python3 -mzef.graphql.simplegql --port 8080 --create --schema-file schema.graphql --hooks hooks.py
