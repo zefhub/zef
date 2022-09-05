@@ -226,11 +226,8 @@ def as_list(x):
     return [x]
 
 def as_opts_info(opts, info):
-    raise Exception("Shouldn't be here")
-    print("Tracing as_opts_info call")
-    import traceback
-    traceback.print_stack()
-    return opts | map[as_list | append[info]]
+    log.warning("WARNING: running uncompiled version of as_opts_info")
+    return maybe_compile_func(as_opts_info)(opts, info)
 
 def as_opts_info_fast(opts, info):
     return [(x,info) for x in opts]
@@ -260,7 +257,8 @@ op_is_unique = assert_field | fvalue[RT.Unique][False] | collect
 op_is_searchable = assert_field | fvalue[RT.Search][False] | collect
 op_is_aggregable = assert_field | And[Not[op_is_list]][target | Or[op_is_orderable][op_is_summable]]
 op_is_incoming = assert_field | fvalue[RT.Incoming][False] | collect
-op_is_relation = assert_type | Out[RT.GQL_Delegate] | is_a[RT] | collect
+# Note: use rae_type in here as the item is a delegate and just is_a[RT] will always return False
+op_is_relation = assert_type | Out[RT.GQL_Delegate] | rae_type | is_a[RT] | collect
 
 op_is_upfetch = assert_field | fvalue[RT.Upfetch][False] | collect
 op_upfetch_field = (assert_type | out_rels[RT.GQL_Field]
@@ -686,6 +684,8 @@ def stmts_resolve_query(type_node, context, **params):
     stmts += [PartialStatement("info",
                                profile["obtain_initial_list_prep"][maybe_compile_func(obtain_initial_list, type_node, params.get("filter", None), context)],
                                "ents")]
+
+    # TODO: Should probably remove id from the filter in params to enable more-likely reuse of prior compiled filters.
 
     stmts += [PartialStatement(["ents","info"],
                                profile["handle_list_params_prep"][maybe_compile_func(handle_list_params, type_node, params, context)],
@@ -1156,7 +1156,7 @@ def resolve_delete(info, *, type_node, context, **params):
                 raise ExtenalError("Not allowed to delete everything!")
             ents = resolve_query(info, type_node=type_node, context=context, **params)
 
-            if not ents | map[pass_delete_auth[type_node][info]] | all | collect:
+            if not as_opts_info(ents,info) | map[pass_delete_auth[type_node][context]] | all | collect:
                 raise ExtenalError("Auth check returned False")
 
             post_checks = []
@@ -1228,35 +1228,8 @@ def resolve_filter_response3(obj, info, type_node, **params):
 #--------------------------------------------
 
 def obtain_initial_list(info, type_node, filter_opts, context):
-    gs = info.context["gs"]
-
-    type_et = ET(type_node | Out[RT.GQL_Delegate] | collect)
-    if filter_opts is not None and filter_opts.get("id", None) is not None:
-        # ids were provided, so the initial list starts with them
-
-        # Note: we make the decision here to not throw on a missing id, as that
-        # could potentially be exploited somehow by smoeone to learn about what
-        # items exist even if they don't have auth access. A missing id is hence
-        # just "not passing" the filter.
-
-        ids = filter_opts["id"]
-        zs = []
-
-        zs = (ids
-              | map[lambda id: find_existing_entity_by_id(info, type_node, id, context)]
-              | filter[Not[equals[None]]])
-
-        if info.context["debug_level"] >= 3:
-            log.debug("DEBUG 3: built initial list from ids", length_ids=len(ids), length_list=length(zs))
-
-        return zs
-    else:
-        raise Exception("Shouldn'tg te here anymore")
-        # zs = gs | all[type_et] | filter[pass_query_auth[type_node][info]]
-        zs = gs | profile["gs | all"][all[type_et]] | map[as_list | append[info]] | profile["initial_query_auth_filter"][filter[profile["initial_query_auth"][pass_query_auth[type_node][info]]]] | map[first]
-        if info.context["debug_level"] >= 3:
-            log.debug("DEBUG 3: built initial list from type and auth", length_list=length(zs))
-        return zs
+    log.warning("WARNING: running uncompiled version of obtain_initial_list")
+    return maybe_compile_func(obtain_initial_list, type_node, filter_opts, context)(info)
 
 def stmts_obtain_initial_list(type_node, filter_opts, context):
     inputs = ["info"]
@@ -1278,6 +1251,9 @@ def stmts_obtain_initial_list(type_node, filter_opts, context):
                   ]
         stmts += [ReturnStatement("zs")]
         return FunctionDecl(inputs=inputs, stmts=stmts)
+
+    if op_is_relation(type_node):
+        raise ExternalError("Not allowed to query for relations using a non-id filter")
 
     stmts += [PartialStatement("info",
                                get_field["context"] | get["gs"],
@@ -1311,18 +1287,8 @@ compiling.compilable_funcs[obtain_initial_list] = stmts_obtain_initial_list
     
 
 def handle_list_params(arg, z_node, params, context):
-    raise Exception("Shouldnt' get here anymore")
-    opts,info = arg
-    opts_info = opts | map[as_list | append[info]]
-    # opts = maybe_filter_result(opts, z_node, info, params.get("filter", None))
-    opts_info = opts_info | profile["result_filter"][maybe_filter_result(z_node, context, params.get("filter", None))]
-    if context["debug_level"] >= 3:
-        log.debug("DEBUG 3: after filtering", length_list=length(opts))
-    # opts = maybe_sort_result(opts, z_node, info, params.get("order", None))
-    opts_info = opts_info | profile["result_sort"][maybe_sort_result(z_node, context, params.get("order", None))]
-    # opts = maybe_paginate_result(opts, params.get("first", None), params.get("offset", None))
-    opts_info = opts_info | profile["result_paginate"][maybe_paginate_result(params.get("first", None), params.get("offset", None))]
-    return opts_info | map[first]
+    log.warning("WARNING: running uncompiled version of handle_list_params")
+    return maybe_compile_func(handle_list_params, z_node, params, context)(arg)
 
 def stmts_handle_list_params(z_node, params, context):
     inputs = ["arg"]
@@ -1834,8 +1800,9 @@ def stmts_find_existing_entity_by_id(type_node, id, context):
     stmts += [AssignStatement(rae, "rae")]
 
     stmts += [PartialStatement("gs",
-                               get[the_uid],
+                               attempt[get[the_uid]][None],
                                "ent")]
+    stmts += [RawASTStatement("if ent is None: return None")]
     stmts += [PartialStatement("ent",
                                is_a[rae],
                                "check")]

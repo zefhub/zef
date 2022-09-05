@@ -778,8 +778,10 @@ def stmts_match(opts):
 
     for case,action in opts:
         c_action = maybe_compile_func(action)
+        # TODO: I really don't like the attempt here, but it's simpler for now
+        # Really I should fix is_a to never throw
         stmts += [
-            PartialStatement("z", is_a[case], "res"),
+            PartialStatement("z", attempt[is_a[case]][False], "res"),
             AssignStatement(c_action, "action"),
             RawASTStatement("if res: return action(z)")
         ]
@@ -827,9 +829,12 @@ compilable_ops[RT.IsA] = stmts_is_a
 
 def stmts_rae_type():
     # The lambdas are here so that we don't query things on types but only call them
+    def fallback(x):
+        raise Exception(f"{x} is not of any valid rae_type")
     return match[(RT, lambda x: RT(x)),
                  (ET, lambda x: ET(x)),
-                 (AET, lambda x: AET(x))]
+                 (AET, lambda x: AET(x)),
+                 (Any, fallback)]
 
 compilable_ops[RT.RaeType] = stmts_rae_type
 
@@ -906,3 +911,17 @@ def stmts_base_uid():
     return lambda x: pyzefops.uid(x).blob_uid
 
 compilable_ops[RT.BaseUid] = stmts_base_uid
+
+def stmts_attempt(func, default):
+    cfunc = maybe_compile_func(func, allow_const=True)
+    if type(cfunc) == ConstResult:
+        return cfunc
+    def attempt_wrapper(x):
+        try:
+            return cfunc(x)
+        except:
+            return default
+            
+    return attempt_wrapper
+
+compilable_ops[RT.Attempt] = stmts_attempt
