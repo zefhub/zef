@@ -101,6 +101,7 @@ from .local_file import (
     save_localfile_handler,
     load_localfile_handler,
     system_open_with_handler,
+    monitor_path_handler,
 )
 
 # note the ".d" to access the tuple of Strings!
@@ -154,6 +155,7 @@ _effect_handlers = {
     FX.LocalFile.Write.d: write_localfile_handler,
     FX.LocalFile.Save.d:  save_localfile_handler,
     FX.LocalFile.SystemOpenWith.d: system_open_with_handler,
+    FX.LocalFile.MonitorPath.d: monitor_path_handler,
 
     FX.ZefHub.Login.d: zefhub_login_handler,
     FX.ZefHub.Logout.d: zefhub_logout_handler,

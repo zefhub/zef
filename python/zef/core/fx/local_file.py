@@ -208,3 +208,65 @@ def system_open_with_handler(eff: Effect):
     except Exception as e:
         return Error(f'executing FX.LocalFile.SystemOpenWith for effect {eff}:\n{repr(e)}')
 
+
+
+from watchdog.observers import Observer
+from watchdog.events import FileSystemEventHandler
+class ZefEventHandler(FileSystemEventHandler):
+    def __init__(self, created = None, modified = None, moved = None, deleted = None):
+        super().__init__()
+        self.created = created
+        self.modified = modified
+        self.moved = moved
+        self.deleted = deleted
+    def on_created(self, event):
+        super().on_created(event)
+        if self.created: self.created(event)
+        
+    def on_modified(self, event):
+        super().on_modified(event)
+        if self.modified: self.modified(event)
+    def on_moved(self, event):
+        super().on_moved(event)
+        if self.moved: self.moved(event)
+    
+    def on_deleted(self, event):
+        super().on_deleted(event)
+        if self.deleted: self.deleted(event)
+
+def monitor_path_handler(eff: Effect):
+    """
+    Watches for changes in files and nested directories at given path for changes.
+    These changes include, file creation, modification, deletion and moving.
+
+    If a change handler is set, once an event of the type is triggered the handler is called.
+
+    Example
+    =======
+
+    {
+            'type': FX.LocalFile.MonitorPath,
+            'path': fpath,
+            'recursive': True,           # default is False
+            'created_handler': f1,       # default None
+            'modified_handler': f2,      # default None
+            'moved_handler': f3,         # default None
+            'deleted_handler': f4,       # default None
+    }
+    """
+    assert 'path' in eff, "path is required for FX.LocalFile.MonitorPath"
+    path = eff['path']
+    recursive = eff.get('recursive', False)
+
+    created_handler = eff.get("created_handler", None)
+    modified_handler = eff.get("modified_handler", None)
+    moved_handler = eff.get("moved_handler", None)
+    deleted_handler = eff.get("deleted_handler", None)
+
+    event_handler = ZefEventHandler(created = created_handler, modified = modified_handler, moved = moved_handler, deleted = deleted_handler)
+
+    observer = Observer()
+    observer.schedule(event_handler, path, recursive=recursive)
+    observer.start()
+
+    return {"observer_object": observer}
