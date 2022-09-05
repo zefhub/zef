@@ -7184,9 +7184,14 @@ def merge_imp(a, second=None, *args):
     Clojure has a similar operator:
     https://clojuredocs.org/clojure.core/merge
 
+    Also has the ability to merge 2 FlatGraphs together or a list of FlatGraphs.
+
     ---- Examples -----
     >>> [{'a': 1, 'b': 42}, {'a': 2, 'c': 43}] | merge          # => {'a': 2, 'b': 42, 'c': 43}
     >>> {'a': 1, 'b': 42} | merge[ {'a': 2, 'c': 43} ]
+    >>> fg1 | merge[fg2] | collect
+    >>> [fg1, fg2, fg3] | merge | collect
+
 
     ---- Signature ----
     List[Dict]          -> Dict
@@ -7200,6 +7205,8 @@ def merge_imp(a, second=None, *args):
     from typing import Generator
     if is_a(a, FlatGraph) and is_a(second, FlatGraph):
         return fg_merge_imp(a, second)
+    elif isinstance(a, list) and is_a(a[0], FlatGraph):
+        return fg_merge_imp(a)
     elif second is None:
         assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, (Generator, ZefGenerator))
         return {k: v for d in a for k, v in d.items()}
@@ -9073,62 +9080,6 @@ def transact_imp(data, g, **kwargs):
 def transact_tp(op, curr_type):
     return VT.Effect
 
-
-def fg_merge_imp(fg1, fg2):
-    def idx_generator(n):
-        def next_idx():
-            nonlocal n
-            n = n + 1
-            return n
-        return next_idx
-
-    blobs, k_dict = [*fg1.blobs], {**fg1.key_dict}
-    next_idx = idx_generator(length(blobs) - 1)
-
-    idx_key_2 = {i:k for k,i in fg2.key_dict.items()}
-    old_to_new = {}
-
-    def retrieve_or_insert_blob(new_b):
-        old_idx = new_b[0]
-        key = idx_key_2.get(new_b[0], None)
-
-        if old_idx in old_to_new:
-            idx = old_to_new[old_idx]
-            new_b = blobs[idx]
-        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], uid)) and key in k_dict:
-            new_b = blobs[k_dict[key]]
-            idx = new_b[0]
-        else:
-            idx = next_idx()
-            if key: k_dict[key] = idx
-            new_b = (idx, new_b[1], [], *new_b[3:])
-            blobs.append(new_b)
-        old_to_new[old_idx] = idx
-        return new_b
-
-    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RelationType)] | sort[lambda b: -len(b[2])]:
-        rt_key = idx_key_2.get(b[0], None)
-
-        src_b, trgt_b = fg2.blobs[b[4]], fg2.blobs[b[5]]
-        src_b  = retrieve_or_insert_blob(src_b)
-        trgt_b = retrieve_or_insert_blob(trgt_b)
-        
-        idx = next_idx()
-        rt_b = (idx, b[1], [], None, src_b[0], trgt_b[0])
-        src_b[2].append(idx)
-        trgt_b[2].append(-idx)
-        if rt_key: k_dict[rt_key] = idx
-        blobs.append(rt_b)
-        old_to_new[b[0]] = idx
-
-            
-    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RelationType)]:
-        if b[0] not in old_to_new: retrieve_or_insert_blob(b)
-
-    new_fg = FlatGraph()
-    new_fg.blobs = blobs
-    new_fg.key_dict = k_dict
-    return new_fg
 
 
 #-----------------------------Range----------------------------------------

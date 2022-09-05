@@ -519,7 +519,9 @@ def fg_all_imp(fg, selector=None):
 
 # ------------------------------Merging FlatGraphs----------------------------------
 
-def fg_merge_imp(fg1, fg2):
+def fg_merge_imp(fg1, fg2 = None):
+    if isinstance(fg1, list): return fg1[1:] | reduce[fg_merge_imp][fg1[0]] | collect
+
     def idx_generator(n):
         def next_idx():
             nonlocal n
