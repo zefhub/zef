@@ -43,7 +43,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def_property_readonly("graph_data", [](Graph& g)->GraphData& { return g.my_graph_data(); }, py::return_value_policy::reference)  // the mem policy return_value_policy::reference_internal is used here by default: ties lifetime of property returned to lifetime of parent (also stops parent from being destroyed while this is alive)
 		.def_property_readonly("uid", [](Graph& g)->BaseUID { return uid(g); })
 		.def("hash", &Graph::hash, py::arg("blob_index_lo"), py::arg("blob_index_hi"), py::arg("seed")=0, py::arg("working_layout")="", "calculate the xxhash of the data within the specified blob range. This is non-cryptographic hash fct.")
-		.def("hash", [](Graph& g) { return g.hash(constants::ROOT_NODE_blob_index, g.my_graph_data().read_head, 0, ""); })
+		.def("hash", [](Graph& g, std::string working_layout) { return g.hash(constants::ROOT_NODE_blob_index, g.my_graph_data().read_head, 0, working_layout); }, py::arg("working_layout")="")
 		.def("__repr__", [](const Graph& self) {
             auto& gd = self.my_graph_data();
             if(gd.local_path == "")

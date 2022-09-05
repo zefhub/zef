@@ -412,6 +412,7 @@ namespace zefDB {
             std::vector<std::tuple<enum_indx, std::string, std::string>> all_entries_as_list();
             std::vector<std::string> all_enum_types();
             std::vector<std::string> all_enum_values(const std::string & needle);
+            std::vector<enum_indx> all_indices();
             void disp() ;
             enum_indx generate_unused_random_number() ;
             // enum_indx insert(string_pair sp) ;
@@ -470,6 +471,7 @@ namespace zefDB {
         READ_FUNC(all_entries_as_list);
         READ_FUNC(all_enum_types);
         READ_FUNC(all_enum_values);
+        READ_FUNC(all_indices);
         READ_FUNC(generate_unused_random_number);
 
         typename map_t::map1_t copy_of_enum_name_to_indx(void) {
