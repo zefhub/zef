@@ -2108,13 +2108,13 @@ def stmts_pass_auth_generic(schema_node, context, rt_list):
 
     s = to_call | value | collect
 
-    user_func = compile_user_string(s)
+    user_func = compile_user_string(s, schema_node, context)
     stmts += [
         PartialStatement("arg",
                          identity,
                          ["z", "info"]),
         AssignStatement(schema_node, "type_node"),
-        RawASTStatement("d_input = {'z': z, 'auth': info.context.get('auth', None), 'type_node': type_node}"),
+        RawASTStatement("d_input = {'z': z, 'info': info, 'auth': info.context.get('auth', None), 'type_node': type_node}"),
         # PartialStatement("d_input", profile["calling user_func"][user_func], "res"),
         PartialStatement("d_input", user_func, "res"),
         ReturnStatement("res"),
@@ -2171,7 +2171,7 @@ def temporary__call_string_as_func(s, **kwds):
 
     return out
 
-def compile_user_string(s):
+def compile_user_string(s, schema_node, context):
     # We accept only ZefOps here
     from ... import core, ops
     try:
@@ -2179,7 +2179,8 @@ def compile_user_string(s):
             s, {
                 **{name: getattr(core,name) for name in dir(core) if not name.startswith("_")},
                 **{name: getattr(ops,name) for name in dir(ops) if not name.startswith("_")},
-                # "auth_field": P(auth_helper_auth_field, **kwds),
+                #"auth_field": P(auth_helper_auth_field, **kwds),
+                "auth_field": auth_helper_auth_field_compilable[schema_node][context],
             },
         )
     except Exception as exc:
@@ -2199,11 +2200,11 @@ def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
     try:
         z_field = get_field_rel_by_name(type_node, field_name)
         z_field_node = target(z_field)
-        val = field_resolver_by_name(z, type_node, info, field_name)
-    except:
+        val = field_resolver_by_name(z, type_node, context, field_name)
+    except Exception as exc:
         # Going to assume this is because traversal failed auth along the way somewhere.
         if info.context["debug_level"] >= 0:
-            log.error("auth_field helper got an exception, assuming failure of auth")
+            log.error("auth_field helper got an exception, assuming failure of auth", exc_info=exc)
         return False
 
     if val is None:
@@ -2223,7 +2224,45 @@ def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
     else:
         raise Exception(f"Don't understand auth type '{auth}' in auth_helper_auth_field")
 
-    return func(val, z_field_node, info)
+    return func(val, z_field_node, context)
+
+@func
+def auth_helper_auth_field_compilable(arg, type_node, context, field_name, auth):
+    z = arg["z"]
+    info = arg["info"]
+    # A helper function for graphql schema, that requests an auth check of the
+    # given kind on one of its fields.
+
+    # Only makes sense for fields that are required, such as a user field.
+    try:
+        z_field = get_field_rel_by_name(type_node, field_name)
+        z_field_node = target(z_field)
+        # val = field_resolver_by_name((z,info), type_node, context, field_name)
+        val = maybe_compile_func(field_resolver_by_name, type_node, context, field_name)((z,info))
+    except Exception as exc:
+        # Going to assume this is because traversal failed auth along the way somewhere.
+        if context["debug_level"] >= 0:
+            log.error("auth_field helper got an exception, assuming failure of auth", exc_info=exc)
+        return False
+
+    if val is None:
+        # This is something we can't query on, so therefore the query has failed.
+        return False
+
+    if auth == "query":
+        func = pass_query_auth
+    elif auth == "add":
+        func = pass_add_auth
+    elif auth == "update":
+        func = pass_pre_update_auth
+    elif auth == "updatePost":
+        func = pass_post_update_auth
+    elif auth == "delete":
+        func = pass_delete_auth
+    else:
+        raise Exception(f"Don't understand auth type '{auth}' in auth_helper_auth_field")
+
+    return func((val, info), z_field_node, context)
 
 
 

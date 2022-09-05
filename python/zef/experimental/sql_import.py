@@ -170,11 +170,11 @@ def coerce_val(val, aet):
         raise Exception("Vals can't be lists")
 
     if is_a(aet, AET.QuantityFloat):
-        return QuantityFloat(val, aet.__unit)
+        return QuantityFloat(val, aet.rep_type.__unit)
     elif is_a(aet, AET.QuantityInt):
-        return QuantityFloat(val, aet.__unit)
+        return QuantityFloat(val, aet.rep_type.__unit)
     elif is_a(aet, AET.Enum):
-        return EN(aet.__enum_type, to_pascal_case(val))
+        return EN(aet.rep_type.__enum_type, to_pascal_case(val))
     elif is_a(aet, AET.Bool):
         if val in [0, False, 'False', 'false', 'FALSE', 'no']:
             return False
