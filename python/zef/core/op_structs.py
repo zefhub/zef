@@ -982,6 +982,7 @@ class LazyValue:
                 except ExceptionWrapper as e:
                     # Continue the panic, attaching more tb info
                     tb = e.__traceback__
+                    from .error import process_python_tb
                     frames = process_python_tb(tb)
                     got_error = add_error_context(e.wrapped, {"frames": frames})
                 except _ErrorType as e:
