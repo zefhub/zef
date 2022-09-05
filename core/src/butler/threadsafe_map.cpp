@@ -112,6 +112,13 @@ namespace zefDB {
                 | ranges::to<std::vector>;
         }
 
+        std::vector<enum_indx> zef_enum_bidirectional_map::all_indices() {
+            return ranges::views::all(indx_to_string_pair)
+                | ranges::views::transform([](const auto& x)->enum_indx { return { x.first }; })
+                | ranges::to<std::vector>;
+        }
+
+
 
 
 
