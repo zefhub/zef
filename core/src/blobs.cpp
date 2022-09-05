@@ -442,7 +442,7 @@ namespace zefDB {
 			case 1: return to_str(*((ZefEnumValue*)buffer_ptr));
 			case 2: return to_str(*((QuantityFloat*)buffer_ptr));
 			case 3: return to_str(*((QuantityInt*)buffer_ptr));
-			default: throw std::runtime_error("VRT type convversion for this type not implemented in value_blob_to_str.");
+			default: throw std::runtime_error("VRT type conversion for this type (" + to_str(buffer_type.value) + ") not implemented in value_blob_to_str.");
 			}
 		}
 		}
