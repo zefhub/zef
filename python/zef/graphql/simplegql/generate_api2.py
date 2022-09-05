@@ -17,6 +17,7 @@ from ... import *
 from ...ops import *
 from functools import partial as P
 from ...core.logger import log
+from ...core.error import _ErrorType, ExceptionWrapper
 import functools
 
 from ariadne import ObjectType, QueryType, MutationType, EnumType, ScalarType
@@ -417,16 +418,35 @@ def schema_generate_scalar_filter(z_node, full_dict):
 # * Query resolvers
 #----------------------------------
 
-class ExternalError(Exception):
-    pass
+# class ExternalError(Exception):
+#     pass
+ExternalError = Error.BasicError()
+ExternalError.name = "External"
 
 def resolve_get(_, info, *, type_node, **params):
-    # Look for something that fits exactly what has been given in the params, assuming
-    # that ariadne has done its work and validated the query.
-    return find_existing_entity_by_id(info, type_node, params["id"])
+    try:
+        # Look for something that fits exactly what has been given in the params, assuming
+        # that ariadne has done its work and validated the query.
+        return find_existing_entity_by_id(info, type_node, params["id"])
+    except ExternalError:
+        raise
+    except Exception as exc:
+        if info.context["debug_level"] >= 0:
+            #log.error("There was an error in resolve_get", exc_info=exc)
+            from ...core.error import _ErrorType, str_zef_error
+            if type(exc) == _ErrorType:
+                log.error("There was an error in resolve_get")
+                log.error(str_zef_error(exc))
+            else:
+                log.error("There was an error in resolve_get", exc_info=exc)
+
+        raise Exception("Unexpected error") from None
 @func
 def resolve_get2(obj, type_node, graphql_info, query_args):
-    return resolve_get(obj, graphql_info, type_node=type_node, **query_args)
+    try:
+        return resolve_get(obj, graphql_info, type_node=type_node, **query_args)
+    except Exception as exc:
+        return Error(exc)
 
 def resolve_query(_, info, *, type_node, **params):
     ents = obtain_initial_list(type_node, params.get("filter", None), info)
@@ -629,7 +649,7 @@ def resolve_upfetch2(obj, type_node, graphql_info, query_args):
 def resolve_update(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
-    try:
+    # try:
         with mutation_lock:
             if "input" not in params or "filter" not in params["input"]:
                 raise Exception("Not allowed to update everything!")
@@ -652,15 +672,28 @@ def resolve_update(_, info, *, type_node, **params):
             ents = ents | map[now] | collect
 
             return {"count": count, "ents": ents}
-    except ExternalError:
-        raise
-    except Exception as exc:
-        if info.context["debug_level"] >= 0:
-            log.error("There was an error in resolve_update", exc_info=exc)
-        raise Exception("Unexpected error")
+    # except ExternalError:
+    #     raise
+    # except Exception as exc:
+    #     if info.context["debug_level"] >= 0:
+    #         log.error("There was an error in resolve_update", exc_info=exc)
+    #     raise Exception("Unexpected error")
 @func
 def resolve_update2(obj, type_node, graphql_info, query_args):
-    return resolve_update(obj, graphql_info, type_node=type_node, **query_args)
+    try:
+        return resolve_update(obj, graphql_info, type_node=type_node, **query_args)
+    except ExceptionWrapper as exc:
+        if exc.wrapped.name == "External":
+            log.warning("Returning wrapped")
+            return exc.wrapped
+        log.warning("Reraising")
+    except _ErrorType as exc:
+        log.warning("Plain return")
+        return exc
+    except:
+        log.warning("Other exc")
+        raise
+    log.warning("Normal return")
 
 def resolve_delete(_, info, *, type_node, **params):
     try:
