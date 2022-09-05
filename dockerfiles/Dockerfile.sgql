@@ -30,7 +30,9 @@ COPY --from=builder /usr/local/lib/python3.9/site-packages /usr/local/lib/python
 
 RUN pip3 install \
     requests \
-    jwt
+    pyjwt \
+    rich \
+    cryptography
 
 ADD scripts/env_to_file.py .
 ADD scripts/sgql_start.sh .
