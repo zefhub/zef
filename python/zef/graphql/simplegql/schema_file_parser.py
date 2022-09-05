@@ -46,6 +46,8 @@ def parse_partial_graphql(schema):
         name, details = parts
         name = name.strip()
 
+        assert name in ["SchemaVersion", "DataTag", "Authentication", "Route"], f"Don't understand Zef directive of name {name}"
+
         if name == "SchemaVersion":
             assert "schema_version" not in output, "Not allowed to have multiple Zef.SchemaVersion directives."
             output["schema_version"] = details.strip()
