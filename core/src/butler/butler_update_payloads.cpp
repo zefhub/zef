@@ -29,7 +29,7 @@ bool is_up_to_date(const UpdateHeads & update_heads) {
     return true;
 }
 
-UpdatePayload create_update_payload_current(const GraphData & gd, const UpdateHeads & update_heads) {
+UpdatePayload create_update_payload_current(GraphData & gd, const UpdateHeads & update_heads) {
     if(update_heads.blobs.from > update_heads.blobs.to)
         throw std::runtime_error("Somehow upstream is ahead of us and we're primary!");
 
@@ -48,7 +48,7 @@ UpdatePayload create_update_payload_current(const GraphData & gd, const UpdateHe
         {"blob_index_hi", update_heads.blobs.to},
         {"graph_uid", str(internals::get_graph_uid(gd))},
         {"index_of_latest_complete_tx_node", last_tx},
-        {"hash_full_graph", gd.hash(constants::ROOT_NODE_blob_index, update_heads.blobs.to, 0, "")},
+        {"hash_full_graph", partial_hash(Graph(gd), update_heads.blobs.to, 0, "")},
         {"data_layout_version", internals::get_data_layout_version_info(gd)}
     };
     p.rest = {blobs};
@@ -87,7 +87,7 @@ UpdatePayload create_update_payload_current(const GraphData & gd, const UpdateHe
 
     return p;
 }
-UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & update_heads, std::string target_layout) {
+UpdatePayload create_update_payload(GraphData & gd, const UpdateHeads & update_heads, std::string target_layout) {
     if(target_layout == "")
         target_layout = "0.3.0";
     if(target_layout == "0.3.0")
@@ -378,11 +378,14 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
     force_assert(zefdb_protocol_version != -1);
 
     UpdatePayload payload;
-    if(upstream_layout() == "0.2.0")
-        payload = conversions::create_update_payload_as_if_0_2_0(*me.gd, update_heads);
-    else {
-        force_assert(upstream_layout() == "0.3.0");
-        payload = create_update_payload(*me.gd, update_heads);
+    {
+        LockGraphData lock{me.gd};
+        if(upstream_layout() == "0.2.0")
+            payload = conversions::create_update_payload_as_if_0_2_0(*me.gd, update_heads);
+        else {
+            force_assert(upstream_layout() == "0.3.0");
+            payload = create_update_payload(*me.gd, update_heads);
+        }
     }
 
 

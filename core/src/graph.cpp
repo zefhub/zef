@@ -1247,7 +1247,7 @@ namespace zefDB {
             return heads;
         }
 
-        Butler::UpdatePayload graph_as_UpdatePayload(const GraphData& gd, std::string target_layout) {
+        Butler::UpdatePayload graph_as_UpdatePayload(GraphData& gd, std::string target_layout) {
             return Butler::create_update_payload(gd, full_graph_heads(gd), target_layout);
         }
 

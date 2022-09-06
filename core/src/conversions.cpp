@@ -148,7 +148,7 @@ namespace zefDB {
             return blobs;
         }
 
-        UpdatePayload create_update_payload_as_if_0_2_0(const GraphData & gd, UpdateHeads update_heads) {
+        UpdatePayload create_update_payload_as_if_0_2_0(GraphData & gd, UpdateHeads update_heads) {
             UpdatePayload payload = create_update_payload_current(gd, update_heads);
 
             payload.rest[0] = convert_blobs_0_3_0_to_0_2_0(std::move(payload.rest[0]));
