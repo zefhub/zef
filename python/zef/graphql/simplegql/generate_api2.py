@@ -225,16 +225,16 @@ def fvalue(z, rt, *args):
 def as_list(x):
     return [x]
 
-def as_opts_info(opts, info):
-    log.warning("WARNING: running uncompiled version of as_opts_info")
-    return maybe_compile_func(as_opts_info)(opts, info)
+def as_opts_ctx(opts, ctx):
+    log.warning("WARNING: running uncompiled version of as_opts_ctx")
+    return maybe_compile_func(as_opts_ctx)(opts, ctx)
 
-def as_opts_info_fast(opts, info):
-    return [(x,info) for x in opts]
+def as_opts_ctx_fast(opts, ctx):
+    return [(x,ctx) for x in opts]
 
-def stmts_as_opts_info():
-    return as_opts_info_fast
-compiling.compilable_funcs[as_opts_info] = stmts_as_opts_info
+def stmts_as_opts_ctx():
+    return as_opts_ctx_fast
+compiling.compilable_funcs[as_opts_ctx] = stmts_as_opts_ctx
 
 # def append_info(x, info):
 #     raise Exception("Shouldn't be here")
@@ -627,40 +627,49 @@ def static_context(info):
     del context["auth"]
     del context["gs"]
     return context
+
+def runtime_context(info):
+    context = {
+        "gs": info.context["gs"],
+        "auth": info.context.get("auth"),
+    }
+    return context
     
 # class ExternalError(Exception):
 #     pass
 ExternalError = Error.BasicError()
 ExternalError.name = "External"
 
-def resolve_get(info, *, type_node, context, **params):
+def resolve_get(ctx, *, type_node, sctx, **params):
     # Look for something that fits exactly what has been given in the params, assuming
     # that ariadne has done its work and validated the query.
-    return find_existing_entity_by_id(info, type_node, params["id"], context)
+    return find_existing_entity_by_id(ctx, type_node, params["id"], sctx)
 
-def stmts_resolve_get(type_node, context, **params):
-    return maybe_compile_func(find_existing_entity_by_id, type_node, params["id"], context)
+def stmts_resolve_get(type_node, sctx, **params):
+    return maybe_compile_func(find_existing_entity_by_id, type_node, params["id"], sctx)
 compiling.compilable_funcs[resolve_get] = stmts_resolve_get
 
-@func
-def resolve_get2(obj, type_node, graphql_info, query_args):
-    try:
-        context = static_context(graphql_info)
-        cfunc = maybe_compile_func(resolve_get, type_node=type_node, context=context, **query_args)
-        return profile(graphql_info, "resolve_get", cfunc)
-    except ExceptionWrapper as exc:
-        if exc.wrapped.name == "External":
-            return exc.wrapped
-        raise
-    except _ErrorType as exc:
-        return exc
+# @func
+# def resolve_get2(obj, type_node, graphql_info, query_args):
+#     try:
+#         sctx = static_context(graphql_info)
+#         cfunc = maybe_compile_func(resolve_get, type_node=type_node, sctx=sctx, **query_args)
+#         return profile(ctx, "resolve_get", cfunc)
+#     except ExceptionWrapper as exc:
+#         if exc.wrapped.name == "External":
+#             return exc.wrapped
+#         raise
+#     except _ErrorType as exc:
+#         return exc
 
 @func
 def resolve_get3(obj, info, type_node, **params):
     try:
-        context = static_context(info)
-        cfunc = maybe_compile_func(resolve_get, type_node=type_node, context=context, **params)
-        return profile(info, "resolve_get", cfunc)
+        sctx = static_context(info)
+        ctx = runtime_context(info)
+
+        cfunc = maybe_compile_func(resolve_get, type_node=type_node, sctx=sctx, **params)
+        return profile(ctx, "resolve_get", cfunc)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -668,27 +677,27 @@ def resolve_get3(obj, info, type_node, **params):
     except _ErrorType as exc:
         return exc
 
-def resolve_query(info, *, type_node, context, **params):
+def resolve_query(ctx, *, type_node, sctx, **params):
     # ents = obtain_initial_list(type_node, params.get("filter", None), info)
-    ents = profile(info, "obtain_initial_list_prep", lambda arg: obtain_initial_list(arg, type_node, params.get("filter", None), context))
+    ents = profile(ctx, "obtain_initial_list_prep", lambda arg: obtain_initial_list(arg, type_node, params.get("filter", None), sctx))
 
     # ents = handle_list_params(ents, type_node, params, info)
-    ents = profile((ents,info), "handle_list_params_prep", lambda arg: handle_list_params(arg, type_node, params, context))
+    ents = profile((ents,ctx), "handle_list_params_prep", lambda arg: handle_list_params(arg, type_node, params, sctx))
 
     return ents | collect
 
-def stmts_resolve_query(type_node, context, **params):
-    inputs = ["info"]
+def stmts_resolve_query(type_node, sctx, **params):
+    inputs = ["ctx"]
     stmts = []
 
-    stmts += [PartialStatement("info",
-                               profile["obtain_initial_list_prep"][maybe_compile_func(obtain_initial_list, type_node, params.get("filter", None), context)],
+    stmts += [PartialStatement("ctx",
+                               profile["obtain_initial_list_prep"][maybe_compile_func(obtain_initial_list, type_node, params.get("filter", None), sctx)],
                                "ents")]
 
     # TODO: Should probably remove id from the filter in params to enable more-likely reuse of prior compiled filters.
 
-    stmts += [PartialStatement(["ents","info"],
-                               profile["handle_list_params_prep"][maybe_compile_func(handle_list_params, type_node, params, context)],
+    stmts += [PartialStatement(["ents","ctx"],
+                               profile["handle_list_params_prep"][maybe_compile_func(handle_list_params, type_node, params, sctx)],
                                "ents")]
                                
     stmts += [PartialStatement("ents", collect, "ents")]
@@ -697,34 +706,35 @@ def stmts_resolve_query(type_node, context, **params):
     return FunctionDecl(inputs=inputs, stmts=stmts)
 compiling.compilable_funcs[resolve_query] = stmts_resolve_query
 
-@func
-def resolve_query2(obj, type_node, graphql_info, query_args):
-    try:
-        context = static_context(graphql_info)
-        # return resolve_query(obj, graphql_info, type_node=type_node, **query_args)
-        # return profile(None, "resolve_query", lambda _: resolve_query(obj, graphql_info, type_node=type_node, context=context, **query_args))
-        cfunc = maybe_compile_func(resolve_query, type_node=type_node, context=context, **query_args)
-        # print("resolve_query compiled: ", compiling.compiled_func_as_str(cfunc))
-        # print("===========")
-        return profile(graphql_info, "resolve_query", cfunc)
-    except ExceptionWrapper as exc:
-        if exc.wrapped.name == "External":
-            return exc.wrapped
-        raise
-    except _ErrorType as exc:
-        return exc
+# @func
+# def resolve_query2(obj, type_node, graphql_info, query_args):
+#     try:
+#         context = static_context(graphql_info)
+#         # return resolve_query(obj, graphql_info, type_node=type_node, **query_args)
+#         # return profile(None, "resolve_query", lambda _: resolve_query(obj, graphql_info, type_node=type_node, context=context, **query_args))
+#         cfunc = maybe_compile_func(resolve_query, type_node=type_node, context=context, **query_args)
+#         # print("resolve_query compiled: ", compiling.compiled_func_as_str(cfunc))
+#         # print("===========")
+#         return profile(graphql_info, "resolve_query", cfunc)
+#     except ExceptionWrapper as exc:
+#         if exc.wrapped.name == "External":
+#             return exc.wrapped
+#         raise
+#     except _ErrorType as exc:
+#         return exc
 
 @func
 def resolve_query3(obj, info, type_node, **params):
     try:
-        context = static_context(info)
+        sctx = static_context(info)
+        ctx = runtime_context(info)
         # return resolve_query(obj, graphql_info, type_node=type_node, **query_args)
         # return profile(None, "resolve_query", lambda _: resolve_query(obj, graphql_info, type_node=type_node, context=context, **query_args))
-        cfunc = maybe_compile_func(resolve_query, type_node=type_node, context=context, **params)
+        cfunc = maybe_compile_func(resolve_query, type_node=type_node, sctx=sctx, **params)
         # print("resolve_query compiled: ", compiling.compiled_func_as_str(cfunc))
         # print("===========")
         # return profile(info, "resolve_query", cfunc)
-        return maybe_compile_func(profile, "resolve_query", cfunc)(info)
+        return maybe_compile_func(profile, "resolve_query", cfunc)(ctx)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -732,16 +742,16 @@ def resolve_query3(obj, info, type_node, **params):
     except _ErrorType as exc:
         return exc
 
-def resolve_aggregate(_, info, *, type_node, **params):
+def resolve_aggregate(ctx, *, type_node, sctx, **params):
     # We can potentially defer the aggregation till later, by returning a kind
     # of lazy object here. However, for simplicity in the beginning, I will
     # aggregate everything, even if the query is only for a single field.
 
-    ents = resolve_query(_, info, type_node=type_node, filter=params.get("filter", None))
+    ents = resolve_query(ctx, type_node=type_node, sctx=sctx, filter=params.get("filter", None))
 
     out = {"count": len(ents)}
     for z_field in type_node > L[RT.GQL_Field] | filter[op_is_aggregable]:
-        vals = ents | map[lambda z: resolve_field(z, info, z_field=z_field)] | filter[Not[equals[None]]] | collect
+        vals = ents | map[lambda z: resolve_field(z, ctx, z_field=z_field)] | filter[Not[equals[None]]] | collect
 
         field_name = z_field | F.Name | collect
 
@@ -785,9 +795,10 @@ def resolve_aggregate2(obj, type_node, graphql_info, query_args):
 @func
 def resolve_aggregate3(_, info, type_node, **params):
     try:
-        context = static_context(info)
-        cfunc = maybe_compile_func(resolve_aggregate, type_node, context, **params)
-        return maybe_compile_func(profile, "resolve_aggregate", cfunc)(info)
+        sctx = static_context(info)
+        ctx = runtime_context(info)
+        cfunc = maybe_compile_func(resolve_aggregate, type_node, sctx, **params)
+        return maybe_compile_func(profile, "resolve_aggregate", cfunc)(ctx)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -795,46 +806,24 @@ def resolve_aggregate3(_, info, type_node, **params):
     except _ErrorType as exc:
         return exc
 
-def resolve_field(arg, *, z_field, context, **params):
+def resolve_field(arg, *, z_field, sctx, **params):
     raise Exception("Not allowed here anymore")
-    z,info = arg
-    is_list = z_field | op_is_list | collect
-    is_required = z_field | op_is_required | collect
 
-    opts = internal_resolve_field(arg, z_field, context)
-
-    if is_list:
-        opts = handle_list_params((opts, info), target(z_field), params, context)
-
-    opts = collect(opts)
-
-    if is_list:
-        return opts
-    else:
-        if len(opts) == 0:
-            if is_required:
-                log.error("A single field has no option and is required!", z=z, z_field=z_field, z_name=fvalue(source(z_field), RT.Name, None), field_name=fvalue(z_field, RT.Name, None))
-            return None
-        if len(opts) >= 2:
-            log.error("A single field has multiple options!", z=z, z_field=z_field, type_name=fvalue(source(z_field), RT.Name, None), field_name=fvalue(z_field, RT.Name, None))
-            return None
-        return single(opts)
-
-def stmts_resolve_field(z_field, context, **params):
+def stmts_resolve_field(z_field, sctx, **params):
     inputs = ["arg"]
     stmts = []
-    stmts += [PartialStatement("arg", identity, ["z", "info"])]
+    stmts += [PartialStatement("arg", identity, ["z", "ctx"])]
 
     is_list = z_field | op_is_list | collect
     is_required = z_field | op_is_required | collect
 
-    stmts += [PartialStatement(["z", "info"],
-                               maybe_compile_func(internal_resolve_field, z_field, context),
+    stmts += [PartialStatement(["z", "ctx"],
+                               maybe_compile_func(internal_resolve_field, z_field, sctx),
                                "opts")]
 
     if is_list:
-        stmts += [PartialStatement(["opts", "info"],
-                                    maybe_compile_func(handle_list_params, target(z_field), params, context),
+        stmts += [PartialStatement(["opts", "ctx"],
+                                    maybe_compile_func(handle_list_params, target(z_field), params, sctx),
                                     "opts")]
 
     stmts += [PartialStatement("opts",
@@ -866,23 +855,23 @@ def stmts_resolve_field(z_field, context, **params):
 
 compiling.compilable_funcs[resolve_field] = stmts_resolve_field
 
-@func
-def resolve_field2(obj, z_field, graphql_info, query_args):
-    try:
-        # return resolve_field(obj, graphql_info, z_field=z_field, **query_args)
-        name = "resolve_field " + (z_field | source | F.Name | collect) + "." + (z_field | F.Name | collect)
-        # return profile(None, name, lambda _: resolve_field((obj, graphql_info), z_field=z_field, info_static=graphql_info, **query_args))
-        context = static_context(graphql_info)
-        cop = compiling.maybe_compile_func(resolve_field, z_field=z_field, context=context, **query_args)
-        # print("resolve_field compiled: ", compiling.compiled_func_as_str(cop))
-        # print("===========")
-        return profile((obj,graphql_info), name, cop)
-    except ExceptionWrapper as exc:
-        if exc.wrapped.name == "External":
-            return exc.wrapped
-        raise
-    except _ErrorType as exc:
-        return exc
+# @func
+# def resolve_field2(obj, z_field, graphql_info, query_args):
+#     try:
+#         # return resolve_field(obj, graphql_info, z_field=z_field, **query_args)
+#         name = "resolve_field " + (z_field | source | F.Name | collect) + "." + (z_field | F.Name | collect)
+#         # return profile(None, name, lambda _: resolve_field((obj, graphql_info), z_field=z_field, info_static=graphql_info, **query_args))
+#         context = static_context(graphql_info)
+#         cop = compiling.maybe_compile_func(resolve_field, z_field=z_field, context=context, **query_args)
+#         # print("resolve_field compiled: ", compiling.compiled_func_as_str(cop))
+#         # print("===========")
+#         return profile((obj,graphql_info), name, cop)
+#     except ExceptionWrapper as exc:
+#         if exc.wrapped.name == "External":
+#             return exc.wrapped
+#         raise
+#     except _ErrorType as exc:
+#         return exc
 
 @func
 def resolve_field3(obj, info, z_field, **params):
@@ -891,8 +880,9 @@ def resolve_field3(obj, info, z_field, **params):
         # return resolve_field(obj, graphql_info, z_field=z_field, **query_args)
         # name = "resolve_field " + (z_field | source | F.Name | collect) + "." + (z_field | F.Name | collect)
         # return profile(None, name, lambda _: resolve_field((obj, graphql_info), z_field=z_field, info_static=graphql_info, **query_args))
-        context = static_context(info)
-        cop = compiling.maybe_compile_func(resolve_field, z_field=z_field, context=context, **params)
+        sctx = static_context(info)
+        ctx = runtime_context(info)
+        cop = compiling.maybe_compile_func(resolve_field, z_field=z_field, sctx=sctx, **params)
         # dt = now() - start
         # details = profile_cache.setdefault("resolve_field3 prepare func", {"measurements": 0, "time": 0.0})
         # details["measurements"] += 1
@@ -901,7 +891,7 @@ def resolve_field3(obj, info, z_field, **params):
         # print("===========")
         # return profile((obj,info), name, cop)
         # return maybe_compile_func(profile, name, cop)((obj,info))
-        return cop((obj,info))
+        return cop((obj,ctx))
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -933,11 +923,11 @@ compiling.compilable_funcs[resolve_id] = stmts_resolve_id
 from threading import Lock
 mutation_lock = Lock()
 
-def resolve_add(info, *, type_node, context, **params):
+def resolve_add(ctx, *, type_node, sctx, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     # try:
-        if context["read_only"]:
+        if sctx["read_only"]:
             raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             name_gen = NameGen()
@@ -953,22 +943,22 @@ def resolve_add(info, *, type_node, context, **params):
                 if "id" in item:
                     if not upsert:
                         raise ExternalError("Can't update item with id without setting upsert")
-                    obj = find_existing_entity_by_id(info, type_node, item["id"], context)
+                    obj = find_existing_entity_by_id(ctx, type_node, item["id"], sctx)
                     if obj is None:
                         raise Exception("Item doesn't exist")
                     set_d = {**item}
                     set_d.pop("id")
-                    new_actions,new_post_checks = update_entity(obj, info, type_node, set_d, {}, name_gen, context)
+                    new_actions,new_post_checks = update_entity(obj, ctx, type_node, set_d, {}, name_gen, sctx)
                     actions += new_actions
                     post_checks += new_post_checks
                     updated_objs += [obj]
                 else:
-                    obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen, context)
+                    obj_name,more_actions,more_post_checks = add_new_entity(ctx, type_node, item, name_gen, sctx)
                     actions += more_actions
                     post_checks += more_post_checks
                     new_obj_names += [obj_name]
 
-            r = commit_with_post_checks(actions, post_checks, info, context)
+            r = commit_with_post_checks(actions, post_checks, ctx, sctx)
 
             ents = updated_objs + [r[name] for name in new_obj_names]
             # Note: we return the details after any updates
@@ -983,25 +973,26 @@ def resolve_add(info, *, type_node, context, **params):
     #     if info.context["debug_level"] >= 0:
     #         log.error("There was an error in resolve_add", exc_info=exc)
     #     raise Exception("Unexpected error")
-@func
-def resolve_add2(obj, type_node, graphql_info, query_args):
-    try:
-        context = static_context(graphql_info)
-        cfunc = maybe_compile_func(resolve_add, type_node=type_node, context=context, **query_args)
-        return profile(graphql_info, "resolve_add", cfunc)
-    except ExceptionWrapper as exc:
-        if exc.wrapped.name == "External":
-            return exc.wrapped
-        raise
-    except _ErrorType as exc:
-        return exc
+# @func
+# def resolve_add2(obj, type_node, graphql_info, query_args):
+#     try:
+#         context = static_context(graphql_info)
+#         cfunc = maybe_compile_func(resolve_add, type_node=type_node, context=context, **query_args)
+#         return profile(graphql_info, "resolve_add", cfunc)
+#     except ExceptionWrapper as exc:
+#         if exc.wrapped.name == "External":
+#             return exc.wrapped
+#         raise
+#     except _ErrorType as exc:
+#         return exc
 
 @func
 def resolve_add3(obj, info, type_node, **params):
     try:
-        context = static_context(info)
-        cfunc = maybe_compile_func(resolve_add, type_node=type_node, context=context, **params)
-        return maybe_compile_func(profile, "resolve_add", cfunc)(info)
+        sctx = static_context(info)
+        ctx = runtime_context(info)
+        cfunc = maybe_compile_func(resolve_add, type_node=type_node, sctx=sctx, **params)
+        return maybe_compile_func(profile, "resolve_add", cfunc)(ctx)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -1009,11 +1000,11 @@ def resolve_add3(obj, info, type_node, **params):
     except _ErrorType as exc:
         return exc
             
-def resolve_upfetch(info, *, type_node, context, **params):
+def resolve_upfetch(ctx, *, type_node, sctx, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     # try:
-        if context["read_only"]:
+        if sctx["read_only"]:
             raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             # Upfetch is a lot like add with upsert, except it uses the specially
@@ -1032,19 +1023,19 @@ def resolve_upfetch(info, *, type_node, context, **params):
                 if field_name not in item:
                     raise Exception("Should never get here, because the upfetch field should be marked as required")
 
-                obj = find_existing_entity_by_field(info, type_node, upfetch_field, item[field_name], context)
+                obj = find_existing_entity_by_field(ctx, type_node, upfetch_field, item[field_name], sctx)
                 if obj is None:
-                    obj_name,more_actions,more_post_checks = add_new_entity(info, type_node, item, name_gen, context)
+                    obj_name,more_actions,more_post_checks = add_new_entity(ctx, type_node, item, name_gen, sctx)
                     actions += more_actions
                     post_checks += more_post_checks
                     new_obj_names += [obj_name]
                 else:
-                    new_actions,new_post_checks = update_entity(obj, info, type_node, item, {}, name_gen, context)
+                    new_actions,new_post_checks = update_entity(obj, ctx, type_node, item, {}, name_gen, sctx)
                     actions += new_actions
                     post_checks += new_post_checks
                     updated_objs += [obj]
 
-            r = commit_with_post_checks(actions, post_checks, info, context)
+            r = commit_with_post_checks(actions, post_checks, ctx, sctx)
 
             ents = updated_objs + [r[name] for name in new_obj_names]
             # Note: we return the details after any updates
@@ -1058,25 +1049,26 @@ def resolve_upfetch(info, *, type_node, context, **params):
     #     if info.context["debug_level"] >= 0:
     #         log.error("There was an error in resolve_upfetch", exc_info=exc)
     #     raise Exception("Unexpected error")
-@func
-def resolve_upfetch2(obj, type_node, graphql_info, query_args):
-    try:
-        context = static_context(graphql_info)
-        cfunc = maybe_compile_func(resolve_upfetch, type_node=type_node, context=context, **query_args)
-        return profile(graphql_info, "resolve_upfetch", cfunc)
-    except ExceptionWrapper as exc:
-        if exc.wrapped.name == "External":
-            return exc.wrapped
-        raise
-    except _ErrorType as exc:
-        return exc
+# @func
+# def resolve_upfetch2(obj, type_node, graphql_info, query_args):
+#     try:
+#         context = static_context(graphql_info)
+#         cfunc = maybe_compile_func(resolve_upfetch, type_node=type_node, context=context, **query_args)
+#         return profile(graphql_info, "resolve_upfetch", cfunc)
+#     except ExceptionWrapper as exc:
+#         if exc.wrapped.name == "External":
+#             return exc.wrapped
+#         raise
+#     except _ErrorType as exc:
+#         return exc
 
 @func
 def resolve_upfetch3(obj, info, type_node, **params):
     try:
-        context = static_context(info)
-        cfunc = maybe_compile_func(resolve_upfetch, type_node=type_node, context=context, **params)
-        return maybe_compile_func(profile, "resolve_upfetch", cfunc)(info)
+        sctx = static_context(info)
+        ctx = runtime_context(info)
+        cfunc = maybe_compile_func(resolve_upfetch, type_node=type_node, sctx=sctx, **params)
+        return maybe_compile_func(profile, "resolve_upfetch", cfunc)(ctx)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -1085,28 +1077,28 @@ def resolve_upfetch3(obj, info, type_node, **params):
         return exc
             
         
-def resolve_update(info, *, type_node, context, **params):
+def resolve_update(ctx, *, type_node, sctx, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     # try:
-        if context["read_only"]:
+        if sctx["read_only"]:
             raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             if "input" not in params or "filter" not in params["input"]:
                 raise Exception("Not allowed to update everything!")
             # ents = resolve_query3(None, info, type_node=type_node, filter=params["input"]["filter"], context=context)
-            ents = maybe_compile_func(resolve_query, type_node, context, filter=params["input"]["filter"])(info)
+            ents = maybe_compile_func(resolve_query, type_node, sctx, filter=params["input"]["filter"])(ctx)
 
             actions = []
             post_checks = []
 
             name_gen = NameGen()
             for ent in ents:
-                new_actions,new_post_checks = update_entity(ent, info, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen, context)
+                new_actions,new_post_checks = update_entity(ent, ctx, type_node, params["input"].get("set", {}), params["input"].get("remove", {}), name_gen, sctx)
                 actions += new_actions
                 post_checks += new_post_checks
 
-            commit_with_post_checks(actions, post_checks, info, context)
+            commit_with_post_checks(actions, post_checks, ctx, sctx)
 
             count = len(ents)
 
@@ -1120,25 +1112,26 @@ def resolve_update(info, *, type_node, context, **params):
     #     if info.context["debug_level"] >= 0:
     #         log.error("There was an error in resolve_update", exc_info=exc)
     #     raise Exception("Unexpected error")
-@func
-def resolve_update2(obj, type_node, graphql_info, query_args):
-    try:
-        context = static_context(graphql_info)
-        cfunc = maybe_compile_func(resolve_update, type_node=type_node, context=context, **query_args)
-        return profile(graphql_info, "resolve_update", cfunc)
-    except ExceptionWrapper as exc:
-        if exc.wrapped.name == "External":
-            return exc.wrapped
-        raise
-    except _ErrorType as exc:
-        return exc
+# @func
+# def resolve_update2(obj, type_node, graphql_info, query_args):
+#     try:
+#         context = static_context(graphql_info)
+#         cfunc = maybe_compile_func(resolve_update, type_node=type_node, context=context, **query_args)
+#         return profile(graphql_info, "resolve_update", cfunc)
+#     except ExceptionWrapper as exc:
+#         if exc.wrapped.name == "External":
+#             return exc.wrapped
+#         raise
+#     except _ErrorType as exc:
+#         return exc
 
 @func
 def resolve_update3(obj, info, type_node, **params):
     try:
-        context = static_context(info)
-        cfunc = maybe_compile_func(resolve_update, type_node=type_node, context=context, **params)
-        return maybe_compile_func(profile, "resolve_update", cfunc)(info)
+        sctx = static_context(info)
+        ctx = runtime_context(info)
+        cfunc = maybe_compile_func(resolve_update, type_node=type_node, sctx=sctx, **params)
+        return maybe_compile_func(profile, "resolve_update", cfunc)(ctx)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -1146,24 +1139,24 @@ def resolve_update3(obj, info, type_node, **params):
     except _ErrorType as exc:
         return exc
 
-def resolve_delete(info, *, type_node, context, **params):
+def resolve_delete(ctx, *, type_node, sctx, **params):
     # try:
-        if context["read_only"]:
+        if sctx["read_only"]:
             raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             # Do the same thing as a resolve_query but delete the entities instead.
             if "filter" not in params:
                 raise ExtenalError("Not allowed to delete everything!")
-            ents = resolve_query(info, type_node=type_node, context=context, **params)
+            ents = resolve_query(ctx, type_node=type_node, sctx=sctx, **params)
 
-            if not as_opts_info(ents,info) | map[pass_delete_auth[type_node][context]] | all | collect:
+            if not as_opts_ctx(ents,ctx) | map[pass_delete_auth[type_node][sctx]] | all | collect:
                 raise ExtenalError("Auth check returned False")
 
             post_checks = []
             for ent in ents:
                 post_checks += [("remove", ent, type_node)]
             actions = [terminate(ent) for ent in ents]
-            r = commit_with_post_checks(actions, post_checks, info, context)
+            r = commit_with_post_checks(actions, post_checks, ctx, sctx)
 
             count = len(ents)
 
@@ -1174,25 +1167,26 @@ def resolve_delete(info, *, type_node, context, **params):
     #     if info.context["debug_level"] >= 0:
     #         log.error("There was an error in resolve_delete", exc_info=exc)
     #     raise Exception("Unexpected error")
-@func
-def resolve_delete2(obj, type_node, graphql_info, query_args):
-    try:
-        context = static_context(graphql_info)
-        cfunc = maybe_compile_func(resolve_delete, type_node=type_node, context=context, **query_args)
-        return profile(graphql_info, "resolve_delete", cfunc)
-    except ExceptionWrapper as exc:
-        if exc.wrapped.name == "External":
-            return exc.wrapped
-        raise
-    except _ErrorType as exc:
-        return exc
+# @func
+# def resolve_delete2(obj, type_node, graphql_info, query_args):
+#     try:
+#         context = static_context(graphql_info)
+#         cfunc = maybe_compile_func(resolve_delete, type_node=type_node, context=context, **query_args)
+#         return profile(graphql_info, "resolve_delete", cfunc)
+#     except ExceptionWrapper as exc:
+#         if exc.wrapped.name == "External":
+#             return exc.wrapped
+#         raise
+#     except _ErrorType as exc:
+#         return exc
 
 @func
 def resolve_delete3(obj, info, type_node, **params):
     try:
-        context = static_context(info)
-        cfunc = maybe_compile_func(resolve_delete, type_node=type_node, context=context, **params)
-        return maybe_compile_func(profile, "resolve_delete", cfunc)(info)
+        sctx = static_context(info)
+        ctx = runtime_context(info)
+        cfunc = maybe_compile_func(resolve_delete, type_node=type_node, sctx=sctx, **params)
+        return maybe_compile_func(profile, "resolve_delete", cfunc)(ctx)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
             return exc.wrapped
@@ -1200,25 +1194,26 @@ def resolve_delete3(obj, info, type_node, **params):
     except _ErrorType as exc:
         return exc
 
-def resolve_filter_response(arg, *, type_node, context, **params):
-    obj, info = arg
+def resolve_filter_response(arg, *, type_node, sctx, **params):
+    obj, ctx = arg
     ents = obj["ents"]
 
     # ents = handle_list_params((ents,info), type_node, params, context)
-    ents = maybe_compile_func(handle_list_params, type_node, params, context)((ents,info))
+    ents = maybe_compile_func(handle_list_params, type_node, params, sctx)((ents,ctx))
 
     return ents | collect
-@func
-def resolve_filter_response2(obj, type_node, graphql_info, query_args):
-    context = static_context(graphql_info)
-    cfunc = maybe_compile_func(resolve_filter_response, type_node=type_node, context=context, **query_args)
-    return profile((obj,graphql_info), "resolve_filter_response", cfunc)
+# @func
+# def resolve_filter_response2(obj, type_node, graphql_info, query_args):
+#     context = static_context(graphql_info)
+#     cfunc = maybe_compile_func(resolve_filter_response, type_node=type_node, context=context, **query_args)
+#     return profile((obj,graphql_info), "resolve_filter_response", cfunc)
 
 @func
 def resolve_filter_response3(obj, info, type_node, **params):
-    context = static_context(info)
-    cfunc = maybe_compile_func(resolve_filter_response, type_node=type_node, context=context, **params)
-    return maybe_compile_func(profile, "resolve_filter_response", cfunc)((obj,info))
+    sctx = static_context(info)
+    ctx = runtime_context(info)
+    cfunc = maybe_compile_func(resolve_filter_response, type_node=type_node, sctx=sctx, **params)
+    return maybe_compile_func(profile, "resolve_filter_response", cfunc)((obj,ctx))
 
 
 
@@ -1227,24 +1222,24 @@ def resolve_filter_response3(obj, info, type_node, **params):
 # * Internal query parts
 #--------------------------------------------
 
-def obtain_initial_list(info, type_node, filter_opts, context):
+def obtain_initial_list(ctx, type_node, filter_opts, sctx):
     log.warning("WARNING: running uncompiled version of obtain_initial_list")
-    return maybe_compile_func(obtain_initial_list, type_node, filter_opts, context)(info)
+    return maybe_compile_func(obtain_initial_list, type_node, filter_opts, sctx)(ctx)
 
-def stmts_obtain_initial_list(type_node, filter_opts, context):
-    inputs = ["info"]
+def stmts_obtain_initial_list(type_node, filter_opts, sctx):
+    inputs = ["ctx"]
     stmts = []
 
     if filter_opts is not None and filter_opts.get("id", None) is not None:
         ids = filter_opts["id"]
         # This should only compile once, even if different ids are used.
-        find_cfunc = maybe_compile_func(find_existing_entity_by_id_pass_id, type_node, context)
+        find_cfunc = maybe_compile_func(find_existing_entity_by_id_pass_id, type_node, sctx)
         stmts += [AssignStatement(ids, "ids")]
-        stmts += [PartialStatement(["ids", "info"], 
-                                   as_opts_info,
-                                   "opts_info",
+        stmts += [PartialStatement(["ids", "ctx"], 
+                                   as_opts_ctx,
+                                   "opts_ctx",
                                    starargs=True)]
-        stmts += [PartialStatement("opts_info", 
+        stmts += [PartialStatement("opts_ctx", 
                                    map[find_cfunc]
                                    | filter[Not[equals[None]]],
                                    "zs")
@@ -1255,8 +1250,8 @@ def stmts_obtain_initial_list(type_node, filter_opts, context):
     if op_is_relation(type_node):
         raise ExternalError("Not allowed to query for relations using a non-id filter")
 
-    stmts += [PartialStatement("info",
-                               get_field["context"] | get["gs"],
+    stmts += [PartialStatement("ctx",
+                               get["gs"],
                                "gs")]
 
     type_et = ET(type_node | Out[RT.GQL_Delegate] | collect)
@@ -1268,15 +1263,15 @@ def stmts_obtain_initial_list(type_node, filter_opts, context):
     #     AssignStatement(map, "map"),
     #     AssignStatement(as_list, "as_list"),
     #     AssignStatement(append, "append"),
-    #     RawASTStatement("opts_info = opts | map[as_list | append[info]]")
+    #     RawASTStatement("opts_ctx = opts | map[as_list | append[ctx]]")
     # ]
-    stmts += [PartialStatement(["opts", "info"],
-                               as_opts_info,
-                               "opts_info",
+    stmts += [PartialStatement(["opts", "ctx"],
+                               as_opts_ctx,
+                               "opts_ctx",
                                starargs=True)]
                                
-    stmts += [PartialStatement("opts_info",
-                               filter[profile["initial_query_auth"][pass_query_auth[type_node][context]]]
+    stmts += [PartialStatement("opts_ctx",
+                               filter[profile["initial_query_auth"][pass_query_auth[type_node][sctx]]]
                                | map[first],
                                "opts")]
 
@@ -1286,30 +1281,30 @@ def stmts_obtain_initial_list(type_node, filter_opts, context):
 compiling.compilable_funcs[obtain_initial_list] = stmts_obtain_initial_list
     
 
-def handle_list_params(arg, z_node, params, context):
+def handle_list_params(arg, z_node, params, sctx):
     log.warning("WARNING: running uncompiled version of handle_list_params")
-    return maybe_compile_func(handle_list_params, z_node, params, context)(arg)
+    return maybe_compile_func(handle_list_params, z_node, params, sctx)(arg)
 
-def stmts_handle_list_params(z_node, params, context):
+def stmts_handle_list_params(z_node, params, sctx):
     inputs = ["arg"]
     stmts = []
 
-    stmts += [PartialStatement("arg", identity, ["opts", "info"])]
+    stmts += [PartialStatement("arg", identity, ["opts", "ctx"])]
     if len(params) > 0:
-        stmts += [PartialStatement(["opts", "info"], as_opts_info, "opts_info", starargs=True)]
+        stmts += [PartialStatement(["opts", "ctx"], as_opts_ctx, "opts_ctx", starargs=True)]
         if "filter" in params:
-            stmts += [PartialStatement("opts_info",
-                                       maybe_filter_result(z_node, context, params["filter"]),
-                                       "opts_info")]
+            stmts += [PartialStatement("opts_ctx",
+                                       maybe_filter_result(z_node, sctx, params["filter"]),
+                                       "opts_ctx")]
         if "order" in params:
-            stmts += [PartialStatement("opts_info",
-                                       maybe_sort_result(z_node, context, params["order"]),
-                                       "opts_info")]
+            stmts += [PartialStatement("opts_ctx",
+                                       maybe_sort_result(z_node, sctx, params["order"]),
+                                       "opts_ctx")]
         if "first" in params or "offset" in params:
-            stmts += [PartialStatement("opts_info",
+            stmts += [PartialStatement("opts_ctx",
                                        maybe_paginate_result(params.get("first", None), params.get("offset", None)),
-                                       "opts_info")]
-        stmts += [PartialStatement("opts_info",
+                                       "opts_ctx")]
+        stmts += [PartialStatement("opts_ctx",
                                     map[first],
                                     "opts")]
         stmts += [PartialStatement("opts", collect, "opts")]
@@ -1319,20 +1314,20 @@ def stmts_handle_list_params(z_node, params, context):
 compiling.compilable_funcs[handle_list_params] = stmts_handle_list_params
 
 @func
-def field_resolver_by_name(arg, type_node, context, name):
-    z,info = arg
+def field_resolver_by_name(arg, type_node, sctx, name):
+    z,ctx = arg
     if name == "id":
-        return resolve_id(z, info)
+        return resolve_id(z, ctx)
     sub_field = get_field_rel_by_name(type_node, name)
-    # return resolve_field(z, info=info, z_field=sub_field)
-    return resolve_field((z, info), z_field=sub_field, context=context)
+    # return resolve_field(z, ctx=ctx, z_field=sub_field)
+    return resolve_field((z, ctx), z_field=sub_field, sctx=sctx)
 
-def stmts_field_resolver_by_name(type_node, context, name):
+def stmts_field_resolver_by_name(type_node, sctx, name):
     if name == "id":
         # return compiling.maybe_compile_func(resolve_id)
         inputs = ["arg"]
-        stmts = [PartialStatement("arg", identity, ["z", "info"]),
-                 PartialStatement(["z", "info"],
+        stmts = [PartialStatement("arg", identity, ["z", "ctx"]),
+                 PartialStatement(["z", "ctx"],
                                   resolve_id,
                                   "out",
                                   starargs=True),
@@ -1340,20 +1335,20 @@ def stmts_field_resolver_by_name(type_node, context, name):
         return FunctionDecl(inputs=inputs, stmts=stmts)
 
     sub_field = get_field_rel_by_name(type_node, name)
-    return compiling.maybe_compile_func(resolve_field, z_field=sub_field, context=context)
+    return compiling.maybe_compile_func(resolve_field, z_field=sub_field, sctx=sctx)
 
 compiling.compilable_funcs[get_zfunc_func(field_resolver_by_name)] = stmts_field_resolver_by_name
 
 
 # ** Filtering
 
-def maybe_filter_result(z_node, context, fil=None):
+def maybe_filter_result(z_node, sctx, fil=None):
     if fil is None:
         return identity
 
-    temp_fil = build_filter_zefop(fil, z_node, context)
+    temp_fil = build_filter_zefop(fil, z_node, sctx)
     temp_fil = profile["result_filter_pred"][temp_fil]
-    if context["debug_level"] >= 4:
+    if sctx["debug_level"] >= 4:
         log.debug("DEBUG 4: filter is", fil=temp_fil)
         temp_fil = (apply[identity, temp_fil]
                     | tap[match[
@@ -1422,21 +1417,21 @@ def maybe_filter_result(z_node, context, fil=None):
 
 #     return top
 
-def build_filter_zefop(fil, z_node, context):
-    field_resolver = field_resolver_by_name[z_node][context]
+def build_filter_zefop(fil, z_node, sctx):
+    field_resolver = field_resolver_by_name[z_node][sctx]
     # top level is ands
     top = And
     for key,sub in fil.items():
         if key == "and":
             this = And
             for part in sub:
-                this = this[build_filter_zefop(part, z_node, context)]
+                this = this[build_filter_zefop(part, z_node, sctx)]
         elif key == "or":
             this = Or
             for part in sub:
-                this = this[build_filter_zefop(part, z_node, context)]
+                this = this[build_filter_zefop(part, z_node, sctx)]
         elif key == "not":
-            this = Not[build_filter_zefop(sub, z_node, context)]
+            this = Not[build_filter_zefop(sub, z_node, sctx)]
         elif key == "id":
             # This is handled specially - functions like an "in".
             val = field_resolver["id"]
@@ -1453,10 +1448,10 @@ def build_filter_zefop(fil, z_node, context):
                 list_top = And
                 for list_key,list_sub in sub.items():
                     if list_key == "any":
-                        sub_fil = build_filter_zefop(list_sub, z_field_node, context)
+                        sub_fil = build_filter_zefop(list_sub, z_field_node, sctx)
                         list_top = list_top[val | map[sub_fil] | any]
                     elif list_key == "all":
-                        sub_fil = build_filter_zefop(list_sub, z_field_node, context)
+                        sub_fil = build_filter_zefop(list_sub, z_field_node, sctx)
                         list_top = list_top[val | map[sub_fil] | all]
                     elif list_key == "size":
                         temp = val | length | scalar_comparison_op(list_sub)
@@ -1470,7 +1465,7 @@ def build_filter_zefop(fil, z_node, context):
                 else:
                     this = val | scalar_comparison_op(sub)
             else:
-                sub_fil = build_filter_zefop(sub, z_field_node, context)
+                sub_fil = build_filter_zefop(sub, z_field_node, sctx)
                 this = val | And[Not[equals[None]]][sub_fil]
 
 
@@ -1529,11 +1524,11 @@ def get_field_rel_by_name(z_type, name):
 
 # ** Sorting
 
-def maybe_sort_result(z_node, context, sort_decl=None):
+def maybe_sort_result(z_node, sctx, sort_decl=None):
     if sort_decl is None:
         return identity
 
-    field_resolver = field_resolver_by_name[z_node][context]
+    field_resolver = field_resolver_by_name[z_node][sctx]
 
     # First, get the list of things to sort by, so that we can reverse it
     sort_list = []
@@ -1568,15 +1563,15 @@ def maybe_paginate_result(first=None, offset=None):
 # ** Resolution
 
 @func
-def internal_resolve_field(arg, z_field, context, auth_required=True):
+def internal_resolve_field(arg, z_field, sctx, auth_required=True):
     p_name = f"internal field {z_field | source | F.Name | collect}.{z_field | F.Name | collect}"
-    return profile(None, p_name, lambda _: internal_resolve_field_profiled(arg, z_field, context, auth_required))
+    return profile(None, p_name, lambda _: internal_resolve_field_profiled(arg, z_field, sctx, auth_required))
 
-def stmts_internal_resolve_field(z_field, context, auth_required=True):
+def stmts_internal_resolve_field(z_field, sctx, auth_required=True):
     p_name = f"internal field {z_field | source | F.Name | collect}.{z_field | F.Name | collect}"
     stmts = [
         PartialStatement("arg",
-                         profile[p_name][internal_resolve_field_profiled[z_field][context][auth_required]],
+                         profile[p_name][internal_resolve_field_profiled[z_field][sctx][auth_required]],
                          # internal_resolve_field_profiled[z_field][context][auth_required],
                          "res"),
         ReturnStatement("res")
@@ -1587,71 +1582,13 @@ def stmts_internal_resolve_field(z_field, context, auth_required=True):
 compiling.compilable_funcs[get_zfunc_func(internal_resolve_field)] = stmts_internal_resolve_field
 
 @func
-def internal_resolve_field_profiled(arg, z_field, context, auth_required=True):
+def internal_resolve_field_profiled(arg, z_field, sctx, auth_required=True):
     raise Exception("Not allowed here anymore")
-    z,info = arg
-    # This returns a LazyValue so we can deal with whatever comes out without
-    # instantiating the whole list.
 
-    # Also *only* returns that list. The calling function needs to apply the single/list logic
-    
-    is_incoming = z_field | op_is_incoming | collect
-    # This is a delegate
-    if z_field | has_out[RT.GQL_Resolve_With] | collect:
-        relation = z_field | Out[RT.GQL_Resolve_With] | collect
-        is_triple = source(relation) != relation
-
-        rt = RT(relation)
-
-        if is_triple:
-            if is_incoming:
-                assert rae_type(z) == rae_type(target(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {target(relation)!r}"
-            else:
-                assert rae_type(z) == rae_type(source(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {source(relation)!r}"
-
-        if is_incoming:
-            opts = z | Ins[rt]
-            if is_triple:
-                opts = opts | filter[is_a[rae_type(source(relation))]]
-        else:
-            opts = z | Outs[rt]
-            if is_triple:
-                opts = opts | filter[is_a[rae_type(target(relation))]]
-    elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
-        auth = info.context.get('auth', None)
-        opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, auth, z_field, context)
-        # This is to mimic the behaviour that people probably expect from a
-        # non-list resolver.
-        if type(opts) not in [list,tuple]:
-            if opts is None:
-                opts = []
-            else:
-                opts = [opts]
-    else:
-        raise Exception(f"Don't know how to resolve this field: {z_field}")
-
-    if auth_required:
-        p_name = f"internal field auth filter {z_field | source | F.Name | collect}.{z_field | F.Name | collect}"
-        opts = (opts
-                | map[as_list | append[info]]
-                | profile[p_name][filter[pass_query_auth[target(z_field)][info]]]
-                | map[first])
-
-    # We must convert final objects from AEs to python types.
-    # if z_field | target | is_core_scalar | collect:
-    if z_field | target | op_is_scalar | collect:
-        # With a dynamic resolver, the items could also be values, so only apply value if they are ZefRefs
-        opts = opts | map[match[
-            (ZefRef, value),
-            (Any, identity)
-        ]]
-
-    return opts
-
-def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
+def stmts_internal_resolve_field_profiled(z_field, sctx, auth_required=True):
     inputs = ["arg"]
     stmts = []
-    stmts += [PartialStatement("arg", identity, ["z", "info"])]
+    stmts += [PartialStatement("arg", identity, ["z", "ctx"])]
     
     is_incoming = z_field | op_is_incoming | collect
     # This is a delegate
@@ -1683,8 +1620,8 @@ def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
                                            "opts")]
     elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
         cfunc = maybe_compile_func(func[z_field | Out[RT.GQL_FunctionResolver] | collect])
-        stmts += [PartialStatement("info",
-                                   get_field["context"] | get["auth"][None],
+        stmts += [PartialStatement("ctx",
+                                   get["auth"][None],
                                    "auth")]
         # stmts += [AssignStatement(z_field, "z_field")]
         # stmts += [PartialStatement(["z","auth","z_field"],
@@ -1697,7 +1634,7 @@ def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
             key = (z,freeze(auth))
             val = lookup_cache.get(key, None)
             if val is None:
-                val = cfunc(z, auth, z_field, context)
+                val = cfunc(z, auth, z_field, sctx)
                 if isinstance(val, LazyValue):
                     val = collect(val)
                 print("Cache miss")
@@ -1731,9 +1668,9 @@ def stmts_internal_resolve_field_profiled(z_field, context, auth_required=True):
         # stmts += [AssignStatement(map, "map")]
         # stmts += [RawASTStatement("opts_info = opts | map[as_list | append[info]]")]
         # stmts += [PartialStatement(["opts", "info"], profile["as_opts_info"][as_opts_info], "opts_info", starargs=True)]
-        stmts += [PartialStatement(["opts", "info"], as_opts_info, "opts_info", starargs=True)]
-        stmts += [PartialStatement("opts_info",
-                                   (profile[p_name][filter[pass_query_auth[target(z_field)][context]]]
+        stmts += [PartialStatement(["opts", "ctx"], as_opts_ctx, "opts_ctx", starargs=True)]
+        stmts += [PartialStatement("opts_ctx",
+                                   (profile[p_name][filter[pass_query_auth[target(z_field)][sctx]]]
                                     | map[first]),
                                    "opts")]
 
@@ -1765,25 +1702,25 @@ def NameGen():
         n += 1
         yield n
 
-def find_existing_entity_by_id(info, type_node, id, context):
+def find_existing_entity_by_id(ctx, type_node, id, sctx):
     if id is None:
         return None
     the_uid = uid(id)
     if the_uid is None:
         raise Exception(f"An id of {id} cannot be converted to a uid.")
     
-    gs = info.context["gs"]
+    gs = ctx["gs"]
 
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
     ent = gs[uid(id)] | collect
     if not is_a(ent, et):
         return None
-    if not (ent,info) | pass_query_auth[type_node][context] | collect:
+    if not (ent,ctx) | pass_query_auth[type_node][sctx] | collect:
         return None
 
     return ent
-def stmts_find_existing_entity_by_id(type_node, id, context):
-    inputs = ["info"]
+def stmts_find_existing_entity_by_id(type_node, id, sctx):
+    inputs = ["ctx"]
     stmts = []
 
     if id is None:
@@ -1792,8 +1729,8 @@ def stmts_find_existing_entity_by_id(type_node, id, context):
     if the_uid is None:
         raise Exception(f"An id of {id} cannot be converted to a uid.")
     
-    stmts += [PartialStatement("info",
-                               get_field["context"] | get["gs"],
+    stmts += [PartialStatement("ctx",
+                               get["gs"],
                                "gs")]
 
     rae = rae_type(type_node | Out[RT.GQL_Delegate] | collect)
@@ -1807,8 +1744,8 @@ def stmts_find_existing_entity_by_id(type_node, id, context):
                                is_a[rae],
                                "check")]
     stmts += [RawASTStatement("if not check: return None")]
-    stmts += [PartialStatement(["ent", "info"],
-                               pass_query_auth[type_node][context],
+    stmts += [PartialStatement(["ent", "ctx"],
+                               pass_query_auth[type_node][sctx],
                                "query_check")]
     stmts += [RawASTStatement("if not query_check: return None")]
     stmts += [ReturnStatement("ent")]
@@ -1816,23 +1753,23 @@ def stmts_find_existing_entity_by_id(type_node, id, context):
     return FunctionDecl(inputs=inputs, stmts=stmts)
 compiling.compilable_funcs[find_existing_entity_by_id] = stmts_find_existing_entity_by_id
 
-def find_existing_entity_by_id_pass_id(arg, type_node, context):
-    id,info = arg
+def find_existing_entity_by_id_pass_id(arg, type_node, sctx):
+    id,ctx = arg
     # Copy of the above func, only the compilation is different.
-    return find_existing_entity_by_id(input, type_node, id, context)
+    return find_existing_entity_by_id(input, type_node, id, sctx)
 
-def stmts_find_existing_entity_by_id_pass_id(type_node, context):
+def stmts_find_existing_entity_by_id_pass_id(type_node, sctx):
     inputs = ["arg"]
     stmts = []
 
     from ...core.internals import to_uid
-    stmts += [PartialStatement("arg", identity, ["id", "info"])]
+    stmts += [PartialStatement("arg", identity, ["id", "ctx"])]
     stmts += [RawASTStatement("if id is None: return None")]
     stmts += [PartialStatement("id", to_uid, "the_uid")]
     stmts += [RawASTStatement("if the_uid is None: raise Exception(f'An id of {id} cannot be converted to a uid.')")]
     
-    stmts += [PartialStatement("info",
-                               get_field["context"] | get["gs"],
+    stmts += [PartialStatement("ctx",
+                               get["gs"],
                                "gs")]
 
     rae = rae_type(type_node | Out[RT.GQL_Delegate] | collect)
@@ -1846,8 +1783,8 @@ def stmts_find_existing_entity_by_id_pass_id(type_node, context):
                                is_a[rae],
                                "check")]
     stmts += [RawASTStatement("if not check: return None")]
-    stmts += [PartialStatement(["ent", "info"],
-                               pass_query_auth[type_node][context],
+    stmts += [PartialStatement(["ent", "ctx"],
+                               pass_query_auth[type_node][sctx],
                                "query_check")]
     stmts += [RawASTStatement("if not query_check: return None")]
     stmts += [ReturnStatement("ent")]
@@ -1855,14 +1792,14 @@ def stmts_find_existing_entity_by_id_pass_id(type_node, context):
     return FunctionDecl(inputs=inputs, stmts=stmts)
 compiling.compilable_funcs[find_existing_entity_by_id_pass_id] = stmts_find_existing_entity_by_id_pass_id
 
-def find_existing_entity_by_field(info, type_node, z_field, val, context):
+def find_existing_entity_by_field(ctx, type_node, z_field, val, sctx):
     if val is None:
         raise Exception("Can't find an entity by a None field value")
 
     if op_is_relation(type_node):
         raise Exception("Can't query for all types when that type is a relation.")
 
-    gs = info.context["gs"]
+    gs = ctx["gs"]
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
 
     # Note: we filter out with query auth even though this may mean we return
@@ -1871,14 +1808,14 @@ def find_existing_entity_by_field(info, type_node, z_field, val, context):
     # because the field is also @unique then this will fail. Better to keep the
     # failure point at the same location so we can determine what kind of error
     # to return and whether this will leak sensitive information.
-    ent = (gs | all[et] | filter[func[lambda x: [x,info]] | pass_query_auth[type_node][context]]
-           | filter[internal_resolve_field[info][z_field] | optional | equals[val]]
+    ent = (gs | all[et] | filter[func[lambda x: [x,ctx]] | pass_query_auth[type_node][sctx]]
+           | filter[internal_resolve_field[ctx][z_field] | optional | equals[val]]
            | optional
            | collect)
 
     return ent
 
-def add_new_entity(info, type_node, params, name_gen, context):
+def add_new_entity(ctx, type_node, params, name_gen, sctx):
 
     actions = []
     post_checks = []
@@ -1916,9 +1853,9 @@ def add_new_entity(info, type_node, params, name_gen, context):
 
         if z_field | target | op_is_scalar | collect:
             if op_is_unique(z_field):
-                others = info.context["gs"] | all[et] | filter[fvalue[rt][None] | equals[val]] | func[set] | collect
+                others = ctx["gs"] | all[et] | filter[fvalue[rt][None] | equals[val]] | func[set] | collect
                 if len(others) > 0:
-                    if info.context["debug_level"] >= 0:
+                    if sctx["debug_level"] >= 0:
                         log.error("Trying to add a new entity with unique field that conflicts with others", et=et, field=field_name, others=others)
                     raise ExternalError(f"Unique field '{field_name}' conflicts with existing items.")
             if z_field | op_is_list | collect:
@@ -1941,7 +1878,7 @@ def add_new_entity(info, type_node, params, name_gen, context):
                 l = [val]
 
             for item in l:
-                obj,obj_actions,obj_post_checks = find_or_add_entity(item, info, target(z_field), name_gen, context)
+                obj,obj_actions,obj_post_checks = find_or_add_entity(item, ctx, target(z_field), name_gen, sctx)
                 actions += obj_actions
                 post_checks += obj_post_checks
                 if z_field | op_is_incoming | collect:
@@ -1951,21 +1888,21 @@ def add_new_entity(info, type_node, params, name_gen, context):
 
     return this, actions, post_checks
 
-def find_or_add_entity(val, info, target_node, name_gen, context):
+def find_or_add_entity(val, ctx, target_node, name_gen, sctx):
     if isinstance(val, dict) and val.get("id", None) is not None:
         # There should be no other fields given for this entity, otherwise the meaning is unclear.
         if set(val.keys()) != {"id"}:
             raise ExternalError("An entity should be designated with either an 'id' or a set of new fields to create a new entity.")
-        obj = find_existing_entity_by_id(info, target_node, val["id"], context)
+        obj = find_existing_entity_by_id(ctx, target_node, val["id"], sctx)
         if obj is None:
             raise ExternalError(f"Unable to find entity of kind '{target_node | F.Name | collect}' with id '{val['id']}'.")
         return obj,[],[]
     else:
-        obj_name,actions,post_checks = add_new_entity(info, target_node, val, name_gen, context)
+        obj_name,actions,post_checks = add_new_entity(ctx, target_node, val, name_gen, sctx)
         return Z[obj_name], actions, post_checks
     
 
-def update_entity(z, info, type_node, set_d, remove_d, name_gen, context):
+def update_entity(z, ctx, type_node, set_d, remove_d, name_gen, sctx):
     type_name = type_node | F.Name | collect
 
     # Refuse to set and remove the same thing. Just too confusing to deal with
@@ -1975,7 +1912,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen, context):
 
     # This is the pre-update auth only
     # TODO: Post-update auth
-    if not pass_pre_update_auth((z, info), type_node, context):
+    if not pass_pre_update_auth((z, ctx), type_node, sctx):
         raise ExternalError("Not allowed to update")
 
     actions = []
@@ -2000,7 +1937,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen, context):
             else:
                 found_zs = []
                 for ent_val in val:
-                    found_z,new_actions,new_post_checks = find_or_add_entity(ent_val, info, target(z_field), name_gen, context)
+                    found_z,new_actions,new_post_checks = find_or_add_entity(ent_val, ctx, target(z_field), name_gen, sctx)
                     actions += new_actions
                     post_checks += new_post_checks
                     found_zs += [found_z]
@@ -2028,7 +1965,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen, context):
             if z_field | target | op_is_scalar | collect:
                 actions += [z | set_field[rt][val][op_is_incoming(z_field)]]
             else:
-                found_z,new_actions,new_post_checks = find_or_add_entity(val, info, target(z_field), name_gen, context)
+                found_z,new_actions,new_post_checks = find_or_add_entity(val, ctx, target(z_field), name_gen, sctx)
                 actions += new_actions
                 post_checks += new_post_checks
 
@@ -2065,10 +2002,10 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen, context):
 # * Auth things
 #----------------------------
 
-def pass_auth_generic(arg, schema_node, context, rt_list):
-    return maybe_compile_func(pass_auth_generic, schema_node, context, rt_list)(arg)
+def pass_auth_generic(arg, schema_node, sctx, rt_list):
+    return maybe_compile_func(pass_auth_generic, schema_node, sctx, rt_list)(arg)
     raise Exception("Don't want to get here anymore")
-    z,info = arg
+    z,ctx = arg
 
     to_call = None
     for rt in rt_list:
@@ -2090,11 +2027,11 @@ def pass_auth_generic(arg, schema_node, context, rt_list):
 
     return user_func({
         'z': z,
-        'auth': info.context.get('auth', None),
+        'auth': ctx['auth'],
         'type_node': schema_node
     })
 
-def stmts_pass_auth_generic(schema_node, context, rt_list):
+def stmts_pass_auth_generic(schema_node, sctx, rt_list):
     inputs = ["arg"]
     stmts = []
 
@@ -2108,13 +2045,16 @@ def stmts_pass_auth_generic(schema_node, context, rt_list):
 
     s = to_call | value | collect
 
-    user_func = compile_user_string(s, schema_node, context)
+    user_func = compile_user_string(s, schema_node, sctx)
+    if type(user_func) == ConstResult:
+        return user_func
     stmts += [
         PartialStatement("arg",
                          identity,
-                         ["z", "info"]),
+                         ["z", "ctx"]),
         AssignStatement(schema_node, "type_node"),
-        RawASTStatement("d_input = {'z': z, 'info': info, 'auth': info.context.get('auth', None), 'type_node': type_node}"),
+        AssignStatement(sctx, "sctx"),
+        RawASTStatement("d_input = {'z': z, 'ctx': ctx, 'type_node': type_node, 'sctx': sctx}"),
         # PartialStatement("d_input", profile["calling user_func"][user_func], "res"),
         PartialStatement("d_input", user_func, "res"),
         ReturnStatement("res"),
@@ -2125,29 +2065,29 @@ def stmts_pass_auth_generic(schema_node, context, rt_list):
 compiling.compilable_funcs[pass_auth_generic] = stmts_pass_auth_generic
 
 @func
-def pass_query_auth(arg, schema_node, context):
-    return pass_auth_generic(arg, schema_node, context, [RT.AllowQuery])
+def pass_query_auth(arg, schema_node, sctx):
+    return pass_auth_generic(arg, schema_node, sctx, [RT.AllowQuery])
 
-def stmts_pass_query_auth(schema_node, context):
-    return maybe_compile_func(pass_auth_generic, schema_node, context, [RT.AllowQuery])
+def stmts_pass_query_auth(schema_node, sctx):
+    return maybe_compile_func(pass_auth_generic, schema_node, sctx, [RT.AllowQuery])
 
 compiling.compilable_funcs[get_zfunc_func(pass_query_auth)] = stmts_pass_query_auth
 
 @func
-def pass_add_auth(arg, schema_node, context):
-    return pass_auth_generic(arg, schema_node, context, [RT.AllowAdd, RT.AllowQuery])
+def pass_add_auth(arg, schema_node, sctx):
+    return pass_auth_generic(arg, schema_node, sctx, [RT.AllowAdd, RT.AllowQuery])
 
 @func
-def pass_pre_update_auth(arg, schema_node, context):
-    return pass_auth_generic(arg, schema_node, context, [RT.AllowUpdate, RT.AllowQuery])
+def pass_pre_update_auth(arg, schema_node, sctx):
+    return pass_auth_generic(arg, schema_node, sctx, [RT.AllowUpdate, RT.AllowQuery])
 
 @func
-def pass_post_update_auth(arg, schema_node, context):
-    return pass_auth_generic(arg, schema_node, context, [RT.AllowUpdatePost, RT.AllowUpdate, RT.AllowQuery])
+def pass_post_update_auth(arg, schema_node, sctx):
+    return pass_auth_generic(arg, schema_node, sctx, [RT.AllowUpdatePost, RT.AllowUpdate, RT.AllowQuery])
 
 @func
-def pass_delete_auth(arg, schema_node, context):
-    return pass_auth_generic(arg, schema_node, context, [RT.AllowDelete, RT.AllowUpdate, RT.AllowQuery])
+def pass_delete_auth(arg, schema_node, sctx):
+    return pass_auth_generic(arg, schema_node, sctx, [RT.AllowDelete, RT.AllowUpdate, RT.AllowQuery])
 
 def temporary__call_string_as_func(s, **kwds):
     from ... import core, ops
@@ -2171,7 +2111,7 @@ def temporary__call_string_as_func(s, **kwds):
 
     return out
 
-def compile_user_string(s, schema_node, context):
+def compile_user_string(s, schema_node, sctx):
     # We accept only ZefOps here
     from ... import core, ops
     try:
@@ -2180,19 +2120,20 @@ def compile_user_string(s, schema_node, context):
                 **{name: getattr(core,name) for name in dir(core) if not name.startswith("_")},
                 **{name: getattr(ops,name) for name in dir(ops) if not name.startswith("_")},
                 #"auth_field": P(auth_helper_auth_field, **kwds),
-                "auth_field": auth_helper_auth_field_compilable[schema_node][context],
+                "auth_field": auth_helper_auth_field_compilable[schema_node][sctx],
+                # "resolve_field": maybe_compile_func(resolve_field, schema_node, sctx),
             },
         )
     except Exception as exc:
         log.error("Problem evalling auth expression", expr=s, exc_info=exc)
-        return False
+        return ConstResult(False)
 
     if not type(out) == ZefOp:
         raise Exception("User expression didn't evaluate to a ZefOp")
 
     return maybe_compile_func(out)
 
-def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
+def auth_helper_auth_field(field_name, ctx, *, z, type_node, sctx):
     # A helper function for graphql schema, that requests an auth check of the
     # given kind on one of its fields.
 
@@ -2200,10 +2141,10 @@ def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
     try:
         z_field = get_field_rel_by_name(type_node, field_name)
         z_field_node = target(z_field)
-        val = field_resolver_by_name(z, type_node, context, field_name)
+        val = field_resolver_by_name(z, type_node, sctx, field_name)
     except Exception as exc:
         # Going to assume this is because traversal failed auth along the way somewhere.
-        if info.context["debug_level"] >= 0:
+        if sctx["debug_level"] >= 0:
             log.error("auth_field helper got an exception, assuming failure of auth", exc_info=exc)
         return False
 
@@ -2224,12 +2165,12 @@ def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
     else:
         raise Exception(f"Don't understand auth type '{auth}' in auth_helper_auth_field")
 
-    return func(val, z_field_node, context)
+    return func(val, z_field_node, sctx)
 
 @func
-def auth_helper_auth_field_compilable(arg, type_node, context, field_name, auth):
+def auth_helper_auth_field_compilable(arg, type_node, sctx, field_name, auth):
     z = arg["z"]
-    info = arg["info"]
+    ctx = arg["ctx"]
     # A helper function for graphql schema, that requests an auth check of the
     # given kind on one of its fields.
 
@@ -2238,10 +2179,10 @@ def auth_helper_auth_field_compilable(arg, type_node, context, field_name, auth)
         z_field = get_field_rel_by_name(type_node, field_name)
         z_field_node = target(z_field)
         # val = field_resolver_by_name((z,info), type_node, context, field_name)
-        val = maybe_compile_func(field_resolver_by_name, type_node, context, field_name)((z,info))
+        val = maybe_compile_func(field_resolver_by_name, type_node, sctx, field_name)((z,ctx))
     except Exception as exc:
         # Going to assume this is because traversal failed auth along the way somewhere.
-        if context["debug_level"] >= 0:
+        if sctx["debug_level"] >= 0:
             log.error("auth_field helper got an exception, assuming failure of auth", exc_info=exc)
         return False
 
@@ -2262,12 +2203,12 @@ def auth_helper_auth_field_compilable(arg, type_node, context, field_name, auth)
     else:
         raise Exception(f"Don't understand auth type '{auth}' in auth_helper_auth_field")
 
-    return func((val, info), z_field_node, context)
+    return func((val, ctx), z_field_node, sctx)
 
 
 
-def commit_with_post_checks(actions, post_checks, info, context):
-    g = Graph(info.context["gs"])
+def commit_with_post_checks(actions, post_checks, ctx, sctx):
+    g = Graph(ctx["gs"])
     with Transaction(g):
         try:
             r = actions | transact[g] | run
@@ -2289,7 +2230,7 @@ def commit_with_post_checks(actions, post_checks, info, context):
                             func[z_func](obj)
                         except:
                             raise ExternalError(f"OnCreate hook for type_node of '{type_name}' threw an exception")
-                    if not pass_add_auth((obj, info), type_node, context):
+                    if not pass_add_auth((obj, ctx), type_node, sctx):
                         raise ExternalError(f"Add auth check for type_node of '{type_name}' returned False")
                 elif kind == "update":
                     for z_func in type_node | Outs[RT.OnUpdate]:
@@ -2297,7 +2238,7 @@ def commit_with_post_checks(actions, post_checks, info, context):
                             func[z_func](obj)
                         except:
                             raise ExternalError(f"OnUpdate hook for type_node of '{type_name}' threw an exception")
-                    if not pass_post_update_auth((obj, info), type_node, context):
+                    if not pass_post_update_auth((obj, ctx), type_node, sctx):
                         raise ExternalError(f"Post-update auth check for type_node of '{type_name}' returned False")
                 elif kind == "remove":
                     for z_func in type_node | Outs[RT.OnRemove]:
@@ -2312,17 +2253,17 @@ def commit_with_post_checks(actions, post_checks, info, context):
                     # Get all values - note this is not filtered by the user's
                     # viewpoint, so we need to be a little careful.
                     ents = g | zo.now | all[ET(type_node | Out[RT.GQL_Delegate] | collect)]
-                    vals = ents | map[func[lambda x: [x,info]] | internal_resolve_field[z_field][info][False]] | concat | collect
+                    vals = ents | map[func[lambda x: [x,ctx]] | internal_resolve_field[z_field][sctx][False]] | concat | collect
 
                     dis = distinct(vals)
                     if len(dis) != len(vals):
-                        if info.context["debug_level"] >= 0:
+                        if sctx["debug_level"] >= 0:
                             log.error("Non-unique values", vals=set(vals) - set(dis))
                         raise ExternalError(f"Non-unique values found for field '{z_field | F.Name | collect}' of type_node '{type_name}'")
 
 
         except Exception as exc:
-            if info.context["debug_level"] >= 0:
+            if sctx["debug_level"] >= 0:
                 log.error("Aborting transaction",
                           exc_info=exc)
             from ...pyzef.internals import AbortTransaction
