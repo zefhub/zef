@@ -96,6 +96,7 @@ class _LocalFile_Class():
     Write = FXElement(('LocalFile', 'Write'))
     Save = FXElement(('LocalFile', 'Save'))
     SystemOpenWith = FXElement(('LocalFile', 'SystemOpenWith'))
+    MonitorPath     = FXElement(('LocalFile', 'MonitorPath'))
     
 
 class _S3_Class():
@@ -115,6 +116,7 @@ class _Graph_Class():
     TakeTransactorRole = FXElement(('Graph', 'TakeTransactorRole'))
     ReleaseTransactorRole = FXElement(('Graph', 'ReleaseTransactorRole'))
     Transact = FXElement(('Graph', 'Transact'))
+    Load = FXElement(('Graph', 'Load'))
     # Or does it make more sense to write FX.Tag.Graph? Tagging of RAEs definitely belongs into a GraphDelta / graph tx though
 
 class _Stream_Class():

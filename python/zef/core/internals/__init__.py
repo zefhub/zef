@@ -15,7 +15,7 @@
 # Note: This should never depend on core at the top level!
 
 from ...pyzef.internals import (
-    AtomicEntityTypeStruct,
+    AttributeEntityTypeStruct,
     BaseUID,
     BlobType,
     BlobTypeStruct,
@@ -70,12 +70,12 @@ from ...pyzef.internals import (
     is_BaseUID,
     is_EternalUID,
     is_ZefRefUID,
-    is_aet_a_enum,
-    is_aet_a_quantity_float,
-    is_aet_a_quantity_int,
+    is_vrt_a_enum,
+    is_vrt_a_quantity_float,
+    is_vrt_a_quantity_int,
     is_any_UID,
     is_delegate,
-    is_delegate_group,
+    is_delegate_relation_group,
     is_root,
     is_up_to_date,
     list_graph_manager_uids,
@@ -101,6 +101,7 @@ from ...pyzef.internals import (
     stop_connection,
     to_uid,
     validate_message_version,
+    VRT,
     wait_for_auth,
 )
 
@@ -124,6 +125,10 @@ from .merges import register_merge_handler
 register_merge_handler()
 from .schema import register_schema_validator
 register_schema_validator()
+from .value_type_check import register_value_type_check
+register_value_type_check()
+from .determine_primitive_type import register_determine_primitive_type
+register_determine_primitive_type()
 
 BT = BlobTypeStruct()
 
@@ -170,13 +175,25 @@ def Transaction(g, wait=None, rollback_empty=None, check_schema=None):
 def assign_value_imp(z, value):
     from .._ops import is_a
     from ...pyzef.zefops import SerializedValue, assign_value as c_assign_value
-    from ..serialization import serialize, serialization_mapping
+    from ..VT import ValueType_
 
     assert isinstance(z, ZefRef) or isinstance(z, EZefRef)
     if is_a(z, AET.Serialized):
-        if type(z) in serialization_mapping:
-            from json import dumps
-            value = SerializedValue("tools.serialize", dumps(serialize(value)))
-        else:
-            raise Exception(f"Don't know how to serialize a type of {val}")
+        value = SerializedValue.serialize(value)
+    if isinstance(value, ValueType_):
+        value = AET[value]
     c_assign_value(z, value)
+
+
+def instantiate_value_node_imp(value, g):
+    from ...pyzef.zefops import SerializedValue
+    from ...pyzef.main import instantiate_value_node as c_instantiate_value_node
+    from .._ops import is_a
+    from ..VT import ValueType_
+    from ..graph_delta import scalar_types
+
+    if isinstance(value, ValueType_):
+        value = AET[value]
+    elif type(value) not in scalar_types:
+        value = SerializedValue.serialize(value)
+    return c_instantiate_value_node(value, g)

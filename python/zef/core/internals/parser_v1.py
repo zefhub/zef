@@ -85,9 +85,9 @@ def convert_EntityType(raw):
         "entity_type_indx": raw
     }
 
-def convert_AtomicEntityType(raw):
+def convert_AttributeEntityType(raw):
     return {
-        "zef_type": "AtomicEntityType",
+        "zef_type": "AttributeEntityType",
         "value": raw
     }
 
@@ -369,7 +369,7 @@ def extract_ATOMIC_ENTITY_NODE(data, ptr):
     raw = ATOMIC_ENTITY_NODE.from_buffer_copy(data, ptr)
 
     details = {
-        "my_atomic_entity_type": convert_AtomicEntityType(raw.my_atomic_entity_type),
+        "my_atomic_entity_type": convert_AttributeEntityType(raw.my_atomic_entity_type),
         "instantiation_time_slice": convert_TimeSlice(raw.instantiation_time_slice),
         "termination_time_slice": convert_TimeSlice(raw.termination_time_slice),
         "uid": convert_BaseUID(raw.uid),
@@ -397,7 +397,7 @@ def extract_ATOMIC_VALUE_NODE(data, ptr):
     local_edges = [x for x in raw.edge_indexes if x != 0]
 
     details = {
-        "my_atomic_entity_type": convert_AtomicEntityType(raw.my_atomic_entity_type),
+        "my_atomic_entity_type": convert_AttributeEntityType(raw.my_atomic_entity_type),
         "local_edges": local_edges,
     }
 
@@ -457,7 +457,7 @@ def extract_ATOMIC_VALUE_ASSIGNMENT_EDGE(data, ptr):
     raw = ATOMIC_VALUE_ASSIGNMENT_EDGE.from_buffer_copy(data, ptr)
 
     details = {
-        "my_atomic_entity_type": convert_AtomicEntityType(raw.my_atomic_entity_type),
+        "my_atomic_entity_type": convert_AttributeEntityType(raw.my_atomic_entity_type),
         "source_node_index": raw.source_node_index,
         "target_node_index": raw.target_node_index,
     }

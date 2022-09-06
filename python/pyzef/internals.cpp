@@ -120,7 +120,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("size_of_blob", &size_of_blob);
 
 	internals_submodule.def("show_blob_details", [](const EZefRef & uzr) {
-        return visit([](const auto & x) { std::stringstream ss; ss << x; return ss.str(); },
+        return visit_blob([](const auto & x) { std::stringstream ss; ss << x; return ss.str(); },
                      uzr);
     });
 
@@ -142,37 +142,6 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
 
 	py::enum_<BlobType>(internals_submodule, "BlobType")
-		/*[[[cog
-		import cog
-		all_blob_type_names = [
-			'_unspecified',
-			'ROOT_NODE',
-			'TX_EVENT_NODE',
-			'RAE_INSTANCE_EDGE',
-			'TO_DELEGATE_EDGE',
-			'NEXT_TX_EDGE',
-			'ENTITY_NODE',
-			'ATOMIC_ENTITY_NODE',
-			'ATOMIC_VALUE_NODE',
-			'RELATION_EDGE',
-			'DELEGATE_INSTANTIATION_EDGE',
-			'DELEGATE_RETIREMENT_EDGE',
-			'INSTANTIATION_EDGE',
-			'TERMINATION_EDGE',
-			'ATOMIC_VALUE_ASSIGNMENT_EDGE',
-			'DEFERRED_EDGE_LIST_NODE',
-			'ASSIGN_TAG_NAME_EDGE',
-			'NEXT_TAG_NAME_ASSIGNMENT_EDGE',
-			'FOREIGN_GRAPH_NODE',
-			'ORIGIN_RAE_EDGE',
-			'ORIGIN_GRAPH_EDGE',
-			'FOREIGN_ENTITY_NODE',
-			'FOREIGN_ATOMIC_ENTITY_NODE',
-			'FOREIGN_RELATION_EDGE'
-		]
-		for n in all_blob_type_names:
-			cog.outl(f'.value("{n}", BlobType::{n})')
-		]]]*/
 		.value("_unspecified", BlobType::_unspecified)
 		.value("ROOT_NODE", BlobType::ROOT_NODE)
 		.value("TX_EVENT_NODE", BlobType::TX_EVENT_NODE)
@@ -180,8 +149,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.value("TO_DELEGATE_EDGE", BlobType::TO_DELEGATE_EDGE)
 		.value("NEXT_TX_EDGE", BlobType::NEXT_TX_EDGE)
 		.value("ENTITY_NODE", BlobType::ENTITY_NODE)
-		.value("ATOMIC_ENTITY_NODE", BlobType::ATOMIC_ENTITY_NODE)
-		.value("ATOMIC_VALUE_NODE", BlobType::ATOMIC_VALUE_NODE)
+		.value("ATTRIBUTE_ENTITY_NODE", BlobType::ATTRIBUTE_ENTITY_NODE)
+		.value("VALUE_NODE", BlobType::VALUE_NODE)
 		.value("RELATION_EDGE", BlobType::RELATION_EDGE)
 		.value("DELEGATE_INSTANTIATION_EDGE", BlobType::DELEGATE_INSTANTIATION_EDGE)
 		.value("DELEGATE_RETIREMENT_EDGE", BlobType::DELEGATE_RETIREMENT_EDGE)
@@ -195,9 +164,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.value("ORIGIN_RAE_EDGE", BlobType::ORIGIN_RAE_EDGE)
 		.value("ORIGIN_GRAPH_EDGE", BlobType::ORIGIN_GRAPH_EDGE)
 		.value("FOREIGN_ENTITY_NODE", BlobType::FOREIGN_ENTITY_NODE)
-		.value("FOREIGN_ATOMIC_ENTITY_NODE", BlobType::FOREIGN_ATOMIC_ENTITY_NODE)
+		.value("FOREIGN_ATTRIBUTE_ENTITY_NODE", BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE)
 		.value("FOREIGN_RELATION_EDGE", BlobType::FOREIGN_RELATION_EDGE)
-		//[[[end]]]
+		.value("VALUE_TYPE_EDGE", BlobType::VALUE_TYPE_EDGE)
+		.value("VALUE_EDGE", BlobType::VALUE_EDGE)
+		.value("ATTRIBUTE_VALUE_ASSIGNMENT_EDGE", BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE)
 		;
 
 	py::class_<BlobTypeStruct>(internals_submodule, "BlobTypeStruct", py::buffer_protocol())
@@ -213,8 +184,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_property_readonly("TO_DELEGATE_EDGE", [](const BlobTypeStruct& self) { return BlobType::TO_DELEGATE_EDGE; })
 		.def_property_readonly("NEXT_TX_EDGE", [](const BlobTypeStruct& self) { return BlobType::NEXT_TX_EDGE; })
 		.def_property_readonly("ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::ENTITY_NODE; })
-		.def_property_readonly("ATOMIC_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::ATOMIC_ENTITY_NODE; })
-		.def_property_readonly("ATOMIC_VALUE_NODE", [](const BlobTypeStruct& self) { return BlobType::ATOMIC_VALUE_NODE; })
+		.def_property_readonly("ATTRIBUTE_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::ATTRIBUTE_ENTITY_NODE; })
+		.def_property_readonly("VALUE_NODE", [](const BlobTypeStruct& self) { return BlobType::VALUE_NODE; })
 		.def_property_readonly("RELATION_EDGE", [](const BlobTypeStruct& self) { return BlobType::RELATION_EDGE; })
 		.def_property_readonly("DELEGATE_INSTANTIATION_EDGE", [](const BlobTypeStruct& self) { return BlobType::DELEGATE_INSTANTIATION_EDGE; })
 		.def_property_readonly("DELEGATE_RETIREMENT_EDGE", [](const BlobTypeStruct& self) { return BlobType::DELEGATE_RETIREMENT_EDGE; })
@@ -228,8 +199,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_property_readonly("ORIGIN_RAE_EDGE", [](const BlobTypeStruct& self) { return BlobType::ORIGIN_RAE_EDGE; })
 		.def_property_readonly("ORIGIN_GRAPH_EDGE", [](const BlobTypeStruct& self) { return BlobType::ORIGIN_GRAPH_EDGE; })
 		.def_property_readonly("FOREIGN_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_ENTITY_NODE; })
-		.def_property_readonly("FOREIGN_ATOMIC_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_ATOMIC_ENTITY_NODE; })
+		.def_property_readonly("FOREIGN_ATTRIBUTE_ENTITY_NODE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE; })
 		.def_property_readonly("FOREIGN_RELATION_EDGE", [](const BlobTypeStruct& self) { return BlobType::FOREIGN_RELATION_EDGE; })
+		.def_property_readonly("VALUE_TYPE_EDGE", [](const BlobTypeStruct& self) { return BlobType::VALUE_TYPE_EDGE; })
+		.def_property_readonly("VALUE_EDGE", [](const BlobTypeStruct& self) { return BlobType::VALUE_EDGE; })
+		.def_property_readonly("ATTRIBUTE_VALUE_ASSIGNMENT_EDGE", [](const BlobTypeStruct& self) { return BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE; })
 		//[[[end]]]
 
 		.def("__call__", [](const BlobTypeStruct& self, ZefRef zr) { return BT(zr); })
@@ -242,75 +216,155 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.attr("BT") = BT;
 
 
-	py::class_<AtomicEntityType>(internals_submodule, "AtomicEntityType", py::dynamic_attr())
+	py::class_<ValueRepType>(internals_submodule, "ValueRepType", py::dynamic_attr())
 		.def(py::init<enum_indx>())	
-		.def_readonly("value", &AtomicEntityType::value)
-		.def("__repr__", [](const AtomicEntityType& self)->std::string { return to_str(self); })
-		.def("__str__", [](const AtomicEntityType& self)->std::string { return str(self); })
-		.def("__eq__", [](const AtomicEntityType& self, const AtomicEntityType& other)->bool { return self == other; }, py::is_operator())
-		.def("__hash__", [](const AtomicEntityType& self)->enum_indx {return self.value; })
-		.def("__int__", [](const AtomicEntityType& self)->int {return self.value; })
-		.def("__copy__", [](const AtomicEntityType& self)->AtomicEntityType {return self; })
+		.def_readonly("value", &ValueRepType::value)
+		.def("__repr__", [](const ValueRepType& self)->std::string { return to_str(self); })
+		.def("__str__", [](const ValueRepType& self)->std::string { return str(self); })
+		.def("__eq__", [](const ValueRepType& self, const ValueRepType& other)->bool { return self == other; }, py::is_operator())
+		.def("__hash__", [](const ValueRepType& self)->enum_indx {return self.value; })
+		.def("__int__", [](const ValueRepType& self)->int {return self.value; })
+		.def("__copy__", [](const ValueRepType& self)->ValueRepType {return self; })
 
-		.def_property_readonly("__enum_type", [](const AtomicEntityType& self) { return internals::get_enum_type_from_aet(self); })
-		.def_property_readonly("__unit", [](const AtomicEntityType& self) { return internals::get_unit_from_aet(self); })
+		.def_property_readonly("__enum_type", [](const ValueRepType& self) { return internals::get_enum_type_from_vrt(self); })
+		.def_property_readonly("__unit", [](const ValueRepType& self) { return internals::get_unit_from_vrt(self); })
 		;
 
-	internals_submodule.def("is_aet_a_enum", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.Enum; });
-	internals_submodule.def("is_aet_a_quantity_float", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.QuantityFloat; });
-	internals_submodule.def("is_aet_a_quantity_int", [](AtomicEntityType my_aet)->bool { return my_aet <= AET.QuantityInt; });
+	internals_submodule.def("is_vrt_a_enum", [](ValueRepType my_vrt)->bool { return is_zef_subtype(my_vrt, VRT.Enum); });
+	internals_submodule.def("is_vrt_a_quantity_float", [](ValueRepType my_vrt)->bool { return is_zef_subtype(my_vrt, VRT.QuantityFloat); });
+	internals_submodule.def("is_vrt_a_quantity_int", [](ValueRepType my_vrt)->bool { return is_zef_subtype(my_vrt, VRT.QuantityInt); });
+
+	py::class_<ValueRepTypeStruct>(internals_submodule, "ValueRepTypeStruct", py::buffer_protocol())
+		.def_property_readonly("_unspecified", [](const ValueRepTypeStruct& self) { return self._unspecified; })
+		.def_property_readonly("Float", [](const ValueRepTypeStruct& self) { return self.Float; })
+		.def_property_readonly("Int", [](const ValueRepTypeStruct& self) { return self.Int; })
+		.def_property_readonly("Bool", [](const ValueRepTypeStruct& self) { return self.Bool; })
+		.def_property_readonly("String", [](const ValueRepTypeStruct& self) { return self.String; })
+		.def_property_readonly("Time", [](const ValueRepTypeStruct& self) { return self.Time; })
+		.def_property_readonly("Serialized", [](const ValueRepTypeStruct& self) { return self.Serialized; })
+		.def_property_readonly("Any", [](const ValueRepTypeStruct& self) { return self.Any; })
+		.def_property_readonly("Enum", [](const ValueRepTypeStruct& self) { return self.Enum; })
+		.def_property_readonly("QuantityFloat", [](const ValueRepTypeStruct& self) { return self.QuantityFloat; })
+		.def_property_readonly("QuantityInt", [](const ValueRepTypeStruct& self) { return self.QuantityInt; })
+
+		.def("__call__", [](const ValueRepTypeStruct& self, ZefRef zr) { return self(zr); })
+		.def("__call__", [](const ValueRepTypeStruct& self, EZefRef uzr) { return self(uzr); })
+
+		// .def("__ror__", [](const ValueRepTypeStruct& self, ZefRef zr) { return self(zr); })
+		// .def("__ror__", [](const ValueRepTypeStruct& self, EZefRef uzr) { return self(uzr); })
+		;
+    internals_submodule.attr("VRT") = VRT;
+
+    py::class_<ValueRepTypeStruct::Enum_>(internals_submodule, "ValueRepTypeStruct_Enum", py::buffer_protocol())
+		.def("__call__", [](const ValueRepTypeStruct::Enum_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const ValueRepTypeStruct::Enum_& self, const ValueRepTypeStruct::Enum_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const ValueRepTypeStruct::Enum_& self, std::string key) {
+            if(key.find("__") == 0)
+                throw pybind11::attribute_error();
+            return self(key); },
+            py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const ValueRepTypeStruct::Enum_& self) { return global_token_store().ENs.all_enum_types(); }, py::call_guard<py::gil_scoped_release>())
+        ;
+    py::class_<ValueRepTypeStruct::QuantityFloat_>(internals_submodule, "ValueRepTypeStruct_QuantityFloat", py::buffer_protocol())
+        .def("__call__", [](const ValueRepTypeStruct::QuantityFloat_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const ValueRepTypeStruct::QuantityFloat_& self, const ValueRepTypeStruct::QuantityFloat_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const ValueRepTypeStruct::QuantityFloat_& self, std::string key) {
+            if(key.find("__") == 0)
+                throw pybind11::attribute_error();
+            return self(key); },
+            py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const ValueRepTypeStruct::QuantityFloat_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
+        ;
+    py::class_<ValueRepTypeStruct::QuantityInt_>(internals_submodule, "ValueRepTypeStruct_QuantityInt", py::buffer_protocol())
+        .def("__call__", [](const ValueRepTypeStruct::QuantityInt_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const ValueRepTypeStruct::QuantityInt_& self, const ValueRepTypeStruct::QuantityInt_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const ValueRepTypeStruct::QuantityInt_& self, std::string key) {
+            if(key.find("__") == 0)
+                throw pybind11::attribute_error();
+            return self(key); },
+            py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const ValueRepTypeStruct::QuantityInt_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
+        ;
+
+	py::class_<AttributeEntityType>(internals_submodule, "AttributeEntityType", py::dynamic_attr())
+		.def(py::init<enum_indx>())	
+		.def(py::init<ValueRepType>())	
+		.def(py::init<SerializedValue>())	
+		.def_readonly("rep_type", &AttributeEntityType::rep_type)
+		.def_readonly("complex_value", &AttributeEntityType::complex_value)
+		.def("__repr__", [](const AttributeEntityType& self)->std::string { return to_str(self); })
+		.def("__str__", [](const AttributeEntityType& self)->std::string { return str(self); })
+		.def("__eq__", [](const AttributeEntityType& self, const AttributeEntityType& other)->bool { return self == other; }, py::is_operator())
+		.def("__hash__", [](const AttributeEntityType& self) {
+            if(self.complex_value)
+                return internals::value_hash(*self.complex_value);
+            else
+                return self.rep_type.value;
+        })
+		// .def("__int__", [](const AttributeEntityType& self)->int {return self.value; })
+		.def("__copy__", [](const AttributeEntityType& self)->AttributeEntityType {return self; })
+
+		// .def_property_readonly("__enum_type", [](const AttributeEntityType& self) { return internals::get_enum_type_from_aet(self); })
+		// .def_property_readonly("__unit", [](const AttributeEntityType& self) { return internals::get_unit_from_aet(self); })
+		;
+
+	// internals_submodule.def("is_aet_a_enum", [](AttributeEntityType my_aet)->bool { return my_aet <= AET.Enum; });
+	// internals_submodule.def("is_aet_a_quantity_float", [](AttributeEntityType my_aet)->bool { return my_aet <= AET.QuantityFloat; });
+	// internals_submodule.def("is_aet_a_quantity_int", [](AttributeEntityType my_aet)->bool { return my_aet <= AET.QuantityInt; });
 
 
 
-	py::class_<AtomicEntityTypeStruct>(internals_submodule, "AtomicEntityTypeStruct", py::buffer_protocol())
-		.def_property_readonly("_unspecified", [](const AtomicEntityTypeStruct& self) { return self._unspecified; })
-		.def_property_readonly("Float", [](const AtomicEntityTypeStruct& self) { return self.Float; })
-		.def_property_readonly("Int", [](const AtomicEntityTypeStruct& self) { return self.Int; })
-		.def_property_readonly("Bool", [](const AtomicEntityTypeStruct& self) { return self.Bool; })
-		.def_property_readonly("String", [](const AtomicEntityTypeStruct& self) { return self.String; })
-		.def_property_readonly("Time", [](const AtomicEntityTypeStruct& self) { return self.Time; })
-		.def_property_readonly("Serialized", [](const AtomicEntityTypeStruct& self) { return self.Serialized; })
-		.def_property_readonly("Enum", [](const AtomicEntityTypeStruct& self) { return self.Enum; })
-		.def_property_readonly("QuantityFloat", [](const AtomicEntityTypeStruct& self) { return self.QuantityFloat; })
-		.def_property_readonly("QuantityInt", [](const AtomicEntityTypeStruct& self) { return self.QuantityInt; })
+	py::class_<AttributeEntityTypeStruct>(internals_submodule, "AttributeEntityTypeStruct", py::buffer_protocol())
+		.def_property_readonly("_unspecified", [](const AttributeEntityTypeStruct& self) { return self._unspecified; })
+		.def_property_readonly("Float", [](const AttributeEntityTypeStruct& self) { return self.Float; })
+		.def_property_readonly("Int", [](const AttributeEntityTypeStruct& self) { return self.Int; })
+		.def_property_readonly("Bool", [](const AttributeEntityTypeStruct& self) { return self.Bool; })
+		.def_property_readonly("String", [](const AttributeEntityTypeStruct& self) { return self.String; })
+		.def_property_readonly("Time", [](const AttributeEntityTypeStruct& self) { return self.Time; })
+		.def_property_readonly("Serialized", [](const AttributeEntityTypeStruct& self) { return self.Serialized; })
+		.def_property_readonly("Any", [](const AttributeEntityTypeStruct& self) { return self.Any; })
+		.def_property_readonly("Type", [](const AttributeEntityTypeStruct& self) { return self.Type; })
+		.def_property_readonly("Enum", [](const AttributeEntityTypeStruct& self) { return self.Enum; })
+		.def_property_readonly("QuantityFloat", [](const AttributeEntityTypeStruct& self) { return self.QuantityFloat; })
+		.def_property_readonly("QuantityInt", [](const AttributeEntityTypeStruct& self) { return self.QuantityInt; })
 
-		.def("__call__", [](const AtomicEntityTypeStruct& self, ZefRef zr) { return self(zr); })
-		.def("__call__", [](const AtomicEntityTypeStruct& self, EZefRef uzr) { return self(uzr); })
+		.def("__call__", [](const AttributeEntityTypeStruct& self, ZefRef zr) { return self(zr); })
+		.def("__call__", [](const AttributeEntityTypeStruct& self, EZefRef uzr) { return self(uzr); })
 
-		// .def("__ror__", [](const AtomicEntityTypeStruct& self, ZefRef zr) { return self(zr); })
-		// .def("__ror__", [](const AtomicEntityTypeStruct& self, EZefRef uzr) { return self(uzr); })
+		// .def("__ror__", [](const AttributeEntityTypeStruct& self, ZefRef zr) { return self(zr); })
+		// .def("__ror__", [](const AttributeEntityTypeStruct& self, EZefRef uzr) { return self(uzr); })
 		;
     internals_submodule.attr("AET") = AET;
 
-    py::class_<AtomicEntityTypeStruct::Enum_>(internals_submodule, "AtomicEntityTypeStruct_Enum", py::buffer_protocol())
-		.def("__call__", [](const AtomicEntityTypeStruct::Enum_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
-		.def("__eq__", [](const AtomicEntityTypeStruct::Enum_& self, const AtomicEntityTypeStruct::Enum_& other)->bool { return true; }, py::is_operator())
-        .def("__getattr__", [](const AtomicEntityTypeStruct::Enum_& self, std::string key) {
+    py::class_<AttributeEntityTypeStruct::Enum_>(internals_submodule, "AttributeEntityTypeStruct_Enum", py::buffer_protocol())
+		.def("__call__", [](const AttributeEntityTypeStruct::Enum_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const AttributeEntityTypeStruct::Enum_& self, const AttributeEntityTypeStruct::Enum_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const AttributeEntityTypeStruct::Enum_& self, std::string key) {
             if(key.find("__") == 0)
                 throw pybind11::attribute_error();
             return self(key); },
             py::call_guard<py::gil_scoped_release>())
-        .def("__dir__", [](const AtomicEntityTypeStruct::Enum_& self) { return global_token_store().ENs.all_enum_types(); }, py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const AttributeEntityTypeStruct::Enum_& self) { return global_token_store().ENs.all_enum_types(); }, py::call_guard<py::gil_scoped_release>())
         ;
-    py::class_<AtomicEntityTypeStruct::QuantityFloat_>(internals_submodule, "AtomicEntityTypeStruct_QuantityFloat", py::buffer_protocol())
-        .def("__call__", [](const AtomicEntityTypeStruct::QuantityFloat_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
-		.def("__eq__", [](const AtomicEntityTypeStruct::QuantityFloat_& self, const AtomicEntityTypeStruct::QuantityFloat_& other)->bool { return true; }, py::is_operator())
-        .def("__getattr__", [](const AtomicEntityTypeStruct::QuantityFloat_& self, std::string key) {
+    py::class_<AttributeEntityTypeStruct::QuantityFloat_>(internals_submodule, "AttributeEntityTypeStruct_QuantityFloat", py::buffer_protocol())
+        .def("__call__", [](const AttributeEntityTypeStruct::QuantityFloat_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const AttributeEntityTypeStruct::QuantityFloat_& self, const AttributeEntityTypeStruct::QuantityFloat_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const AttributeEntityTypeStruct::QuantityFloat_& self, std::string key) {
             if(key.find("__") == 0)
                 throw pybind11::attribute_error();
             return self(key); },
             py::call_guard<py::gil_scoped_release>())
-        .def("__dir__", [](const AtomicEntityTypeStruct::QuantityFloat_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const AttributeEntityTypeStruct::QuantityFloat_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
         ;
-    py::class_<AtomicEntityTypeStruct::QuantityInt_>(internals_submodule, "AtomicEntityTypeStruct_QuantityInt", py::buffer_protocol())
-        .def("__call__", [](const AtomicEntityTypeStruct::QuantityInt_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
-		.def("__eq__", [](const AtomicEntityTypeStruct::QuantityInt_& self, const AtomicEntityTypeStruct::QuantityInt_& other)->bool { return true; }, py::is_operator())
-        .def("__getattr__", [](const AtomicEntityTypeStruct::QuantityInt_& self, std::string key) {
+    py::class_<AttributeEntityTypeStruct::QuantityInt_>(internals_submodule, "AttributeEntityTypeStruct_QuantityInt", py::buffer_protocol())
+        .def("__call__", [](const AttributeEntityTypeStruct::QuantityInt_& self, std::string key) { return self(key); }, py::call_guard<py::gil_scoped_release>())
+		.def("__eq__", [](const AttributeEntityTypeStruct::QuantityInt_& self, const AttributeEntityTypeStruct::QuantityInt_& other)->bool { return true; }, py::is_operator())
+        .def("__getattr__", [](const AttributeEntityTypeStruct::QuantityInt_& self, std::string key) {
             if(key.find("__") == 0)
                 throw pybind11::attribute_error();
             return self(key); },
             py::call_guard<py::gil_scoped_release>())
-        .def("__dir__", [](const AtomicEntityTypeStruct::QuantityInt_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
+        .def("__dir__", [](const AttributeEntityTypeStruct::QuantityInt_& self) { return global_token_store().ENs.all_enum_values("Unit"); }, py::call_guard<py::gil_scoped_release>())
         ;
 
     py::class_<EntityTypeStruct>(internals_submodule, "EntityTypeStruct", py::buffer_protocol())
@@ -405,13 +459,13 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     py::class_<Delegate>(internals_submodule, "Delegate", py::buffer_protocol(), py::call_guard<py::gil_scoped_release>(), py::dynamic_attr())
         .def(py::init<int,EntityType>(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<int,AtomicEntityType>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<int,ValueRepType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,RelationType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateTX>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateRoot>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<int,DelegateRelationTriple>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<EntityType>(), py::call_guard<py::gil_scoped_release>())
-        .def(py::init<AtomicEntityType>(), py::call_guard<py::gil_scoped_release>())
+        .def(py::init<ValueRepType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<RelationType>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<Delegate,RelationType,Delegate>(), py::call_guard<py::gil_scoped_release>())
         .def(py::init<Delegate>(), py::call_guard<py::gil_scoped_release>())
@@ -439,9 +493,13 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("delete_graphdata", [](Graph & g) { g.delete_graphdata(); }, "This is a low-level graph destructor function. Do not use if you don't know what you are doing.");
 
     py::class_<Messages::UpdatePayload>(internals_submodule, "UpdatePayload", py::buffer_protocol())
-        .def(py::init<nlohmann::json, std::vector<std::string>>())
+        // .def(py::init<nlohmann::json, std::vector<std::string>>())
         .def(py::init([](py::dict & j, std::vector<py::bytes> & b) {
             Messages::UpdatePayload out{j};
+            // Because pybind_json may turn uint64 into signed integers, we need
+            // to manually override this.
+            if(out.j.contains("hash_full_graph"))
+                out.j["hash_full_graph"] = out.j["hash_full_graph"].get<uint64_t>();
             std::transform(b.begin(), b.end(), std::back_inserter(out.rest),
                                [](const auto & it) { return it; });
             return out;
@@ -465,7 +523,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
     });
 
     internals_submodule.def("create_partial_graph", &create_partial_graph, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");
-    internals_submodule.def("partial_hash", &partial_hash, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.", py::arg("g"), py::arg("index_hi"), py::arg("seed") = 0);
+    internals_submodule.def("partial_hash", &partial_hash, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.", py::arg("g"), py::arg("index_hi"), py::arg("seed") = 0, py::arg("working_layout")="");
 
     internals_submodule.def("list_graph_manager_uids", []() { auto butler = Butler::get_butler(); return butler->list_graph_manager_uids(); }, "This is a low-level function. Do not use if you don't know what you are doing.");
     internals_submodule.def("gtd_info_str", [](BaseUID uid)->std::string {
@@ -514,10 +572,10 @@ void fill_internals_module(py::module_ & internals_submodule) {
         .def_readonly("revision", &Butler::UpdateHeads::NamedHeadRange::revision)
         ;
 
-    internals_submodule.def("create_update_payload", &Butler::create_update_payload, "Low-level function to serialize a graph update.");
-    internals_submodule.def("is_up_to_date", &Butler::is_up_to_date, "Low-level function to see if an update needs to be sent out.");
-    internals_submodule.def("heads_apply", &Butler::heads_apply, "Low-level function to see an update can be applied onto a graph.");
-    internals_submodule.def("parse_payload_update_heads", &Butler::parse_payload_update_heads);
+    internals_submodule.def("create_update_payload", &Butler::create_update_payload, "Low-level function to serialize a graph update.", py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("is_up_to_date", &Butler::is_up_to_date, "Low-level function to see if an update needs to be sent out.", py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("heads_apply", &Butler::heads_apply, "Low-level function to see an update can be applied onto a graph.", py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("parse_payload_update_heads", &Butler::parse_payload_update_heads, py::call_guard<py::gil_scoped_release>());
 
     internals_submodule.def("create_update_heads", [](GraphData & gd, blob_index blob_head, py::dict cache_heads) {
         LockGraphData lock{&gd};
@@ -539,17 +597,18 @@ void fill_internals_module(py::module_ & internals_submodule) {
             GEN_CACHE("_uid_lookup", uid_lookup)
             GEN_CACHE("_euid_lookup", euid_lookup)
             GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
             else
                 throw std::runtime_error("Don't understand cache: " + name);
         }
 
         return update_heads;
     },
-        "Low-level function to see if an update needs to be sent out.");
+        "Low-level function to see if an update needs to be sent out.", py::call_guard<py::gil_scoped_release>());
 
     internals_submodule.def("create_update_heads", [](GraphData & gd) {
         return internals::full_graph_heads(gd);
-    });
+    }, py::call_guard<py::gil_scoped_release>());
 
 	
 	py::class_<zefDB::GraphData>(internals_submodule, "GraphData", py::buffer_protocol())
@@ -557,6 +616,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_readonly("number_of_open_tx_sessions", &GraphData::number_of_open_tx_sessions)
 		.def_property_readonly("index_of_latest_complete_tx_node", [](GraphData &self) { return self.latest_complete_tx.load(); } )
 		.def_property_readonly("latest_complete_tx", [](GraphData &self) { return self.latest_complete_tx.load(); } )
+		.def_property_readonly("manager_tx_head", [](GraphData &self) { return self.manager_tx_head.load(); } )
+		.def_property_readonly("last_run_subscriptions", [](GraphData &self) { return self.last_run_subscriptions.load(); } )
 		.def_readonly("index_of_open_tx_node", &GraphData::index_of_open_tx_node)
 		.def_property_readonly("write_head", [](GraphData &self) { return self.write_head.load(); })
 		.def_property_readonly("read_head", [](GraphData &self) { return self.read_head.load(); })
@@ -628,11 +689,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	// 	"Function to help interface Python ET singleton and create a RelationType object");	
 
 	// internals_submodule.def("get_aet_from_enum_type_name_string", &internals::get_aet_from_enum_type_name_string, py::call_guard<py::gil_scoped_release>(),
-	// 	"Function to help interface Python AET singleton and create a AtomicEntityType object from a new enum type");	
+	// 	"Function to help interface Python AET singleton and create a AttributeEntityType object from a new enum type");	
 	// internals_submodule.def("get_aet_from_quantity_float_name_string", &internals::get_aet_from_quantity_float_name_string, py::call_guard<py::gil_scoped_release>(),
-	// 	"Function to help interface Python AET singleton and create a AtomicEntityType object from a new unit type used in a QuantityFloat");
+	// 	"Function to help interface Python AET singleton and create a AttributeEntityType object from a new unit type used in a QuantityFloat");
 	// internals_submodule.def("get_aet_from_quantity_int_name_string", &internals::get_aet_from_quantity_int_name_string, py::call_guard<py::gil_scoped_release>(),
-	// 	"Function to help interface Python AET singleton and create a AtomicEntityType object from a new unit type used in a QuantityInt");	
+	// 	"Function to help interface Python AET singleton and create a AttributeEntityType object from a new unit type used in a QuantityInt");	
 
 	internals_submodule.def("get_enum_value_from_string", &internals::get_enum_value_from_string, py::call_guard<py::gil_scoped_release>(),
 		"Function to help interface Python EN singleton and create a ZefEnumValue object");
@@ -656,8 +717,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("is_root", py::overload_cast<ZefRef>(&zefDB::is_root), "");
 	internals_submodule.def("is_delegate", py::overload_cast<EZefRef>(&zefDB::is_delegate), "");
 	internals_submodule.def("is_delegate", py::overload_cast<ZefRef>(&zefDB::is_delegate), "");
-	internals_submodule.def("is_delegate_group", py::overload_cast<EZefRef>(&zefDB::is_delegate_group), "");
-	internals_submodule.def("is_delegate_group", py::overload_cast<ZefRef>(&zefDB::is_delegate_group), "");
+	internals_submodule.def("is_delegate_relation_group", py::overload_cast<EZefRef>(&zefDB::is_delegate_relation_group), "");
+	internals_submodule.def("is_delegate_relation_group", py::overload_cast<ZefRef>(&zefDB::is_delegate_relation_group), "");
 	internals_submodule.def("has_delegate", py::overload_cast<EZefRef>(&zefDB::has_delegate), "");
 	internals_submodule.def("has_delegate", py::overload_cast<ZefRef>(&zefDB::has_delegate), "");
 	
@@ -669,17 +730,17 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
 
 
-	internals_submodule.def("merge_entity_", &zefDB::internals::merge_entity_,  "A low level function to merge an entity (given type and origin uid) into a graph.");
-	internals_submodule.def("merge_atomic_entity_", &zefDB::internals::merge_atomic_entity_,  "A low level function to merge an atomic entity (given type and origin uid) into a graph.");
-	internals_submodule.def("merge_relation_", &zefDB::internals::merge_relation_,  "A low level function to merge an relation (given type and origin uid) into a graph.");
+	internals_submodule.def("merge_entity_", &zefDB::internals::merge_entity_,  "A low level function to merge an entity (given type and origin uid) into a graph.", py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("merge_atomic_entity_", &zefDB::internals::merge_atomic_entity_,  "A low level function to merge an atomic entity (given type and origin uid) into a graph.", py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("merge_relation_", &zefDB::internals::merge_relation_,  "A low level function to merge an relation (given type and origin uid) into a graph.", py::call_guard<py::gil_scoped_release>());
 
 	
-	internals_submodule.def("get_latest_complete_tx_node", &internals::get_latest_complete_tx_node, "graph"_a, "index_of_latest_complete_tx_node_hint"_a=0,  "give it a hint as an index, otherwise it will start traversing from the root onwards");
+	internals_submodule.def("get_latest_complete_tx_node", &internals::get_latest_complete_tx_node, "graph"_a, "index_of_latest_complete_tx_node_hint"_a=0,  "give it a hint as an index, otherwise it will start traversing from the root onwards", py::call_guard<py::gil_scoped_release>());
 
 	// internals_submodule.def("start_zefscription_manager", &internals::start_zefscription_manager, "start_python_script_manually");
-	internals_submodule.def("initialise_butler", py::overload_cast<>(&Butler::initialise_butler));
-	internals_submodule.def("initialise_butler", py::overload_cast<std::string>(&Butler::initialise_butler));
-	internals_submodule.def("initialise_butler_as_master", &Butler::initialise_butler_as_master);
+	internals_submodule.def("initialise_butler", py::overload_cast<>(&Butler::initialise_butler), py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("initialise_butler", py::overload_cast<std::string>(&Butler::initialise_butler), py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("initialise_butler_as_master", &Butler::initialise_butler_as_master, py::call_guard<py::gil_scoped_release>());
     // Note: stopping the butler can cause python functions to be removed from
     // subscriptions, so the GIL needs to be released.
 	internals_submodule.def("stop_butler", &Butler::stop_butler, py::call_guard<py::gil_scoped_release>());
@@ -690,27 +751,15 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
 	internals_submodule.def("get_blobs_as_bytes", [](Graph& g, blob_index start_index, blob_index end_index)->py::bytes {
         return py::bytes(internals::get_blobs_as_bytes(g.my_graph_data(), start_index, end_index)); 
-		}, "read the content of the memory pool filled with blobs_ns for a given graph");
-	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload);
+		}, "read the content of the memory pool filled with blobs_ns for a given graph", py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload, py::call_guard<py::gil_scoped_release>());
 	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads);
+	// internals_submodule.def("convert_payload_0_3_0_to_0_2_0", &conversions::convert_payload_0_3_0_to_0_2_0);
+
+    internals_submodule.def("version_layout", &conversions::version_layout, py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("can_represent_graph_as_payload", &conversions::can_represent_graph_as_payload, py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("convert_payload_0_2_0_to_0_3_0", &conversions::convert_payload_0_2_0_to_0_3_0, py::call_guard<py::gil_scoped_release>());
 		
-	// internals_submodule.def("include_new_blobs", [](Graph& g, blob_index start_index, blob_index end_index, py::bytes blob_bytes, bool double_link)->void {
-    //         GraphData & gd = g.my_graph_data();
-
-    //         auto this_id = std::this_thread::get_id();
-    //         update_when_ready(gd.open_tx_thread_locker,
-    //                           gd.open_tx_thread,
-    //                           std::thread::id(),
-    //                           this_id);
-
-    //         RAII_CallAtEnd call_at_end([&]() {
-    //             update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
-    //         });
-    //         internals::include_new_blobs(g.my_graph_data(), start_index, end_index, blob_bytes, double_link);
-    // },
-    //                         py::call_guard<py::gil_scoped_release>(),
-    //                         "Directly include bytes into graph at designated interval, handling the consequences on other blobs at the same time.");
-
 	internals_submodule.def("apply_update", &Butler::apply_update_with_caches, py::call_guard<py::gil_scoped_release>());
 
     // TODO: In the future, these should be compiled into a version of pyzef
@@ -758,9 +807,49 @@ void fill_internals_module(py::module_ & internals_submodule) {
     },
         py::call_guard<py::gil_scoped_release>());
 
-    internals_submodule.def("register_merge_handler", &Butler::register_merge_handler);
-    internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&Butler::remove_merge_handler));
+    // Message encoding/decoding, exposed for ZefHub
+    internals_submodule.def("prepare_ZH_message", [](const py::dict & d, const std::vector<std::string> & list) {
+        json j = d;
+        std::string s;
+        {
+            py::gil_scoped_release release;
+            s = Communication::prepare_ZH_message(j, list);
+        }
+        return py::bytes(s);
+    });
+    internals_submodule.def("prepare_ZH_message", [](const std::string & j_s, const std::vector<std::string> & list) {
+        json j = json::parse(j_s);
+        if(!j.is_object())
+            throw std::runtime_error("When passing json as a string, need it to parse into an object.");
+            
+        std::string s;
+        {
+            py::gil_scoped_release release;
+            s = Communication::prepare_ZH_message(j, list);
+        }
+        return py::bytes(s);
+    });
+    internals_submodule.def("parse_ZH_message", [](const std::string & s) {
+        auto tup = Communication::parse_ZH_message(s);
+        auto v_in = std::get<1>(tup);
+        std::vector<py::bytes> v;
+        {
+            py::gil_scoped_acquire acquire;
+            std::transform(v_in.cbegin(), v_in.cend(), std::back_inserter(v),
+                           [](auto & x) { return py::bytes(x); });
+            return std::make_tuple(std::get<0>(tup), v);
+        }
+    },  py::call_guard<py::gil_scoped_release>());
 
-    internals_submodule.def("register_schema_validator", &Butler::register_schema_validator);
-    internals_submodule.add_object("_cleanup_schema_validator", py::capsule(&Butler::remove_schema_validator));
+    internals_submodule.def("register_merge_handler", &internals::register_merge_handler);
+    internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&internals::remove_merge_handler));
+
+    internals_submodule.def("register_schema_validator", &internals::register_schema_validator);
+    internals_submodule.add_object("_cleanup_schema_validator", py::capsule(&internals::remove_schema_validator));
+
+    internals_submodule.def("register_value_type_check", &internals::register_value_type_check);
+    internals_submodule.add_object("_cleanup_value_type_check", py::capsule(&internals::remove_value_type_check));
+
+    internals_submodule.def("register_determine_primitive_type", &internals::register_determine_primitive_type);
+    internals_submodule.add_object("_cleanup_determine_primitive_type", py::capsule(&internals::remove_determine_primitive_type));
 }

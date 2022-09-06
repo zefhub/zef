@@ -47,8 +47,10 @@ endfunction()
 message(STATUS "External: pybind11_json")
 
 FetchContent_Declare(pybind11_json
-  GIT_REPOSITORY https://github.com/pybind/pybind11_json
-  GIT_TAG 0.2.11
+  # GIT_REPOSITORY https://github.com/pybind/pybind11_json
+  # GIT_TAG 0.2.11
+  GIT_REPOSITORY https://github.com/pengwyn/pybind11_json
+  GIT_TAG unsigned-conversion-order
   GIT_SHALLOW ON
   PATCH_COMMAND git apply ${CMAKE_CURRENT_LIST_DIR}/pybindjson_disable_bytes_tuple.patch
   UPDATE_COMMAND "")

@@ -19,7 +19,6 @@
 #include "export_statement.h"
 
 #include <thread>
-#include "zefDB_utils.h"
 #include "scalars.h"
 #include "butler/msgqueue.h"
 #include "butler/messages.h"
@@ -33,6 +32,8 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED extern bool initialised_python_core;
 
     namespace Butler {
+
+        using activity_callback_t = std::function<void(std::string)>;
 
 		const double zefhub_generic_timeout(10);
 		const double butler_generic_timeout(15);
@@ -97,6 +98,9 @@ namespace zefDB {
             struct Task {
                 // std::promise<Response> promise;
                 std::future<Response> future;
+                bool wants_messages;
+                std::deque<std::string> messages;
+                AtomicLockWrapper locker;
                 std::string task_uid = generate_random_task_uid();
                 Time started_time;
                 // In the future, this might become a std::optional<...> with the responsible connection inside.
@@ -135,6 +139,11 @@ namespace zefDB {
 
             using task_ptr = std::shared_ptr<Task>;
 
+            // We keep the task promise separate to the task itself, to mirror
+            // the ownership-management that c++ promises/futures perform.
+            // Basically, we want the destruction of the task promise to be
+            // possible (due to timeout or some other failure), which triggers
+            // the future to have an exception set and "listener" can continue.
             struct TaskPromise {
                 task_ptr task;
                 std::promise<Response> promise;
@@ -171,19 +180,20 @@ namespace zefDB {
                 timeout_exception() : std::runtime_error("Timeout exception") {}
             };
 
-            Response wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false);
+            Response wait_on_zefhub_message_any(json & j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false, std::optional<activity_callback_t> activity_callback = {});
 
             template<class T=GenericZefHubResponse>
-            T wait_on_zefhub_message(json & j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false);
+            T wait_on_zefhub_message(json & j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false, std::optional<activity_callback_t> activity_callback = {});
 
             // This is to allow brace initialisation, while still preferring pass-by-reference.
             Response wait_on_zefhub_message_any(json && j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false) {
                 return wait_on_zefhub_message_any(j, rest, timeout, throw_on_failure);
             }
 
+            // A convenience version for value-constructed json
             template<class T=GenericZefHubResponse>
-            T wait_on_zefhub_message(json && j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false) {
-                return wait_on_zefhub_message(j, rest, timeout, throw_on_failure);
+            T wait_on_zefhub_message(json && j, const std::vector<std::string> & rest = {}, double timeout = zefhub_generic_timeout, bool throw_on_failure = false, bool chunked = false, std::optional<activity_callback_t> activity_callback = {}) {
+                return wait_on_zefhub_message(j, rest, timeout, throw_on_failure, chunked, activity_callback);
             }
 
 
@@ -215,7 +225,7 @@ namespace zefDB {
             // The protocol version chosen for communication. This may have to be autodetected in earlier versions.
             std::atomic_int zefdb_protocol_version = -1;
             constexpr static int zefdb_protocol_version_min = 4;
-            constexpr static int zefdb_protocol_version_max = 6;
+            constexpr static int zefdb_protocol_version_max = 7;
             AtomicLockWrapper auth_locker;
             std::string upstream_layout();
 
@@ -376,6 +386,7 @@ namespace zefDB {
             void load_graph_from_tag_worker(msg_ptr msg);
             void load_graph_from_file(msg_ptr & msg, std::filesystem::path dir);
             void send_update(GraphTrackingData & me);
+            void set_into_invalid_state(GraphTrackingData & me);
 
 
             std::string upstream_name();
@@ -406,26 +417,9 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED std::filesystem::path local_graph_prefix(std::filesystem::path dir);
         LIBZEF_DLL_EXPORTED std::filesystem::path local_graph_uid_path(std::filesystem::path dir);
 
-        LIBZEF_DLL_EXPORTED void ensure_or_get_range(void * ptr, size_t size);
+        LIBZEF_DLL_EXPORTED void ensure_or_get_range(const void * ptr, size_t size);
 
         GenericResponse generic_from_json(json j);
-
-        ////////////////////////////////////////
-        // * External handlers
-
-        // ** Merge handler
-        typedef json (merge_handler_t)(Graph, const json &);
-        LIBZEF_DLL_EXPORTED void register_merge_handler(std::function<merge_handler_t> func);
-        LIBZEF_DLL_EXPORTED void remove_merge_handler();
-        LIBZEF_DLL_EXPORTED json pass_to_merge_handler(Graph g, const json & payload);
-
-        // ** Schema validator
-        typedef void (schema_validator_t)(ZefRef);
-        LIBZEF_DLL_EXPORTED void register_schema_validator(std::function<schema_validator_t> func);
-        LIBZEF_DLL_EXPORTED void remove_schema_validator();
-        LIBZEF_DLL_EXPORTED void pass_to_schema_validator(ZefRef tx);
-
-
 
         ////////////////////////////////////////////////
         // * Graph update messages
@@ -457,10 +451,12 @@ namespace zefDB {
 
         LIBZEF_DLL_EXPORTED bool is_up_to_date(const UpdateHeads & update_heads);
         LIBZEF_DLL_EXPORTED bool heads_apply(const UpdateHeads & update_heads, const GraphData & gd);
-        LIBZEF_DLL_EXPORTED UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & update_heads);
+        LIBZEF_DLL_EXPORTED UpdatePayload create_update_payload_current(GraphData & gd, const UpdateHeads & update_heads);
+        LIBZEF_DLL_EXPORTED UpdatePayload create_update_payload(GraphData & gd, const UpdateHeads & update_heads, std::string target_layout="");
         LIBZEF_DLL_EXPORTED UpdateHeads client_create_update_heads(const GraphData & gd);
-        LIBZEF_DLL_EXPORTED json create_heads_json_from_sync_head(const GraphData & gd, const UpdateHeads & update_heads);
-        LIBZEF_DLL_EXPORTED void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j);
+        LIBZEF_DLL_EXPORTED json create_json_from_heads_from(const UpdateHeads & update_heads);
+        LIBZEF_DLL_EXPORTED json create_json_from_heads_latest(const UpdateHeads & update_heads);
+        LIBZEF_DLL_EXPORTED void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j, std::string working_layout);
         LIBZEF_DLL_EXPORTED UpdateHeads parse_payload_update_heads(const UpdatePayload & payload);
         LIBZEF_DLL_EXPORTED UpdateHeads parse_message_update_heads(const json & j);
         // UpdateHeads client_create_update_heads(const GraphData & gd);

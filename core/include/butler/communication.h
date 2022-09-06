@@ -17,7 +17,6 @@
 #pragma once
 
 #include "export_statement.h"
-#include "butler/utils.h"
 #include "butler/locking.h"
 
 #define ASIO_STANDALONE
@@ -61,7 +60,7 @@ namespace zefDB {
         // example: [27,5]|{...}xzxzx
         LIBZEF_DLL_EXPORTED std::tuple<json,std::vector<std::string>> parse_ZH_message(std::string input); 
 
-        LIBZEF_DLL_EXPORTED std::string prepare_ZH_message(json & main_json, const std::vector<std::string> & vec = {}); 
+        LIBZEF_DLL_EXPORTED std::string prepare_ZH_message(const json & main_json, const std::vector<std::string> & vec = {}); 
 
         typedef websocketpp::lib::shared_ptr<websocketpp::lib::asio::ssl::context> ssl_context_ptr;
 

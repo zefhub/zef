@@ -29,9 +29,9 @@ class MyTestCase(unittest.TestCase):
 
         a,b,c = (z, RT.Something, 5) | g | run
 
-        self.assertEqual(g | blueprint | length | collect, 4)
+        self.assertEqual(g | blueprint | length | collect, 5)
 
-        self.assertEqual(g | now | blueprint | length | collect, 4)
+        self.assertEqual(g | now | blueprint | length | collect, 5)
         self.assertEqual(z | frame | blueprint | length | collect, 2)
 
         dz = delegate_of(z)
@@ -47,10 +47,10 @@ class MyTestCase(unittest.TestCase):
 
         zef.pyzef.zefops.retire(to_ezefref(db))
 
-        self.assertEqual(g | now | blueprint | length | collect, 3)
+        self.assertEqual(g | now | blueprint | length | collect, 4)
 
         zef.pyzef.zefops.retire(to_ezefref(dz))
-        self.assertEqual(g | now | blueprint | length | collect, 2)
+        self.assertEqual(g | now | blueprint | length | collect, 3)
 
     def test_meta(self):
         g = Graph()

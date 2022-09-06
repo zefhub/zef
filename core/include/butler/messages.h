@@ -114,13 +114,15 @@ namespace zefDB {
         };
 
         struct LocalGraph {
-            std::filesystem::path dir;
+            std::filesystem::path path;
             bool new_graph;
         };
 
+        using load_graph_callback_t = std::function<void(std::string)>;
         struct LoadGraph {
             std::string tag_or_uid;
             int mem_style = MMap::MMAP_STYLE_AUTO;
+            std::optional<load_graph_callback_t> callback;
         };
         struct GraphLoaded {
             GenericResponse generic;
@@ -139,9 +141,9 @@ namespace zefDB {
         struct LoadPage {
             // We need to hold onto the graph reference
             Graph g;
-            void * ptr;
+            const void * ptr;
             size_t size;
-            LoadPage(void * ptr, size_t size)
+            LoadPage(const void * ptr, size_t size)
                 : ptr(ptr),
                   size(size),
                   g((GraphData*)MMap::blobs_ptr_from_blob(ptr), false) {}
@@ -151,7 +153,7 @@ namespace zefDB {
             // is true.
             Graph g;
             bool sync;
-            NotifySync(Graph & g, bool & sync) : g(g), sync(sync) {}
+            NotifySync(const Graph & g, bool sync) : g(g), sync(sync) {}
         };
         struct SetKeepAlive {
             Graph g;

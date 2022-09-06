@@ -27,8 +27,12 @@ using json = nlohmann::json;
 
 // I want to not have to use this:
 #include "high_level_api.h"
+#include "zefops.h"
 #include "synchronization.h"
 #include "zef_config.h"
+#include "external_handlers.h"
+#include "conversions.h"
+#include "tar_file.h"
 
 namespace zefDB {
     bool initialised_python_core = false;
@@ -423,6 +427,9 @@ namespace zefDB {
             try {
                 auto content = std::get<LoadGraph>(msg->content);
 
+                if(content.callback)
+                    (*content.callback)("Looking up UID for '" + content.tag_or_uid + "'");
+
                 auto response = wait_on_zefhub_message({
                         {"msg_type", "lookup_uid"},
                         {"tag", content.tag_or_uid},
@@ -449,35 +456,32 @@ namespace zefDB {
             }
         }
 
-        void Butler::load_graph_from_file(Butler::msg_ptr & msg, std::filesystem::path dir) {
-            if(std::filesystem::exists(dir) && std::filesystem::is_directory(dir)) {
-                auto uid_file = local_graph_uid_path(dir);
-                if(!MMap::filegraph_exists(local_graph_prefix(dir)) || !std::filesystem::exists(uid_file))
-                    throw std::runtime_error("Directory exists but no local zefgraph found inside. Aborting graph load.");
-
-                std::ifstream file(uid_file);
-                std::string output;
-                std::getline(file, output);
-                auto maybe_uid = to_uid(output);
-                if(!std::holds_alternative<BaseUID>(maybe_uid))
-                    throw std::runtime_error("UID at location '" + uid_file.string() + "' is not a valid UID.");
-
-                BaseUID uid = std::get<BaseUID>(maybe_uid);
+        void Butler::load_graph_from_file(Butler::msg_ptr & msg, std::filesystem::path path) {
+            developer_output("Loading local graph with path: " + path.string());
+            // In this version we unpack the graph into an anonymous mmap
+            if(std::filesystem::exists(path) && std::filesystem::is_regular_file(path)) {
+                // auto file_group = load_tar_into_memory(path);
+                BaseUID uid;
+                try {
+                    auto file = load_specific_file_from_tar(path, "graph.uid");
+                    if(!file)
+                        throw std::runtime_error("Tar doesn't have uid file.");
+                    auto maybe_uid = to_uid(file->contents);
+                    if(!std::holds_alternative<BaseUID>(maybe_uid))
+                        throw std::runtime_error("UID in file is not a valid UID.");
+                    uid = std::get<BaseUID>(maybe_uid);
+                } catch(...) {
+                    throw;
+                }
                 auto data = find_graph_manager(uid);
                 if(!data)
                     data = spawn_graph_manager(uid);
-                data->queue.push(std::make_shared<RequestWrapper>(std::move(msg->promise), LocalGraph{dir, false}));
+                data->queue.push(std::make_shared<RequestWrapper>(std::move(msg->promise), LocalGraph{path, false}));
                 return;
             }
 
-            // Need to create
-            if(std::filesystem::exists(dir))
-                throw std::runtime_error("Can't create local graph at '" + dir.string() + "' as it is already a file.");
-
-            std::filesystem::create_directories(dir.parent_path());
-
             auto data = spawn_graph_manager(make_random_uid());
-            data->queue.push(std::make_shared<RequestWrapper>(std::move(msg->promise), LocalGraph{dir, true}));
+            data->queue.push(std::make_shared<RequestWrapper>(std::move(msg->promise), LocalGraph{path, true}));
         }
 
 
@@ -507,8 +511,13 @@ namespace zefDB {
                     } catch(const std::exception & e) {
                         std::cerr << "THROW IN GRAPH MANAGER: " << e.what() << std::endl;
                         std::cerr << "While handling msg variant type: " << msg->content.index() << std::endl;
-                        std::cerr << "Setting graph into error state" << std::endl;
-                        me->gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                        if(me->gd) {
+                            std::cerr << "Setting graph into error state" << std::endl;
+                            set_into_invalid_state(*me);
+                        } else {
+                            // Since no graphdata exists, no reason to hang around
+                            me->please_stop = true;
+                        }
                         // Failsafe
                         msg->promise.set_exception(std::current_exception());
                     }
@@ -547,7 +556,7 @@ namespace zefDB {
                 std::cerr << e.what() << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH WORKER THREAD!!!! ***" << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH WORKER THREAD!!!! ***" << std::endl;
-                me->gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                set_into_invalid_state(*me);
                 me->return_value.set_exception(std::current_exception());
             }
 
@@ -564,11 +573,20 @@ namespace zefDB {
             try {
                 me.gd->sync_thread_id = std::this_thread::get_id();
 
+                // We use asynchronous send_updates so that we can allow
+                // multiple transactions to continue, without waiting for
+                // updates to finish going to zefhub.
+                //
+                // An alternative to this would be to have another thread that
+                // just deals with this, this would be less complicated...
+                std::unique_ptr<std::future<void>> send_update_future;
+
                 while(true) {
                     wait_pred(me.gd->heads_locker,
                               [&]() {
                                   return me.please_stop
                                       || (network.connected && me.gd->should_sync
+                                          && (!send_update_future || send_update_future->wait_for(std::chrono::seconds(0)) == std::future_status::ready)
                                           && (me.gd->sync_head == 0 || (me.gd->sync_head < me.gd->read_head.load())))
                                       || (me.gd->latest_complete_tx > me.gd->manager_tx_head.load());
                               });
@@ -620,14 +638,26 @@ namespace zefDB {
 
                     if(me.gd->error_state != GraphData::ErrorState::OK)
                         throw std::runtime_error("Sync worker for graph detected invalid state and is aborting");
+
                     // After doing everything, now is a good time to send out updates.
                     // TODO: Maybe this is better left to the main thread, and we just trigger it from here by placing a message on the queue.
+
+                    // First check if a previous send_updates has finished.
+                    if(send_update_future && send_update_future->wait_for(std::chrono::seconds(0)) == std::future_status::ready)
+                        send_update_future.release();
+
                     if(me.gd->should_sync
                        && me.gd->is_primary_instance
                        && me.gd->sync_head < me.gd->read_head.load()
-                       && want_upstream_connection())
-                        send_update(me);
+                       && want_upstream_connection()
+                       && !send_update_future) {
+                        // send_update(me);
+                        send_update_future = std::make_unique<std::future<void>>(std::async(&Butler::send_update, this, std::ref(me)));
+                    }
                 }
+
+                if(send_update_future)
+                    send_update_future.get();
 
                 // This is the last hail mary before we shut down. Required for the logic of remove_graph_manager.
                 if(me.gd->should_sync && me.gd->is_primary_instance)
@@ -639,8 +669,8 @@ namespace zefDB {
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 std::cerr << "Some kind of exception occurred in the sync thread at the highest level: " << e.what() << std::endl;
                 std::cerr << "Setting graph into error state" << std::endl;
-                update(me.gd->heads_locker, [&me]() {
-                        me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                update(me.gd->heads_locker, [this,&me]() {
+                        set_into_invalid_state(me);
                     });
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
                 std::cerr << "*** MAJOR FAILURE OF GRAPH SYNC THREAD!!!! ***" << std::endl;
@@ -760,7 +790,7 @@ namespace zefDB {
                 //     send_update(*gtd);
                 // And send out the unsubscribe of course
                 gtd->debug_last_action = "Going to send out unsubscribe";
-                if(gtd->gd->sync_head > 0) {
+                if(gtd->gd->currently_subscribed) {
                     send_ZH_message({
                             {"msg_type", "unsubscribe_from_graph"},
                             {"graph_uid", str(gtd->uid)},
@@ -810,7 +840,7 @@ namespace zefDB {
         ////////////////////////////////////////
         // * Memory management
 
-        void ensure_or_get_range(void * ptr, size_t size) {
+        void ensure_or_get_range(const void * ptr, size_t size) {
 #ifndef ZEFDB_TEST_NO_MMAP_CHECKS
 
             if(!MMap::is_range_alloced(ptr, size)) {
@@ -880,58 +910,13 @@ namespace zefDB {
             return *local_process_graph;
         }
 
-        ////////////////////////////////////////////////////////
-        // * External handlers
         std::string Butler::upstream_layout() {
             if(butler_is_master)
                 return data_layout_version;
-
             if(zefdb_protocol_version == -1)
                 throw std::runtime_error("Shouldn't be asking for upstream layout when we haven't connected and done a handshake.");
 
-            if(zefdb_protocol_version <= 6)
-                return "0.2.0";
-            throw std::runtime_error("Don't know what the upstream layout should be for this protocol version");
-        }
-
-        // ** Merge handler
-        std::optional<std::function<merge_handler_t>> merge_handler;
-        json pass_to_merge_handler(Graph g, const json & payload) {
-            if(!merge_handler)
-                throw std::runtime_error("Merge handler has not been assigned.");
-
-            return (*merge_handler)(g, payload);
-        }
-
-        void register_merge_handler(std::function<merge_handler_t> func) {
-            if(merge_handler)
-                throw std::runtime_error("Merge handler has already been registered.");
-            merge_handler = func;
-        }
-
-        void remove_merge_handler() {
-            if(!merge_handler)
-                std::cerr << "Warning, no merge_handler registered to be removed." << std::endl;
-            merge_handler.reset();
-        }
-
-        // ** Schema validator
-        std::optional<std::function<schema_validator_t>> schema_validator;
-        void pass_to_schema_validator(ZefRef tx) {
-            if(schema_validator)
-                (*schema_validator)(tx);
-        }
-
-        void register_schema_validator(std::function<schema_validator_t> func) {
-            if(schema_validator)
-                throw std::runtime_error("schema_validator has already been registered.");
-            schema_validator = func;
-        }
-
-        void remove_schema_validator() {
-            if(!schema_validator)
-                std::cerr << "Warning, no schema_validator registered to be removed." << std::endl;
-            schema_validator.reset();
+            return conversions::version_layout(zefdb_protocol_version);
         }
     }
 }

@@ -84,7 +84,8 @@ from .sync import (
 from .graph import (
     graph_take_transactor_role_handler,
     graph_release_transactor_role_handler,
-    graph_transaction_handler
+    graph_transaction_handler,
+    graph_load_handler,
 )
 
 
@@ -100,6 +101,7 @@ from .local_file import (
     save_localfile_handler,
     load_localfile_handler,
     system_open_with_handler,
+    monitor_path_handler,
 )
 
 # note the ".d" to access the tuple of Strings!
@@ -141,6 +143,7 @@ _effect_handlers = {
     FX.Graph.TakeTransactorRole.d: graph_take_transactor_role_handler,
     FX.Graph.ReleaseTransactorRole.d: graph_release_transactor_role_handler,
     FX.Graph.Transact.d: graph_transaction_handler,
+    FX.Graph.Load.d: graph_load_handler,
 
     
     FX.Clipboard.CopyTo.d: clipboard_copy_to_handler,
@@ -152,6 +155,7 @@ _effect_handlers = {
     FX.LocalFile.Write.d: write_localfile_handler,
     FX.LocalFile.Save.d:  save_localfile_handler,
     FX.LocalFile.SystemOpenWith.d: system_open_with_handler,
+    FX.LocalFile.MonitorPath.d: monitor_path_handler,
 
     FX.ZefHub.Login.d: zefhub_login_handler,
     FX.ZefHub.Logout.d: zefhub_logout_handler,

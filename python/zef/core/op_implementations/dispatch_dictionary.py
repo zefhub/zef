@@ -16,6 +16,7 @@ from .._core import RT
 from .implementation_typing_functions import * 
 from .yo import yo_implementation, yo_type_info
 from .graphviz import graphviz_imp, graphviz_tp
+from . to_flatgraph import to_flatgraph_imp
 from .func import unpack_implementation, unpack_type_info
 
 _op_to_functions = {
@@ -184,8 +185,9 @@ _op_to_functions = {
         RT.Split:           (split_imp, split_tp),
         RT.SplitLeft:       (split_left_imp, None),
         RT.SplitRight:      (split_right_imp, None),
-        RT.SplitIf:         (split_if_imp, None),
         RT.Graphviz:        (graphviz_imp, graphviz_tp),
+        RT.ToFlatGraph:     (to_flatgraph_imp, None),
+        RT.Parse:           (parse_imp, None),
         
         RT.Always:              (always_imp, always_tp),
         
@@ -208,6 +210,7 @@ _op_to_functions = {
         RT.Logarithm:           (logarithm_imp, logarithm_tp),
         RT.Max:                 (max_imp, max_tp),
         RT.Min:                 (min_imp, min_tp),
+        RT.Clamp:               (clamp_imp, None),
         RT.MaxBy:               (max_by_imp, max_by_tp),
         RT.MinBy:               (min_by_imp, min_by_tp),
         RT.Equals:              (equals_imp, equals_tp),
@@ -314,4 +317,6 @@ _op_to_functions = {
         RT.Gather:             (gather_imp, None),
         RT.Alias:              (alias_imp, None),
         RT.Splice:             (splice_imp, None),
+        RT.FlattenDict:        (flatten_dict_imp, None),
+        RT.UnflattenDict:      (unflatten_dict_imp, None),
 }

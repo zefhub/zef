@@ -243,8 +243,8 @@ def is_supported_value(o):
     return False
 
 def is_supported_zef_value(o):
-    from .abstract_raes import Entity, Relation, AtomicEntity
-    if type(o) in {ZefRef, EZefRef, Graph, BaseUID, EternalUID, ZefRefUID, QuantityFloat, QuantityInt, ZefEnumValue, Entity, Relation, AtomicEntity, Delegate, EntityType, RelationType, AtomicEntityType}: return True
+    from .abstract_raes import Entity, Relation, AttributeEntity
+    if type(o) in {ZefRef, EZefRef, Graph, BaseUID, EternalUID, ZefRefUID, QuantityFloat, QuantityInt, ZefEnumValue, Entity, Relation, AttributeEntity, Delegate, EntityType, RelationType, AttributeEntityType}: return True
     return False
 
 def is_supported_on_subscription(o, op):
@@ -1425,5 +1425,5 @@ def make_ror_promote_zefop(rt):
 from functools import partial
 internals.EntityTypeStruct.__ror__ = make_ror_promote_zefop(RT.ET)
 internals.RelationTypeStruct.__ror__ = make_ror_promote_zefop(RT.RT)
-internals.AtomicEntityTypeStruct.__ror__ = make_ror_promote_zefop(RT.AET)
+internals.AttributeEntityTypeStruct.__ror__ = make_ror_promote_zefop(RT.AET)
 internals.BlobTypeStruct.__ror__ = make_ror_promote_zefop(RT.BT)

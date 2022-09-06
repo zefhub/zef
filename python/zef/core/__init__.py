@@ -122,7 +122,7 @@ from .VT import (
     )
 from .VT.value_type import ValueType_
 
-from .abstract_raes import Entity, AtomicEntity, Relation, TXNode, Root, make_custom_entity
+from .abstract_raes import Entity, AttributeEntity, Relation, TXNode, Root, make_custom_entity
 
 from .zef_functions import func
 
@@ -148,7 +148,7 @@ nil                = make_custom_entity(name_to_display='nil',         predeterm
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
-from .symbolic_expression import SV, SVs, unwrap_vars_hack
+from .symbolic_expression import SV, SVs, v, unwrap_vars_hack
 
 pyzef.internals.finished_loading_python_core()
 

@@ -222,6 +222,7 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                 if(msg_type == "merge_request_response") {
                     auto msg = parse_ws_response<MergeRequestResponse>(j);
                     task_promise->promise.set_value(msg);
+                    wake(task_promise->task->locker);
                 } else if(msg_type == "token_response") {
                     handle_token_response(*this, j, task_promise);
                 } else {
@@ -231,10 +232,12 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                     msg.j = j;
                     msg.rest = rest;
                     task_promise->promise.set_value(msg);
+                    wake(task_promise->task->locker);
                 }
                 return;
             } catch(...) {
                 task_promise->promise.set_exception(std::current_exception());
+                wake(task_promise->task->locker);
                 forget_task(task_uid);
                 throw;
             }
@@ -344,6 +347,7 @@ void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr &
     }
 
     task_promise->promise.set_value(response);
+    wake(task_promise->task->locker);
 }
 
 
@@ -541,9 +545,6 @@ void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) 
             return;
         }
 
-        chunk.last_activity = now();
-        ack_success(j["task_uid"], "Accepted chunk");
-
         chunk.buffer.emplace_back(j["bytes_start"].get<int>(), rest_index, rest[0]);
 
         // chunk.rest[rest_index] += rest[0];
@@ -572,6 +573,35 @@ void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) 
             if(!applied_one)
                 break;
         }
+
+        chunk.last_activity = now();
+        // Maybe update the task if it wants to receive messages
+        if(chunk.msg.contains("task_uid")) {
+            std::string parent_task_uid = chunk.msg["task_uid"];
+            auto task_ptr = find_task(parent_task_uid)->task;
+            if(task_ptr->wants_messages) {
+                std::string msg = "CHUNK:";
+                for(int i = 0 ; i < chunk.rest.size() ; i++) {
+                    // TODO: This "name" line is dodgy, as this might not be a
+                    // full_graph/graph_update message!
+                    if(i >= 1)
+                        msg += chunk.msg["caches"][i-1]["name"].get<std::string>();
+                    else
+                        msg += "Blobs";
+                    msg += "/";
+                    msg += to_str(chunk.rest[i].size());
+                    msg += "/";
+                    msg += to_str(chunk.rest_sizes[i]);
+                    msg += ",";
+                }
+                update(task_ptr->locker,
+                       [&task_ptr,&msg]() {
+                           task_ptr->messages.push_back(msg);
+                       });
+            }
+        }
+        ack_success(j["task_uid"], "Accepted chunk");
+
 
         // Check to see if we're finished.
         bool done = true;

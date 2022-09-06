@@ -23,8 +23,11 @@
 #include <optional>
 #include <chrono>
 
+
+#define force_assert(x) {if(!(x)) { throw std::runtime_error("Force assert failed: " #x); }}
+
 namespace zefDB {
-	const std::string data_layout_version = "0.2.0";
+	const std::string data_layout_version = "0.3.0";
 
 	using blob_index = int32_t;
 	using edge_list_size_t = int32_t;
@@ -38,6 +41,8 @@ namespace zefDB {
 	// using ET_pair = std::tuple<et_enum_num_data, std::string>;
 	// using RT_pair = std::tuple<et_enum_num_data, std::string>;
 	using enum_tuple = std::tuple<enum_indx, std::string, std::string>;
+
+	using value_hash_t = uint32_t;
 
     namespace MMap {
         constexpr size_t MB = 1024*1024;
@@ -73,9 +78,9 @@ namespace zefDB {
 		constexpr int default_local_edge_indexes_capacity_TO_DELEGATE_EDGE = 62;
 		// constexpr int default_local_edge_indexes_capacity_ENTITY_NODE = 5;
 		constexpr int default_local_edge_indexes_capacity_ENTITY_NODE = 7;
-		// constexpr int default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE = 6;
-		constexpr int default_local_edge_indexes_capacity_ATOMIC_ENTITY_NODE = 7;
-		constexpr int default_local_edge_indexes_capacity_ATOMIC_VALUE_NODE = 6;
+		// constexpr int default_local_edge_indexes_capacity_ATTRIBUTE_ENTITY_NODE = 6;
+		constexpr int default_local_edge_indexes_capacity_ATTRIBUTE_ENTITY_NODE = 7;
+		constexpr int default_local_edge_indexes_capacity_VALUE_NODE = 5;
 		// constexpr int default_local_edge_indexes_capacity_RELATION_EDGE = 6;
 		constexpr int default_local_edge_indexes_capacity_RELATION_EDGE = 5;
 		// constexpr int default_local_edge_indexes_capacity_ASSIGN_TAG_NAME_EDGE = 2;
@@ -86,7 +91,7 @@ namespace zefDB {
 		// constexpr int default_local_edge_indexes_capacity_DEFERRED_EDGE_LIST_NODE = 14;
 		constexpr int default_local_edge_indexes_capacity_DEFERRED_EDGE_LIST_NODE = 16;
 		constexpr int default_local_edge_indexes_capacity_FOREIGN_ENTITY_NODE = 5;
-		constexpr int default_local_edge_indexes_capacity_FOREIGN_ATOMIC_ENTITY_NODE = 5;
+		constexpr int default_local_edge_indexes_capacity_FOREIGN_ATTRIBUTE_ENTITY_NODE = 5;
 		// constexpr int default_local_edge_indexes_capacity_FOREIGN_RELATION_EDGE = 5;
 		constexpr int default_local_edge_indexes_capacity_FOREIGN_RELATION_EDGE = 3;
 

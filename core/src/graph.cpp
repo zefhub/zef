@@ -16,6 +16,10 @@
 #include "high_level_api.h"
 #include "synchronization.h"
 #include "verification.h"
+#include "zefops.h"
+#include "external_handlers.h"
+#include "conversions.h"
+#include "tar_file.h"
 
 #include <doctest/doctest.h>
 
@@ -44,7 +48,7 @@ namespace zefDB {
                    && latest_complete_tx_hint < gd.write_head) {
                     Butler::ensure_or_get_range(candidate, 1);
                     if (*(BlobType*)candidate == BT.TX_EVENT_NODE) {
-                        tmp = (void*)candidate;
+                        tmp = EZefRef{candidate};
                     }
                 }
 			}
@@ -77,7 +81,7 @@ namespace zefDB {
 			return std::hash<token_value_t>{}(rt.relation_type_indx) ^
 				std::hash<int>{}(int(is_out_rel) + 2 * int(is_instantiation)) ^  // offset by two: all combinations unique
 				// *(std::size_t*)(std::uintptr_t(z_for_uid.blob_ptr) + constants::main_mem_pool_size_in_bytes);   // no need to hash the uid, this is random. Use the first 64bits only
-                                    *(size_t*)&blob_uid_ref(z_for_uid.blob_ptr);   // no need to hash the uid, this is random. Use the first 64bits only
+                                    *(size_t*)&blob_uid_ref(z_for_uid);   // no need to hash the uid, this is random. Use the first 64bits only
 		}
 
 
@@ -178,6 +182,7 @@ namespace zefDB {
             MAKE_UNIQUE(uid_lookup);
             MAKE_UNIQUE(euid_lookup);
             MAKE_UNIQUE(tag_lookup);
+            MAKE_UNIQUE(av_hash_lookup);
 #undef MAKE_UNIQUE
         } else {
             if(fg->get_version() <= 2)
@@ -193,6 +198,7 @@ namespace zefDB {
             MAKE_UNIQUE(uid_lookup);
             MAKE_UNIQUE(euid_lookup);
             MAKE_UNIQUE(tag_lookup);
+            MAKE_UNIQUE(av_hash_lookup);
 #undef MAKE_UNIQUE
 #undef MAKE_UNIQUE2
         }
@@ -233,7 +239,7 @@ namespace zefDB {
             auto del_inst_uzr = internals::instantiate(root_uzr, BT.DELEGATE_INSTANTIATION_EDGE, to_del_edge_uzr, *this);
 
             // Every graph starts with an empty transaction
-            auto my_tx = Transaction(*this, false, false);
+            auto my_tx = Transaction(*this, false, false, false);
 
             auto & info = MMap::info_from_blobs(this);
             MMap::flush_mmap(info, write_head);
@@ -417,34 +423,52 @@ namespace zefDB {
         delete_graphdata();
     }
 
-
-    uint64_t Graph::hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed) const {
-        return my_graph_data().hash(blob_index_lo, blob_index_hi, seed);
+    std::ostream& operator << (std::ostream& o, Graph& g) {
+        auto& gd = g.my_graph_data();
+        o << "Graph(";
+        o << '"' << str(uid(g)) << '"';
+        if(gd.local_path != "")
+            o << ", local: " << gd.local_path.string();
+        o << ")";
+        return o;
     }
 
-    uint64_t GraphData::hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed) const {
+
+
+
+    uint64_t Graph::hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string target_layout_version) const {
+        return my_graph_data().hash(blob_index_lo, blob_index_hi, seed, target_layout_version);
+    }
+
+    uint64_t GraphData::hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string target_layout_version) const {
+        if(target_layout_version == "")
+            target_layout_version = "0.3.0";
+
         char * lo_ptr = (char*)this + blob_index_lo * constants::blob_indx_step_in_bytes;
         size_t len = (blob_index_hi - blob_index_lo)*constants::blob_indx_step_in_bytes;
         Butler::ensure_or_get_range(lo_ptr, len);
 
-            if (blob_index_lo < 0 ||
-				blob_index_lo > blob_index_hi ||
-				blob_index_hi > write_head
-				) throw std::runtime_error("invalid blob range to hash");
+        if (blob_index_lo < 0 ||
+            blob_index_lo > blob_index_hi ||
+            blob_index_hi > write_head
+            ) throw std::runtime_error("invalid blob range to hash");
 
-			uint64_t hash_from_blobs = XXHash64::hash((void*)(lo_ptr), len, seed);
+        if(target_layout_version == "0.3.0")
+            return internals::hash_memory_range((void*)(lo_ptr), len, seed);
+        else if(target_layout_version == "0.2.0")
+            return conversions::hash_0_3_0_as_if_0_2_0((void*)(lo_ptr), len, seed);
+        else
+            throw std::runtime_error("Can't hash for layout of " + target_layout_version);
+    }
 
-			return hash_from_blobs;
-		}
-
-    uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed) {
+    uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string target_layout_version) {
         // // Optimised common case
         GraphData & gd = g.my_graph_data();
         if(index_hi == gd.write_head)
-            return gd.hash(constants::ROOT_NODE_blob_index, index_hi);
+            return gd.hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
 
         Graph old_g = create_partial_graph(g, index_hi);
-        return old_g.hash(constants::ROOT_NODE_blob_index, index_hi, seed);
+        return old_g.hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
     }
 
     Graph create_partial_graph(Graph old_g, blob_index index_hi) {
@@ -456,9 +480,9 @@ namespace zefDB {
             // if(index_hi == old_gd.write_head)
             //     return old_gd.hash(index_lo, index_hi);
             if(index_hi > old_gd.write_head)
-                throw std::runtime_error("index_hi is larger than old graph");
+                throw std::runtime_error("in create_partial_graph: index_hi is larger than old graph");
             if(index_hi < index_lo)
-                throw std::runtime_error("index_hi (" + to_str(index_hi) + ") is before the root node!");
+                throw std::runtime_error("in create_partial_graph: index_hi (" + to_str(index_hi) + ") is before the root node!");
         }
 
         // We create a proper graph here so that we can access it like normal.
@@ -515,27 +539,27 @@ namespace zefDB {
             int new_last_blob = -1;
             bool is_start_of_edges = false;
             if(internals::has_edge_list(ezr)) {
-                visit_blob_with_edges([&](auto & x) {
+                visit_blob_with_edges([&](auto & edges) {
                     int this_last_blob_offset = -1;
-                    for(int i = 0; i < x.edges.local_capacity ; i++) {
-                        if(abs(x.edges.indices[i]) >= index_hi) {
-                            x.edges.indices[i] = 0;
+                    for(int i = 0; i < edges.local_capacity ; i++) {
+                        if(abs(edges.indices[i]) >= index_hi) {
+                            edges.indices[i] = 0;
                             if(this_last_blob_offset == -1)
                                 this_last_blob_offset = i;
                         }
                     }
 
-                    if(x.edges.indices[x.edges.local_capacity] >= index_hi) {
-                        x.edges.indices[x.edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
+                    if(edges.indices[edges.local_capacity] >= index_hi) {
+                        edges.indices[edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
                         if(this_last_blob_offset == -1)
-                            this_last_blob_offset = x.edges.local_capacity;
+                            this_last_blob_offset = edges.local_capacity;
                     }
 
                     if(this_last_blob_offset != -1) {
                         if(this_last_blob_offset == 0)
                             new_last_blob = 0;
                         else {
-                            uintptr_t direct_ptr = (uintptr_t)&x.edges.indices[this_last_blob_offset];
+                            uintptr_t direct_ptr = (uintptr_t)&edges.indices[this_last_blob_offset];
                             blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
                             new_last_blob = blob_index_from_ptr(ptr);
                         }
@@ -576,7 +600,8 @@ namespace zefDB {
         }
 
         // We also need to update terminated time slices. Unfortunately we can't
-        // do this until we know what the latest time slice was.
+        // do this until we know what the latest time slice was, hence why this
+        // occurs outside of the loop above.
         
         cur_index = constants::ROOT_NODE_blob_index;
         while(cur_index < index_hi) {
@@ -585,8 +610,8 @@ namespace zefDB {
                 auto rae = (blobs_ns::ENTITY_NODE*)ezr.blob_ptr;
                 if(rae->termination_time_slice > latest_time_slice)
                     rae->termination_time_slice = TimeSlice();
-            } else if(get<BlobType>(ezr) == BlobType::ATOMIC_ENTITY_NODE) {
-                auto rae = (blobs_ns::ATOMIC_ENTITY_NODE*)ezr.blob_ptr;
+            } else if(get<BlobType>(ezr) == BlobType::ATTRIBUTE_ENTITY_NODE) {
+                auto rae = (blobs_ns::ATTRIBUTE_ENTITY_NODE*)ezr.blob_ptr;
                 if(rae->termination_time_slice > latest_time_slice)
                     rae->termination_time_slice = TimeSlice();
             } else if(get<BlobType>(ezr) == BlobType::RELATION_EDGE) {
@@ -603,9 +628,9 @@ namespace zefDB {
         LockGraphData lock(&gd);
 
         if(index_hi > gd.write_head)
-            throw std::runtime_error("index_hi is larger than old graph");
+            throw std::runtime_error("in roll_back_to: index_hi is larger than old graph");
         if(index_hi < gd.read_head)
-            throw std::runtime_error("index_hi (" + to_str(index_hi) + ") is before the read_head!");
+            throw std::runtime_error("in roll_back_to: index_hi (" + to_str(index_hi) + ") is before the read_head!");
 
         // First run all unapplies. Since we can only traverse forwards in
         // indices, build a list and reverse it to unapply things in FILO order
@@ -639,27 +664,27 @@ namespace zefDB {
                 int new_last_blob = -1;
                 bool is_start_of_edges = false;
                 if(internals::has_edge_list(ezr)) {
-                    visit_blob_with_edges([&](auto & x) {
+                    visit_blob_with_edges([&](auto & edges) {
                         int this_last_blob_offset = -1;
-                        for(int i = 0; i < x.edges.local_capacity ; i++) {
-                            if(abs(x.edges.indices[i]) >= index_hi) {
-                                x.edges.indices[i] = 0;
+                        for(int i = 0; i < edges.local_capacity ; i++) {
+                            if(abs(edges.indices[i]) >= index_hi) {
+                                edges.indices[i] = 0;
                                 if(this_last_blob_offset == -1)
                                     this_last_blob_offset = i;
                             }
                         }
 
-                        if(x.edges.indices[x.edges.local_capacity] >= index_hi) {
-                            x.edges.indices[x.edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
+                        if(edges.indices[edges.local_capacity] >= index_hi) {
+                            edges.indices[edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
                             if(this_last_blob_offset == -1)
-                                this_last_blob_offset = x.edges.local_capacity;
+                                this_last_blob_offset = edges.local_capacity;
                         }
 
                         if(this_last_blob_offset != -1) {
                             if(this_last_blob_offset == 0)
                                 new_last_blob = 0;
                             else {
-                                uintptr_t direct_ptr = (uintptr_t)&x.edges.indices[this_last_blob_offset];
+                                uintptr_t direct_ptr = (uintptr_t)&edges.indices[this_last_blob_offset];
                                 blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
                                 new_last_blob = blob_index_from_ptr(ptr);
                             }
@@ -697,6 +722,22 @@ namespace zefDB {
         // Now blank out the memory above
         memset(ptr_from_blob_index(index_hi, gd), 0, (gd.write_head.load() - index_hi)*constants::blob_indx_step_in_bytes);
         gd.write_head = index_hi;
+    }
+
+    void save_local(GraphData & gd) {
+        if(gd.local_path == "")
+            throw std::runtime_error("Graph is not a local file, cannot save it.");
+
+        if(gd.sync_head == gd.read_head.load()) {
+            // No need to save, should be the same.
+            std::cerr << "Not saving, graph hasn't changed since it was loaded." << std::endl;
+            return;
+        }
+
+        Messages::UpdatePayload payload = internals::graph_as_UpdatePayload(gd, "");
+        internals::save_payload_to_local_file(internals::get_graph_uid(gd), payload, gd.local_path);
+        gd.sync_head = gd.read_head.load();
+        std::cerr << "Wrote graph to: '" << gd.local_path << "'" << std::endl;
     }
 
 	// // thread_safe_unordered_map<std::string, blob_index>& Graph::key_dict() {
@@ -960,7 +1001,7 @@ namespace zefDB {
                     // We fake that we have the transaction still open just for AbortTransaction
                     gd.number_of_open_tx_sessions++;
                     try {
-                        Butler::pass_to_schema_validator(ctx);
+                        internals::pass_to_schema_validator(ctx);
                     } catch(const std::exception & e) {
                         std::cerr << "Exception in schema_validator: " << e.what() << std::endl;
                         AbortTransaction(Graph(ctx));
@@ -1069,7 +1110,7 @@ namespace zefDB {
         };
 
         // ----------------------------------------- AE value updates ------------------------------------
-        for (auto z : outgoing_from_tx | filter[BT.ATOMIC_VALUE_ASSIGNMENT_EDGE]) {
+        for (auto z : outgoing_from_tx | filter[BT.ATOMIC_VALUE_ASSIGNMENT_EDGE, BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE]) {
             EZefRef my_ae = z | target | target;
             auto my_ae_uid = uid(my_ae);
             if (obs->g_observables->contains(my_ae_uid)) {		// if there is a subscription to z, its uid is definitely in the subscription graph (it's the uid of the cloning edge)
@@ -1200,13 +1241,14 @@ namespace zefDB {
             GEN_CACHE("_uid_lookup", uid_lookup)
             GEN_CACHE("_euid_lookup", euid_lookup)
             GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
 #undef GEN_CACHE
 
             return heads;
         }
 
-        Butler::UpdatePayload graph_as_UpdatePayload(const GraphData& gd) {
-            return Butler::create_update_payload(gd, full_graph_heads(gd));
+        Butler::UpdatePayload graph_as_UpdatePayload(GraphData& gd, std::string target_layout) {
+            return Butler::create_update_payload(gd, full_graph_heads(gd), target_layout);
         }
 
 		// Blob_and_uid_bytes is assumed to be of size m*2*constants::blob_indx_step_in_bytes, where m is integer.
@@ -1312,6 +1354,35 @@ namespace zefDB {
 			auto& root_blob = get<blobs_ns::ROOT_NODE>(EZefRef{constants::ROOT_NODE_blob_index, gd});
 			return std::string(root_blob.graph_revision_info, root_blob.actual_written_graph_revision_info_size);
 		}
+
+        uint64_t hash_memory_range(const void * lo_ptr, size_t len, uint64_t seed) {
+            // This is just so we can adjust it in the future.
+            return XXHash64::hash(lo_ptr, len, seed);
+        }
+
+
+        Messages::UpdatePayload payload_from_local_file(std::filesystem::path path) {
+            FileGroup file_group = load_tar_into_memory(path);
+
+            json j;
+            std::vector<std::string> rest;
+
+            auto & encoded_file = file_group.find_file("graph.zefgraph");
+
+            std::tie(j,rest) = Communication::parse_ZH_message(encoded_file.contents);
+
+            return Messages::UpdatePayload{j,rest};
+        }
+
+        void save_payload_to_local_file(const BaseUID & uid, const Messages::UpdatePayload & payload, std::filesystem::path path) {
+            std::string contents = Communication::prepare_ZH_message(payload.j, payload.rest);
+            FileInMemory file_data{"graph.zefgraph", std::move(contents)};
+
+            FileInMemory file_uid{"graph.uid", str(uid)};
+
+            FileGroup file_group({file_uid, file_data});
+            save_filegroup_to_tar(file_group, path);
+        }
 	} //internals
 }
 

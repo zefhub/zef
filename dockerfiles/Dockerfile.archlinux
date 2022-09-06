@@ -12,6 +12,4 @@ RUN pacman -S --noconfirm \
     git \
     jq
 
-COPY . .
-
-RUN LIBZEF_LOCATION=$(realpath core) pip3 install ./python
+RUN pip3 install zef==0.15.7a7

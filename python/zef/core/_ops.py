@@ -142,6 +142,7 @@ max             = make_zefop(RT.Max)
 min             = make_zefop(RT.Min)
 max_by          = make_zefop(RT.MaxBy)
 min_by          = make_zefop(RT.MinBy)
+clamp           = make_zefop(RT.Clamp)
 first           = make_zefop(RT.First)
 second          = make_zefop(RT.Second)
 last            = make_zefop(RT.Last)
@@ -215,7 +216,6 @@ shuffle         = make_zefop(RT.Shuffle)
 split           = make_zefop(RT.Split)
 split_left      = make_zefop(RT.SplitLeft)
 split_right     = make_zefop(RT.SplitRight)
-split_if        = make_zefop(RT.SplitIf)
 graphviz        = make_zefop(RT.Graphviz)
 
 blueprint       = make_zefop(RT.Blueprint)
@@ -351,7 +351,8 @@ fields          = make_zefop(RT.Fields)
 apply           = make_zefop(RT.Apply)
 split_on_next   = make_zefop(RT.SplitOnNext)
 indexes_of      = make_zefop(RT.IndexesOf)
-
+to_flatgraph    = make_zefop(RT.ToFlatGraph)
+parse           = make_zefop(RT.Parse)
 
 
 examples        = make_zefop(RT.Examples)
@@ -367,6 +368,8 @@ on              = make_zefop(RT.On)
 gather          = make_zefop(RT.Gather)
 alias           = make_zefop(RT.Alias)
 splice          = make_zefop(RT.Splice)
+flatten_dict    = make_zefop(RT.FlattenDict)
+unflatten_dict  = make_zefop(RT.UnflattenDict)
 
           
 # match

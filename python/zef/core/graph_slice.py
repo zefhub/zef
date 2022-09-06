@@ -87,7 +87,7 @@ class GraphSlice:
         ezr = g[thing]
         # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
         # Accessing the low-level BTs can only be done through traversals
-        if BT(ezr) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
+        if BT(ezr) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
             res = get_instance_rae(uid(thing), self)
             if res is None:
                 raise KeyError("RAE doesn't have an alive instance in this timeslice")
@@ -97,7 +97,7 @@ class GraphSlice:
             return ezr | in_frame[GraphSlice(self.tx)] | collect
 
     def __contains__(self, thing):
-        if type(thing) in [Entity, AtomicEntity, Relation]:
+        if type(thing) in [Entity, AttributeEntity, Relation]:
             return get_instance_rae(uid(thing), self) is not None
 
         g = Graph(self.tx)
@@ -127,7 +127,7 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
         return None
 
     zz = g[origin_uid]
-    if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
+    if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
         z_candidates = zz | Ins[BT.ORIGIN_RAE_EDGE] | map[target] | filter[exists_at[gs]] | collect
         if len(z_candidates) > 1:
             raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {origin_uid}")
@@ -136,7 +136,7 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
         else:
             return None     # no instance alive at the moment
         
-    elif BT(zz) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE}:
+    elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}:
         return zz
     else:
         raise RuntimeError("Unexpected option in get_instance_rae")

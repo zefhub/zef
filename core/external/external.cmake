@@ -204,6 +204,8 @@ else()
   endif()
 endif()
 
+add_library (external::openssl ALIAS openssl)
+
 # * nlohmann json
 message(STATUS "External: nlohmann_json")
 
@@ -285,6 +287,8 @@ target_link_libraries(websocketpp INTERFACE asio)
 
 create_license_file("websocketpp" ${websocketpp_SOURCE_DIR}/COPYING NO "This library bundles the websocketpp library (https://github.com/chriskohlhoff/asio)\n\nThe full text of the websocketpp license follows below.\n\n")
 
+add_library (external::websocketpp ALIAS websocketpp)
+
 
 # * parallel-hashmap
 message(STATUS "External: parallel-hashmap")
@@ -300,6 +304,8 @@ ManualFetchContent_MakeAvailable(phmap)
 
 create_license_file("phmap" ${phmap_SOURCE_DIR}/LICENSE NO "This library bundles the parallel-hashmap library (https://github.com/greg7mdp/parallel-hashmap)\n\nThe full text of the phmap license follows below.\n\n")
 
+add_library (external::phmap ALIAS phmap)
+
 # * doctest
 message(STATUS "External: doctest")
 
@@ -310,6 +316,8 @@ FetchContent_Declare(doctest
   UPDATE_COMMAND "")
 
 ManualFetchContent_MakeAvailable(doctest)
+
+add_library (external::doctest ALIAS doctest)
 
 # * ranges-v3
 message(STATUS "External: ranges-v3")
@@ -323,6 +331,8 @@ FetchContent_Declare(rangesv3
 ManualFetchContent_MakeAvailable(rangesv3)
 
 create_license_file("rangesv3" ${LAST_SOURCE_DIR}/LICENSE.txt NO "This library bundles the ranges-v3 library (https://github.com/ericniebler/range-v3)\n\nThe full text of the ranges-v3 license follows below.\n\n")
+
+add_library (external::range-v3 ALIAS range-v3)
 
 # # * blake3
 # message(STATUS "External: blake3")
@@ -371,6 +381,7 @@ ManualFetchContent_MakeAvailable(jwt-cpp)
 
 create_license_file("jwt-cpp" ${jwt-cpp_SOURCE_DIR}/LICENSE NO "This library bundles the JWT++ library (https://github.com/Thalhammer/jwt-cpp)\n\nThe full text of the jwt-cpp license follows below.\n\n")
 
+add_library (external::jwt-cpp ALIAS jwt-cpp)
 
 # * zstd
 message(STATUS "External: zstd")
@@ -434,6 +445,8 @@ else()
     message(FATAL_ERROR "Couldn't find zstd via cmake, pkg-config or find_library")
   endif()
 endif()
+
+add_library (external::libzstd ALIAS libzstd_internal)
 
 
 # * libcurl
@@ -507,4 +520,55 @@ else()
   endif()
 endif()
 
+add_library (external::libcurl ALIAS libcurl)
 
+
+# * libarchive
+
+message(STATUS "External: libarchive")
+if(LIBZEF_BUNDLED_LIBARCHIVE)
+  FetchContent_Declare(archive
+    GIT_REPOSITORY https://github.com/libarchive/libarchive
+    GIT_TAG v3.6.1
+    GIT_SHALLOW ON
+    UPDATE_COMMAND "")
+
+  ManualFetchContent_MakeAvailable(archive)
+  set_target_properties(archive_static PROPERTIES
+    POSITION_INDEPENDENT_CODE ON)
+  get_target_property(LIBARCHIVE_INCLUDES archive INCLUDE_DIRECTORIES)
+  target_include_directories(archive_static PUBLIC ${LIBARCHIVE_INCLUDES})
+
+  message(STATUS "Libarchive includes at: ${LIBARCHIVE_INCLUDES}")
+
+  create_license_file("libarchive" ${LAST_SOURCE_DIR}/COPYING NO "This library bundles the libarchive library (https://github.com/libarchive/libarchive)\n\nThe full text of the libarchive license follows below.\n\n")
+
+  add_library (external::archive ALIAS archive_static)
+else()
+  if(PKGCONFIG_FOUND)
+    pkg_check_modules(ARCHIVE archive)
+    if(ARCHIVE_FOUND)
+      message(STATUS "Found archive with pkg-config")
+      set(ARCHIVE_LIBRARIES ${ARCHIVE_LIBRARIES})
+    endif()
+  endif()
+  if(NOT ARCHIVE_FOUND)
+    find_package(ARCHIVE QUIET)
+  endif()
+  if(NOT ARCHIVE_FOUND)
+    find_library(ARCHIVE_LIBRARIES archive)
+    find_path(ARCHIVE_INCLUDE_DIRS archive.h)
+    if(ARCHIVE_LIBRARIES AND ARCHIVE_INCLUDE_DIRS)
+      set(ARCHIVE_FOUND TRUE)
+    endif()
+  endif()
+
+  if(ARCHIVE_FOUND)
+    message(STATUS "Found archive libraries at: ${ARCHIVE_LIBRARIES}")
+    message(STATUS "Found archive includes at: ${ARCHIVE_INCLUDE_DIRS}")
+  else()
+    message(FATAL_ERROR "Couldn't find archive via cmake, pkg-config or find_library")
+  endif()
+
+  add_library (external::archive ALIAS archive)
+endif()

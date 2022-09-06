@@ -23,6 +23,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <functional>
+#include <future>
 
 // TODO: Wrap this so it only mentions it once for all c++ files.
 /* #if __cplusplus == 202002L
@@ -170,4 +171,9 @@ void update_when_ready(AtomicLockWrapper & locker, std::atomic<T> & atom, T read
                                             &expected,
                                             new_value);
     }
+}
+
+template<typename T>
+bool is_future_ready(const std::future<T> & future) {
+    return future.wait_for(std::chrono::seconds(0)) != std::future_status::timeout;
 }

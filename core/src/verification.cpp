@@ -14,8 +14,8 @@
 
 #include "verification.h"
 
-// This is only needed for the DOCTEST
 #include "high_level_api.h"
+#include "zefops.h"
 
 #include <doctest/doctest.h>
 
@@ -35,9 +35,9 @@ namespace zefDB {
 			// assert src and trg have edge_list
 			EZefRef src_uzr(src_indx, *graph_data(uzr));
 			EZefRef trg_uzr(trg_indx, *graph_data(uzr));
-			if (!has_edge_list(src_uzr))
+			if (!has_edges(src_uzr))
 				throw std::runtime_error("expected source blob to have an edge_list, but it did not. Graph uid: " + to_str(Graph(uzr) | uid));
-			if (!has_edge_list(trg_uzr))
+			if (!has_edges(trg_uzr))
 				throw std::runtime_error("expected target blob to have an edge_list, but it did not. Graph uid: " + to_str(Graph(uzr) | uid));
 
 			int counter = 0;
@@ -117,7 +117,7 @@ namespace zefDB {
             blob_index cur_index = internals::root_node_blob_index();
 			while (cur_index < gd.write_head) {
                 EZefRef uzr{cur_index,gd};
-				if (internals::has_edge_list(uzr)) {
+				if (internals::has_edges(uzr)) {
                     std::vector<blob_index> vec;
                     for(auto indx : AllEdgeIndexes(uzr))
                         vec.push_back(indx);
@@ -170,7 +170,7 @@ namespace zefDB {
 			while (cur_index < gd.write_head) {
                 EZefRef uzr{cur_index,gd};
 				// deferred edge lists are the exception here: blobs in indexes appearing here will point to the true source blob and not the deferred_edge_list
-				if (internals::has_edge_list(uzr) && get<BlobType>(uzr) != BlobType::DEFERRED_EDGE_LIST_NODE) {
+				if (internals::has_edges(uzr) && get<BlobType>(uzr) != BlobType::DEFERRED_EDGE_LIST_NODE) {
 					verify_that_all_uzrs_in_my_edgelist_refer_to_me(uzr);
 				}
                 cur_index += blob_index_size(uzr);
@@ -240,8 +240,8 @@ namespace zefDB {
                     x.target_node_index *= -1;
                 }, ezr);
             } else if(style == 3) {
-                visit_blob_with_edges([](auto & x) {
-                    x.edges.indices[0] = 42;
+                visit_blob_with_edges([](auto & edges) {
+                    edges.indices[0] = 42;
                 }, ezr);
             } else if(style == 4) {
                 // Find a RAE instance that has been terminated and flip it
@@ -259,10 +259,10 @@ namespace zefDB {
                 if(num_inst_term < 2)
                     throw std::runtime_error("RAE needs two inst/terms");
 
-                visit_blob_with_edges([](auto & x) {
-                    blob_index temp = x.edges.indices[1];
-                    x.edges.indices[1] = x.edges.indices[0];
-                    x.edges.indices[0] = temp;
+                visit_blob_with_edges([](auto & edges) {
+                    blob_index temp = edges.indices[1];
+                    edges.indices[1] = edges.indices[0];
+                    edges.indices[0] = temp;
                 }, ezr);
 
             } else {

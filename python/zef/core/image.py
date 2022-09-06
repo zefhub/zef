@@ -24,7 +24,7 @@ class Image:
         return zstd.decompress(self.buffer).decode("utf-8") if self.format=='svg' else None
     def _repr_png_(self):
         # this function must return bytes
-        return zstd.decompress(self.buffer) if self.format=='png' else None
+        return zstd.decompress(self.buffer) if self.format in {'gif','png'} else None
     def _repr_jpeg_(self):
         # this function must return bytes
         return zstd.decompress(self.buffer) if self.format in {'jpeg','jpg'} else None
@@ -40,9 +40,9 @@ class Image:
             # TODO: In the future, do a conversion of file format
             if format == "svg":
                 data = self._repr_svg_()
-            elif format == "png":
+            elif format == {"png", 'gif'}:
                 data = self._repr_png_()
-            elif format == "jpeg":
+            elif format in {'jpeg','jpg'}:
                 data = self._repr_jpeg_()
 
             if data is None:
