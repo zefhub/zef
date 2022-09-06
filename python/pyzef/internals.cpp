@@ -616,6 +616,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_readonly("number_of_open_tx_sessions", &GraphData::number_of_open_tx_sessions)
 		.def_property_readonly("index_of_latest_complete_tx_node", [](GraphData &self) { return self.latest_complete_tx.load(); } )
 		.def_property_readonly("latest_complete_tx", [](GraphData &self) { return self.latest_complete_tx.load(); } )
+		.def_property_readonly("manager_tx_head", [](GraphData &self) { return self.manager_tx_head.load(); } )
+		.def_property_readonly("last_run_subscriptions", [](GraphData &self) { return self.last_run_subscriptions.load(); } )
 		.def_readonly("index_of_open_tx_node", &GraphData::index_of_open_tx_node)
 		.def_property_readonly("write_head", [](GraphData &self) { return self.write_head.load(); })
 		.def_property_readonly("read_head", [](GraphData &self) { return self.read_head.load(); })

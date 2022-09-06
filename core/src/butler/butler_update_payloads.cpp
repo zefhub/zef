@@ -408,6 +408,7 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
         // TODO: Check if websocket is down, and quit in that case.
         if(!network.connected) {
             std::cerr << "Gave up updating as websocket is disconnected" << std::endl;
+            me.gd->currently_subscribed = false;
             return;
         }
 
@@ -459,6 +460,7 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
         //     throw std::runtime_error("Somehow zefhub replied with a different blob update than we sent!");
 
         // Getting here should mean we succeeded.
+        me.gd->currently_subscribed = true;
         apply_sync_heads(*me.gd, update_heads);
         return;
     }

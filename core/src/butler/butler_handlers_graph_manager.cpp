@@ -1117,8 +1117,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewTran
 
 template<>
 void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, Reconnected & content, Butler::msg_ptr & msg) {
-    // Note: sync_head == 0 means we are a local graph.
-    if (me.gd->sync_head == 0 && !me.gd->should_sync) {
+    if (!me.gd->should_sync) {
         msg->promise.set_value(GenericResponse(true));
         return;
     }
