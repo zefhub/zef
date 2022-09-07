@@ -30,6 +30,9 @@ def get_zfunc_func(zfunc):
 
 from ariadne import ObjectType, QueryType, MutationType, EnumType, ScalarType
 
+class Missing:
+    pass
+
 ############################################
 # * Temporary profiling
 #------------------------------------------
@@ -286,6 +289,7 @@ def generate_resolvers_fcts(schema_root):
                  "_Enums": enums_dict,
                  "_Scalars": scalars_dict}
 
+    import datetime
     scalars_dict["DateTime"] = {
         "serializer": apply[lambda t: datetime.datetime.fromtimestamp(t.seconds_since_1970).isoformat()],
         "parser": apply[Time]
@@ -438,7 +442,7 @@ def generate_resolvers_fcts(schema_root):
             "args": query_params,
             # "resolver": apply[P(resolve_aggregate, type_node=z_type)],
             # "resolver": resolve_aggregate2[z_type],
-            "resolver": maybe_compile_func(resolve_aggregate3, z_type),
+            "resolver": maybe_compile_func(resolve_aggregate3, type_node=z_type),
         }
 
         # Add the 3 top-level mutations
@@ -747,11 +751,11 @@ def resolve_aggregate(ctx, *, type_node, sctx, **params):
     # of lazy object here. However, for simplicity in the beginning, I will
     # aggregate everything, even if the query is only for a single field.
 
-    ents = resolve_query(ctx, type_node=type_node, sctx=sctx, filter=params.get("filter", None))
+    ents = resolve_query(ctx, type_node=type_node, sctx=sctx, **params)
 
     out = {"count": len(ents)}
     for z_field in type_node > L[RT.GQL_Field] | filter[op_is_aggregable]:
-        vals = ents | map[lambda z: resolve_field(z, ctx, z_field=z_field)] | filter[Not[equals[None]]] | collect
+        vals = ents | map[lambda z: resolve_field((z, ctx), z_field=z_field, sctx=sctx)] | filter[Not[equals[None]]] | collect
 
         field_name = z_field | F.Name | collect
 
@@ -781,23 +785,23 @@ def resolve_aggregate(ctx, *, type_node, sctx, **params):
             out[f"{field_name}Avg"] = val_avg
 
     return out
-@func
-def resolve_aggregate2(obj, type_node, graphql_info, query_args):
-    try:
-        return resolve_aggregate(obj, graphql_info, type_node=type_node, **query_args)
-    except ExceptionWrapper as exc:
-        if exc.wrapped.name == "External":
-            return exc.wrapped
-        raise
-    except _ErrorType as exc:
-        return exc
+# @func
+# def resolve_aggregate2(obj, type_node, graphql_info, query_args):
+#     try:
+#         return resolve_aggregate(obj, graphql_info, type_node=type_node, **query_args)
+#     except ExceptionWrapper as exc:
+#         if exc.wrapped.name == "External":
+#             return exc.wrapped
+#         raise
+#     except _ErrorType as exc:
+#         return exc
 
 @func
 def resolve_aggregate3(_, info, type_node, **params):
     try:
         sctx = static_context(info)
         ctx = runtime_context(info)
-        cfunc = maybe_compile_func(resolve_aggregate, type_node, sctx, **params)
+        cfunc = maybe_compile_func(resolve_aggregate, type_node=type_node, sctx=sctx, **params)
         return maybe_compile_func(profile, "resolve_aggregate", cfunc)(ctx)
     except ExceptionWrapper as exc:
         if exc.wrapped.name == "External":
@@ -807,7 +811,8 @@ def resolve_aggregate3(_, info, type_node, **params):
         return exc
 
 def resolve_field(arg, *, z_field, sctx, **params):
-    raise Exception("Not allowed here anymore")
+    log.warning("WARNING: running uncompiled version of resolve_field")
+    return maybe_compile_func(resolve_field, z_field, sctx, **params)(arg)
 
 def stmts_resolve_field(z_field, sctx, **params):
     inputs = ["arg"]
@@ -1315,12 +1320,8 @@ compiling.compilable_funcs[handle_list_params] = stmts_handle_list_params
 
 @func
 def field_resolver_by_name(arg, type_node, sctx, name):
-    z,ctx = arg
-    if name == "id":
-        return resolve_id(z, ctx)
-    sub_field = get_field_rel_by_name(type_node, name)
-    # return resolve_field(z, ctx=ctx, z_field=sub_field)
-    return resolve_field((z, ctx), z_field=sub_field, sctx=sctx)
+    log.warning("WARNING: running uncompiled version of field_resolver_by_name")
+    return maybe_compile_func(field_resolver_by_name, type_node, sctx, name)(arg)
 
 def stmts_field_resolver_by_name(type_node, sctx, name):
     if name == "id":
@@ -1620,27 +1621,19 @@ def stmts_internal_resolve_field_profiled(z_field, sctx, auth_required=True):
                                            "opts")]
     elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
         cfunc = maybe_compile_func(func[z_field | Out[RT.GQL_FunctionResolver] | collect])
-        stmts += [PartialStatement("ctx",
-                                   get["auth"][None],
-                                   "auth")]
-        # stmts += [AssignStatement(z_field, "z_field")]
-        # stmts += [PartialStatement(["z","auth","z_field"],
-        #                            cfunc,
-        #                            "opts",
-        #                            starargs=True)]
-
         lookup_cache = {}
-        def cached_call(z, auth):
-            key = (z,freeze(auth))
-            val = lookup_cache.get(key, None)
-            if val is None:
-                val = cfunc(z, auth, z_field, sctx)
+        def cached_call(z, ctx):
+            key = (z,freeze(ctx))
+            val = lookup_cache.get(key, Missing)
+            if val is Missing:
+                val = cfunc(z, ctx, z_field, sctx)
                 if isinstance(val, LazyValue):
                     val = collect(val)
                 print("Cache miss")
+                print(key)
                 lookup_cache[key] = val
             return val
-        stmts += [PartialStatement(["z","auth"],
+        stmts += [PartialStatement(["z","ctx"],
                                    cached_call,
                                    "opts",
                                    starargs=True)]
@@ -2271,6 +2264,7 @@ def commit_with_post_checks(actions, post_checks, ctx, sctx):
             if type(exc) == ExternalError:
                 raise exc
             else:
+                print(exc)
                 raise ExternalError("Unexpected error in auth check/hooks execution")
 
     return r

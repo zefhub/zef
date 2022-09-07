@@ -59,6 +59,7 @@ def prepare_hooks(graph, hooks_string):
             with open(fd, "w") as file:
                 file.write(hooks_string)
             code = compile(hooks_string, path, "exec")
+            from .generate_api2 import resolve_field
             globs = {"g": graph}
             exec(code, globs, globs)
         finally:
