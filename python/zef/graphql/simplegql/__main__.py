@@ -86,7 +86,7 @@ if graph_data_tag is not None:
         log.info("Created data graph with tag", tag=graph_data_tag)
     else:
         g_data = Graph(graph_data_tag)
-        log.info("Loaded existing data graph")
+        log.info("Loaded existing data graph", tag=graph_data_tag)
 else:
     assert args.scratch
     g_data = Graph()
@@ -101,7 +101,11 @@ if not args.scratch and args.host_role and not args.read_only:
 Unable to obtain transactor role for data graph. Either stop other processes from having host role on this graph (`g | release_transactor_role | run` in that process) or run this server with `--no-host-role`).
         
 Note that running without the host role is currently dangerous as mutations do not currently verify pre-conditions.
+
+        Sleeping for 60 seconds to avoid spamming this to hosted services.
 """) 
+        import time
+        time.sleep(60)
         raise SystemExit(3)
     log.info("Obtained host role on data graph")
 
