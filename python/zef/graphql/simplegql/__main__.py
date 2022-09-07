@@ -109,21 +109,23 @@ if not args.scratch and args.host_role and not args.read_only:
         if is_a(http_r, Error):
             raise Exception("Error in creating server") from http_r.args[0]
         start_time = now()
-        while True:
-            try:
-                g_data | take_transactor_role | run
-                break
-            except Exception as exc:
-                if now() - start_time > 3*minutes:
-                    log.error("After waiting for 3 minutes, unable to get the transactor role. Aborting!")
-                    raise Exception()
-                log.warning("Unable to get transactor role. Trying again after 5 seconds.")
-                import time
-                time.sleep(5)
-        {
-            "type": FX.HTTP.StopServer,
-            "server_uuid": http_r["server_uuid"],
-        } | run
+        try:
+            while True:
+                try:
+                    g_data | take_transactor_role | run
+                    break
+                except Exception as exc:
+                    if now() - start_time > 3*minutes:
+                        log.error("After waiting for 3 minutes, unable to get the transactor role. Aborting!")
+                        raise Exception()
+                    log.warning("Unable to get transactor role. Trying again after 5 seconds.")
+                    import time
+                    time.sleep(5)
+        finally:
+            {
+                "type": FX.HTTP.StopServer,
+                "server_uuid": http_r["server_uuid"],
+            } | run
 
     except Exception as exc:
         log.error("Error getting transactor role", exc_info=exc)
