@@ -94,18 +94,44 @@ else:
 
 if not args.scratch and args.host_role and not args.read_only:
     try:
-        g_data | take_transactor_role | run
+        # We might be needing to report "healthy"
+        from zef.core.fx.http import send_response, middleware_worker, fallback_not_found, route
+        http_r = {
+            'type': FX.HTTP.StartServer,
+            'port': args.port,
+            'pipe_into': (map[middleware_worker[[route["/"][insert_in[["response_body"]]["Healthy"]],
+                                                fallback_not_found,
+                                                send_response]]]
+                        | subscribe[run]),
+            'logging': True,
+            'bind_address': args.bind,
+        } | run
+        if is_a(http_r, Error):
+            raise Exception("Error in creating server") from http_r.args[0]
+        start_time = now()
+        while True:
+            try:
+                g_data | take_transactor_role | run
+                break
+            except Exception as exc:
+                if now() - start_time > 3*minutes:
+                    log.error("After waiting for 3 minutes, unable to get the transactor role. Aborting!")
+                    raise Exception()
+                log.warning("Unable to get transactor role. Trying again after 5 seconds.")
+                import time
+                time.sleep(5)
+        {
+            "type": FX.HTTP.StopServer,
+            "server_uuid": http_r["server_uuid"],
+        } | run
+
     except Exception as exc:
         log.error("Error getting transactor role", exc_info=exc)
         print("""
 Unable to obtain transactor role for data graph. Either stop other processes from having host role on this graph (`g | release_transactor_role | run` in that process) or run this server with `--no-host-role`).
         
 Note that running without the host role is currently dangerous as mutations do not currently verify pre-conditions.
-
-        Sleeping for 60 seconds to avoid spamming this to hosted services.
 """) 
-        import time
-        time.sleep(60)
         raise SystemExit(3)
     log.info("Obtained host role on data graph")
 
