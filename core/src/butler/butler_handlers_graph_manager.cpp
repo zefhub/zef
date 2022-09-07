@@ -57,9 +57,12 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         LockGraphData lock{me.gd};
         update_heads = client_create_update_heads(*me.gd);
         if(me.gd->sync_head == 0)
-            hash_to = me.gd->write_head.load();
-        else
+            hash_to = me.gd->read_head.load();
+        else {
             hash_to = me.gd->sync_head.load();
+            if(me.gd->read_head < hash_to)
+                hash_to = me.gd->read_head;
+        }
 
         hash = partial_hash(Graph(me.gd, false), hash_to, 0, working_layout);
     }
