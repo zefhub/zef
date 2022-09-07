@@ -146,29 +146,38 @@ def Transaction(g, wait=None, rollback_empty=None, check_schema=None):
     global global_transaction_task
     from ...pyzef.zefops import uid
 
+    if wait is None:
+        wait = zwitch.default_wait_for_tx_finish()
+    if rollback_empty is None:
+        rollback_empty = zwitch.default_rollback_empty_tx()
+    if check_schema is None:
+        check_schema = True
+
     cur_task = safe_current_task()
-    prev_val = global_transaction_task.get(uid(g), None)
 
-    if prev_val is not None and prev_val != cur_task:
-        raise Exception("Can't open a Transaction from a different task to the original Transaction. Note that ZefDB is not safe to create simultaneous transactions from different asyncio tasks. Ideally, there should be no asyncio task switch occuring during a transaction.")
+    if cur_task is None:
+        current_tx = StartTransactionReturnTx(g)
+        try:
+            yield current_tx
+        finally:
+            FinishTransaction(g, wait, rollback_empty, check_schema)
+    else:
+        prev_val = global_transaction_task.get(uid(g), None)
 
-    global_transaction_task[uid(g)] = cur_task
-    current_tx = StartTransactionReturnTx(g)
-    try:
-        yield current_tx
-    finally:
-        if prev_val is None and uid(g) in global_transaction_task:
-            del global_transaction_task[uid(g)]
-        else:
-            global_transaction_task[uid(g)] = prev_val
+        if prev_val is not None and prev_val != cur_task:
+            raise Exception("Can't open a Transaction from a different task to the original Transaction. Note that ZefDB is not safe to create simultaneous transactions from different asyncio tasks. Ideally, there should be no asyncio task switch occuring during a transaction.")
 
-        if wait is None:
-            wait = zwitch.default_wait_for_tx_finish()
-        if rollback_empty is None:
-            rollback_empty = zwitch.default_rollback_empty_tx()
-        if check_schema is None:
-            check_schema = True
-        FinishTransaction(g, wait, rollback_empty, check_schema)
+        global_transaction_task[uid(g)] = cur_task
+        current_tx = StartTransactionReturnTx(g)
+        try:
+            yield current_tx
+        finally:
+            if prev_val is None and uid(g) in global_transaction_task:
+                del global_transaction_task[uid(g)]
+            else:
+                global_transaction_task[uid(g)] = prev_val
+
+            FinishTransaction(g, wait, rollback_empty, check_schema)
 
 
 
