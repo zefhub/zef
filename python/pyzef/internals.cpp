@@ -604,7 +604,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
         return update_heads;
     },
-        "Low-level function to see if an update needs to be sent out.", py::call_guard<py::gil_scoped_release>());
+        // DO NOT RELEASE THE GIL FOR THIS FUNCTION
+        "Low-level function to see if an update needs to be sent out.");
 
     internals_submodule.def("create_update_heads", [](GraphData & gd) {
         return internals::full_graph_heads(gd);
