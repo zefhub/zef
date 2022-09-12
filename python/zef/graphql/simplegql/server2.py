@@ -15,7 +15,7 @@
 from ... import *
 from ...ops import *
 
-from ...core.fx.http import send_response, permit_cors, middleware, middleware_worker, fallback_not_found, route
+from ...core.fx.http import send_response, permit_cors, middleware, middleware_worker, fallback_not_found, fallback, route
 
 from .generate_api2 import generate_resolvers_fcts
 from ariadne import graphql_sync
@@ -203,7 +203,8 @@ def start_server(z_gql_root,
                                              route["/"][insert_in[["response_body"]]["Healthy"]],
                                              route["/gql"][P(query, context=context)],
                                              *additional_routes,
-                                             fallback_not_found,
+                                             # fallback_not_found,
+                                             fallback[P(query, context=context)],
                                              send_response]]]
                       | subscribe[run]),
         'logging': logging,

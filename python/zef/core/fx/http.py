@@ -302,6 +302,17 @@ def fallback_not_found(req):
         req["response_status"] = 404
     return req
 
+@func
+def fallback(req, handler):
+    try:
+        return handler(req)
+    except Exception as exc:
+        log.error(f"There was an exception in the handler for the fallback", exc_info=exc)
+        return {
+            **req,
+            "response_status": 500,
+        }
+
 
 @func
 def middleware_worker(req, mw):
