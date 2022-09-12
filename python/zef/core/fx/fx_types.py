@@ -96,6 +96,7 @@ class _LocalFile_Class():
     Write = FXElement(('LocalFile', 'Write'))
     Save = FXElement(('LocalFile', 'Save'))
     SystemOpenWith = FXElement(('LocalFile', 'SystemOpenWith'))
+    MonitorPath     = FXElement(('LocalFile', 'MonitorPath'))
     
 
 class _S3_Class():

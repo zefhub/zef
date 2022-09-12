@@ -1231,8 +1231,8 @@ std::string Butler::GraphTrackingData::info_str() {
             {"queue_size", queue.num_messages.load()},
             {"gd", to_str((void*)gd)},
             {"last_action", debug_last_action},
-            {"sync_joinable", sync_thread->joinable()},
-            {"manager_joinable", managing_thread->joinable()},
+            {"sync_joinable", sync_thread && sync_thread->joinable()},
+            {"manager_joinable", managing_thread && managing_thread->joinable()},
         });
     return j.dump();
 }
