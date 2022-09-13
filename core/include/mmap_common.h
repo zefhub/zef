@@ -285,8 +285,14 @@ namespace zefDB {
             // checks when we have already ensured all pages are loaded.
             std::bitset<PAGE_BITMAP_BITS> occupied_pages;
             std::bitset<PAGE_BITMAP_BITS> loaded_pages;
+
+            // If true, the memory has been freed.
+            bool released = false;
+            std::atomic_int refcount = 0;
+
             MMapAllocInfo(MMapAllocInfo & other) = delete;
             MMapAllocInfo() = default;
+            ~MMapAllocInfo();
         };
 
         inline void * blobs_ptr_from_mmap(const void * ptr) {
@@ -376,6 +382,8 @@ namespace zefDB {
 
         LIBZEF_DLL_EXPORTED void destroy_mmap(MMapAllocInfo& info);
         inline void destroy_mmap(const void * ptr) { destroy_mmap(info_from_blobs(ptr)); }
+        LIBZEF_DLL_EXPORTED void free_mmap(MMapAllocInfo& info);
+        LIBZEF_DLL_EXPORTED bool is_graph_mem_alive(void * ptr);
 
         // * Whole file mappings
 

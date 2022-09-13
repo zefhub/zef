@@ -1078,27 +1078,8 @@ namespace zefDB {
 		//   |_____|_____|_____|_____| | |_| | |_____|_____|_____|_____|
 		//                              \__\_|                          
 		//                                                             
-		struct LIBZEF_DLL_EXPORTED Q_Class {
-			// queue a task to be executed later in a separate transaction.
-			// the function takes the graph to which the data should be written. This is passed in by the queueing system 
 			
-			// TODO!!!!!!!!!!!!!:       g | Q[inter_graph_linking[true]][my_fct]
 			
-			Batch batch_info = Batch();
-			double execution_priority = 0.5;
-			std::function<void(Graph)> fct = {};	// we don't need an std::optional here: std::function supports casting to bool
-
-			Q_Class operator[] (Batch batch_info_) const { return Q_Class{ batch_info_, execution_priority,  fct }; }
-			Q_Class operator[] (double execution_priority_) const { return Q_Class{ batch_info, execution_priority_,  fct }; }
-			Q_Class operator[] (std::function<void(Graph)> fct_) const { return Q_Class{ batch_info, execution_priority,  fct_ }; }
-		};
-		const Q_Class Q;
-
-		inline Graph operator| (Graph g, Q_Class q) {
-			if (!bool(q.fct)) throw std::runtime_error("A function of type (Graph)->void needs to be assigned to the Q operator before q-ing it on a graph!");
-			internals::q_function_on_graph(q.fct, q.execution_priority, g.my_graph_data());
-			return g; 
-		}
 
 
 

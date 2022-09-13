@@ -81,8 +81,10 @@ namespace zefDB {
                         std::cerr << "Starting butler automatically. Call initialise_butler if you want more control." << std::endl;
                     butler_allow_auto_start = false;
                     initialise_butler();
-                } else
+                } else {
+                    abort();
                     throw std::runtime_error("This action needs the zefDB butler running, yet its autostart has been disabled. Note: autostart is disabled after the butler has been started once.");
+                }
             }
             return butler;
         }
@@ -115,9 +117,6 @@ namespace zefDB {
             initialise_butler(std::get<std::string>(get_config_var("login.zefhubURL")));
         }
         void initialise_butler(std::string zefhub_uri) {
-#ifdef DEBUG
-            internals::static_checks();
-#endif
             if(!validate_config_file()) {
                 std::cerr << "WARNING: config options are invalid..." << std::endl;
             }
@@ -141,6 +140,10 @@ namespace zefDB {
 
             // std::cerr << "Before making butler" << std::endl;
             butler = std::make_unique<Butler>(zefhub_uri);
+
+// #ifdef DEBUG
+//             internals::static_checks();
+// #endif
 
             // std::cerr << "Before making butler thread" << std::endl;
             butler->thread = std::make_unique<std::thread>(&Butler::msgqueue_listener, &(*butler));
@@ -635,7 +638,6 @@ namespace zefDB {
                         // TODO:
                         update(me.gd->heads_locker, me.gd->manager_tx_head, index(this_tx));
                     }
-                    internals::execute_queued_fcts(*me.gd);
 
                     if(me.gd->error_state != GraphData::ErrorState::OK)
                         throw std::runtime_error("Sync worker for graph detected invalid state and is aborting");
@@ -909,7 +911,7 @@ namespace zefDB {
 
         Graph Butler::get_local_process_graph() {
             if(!local_process_graph) {
-                Graph g;
+                Graph g(false);
                 set_keep_alive(g);
                 local_process_graph = g;
             }

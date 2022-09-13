@@ -48,3 +48,5 @@
 #include "external_handlers.h"
 
 #include "conversions.h"
+
+#include "transaction.h"

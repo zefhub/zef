@@ -17,6 +17,7 @@
 #include "ops_imperative.h"
 #include "synchronization.h"
 #include "external_handlers.h"
+#include "transaction.h"
 #include <iterator>
 #include <unordered_set>
 #include <doctest/doctest.h>

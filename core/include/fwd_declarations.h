@@ -65,8 +65,6 @@ namespace zefDB {
 
 	struct EZefRef;
 	struct ZefRef;
-	struct TimeSlice;
-	struct GraphData;
 	struct Graph;
 	// enum class BlobType : unsigned char;
 
