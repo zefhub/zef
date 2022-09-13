@@ -269,7 +269,12 @@ namespace zefDB {
 //                                                                              |_|                                                           
     struct LIBZEF_DLL_EXPORTED GraphRef {
         BaseUID uid;
+
+        GraphRef(BaseUID uid) : uid(uid) {}
+        GraphRef(Graph g);
     };
+
+	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, GraphRef& g);
 
     struct _InternalEmptyGraph {};
 	struct LIBZEF_DLL_EXPORTED Graph {

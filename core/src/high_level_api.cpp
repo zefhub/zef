@@ -204,15 +204,15 @@ namespace zefDB {
         return response.j["matches"].get<std::vector<std::string>>();
 	}
 
-    std::optional<std::string> lookup_uid(const std::string& tag) {
+    std::optional<GraphRef> lookup_uid(const std::string& tag) {
         auto butler = Butler::get_butler();
         auto response = butler->msg_push_timeout<Messages::GenericZefHubResponse>(Messages::UIDQuery{tag});
         if(!response.generic.success)
             throw std::runtime_error("Failed with uid lookup: " + response.generic.reason);
         if(response.j.contains("graph_uid"))
-            return response.j["graph_uid"].get<std::string>();
+            return GraphRef(BaseUID::from_hex(response.j["graph_uid"].get<std::string>()));
         else
-            return std::optional<std::string>();
+            return std::optional<GraphRef>();
     }
 
 

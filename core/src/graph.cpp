@@ -288,6 +288,13 @@ namespace zefDB {
 //   |_____|_____|_____|_____|_____|_____|_____|_____|_____|    | |_| | | | (_| | |_) | | | |    |_____|_____|_____|_____|_____|_____|_____|_____|_____|
 //                                                               \____|_|  \__,_| .__/|_| |_|
 
+    GraphRef::GraphRef(Graph g) : uid(internals::get_graph_uid(g)) {}
+
+	std::ostream& operator << (std::ostream& o, GraphRef& g) {
+        o << "GraphRef(" << str(g.uid) << ")";
+        return o;
+    }
+
     // This version is for creating a new local graph.
 	Graph::Graph(bool sync, int mem_style, bool internal_use_only) {
         auto butler = Butler::get_butler();

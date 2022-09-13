@@ -40,6 +40,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def(py::init<GraphData&>(), "Graph constructor from graph uid")
 		.def(py::init<EZefRef>(), "Graph constructor from EZefRef")
 		.def(py::init<ZefRef>(), "Graph constructor from ZefRef: returns the graph that owns the zefref data, not the reference frame graph")
+		.def(py::init<GraphRef>(), py::arg("graph_ref"), py::call_guard<py::gil_scoped_release>())
 		.def_property_readonly("graph_data", [](Graph& g)->GraphData& { return g.my_graph_data(); }, py::return_value_policy::reference)  // the mem policy return_value_policy::reference_internal is used here by default: ties lifetime of property returned to lifetime of parent (also stops parent from being destroyed while this is alive)
 		.def_property_readonly("uid", [](Graph& g)->BaseUID { return uid(g); })
 		.def("hash", &Graph::hash, py::arg("blob_index_lo"), py::arg("blob_index_hi"), py::arg("seed")=0, py::arg("working_layout")="", "calculate the xxhash of the data within the specified blob range. This is non-cryptographic hash fct.")
@@ -119,6 +120,13 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def_property_readonly("subscription_graph", [](const Graph& self)->std::optional<Graph> {
 			return bool(self.my_graph_data().observables) ? std::optional<Graph>(*(*self.my_graph_data().observables).g_observables) : std::optional<Graph>({}) ;
 		})
+		;
+
+    py::class_<zefDB::GraphRef>(main_module, "GraphRef", py::buffer_protocol())
+		.def(py::init<BaseUID>(), py::arg("uid"), py::call_guard<py::gil_scoped_release>())
+		.def(py::init<Graph>(), py::arg("graph"), py::call_guard<py::gil_scoped_release>())
+        .def("__repr__", [](const GraphRef& self) { return to_str(self); })
+        .def_readonly("uid", &GraphRef::uid)
 		;
 
     main_module.def("load_graph",
