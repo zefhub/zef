@@ -344,7 +344,7 @@ def match_and_dispatch(component):
 
 def print_rich(displayable):
     import rich
-    console = rich.console.Console()
+    console = rich.console.Console(width = 120)
     displayable = match_and_dispatch(displayable)
     console.print(displayable)
 
