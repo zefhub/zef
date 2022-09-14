@@ -938,18 +938,6 @@ class LazyValue:
             from .op_implementations.implementation_typing_functions import ZefGenerator
             curr_value = self.initial_val
 
-            # TODO: Type info has been disabled due to typespecing of long lists/sets/dicts which consumes
-            # time to get the specific contained type (#ref:type_spec_iterable). For now the evaluation engine
-            # doesn't depend on the type system. create_type_info could still be externally called.
-
-            # primary_type_info = False
-            # try:
-            #     type_info = create_type_info(self)
-            #     primary_type_info = True
-            # except:
-            #     warnings.warn("Failed to create type info using primary method. Falling back to backup type info!")
-            # if not primary_type_info: back_up_type_info = [type_spec(curr_value)]
-
             for op_i,op in enumerate(self.el_ops.el_ops): 
                 if op[0] == RT.Collect: continue
                 if op[0] == RT.Run:
@@ -970,6 +958,28 @@ class LazyValue:
                     "op": op,
                 }
 
+                def type_checking_context(op, function, inp):
+                    from .op_implementations.implementation_typing_functions import is_a_implementation
+                    try:
+                        if op[0] == RT.Function:
+                            function = op[1][0][1]
+                            import types
+                            assert type(function) == types.FunctionType, "Failed function check"
+                        
+                        import inspect
+                        full_arg_spec = inspect.getfullargspec(function)
+                        args, annotations = full_arg_spec.args, full_arg_spec.annotations
+                        assert len(annotations) > 0, "Missing Annotations"
+
+                        arg_type = annotations.get(args[0], None)
+                        assert arg_type is not None, "Failed retrieving the annotation for input arg"
+                        
+                        return {"type_check": {"expected": {"arg": args[0], "type": arg_type}, "result": is_a_implementation(inp, arg_type)}}
+
+                    except Exception as exc:
+                        return {"type_check": None}
+
+
                 to_call_func = _op_to_functions[op[0]][0]
                 got_error = None
                 try:
@@ -987,13 +997,17 @@ class LazyValue:
                     got_error = add_error_context(e.wrapped, {"frames": frames})
                 except _ErrorType as e:
                     got_error = e
-
+                    got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
+                    # print("2")
                 except Exception as e:
+                    # print("3")
                     py_e,frames = convert_python_exception(e)
                     got_error = Error.Panic()
                     got_error.nested = py_e
                     got_error = add_error_context(got_error, {"frames": frames})
+                    got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
                 else:
+                    # print("4", new_value)
                     if type(new_value) == _ErrorType:
                         # Here we have a choice - depends on what the caller expects, an Error or an exception
                         #
@@ -1021,12 +1035,6 @@ class LazyValue:
                     print(op)
 
                 curr_value = new_value
-
-
-                # if not primary_type_info: 
-                #     curr_type, curr_value = find_type_of_current_value(curr_value)
-                #     back_up_type_info.append(curr_type)
-            # self.type_info = type_info if primary_type_info else back_up_type_info
 
             if unpack_generator:
                 if isinstance(curr_value, Iterator) or isinstance(curr_value, Generator):
@@ -1087,6 +1095,8 @@ class LazyValue:
         except ExceptionWrapper as exc:
             raise exc from None
         except _ErrorType as exc:
+            # print("5")
+            # return ExceptionWrapper(exc) #from None
             raise ExceptionWrapper(exc) from None
         except Exception as exc:
             e = EvalEngineCoreError(exc)
