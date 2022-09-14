@@ -33,14 +33,17 @@ class _ErrorType(Exception):
         else: args = self.args
         return f'{self.name}{args}'
 
-    def __str__(self):
-        try:
-            return "\n\nThis is a custom error output for a wrapped Zef error\n\n" + str_zef_error(self)
-        except Exception as exc:
-            import traceback
-            # return "Unable to format custom Zef error: "# + traceback.format_exception(exc)
-            # traceback.print_exc(exc)
-            traceback.print_tb(exc.__traceback__)
+    # def __str__(self):
+    #     from ..ui import show
+    #     try:
+    #         zef_ui_err(self) 
+    #         return ""
+    #         return "\n\nThis is a custom error output for a wrapped Zef error\n\n" + str_zef_error(self)
+    #     except Exception as exc:
+    #         import traceback
+    #         # return "Unable to format custom Zef error: "# + traceback.format_exception(exc)
+    #         # traceback.print_exc(exc)
+    #         traceback.print_tb(exc.__traceback__)
         
 
     def __eq__(self, other):
@@ -49,6 +52,81 @@ class _ErrorType(Exception):
 
     def __bool__(self):
         return False
+
+def zef_ui_err_fallback(self):
+    try:
+        return "\n\nThis is a custom error output for a wrapped Zef error\n\n" + str_zef_error(self)
+    except Exception as exc:
+        import traceback
+        traceback.print_tb(exc.__traceback__)
+
+
+def zef_ui_err(err):
+    from ..ops import contains,single, get, collect, filter, ZefOp
+    from ..ui import Text,VStack, Frame, show, Code
+
+    try:
+        nested = err.nested
+        name = err.name
+        contexts = err.contexts
+        frames = contexts | filter[contains["frames"]] | single | get["frames"] | collect
+        type_check = contexts | filter[contains["type_check"]] | single | get["type_check"] | collect
+        chain = contexts | filter[contains["chain"]] | single | collect
+        contexts,nested, frames
+        ####
+        title = Text(name, color="#FF9494", italic=True)
+
+        #####
+        header = Text(f"\n{nested['type']} occured in {frames[-1]['func_name']}\n", color="#189ad3")
+        stack_lst = [header]
+
+        #####
+        fname = frames[-1]['filename']
+        try:
+            truncated_filename = fname[fname.rindex("zef"):]
+        except:
+            truncated_filename = fname
+        file_line = Text(f"~/{truncated_filename}@{frames[-1]['lineno']}", color="#33b864")
+        file_text = Text(["File ", file_line])
+        stack_lst += [file_text]
+
+        #####
+        context_header = Text("\n==Context==\n", bold=True, justify="center", italic=True)
+        code_str = f"""
+ chain = {chain['chain']}
+ input = {chain['input']}
+ op    = {ZefOp((chain['op'],),)}
+        """
+        context_code = Code(code_str, language = "python3")
+        stack_lst += [context_header, context_code]
+
+
+        #####
+        tc_header = Text("\n==Type Checking==\n", bold=True, justify="center", italic=True)
+
+        if type_check:
+            tc_body = f"Expected: {type_check['expected']['arg']} = {type_check['expected']['type']}\n"
+            tc_check = f"Type Check using `{chain['input']}`: {['Failed ❌','Success ✅'][type_check['result']]}"
+            tc_body = Text([tc_body,tc_check], color="#FF9494")
+        else:
+            tc_body = Text("Failed to do Type Checking due to missing annotations", color="#FF9494", bold=True)
+
+        stack_lst += [tc_header, tc_body]
+
+
+        #####
+        if nested['args']:
+            err_msg_header = Text("\n==Error Message==", bold=True, justify="center", italic=True)
+            err_msg = Text(f"\n{','.join(nested['args'])}", color="#FF9494")
+            stack_lst += [err_msg_header, err_msg]
+
+        stack = VStack(stack_lst, expand=True)
+        Frame(stack, title= title, expand=True) | show
+        return ""
+    
+    except Exception as exc:
+        return zef_ui_err_fallback(err)
+
 
 # This class exists solely to enable printing of the _ErrorType class above in
 # normal exception handling. It also allows us to identify points at which we
