@@ -241,11 +241,6 @@ def construct_commands(elements, generate_id=None) -> list:
 # * Validation
 #----------------------------
 
-def ensure_not_previously_defined(internal_id: str):
-    if internal_id in id_definitions:
-        raise KeyError(f"The internal id '{internal_id}' was already defined. Multiple definitions of an internal id are not allowed.")
-
-
 @func
 def obtain_ids(x) -> dict:
     # Return all user IDs for this part of the GraphDelta input.
@@ -954,6 +949,7 @@ def verify_and_compact_commands(cmds: tuple):
                 # hard to tell that without playing out the assignments first.
                         (Is[first | equals["merge"]],          second | combine_internal_ids_for_merges),
                         (Is[first | equals["terminate"]],      second | combine_terminates), 
+                        (Is[first | equals["instantiate"]],    second | combine_instantiates), 
                         (Any, second),                                 # Just pack things back in for other cmd types
             ]]
             | concat
@@ -1041,6 +1037,23 @@ def combine_terminates(cmds):
     return (cmds
             | group_by[get["origin_rae"]]
             | map[second | check_list_is_distinct])
+
+@func
+def combine_instantiates(cmds):
+    @func
+    def check_list_is_distinct(arg):
+        iid,cmds = arg
+        if iid is None:
+            return cmds
+        if not cmds | map[equals[first(cmds)]] | all | collect:
+            raets = cmds | map[get["rae_type"]] | collect
+            raise ValueError(f'There may be at most one RAET for an instantiated ZefRef. Found: {raets!r} for id {cmds[0]["internal_id"]}')
+        return [cmds[0]]
+
+    return (cmds
+            | group_by[get["internal_id"][None]]
+            | map[check_list_is_distinct]
+            | concat)
 
 
 
@@ -1586,10 +1599,10 @@ def equal_identity(a, b):
     if type(a) != type(b):
         return False
 
-    # Things that don't produce the same objectt even though their python objects
+    # Things that don't produce the same object even though their python objects
     # are the same
-    if type(a) in [EntityType, RelationType, AttributeEntityType, ZefEnumValue]:
-        return False
+    # if type(a) in [EntityType, RelationType, AttributeEntityType, ZefEnumValue]:
+    #     return False
 
     return a == b
 
