@@ -6695,11 +6695,11 @@ def is_a_implementation(x, typ):
         if isinstance(typ, AttributeEntityType):
             return x == typ
         if typ == AET.QuantityFloat:
-            return internals.is_aet_a_quantity_float(x)
+            return internals.is_vrt_a_quantity_float(x)
         if typ == AET.QuantityInt:
-            return internals.is_aet_a_quantity_int(x)
+            return internals.is_vrt_a_quantity_int(x)
         if typ == AET.Enum:
-            return internals.is_aet_a_enum(x)
+            return internals.is_vrt_a_enum(x)
         if typ == BT.ATTRIBUTE_ENTITY_NODE:
             return True
 
