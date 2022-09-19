@@ -974,7 +974,7 @@ class LazyValue:
                         arg_type = annotations.get(args[0], None)
                         assert arg_type is not None, "Failed retrieving the annotation for input arg"
                         
-                        return {"type_check": {"expected": {"arg": args[0], "type": arg_type}, "result": is_a_implementation(inp, arg_type)}}
+                        return {"type_check": {"expected": {"arg": args[0], "type": arg_type}, "result": is_a_implementation(inp, arg_type), "function": function}}
 
                     except Exception as exc:
                         return {"type_check": None}
@@ -998,16 +998,13 @@ class LazyValue:
                 except _ErrorType as e:
                     got_error = e
                     got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
-                    # print("2")
                 except Exception as e:
-                    # print("3")
                     py_e,frames = convert_python_exception(e)
                     got_error = Error.Panic()
                     got_error.nested = py_e
                     got_error = add_error_context(got_error, {"frames": frames})
                     got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
                 else:
-                    # print("4", new_value)
                     if type(new_value) == _ErrorType:
                         # Here we have a choice - depends on what the caller expects, an Error or an exception
                         #
@@ -1095,7 +1092,6 @@ class LazyValue:
         except ExceptionWrapper as exc:
             raise exc from None
         except _ErrorType as exc:
-            # print("5")
             # return ExceptionWrapper(exc) #from None
             raise ExceptionWrapper(exc) from None
         except Exception as exc:
