@@ -62,22 +62,34 @@ def zef_ui_err_fallback(self):
 
 
 def zef_ui_err(err):
-    from ..ops import contains,single, get, collect, filter, ZefOp
+    from ..ops import contains,last, get, collect, filter, ZefOp
     from ..ui import Text,VStack, Frame, show, Code
 
     try:
         nested = err.nested
         name = err.name
         contexts = err.contexts
-        frames = contexts | filter[contains["frames"]] | single | get["frames"] | collect
-        type_check = contexts | filter[contains["type_check"]] | single | get["type_check"] | collect
-        chain = contexts | filter[contains["chain"]] | single | collect
-        contexts,nested, frames
+        frames = contexts | filter[contains["frames"]] | last | get["frames"] | collect 
+        top_frame = frames | last | collect 
+
+        type_check = contexts | filter[contains["type_check"]] | collect
+
+        chains = contexts | filter[contains["chain"]] | collect
+
+        states = contexts | filter[contains["state"]] | collect
+
+        metadata = contexts | filter[contains["metadata"]] | collect
+        if len(metadata) == 1: 
+            metadata = metadata[0]['metadata']
+        else:
+            metadata = None
+
+
         ####
         title = Text(name, color="#FF9494", italic=True)
 
         #####
-        header = Text(f"\n{nested['type']} occured in {frames[-1]['func_name']}\n", color="#189ad3")
+        header = Text(f"\n{nested['type']} occured in {frames[-1]['func_name']}", color="#189ad3")
         stack_lst = [header]
 
         #####
@@ -91,28 +103,58 @@ def zef_ui_err(err):
         stack_lst += [file_text]
 
         #####
-        context_header = Text("\n==Context==\n", bold=True, justify="center", italic=True)
-        code_str = f"""
- chain = {chain['chain']}
- input = {chain['input']}
- op    = {ZefOp((chain['op'],),)}
-        """
-        context_code = Code(code_str, language = "python3")
-        stack_lst += [context_header, context_code]
+        if len(states) < 1 or len(chains) < 2:
+            chain = chains[0]
+            context_header = Text("\n==Context==\n", bold=True, justify="center", italic=True)
+            code_str = f"""
+    chain = {chain['chain']}
+    input = {chain['input']}
+    op    = {ZefOp((chain['op'],),)}
+            """
+            context_code = Code(code_str, language = "python3")
+            stack_lst += [context_header, context_code]
+        else:
+            state_header = Text("\n==States==\n", bold=True, justify="center", italic=True)
+            state_stack = []
+            if metadata:
+                code_str = f"""
+    input = {metadata['last_input']}
+            """
+                chain_state = Code(code_str, language = "python3")
+                state_frame = Frame(chain_state, title=top_frame['func_name'])
+                state_stack += [state_frame]
+
+            for i, chain in enumerate(reversed(chains)):
+                code_str = f"""
+    input = {chain['input']}
+            """
+                chain_state = Code(code_str, language = "python3")
+                state_frame = Frame(chain_state, title=str(ZefOp((chain['op'],),)))
+                state_stack.append(state_frame)
+
+            stack_lst += [state_header, *state_stack]
+
 
 
         #####
         tc_header = Text("\n==Type Checking==\n", bold=True, justify="center", italic=True)
 
         if type_check:
-            tc_body = f"Expected: {type_check['expected']['arg']} = {type_check['expected']['type']}\n"
-            tc_check = f"Type Check using `{chain['input']}`: {['Failed ❌','Success ✅'][type_check['result']]}"
-            tc_body = Text([tc_body,tc_check], color="#FF9494")
+            tc_stack = []
+            for t_check in type_check:
+                t_check = t_check['type_check']
+                if t_check:
+                    tc_fn = f"{t_check['function']}"
+                    tc_body = f"Expected: {t_check['expected']['arg']} = {t_check['expected']['type']}\n"
+                    tc_check = f"Type Check against `{chain['input']}`: "
+                    tc_result =  ['Failed ❌','Success ✅'][t_check['result']]
+                    tc_body = Frame(Text([tc_body,tc_check, tc_result], color="#FF9494"), title=Text(str(tc_fn)))
+                    tc_stack.append(tc_body)
+            
+            if tc_stack: stack_lst += [tc_header, *tc_stack]
         else:
             tc_body = Text("Failed to do Type Checking due to missing annotations", color="#FF9494", bold=True)
-
-        stack_lst += [tc_header, tc_body]
-
+            stack_lst += [tc_header, tc_body]
 
         #####
         if nested['args']:
