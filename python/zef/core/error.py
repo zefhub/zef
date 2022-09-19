@@ -102,7 +102,7 @@ def zef_ui_err(err):
         file_text = Text(["File ", file_line])
         stack_lst += [file_text]
 
-        #####
+        ##### States or Context #####
         if len(states) < 1 or len(chains) < 2:
             chain = chains[0]
             context_header = Text("\n==Context==\n", bold=True, justify="center", italic=True)
@@ -146,7 +146,7 @@ def zef_ui_err(err):
                 if t_check:
                     tc_fn = f"{t_check['function']}"
                     tc_body = f"Expected: {t_check['expected']['arg']} = {t_check['expected']['type']}\n"
-                    tc_check = f"Type Check against `{chain['input']}`: "
+                    tc_check = f"Type Check against `{t_check['expected']['input']}`: "
                     tc_result =  ['Failed ❌','Success ✅'][t_check['result']]
                     tc_body = Frame(Text([tc_body,tc_check, tc_result], color="#FF9494"), title=Text(str(tc_fn)))
                     tc_stack.append(tc_body)
