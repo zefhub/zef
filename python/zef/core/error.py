@@ -111,6 +111,20 @@ def zef_ui_err(err):
         file_text = Text(["File ", file_line])
         stack_lst += [file_text]
 
+        ##### Carret Highlighting ####
+        chain_str   = make_lazy_value_pretty(chains[-1]['chain'])
+        arrow_str   = "--> "
+        failed_func = frames[-1]['func_name']
+        stack_lst += [Text([Text("\n--> ", color="#33b864"),chain_str])]
+
+        def make_carrets_if_found(chain_str, failed_func, arrow_str):
+            idx = chain_str.find(failed_func) 
+            if idx == -1: return []
+            padding = idx + len(arrow_str)
+            error_carrets = f"{' ' * padding}{'^' * len(failed_func)}"
+            return  [Text(error_carrets, color="#FF9494")]
+
+        stack_lst += make_carrets_if_found(chain_str, failed_func, arrow_str)
 
         ##### States or Context #####
         if len(states) < 1:
