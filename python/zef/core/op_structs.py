@@ -842,7 +842,14 @@ class LazyValue:
         
         res_lazyval = LazyValue(self.initial_val)
         res_lazyval.el_ops = res
-        if should_trigger_eval(res_lazyval): return evaluate_lazy_value(res_lazyval)
+        try:
+            if should_trigger_eval(res_lazyval): return evaluate_lazy_value(res_lazyval)
+        except Exception as e:
+            tb = e.__traceback__
+            from .error import process_python_tb
+            frames = process_python_tb(tb)
+            err = add_error_context(e.wrapped, {"frames": frames})
+            raise ExceptionWrapper(err) from None
         return res_lazyval
 
     def lt_gt_lshift_rshift_behavior(self, other, rt):
