@@ -477,7 +477,15 @@ class ZefOp:
             collect_op = CollectingOp(curried_op)
         
         lzy_val = LazyValue(args[0]) if not isinstance(args[0], LazyValue) else args[0]
-        res = lzy_val | collect_op
+        try:
+            res = lzy_val | collect_op
+        except Exception as e:
+            tb = e.__traceback__
+            from .error import process_python_tb
+            frames = process_python_tb(tb)
+            err = add_error_context(e.wrapped, {"frames": frames})
+            raise ExceptionWrapper(err) from None
+            
         # Raise if this didn't evaluate!
         if isinstance(res, CollectingOp):
             raise Exception(f"ZefOp call didn't evaluate! {res}")
