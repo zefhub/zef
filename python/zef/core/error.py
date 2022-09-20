@@ -64,6 +64,7 @@ def zef_ui_err_fallback(self):
 def zef_ui_err(err):
     from ..ops import contains,last, get, collect, filter, ZefOp
     from ..ui import Text,VStack, Frame, show, Code
+    from ..core.op_implementations.implementation_typing_functions import ZefGenerator
 
     try:
         nested = err.nested
@@ -103,7 +104,7 @@ def zef_ui_err(err):
         stack_lst += [file_text]
 
         ##### States or Context #####
-        if len(states) < 1 or len(chains) < 2:
+        if len(states) < 1:
             chain = chains[0]
             context_header = Text("\n==Context==\n", bold=True, justify="center", italic=True)
             code_str = f"""
@@ -125,6 +126,7 @@ def zef_ui_err(err):
                 state_stack += [state_frame]
 
             for i, chain in enumerate(reversed(chains)):
+                if isinstance(chain['input'], ZefGenerator): break
                 code_str = f"""
     input = {chain['input']}
             """
