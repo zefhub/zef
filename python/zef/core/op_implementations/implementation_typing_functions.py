@@ -6692,14 +6692,26 @@ def is_a_implementation(x, typ):
     if isinstance(x, AttributeEntityType):
         if isinstance(typ, AttributeEntityTypeStruct):
             return True
+
         if isinstance(typ, AttributeEntityType):
+            if typ.complex_value is not None:
+                raise Exception(f"Using is_a on complex AETs (got {typ}) is not yet implemented. Coming soon!")
+            if x.complex_value is not None:
+                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
             return x == typ
+
         if typ == AET.QuantityFloat:
-            return internals.is_vrt_a_quantity_float(x)
+            if x.complex_value is not None:
+                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
+            return internals.is_vrt_a_quantity_float(x.rep_type)
         if typ == AET.QuantityInt:
-            return internals.is_vrt_a_quantity_int(x)
+            if x.complex_value is not None:
+                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
+            return internals.is_vrt_a_quantity_int(x.rep_type)
         if typ == AET.Enum:
-            return internals.is_vrt_a_enum(x)
+            if x.complex_value is not None:
+                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
+            return internals.is_vrt_a_enum(x.rep_type)
         if typ == BT.ATTRIBUTE_ENTITY_NODE:
             return True
 

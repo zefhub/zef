@@ -187,7 +187,13 @@ def assign_value_imp(z, value):
     from ..VT import ValueType_
 
     assert isinstance(z, ZefRef) or isinstance(z, EZefRef)
-    if is_a(z, AET.Serialized):
+
+    # We can't be sure what kind of zefref we have, and if it is complex things
+    # break at the moment, so do this thoroughly here.
+    if not is_a(z, AET):
+        raise Exception("E/ZefRef is not an AET!")
+    aet = AET(z)
+    if (not aet.complex_value) and is_a(z, AET.Serialized):
         value = SerializedValue.serialize(value)
     if isinstance(value, ValueType_):
         value = AET[value]
