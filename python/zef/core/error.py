@@ -62,11 +62,19 @@ def zef_ui_err_fallback(self):
 
 
 def zef_ui_err(err):
-    from ..ops import contains,last, get, collect, filter, ZefOp
+    from ..ops import contains,last, get, collect, filter, ZefOp, LazyValue
     from ..ui import Text,VStack, Frame, show, Code
     from ..core.op_implementations.implementation_typing_functions import ZefGenerator
 
+    def make_lazy_value_pretty(lzy_val: LazyValue) -> str:
+        if not isinstance(lzy_val, LazyValue): return str(lzy_val)
+        initial_value = lzy_val.initial_val
+        internal_ops = lzy_val.el_ops.el_ops
+        internal_ops = ZefOp(internal_ops,)
+        return f"{initial_value} | {internal_ops}" 
+
     try:
+        # Required Information
         nested = err.nested
         name = err.name
         contexts = err.contexts
@@ -86,14 +94,14 @@ def zef_ui_err(err):
             metadata = None
 
 
-        ####
+        #### Title ####
         title = Text(name, color="#FF9494", italic=True)
 
-        #####
+        ##### Header ####
         header = Text(f"\n{nested['type']} occured in {frames[-1]['func_name']}", color="#189ad3")
         stack_lst = [header]
 
-        #####
+        ##### Frames ####
         fname = frames[-1]['filename']
         try:
             truncated_filename = fname[fname.rindex("zef"):]
@@ -103,12 +111,13 @@ def zef_ui_err(err):
         file_text = Text(["File ", file_line])
         stack_lst += [file_text]
 
+
         ##### States or Context #####
         if len(states) < 1:
             chain = chains[0]
             context_header = Text("\n==Context==\n", bold=True, justify="center", italic=True)
             code_str = f"""
-    chain = {chain['chain']}
+    chain = {make_lazy_value_pretty(chain['chain'])}
     input = {chain['input']}
     op    = {ZefOp((chain['op'],),)}
             """
