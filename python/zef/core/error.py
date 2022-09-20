@@ -119,8 +119,8 @@ def zef_ui_err(err):
         stack_lst += [Text([Text("\n--> ", color="#33b864"),chain_str])]
 
         def make_carrets_if_found(chain_str, failed_func, arrow_str):
-            if "_implementation" in failed_func:
-                failed_func = failed_func[:failed_func.index("_implementation")]
+            if "_implementation" in failed_func: failed_func = failed_func[:failed_func.index("_implementation")]
+            if "_imp" in failed_func: failed_func = failed_func[:failed_func.index("_imp")]
             idx = chain_str.find(failed_func) 
             if idx == -1: 
                 return []
@@ -144,13 +144,13 @@ def zef_ui_err(err):
         else:
             state_header = Text("\n==States==\n", bold=True, justify="center", italic=True)
             state_stack = []
-            if metadata:
-                code_str = f"""
-    input = {metadata['last_input']}
-            """
-                chain_state = Code(code_str, language = "python3")
-                state_frame = Frame(chain_state, title=top_frame['func_name'])
-                state_stack += [state_frame]
+    #         if metadata:
+    #             code_str = f"""
+    # input = {metadata['last_input']}
+    #         """
+    #             chain_state = Code(code_str, language = "python3")
+    #             state_frame = Frame(chain_state, title=top_frame['func_name'])
+    #             state_stack += [state_frame]
 
             for i, chain in enumerate(reversed(chains)):
                 if isinstance(chain['input'], ZefGenerator): break
@@ -158,7 +158,7 @@ def zef_ui_err(err):
     input = {chain['input']}
             """
                 chain_state = Code(code_str, language = "python3")
-                state_frame = Frame(chain_state, title=str(ZefOp((chain['op'],),)))
+                state_frame = Frame(chain_state, title=repr(ZefOp((chain['op'],),)))
                 state_stack.append(state_frame)
 
             stack_lst += [state_header, *state_stack]
