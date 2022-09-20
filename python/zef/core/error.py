@@ -68,7 +68,8 @@ def zef_ui_err(err):
 
     def make_lazy_value_pretty(lzy_val: LazyValue) -> str:
         if not isinstance(lzy_val, LazyValue): return str(lzy_val)
-        initial_value = lzy_val.initial_val
+        initial_value = str(lzy_val.initial_val)
+        if len(initial_value) > 20: initial_value = initial_value[:20] + "... "
         internal_ops = lzy_val.el_ops.el_ops
         internal_ops = ZefOp(internal_ops,)
         return f"{initial_value} | {internal_ops}" 
@@ -112,14 +113,17 @@ def zef_ui_err(err):
         stack_lst += [file_text]
 
         ##### Carret Highlighting ####
-        chain_str   = make_lazy_value_pretty(chains[-1]['chain'])
+        chain_str   = make_lazy_value_pretty(chains[0]['chain'])
         arrow_str   = "--> "
         failed_func = frames[-1]['func_name']
         stack_lst += [Text([Text("\n--> ", color="#33b864"),chain_str])]
 
         def make_carrets_if_found(chain_str, failed_func, arrow_str):
+            if "_implementation" in failed_func:
+                failed_func = failed_func[:failed_func.index("_implementation")]
             idx = chain_str.find(failed_func) 
-            if idx == -1: return []
+            if idx == -1: 
+                return []
             padding = idx + len(arrow_str)
             error_carrets = f"{' ' * padding}{'^' * len(failed_func)}"
             return  [Text(error_carrets, color="#FF9494")]
