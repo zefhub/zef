@@ -259,6 +259,12 @@ def op_chain_pretty_print(el_ops):
         return f"[{repr(pp)}]"
 
     def el_op_to_str(p):
+        import types
+        if p[0] == RT.Function:
+            inner_f = p[1][0][1]
+            if isinstance(inner_f, types.FunctionType):# and not isinstance(inner_f, types.LambdaType):
+                name = inner_f.__name__
+                return name
         # if p[0] == RT.OutOutOld:
         #     return f"\n>> todo!!!!"            
         return to_snake_case(str(p[0])) + ''.join([param_to_str(pp) for pp in p[1]])
