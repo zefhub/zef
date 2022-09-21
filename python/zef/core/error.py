@@ -101,10 +101,11 @@ def zef_ui_err(err):
         title = Text(name, color="#FF9494", italic=True)
 
         ##### Header ####
-        header = Text(f"\n{nested['type']}", color="#189ad3")
-        stack_lst = [header]
         if top_frame:
-            stack_lst += [Text(f"occured in {top_frame['func_name']}", color="#189ad3")]
+            stack_lst = [Text(f"\n{nested['type']} occured in {top_frame['func_name']}", color="#189ad3")]
+        else:
+            stack_lst = [Text(f"\n{nested['type']}", color="#189ad3")]
+
 
         ##### Frames ####
         if top_frame:
@@ -132,9 +133,10 @@ def zef_ui_err(err):
             error_carrets = f"{' ' * padding}{'^' * len(failed_func)}"
             return  [Text(error_carrets, color="#FF9494")]
 
-        if top_frame:
-            failed_func = top_frame['func_name']
-            stack_lst += make_carrets_if_found(chain_str, failed_func, arrow_str)
+        # if top_frame:
+        failed_func = str(ZefOp((chains[-1]['op'],),))
+        # failed_func = top_frame['func_name']
+        stack_lst += make_carrets_if_found(chain_str, failed_func, arrow_str)
 
         ##### States or Context #####
         if len(states) < 1:
