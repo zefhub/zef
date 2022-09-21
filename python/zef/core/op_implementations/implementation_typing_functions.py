@@ -5995,6 +5995,33 @@ def Ins_imp(z, rt=None, source_filter = None):
 
     return in_rels_imp(z, rt, source_filter) | map[source] | collect
 
+#---------------------------------------- isn_and_outs -----------------------------------------------
+def ins_and_outs_imp(z, rel_type=RT):
+    """
+    Traverse along all incoming AND outgoing relations of 
+    the specified type to the thing attached to the source 
+    of each relation.
+
+    For a ZefRef, it will always stay in the same time
+    slice of the given graph.
+    
+    When Used on an EZefRef, the eternal graph is traversed.
+
+    ---- Examples ----
+    >>> z1s_friend = z1 | ins_and_outs[RT.FriendOf]
+
+    ---- Signature ----
+    ZefRef -> ZefRefs
+    EZefRef -> EZefRefs
+    
+    ---- Tags ----
+    - used for: control flow
+    - operates on: ZefRef, EZefRef
+    - related zefop: Ins, Outs
+    """
+
+    return [*Outs(z, rel_type), *Ins(z, rel_type)]
+
 
 #---------------------------------------- out_rel -----------------------------------------------
 def out_rel_imp(z, rt=None, target_filter = None):
@@ -6047,6 +6074,7 @@ def out_rel_imp(z, rt=None, target_filter = None):
 
         raise Exception(help_hint())
     return single(opts)
+
 
 #---------------------------------------- out_rels -----------------------------------------------
 def out_rels_imp(z, rt=None, target_filter=None):

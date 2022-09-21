@@ -67,6 +67,7 @@ _op_to_functions = {
         RT.Ins:             (Ins_imp, None),
         RT.Out:             (Out_imp, None),
         RT.Outs:            (Outs_imp, None),
+        RT.InsAndOuts:      (ins_and_outs_imp, None),
         RT.InRel:           (in_rel_imp, None),
         RT.InRels:          (in_rels_imp, None),
         RT.OutRel:          (out_rel_imp, None),
