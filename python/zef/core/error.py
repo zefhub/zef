@@ -79,9 +79,11 @@ def zef_ui_err(err):
         nested = err.nested
         name = err.name
         contexts = err.contexts
-        frames = contexts | filter[contains["frames"]] | last | get["frames"] | collect 
-        top_frame = frames | last | collect 
-
+        frames = contexts | filter[contains["frames"]] | collect 
+        if frames:
+            top_frame = frames | last | get["frames"] | last | collect 
+        else:
+            top_frame = None
         type_check = contexts | filter[contains["type_check"]] | collect
 
         chains = contexts | filter[contains["chain"]] | collect
@@ -99,23 +101,25 @@ def zef_ui_err(err):
         title = Text(name, color="#FF9494", italic=True)
 
         ##### Header ####
-        header = Text(f"\n{nested['type']} occured in {frames[-1]['func_name']}", color="#189ad3")
+        header = Text(f"\n{nested['type']}", color="#189ad3")
         stack_lst = [header]
+        if top_frame:
+            stack_lst += [Text(f"occured in {top_frame['func_name']}", color="#189ad3")]
 
         ##### Frames ####
-        fname = frames[-1]['filename']
-        try:
-            truncated_filename = fname[fname.rindex("zef"):]
-        except:
-            truncated_filename = fname
-        file_line = Text(f"~/{truncated_filename}@{frames[-1]['lineno']}", color="#33b864")
-        file_text = Text(["File ", file_line])
-        stack_lst += [file_text]
+        if top_frame:
+            fname = top_frame['filename']
+            try:
+                truncated_filename = fname[fname.rindex("zef"):]
+            except:
+                truncated_filename = fname
+            file_line = Text(f"~/{truncated_filename}@{top_frame['lineno']}", color="#33b864")
+            file_text = Text(["File ", file_line])
+            stack_lst += [file_text]
 
         ##### Carret Highlighting ####
         chain_str   = make_lazy_value_pretty(chains[0]['chain'])
         arrow_str   = "--> "
-        failed_func = frames[-1]['func_name']
         stack_lst += [Text([Text("\n--> ", color="#33b864"),chain_str])]
 
         def make_carrets_if_found(chain_str, failed_func, arrow_str):
@@ -128,7 +132,9 @@ def zef_ui_err(err):
             error_carrets = f"{' ' * padding}{'^' * len(failed_func)}"
             return  [Text(error_carrets, color="#FF9494")]
 
-        stack_lst += make_carrets_if_found(chain_str, failed_func, arrow_str)
+        if top_frame:
+            failed_func = top_frame['func_name']
+            stack_lst += make_carrets_if_found(chain_str, failed_func, arrow_str)
 
         ##### States or Context #####
         if len(states) < 1:
@@ -472,7 +478,7 @@ def filter_tb_to_before_zef(tb):
 def convert_python_exception(exc):
     tb = exc.__traceback__
     frames = process_python_tb(tb)
-        
+
 
     out = {
         "type": str(type(exc)),
@@ -496,7 +502,6 @@ def process_python_tb(tb, filter=True):
     # Get rid of the first one - at least where this is currently called from we don't
     # want to include "evaluate". In the future, maybe this will have to be a switch.
     # frames = frames[1:]
-
     def process_frame(frame):
         return {
             "locals": frame.f_locals,
