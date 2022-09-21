@@ -129,7 +129,7 @@ class FunctionConstructor:
         from types import FunctionType
         from .abstract_raes import Entity
         if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], FunctionType):
-            return ZefOp(((RT.Function, ((1, args[0]), )), ))
+            return ZefOp(((internals.RT.Function, ((1, args[0]), )), ))
         else:
             from zef.core.zef_functions import zef_function_decorator, _local_compiled_zef_functions, time_resolved_hashable
             promote_to_zefref_func = zef_function_decorator(*args, **kwds)
@@ -144,7 +144,7 @@ class FunctionConstructor:
     def __getitem__(arg):
         # TODO we gotta check if arg is of type Zef Lambda once we implement it
         # return ZefOp(((RT.Function, ((1, arg), )), ))
-        return ZefOp(((RT.Function, ((1, arg), )), ))
+        return ZefOp(((internals.RT.Function, ((1, arg), )), ))
 
 
 func = FunctionConstructor()

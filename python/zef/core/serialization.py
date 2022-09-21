@@ -182,7 +182,7 @@ def serialize_zeftypes(z) -> dict:
     #         "value" : [{"uid": str(base_uid(zr))} for zr in z]
     #             }
 
-    elif isinstance(z, RelationType) or isinstance(z, EntityType) or isinstance(z, AttributeEntityType):
+    elif isinstance(z, internals.RelationType) or isinstance(z, internals.EntityType) or isinstance(z, internals.AttributeEntityType):
         bt_type = {RelationType: "RT", EntityType: "ET", AttributeEntityType: "AET"}[type(z)]
         absorbed_args = LazyValue(z) | absorbed | collect
         absorbed_args = serialize_internal(absorbed_args)
@@ -468,9 +468,9 @@ serialization_mapping[ZefRef] = serialize_zeftypes
 # serialization_mapping[ZefRefs] = serialize_zeftypes
 serialization_mapping[EZefRef] = serialize_zeftypes
 # serialization_mapping[EZefRefs] = serialize_zeftypes
-serialization_mapping[RelationType] = serialize_zeftypes
-# serialization_mapping[EntityType] = serialize_zeftypes
-serialization_mapping[AttributeEntityType] = serialize_zeftypes
+serialization_mapping[internals.RelationType] = serialize_zeftypes
+serialization_mapping[internals.EntityType] = serialize_zeftypes
+serialization_mapping[internals.AttributeEntityType] = serialize_zeftypes
 serialization_mapping[Graph] = serialize_zeftypes
 serialization_mapping[ZefEnumValue] = serialize_zeftypes
 serialization_mapping[QuantityFloat] = serialize_zeftypes

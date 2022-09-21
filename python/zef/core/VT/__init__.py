@@ -192,19 +192,6 @@ Tagged     = ValueType_(type_name='Tagged',     constructor_func=None)
 LazyValue  = ValueType_(type_name='LazyValue',  constructor_func=None)
 Awaitable  = ValueType_(type_name='Awaitable',  constructor_func=None)
 
-AttributeEntityType = ValueType_(type_name='AttET', constructor_func=None)
-# EntityType          = ValueType_(type_name='EntT',  constructor_func=None)
-RelationType        = ValueType_(type_name='RelT',  constructor_func=None)
-BlobType            = ValueType_(type_name='BlobT',  constructor_func=None)
-
-
-def BT_call(x):
-    return BlobType[pyzef.internals.BT(x)]
-
-AET        = ValueType_(type_name='AETLookup',  constructor_func=None, attr_funcs=wrap_attr_readonly(internals.AET, AttributeEntityType))
-# ET         = ValueType_(type_name='ETLookup',   constructor_func=None, attr_funcs=wrap_attr_readonly(internals.ET, EntityType), is_a_func=lambda x,typ: is_type(x) and is_subtype(x, EntityType))
-RT         = ValueType_(type_name='RTLookup',   constructor_func=None, attr_funcs=wrap_attr_readonly(internals.RT, RelationType), is_a_func=lambda x,typ: is_type(x) and is_subtype(x, RelationType))
-BT         = ValueType_(type_name='BTLookup',   constructor_func=BT_call, attr_funcs=wrap_attr_readonly(internals.BT, BlobType))
 Enum       = ValueType_(type_name='Enum',       constructor_func=None)
 Tuple      = ValueType_(type_name='Tuple',      constructor_func=None)
 Function   = ValueType_(type_name='Function',   constructor_func=None)
@@ -263,17 +250,60 @@ UsedFor        = ValueType_(type_name='UsedFor',      constructor_func = used_fo
 
 
 
-def wrap_attr_readonly_ET():
+def wrap_attr_readonly_token(orig):
     def this_get_attr(self, name):
         if "specific" in self._d:
             raise AttributeError(name)
-        out = getattr(internals.ET, name)
-        return ET[out]
+        out = getattr(orig, name)
+        return self[out]
     def this_dir(_):
         if "specific" in self._d:
             return []
-        return dir(internals.ET)
+        return dir(orig)
     return (this_get_attr, None, this_dir)
+
+def token_subtype(other, this):
+    from .._ops import is_a
+    # This seems generic and could be extracted out
+    if other._d["type_name"] != this._d["type_name"]:
+        return False
+    if "specific" not in other._d:
+        return "specific" not in this._d
+    if "specific" not in this._d:
+        return False
+    if is_type(this._d["specific"]):
+        return is_a(other._d["specific"], this._d["specific"])
+    else:
+        return is_a(other._d["specific"], SetOf(this._d["specific"]))
+
+def token_getitem(self, thing, token_type):
+    my_name = self._d["type_name"]
+    from .._ops import is_a, insert
+    if isinstance(thing, str):
+        if "internal_id" in self._d:
+            raise Exception(f"Can't assign a new internal_id an existing {my_name} with internal_id.")
+        return ValueType_(fill_dict=insert(self._d, "internal_id", thing))
+
+    # Allow arbitrary types, so long as they can contain EntityTypeTokens
+    if is_a(thing, token_type) or (type(thing) == ValueType_ and is_strict_subtype(token_type, thing)):
+        if "specific" in self._d:
+            raise Exception("Can't assign a new {my_name} token to an existing {my_name} with token.")
+        return ValueType_(fill_dict=insert(self._d, "specific", thing))
+
+    raise Exception(f"{my_name} can only contain an {token_type} or an internal id, not {thing}")
+
+def token_str(self):
+    my_name = self._d["type_name"]
+    from .._ops import is_a
+    s = my_name
+    if "specific" in self._d:
+        if isinstance(self._d["specific"], str):
+            s += "[" + str(self._d["specific"]) + "]"
+        else:
+            s += "." + str(self._d["specific"][0])
+    if "internal_id" in self._d:
+        s += f"['{self._d['internal_id']}']"
+    return s
 
 def ET_is_a(x, typ):
     from .._ops import is_a
@@ -290,48 +320,36 @@ def ET_is_a(x, typ):
         if is_type(x) and is_strict_subtype(x, ET[Any]):
             return True
         return False
-
-def ET_subtype(other, this):
+def AET_is_a(x, typ):
     from .._ops import is_a
-    # This seems generic and could be extracted out
-    if other._d["type_name"] != "ET":
-        return False
-    if "specific" not in other._d:
-        return "specific" not in this._d
-    if "specific" not in this._d:
-        return False
-    if is_type(this._d["specific"]):
-        return is_a(other._d["specific"], this._d["specific"])
+    if "specific" in typ._d:
+        if not is_a(x, ZefRef) or is_a(x, EZefRef):
+            return False
+        if internals.BT(x) != internals.BT.ATTRIBUTE_ENTITY_NODE:
+            return False
+        # TODO: EntityTypeToken
+        if is_type(typ._d["specific"]):
+            return is_a(internals.AET(x), typ._d["specific"])
+        return internals.AET(x) == typ._d["specific"]
     else:
-        return is_a(other._d["specific"], SetOf(this._d["specific"]))
-
-def ET_getitem(self, thing):
-    from .._ops import is_a, insert
-    if isinstance(thing, str):
-        if "internal_id" in self._d:
-            raise Exception("Can't assign a new internal_id an existing ET with internal_id.")
-        return ValueType_(fill_dict=insert(self._d, "internal_id", thing))
-
-    if "specific" in self._d:
-        raise Exception("Can't assign a new ET token to an existing ET with token.")
-    if is_a(thing, EntityTypeToken):
-        return ValueType_(fill_dict=insert(self._d, "specific", thing))
-    # Allow arbitrary types, so long as they can contain EntityTypeTokens
-    if type(thing) == ValueType_ and is_strict_subtype(EntityTypeToken, thing):
-        return ValueType_(fill_dict=insert(self._d, "specific", thing))
-    raise Exception(f"ET can only contain an EntityTypeToken or an internal id, not {thing}")
-
-def ET_str(self):
+        if is_type(x) and is_strict_subtype(x, AET[Any]):
+            return True
+        return False
+def RT_is_a(x, typ):
     from .._ops import is_a
-    s = "ET"
-    if "specific" in self._d:
-        if is_a(self._d["specific"], EntityTypeToken):
-            s += "." + str(self._d["specific"][0])
-        else:
-            s += "[" + str(self._d["specific"]) + "]"
-    if "internal_id" in self._d:
-        s += f"['{self._d['internal_id']}']"
-    return s
+    if "specific" in typ._d:
+        if not is_a(x, ZefRef) or is_a(x, EZefRef):
+            return False
+        if internals.BT(x) != internals.BT.RELATION_EDGE:
+            return False
+        # TODO: EntityTypeToken
+        if is_type(typ._d["specific"]):
+            return is_a(internals.RT(x), typ._d["specific"])
+        return internals.RT(x) == typ._d["specific"]
+    else:
+        if is_type(x) and is_strict_subtype(x, RT[Any]):
+            return True
+        return False
 
 EntityTypeToken = ValueType_(type_name='EntityTypeToken',
                              constructor_func=None,
@@ -340,9 +358,45 @@ EntityTypeToken = ValueType_(type_name='EntityTypeToken',
 
 ET = ValueType_(type_name='ET',
                 constructor_func=None,
-                attr_funcs=wrap_attr_readonly_ET(),
+                attr_funcs=wrap_attr_readonly_token(internals.ET),
                 is_a_func=ET_is_a,
-                is_subtype_func=ET_subtype,
-                get_item_func=ET_getitem,
-                str_func=ET_str,
+                is_subtype_func=token_subtype,
+                get_item_func=lambda self,thing: token_getitem(self, thing, EntityTypeToken),
+                str_func=token_str,
                 )
+
+AttributeEntityTypeToken = ValueType_(type_name='AttributeEntityTypeToken',
+                             constructor_func=None,
+                             pytype=internals.AttributeEntityType,
+                             )
+AET = ValueType_(type_name='AET',
+                constructor_func=None,
+                attr_funcs=wrap_attr_readonly_token(internals.AET),
+                is_a_func=AET_is_a,
+                is_subtype_func=token_subtype,
+                get_item_func=lambda self,thing: token_getitem(self, thing, AttributeEntityTypeToken),
+                str_func=token_str,
+                )
+
+RelationTypeToken = ValueType_(type_name='RelationTypeToken',
+                             constructor_func=None,
+                             pytype=internals.RelationType,
+                             )
+RT = ValueType_(type_name='RT',
+                constructor_func=None,
+                attr_funcs=wrap_attr_readonly_token(internals.RT),
+                is_a_func=RT_is_a,
+                is_subtype_func=token_subtype,
+                get_item_func=lambda self,thing: token_getitem(self, thing, RelationTypeToken),
+                str_func=token_str,
+                )
+# BT = ValueType_(type_name='BT',
+#                 constructor_func=None,
+#                 attr_funcs=wrap_attr_readonly_token(internals.BT),
+#                 is_a_func=BT_is_a,
+#                 is_subtype_func=token_subtype,
+#                 get_item_func=lambda self,thing: token_getitem(self, thing, BlobTypeToken),
+#                 str_func=token_str,
+#                 )
+
+BT         = ValueType_(type_name='BT',   constructor_func=pyzef.internals.BT, attr_funcs=wrap_attr_readonly(internals.BT, None), pytype=internals.BlobType)

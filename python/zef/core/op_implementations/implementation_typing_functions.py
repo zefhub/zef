@@ -28,7 +28,7 @@ from .flatgraph_implementations import *
 from ..logger import log
 
 from ...pyzef import zefops as pyzefops, main as pymain
-from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AttributeEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
+from ..internals import BaseUID, EternalUID, ZefRefUID, to_uid, ZefEnumStruct, ZefEnumStructPartial
 from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
@@ -3301,7 +3301,7 @@ def iterate_type_info(op, curr_type):
 
 def make_predicate(maybe_predicate):
     # Wrap ValueType or any RAE Type in is_a
-    if isinstance(maybe_predicate, ValueType_) or type(maybe_predicate) in {AttributeEntityType, RelationType, EntityTypeStruct, AttributeEntityTypeStruct, RelationTypeStruct}: 
+    if isinstance(maybe_predicate, ValueType_):
         predicate = is_a[maybe_predicate]
     
     # If a set is passed check the existance of the passed element in the set
@@ -6060,7 +6060,7 @@ def out_rel_imp(z, rt=None, target_filter = None):
     return single(opts)
 
 #---------------------------------------- out_rels -----------------------------------------------
-def out_rels_imp(z, rt=None, target_filter=None):
+def out_rels_imp(z, rt_or_bt=None, target_filter=None):
     """
     Traverse onto all outgoing relations of the specified 
     type and return the relations (it does NOT proceed 
@@ -6079,11 +6079,17 @@ def out_rels_imp(z, rt=None, target_filter=None):
     EZefRef -> EZefRefs
     """
     assert is_a(z, ZefRef) or is_a(z, EZefRef) or is_a(z, FlatRef)
-    if is_a(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
+    if is_a(z, FlatRef): return traverse_flatref_imp(z, rt_or_bt, "out", "multi")
 
-    if rt == RT or rt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
-    elif rt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
-    else: res = pyzefops.traverse_out_edge_multi(z, rt._d["typ"])
+    if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
+    elif rt_or_bt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
+    else:
+        if isinstance(rt_or_bt, RT) and isinstance(rt_or_bt._d.get("specific", None), RelationTypeToken):
+            res = pyzefops.traverse_out_edge_multi(z, rt_or_bt._d["specific"])
+        elif isinstance(rt_or_bt, BT):
+            res = pyzefops.traverse_out_edge_multi(z, rt_or_bt)
+        else:
+            raise Exception("TODO: Need to implement non-specific relation types for out_rels")
     if target_filter: 
         if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
         return res | filter[target | is_a[target_filter]] | collect 
@@ -6308,7 +6314,7 @@ def first_tx_for_low_level_blob(z):
         # Need to get the first TX of all instantiation edges.
         return z | Ins[BT.DELEGATE_INSTANTIATION_EDGE] | first | collect
 
-    raise Exception("Not a low level blob we can get a simple tx for.")
+    raise Exception(f"Not a low level blob we can get a simple tx for: {BT(z)}.")
 
 
 def aware_of_implementation(z, frame):
@@ -7355,7 +7361,7 @@ def from_clipboard_imp():
         'type': FX.Clipboard.CopyFrom,
     }
 
-_call_0_args_translation[RT.FromClipboard] = from_clipboard_imp
+_call_0_args_translation[internals.RT.FromClipboard] = from_clipboard_imp
 
 def from_clipboard_tp(op, curr_type):
     return VT.Effect

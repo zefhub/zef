@@ -132,7 +132,7 @@ def dispatch_ror_graph(g, x):
         x = collect(x)
         # Note that this could produce a new LazyValue if the input was an
         # assign_value. This is fine.
-    if any(isinstance(x, T) for T in {list, tuple, dict, EntityType, AttributeEntityType, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val}):
+    if any(isinstance(x, T) for T in {list, tuple, dict, ET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val}):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -789,7 +789,7 @@ def is_valid_single_node(x):
         return True
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return True
-    if isinstance(x, Z):
+    if is_a(x, Z):
         return True
     if isinstance(x, ET):
         return True
