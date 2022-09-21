@@ -175,10 +175,11 @@ namespace zefDB {
 
         void long_wait_or_kill(std::thread & thread, std::promise<bool> & return_value, std::string name, std::optional<std::function<void()>> extra_print = {}) {
             try {
+                int wait_seconds = 60;
                     auto future = return_value.get_future();
-                    auto status = future.wait_for(std::chrono::seconds(1));
+                    auto status = future.wait_for(std::chrono::seconds(wait_seconds));
                     if (status == std::future_status::timeout) {
-                        std::cerr << "Thread taking a long time to shutdown... " << name << std::endl;
+                        std::cerr << "Thread taking a long time to shutdown... " << name << ". Going to wait for " << wait_seconds << " s." << std::endl;
                         if(extra_print)
                             (*extra_print)();
                         if(check_env_bool("ZEFDB_DEVELOPER_THREAD_LONGWAIT"))
@@ -186,7 +187,7 @@ namespace zefDB {
                         else
                             status = future.wait_for(std::chrono::seconds(10));
                         if (status == std::future_status::timeout) {
-                            std::cerr << "Gave up on waiting for thread: " << name << std::endl;
+                            std::cerr << "Gave up on waiting for thread after " << wait_seconds << " s: " << name << std::endl;
                             thread.detach();
                             return;
                         }
@@ -657,11 +658,16 @@ namespace zefDB {
                 }
 
                 if(send_update_future)
-                    send_update_future.get();
+                    send_update_future->get();
 
                 // This is the last hail mary before we shut down. Required for the logic of remove_graph_manager.
-                if(me.gd->should_sync && me.gd->is_primary_instance)
+                if(me.gd->should_sync &&
+                   me.gd->is_primary_instance &&
+                   me.gd->sync_head < me.gd->read_head.load()
+                ) {
+                    developer_output("The last hail mary send_update has been triggered. sync_head=" + to_str(me.gd->sync_head.load()) + " and read_head=" + to_str(me.gd->read_head.load()));
                     send_update(me);
+                }
 
                 me.sync_return_value.set_value(true);
             } catch(const std::exception & e) {
