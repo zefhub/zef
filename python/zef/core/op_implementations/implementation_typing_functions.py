@@ -100,6 +100,18 @@ def call_wrap_errors_as_unexpected(func, *args, maybe_context=None, **kwargs):
     except _ErrorType as e:
         wrap_error_raising(e, maybe_context)
     except Exception as e:
+        # We are overwriting this frame information to add the func name
+        # because without doing it shows call_wrap_errors_as_unexpected as the func_name
+        # however we are unable to figure out the line_no information
+        import inspect
+        py_e,frames = convert_python_exception(e)
+        e = Error.UnexpectedError()
+        e.nested = py_e
+        frames[0]['func_name'] = func.__name__
+        frames[0]['filename'] =  inspect.getfile(func)
+        frames[0]['lineno'] =  ""
+        inspect.getlineno
+        e = add_error_context(e, {"frames": frames})
         wrap_error_raising(e, maybe_context)
 
 @func 
@@ -154,7 +166,6 @@ class ZefGenerator:
                                {"state": "generator",
                                 "i": i,
                                 "last_output": last_output}]
-                    
                 try:
                     item = next(it)
                     yield item
