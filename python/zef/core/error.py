@@ -202,6 +202,12 @@ def zef_ui_err(err):
         return ""
     
     except Exception as exc:
+        # TODO turn off this feedback
+        import sys
+        trace_back = sys.exc_info()[2]
+        line = trace_back.tb_lineno
+        Frame(Code(str(f"{exc} @line: {line}"), language = "python3"), title= "Error occured in Visual Output", expand=True) | show
+        
         return zef_ui_err_fallback(err)
 
 
