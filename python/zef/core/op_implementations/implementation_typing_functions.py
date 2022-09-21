@@ -2439,7 +2439,7 @@ def without_absorbed_imp(x):
         # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
         return ValueType_(type_name=x._d['type_name'])
 
-    elif isinstance(x, (Entity, AttributeEntity, RelationType)):
+    elif isinstance(x, (Entity, AttributeEntity, Relation)):
         return type(x)(remove(x.d, 'absorbed'))
     return Error('Not Implemented')
 
@@ -5685,7 +5685,7 @@ def filter_implementation(itr, pred_or_vt):
 
 
 #---------------------------------------- select_by_field -----------------------------------------------
-def select_by_field_imp(zrs : Iterable[ZefRef], rt: RelationType, val):
+def select_by_field_imp(zrs : Iterable[ZefRef], rt: RT, val):
     """An optimized equivalent of calling:
     zrs | filter[Z >> O[rt] | value_or[None] | equals[val]]
     although the case of val=None is not permitted.

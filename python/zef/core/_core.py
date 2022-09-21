@@ -18,7 +18,7 @@ from ..pyzef.main import (
     Keyword,
     QuantityFloat,
     QuantityInt,
-    RelationType,
+    # RelationType,
     Time,
     TimeSlice,
     # EZefRef,

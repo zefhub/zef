@@ -293,7 +293,7 @@ def obtain_ids(x) -> dict:
     # This is an extra step on top of the previous checks
     # if isinstance(x, (Entity, AttributeEntity, Relation, ET[Any],
     #                 AttributeEntityType, RelationType, ZefRef, EZefRef)):
-    if isinstance(x, (Entity, AttributeEntity, Relation, ET[Any],
+    if isinstance(x, (Entity, AttributeEntity, Relation, ET, RT, AET,
                     ZefRef, EZefRef)):
         # Need the lazy value for the RT possibility
         a_id = get_absorbed_id(LazyValue(x))
@@ -751,7 +751,7 @@ def cmds_for_tuple(x: tuple, gen_id: Callable):
 
             # This is the only time the relation is created
             rel = x[1]
-            if isinstance(rel, RelationType):
+            if isinstance(rel, RT):
                 a_id = get_absorbed_id(rel)
                 raet = LazyValue(rel) | without_absorbed | collect
                 cmd1 = {'cmd': 'instantiate', 'rae_type': raet}
@@ -811,11 +811,11 @@ def is_valid_relation_template(x):
     # 5. (a, [(RT.x, b), (RT.y, c)])
     # Note: tuple/list can be used interchangably
     # Note: 5. deliberately does not have its symmetric counterpart. This could be introduced later.
-    if any(isinstance(item, RelationType) for item in x):
+    if any(isinstance(item, RT) for item in x):
         # Cases 1-4 above
         if len(x) != 3:
             raise Exception(f"A list has an RT but isn't 3 elements long: {x}")
-        if not isinstance(x[1], RelationType):
+        if not isinstance(x[1], RT):
             raise Exception(f"A list has an RT but it isn't in the second position: {x}")
         # Note: if there are any lists involved, we cannot have a given ID as it
         # would have to be given to multiple instantiated relations.
@@ -823,7 +823,7 @@ def is_valid_relation_template(x):
             raise Exception("An RT with an internal name is not allowed with multiple sources or targets")
         return True
     elif len(x) == 2 and isinstance(x[1], ListOrTuple):
-        return all(isinstance(item, ListOrTuple) and len(item) == 2 and isinstance(item[0], RelationType) and is_valid_single_node(item[1]) for item in x[1])
+        return all(isinstance(item, ListOrTuple) and len(item) == 2 and isinstance(item[0], RT) and is_valid_single_node(item[1]) for item in x[1])
     return False
 
 
@@ -1614,7 +1614,7 @@ def get_absorbed_id(obj):
     # THIS SHOULDN"T BE NEEDED! FIX!
     # if is_a(obj, RT) or is_a(obj, ZefOp):
     #     obj = LazyValue(obj)
-    if is_a(obj, ET):
+    if isinstance(obj, (ET, RT, AET)):
         return obj._d.get("internal_id", None)
     else:
         return obj | absorbed | single_or[None] | collect
