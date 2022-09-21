@@ -493,10 +493,9 @@ def process_python_tb(tb, filter=True):
     while tb is not None:
         frames.append(tb.tb_frame)
         tb = tb.tb_next
-
     # Get rid of the first one - at least where this is currently called from we don't
     # want to include "evaluate". In the future, maybe this will have to be a switch.
-    frames = frames[1:]
+    # frames = frames[1:]
 
     def process_frame(frame):
         return {
