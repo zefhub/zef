@@ -73,7 +73,8 @@ def zef_ui_err(err):
         internal_ops = lzy_val.el_ops.el_ops
         internal_ops = ZefOp(internal_ops,)
         return f"{initial_value} | {internal_ops}" 
-
+    
+    MAX_CONSOLE_WIDTH = 115
     try:
         # Required Information
         nested = err.nested
@@ -121,7 +122,9 @@ def zef_ui_err(err):
         ##### Carret Highlighting ####
         chain_str   = make_lazy_value_pretty(chains[0]['chain'])
         arrow_str   = "--> "
-        stack_lst += [Text([Text("\n--> ", color="#33b864"),chain_str])]
+        if len(chain_str) + len(arrow_str) > MAX_CONSOLE_WIDTH:
+            chain_str = chain_str[:MAX_CONSOLE_WIDTH - len(arrow_str) - 5] + "... "  
+        stack_lst += [Text([Text("\n--> ", color="#33b864"), chain_str])]
 
         def make_carrets_if_found(chain_str, failed_func, arrow_str):
             if "_implementation" in failed_func: failed_func = failed_func[:failed_func.index("_implementation")]
