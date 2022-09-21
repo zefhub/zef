@@ -13,6 +13,8 @@
 # limitations under the License.
 
 from ._core import *
+from .VT import *
+from ._ops import *
 
 # "Custom Entities" are also used to represent plain data values.
 # Originally, we used ZefOps for these, which absorb other Zef Values
@@ -84,7 +86,8 @@ class Entity:
 
         elif isinstance(x, dict):
             assert 'type' in x and 'uid' in x
-            assert type(x['type']) == EntityType
+            # assert type(x['type']) == EntityType
+            assert is_a(x['type'], ET)
             x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:

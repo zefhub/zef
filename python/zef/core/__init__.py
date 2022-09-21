@@ -60,10 +60,10 @@ from .overrides import *
 from . import internals
 from . import pure_utils
 from . import error
+from . import VT
 from . import image
 from . import op_structs
 from . import _ops
-from . import VT
 from . import zef_functions
 from . import abstract_raes
 from . import graph_delta
@@ -72,7 +72,7 @@ from . import flat_graph
 from . import fx
 from . import serialization
 
-from .error import Error
+# from .error import Error
 
 from .image import Image
 
@@ -86,40 +86,41 @@ from .graph_slice import GraphSlice
 from .flat_graph import FlatGraph_, FlatRef, FlatRefs, Val
 
 # TODO: import the other ValueTypes here and implement constructor by forwarding args
-from .VT import (
-    TX,
-    Nil,
-    Any,
-    Bool,
-    Int,
-    Float,
-    String,
-    Bytes,
-    Decimal,
-    List,
-    Dict,
-    Set,
-    Stream,
-    ValueType,
-    Instantiated, 
-    Terminated, 
-    Assigned,
-    FlatGraph,
+# from .VT import (
+#     TX,
+#     Nil,
+#     Any,
+#     Bool,
+#     Int,
+#     Float,
+#     String,
+#     Bytes,
+#     Decimal,
+#     List,
+#     Dict,
+#     Set,
+#     Stream,
+#     ValueType,
+#     Instantiated, 
+#     Terminated, 
+#     Assigned,
+#     FlatGraph,
 
-    Union,
-    Intersection,
-    Complement,
-    Is,
-    SetOf,
-    RP,
-    HasValue,
-    Pattern,
-    SameAs,
+#     Union,
+#     Intersection,
+#     Complement,
+#     Is,
+#     SetOf,
+#     RP,
+#     HasValue,
+#     Pattern,
+#     SameAs,
 
-    RelatedOps,
-    UsedFor,
-    OperatesOn
-    )
+#     RelatedOps,
+#     UsedFor,
+#     OperatesOn
+#     )
+from .VT import *
 from .VT.value_type import ValueType_
 
 from .abstract_raes import Entity, AttributeEntity, Relation, TXNode, Root, make_custom_entity

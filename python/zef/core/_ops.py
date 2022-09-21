@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from ._core import RT
+from .VT import RT
 from .op_structs import  evaluating, LazyValue, Awaitable, ZefOp, CollectingOp, SubscribingOp, ForEachingOp
 
 def register_zefop(rt, imp, tp):
@@ -247,7 +247,7 @@ termination_tx  = make_zefop(RT.TerminationTx)         # use tx[terminated]
 relations       = make_zefop(RT.Relations)             # g | now | all[(z1, RT.Bar, z2)]   with pattern matching style any of the three args can also be replaced with a more general class
 relation        = make_zefop(RT.Relation)              # looking through our code base for use cases of this op, I don't think a separate operator is necessary. Just use the syntax above followed by ... | single. If required more often, it is much easier to add this in future than to remove it.
 unpack          = make_zefop(RT.Unpack)
-_any            = make_zefop(RT._Any)                  # used as a wildcard
+# _any            = make_zefop(RT._Any)                  # used as a wildcard
 has_relation    = make_zefop(RT.HasRelation)     
 
 replace_at      = make_zefop(RT.ReplaceAt)           

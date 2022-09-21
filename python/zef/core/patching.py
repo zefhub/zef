@@ -14,7 +14,9 @@
 
 from ..pyzef.main import *
 from ..pyzef import main, zefops, internals
-from ._core import ET, AttributeEntityType, EntityType
+# from ._core import ET, AttributeEntityType, EntityType
+from ..pyzef.main import EntityType
+from ..pyzef.internals import ET, AttributeEntityType
 
 main.ZefRef.__hash__ = lambda self: hash(((index(self)), index(self | zefops.tx)))
 main.EZefRef.__hash__ = lambda self: index(self)
@@ -323,8 +325,8 @@ main.Graph.__getitem__ = Graph__getitem__
 
 original_Graph__init__ = main.Graph.__init__
 def Graph__init__(self, *args, **kwds):
-    from .graph_slice import GraphSlice
-    if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], GraphSlice):
+    from .graph_slice import GraphSlice_
+    if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], GraphSlice_):
         return original_Graph__init__(self, args[0].tx)
 
     return original_Graph__init__(self, *args, **kwds)

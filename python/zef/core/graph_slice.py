@@ -17,7 +17,7 @@ from ._ops import *
 from .abstract_raes import *
 from .internals import EternalUID
 
-class GraphSlice:
+class GraphSlice_:
     def __init__(self, *args):
         """
         Construct a GraphSlice, aka reference frame.
@@ -64,7 +64,8 @@ class GraphSlice:
         
         
     def __repr__(self):
-        return f"GraphSlice(graph_uid='{str(uid(Graph(self.tx)))}', index={graph_slice_index(self)})"
+        from .op_implementations.implementation_typing_functions import graph_slice_index_imp
+        return f"GraphSlice(graph_uid='{str(uid(Graph(self.tx)))}', index={graph_slice_index_imp(self)})"
 
     def __eq__(self, other):        
         return (
@@ -141,3 +142,6 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
     else:
         raise RuntimeError("Unexpected option in get_instance_rae")
         
+
+from .VT import value_type
+value_type._value_type_pytypes["GraphSlice"] = GraphSlice_

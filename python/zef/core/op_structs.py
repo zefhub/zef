@@ -176,20 +176,10 @@ from inspect import isfunction, getfullargspec
 from types import LambdaType
 from typing import Generator, Iterable, Iterator
 from ._core import *
+from .VT import *
 from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
-from abc import ABC
-
-class TraversableABC(ABC):
-    pass
-for t in [RelationType, internals.BlobType]:
-    TraversableABC.register(t)
-
-# Anything that can appear on the right of a pipe in an op chain: x | y | z
-class OpLike(ABC):
-    pass
-
 
 # this is used to circumvent the python '<' and '>' operator resolution rules
 _terrible_global_state = {}
@@ -231,7 +221,7 @@ def is_supported_value(o):
     from .VT import ValueType_
     from . import  GraphSlice
     from types import GeneratorType
-    from .. import Image
+    from . import Image
     from .error import _ErrorType
     from ..pyzef.main import Keyword
     from ..core.bytes import Bytes_
@@ -242,7 +232,8 @@ def is_supported_value(o):
 
 def is_supported_zef_value(o):
     from .abstract_raes import Entity, Relation, AttributeEntity
-    if type(o) in {ZefRef, EZefRef, Graph, BaseUID, EternalUID, ZefRefUID, QuantityFloat, QuantityInt, ZefEnumValue, Entity, Relation, AttributeEntity, Delegate, EntityType, RelationType, AttributeEntityType}: return True
+    if isinstance(o, (BaseUID, EternalUID, ZefRefUID, ZefEnumValue)): return True
+    if any(is_a_(o,typ) for typ in [ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice]): return True
     return False
 
 def is_supported_on_subscription(o, op):
@@ -294,8 +285,11 @@ class ZefOp:
         return LazyValue(self) | assign[other]
     
     def __ror__(self, other):
-        if isinstance(other, TraversableABC):
-            return ZefOp(((RT.TmpZefOp, (other,)), )) | self
+        from ._ops import is_a
+        # if is_type(other) and (is_strict_subtype(other, RelationType) or is_strict_subtype(other, BlobType)):
+        #     return ZefOp(((RT.TmpZefOp, (other,)), )) | self
+        if False:
+            pass
         elif isinstance(other, CollectingOp) or isinstance(other, ForEachingOp)  or isinstance(other, SubscribingOp):
             return other.__ror__(self)
         elif is_supported_on_subscription(other, self):
@@ -464,7 +458,6 @@ class ZefOp:
         if isinstance(res, CollectingOp):
             raise Exception(f"ZefOp call didn't evaluate! {res}")
         return res
-OpLike.register(ZefOp)
 
 class CollectingOp:
     def __init__(self, other: ZefOp):
@@ -571,7 +564,6 @@ class CollectingOp:
         # collect([1,2,3] | map[...] | last)
         if len(args) == 1:
             return args[0] | self
-OpLike.register(CollectingOp)
 
 
 class ConcreteAwaitable:
@@ -712,7 +704,7 @@ class Awaitable:
         raise NotImplementedError()
 
 class ForEachingOp:
-    def __init__(self, other: OpLike):
+    def __init__(self, other):
         self.el_ops = other.el_ops
         self.func = None
 
@@ -725,10 +717,10 @@ class ForEachingOp:
             res = ForEachingOp(new_zo)
             res.func = self.func
             return res
-        if isinstance(other, TraversableABC):
-            res = ForEachingOp(ZefOp(((RT.TmpZefOp, (other,)), )))
-            res.func = self.func
-            return res
+        # if isinstance(other, TraversableABC):
+        #     res = ForEachingOp(ZefOp(((RT.TmpZefOp, (other,)), )))
+        #     res.func = self.func
+        #     return res
         if is_supported_value(other) or is_supported_zef_value(other):
             return LazyValue(other) | self
         raise TypeError(f'We should not have landed here. Value passed {other} of type {type(other)}.')
@@ -753,7 +745,6 @@ class ForEachingOp:
         new_for_each = ForEachingOp(self)
         new_for_each.func = func
         return new_for_each
-OpLike.register(ForEachingOp)
 
 
 class SubscribingOp:
@@ -770,10 +761,10 @@ class SubscribingOp:
             res.func = self.func
             return res
 
-        if isinstance(other, TraversableABC):
-            res = SubscribingOp(ZefOp(((RT.TmpZefOp, (other,)), )))
-            res.func = self.func
-            return res
+        # if isinstance(other, TraversableABC):
+        #     res = SubscribingOp(ZefOp(((RT.TmpZefOp, (other,)), )))
+        #     res.func = self.func
+        #     return res
             
         if isinstance(other, ZefRef):
             # check that this is an AET and allow subscribing natively
@@ -794,7 +785,6 @@ class SubscribingOp:
         new_op = SubscribingOp(ZefOp(self.el_ops))
         new_op.func =  func
         return new_op
-OpLike.register(SubscribingOp)
 
 
 class LazyValue:
@@ -853,8 +843,8 @@ class LazyValue:
                 if type(other) in { ForEachingOp}: 
                     res.func = other.func
                     other.func = None
-            elif isinstance(other, TraversableABC):
-                res = ZefOp(((rt, (other,)), ))
+            # elif isinstance(other, TraversableABC):
+            #     res = ZefOp(((rt, (other,)), ))
             else:
                 res = ZefOp((*unpack_ops(rt, other.el_ops),))
         
@@ -974,6 +964,8 @@ def find_type_of_current_value(curr_value):
             return VT.Any, curr_value 
     else: 
         return type_spec(curr_value), curr_value                                                                                     
+OpLike = (ZefOp, CollectingOp, ForEachingOp, SubscribingOp)
+
 
 #   _____                _                _    _                   _____                _              
 #  | ____|__   __  __ _ | | _   _   __ _ | |_ (_)  ___   _ __     | ____| _ __    __ _ (_) _ __    ___ 
@@ -1145,7 +1137,7 @@ def create_type_info(lazyval) -> list:
 #                                                              |___/ 
 
 # from ..core import ZefRefs, EZefRef, EZefRefs
-from ..core import EZefRef
+# from ..core import EZefRef
 
 def new__rshift__(self, arg):
     # promote RT or BT then rshift

@@ -61,6 +61,8 @@ class FlatGraph_:
 
     def __getitem__(self, key):
         return get(self, key)
+from .VT import value_type
+value_type._value_type_pytypes["FlatGraph"] = FlatGraph_
 
 
 class FlatRef:
@@ -84,6 +86,8 @@ class FlatRef:
     
     def __rshift__(self, other):
         return LazyValue(self) >> other
+from .VT import value_type
+value_type._value_type_pytypes["FlatRef"] = FlatRef
 
 class FlatRefs:
     def __init__(self, fg, idxs):
@@ -112,3 +116,5 @@ class FlatRefs:
     
     def __rshift__(self, other):
         return LazyValue(self) >> other
+from .VT import value_type
+value_type._value_type_pytypes["FlatRefs"] = FlatRefs

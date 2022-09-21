@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .fx_types import Effect
-from ..error import Error
+from ..VT import Error
 import yaml 
 import json 
 import toml

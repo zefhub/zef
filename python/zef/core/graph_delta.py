@@ -22,13 +22,13 @@ from .. import pyzef
 from ._core import *
 from . import internals
 from .zef_functions import func
+from .VT import *
 from ._ops import *
 from .op_structs import ZefOp, LazyValue
 from .graph_slice import GraphSlice
 from .abstract_raes import Entity, Relation, AttributeEntity, TXNode, Root
 from ..pyzef.zefops import SerializedValue
 from .logger import log
-from .VT import Is, Any, ValueType_
 from .internals import instantiate_value_node_imp
 
 from abc import ABC
@@ -283,8 +283,18 @@ def obtain_ids(x) -> dict:
 
 
     # This is an extra step on top of the previous checks
-    if type(x) in [Entity, AttributeEntity, Relation, EntityType,
-                    AttributeEntityType, RelationType, ZefRef, EZefRef]:
+    # if type(x) in [Entity, AttributeEntity, Relation, EntityType,
+    #                 AttributeEntityType, RelationType, ZefRef, EZefRef]:
+    #     # Need the lazy value for the RT possibility
+    #     a_id = get_absorbed_id(LazyValue(x))
+    #     if a_id is not None:
+    #         ids = merge_no_overwrite(ids, {a_id: x})
+
+    # This is an extra step on top of the previous checks
+    # if isinstance(x, (Entity, AttributeEntity, Relation, ET[Any],
+    #                 AttributeEntityType, RelationType, ZefRef, EZefRef)):
+    if isinstance(x, (Entity, AttributeEntity, Relation, ET[Any],
+                    ZefRef, EZefRef)):
         # Need the lazy value for the RT possibility
         a_id = get_absorbed_id(LazyValue(x))
         if a_id is not None:
@@ -349,7 +359,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
         for item in x:
             verify_input_el(item, id_definitions, False, allow_scalar)
         return
-    elif isinstance(x, RelationType):
+    elif isinstance(x, RT):
         if allow_rt:
             return
         else:
@@ -480,29 +490,40 @@ def dispatch_cmds_for(expr, gen_id):
     if is_a(expr, Delegate):
         return cmds_for_delegate(expr)
 
-    d_dispatch = {
-        EntityType: cmds_for_instantiable,
-        AttributeEntityType: cmds_for_instantiable,
 
-        ZefRef: cmds_for_mergable,
-        EZefRef: cmds_for_mergable,
-        Entity: cmds_for_mergable,
-        AttributeEntity: cmds_for_mergable,
-        Relation: cmds_for_mergable,
-        TXNode: cmds_for_mergable,
-        Root: cmds_for_mergable,
 
-        tuple: P(cmds_for_tuple, gen_id=gen_id),
-        list: P(cmds_for_tuple, gen_id=gen_id),
+    # d_dispatch = {
+    #     EntityType: cmds_for_instantiable,
+    #     AttributeEntityType: cmds_for_instantiable,
 
-        dict: P(cmds_for_complex_expr, gen_id=gen_id),
+    #     ZefRef: cmds_for_mergable,
+    #     EZefRef: cmds_for_mergable,
+    #     Entity: cmds_for_mergable,
+    #     AttributeEntity: cmds_for_mergable,
+    #     Relation: cmds_for_mergable,
+    #     TXNode: cmds_for_mergable,
+    #     Root: cmds_for_mergable,
 
-        Val: cmds_for_value_node,
-        TaggedVal: cmds_for_value_node,
-    }
-    if type(expr) not in d_dispatch:
+    #     tuple: P(cmds_for_tuple, gen_id=gen_id),
+    #     list: P(cmds_for_tuple, gen_id=gen_id),
+
+    #     dict: P(cmds_for_complex_expr, gen_id=gen_id),
+
+    #     Val: cmds_for_value_node,
+    #     TaggedVal: cmds_for_value_node,
+    # }
+    # if type(expr) not in d_dispatch:
+    #     raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
+    # func = d_dispatch[type(expr)]
+
+    func = match(expr, [
+        (ET, always[cmds_for_instantiable]),
+        (AET, always[cmds_for_instantiable]),
+        (Any, Error())
+    ])
+    if is_a(func, Error):
         raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
-    func = d_dispatch[type(expr)]
+
 
     return func(expr)
 
@@ -538,7 +559,9 @@ def cmds_for_value_node(x):
 
 def cmds_for_instantiable(x):
     a_id = get_absorbed_id(x)
-    raet = x | without_absorbed | collect
+    # TODO
+    # raet = x | without_absorbed | collect
+    raet = x
     cmd = {'cmd': 'instantiate', 'rae_type': raet}
     if a_id is not None:
         cmd['internal_id'] =  a_id
@@ -766,13 +789,13 @@ def is_valid_single_node(x):
         return True
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return True
-    if is_a(x, Z):
+    if isinstance(x, Z):
         return True
-    if isinstance(x, EntityType):
+    if isinstance(x, ET):
         return True
-    if isinstance(x, RelationType):
+    if isinstance(x, RT):
         return True
-    if isinstance(x, AttributeEntityType):
+    if isinstance(x, AET):
         return True
     if isinstance(x, Delegate):
         return True
@@ -855,7 +878,7 @@ def realise_single_node(x, gen_id):
             exprs = exprs + [LazyValue(Z[iid]) | op]
         else:
             raise Exception(f"Don't understand LazyValue type: {op}")
-    elif isinstance(x, EntityType) or isinstance(x, AttributeEntityType):
+    elif isinstance(x, ET) or isinstance(x, AET):
         a_id = get_absorbed_id(x)
         if a_id is None:
             iid = gen_id()
@@ -898,7 +921,6 @@ def realise_single_node(x, gen_id):
             if is_a(first_op, Z):
                 new_op = LazyValue(first_op) | to_pipeline(rest)
                 iid,exprs = realise_single_node(new_op, gen_id)
-                print(iid)
             else:
                 raise NotImplementedError(f"Can't pass zefops to GraphDelta: for {x}")
     elif is_a(x, Delegate):
@@ -1068,16 +1090,16 @@ def command_ordering_by_type(d_raes: dict) -> int:
         # Comes before AET in case there is an assignment there
         return 1.5
     if d_raes['cmd'] == 'instantiate':
-        if isinstance(d_raes['rae_type'], EntityType): return 1
-        if isinstance(d_raes['rae_type'], AttributeEntityType): return 2
-        if isinstance(d_raes['rae_type'], RelationType): return 3
+        if isinstance(d_raes['rae_type'], ET): return 1
+        if isinstance(d_raes['rae_type'], AET): return 2
+        if isinstance(d_raes['rae_type'], RT): return 3
         return 4                                            # there may be {'cmd': 'instantiate', 'rae_type': AET.Bool}
     if d_raes['cmd'] == 'assign': return 5
     if d_raes['cmd'] == 'set_field': return 5.5
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Relation): return 6
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Entity): return 7
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], AttributeEntity): return 8
-    if d_raes['cmd'] == 'terminate' and is_a(d_raes['origin_rae'], Delegate): return 9
+    if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Delegate): return 9
     if d_raes['cmd'] == 'tag': return 10
     else: raise NotImplementedError(f"In Sort fct for {d_raes}")
 
@@ -1087,7 +1109,7 @@ def get_id(cmd):
     elif 'internal_id' in cmd:
         return cmd['internal_id']
     elif 'origin_rae' in cmd:
-        if is_a(cmd['origin_rae'], Delegate):
+        if isinstance(cmd['origin_rae'], Delegate):
             return cmd['origin_rae']
         return uid(cmd['origin_rae'])
     else:
@@ -1097,7 +1119,7 @@ def get_ids(cmd):
     ids = []
     if cmd['cmd'] == 'merge':
         ids += cmd["internal_ids"]
-        if is_a(cmd['origin_rae'], Delegate):
+        if isinstance(cmd['origin_rae'], Delegate):
             ids += [cmd['origin_rae']]
         else:
             ids += [uid(cmd['origin_rae'])]
@@ -1116,7 +1138,7 @@ def resolve_dag_ordering_step(arg: dict)->dict:
     def can_be_executed(cmd):        
         if cmd['cmd'] == 'instantiate':
             # If we are creating an RT, wait until both source/target exist
-            return not isinstance(cmd['rae_type'], RelationType) or (cmd['source'] in ids and cmd['target'] in ids)
+            return not isinstance(cmd['rae_type'], RT) or (cmd['source'] in ids and cmd['target'] in ids)
         if cmd['cmd'] == 'instantiate_value_node':
             return True
         if cmd['cmd'] == 'merge':
@@ -1278,10 +1300,10 @@ def perform_transaction_commands(commands: list, g: Graph):
                 zz = None
                 
                 # print(f"{i}/{len(g_delta.commands)}: {g.graph_data.write_head * 16 / 1024 / 1024} MB")
-                if cmd['cmd'] == 'instantiate' and type(cmd['rae_type']) in {EntityType, AttributeEntityType}:
-                    zz = instantiate(cmd['rae_type'], g)
+                if cmd['cmd'] == 'instantiate' and is_a(cmd['rae_type'], ET) or is_a(cmd['rae_type'], AET):
+                    zz = instantiate(cmd['rae_type']._d["specific"], g)
                 
-                elif cmd['cmd'] == 'instantiate' and type(cmd['rae_type']) in {RelationType}:
+                elif cmd['cmd'] == 'instantiate' and is_a(cmd['rae_type'], RT):
                     zz = instantiate(to_ezefref(d_raes[cmd['source']]), cmd['rae_type'], to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
                 
                 elif cmd['cmd'] == 'instantiate_value_node':
@@ -1478,7 +1500,7 @@ class TaggedVal:
         self.iid = iid
 
 
-scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue, ValueType_}
+scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue}
 shorthand_scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue}
 
 def make_enum_aet(x):
@@ -1590,9 +1612,12 @@ def filter_temporary_ids(receipt):
 @func
 def get_absorbed_id(obj):
     # THIS SHOULDN"T BE NEEDED! FIX!
-    if is_a(obj, RT) or is_a(obj, ZefOp):
-        obj = LazyValue(obj)
-    return obj | absorbed | single_or[None] | collect
+    # if is_a(obj, RT) or is_a(obj, ZefOp):
+    #     obj = LazyValue(obj)
+    if is_a(obj, ET):
+        return obj._d.get("internal_id", None)
+    else:
+        return obj | absorbed | single_or[None] | collect
 
 
 def equal_identity(a, b):

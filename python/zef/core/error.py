@@ -43,13 +43,11 @@ class _Error:
     NotImplementedError = _ErrorType()
     BasicError = _ErrorType()
 
-    def __call__(self, *args):
-        return self.BasicError(*args)
+    def __new__(cls, *args):
+        return cls.BasicError(*args)
 
     def __repr__(self):
         return f'Error'
 
 
-
-Error = _Error()
 

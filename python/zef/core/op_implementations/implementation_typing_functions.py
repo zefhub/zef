@@ -17,7 +17,7 @@ from typing import Generator, Iterable, Iterator
 
 
 from rx import operators as rxops
-from ..VT.value_type import ValueType_
+from ..VT.value_type import ValueType_, is_a_
 
 # This is the only submodule that is allowed to do this. It can assume that everything else has been made available so that it functions as a "user" of the core module.
 from .. import *
@@ -2342,11 +2342,13 @@ def absorbed_imp(x):
     - related zefop: inject_list
     - related zefop: reverse_args
     """
-    if isinstance(x, (EntityType, RelationType, AttributeEntityType, Keyword, Delegate)):
-        if '_absorbed' not in x.__dict__:
-            return ()
-        else:
-            return x._absorbed
+    # if isinstance(x, (EntityType, RelationType, AttributeEntityType, Keyword, Delegate)):
+    #     if '_absorbed' not in x.__dict__:
+    #         return ()
+    #     else:
+    #         return x._absorbed
+    if False:
+        pass
     
     elif type(x) in {Entity, Relation, AttributeEntity}:
         return x.d['absorbed']
@@ -2386,39 +2388,41 @@ def without_absorbed_imp(x):
     - related zefop: inject_list
     - related zefop: reverse_args
     """
-    if isinstance(x, EntityType):
-        if '_absorbed' not in x.__dict__:
-            return x
-        else:
-            new_et = EntityType(x.value)
-            return new_et
+    # if isinstance(x, EntityType):
+    #     if '_absorbed' not in x.__dict__:
+    #         return x
+    #     else:
+    #         new_et = EntityType(x.value)
+    #         return new_et
     
-    elif isinstance(x, RelationType):
-        if '_absorbed' not in x.__dict__:
-            return x
-        else:
-            new_rt = RelationType(x.value)
-            return new_rt
+    # elif isinstance(x, RelationType):
+    #     if '_absorbed' not in x.__dict__:
+    #         return x
+    #     else:
+    #         new_rt = RelationType(x.value)
+    #         return new_rt
         
-    elif isinstance(x, AttributeEntityType):
-        if x.complex_value:
-            return AttributeEntityType(x.complex_value)
-        else:
-            return AttributeEntityType(x.rep_type)
+    # elif isinstance(x, AttributeEntityType):
+    #     if x.complex_value:
+    #         return AttributeEntityType(x.complex_value)
+    #     else:
+    #         return AttributeEntityType(x.rep_type)
                 
-    elif isinstance(x, Keyword):
-        if '_absorbed' not in x.__dict__:
-            return x
-        else:
-            new_kw = Keyword(x.value)
-            return new_kw
+    # elif isinstance(x, Keyword):
+    #     if '_absorbed' not in x.__dict__:
+    #         return x
+    #     else:
+    #         new_kw = Keyword(x.value)
+    #         return new_kw
 
-    elif isinstance(x, Delegate):
-        if '_absorbed' not in x.__dict__:
-            return x
-        else:
-            new_delegate = Delegate(x.order, x.item)
-            return new_delegate
+    # elif isinstance(x, Delegate):
+    #     if '_absorbed' not in x.__dict__:
+    #         return x
+    #     else:
+    #         new_delegate = Delegate(x.order, x.item)
+    #         return new_delegate
+    if False:
+        pass
 
     elif isinstance(x, ZefOp):
         if len(x.el_ops) != 1: 
@@ -2426,7 +2430,14 @@ def without_absorbed_imp(x):
         return ZefOp( ((x.el_ops[0][0], ()),) )
 
     elif isinstance(x, ValueType_):
-        return ValueType_(type_name=x.d['type_name'])
+        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
+        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
+        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
+        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
+        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
+        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
+        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
+        return ValueType_(type_name=x._d['type_name'])
 
     elif isinstance(x, (Entity, AttributeEntity, RelationType)):
         return type(x)(remove(x.d, 'absorbed'))
@@ -3290,7 +3301,7 @@ def iterate_type_info(op, curr_type):
 
 def make_predicate(maybe_predicate):
     # Wrap ValueType or any RAE Type in is_a
-    if isinstance(maybe_predicate, ValueType_) or type(maybe_predicate) in {EntityType, AttributeEntityType, RelationType, EntityTypeStruct, AttributeEntityTypeStruct, RelationTypeStruct}: 
+    if isinstance(maybe_predicate, ValueType_) or type(maybe_predicate) in {AttributeEntityType, RelationType, EntityTypeStruct, AttributeEntityTypeStruct, RelationTypeStruct}: 
         predicate = is_a[maybe_predicate]
     
     # If a set is passed check the existance of the passed element in the set
@@ -6067,12 +6078,12 @@ def out_rels_imp(z, rt=None, target_filter=None):
     ZefRef -> ZefRefs
     EZefRef -> EZefRefs
     """
-    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
+    assert is_a(z, ZefRef) or is_a(z, EZefRef) or is_a(z, FlatRef)
+    if is_a(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
 
     if rt == RT or rt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
-    else: res = pyzefops.traverse_out_edge_multi(z, rt)
+    else: res = pyzefops.traverse_out_edge_multi(z, rt._d["typ"])
     if target_filter: 
         if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
         return res | filter[target | is_a[target_filter]] | collect 
@@ -6410,6 +6421,25 @@ def is_a_implementation(x, typ):
     """
 
     """
+
+    if type(typ) == ValueType_:
+        return is_a_(x, typ)
+
+    if isinstance(typ, ZefOp):
+        if not isinstance(x, ZefOp):
+            return False
+
+        if len(x.el_ops) != 1 or len(typ.el_ops) != 1: return False
+        if x.el_ops[0][0] != typ.el_ops[0][0]: return False        
+        # compare the elements curried into the operator. Recursively use this subtyping function
+        if len(typ.el_ops[0][1]) > len(x.el_ops[0][1]): return False
+        for el_x, el_typ in zip(x.el_ops[0][1], typ.el_ops[0][1]):
+            if not is_a(el_x, el_typ): return False        
+        return True
+        
+    # Fallback
+    return isinstance(x, typ)
+
     from ..error import _ErrorType
     def union_matching(el, union):
         for t in union._d['absorbed']: 
@@ -6422,18 +6452,18 @@ def is_a_implementation(x, typ):
             if not is_a(el, t): return False
         return True
 
-    def is_matching(el, setof):
-        from typing import Callable
-        for t in setof._d['absorbed']: 
-            if isinstance(t, ValueType_): 
-                return Error.ValueError(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
-            elif isinstance(t, (ZefOp, Callable)):
-                try:
-                    if not t(el): return False
-                except:
-                    return False
-            else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
-        return True
+    # def is_matching(el, setof):
+    #     from typing import Callable
+    #     for t in setof._d['absorbed']: 
+    #         if isinstance(t, ValueType_): 
+    #             return Error.ValueError(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
+    #         elif isinstance(t, (ZefOp, Callable)):
+    #             try:
+    #                 if not t(el): return False
+    #             except:
+    #                 return False
+    #         else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
+    #     return True
     
 
     def rp_matching(x, rp):
@@ -6725,16 +6755,6 @@ def is_a_implementation(x, typ):
 
     if isinstance(x, AttributeEntityTypeStruct):
         if isinstance(typ, AttributeEntityTypeStruct):
-            return True
-
-    if isinstance(x, ZefOp):
-        if isinstance(typ, ZefOp):
-            if len(x.el_ops) != 1 or len(typ.el_ops) != 1: return False
-            if x.el_ops[0][0] != typ.el_ops[0][0]: return False        
-            # compare the elements curried into the operator. Recursively use this subtyping function
-            if len(typ.el_ops[0][1]) > len(x.el_ops[0][1]): return False
-            for el_x, el_typ in zip(x.el_ops[0][1], typ.el_ops[0][1]):
-                if not is_a(el_x, el_typ): return False        
             return True
         
     # TODO CHANGE THIS TO ACCEPT ONLY PYTHON TYPES

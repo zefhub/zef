@@ -64,9 +64,9 @@ This custom structure may rearrange and parse terms.
 ---------- User Defined Types ----------
 needed?
 """
-from ..error import Error
+# from ..error import Error
 from .._core import *
-from ..internals import *
+from .. import internals
 
 
 # For certain value types, the user may want to call e.g. Float(4.5).
@@ -74,41 +74,79 @@ from ..internals import *
 _value_type_constructor_funcs = {}
 _value_type_get_item_funcs = {}
 _value_type_attr_funcs = {}
+_value_type_is_a_funcs = {}
+_value_type_is_subtype_funcs = {}
+_value_type_str_funcs = {}
+_value_type_pytypes = {}
 
 class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name: str, absorbed=(), constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None)):
+    def __init__(self, type_name: str=None, absorbed=(), constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, pytype=None, str_func=None, fill_dict=None):
+            if type_name is None:
+                assert fill_dict is not None and "type_name" in fill_dict
             self._d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
                 'alias': None,
             }
+            if fill_dict is not None:
+                self._d.update(fill_dict)
+
             if constructor_func is not None:
                 _value_type_constructor_funcs[type_name] = constructor_func
             if get_item_func is not None:
                 _value_type_get_item_funcs[type_name] = get_item_func
+            if get_item_func is not None:
+                _value_type_get_item_funcs[type_name] = get_item_func
+            if is_a_func is not None:
+                _value_type_is_a_funcs[type_name] = is_a_func
+            if is_subtype_func is not None:
+                _value_type_is_subtype_funcs[type_name] = is_subtype_func
+            if str_func is not None:
+                _value_type_str_funcs[type_name] = str_func
+            if pytype is not None:
+                _value_type_pytypes[type_name] = pytype
 
             self.__pass_self = pass_self
-            self.__allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct, BlobTypeStruct, BlobType, AttributeEntityType, EntityType, RelationType)
             if attr_funcs != (None, None, None):
                 _value_type_attr_funcs[type_name] = attr_funcs
 
-    def __repr__(self):
+    def __instancecheck__(self, instance):
+        return is_a_(instance, self)
+    def __subclasscheck__(self, subclass):
+        return is_subtype(subclass, self) is True
+
+    # def __repr__(self):
+    def __get_nice_name(self):
         if self._d['alias'] != None:
             return self._d['alias']
-        return self._d['type_name'] + (
-            '' if self._d['absorbed'] == () 
-            else ''.join([ f"[{repr(el)}]" for el in self._d['absorbed'] ])
-        )
+        return self._d['type_name']
+
+    def __str__(self):
+        str_func = _value_type_str_funcs.get(self._d["type_name"], None)
+        if str_func is None:
+            return self.__get_nice_name() + (
+                '' if self._d['absorbed'] == () 
+                else ''.join([ f"[{repr(el)}]" for el in self._d['absorbed'] ])
+            )
+        return str_func(self)
+
+    def __repr__(self):
+        return str(self)
 
 
     def __call__(self, *args, **kwargs):
         try:
             f = _value_type_constructor_funcs[self._d["type_name"]]
         except KeyError:
-            return Error(f'{self._d["type_name"]}(...) was called, but no constructor function was registered for this type')
+            try:
+                f = _value_type_pytypes[self._d["type_name"]]
+            except KeyError:
+                from .. import Error
+                raise Exception(f'{self._d["type_name"]}(...) was called, but no constructor function was registered for this type')
+                return Error(f'{self._d["type_name"]}(...) was called, but no constructor function was registered for this type')
         if self.__pass_self: return f(self, *args, **kwargs)
         return f(*args, **kwargs)
 
@@ -116,15 +154,22 @@ class ValueType_:
     def __getitem__(self, x):
         try:
             f = _value_type_get_item_funcs[self._d["type_name"]]
-            if self.__pass_self: return f(self, x)
-            return f(x)
         except KeyError:
             return ValueType_(self._d["type_name"], absorbed=(*self._d['absorbed'], x))
+        if self.__pass_self: return f(self, x)
+        return f(self, x)
 
 
     def __eq__(self, other):
+        if isinstance(other, type) and other in [internals.ZefRef, internals.EZefRef]:
+            print(f"""Warning, you tried to compare == between a '{other}'
+and a ValueType. This is likely because you wrote
+`type(x) == SomeValueType`. Instead you should write
+`isinstance(x, SomeValueType)` or
+`representation_type(x) == SomeValueType`.""")
         if not isinstance(other, ValueType_): return False
-        return self._d['type_name'] == other._d['type_name'] and self._d['absorbed'] == other._d['absorbed']
+        # return self._d['type_name'] == other._d['type_name'] and self._d['absorbed'] == other._d['absorbed']
+        return self._d == other._d
 
 
     def __hash__(self):
@@ -133,32 +178,30 @@ class ValueType_:
 
     def __or__(self, other):
         from ..op_structs import ZefOp
-        if isinstance(other, self.allowed_types):
+        if isinstance(other, ValueType_):
             return simplify_value_type(ValueType_(type_name='Union', absorbed=(self, other,)))
-        elif isinstance(other, ZefOp):
-            return other.__ror__(self)
         else:
-            raise Exception(f'"ValueType_`s "|" called with unsupported type {type(other)}')
+            return NotImplemented
 
     def __ror__(self, other):
         # Is | commutative? Going to assume it isn't
-        if isinstance(other, self.allowed_types):
+        if isinstance(other, ValueType_):
             return simplify_value_type(ValueType_(type_name='Union', absorbed=(other, self,)))
         else:
-            raise Exception(f'"ValueType_`s right-side "|" called with unsupported type {type(other)}')
+            return NotImplemented
     
     def __and__(self, other):
-        if isinstance(other, self.allowed_types):
+        if isinstance(other, ValueType_):
             return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(self, other,)))
         else:
-            raise Exception(f'"ValueType_`s "&" called with unsupported type {type(other)}')
+            return NotImplemented
 
     def __rand__(self, other):
         # Is & commutative? Going to assume it isn't
-        if isinstance(other, self.allowed_types):
+        if isinstance(other, ValueType_):
             return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(other, self,)))
         else:
-            raise Exception(f'"ValueType_`s right-side "&" called with unsupported type {type(other)}')
+            return NotImplemented
 
     def __invert__(self):
         return ValueType_(type_name='Complement', absorbed=(self,))
@@ -178,7 +221,7 @@ class ValueType_:
 
         get_attr_func, set_attr_func, dir_func = _value_type_attr_funcs.get(self._d["type_name"], (None,None,None))
         if get_attr_func is None:
-            raise AttributeError
+            raise AttributeError(name)
         return get_attr_func(self, name)
 
     def __setattribute__(self, name, value):
@@ -256,3 +299,45 @@ def simplify_value_type(x):
         return ValueType_(type_name='Intersection', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
     else:
         return x
+
+
+def is_type(typ):
+    return type(typ) == ValueType_
+
+def is_a_(obj, typ):
+    assert is_type(typ), f"Can't do a is_a_ on a non-ValueType '{typ}'"
+    if typ._d["type_name"] in _value_type_is_a_funcs:
+        return _value_type_is_a_funcs[typ._d["type_name"]](obj, typ)
+    elif typ._d["type_name"] in _value_type_pytypes:
+        return isinstance(obj, _value_type_pytypes[typ._d["type_name"]])
+    else:
+        raise Exception(f"ValueType '{typ._d['type_name']}' has no is_a implementation")
+
+def is_subtype(typ1, typ2):
+    assert is_type(typ1), f"is_subtype got a non-type: {typ1}"
+    assert is_type(typ2), f"is_subtype got a non-type: {typ2}"
+
+    if typ2._d["type_name"] in _value_type_is_subtype_funcs:
+        return _value_type_is_subtype_funcs[typ2._d["type_name"]](typ1, typ2)
+    elif typ1._d["type_name"] == typ2._d["type_name"]:
+        if len(typ2._d["absorbed"]) == 0 and len(typ1._d["absorbed"]) > 0:
+            return True
+        else:
+            # TODO: Default covariant or other subtyping behaviour here.
+            return "maybe"
+    else:
+        # raise Exception(f"ValueType '{typ1._d['type_name']}' has no is_subtype implementation")
+        return False
+
+def is_strict_subtype(typ1, typ2):
+    res = is_subtype(typ1, typ2)
+
+    if typ1 == typ2:
+        return False
+    elif res is True:
+        return True
+    elif res is False:
+        return False
+    elif res == "maybe":
+        return False
+    

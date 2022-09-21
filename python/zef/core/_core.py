@@ -13,19 +13,19 @@
 # limitations under the License.
 
 from ..pyzef.main import (
-    EntityType,
-    Graph,
+    # EntityType,
+    # Graph,
     Keyword,
     QuantityFloat,
     QuantityInt,
     RelationType,
     Time,
     TimeSlice,
-    EZefRef,
+    # EZefRef,
     # EZefRefs,
     # EZefRefss,
     ZefEnumValue,
-    ZefRef,
+    # ZefRef,
     # ZefRefs,
     # ZefRefss,
     Zwitch,
@@ -52,14 +52,15 @@ from ..pyzef.main import (
 )
 
 from ..pyzef.internals import (
-    ET,
-    RT,
-    EN,
-    AET,
-    BT,
-    AttributeEntityType,
+    # ET,
+    # RT,
+    # EN,
+    # AET,
+    # BT,
+    # AttributeEntityType,
     KW,
     Delegate,
 )
 
-from .internals import Transaction
+# from .internals import Transaction, ET, RT, EN, AET
+from .internals import Transaction, EN

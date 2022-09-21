@@ -14,8 +14,18 @@
 
 # Note: This should never depend on core at the top level!
 
+from ...pyzef.main import (
+    EntityType,
+    RelationType,
+    Graph,
+    GraphRef,
+    ZefRef,
+    EZefRef,
+)
+
 from ...pyzef.internals import (
-    AttributeEntityTypeStruct,
+    AttributeEntityType,
+    # AttributeEntityTypeStruct,
     BaseUID,
     BlobType,
     BlobTypeStruct,

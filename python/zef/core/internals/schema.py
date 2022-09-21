@@ -19,8 +19,15 @@ def c_schema_validator(ctx):
     # We can move this to another section later on
     from .. import Graph
     from .. import _ops as zo
-    from ...pyzef.internals import AbortTransaction, RT
+    from ...pyzef.internals import AbortTransaction
+    from .. import RT
 
+    print(ctx)
+    print(zo.to_graph_slice)
+    print(zo.collect)
+    print(type(ctx))
+    print(type(zo.to_graph_slice))
+    print(type(zo.collect))
     gs = ctx | zo.to_graph_slice | zo.collect
     for schema in gs | zo.root | zo.Outs[RT.ZEF_Schema]:
         lt = schema | zo.value | zo.collect

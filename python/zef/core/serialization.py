@@ -19,15 +19,15 @@ __all__ = [
 
 from ._core import *
 from .internals import BaseUID, EternalUID, ZefRefUID
+from .VT import *
 from ._ops import *
 from .op_structs import ZefOp, CollectingOp, SubscribingOp, ForEachingOp, LazyValue, Awaitable, is_python_scalar_type
 from .abstract_raes import Entity, Relation, AttributeEntity
-from .error import _ErrorType, Error
+from .error import _ErrorType
 from .image import Image
 from .fx.fx_types import FXElement, Effect
 from .flat_graph import FlatGraph_, FlatRef, FlatRefs
 from ..pyzef import internals as pyinternals
-from .VT import ValueType_
 from .symbolic_expression import SymbolicExpression_
 
 ##############################
@@ -469,7 +469,7 @@ serialization_mapping[ZefRef] = serialize_zeftypes
 serialization_mapping[EZefRef] = serialize_zeftypes
 # serialization_mapping[EZefRefs] = serialize_zeftypes
 serialization_mapping[RelationType] = serialize_zeftypes
-serialization_mapping[EntityType] = serialize_zeftypes
+# serialization_mapping[EntityType] = serialize_zeftypes
 serialization_mapping[AttributeEntityType] = serialize_zeftypes
 serialization_mapping[Graph] = serialize_zeftypes
 serialization_mapping[ZefEnumValue] = serialize_zeftypes

@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .._core import RT
+from ..VT import RT
 from .implementation_typing_functions import * 
 from .yo import yo_implementation, yo_type_info
 from .graphviz import graphviz_imp, graphviz_tp

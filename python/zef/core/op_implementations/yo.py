@@ -19,7 +19,7 @@ from functional import seq
 from ..internals import is_delegate, root_node_blob_index, BlobType
 from .._core import *
 from .. import internals
-from ..VT import TX,String, Instantiated, Terminated, Assigned, Is
+from ..VT import *
 
 def yo_implementation(x, display=True):
     import inspect

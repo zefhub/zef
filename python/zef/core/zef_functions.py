@@ -57,6 +57,7 @@ import traceback
 
 from . import internals
 from ._core import *
+from .VT import *
 from ._ops import *
 
 
