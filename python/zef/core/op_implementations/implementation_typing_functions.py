@@ -5589,7 +5589,7 @@ def nth_implementation(iterable, n):
 
 
 
-#---------------------------------------- select_by_field -----------------------------------------------
+#---------------------------------------- select_keys -----------------------------------------------
 def select_keys_imp(d: dict, *keys: list):
     """
     Given a dictionary, return a new dictionary containing 
@@ -5890,6 +5890,16 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
     ---- Signature ----
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: In
+    - related zefop: Ins
+    - related zefop: Outs
+    - related zefop: ins_and_outs
+    - related zefop: target
+    - related zefop: source
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "single")
@@ -5925,7 +5935,7 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
 #---------------------------------------- Outs -----------------------------------------------
 def Outs_imp(z, rt=None, target_filter = None):
     """
-    Traverse along all outgoing relation of the specified 
+    Traverse along all outgoing relations of the specified 
     type to the thing attached to the target of each relation.
 
     For a ZefRef, it will always stay in the same time
@@ -5937,8 +5947,16 @@ def Outs_imp(z, rt=None, target_filter = None):
     >>> z1s_friend = z1 | Outs[RT.FriendOf]
 
     ---- Signature ----
-    ZefRef -> ZefRefs
-    EZefRef -> EZefRefs
+    ZefRef -> List[ZefRef]
+    EZefRef -> List[EZefRef]
+    
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: Ins
+    - related zefop: Out
+    - related zefop: In
+    - related zefop: ins_and_outs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
@@ -5965,6 +5983,16 @@ def In_imp(z, rt=None, source_filter = None):
     ---- Signature ----
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: Out
+    - related zefop: Ins
+    - related zefop: Outs
+    - related zefop: ins_and_outs
+    - related zefop: target
+    - related zefop: source
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
@@ -5975,7 +6003,7 @@ def In_imp(z, rt=None, source_filter = None):
 #---------------------------------------- Ins -----------------------------------------------
 def Ins_imp(z, rt=None, source_filter = None):
     """
-    Traverse along all incoming relation of the specified 
+    Traverse along all incoming relations of the specified 
     type to the thing attached to the source of each relation.
 
     For a ZefRef, it will always stay in the same time
@@ -5987,8 +6015,16 @@ def Ins_imp(z, rt=None, source_filter = None):
     >>> z1s_friend = z1 | Ins[RT.FriendOf]
 
     ---- Signature ----
-    ZefRef -> ZefRefs
-    EZefRef -> EZefRefs
+    ZefRef -> List[ZefRef]
+    EZefRef -> List[EZefRef]
+    
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: Outs
+    - related zefop: In
+    - related zefop: Out
+    - related zefop: ins_and_outs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
@@ -6011,11 +6047,11 @@ def ins_and_outs_imp(z, rel_type=RT):
     >>> z1s_friend = z1 | ins_and_outs[RT.FriendOf]
 
     ---- Signature ----
-    ZefRef -> ZefRefs
-    EZefRef -> EZefRefs
+    ZefRef -> List[ZefRef]
+    EZefRef -> List[EZefRef]
     
     ---- Tags ----
-    - used for: control flow
+    - used for: graph traversal
     - operates on: ZefRef, EZefRef
     - related zefop: Ins, Outs
     """
@@ -6042,6 +6078,14 @@ def out_rel_imp(z, rt=None, target_filter = None):
     ---- Signature ----
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: out_rels
+    - related zefop: in_rel
+    - related zefop: Out
+    - related zefop: Outs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "single")
@@ -6094,6 +6138,14 @@ def out_rels_imp(z, rt=None, target_filter=None):
     ---- Signature ----
     ZefRef -> ZefRefs
     EZefRef -> EZefRefs
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: in_rels
+    - related zefop: out_rel
+    - related zefop: Out
+    - related zefop: Outs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
@@ -6127,6 +6179,14 @@ def in_rel_imp(z, rt=None, source_filter = None):
     ---- Signature ----
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: in_rels
+    - related zefop: out_rel
+    - related zefop: In
+    - related zefop: Ins
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "single")
@@ -6179,6 +6239,14 @@ def in_rels_imp(z, rt=None, source_filter=None):
     ---- Signature ----
     ZefRef -> ZefRefs
     EZefRef -> EZefRefs
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: out_rels
+    - related zefop: in_rel
+    - related zefop: In
+    - related zefop: Ins
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "multi")
