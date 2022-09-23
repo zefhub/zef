@@ -970,72 +970,59 @@ class LazyValue:
         raise Exception("Shouldn't cast LazyValue to bool (this may change in the future to automatic evaluation)")
 
     def evaluate(self, unpack_generator = True):
+        from .op_implementations.dispatch_dictionary import _op_to_functions
+        from .op_implementations.implementation_typing_functions import ZefGenerator
+
         curr_op = None
+        curr_value = self.initial_val
+
         try:
-            from .op_implementations.dispatch_dictionary import _op_to_functions
-            from .op_implementations.implementation_typing_functions import ZefGenerator
-            curr_value = self.initial_val
 
             for op_i,op in enumerate(self.el_ops.el_ops): 
+                
                 curr_op = op
-                if op[0] == RT.Collect: continue
-                if op[0] == RT.Run:
-                    if isinstance(curr_value, dict): 
-                        curr_value = _op_to_functions[op[0]][0](curr_value)
-                    elif len(op[1]) > 1: # i.e run[impure_func]
-                        curr_value = op[1][1](curr_value)
-                    else:
-                        raise NotImplementedError(f"only effects or nullary functions can be passed to 'run' to be executed in the imperative shell. Received {curr_value}")
-                    break
-
                 cur_context = {
                     "chain": self,
                     "op_i": op_i,
                     "input": curr_value,
-                    "op": op,
+                    "op": curr_op,
                 }
 
-                def type_checking_context(op, function, inp):
-                    from .op_implementations.implementation_typing_functions import is_a_implementation
-                    try:
-                        if op[0] == RT.Function:
-                            function = op[1][0][1]
-                            import types
-                            assert type(function) == types.FunctionType, "Failed function check"
-                        
-                        import inspect
-                        full_arg_spec = inspect.getfullargspec(function)
-                        args, annotations = full_arg_spec.args, full_arg_spec.annotations
-                        assert len(annotations) > 0, "Missing Annotations"
+                if op[0] == RT.Collect: continue
 
-                        arg_type = annotations.get(args[0], None)
-                        assert arg_type is not None, "Failed retrieving the annotation for input arg"
-                        return {"type_check": {"expected": {"input":inp, "arg": args[0], "type": arg_type}, "result": is_a_implementation(inp, arg_type), "function": function}}
 
-                    except Exception as exc:
-                        return {"type_check": None}
+                if op[0] == RT.Run:
+                    
+                    # If this raises an error then it will be handled as EvalEngineCoreError
+                    # so that we can keep the traceback of the original nested error
+                    if len(op[1]) > 1: # i.e run[impure_func]
+                        curr_value = op[1][1](curr_value)
+                    elif isinstance(curr_value, dict): 
+                        curr_value = _op_to_functions[op[0]][0](curr_value)
+                    else:
+                        raise NotImplementedError(f"only effects or nullary functions can be passed to 'run' to be executed in the imperative shell. Received {curr_value}")
+                    break
 
+                
                 try:
                     to_call_func = _op_to_functions[op[0]][0]
                 except KeyError as e:
-                    raise Exception(f"Cannot find {e} inside dispatch dictionary") from None
+                    raise KeyError(f"Cannot find {e} inside dispatch dictionary") from None
                 except Exception as e:
                     raise Exception(f"Error happened trying to access dispatch function for {op[0]}") from None
+
 
                 got_error = None
                 try:
                     new_value = to_call_func(curr_value,  *op[1])
+
                 except EvalEngineCoreError as e:
                     # This is definitely a panic - but we want to attach the
                     # current evaluation information along with this.
-                    e = EvalEngineCoreError(e)
-                    got_error = add_error_context(e, {
-                        "chain": self,
-                        "op_i": 0,
-                        "input": curr_value,
-                        "op": curr_op,}
-                    )
                     # Probably want to add in python traceback here
+                    e = EvalEngineCoreError(e)
+                    got_error = add_error_context(e, cur_context)
+
                 except ExceptionWrapper as e:
                     # Continue the panic, attaching more tb info
                     tb = e.__traceback__
@@ -1043,10 +1030,12 @@ class LazyValue:
                     frames = process_python_tb(tb)
                     got_error = add_error_context(e.wrapped, {"frames": frames})
                     got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
+                
                 except _ErrorType as e:
                     got_error = e
                     got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
                     # print("2")
+                
                 except Exception as e:
                     # print("3")
                     py_e,frames = convert_python_exception(e)
@@ -1054,13 +1043,11 @@ class LazyValue:
                     got_error.nested = py_e
                     got_error = add_error_context(got_error, {"frames": frames})
                     got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
+                
                 else:
                     if type(new_value) == _ErrorType:
-                        # print("4.1", new_value)
                         # Here we have a choice - depends on what the caller expects, an Error or an exception
-                        #
                         # Could also pass this down the line
-                        #
                         # Need to distinguish between a caller wanting an error or wanting an exception
 
                         # Build details here
@@ -1068,11 +1055,9 @@ class LazyValue:
                         if True:
                             got_error = new_value
                         else:
-                            # Stuff
                             pass
                         pass
                     elif type(new_value) == ZefGenerator:
-                        # print("4.2", new_value)
                         new_value = new_value.add_context(cur_context)
 
                 if got_error is not None:
@@ -1089,15 +1074,7 @@ class LazyValue:
                 if isinstance(curr_value, Iterator) or isinstance(curr_value, Generator):
                     # This branch should be eliminated if possible
                     print("NEED TO GET RID OF THIS")
-                    print("NEED TO GET RID OF THIS")
-                    print("NEED TO GET RID OF THIS")
-                    print("NEED TO GET RID OF THIS")
-                    print("NEED TO GET RID OF THIS")
-                    print("NEED TO GET RID OF THIS")
                     print("With type:", type(curr_value))
-                    print("NEED TO GET RID OF THIS")
-                    print("NEED TO GET RID OF THIS")
-                    print("NEED TO GET RID OF THIS")
                     print("NEED TO GET RID OF THIS")
 
                     return_list = []
@@ -1134,22 +1111,25 @@ class LazyValue:
                         return_list.append(val)
                     return return_list
                 elif isinstance(curr_value, ZefGenerator):
-                    # print(6)
                     # ZefGenerator handles its own context and error raising
                     # TODO: We could bring the error handling into here?
                     return [i for i in curr_value]
 
             return curr_value
+
         except EvalEngineCoreError:
             # print("7")
             raise
+        
         except ExceptionWrapper as exc:
             # print("8")
             raise exc from None
+        
         except _ErrorType as exc:
             # print("9")
             # return ExceptionWrapper(exc) #from None
             raise ExceptionWrapper(exc) from None
+        
         except Exception as exc:
             # print("10")
             e = EvalEngineCoreError(exc)
@@ -1161,6 +1141,28 @@ class LazyValue:
             )
             e = add_error_context(e, {"frames": e.frames,} )
             raise e 
+
+# Perform type checking when an error occurs
+def type_checking_context(op, function, inp):
+    from .op_implementations.implementation_typing_functions import is_a_implementation
+    try:
+        if op[0] == RT.Function:
+            function = op[1][0][1]
+            import types
+            assert type(function) == types.FunctionType, "Failed function check"
+        
+        import inspect
+        full_arg_spec = inspect.getfullargspec(function)
+        args, annotations = full_arg_spec.args, full_arg_spec.annotations
+        assert len(annotations) > 0, "Missing Annotations"
+
+        arg_type = annotations.get(args[0], None)
+        assert arg_type is not None, "Failed retrieving the annotation for input arg"
+        return {"type_check": {"expected": {"input":inp, "arg": args[0], "type": arg_type}, "result": is_a_implementation(inp, arg_type), "function": function}}
+
+    except Exception as exc:
+        return {"type_check": None}
+
 
 def find_type_of_current_value(curr_value):
     if isinstance(curr_value, Iterator) or isinstance(curr_value, Generator): 
