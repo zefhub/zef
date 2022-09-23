@@ -483,15 +483,21 @@ class ZefOp:
             collect_op = CollectingOp(curried_op)
         
         lzy_val = LazyValue(args[0]) if not isinstance(args[0], LazyValue) else args[0]
+        from .error import EvalEngineCoreError
         try:
             res = lzy_val | collect_op
+        except EvalEngineCoreError as e:
+            tb = e.__traceback__
+            from .error import process_python_tb
+            frames = process_python_tb(tb)
+            err = add_error_context(e, {"frames": frames})
+            raise err from None
         except Exception as e:
             tb = e.__traceback__
             from .error import process_python_tb
             frames = process_python_tb(tb)
             err = add_error_context(e.wrapped, {"frames": frames})
             raise ExceptionWrapper(err) from None
-            
         # Raise if this didn't evaluate!
         if isinstance(res, CollectingOp):
             raise Exception(f"ZefOp call didn't evaluate! {res}")
@@ -856,8 +862,16 @@ class LazyValue:
         
         res_lazyval = LazyValue(self.initial_val)
         res_lazyval.el_ops = res
+
+        from .error import EvalEngineCoreError
         try:
             if should_trigger_eval(res_lazyval): return evaluate_lazy_value(res_lazyval)
+        except EvalEngineCoreError as e:
+            tb = e.__traceback__
+            from .error import process_python_tb
+            frames = process_python_tb(tb)
+            err = add_error_context(e, {"frames": frames})
+            raise err from None
         except Exception as e:
             tb = e.__traceback__
             from .error import process_python_tb
@@ -954,12 +968,14 @@ class LazyValue:
         raise Exception("Shouldn't cast LazyValue to bool (this may change in the future to automatic evaluation)")
 
     def evaluate(self, unpack_generator = True):
+        curr_op = None
         try:
             from .op_implementations.dispatch_dictionary import _op_to_functions
             from .op_implementations.implementation_typing_functions import ZefGenerator
             curr_value = self.initial_val
 
             for op_i,op in enumerate(self.el_ops.el_ops): 
+                curr_op = op
                 if op[0] == RT.Collect: continue
                 if op[0] == RT.Run:
                     if isinstance(curr_value, dict): 
@@ -970,12 +986,10 @@ class LazyValue:
                         raise NotImplementedError(f"only effects or nullary functions can be passed to 'run' to be executed in the imperative shell. Received {curr_value}")
                     break
 
-
                 cur_context = {
                     "chain": self,
                     "op_i": op_i,
                     "input": curr_value,
-                    # Not necessary actually
                     "op": op,
                 }
 
@@ -999,15 +1013,26 @@ class LazyValue:
                     except Exception as exc:
                         return {"type_check": None}
 
+                try:
+                    to_call_func = _op_to_functions[op[0]][0]
+                except KeyError as e:
+                    raise Exception(f"Cannot find {e} inside dispatch dictionary") from None
+                except Exception as e:
+                    raise Exception(f"Error happened trying to access dispatch function for {op[0]}") from None
 
-                to_call_func = _op_to_functions[op[0]][0]
                 got_error = None
                 try:
                     new_value = to_call_func(curr_value,  *op[1])
                 except EvalEngineCoreError as e:
                     # This is definitely a panic - but we want to attach the
                     # current evaluation information along with this.
-                    got_error = e
+                    e = EvalEngineCoreError(e)
+                    got_error = add_error_context(e, {
+                        "chain": self,
+                        "op_i": 0,
+                        "input": curr_value,
+                        "op": curr_op,}
+                    )
                     # Probably want to add in python traceback here
                 except ExceptionWrapper as e:
                     # Continue the panic, attaching more tb info
@@ -1126,7 +1151,13 @@ class LazyValue:
         except Exception as exc:
             # print("10")
             e = EvalEngineCoreError(exc)
-            e = add_error_context(e, {"chain": self})
+            e = add_error_context(e, {
+                "chain": self,
+                "op_i": 0,
+                "input": curr_value,
+                "op": curr_op,}
+            )
+            # return e
             raise e
 
 def find_type_of_current_value(curr_value):
