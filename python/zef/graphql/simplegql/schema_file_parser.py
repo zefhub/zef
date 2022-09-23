@@ -44,7 +44,7 @@ def parse_partial_graphql(schema):
         name, details = parts
         name = name.strip()
 
-        assert name in ["SchemaVersion", "DataTag", "Authentication", "Route"], f"Don't understand Zef directive of name {name}"
+        assert name in ["SchemaVersion", "DataTag", "Authentication", "Route", "GraphQLRoute"], f"Don't understand Zef directive of name {name}"
 
         if name == "SchemaVersion":
             assert "schema_version" not in output, "Not allowed to have multiple Zef.SchemaVersion directives."
@@ -73,6 +73,10 @@ def parse_partial_graphql(schema):
                 raise Exception("Custom route should not alias '/' or '/gql'")
             routes = output.setdefault("routes", [])
             routes.append((details["route"], details["hook"]))
+        elif name == "GraphQLRoute":
+            assert set(keys(details)) == {"route"}
+            routes = output.setdefault("graphql_routes", [])
+            routes.append(details["route"])
         else:
             raise Exception(f"Unsupported Zef.{name} directive")
 
@@ -263,6 +267,10 @@ def json_to_minimal_nodes(json, g):
             actions += [(Z["root"], RT.Route,
                          {ET.Route: {RT.Route: route,
                                      RT.Hook: g | now | get[hook] | collect}})]
+    if "graphql_routes" in json:
+        for route in json["graphql_routes"]:
+            actions += [(Z["root"], RT.GraphQLRoute, route)]
+
     if "data_tag" in json:
         actions += [(Z["root"], RT.DataTag, json["data_tag"])]
                 

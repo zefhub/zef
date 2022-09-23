@@ -162,17 +162,21 @@ def start_server(z_gql_root,
         context["jwk_client"] = PyJWKClient(url)
 
     additional_routes = create_additional_routes(z_gql_root | Outs[RT.Route] | collect, context)
+    main_routes = z_gql_root | Outs[RT.GraphQLRoute] | map[value] | collect
+    if len(main_routes) == 0:
+        main_routes = ["/gql"]
 
     http_r = {
         'type': FX.HTTP.StartServer,
         'port': port,
-        'pipe_into': (map[middleware_worker[[permit_cors,
-                                             route["/"][insert_in[["response_body"]]["Healthy"]],
-                                             route["/gql"][P(query, context=context)],
-                                             *additional_routes,
-                                             fallback_not_found,
-                                             send_response]]]
-                      | subscribe[run]),
+        'pipe_into': (map[middleware_worker[[
+            permit_cors,
+            route["/"][insert_in[["response_body"]]["Healthy"] | send_response],
+            *[route[path][func[P(query, context=context)] | send_response] for path in main_routes],
+            *additional_routes,
+            fallback_not_found,
+            send_response
+        ]]] | subscribe[run]),
         'logging': logging,
         'bind_address': bind_address,
     } | run
@@ -188,7 +192,7 @@ def create_additional_route(z_route, context):
 
     curried_hook = P(hook, context=context)
 
-    return route[s_route][curried_hook]
+    return route[s_route][func[curried_hook] | send_response]
 
 def create_additional_routes(z_routes, context):
     return z_routes | map[P(create_additional_route, context=context)] | collect
