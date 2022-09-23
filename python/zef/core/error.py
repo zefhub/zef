@@ -115,7 +115,8 @@ def zef_ui_err(err):
                 truncated_filename = fname[fname.rindex("zef"):]
             except:
                 truncated_filename = fname
-            file_line = Text(f"~/{truncated_filename}@{top_frame['lineno']}", color="#33b864")
+            line_no = f":{top_frame['lineno']}" if top_frame['lineno'] else ""
+            file_line = Text(f"~/{truncated_filename}{line_no}", color="#33b864")
             file_text = Text(["File ", file_line])
             stack_lst += [file_text]
 
@@ -136,9 +137,7 @@ def zef_ui_err(err):
             error_carrets = f"{' ' * padding}{'^' * len(failed_func)}"
             return  [Text(error_carrets, color="#FF9494")]
 
-        # if top_frame:
         failed_func = str(ZefOp((chains[-1]['op'],),))
-        # failed_func = top_frame['func_name']
         stack_lst += make_carrets_if_found(chain_str, failed_func, arrow_str)
 
         ##### States or Context #####
@@ -155,13 +154,6 @@ def zef_ui_err(err):
         else:
             state_header = Text("\n==States==\n", bold=True, justify="center", italic=True)
             state_stack = []
-    #         if metadata:
-    #             code_str = f"""
-    # input = {metadata['last_input']}
-    #         """
-    #             chain_state = Code(code_str, language = "python3")
-    #             state_frame = Frame(chain_state, title=top_frame['func_name'])
-    #             state_stack += [state_frame]
 
             for i, chain in enumerate(reversed(chains)):
                 if isinstance(chain['input'], ZefGenerator): break
@@ -175,16 +167,16 @@ def zef_ui_err(err):
             stack_lst += [state_header, *state_stack]
 
 
-
-        #####
+        ##### Type Checking ####
         tc_header = Text("\n==Type Checking==\n", bold=True, justify="center", italic=True)
+        tc_fail_body = Text("Failed to do Type Checking due to missing annotations", color="#FF9494", bold=True)
 
         if type_check:
             tc_stack = []
             for t_check in type_check:
                 t_check = t_check['type_check']
                 if t_check:
-                    tc_fn = f"{t_check['function']}"
+                    tc_fn = f"{t_check['function'].__name__}"
                     tc_body = f"Expected: {t_check['expected']['arg']} = {t_check['expected']['type']}\n"
                     tc_check = f"Type Check against `{t_check['expected']['input']}`: "
                     tc_result =  ['Failed ❌','Success ✅'][t_check['result']]
@@ -192,14 +184,14 @@ def zef_ui_err(err):
                     tc_stack.append(tc_body)
             
             if tc_stack: stack_lst += [tc_header, *tc_stack]
+            else: stack_lst += [tc_header, tc_fail_body]
         else:
-            tc_body = Text("Failed to do Type Checking due to missing annotations", color="#FF9494", bold=True)
-            stack_lst += [tc_header, tc_body]
+            stack_lst += [tc_header, tc_fail_body]
 
-        #####
+        ##### Error Messages ####
         if nested['args']:
             err_msg_header = Text("\n==Error Message==", bold=True, justify="center", italic=True)
-            err_msg = Text(f"\n{','.join(nested['args'])}", color="#FF9494")
+            err_msg = Text(f"\n{','.join([str(arg) for arg in nested['args']])}", color="#FF9494")
             stack_lst += [err_msg_header, err_msg]
 
         stack = VStack(stack_lst, expand=True)
