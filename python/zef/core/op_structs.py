@@ -871,13 +871,15 @@ class LazyValue:
             from .error import process_python_tb
             frames = process_python_tb(tb)
             err = add_error_context(e, {"frames": frames})
-            raise err from None
-        except Exception as e:
+            raise err from e
+        except ExceptionWrapper as e:
             tb = e.__traceback__
             from .error import process_python_tb
             frames = process_python_tb(tb)
             err = add_error_context(e.wrapped, {"frames": frames})
             raise ExceptionWrapper(err) from None
+        except Exception as e:
+            raise e
         return res_lazyval
 
     def lt_gt_lshift_rshift_behavior(self, other, rt):
@@ -1157,8 +1159,8 @@ class LazyValue:
                 "input": curr_value,
                 "op": curr_op,}
             )
-            # return e
-            raise e
+            e = add_error_context(e, {"frames": e.frames,} )
+            raise e 
 
 def find_type_of_current_value(curr_value):
     if isinstance(curr_value, Iterator) or isinstance(curr_value, Generator): 
