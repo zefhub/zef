@@ -194,19 +194,21 @@ def Transaction(g, wait=None, rollback_empty=None, check_schema=None):
 def assign_value_imp(z, value):
     from .._ops import is_a
     from ...pyzef.zefops import SerializedValue, assign_value as c_assign_value
-    from ..VT import ValueType_
+    from ..VT import ValueType_, AET
+    from .. import VT
 
     assert isinstance(z, ZefRef) or isinstance(z, EZefRef)
 
     # We can't be sure what kind of zefref we have, and if it is complex things
     # break at the moment, so do this thoroughly here.
-    if not is_a(z, AET):
+    if not is_a(z, VT.AET[VT.Any]):
+        print(z)
         raise Exception("E/ZefRef is not an AET!")
-    aet = AET(z)
-    if (not aet.complex_value) and is_a(z, AET.Serialized):
+    aet = VT.AET(z)
+    if (not aet._d["specific"].complex_value) and is_a(z, VT.AET.Serialized):
         value = SerializedValue.serialize(value)
     if isinstance(value, ValueType_):
-        value = AET[value]
+        value = VT.AET[value]
     c_assign_value(z, value)
 
 
@@ -215,10 +217,11 @@ def instantiate_value_node_imp(value, g):
     from ...pyzef.main import instantiate_value_node as c_instantiate_value_node
     from .._ops import is_a
     from ..VT import ValueType_
+    from .. import VT
     from ..graph_delta import scalar_types
 
     if isinstance(value, ValueType_):
-        value = AET[value]
+        value = VT.AET[value]
     elif type(value) not in scalar_types:
         value = SerializedValue.serialize(value)
     return c_instantiate_value_node(value, g)

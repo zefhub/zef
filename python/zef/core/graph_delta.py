@@ -519,7 +519,10 @@ def dispatch_cmds_for(expr, gen_id):
     func = match(expr, [
         (ET, always[cmds_for_instantiable]),
         (AET, always[cmds_for_instantiable]),
-        (Any, Error())
+        (tuple, always[P(cmds_for_tuple, gen_id=gen_id)]),
+        (list, always[P(cmds_for_tuple, gen_id=gen_id)]),
+        (dict, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
+         (Any, Error()),
     ])
     if is_a(func, Error):
         raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
@@ -682,14 +685,14 @@ def cmds_for_lv_set_field(x, gen_id):
     # assert is_a(source, ZefOp) and is_a(source, Z), f"fill_or_attach reached cmd creation with an incorrect input type: {source}"
     assert is_a(op, set_field)
     rt,assignment,incoming = LazyValue(op) | absorbed | collect
-    assert type(rt) == RelationType
+    assert isinstance(rt, RT)
 
     iid,exprs = realise_single_node(source, gen_id)
 
     cmd = {
         'cmd': 'set_field', 
         'source_id': iid,
-        'rt': LazyValue(rt) | without_absorbed | collect,
+        'rt': rt,
         'incoming': incoming,
     }
 
@@ -700,8 +703,8 @@ def cmds_for_lv_set_field(x, gen_id):
         cmd['target_id'] = target_iid
         exprs.extend(target_exprs)
 
-    if LazyValue(rt) | absorbed | collect != ():
-        cmd['internal_id'] = LazyValue(rt) | absorbed | single | collect
+    if 'internal_id' in rt._d:
+        cmd['internal_id'] = rt._d['internal_id']
 
     return exprs, [cmd]
 
@@ -753,8 +756,8 @@ def cmds_for_tuple(x: tuple, gen_id: Callable):
             rel = x[1]
             if isinstance(rel, RT):
                 a_id = get_absorbed_id(rel)
-                raet = LazyValue(rel) | without_absorbed | collect
-                cmd1 = {'cmd': 'instantiate', 'rae_type': raet}
+                # raet = LazyValue(rel) | without_absorbed | collect
+                cmd1 = {'cmd': 'instantiate', 'rae_type': rel}
                 if a_id is not None:
                     cmd1['internal_id'] =  a_id
             elif isinstance(rel, ZefOp):
@@ -1300,11 +1303,11 @@ def perform_transaction_commands(commands: list, g: Graph):
                 zz = None
                 
                 # print(f"{i}/{len(g_delta.commands)}: {g.graph_data.write_head * 16 / 1024 / 1024} MB")
-                if cmd['cmd'] == 'instantiate' and is_a(cmd['rae_type'], ET) or is_a(cmd['rae_type'], AET):
+                if cmd['cmd'] == 'instantiate' and (is_a(cmd['rae_type'], ET) or is_a(cmd['rae_type'], AET)):
                     zz = instantiate(cmd['rae_type']._d["specific"], g)
                 
                 elif cmd['cmd'] == 'instantiate' and is_a(cmd['rae_type'], RT):
-                    zz = instantiate(to_ezefref(d_raes[cmd['source']]), cmd['rae_type'], to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
+                    zz = instantiate(to_ezefref(d_raes[cmd['source']]), cmd['rae_type']._d["specific"], to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
                 
                 elif cmd['cmd'] == 'instantiate_value_node':
                     zz = instantiate_value_node_imp(cmd['value'], g)
@@ -1338,10 +1341,12 @@ def perform_transaction_commands(commands: list, g: Graph):
                         if z_target is None:
                             raise KeyError("set_field called with entity that is not known {cmd['target_id']}")
 
+                    rt = cmd['rt']
+                    rt_token = cmd['rt']._d["specific"]
                     if cmd['incoming']:
-                        opts = z_source | in_rels[cmd['rt']] | collect
+                        opts = z_source | in_rels[rt] | collect
                     else:
-                        opts = z_source | out_rels[cmd['rt']] | collect
+                        opts = z_source | out_rels[rt] | collect
                     if len(opts) == 2:
                         raise Exception(f"Can't set_field to {z_source} because it has two or more relations of kind {rt}")
                     elif len(opts) == 1:
@@ -1361,24 +1366,24 @@ def perform_transaction_commands(commands: list, g: Graph):
                             from ..pyzef import zefops as pyzefops
                             pyzefops.terminate(zz)
                             if cmd['incoming']:
-                                zz = instantiate(z_target, cmd['rt'], z_source, g)
+                                zz = instantiate(z_target, rt_token, z_source, g)
                             else:
-                                zz = instantiate(z_source, cmd['rt'], z_target, g)
+                                zz = instantiate(z_source, rt_token, z_target, g)
                     else:
                         if 'value' in cmd:
                             # AE path
                             ae = instantiate(aet, g)
                             internals.assign_value_imp(ae, cmd['value'])
                             if cmd['incoming']:
-                                zz = instantiate(ae, cmd['rt'], z_source, g)
+                                zz = instantiate(ae, rt_token, z_source, g)
                             else:
-                                zz = instantiate(z_source, cmd['rt'], ae, g)
+                                zz = instantiate(z_source, rt_token, ae, g)
                         else:
                             # Entity path
                             if cmd['incoming']:
-                                zz = instantiate(z_target, cmd['rt'], z_source, g)
+                                zz = instantiate(z_target, rt_token, z_source, g)
                             else:
-                                zz = instantiate(z_source, cmd['rt'], z_target, g)
+                                zz = instantiate(z_source, rt_token, z_target, g)
                     # This zz is the relation that connects the source/target
                     zz = now(zz)
                     
