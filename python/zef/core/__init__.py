@@ -157,11 +157,17 @@ ip = get_ipython()
 def exception_handler(self, etype, evalue, tb, tb_offset=None):
     self.showtraceback((etype, evalue, tb), tb_offset=tb_offset)  # standard IPython's printout
     from zef.core.error import zef_ui_err
-    from .error import ExceptionWrapper
+    from .error import ExceptionWrapper, EvalEngineCoreError
     if isinstance(evalue, ExceptionWrapper): 
         try:
             print(zef_ui_err(evalue.wrapped))
-        except:
+        except Exception as e:
+            print(evalue)
+    elif isinstance(evalue, EvalEngineCoreError): 
+        # Do we need to do different handling here?
+        try:
+            print(zef_ui_err(evalue))
+        except Exception as e:
             print(evalue)
     else:
         print(evalue)

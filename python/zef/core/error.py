@@ -257,10 +257,11 @@ Error = _Error()
 
 class EvalEngineCoreError(Exception):
     def __init__(self, exc):
-        self.exc_data,self.frames = convert_python_exception(exc)
+        self.name = "EvalEngineCoreError"
+        self.nested, self.frames = convert_python_exception(exc)
 
     def __str__(self):
-        return f"This is a failure in the core evaluation, {self.exc_data['type']}: {self.exc_data['args']}"
+        return f"This is a failure in the core evaluation engine!"#, {self.nested['type']}: {self.nested['args']}"
 
 
 
