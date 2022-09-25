@@ -20,7 +20,7 @@
 #                           \___/ |___/ \___||_|      \_/    \__,_||_| \__,_| \___|  |_|   \__, || .__/  \___|                        
 #                                                                                          |___/ |_|                                  
 
-from .VT import String, ValueType
+from .VT import String, ValueType, Dict, Any
 from ._ops import is_a
 
 
@@ -40,10 +40,27 @@ class UserValueType_:
     def __repr__(self):
         return f"UserValueType(name={self.name}, representation_type={self.representation_type}, constraints={self.constraints})"
 
-    def __call__(self, val):
+    def __call__(self, *args, **kwargs):
         """
         equivalent to the constructor for this custom type
         """
+        
+        if bool(kwargs):
+            # if keyword args, then the representation_type MUST be a dict and no positional args are allowed
+            assert args == ()
+            assert self.representation_type in {Dict, dict}
+            val = kwargs
+
+        else:
+            # if positional args, then the representation_type MUST be a tuple and no keyword args are allowed
+            assert bool(kwargs)==False    # no keyword args
+            if len(args) == 1:         # if there is only one positional arg, then it is the value itself
+                val = args[0]
+            elif len(args) == 0 and self.representation_type in {Dict, dict}:
+                # The constructor is valid without args only in the case of a dictionary
+                val = {}
+            else:
+                raise ValueError("Error initializing UserValueType")
 
         try:
             cast_val = self.representation_type(val)
@@ -65,7 +82,7 @@ class UserValueType_:
 
 
 # use a constructor function distinct from the type
-def UserValueType(name: String, representation_type: ValueType, constraints: ValueType=None):
+def UserValueType(name: String, representation_type: ValueType, constraints: ValueType=Any):
     return UserValueType_(name, representation_type, constraints)
 
 
@@ -89,3 +106,21 @@ class UserValueInstance_:
         if other.value != self.value:
             return False
         return True
+
+    def __getattr__(self, other):
+        if not isinstance(self.value, dict):
+            raise AttributeError("UserValueInstance 'dot' access only works on dicts")
+        return self.value[other]
+
+    # required to enable dict(my_user_value_type_instance)
+    # fingers crossed that nobody has a field 'keys' 
+    # and tries to do my_user_value_type_instance.keys
+    def keys(self):
+        if not isinstance(self.value, dict):
+            raise AttributeError("UserValueInstance 'keys' only works on dicts")
+        return self.value.keys()
+
+    def __getitem__(self, key):
+        if not isinstance(self.value, dict):
+            raise AttributeError("UserValueInstance 'getitem' only works on dicts")
+        return self.value[key]
