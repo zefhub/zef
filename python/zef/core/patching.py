@@ -180,7 +180,21 @@ def eq_with_absorbed(x, y, orig_eq):
     orig_res = orig_eq(x, y)
     if orig_res == NotImplemented:
         return NotImplemented
-    return orig_res and getattr(x, '_absorbed', ()) == getattr(y, '_absorbed', ())
+    
+    if orig_res == False:
+        return False
+
+    try:
+        absrbd1 = x.__getattribute__('_absorbed')
+    except AttributeError:
+        absrbd1 = ()
+    
+    try:
+        absrbd2 = y.__getattribute__('_absorbed')
+    except AttributeError:
+        absrbd2 = ()
+
+    return absrbd1 == absrbd2
 
 def wrap_eq(typ):
     orig = typ.__eq__
@@ -190,7 +204,11 @@ def wrap_eq(typ):
 
 def hash_with_absorbed(self, orig_hash):
     orig_res = orig_hash(self)
-    return hash((orig_res,) + getattr(self, '_absorbed', ()))
+    try:
+        absrbd = self.__getattribute__('_absorbed')
+    except AttributeError:
+        absrbd = ()
+    return hash((orig_res,) + absrbd)
 
 def wrap_hash(typ):
     orig = typ.__hash__
@@ -374,3 +392,43 @@ def AttributeEntityType_repr(self):
         s += ''.join(('[' + repr(el) + ']' for el in self._absorbed))
     return s
 AttributeEntityType.__repr__ = AttributeEntityType_repr
+
+
+
+
+
+
+
+
+#                           _____         _    _  _               ___   _        _              _       _   _         _           _    _                                       
+#                          | ____| _ __  | |_ (_)| |_  _   _     / _ \ | |__    (_)  ___   ___ | |_    | \ | |  ___  | |_   __ _ | |_ (_)  ___   _ __                          
+#   _____  _____  _____    |  _|  | '_ \ | __|| || __|| | | |   | | | || '_ \   | | / _ \ / __|| __|   |  \| | / _ \ | __| / _` || __|| | / _ \ | '_ \     _____  _____  _____ 
+#  |_____||_____||_____|   | |___ | | | || |_ | || |_ | |_| |   | |_| || |_) |  | ||  __/| (__ | |_    | |\  || (_) || |_ | (_| || |_ | || (_) || | | |   |_____||_____||_____|
+#                          |_____||_| |_| \__||_| \__| \__, |    \___/ |_.__/  _/ | \___| \___| \__|   |_| \_| \___/  \__| \__,_| \__||_| \___/ |_| |_|                        
+#                                                      |___/                  |__/                                                                                             
+
+
+def entity_type_call_func(self, *args, **kwargs):
+    new_obj = EntityType(self.value)
+    if '_absorbed' in self.__dict__:
+        new_obj._absorbed = self._absorbed
+    new_obj._absorbed_dict = kwargs      # put this in a separate substructure to not interfere with the normal absorbed values
+    return new_obj
+
+EntityType.__call__ = entity_type_call_func
+
+
+
+def entity_type_repr_func(self):
+    absorbed_str = ''.join([f"[{el}]" for el in self._absorbed]) if '_absorbed' in self.__dict__ else ""
+    absorbed_dict_str = '(' + ', '.join([ f"{k}={repr(v)}" for k, v in self._absorbed_dict.items()]) + ')'if '_absorbed_dict' in self.__dict__ else ""
+    return f'ET.{str(self)}{absorbed_str}{absorbed_dict_str}'
+
+EntityType.__repr__ = entity_type_repr_func
+
+
+# allow accessing fields with dot notation
+def entity_type_getattr_func(self, name):
+    return self._absorbed_dict[name]
+
+EntityType.__getattr__ = entity_type_getattr_func
