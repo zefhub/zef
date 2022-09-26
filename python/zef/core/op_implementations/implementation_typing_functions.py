@@ -233,7 +233,7 @@ def on_implementation(g, op):
 
 
     """
-    assert isinstance(op, ValueType_)
+    assert isinstance(op, ValueType)
     assert len(absorbed(op)) == 1
     from ...pyzef import zefops as internal
     from ..fx import FX, Effect
@@ -272,9 +272,7 @@ def on_implementation(g, op):
                     def src_or_trgt_filter(rae, rae_filter):
                         if isinstance(rae_filter, ZefRef):
                             return to_ezefref(rae) == to_ezefref(rae_filter)
-                        elif isinstance(rae_filter, (EntityType, AttributeEntityType, RelationType)):
-                            return rae_type(rae) == rae_filter
-                        elif isinstance(rae_filter, ValueType_):
+                        elif isinstance(rae_filter, ValueType):
                             return is_a(rae, rae_filter)
                         else:
                             raise ValueError(f"Expected source or target filters to be ZefRef, RaeType, or ValueType but got {type(rae_filter)} instead.")
@@ -298,7 +296,7 @@ def on_implementation(g, op):
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl
             # Type 2: any AET.* i.e on[assigned[AET.String]]
-            elif isinstance(aet_or_zr, AttributeEntityType): 
+            elif isinstance(aet_or_zr, AET): 
                 def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: rae_type(absorbed(x)[0]) == aet_or_zr] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl        
@@ -394,7 +392,7 @@ def match_tp(op, curr_type):
 
 #---------------------------------------- peel -----------------------------------------------
 def peel_imp(el, *args):
-    if isinstance(el, ValueType_):
+    if isinstance(el, ValueType):
         return el.nested()
     elif isinstance(el, dict):
         print('deprecation warning: `peel` called on a dictionary. This probably was an Effect before and is no longer needed.')
@@ -1031,7 +1029,7 @@ def update_imp(d: dict, k, fn):
     - used for: control flow
     - used for: function application
     """
-    if not isinstance(d, dict): raise TypeError('"update" only acts on dictionaries. Use "update_at" for Lists or "update_in" for nested access.')
+    if not isinstance(d, Dict): raise TypeError('"update" only acts on dictionaries. Use "update_at" for Lists or "update_in" for nested access.')
     r = {**d}
     r[k] = fn(d[k])
     return r
@@ -1058,7 +1056,7 @@ def remove_at_imp(v, *nn):
     - related zefop: merge
     - operates on: List
     """
-    if isinstance(v, dict): raise TypeError('"remove_at" only acts on iterables. Use "remove" for dictionaries. For nested access, use "remove_in".')
+    if isinstance(v, Dict): raise TypeError('"remove_at" only acts on iterables. Use "remove" for dictionaries. For nested access, use "remove_in".')
     return (el for m, el in enumerate(v) if m not in nn)
 
 
@@ -1226,7 +1224,7 @@ def chunk_imp(iterable, chunk_size: int):
     related zefop: sliding
     related zefop: slice
     """
-    if isinstance(iterable, str):
+    if isinstance(iterable, String):
         def wrapper():
             c = 0        
             while c*chunk_size < len(iterable):
@@ -1350,7 +1348,7 @@ def insert_imp(d: dict, key, val=None):
         fg = d
         new_el = key
         return fg_insert_imp(fg, new_el)
-    elif isinstance(d, dict):
+    elif isinstance(d, Dict):
         return {**d, key: val}
     else:
         return Error(f'"insert" zefop called with unhandled type d={d} key={key} val={val}')
@@ -1435,10 +1433,10 @@ def insert_into_imp(key_val_pair, x):
         return Error(f'in "insert_into": key_val_pair must be a list or tuple. It was type(x)={type(x)}     x={x}')
     
     k, v = key_val_pair
-    if isinstance(x, dict):
+    if isinstance(x, Dict):
         return {**x, k:v}
     if type(x) in {list, tuple, range, Generator, ZefGenerator}:        
-        assert isinstance(k, int)
+        assert isinstance(k, Int)
         # So much laziness!
         def wrapper():
             it = iter(x)
@@ -1518,7 +1516,7 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
     from typing import Generator
     if is_a(d, FlatGraph):
         return fg_get_imp(d, key)
-    elif isinstance(d, dict):
+    elif isinstance(d, Dict):
         return d.get(key, default)
     elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator) or isinstance(d, ZefGenerator):
         return Error(f"get called on a list. Use 'nth' to get an element at a specified index.")
@@ -1679,7 +1677,7 @@ def reverse_imp(v):
     """
     from typing import Generator
     if isinstance(v, (Generator, ZefGenerator)): return (tuple(v))[::-1]
-    if isinstance(v, str): return v[::-1]
+    if isinstance(v, String): return v[::-1]
     if isinstance(v, list): return v[::-1]
     if isinstance(v, tuple): return v[::-1]
     # return reversed(v)
@@ -1868,13 +1866,13 @@ def all_imp(*args):
         fil = args[1]
         # These options have C++ backing so try them first
         # The specific all[ET.x/AET.x] options (not all[RT.x] though)
-        if isinstance(fil, EntityType) or isinstance(fil, AttributeEntityType):
+        if isinstance(fil, ET) or isinstance(fil, AET):
             # Note: returning list rather than ZefRefs as more compatible
             # return list(gs.tx | pyzefops.instances[fil])
             return gs.tx | pyzefops.instances[fil]
         
-        if isinstance(fil, ValueType_) and fil.d['type_name'] in {"Union", "Intersection"}:
-            representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (EntityType, AttributeEntityType))] | func[set] | collect
+        if isinstance(fil, ValueType) and fil.d['type_name'] in {"Union", "Intersection"}:
+            representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (ET, AET))] | func[set] | collect
             value_types = set(fil.d['absorbed']) - representation_types
             
             if len(value_types) > 0: 
@@ -1926,7 +1924,7 @@ def all_imp(*args):
     import types
     if isinstance(args[0], types.ModuleType):
         assert len(args) == 2
-        assert isinstance(args[1], ValueType_)
+        assert isinstance(args[1], ValueType)
         list_of_module_values = [args[0].__dict__[x] for x in dir(args[0]) if not x.startswith("_") and not isinstance(getattr(args[0], x), types.ModuleType)]
         return list_of_module_values | filter[args[1]] | collect
     
@@ -2014,10 +2012,10 @@ def trim_left_imp(v, el_to_trim):
     - used for: list manipulation
     - used for: string manipulation
     """
-    if isinstance(v, str):        
-        if isinstance(el_to_trim, str):
+    if isinstance(v, String):
+        if isinstance(el_to_trim, String):
             return v.lstrip(el_to_trim)
-        elif isinstance(el_to_trim, set):
+        elif isinstance(el_to_trim, Set):
             vv = v
             for el in el_to_trim:
                 vv = vv | chunk[len(el)] | trim_left[{el}] | join[''] | collect
@@ -2068,10 +2066,10 @@ def trim_right_imp(v, el_to_trim):
     - used for: string manipulation
     """
     import itertools 
-    if isinstance(v, str):
-        if isinstance(el_to_trim, str):
+    if isinstance(v, String):
+        if isinstance(el_to_trim, String):
             return v.rstrip(el_to_trim)
-        elif isinstance(el_to_trim, set):
+        elif isinstance(el_to_trim, Set):
             vv = v
             for el in el_to_trim:
                 vv = vv | chunk[len(el)] | trim_right[{el}] | join[''] | collect
@@ -2114,10 +2112,10 @@ def trim_imp(v, el_to_trim):
     - used for: string manipulation
     """
     import itertools 
-    if isinstance(v, str):
-        if isinstance(el_to_trim, str):
+    if isinstance(v, String):
+        if isinstance(el_to_trim, String):
             return v.strip(el_to_trim)
-        elif isinstance(el_to_trim, set):
+        elif isinstance(el_to_trim, Set):
             vv = v
             for el in el_to_trim:
                 # TODO: Need to add padding after chunking to remove correctly from the right
@@ -2361,7 +2359,7 @@ def absorbed_imp(x):
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return ()
     
-    elif isinstance(x, ValueType_):
+    elif isinstance(x, ValueType):
         return x._d['absorbed']
 
     else:
@@ -2429,7 +2427,7 @@ def without_absorbed_imp(x):
             return Error(f'"without_absorbed_imp" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on x={x}')
         return ZefOp( ((x.el_ops[0][0], ()),) )
 
-    elif isinstance(x, ValueType_):
+    elif isinstance(x, ValueType):
         # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
         # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
         # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
@@ -3042,7 +3040,7 @@ def and_imp(x, *args):
     a0 = args[0]
     if (a0 is True or a0 is False):        
         # Bools coming in: And used as direct operator, not combinator on predicates
-        if not isinstance(x, bool):
+        if not isinstance(x, Bool):
             raise TypeError(f"'And' was called to act on a boolean (based on the non-flow args = {args}), but the flow arg was not a bool {x}")
         if not len(args) == 1:
             raise TypeError(f"'And' was called to act on a boolean, but the number of total arguments was more than 2: x={x} and args={args}. You may want to call `all` in this case.")
@@ -3051,7 +3049,7 @@ def and_imp(x, *args):
     # used as combinator on predicates
     for fct in args:
         res = fct(x)
-        assert isinstance(res, bool)
+        assert isinstance(res, Bool)
         if res is False:
             return False
     return True
@@ -3099,7 +3097,7 @@ def or_imp(x, *args):
     a0 = args[0]
     if (a0 is True or a0 is False):        
         # Bools coming in: And used as direct operator, not combinator on predicates
-        if not isinstance(x, bool):
+        if not isinstance(x, Bool):
             raise TypeError(f"'And' was called to act on a boolean (based on the non-flow args = {args}), but the flow arg was not a bool {x}")
         if not len(args) == 1:
             raise TypeError(f"'And' was called to act on a boolean, but the number of total arguments was more than 2: x={x} and args={args}. You may want to call `all` in this case.")
@@ -3109,7 +3107,7 @@ def or_imp(x, *args):
     for fct in args:
         fct = make_predicate(fct)
         res = fct(x)
-        assert isinstance(res, bool)
+        assert isinstance(res, Bool)
         if res is True:
             return True
     return False
@@ -3145,8 +3143,8 @@ def xor_imp(x, *args):
     assert len(args) == 2
     f1, f2 = args
     res1, res2 = (f1(x), f2(x))
-    assert isinstance(res1, bool)
-    assert isinstance(res2, bool)
+    assert isinstance(res1, Bool)
+    assert isinstance(res2, Bool)
     return res1 ^ res2   # xor for boolean values
     
 
@@ -3191,7 +3189,7 @@ def skip_imp(v, n: int):
     """
 
     # handle strings separately: don't return a list, but a string
-    if isinstance(v, str):
+    if isinstance(v, String):
         if n>=0:
             return v[n:]
         else:
@@ -3301,15 +3299,15 @@ def iterate_type_info(op, curr_type):
 
 def make_predicate(maybe_predicate):
     # Wrap ValueType or any RAE Type in is_a
-    if isinstance(maybe_predicate, ValueType_):
+    if isinstance(maybe_predicate, ValueType):
         predicate = is_a[maybe_predicate]
     
     # If a set is passed check the existance of the passed element in the set
-    elif isinstance(maybe_predicate, set): 
+    elif isinstance(maybe_predicate, Set): 
         predicate = lambda x: x in maybe_predicate
 
     # ZefOps, ZefFunctions, Lambdas, Python Functions
-    elif callable(maybe_predicate) and not isinstance(maybe_predicate, int): 
+    elif callable(maybe_predicate) and not isinstance(maybe_predicate, Int): 
         predicate = maybe_predicate
     
     # Anything that didn't match will be matched for equality 
@@ -3380,7 +3378,7 @@ def take_implementation(v, n):
     """
     if isinstance(v, ZefRef) or isinstance(v, EZefRef):
         return take(v, n)
-    elif isinstance(v, str):
+    elif isinstance(v, String):
         return v[:n] if n>=0 else v[n:]
     else:
         if n >= 0:
@@ -3394,7 +3392,7 @@ def take_implementation(v, n):
 
             return ZefGenerator(wrapper)
         else:
-            if isinstance(v, str): return v[n:]
+            if isinstance(v, String): return v[n:]
             vv = tuple(v)
             return vv[n:]
 
@@ -3970,13 +3968,13 @@ def pattern_imp(x, p):
     sentinel = Sentinel()      # make sure this doesn't match any value provided by the user
     
     assert (
-        (isinstance(x, dict) and isinstance(p, dict)) or 
+        (isinstance(x, Dict) and isinstance(p, Dict)) or 
         (type(x) in {list, tuple} and type(p) in {list, tuple}) or
-        (isinstance(x, set) and isinstance(p, set)) or 
+        (isinstance(x, Set) and isinstance(p, Set)) or 
         True
     )
-    if isinstance(x, dict):
-        assert  isinstance(p, dict)        
+    if isinstance(x, Dict):
+        assert  isinstance(p, Dict)        
         for k, v in p.items():            
             r = x.get(k, sentinel)
             if r is sentinel:
@@ -3992,8 +3990,8 @@ def pattern_imp(x, p):
                 return False
         return True
     
-    elif isinstance(x, set):
-        assert  isinstance(p, set)  
+    elif isinstance(x, Set):
+        assert  isinstance(p, Set)  
         return p.issubset(x)      
 
 
@@ -4207,13 +4205,13 @@ def replace_imp(collection, old_val, new_val):
     def rep(el):
         return new_val if old_val == el else el
     
-    if isinstance(collection, str):
+    if isinstance(collection, String):
         return collection.replace(old_val, new_val)
     
-    if isinstance(collection, set):
+    if isinstance(collection, Set):
         return set((rep(el) for el in collection))
     
-    if isinstance(collection, dict):
+    if isinstance(collection, Dict):
         raise TypeError('Dont use "replace", but "insert" to replace a key value pair in a dictionary')
   
     if isinstance(collection, Iterable):
@@ -4351,7 +4349,7 @@ def split_imp(collection, val, max_split=-1):
     - related zefop: split_right
     - related zefop: trim
     """
-    if isinstance(collection, str):
+    if isinstance(collection, String):
         return collection.split(val, max_split)
 
     split_function = make_predicate(val)
@@ -4420,7 +4418,7 @@ def split_left_imp(v, val):
     - related zefop: split_right
     - related zefop: trim
     """
-    if isinstance(v, str):
+    if isinstance(v, String):
         return split_left_imp(iter(v), val) | map[concat] | collect
 
     split_function = make_predicate(val)
@@ -4465,7 +4463,7 @@ def split_right_imp(v, val):
     - related zefop: split_left
     - related zefop: trim
     """
-    if isinstance(v, str):
+    if isinstance(v, String):
         return split_right_imp(iter(v), val) | map[concat] | collect
 
     split_function = make_predicate(val)
@@ -5144,7 +5142,7 @@ def time_travel_imp(x, *args):
 
     try:
         if isinstance(x, ZefRef):
-            if isinstance(p, int):
+            if isinstance(p, Int):
                 return (x | pyzefops.time_travel[allow_tombstone][p]) if tombstone_allowed else (x | pyzefops.time_travel[p])
             elif isinstance(p, Time):
                 new_frame = Graph(x) | to_tx[p] | to_graph_slice | c
@@ -5159,7 +5157,7 @@ def time_travel_imp(x, *args):
                 return (x | in_frame[allow_tombstone][new_frame] | c) if tombstone_allowed else (x | in_frame[new_frame] | c)
 
         if isinstance(x, GraphSlice):
-            if isinstance(p, int):
+            if isinstance(p, Int):
                 tx_zr = ZefRef(Graph(x.tx)[42], x.tx)       # hacky: we want some ZefRef that we can time travel with. Use root for now
                 # some gymnastics using the old ops to get to the frame that we want
                 return GraphSlice(tx_zr | pyzefops.time_travel[p] | pyzefops.tx | pyzefops.to_ezefref)
@@ -5287,7 +5285,7 @@ def assert_implementation(z, predicate=None, message=None):
                 message = "not True"
             else:
                 message = "{z} failed check {predicate}"
-        elif isinstance(message, str):
+        elif isinstance(message, String):
             pass
         else:
             try:
@@ -5310,7 +5308,7 @@ def run_effect_implementation(eff):
     # as a key in the receipt
 
     
-    if not isinstance(eff, dict):
+    if not isinstance(eff, Dict):
         raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run a wish, which are represented as dictionaries.")
     handler = _effect_handlers[eff['type'].d]
     return handler(eff)
@@ -5392,7 +5390,7 @@ def map_implementation(v, f):
     import builtins
     input_type = parse_input_type(type_spec(v))
 
-    if isinstance(v, dict):
+    if isinstance(v, Dict):
         return dict( (f(k,v) for k,v in v.items() ) )
 
     if input_type == "awaitable":
@@ -5579,13 +5577,13 @@ def nth_implementation(iterable, n):
     (LazyValue[List[T]], Int) -> LazyValue[Union[T, Error]]
     (Awaitable[List[T]], Int) -> Awaitable[Union[T, Error]]    
     """
-    if isinstance(iterable, dict): 
+    if isinstance(iterable, Dict): 
         raise TypeError(f"`nth` was called on a dict, but is only supported for Lists")
 
     if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
         return iterable | all | nth[n] | collect
         
-    if isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, str):
+    if isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, String):
         return iterable[n]
     
     # it must be a generator or zef generator
@@ -5836,7 +5834,7 @@ def delegate_of_implementation(x, arg1=None, arg2=None):
             create = False
         else:
             create = arg1
-        assert isinstance(create, bool)
+        assert isinstance(create, Bool)
 
         d = pyzefops.delegate_of(to_delegate(x))
         z = to_delegate(d, Graph(x), create)
@@ -6251,7 +6249,7 @@ def termination_tx_implementation(z):
 
     
 def uid_implementation(arg):
-    if isinstance(arg, str):
+    if isinstance(arg, String):
         return to_uid(arg)
     if isinstance(arg, (Entity, AttributeEntity, TXNode, Root)):
         return arg.d["uid"]
@@ -6500,7 +6498,7 @@ def is_a_implementation(x, typ):
             raise TypeError(f"HasValue can only be applied to AETs")
             # TODO: or return false here
 
-        if isinstance(my_set, set):
+        if isinstance(my_set, Set):
             return val in my_set            
         # If we're here, it should be a VT    
         return is_a(val, my_set)
@@ -6518,14 +6516,14 @@ def is_a_implementation(x, typ):
         sentinel = Sentinel() 
         p = typ | absorbed | single | collect
         assert (
-            (isinstance(x, dict) and isinstance(p, dict)) or
+            (isinstance(x, Dict) and isinstance(p, Dict)) or
             (type(x) in {list, tuple} and type(p) in {list, tuple}) 
         )
-        if isinstance(x, dict):
+        if isinstance(x, Dict):
             for k, v in p.items():            
                 r = x.get(k, sentinel)
                 if r is sentinel: return False
-                if not isinstance(v, ValueType_): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
+                if not isinstance(v, ValueType): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
                 if not is_a(r, v): return False  
             return True
         elif isinstance(x, list) or isinstance(x, tuple):
@@ -6556,7 +6554,7 @@ def is_a_implementation(x, typ):
 
     def set_matching(x, tp):
         import sys
-        if not isinstance(x, set):
+        if not isinstance(x, Set):
             return False
         ab = tp._d['absorbed']
         if ab != ():
@@ -6569,7 +6567,7 @@ def is_a_implementation(x, typ):
 
     def dict_matching(x, tp):
         import sys
-        if not (isinstance(x, dict)):
+        if not (isinstance(x, Dict)):
             return False
         ab = tp._d['absorbed']
         if ab != ():
@@ -6614,7 +6612,7 @@ def is_a_implementation(x, typ):
         return isinstance(el, python_type)
     
 
-    if isinstance(typ, ValueType_):
+    if isinstance(typ, ValueType):
         if typ._d['type_name'] == "Union":
             return union_matching(x, typ)
 
@@ -7100,13 +7098,13 @@ def abstract_type_type_info(op, curr_type):
 
 
 def is_represented_as_implementation(arg, vt):
-    if isinstance(arg, bool):
+    if isinstance(arg, Bool):
         return vt == VT.Bool
     
-    if isinstance(arg, int):
+    if isinstance(arg, Int):
         return vt == VT.Int
 
-    if isinstance(arg, float):
+    if isinstance(arg, Float):
         return vt == VT.Float
     
     return Error(f"Is Represented As not implemented for {type(arg)}")
@@ -7249,8 +7247,8 @@ def merge_imp(a, second=None, *args):
         assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, (Generator, ZefGenerator))
         return {k: v for d in a for k, v in d.items()}
     else:
-        assert isinstance(a, dict)
-        assert isinstance(second, dict)
+        assert isinstance(a, Dict)
+        assert isinstance(second, Dict)
         def tmp_gen():
             yield from a.items()
             yield from second.items()
@@ -7287,9 +7285,9 @@ def merge_with_imp(dict_or_list, merge_func, more_dict_or_list=None):
     (Dict[T1, T2], ((T2,T2)->T2), Dict[T1, T2]) -> Dict[T1, T2]
     (List[Dict[T1, T2]], ((T2,T2)->T2)) -> Dict[T1, T2]
     """
-    v = [dict_or_list] if isinstance(dict_or_list, dict) else tuple(dict_or_list)
+    v = [dict_or_list] if isinstance(dict_or_list, Dict) else tuple(dict_or_list)
     if more_dict_or_list is not None:
-        if isinstance(more_dict_or_list, dict):
+        if isinstance(more_dict_or_list, Dict):
             v.append(more_dict_or_list)
         elif isinstance(more_dict_or_list, list) or isinstance(more_dict_or_list, tuple):
             v = (*v, *more_dict_or_list)
@@ -7956,7 +7954,7 @@ def replace_at_imp(str_or_list, index, new_el):
     
     """
     from typing import Generator
-    if isinstance(str_or_list, str):
+    if isinstance(str_or_list, String):
         s = str_or_list
         char = str(new_el)
         if index >= len(s) or index < 0: return s
@@ -8089,7 +8087,7 @@ def pad_left_imp(s, target_length: int, pad_element=' '):
     related zefop: pad_center
     related zefop: slice
     """
-    if not isinstance(s, str): raise NotImplementedError()
+    if not isinstance(s, String): raise NotImplementedError()
     if len(pad_element) != 1: raise ValueError("pad_element must be of length 1 in 'pad_left'")
     l = len(s)
     return s if l>= target_length else f"{pad_element*(target_length-l)}{s}"
@@ -8120,7 +8118,7 @@ def pad_right_imp(s, target_length: int, pad_element=' '):
     related zefop: pad_center
     related zefop: slice
     """
-    if not isinstance(s, str): raise NotImplementedError()
+    if not isinstance(s, String): raise NotImplementedError()
     if len(pad_element) != 1: raise ValueError("pad_element must be of length 1 in 'pad_right'")
     l = len(s)
     return s if l>= target_length else f"{s}{pad_element*(target_length-l)}"
@@ -8153,7 +8151,7 @@ def pad_center_imp(s, target_length: int, pad_element=' '):
     related zefop: slice
     """
     from math import floor, ceil
-    if not isinstance(s, str): raise NotImplementedError()
+    if not isinstance(s, String): raise NotImplementedError()
     if len(pad_element) != 1: raise ValueError("pad_element must be of length 1 in 'pad_center'")
     l = len(s)
     diff2 = (target_length-l)/2
@@ -8250,7 +8248,7 @@ def is_numeric_imp(x):
     - operates on: String
     - used for: predicate function    
     """
-    assert isinstance(x, str)
+    assert isinstance(x, String)
     return x.isnumeric()
 
 
@@ -8280,7 +8278,7 @@ def is_alpha_numeric_imp(x):
     - operates on: String
     - used for: predicate function    
     """
-    assert isinstance(x, str)
+    assert isinstance(x, String)
     return x.isalnum()
 
 
@@ -8534,7 +8532,7 @@ def blake3_imp(obj) -> VT.String:
     from blake3 import blake3 as b3
     if isinstance(obj, bytes):
         return b3(obj).hexdigest()
-    elif isinstance(obj, str):
+    elif isinstance(obj, String):
         return b3(obj.encode()).hexdigest()
     else:
         raise ValueError(f"Expected Bytes or Str but got {obj} instead.")
@@ -8561,7 +8559,7 @@ def value_hash_imp(obj) -> VT.String:
     - operates on: Values
     - operates on: Any
     """
-    if isinstance(obj, dict): # Handle dict specially to fix key,value pair order.
+    if isinstance(obj, Dict): # Handle dict specially to fix key,value pair order.
         return blake3_imp("dict" + str(sort(obj.items())))
     try:
         from ..op_structs import type_spec
@@ -8622,7 +8620,7 @@ def fg_insert_imp(fg, new_el):
         return peel(zefop)[0][0] == rt
 
     def construct_abstract_rae_and_return_idx(rae_type, rae_uid):
-        if isinstance(rae_type, RelationType):
+        if isinstance(rae_type, RT):
             assert rae_uid in new_key_dict, "Can't construct an Abstract Relation!"
             return new_key_dict[rae_uid]
         else:
@@ -8632,14 +8630,14 @@ def fg_insert_imp(fg, new_el):
     def common_logic(new_el):
         nonlocal new_blobs, new_key_dict
 
-        if isinstance(new_el, EntityType):
+        if isinstance(new_el, ET):
             idx = next_idx()
             internal_id = new_el | absorbed | attempt[single][None] | collect
             new_el = new_el | without_absorbed | collect
             if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None))
 
-        elif isinstance(new_el, AttributeEntityType):
+        elif isinstance(new_el, AET):
             idx = next_idx()
             internal_id = new_el | absorbed | attempt[single][None] | collect
             new_el = new_el | without_absorbed | collect
@@ -8689,16 +8687,16 @@ def fg_insert_imp(fg, new_el):
 
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
             key = peel(new_el)| first | second | first | collect
-            if key not in new_key_dict and not isinstance(key, int): raise KeyError(f"{key} doesn't exist in internally known ids!")
+            if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
             idx = new_key_dict.get(key, key)
 
         # i.e: z4 <= 42 ; AET.String <= "42" ; AET.String['z1'] <= 42 ; Z['n1'] <= 42
         elif isinstance(new_el, LazyValue) and length(peel(new_el)) == 2:
             first_op = peel(new_el)[0]
-            if isinstance(first_op, AttributeEntityType):
+            if isinstance(first_op, AET):
                     internal_id = first_op | absorbed | attempt[single][None] | collect
                     aet_maybe = first_op | without_absorbed | collect
-                    assert isinstance(aet_maybe, AttributeEntityType), f"{new_el} should be of type AET"
+                    assert isinstance(aet_maybe, AET), f"{new_el} should be of type AET"
                     aet_value = peel(peel(new_el)[1])[0][1][0]
                     idx = next_idx()
                     new_blobs.append((idx, aet_maybe, [], None, aet_value))
@@ -8707,15 +8705,15 @@ def fg_insert_imp(fg, new_el):
                 if inner_zefop_type(first_op, RT.Z):
                     key = peel(first_op)[0][1][0]
                     aet_value = peel(peel(new_el)[1])[0][1][0]
-                    if key not in new_key_dict and not isinstance(key, int): raise KeyError(f"{key} doesn't exist in internally known ids!")
+                    if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
                     idx = new_key_dict.get(key, key)
-                    assert isinstance(new_blobs[idx][1], AttributeEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
+                    assert isinstance(new_blobs[idx][1], AET), f"This key must refer to an AET found {new_blobs[idx][1]}"
                     new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
                 else:
                     raise ValueError(f"Expected a Z['n1'] <= 42 got {new_el} instead!")
             elif isinstance(first_op, ZefRef) or isinstance(first_op, EZefRef):
                 idx = common_logic(first_op)
-                assert isinstance(new_blobs[idx][1], AttributeEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
+                assert isinstance(new_blobs[idx][1], AET), f"This key must refer to an AET found {new_blobs[idx][1]}"
                 aet_value = peel(peel(new_el)[1])[0][1][0]
                 new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
             else:
@@ -8745,7 +8743,7 @@ def fg_insert_imp(fg, new_el):
 
         elif type(new_el) in {ZefRef, EZefRef}:
             idx = common_logic(origin_rae(new_el))
-            if isinstance(new_blobs[idx][1], AttributeEntityType) and isinstance(new_el, ZefRef):
+            if isinstance(new_blobs[idx][1], AET) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))
         elif isinstance(new_el, Delegate):
             if isinstance(new_el.item, DelegateRelationTriple):
@@ -8779,7 +8777,7 @@ def fg_insert_imp(fg, new_el):
         ent, sub_d = list(new_el.items()) | single | collect
         ent_idx = common_logic(ent)
         for k,v in sub_d.items():
-            if isinstance(v, dict):
+            if isinstance(v, Dict):
                target_idx =  _insert_dict(v)
                _insert_single((Z[ent_idx], k, Z[target_idx]))
             else:
@@ -8793,12 +8791,12 @@ def fg_insert_imp(fg, new_el):
             src, rt, trgt = new_el
             src_idx = common_logic(src)
             trgt_idx = common_logic(trgt)
-            assert isinstance(src_idx, int) and isinstance(trgt_idx, int), "Couldn't find/create src or target!"
+            assert isinstance(src_idx, Int) and isinstance(trgt_idx, Int), "Couldn't find/create src or target!"
             assert type(rt) in {RelationType, ZefOp}, "Tuples must have Relation as second item."
             idx = next_idx()
 
             # Case of RT.A['a']
-            if isinstance(rt, RelationType):
+            if isinstance(rt, RT):
                 internal_id = LazyValue(rt) | absorbed | attempt[single][None] | collect
                 rt = LazyValue(rt) | without_absorbed | collect
                 if internal_id: new_key_dict[internal_id] = idx
@@ -8822,23 +8820,23 @@ def fg_insert_imp(fg, new_el):
             new_key_dict[rt_uid] = idx
             if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
             if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
-        elif isinstance(new_el, dict): 
+        elif isinstance(new_el, Dict): 
                 _insert_dict(new_el)
         else: 
             raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\nnew_el={new_el}")
         
     if isinstance(new_el, list): 
         def sorting_key(el):
-            if isinstance(el, dict): return 1
+            if isinstance(el, Dict): return 1
             elif isinstance(el, Relation): return 2
             elif isinstance(el, tuple) and len(el) == 3: 
                 is_z = lambda el: isinstance(el, ZefOp) and inner_zefop_type(el, RT.Z)
-                has_internal_id = lambda rt: isinstance(rt, RelationType) and (LazyValue(rt) | absorbed | attempt[single][None] | collect) != None
+                has_internal_id = lambda rt: isinstance(rt, RT) and (LazyValue(rt) | absorbed | attempt[single][None] | collect) != None
                 return 3 + sum([is_z(el) for el in el]) - has_internal_id(el[1])
             return 0
         new_el.sort(key=sorting_key)
         [_insert_single(el) for el in new_el]
-    elif isinstance(new_el, dict): 
+    elif isinstance(new_el, Dict): 
         _insert_dict(new_el)
     else: 
         _insert_single(new_el)
@@ -8871,7 +8869,7 @@ def fr_merge_and_retrieve_idx(blobs, k_dict, next_idx, fr):
         old_to_new[old_idx] = idx
         return new_b
 
-    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RelationType)] | sort[lambda b: -len(b[2])]:
+    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RT)] | sort[lambda b: -len(b[2])]:
         src_b, trgt_b = fg2.blobs[b[4]], fg2.blobs[b[5]]
         src_b  = retrieve_or_insert_blob(src_b)
         trgt_b = retrieve_or_insert_blob(trgt_b)
@@ -8884,7 +8882,7 @@ def fr_merge_and_retrieve_idx(blobs, k_dict, next_idx, fr):
         old_to_new[b[0]] = idx
 
             
-    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RelationType)]:
+    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RT)]:
         if b[0] not in old_to_new: retrieve_or_insert_blob(b)
 
     # If there is no overlab with the main k_dict, we insert
@@ -8959,7 +8957,7 @@ def flatgraph_to_commands(fg):
     idx_key = {idx:key for key,idx in fg.key_dict.items()}
     def dispatch_on_blob(b, for_rt=False):
         idx = b[0]
-        if isinstance(b[1], EntityType):
+        if isinstance(b[1], ET):
             if idx in idx_key:
                 key = idx_key[idx]
                 if is_a(key, uid): return Entity({"type": b[1], "uid": key})
@@ -8969,7 +8967,7 @@ def flatgraph_to_commands(fg):
             else:
                 if b[1][idx] in return_elements: return Z[idx]
                 return  b[1][idx] 
-        elif isinstance(b[1], AttributeEntityType):
+        elif isinstance(b[1], AET):
             if idx in idx_key:
                 key = idx_key[idx]
                 if is_a(key, uid):
@@ -8986,7 +8984,7 @@ def flatgraph_to_commands(fg):
                 else:     
                     if (b[1][idx]) in return_elements: return Z[idx]
                     return b[1][idx]
-        elif isinstance(b[1], RelationType):
+        elif isinstance(b[1], RT):
             if idx in idx_key: 
                 key = idx_key[idx]
                 if for_rt: return Z[key]
@@ -8999,7 +8997,7 @@ def flatgraph_to_commands(fg):
             else: base = b[1][idx]
             return (src_blb, base, trgt_blb)
 
-        elif isinstance(b[1], str) and b[1][:2] == "BT":
+        elif isinstance(b[1], Str) and b[1][:2] == "BT":
             if for_rt:
                 return Z[value_hash(b[-1])]
             else:
@@ -9026,19 +9024,19 @@ def flatgraph_to_commands(fg):
 def fr_source_imp(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
-    assert isinstance(blob[1], RelationType), f"| source is only allowed for FlatRef of type RelationType, but {type(blob[1])} was passed!"
+    assert isinstance(blob[1], RT), f"| source is only allowed for FlatRef of type RelationType, but {type(blob[1])} was passed!"
     return FlatRef(fr.fg, blob[4])
 
 def fr_target_imp(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
-    assert isinstance(blob[1], RelationType), f"| target is only allowed for FlatRef of type RelationType, but {type(blob[1])} was passed!"
+    assert isinstance(blob[1], RT), f"| target is only allowed for FlatRef of type RelationType, but {type(blob[1])} was passed!"
     return FlatRef(fr.fg, blob[5])
 
 def fr_value_imp(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
-    assert isinstance(blob[1], AttributeEntityType), "Can only ask for the value of an AET"
+    assert isinstance(blob[1], AET), "Can only ask for the value of an AET"
     return blob[-1]
 
 def traverse_flatref_imp(fr, rt, direction, traverse_type):
@@ -9048,7 +9046,7 @@ def traverse_flatref_imp(fr, rt, direction, traverse_type):
         "inin": "In",
         "in": "in_rel",
     }
-    assert isinstance(rt, RelationType), f"Passed Argument to traverse should be of type RelationType but got {rt}"
+    assert isinstance(rt, RT), f"Passed Argument to traverse should be of type RelationType but got {rt}"
     blob = fr.fg.blobs[fr.idx]
     specific = blob[2] | filter[greater_than[0] if direction in {"out", "outout"} else less_than[0]] | collect
     specific_blobs = specific | map[lambda idx: fr.fg.blobs[abs(idx)]] | filter[lambda b: b[1] == rt] | collect
@@ -9161,11 +9159,11 @@ def range_imp(*args):
     if len(args) == 1:
         a = args[0]
         # 10 | Range | ...
-        if isinstance(a, int) or a==infinity:
+        if isinstance(a, Int) or a==infinity:
             lo, hi = 0, a        
         # (2, 5) | Range | ...
         elif len(a) == 2:
-            if not (isinstance(a[0], int) and (isinstance(a[1], int) or a[1]==infinity)):
+            if not (isinstance(a[0], Int) and (isinstance(a[1], Int) or a[1]==infinity)):
                 raise TypeError(f'When called with two argument, Range takes two ints. Got: {a}')
             else: lo, hi = a
         else:
@@ -9173,7 +9171,7 @@ def range_imp(*args):
     # Range(2, 5) | ...
     elif len(args) == 2:
         a = args
-        if not (isinstance(a[0], int) and (isinstance(a[1], int) or a[1]==infinity)):
+        if not (isinstance(a[0], Int) and (isinstance(a[1], Int) or a[1]==infinity)):
                 raise TypeError(f'When called with two argument, Range takes two ints. Got: {a}')
         else: lo, hi = a
     else:
@@ -9301,7 +9299,7 @@ def zstandard_compress_imp(x: bytes, compression_level=0.1) -> Bytes:
     """
     import zstd
     level = 1 + round(max(min(compression_level, 1), 0)*21)
-    if isinstance(x, str): raise TypeError('zstandard_compress can`t be called with a string. Must be bytes')
+    if isinstance(x, String): raise TypeError('zstandard_compress can`t be called with a string. Must be bytes')
     return Bytes(zstd.compress(bytes(x), level))
 
 
@@ -9326,7 +9324,7 @@ def zstandard_decompress_imp(x: Bytes) -> Bytes:
     related zefop: zstandard_decompress
     """
     import zstd
-    if isinstance(x, str): raise TypeError('zstandard_decompress can`t be called with a string. Must be bytes')
+    if isinstance(x, String): raise TypeError('zstandard_decompress can`t be called with a string. Must be bytes')
     return Bytes(zstd.decompress(bytes(x)))
     
 
@@ -9352,7 +9350,7 @@ def to_bytes_imp(x: String) -> Bytes:
     related zefop: utf8bytes_to_string
     """
     from zef.core.bytes import Bytes_
-    if isinstance(x, str): return Bytes(x.encode())     # default: utf8
+    if isinstance(x, String): return Bytes(x.encode())     # default: utf8
     if isinstance(x, bytes): return Bytes(x)
     if isinstance(x, Bytes_): return x
     else: raise NotImplementedError()
@@ -9505,7 +9503,7 @@ def without_imp(x, y):
     except:
         return Error("The given argument to `without` is not iterable. If you have passed a single value, then you must wrap it in a list first, e.g. `| without[[1]]` instead of `| without[1]`.")
         
-    if isinstance(x, dict):
+    if isinstance(x, Dict):
         return x | items | filter[first | Not[contained_in[y]]] | func[dict] | collect
     else:
         return x | filter[Not[contained_in[y]]] | collect
@@ -9735,7 +9733,7 @@ def split_on_next_imp(s, el_to_split_on):
     - used for: string manipulation
     """
     from typing import Generator
-    if isinstance(s, str):
+    if isinstance(s, String):
         ind = s.find(el_to_split_on)
         if ind == -1: return s, ''    # not found
         return s[:ind], s[ind+len(el_to_split_on):]
@@ -10218,7 +10216,7 @@ def splice_imp(x, start_pos, els_to_replace, replacement):
     - related zefop: replace_at
     - related zefop: replace
     """
-    if isinstance(x, str):
+    if isinstance(x, String):
         return x[:start_pos] + replacement + x[start_pos + els_to_replace:]
     elif isinstance(x, list) or isinstance(x, tuple):
         return (*x[:start_pos], *replacement, *x[start_pos + els_to_replace:])
@@ -10330,7 +10328,7 @@ def flatten_dict_imp(y):
         return type(x) in {int, float, str, bool, type(None)}
     
     def f(d: Dict, path: tuple) -> tuple:
-        if isinstance(d, dict):
+        if isinstance(d, Dict):
             return tuple(
                     (((*path, k), v), ) if is_terminal(v) else f(v, (*path, k)) for k, v in d.items()
                 ) | concat
@@ -10374,7 +10372,7 @@ def unflatten_dict_imp(d: Dict) -> Dict:
 
             def _insert_list(ll, path):
                 # If the next element in the path is an int then we need to insert a new list
-                if isinstance(path[1], int):
+                if isinstance(path[1], Int):
                     ll.append([])
 
                 # If the next element in the path is a string then we could need to insert a new dict
@@ -10385,26 +10383,26 @@ def unflatten_dict_imp(d: Dict) -> Dict:
             def _insert_dict(new_d, path):
                 if path[0] not in new_d:
 
-                    if isinstance(path[1], int):
+                    if isinstance(path[1], Int):
                         new_d[path[0]] = []
                     else: 
                         new_d[path[0]] = {}
                 else:
-                    if not isinstance(path[1], int):
+                    if not isinstance(path[1], Int):
                         new_d[path[0]] = {**new_d[path[0]]}
 
             
             # If it is the only remaining object, then it is the object to be added or appended
             if len(path) == 1:
 
-                if isinstance(path[0], int): 
+                if isinstance(path[0], Int): 
                     obj.append(value)
                 else: 
                     obj[path[0]] = value
 
             # Depending on the current state of our path, we could either have a list or a dict
             else: 
-                if isinstance(obj, dict):
+                if isinstance(obj, Dict):
                     _insert_dict(obj, path)
                 elif isinstance(obj, list): 
                     _insert_list(obj, path)
