@@ -110,18 +110,38 @@ def query(request, context):
 
     # We pass in the graph as a fixed slice, so that the queries can be done
     # consistently.
-    success,data = graphql_sync(
-        context["ari_schema"],
-        q,
-        context_value={"gs": now(context["g_data"]),
-                       "auth": auth_context,
-                       "debug_level": context["debug_level"]},
-    )
-    if context["debug_level"] >= 0:
-        if not success or "errors" in data:
-            log.error("Failure in GQL query.", data=data, q=q, auth_context=auth_context)
+    start = now()
+    if type(q) == list:
+        queries = q
+    else:
+        queries = [q]
 
-    response = json.dumps(data)
+    success = True
+    out_data = []
+    for query in queries:
+        this_success,this_data = graphql_sync(
+            context["ari_schema"],
+            query,
+            context_value={"gs": now(context["g_data"]),
+                        "auth": auth_context,
+                        "debug_level": context["debug_level"],
+                        "read_only": context["read_only"]},
+        )
+        if not this_success:
+            if context["debug_level"] >= 0:
+                log.error("Failure in GQL query.", data=this_data, q=query, auth_context=auth_context)
+            success = False
+
+        out_data += [this_data]
+
+
+    if type(q) != list:
+        out_data = out_data[0]
+
+    if context["debug_level"] >= 1:
+        log.debug("Total query time", dt=now()-start)
+
+    response = json.dumps(out_data)
     if context["debug_level"] >= 3:
         log.debug("DEBUG 3: response", response=response)
 
@@ -166,13 +186,15 @@ def start_server(z_gql_root,
     if len(main_routes) == 0:
         main_routes = ["/gql"]
 
+    send_json = (insert_in[["response_headers","content-type"]]["application/json"]
+                 | send_response)
     http_r = {
         'type': FX.HTTP.StartServer,
         'port': port,
         'pipe_into': (map[middleware_worker[[
             permit_cors,
-            route["/"][insert_in[["response_body"]]["Healthy"] | send_response],
-            *[route[path][func[P(query, context=context)] | send_response] for path in main_routes],
+            route["/"][insert["response_body"]["Healthy"] | send_response],
+            *[route[path][func[P(query, context=context)] | send_json] for path in main_routes],
             *additional_routes,
             fallback_not_found,
             send_response
