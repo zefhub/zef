@@ -228,3 +228,7 @@ def instantiate_value_node_imp(value, g):
     elif type(value) not in scalar_types:
         value = SerializedValue.serialize(value)
     return c_instantiate_value_node(value, g)
+
+
+def get_token(x):
+    return x._d["specific"]

@@ -244,15 +244,15 @@ def on_implementation(g, op):
     if isinstance(g, Graph):
         op_kind = without_absorbed(op)
         op_args = absorbed(op)      
-        if op_kind in {Instantiated, Terminated}:
-            selected_types = {Terminated: (internal.on_termination, terminated), Instantiated: (internal.on_instantiation, instantiated)}[op_kind]
+        if op_kind in {VT.Instantiated, VT.Terminated}:
+            selected_types = {VT.Terminated: (internal.on_termination, terminated), VT.Instantiated: (internal.on_instantiation, instantiated)}[op_kind]
             
             if not isinstance(op_args[0], tuple):
                 rae_or_zr = op_args[0]
                 # Type 1: a specific entity i.e on[terminated[zr]]  !! Cannot be on[instantiated[zr]] because doesnt logically make sense !!
                 if isinstance(rae_or_zr, ZefRef): 
-                    assert op_kind == Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
-                    def filter_func(root_node): root_node | frame | to_tx | events[Terminated] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
+                    assert op_kind == VT.Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
+                    def filter_func(root_node): root_node | frame | to_tx | events[VT.Terminated] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl                
                 # Type 2: any RAE  i.e on[terminated[ET.Dog]] or on[instantiated[RT.owns]] 
@@ -560,7 +560,7 @@ def prepend_imp(v, item, *additional_items):
         elements_to_prepend = [item, *additional_items]
         all_zef = elements_to_prepend | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
         if not all_zef: return Error("Append only takes ZefRef or EZefRef for Zef List")
-        is_any_terminated = elements_to_prepend | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
+        is_any_terminated = elements_to_prepend | map[events[VT.Terminated]] | filter[None] | length | greater_than[0] | collect 
         if is_any_terminated: return Error("Cannot append a terminated ZefRef")
 
         
@@ -649,7 +649,7 @@ def append_imp(v, item, *additional_items):
         elements_to_append = [item, *additional_items]
         all_zef = elements_to_append | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
         if not all_zef: return Error("Append only takes ZefRef or EZefRef for Zef List")
-        is_any_terminated = elements_to_append | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
+        is_any_terminated = elements_to_append | map[events[VT.Terminated]] | filter[None] | length | greater_than[0] | collect 
         if is_any_terminated: return Error("Cannot append a terminated ZefRef")
 
         
@@ -4789,6 +4789,8 @@ def preceding_events_imp(x, filter_on=None):
     else:
         zr = x
 
+        from .. import instantiated, terminated, assigned
+
         def make_val_as_from_tx(tx):
             aet_at_frame = pyzefops.to_frame(zr, tx)
             try:
@@ -5338,10 +5340,10 @@ def run_effect_implementation(eff):
 
 
 def hasout_implementation(zr, rt):
-    return curry_args_in_zefop(pyzefops.has_out, zr, (rt,))
+    return curry_args_in_zefop(pyzefops.has_out, zr, (rt._d["specific"],))
 
 def hasin_implementation(zr, rt):
-    return curry_args_in_zefop(pyzefops.has_in, zr, (rt,))
+    return curry_args_in_zefop(pyzefops.has_in, zr, (rt._d["specific"],))
 
 
 
@@ -5804,9 +5806,9 @@ def to_delegate_type_info(op, curr_type):
 def attempt_to_delegate(args):
     if isinstance(args, tuple):
         assert len(args) == 3
-        return Delegate(Delegate(args[0]), args[1], Delegate(args[2]))
+        return Delegate(Delegate(args[0]._d["specific"]), args[1]._d["specific"], Delegate(args[2]._d["specific"]))
     else:
-        return Delegate(args)
+        return Delegate(args._d["specific"])
 
 def delegate_of_implementation(x, arg1=None, arg2=None):
     """
@@ -6268,11 +6270,11 @@ def time_implementation(x, *curried_args):
 
 
 def instantiation_tx_implementation(z):
-    return z | preceding_events[Instantiated] | single | absorbed | single | frame | to_tx | collect
+    return z | preceding_events[VT.Instantiated] | single | absorbed | single | frame | to_tx | collect
 
 def termination_tx_implementation(z):
     root_node = Graph(z)[42] 
-    return z | preceding_events[Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
+    return z | preceding_events[VT.Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
 
 
     
@@ -8619,7 +8621,7 @@ def value_hash_tp(op, curr_type):
 def to_zef_list_imp(elements: list):
     all_zef = elements | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
     if not all_zef: return Error("to_zef_list only takes ZefRef or EZefRef.")
-    is_any_terminated = elements | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
+    is_any_terminated = elements | map[events[VT.Terminated]] | filter[None] | length | greater_than[0] | collect 
     if is_any_terminated: return Error("Cannot create a Zef List Element from a terminated ZefRef")
     rels_to_els = (elements 
             | enumerate 

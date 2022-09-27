@@ -21,15 +21,15 @@ def SetupGraph():
     g = Graph()
     with Transaction(g):
         for k in range(13456):
-            instantiate(ET.Machine, g)
+            instantiate(ET.Machine._d["specific"], g)
     with Transaction(g):
-        instantiate(ET.ProcessOrder, g)
-        instantiate(ET.Machine, g)
-        m = instantiate(ET.Machine, g)
+        instantiate(ET.ProcessOrder._d["specific"], g)
+        instantiate(ET.Machine._d["specific"], g)
+        m = instantiate(ET.Machine._d["specific"], g)
 
-        scr = instantiate(ET.ZEF_Script, g)
-        s = instantiate(AET.String, g)
-        instantiate(scr, RT.ZEF_Python, s, g)
+        scr = instantiate(ET.ZEF_Script._d["specific"], g)
+        s = instantiate(AET.String._d["specific"], g)
+        instantiate(scr, RT.ZEF_Python._d["specific"], s, g)
 
     return g,m,scr,s
     

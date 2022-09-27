@@ -55,7 +55,7 @@ def flatgraph_ctor(*args, **kwargs):
     return FlatGraph_(*args)
 
 
-def union_getitem(x):
+def union_getitem(self, x):
     from ..op_structs import ZefOp
     if isinstance(x, tuple):
         return ValueType_(type_name='Union', absorbed=x)
@@ -66,7 +66,7 @@ def union_getitem(x):
     else:
         raise Exception(f'"Union[...]" called with unsupported type {type(x)}')
 
-def intersection_getitem(x):
+def intersection_getitem(self, x):
     from ..op_structs import ZefOp
     if isinstance(x, tuple):
         return ValueType_(type_name='Intersection', absorbed=x)
@@ -77,7 +77,7 @@ def intersection_getitem(x):
     else:
         raise Exception(f'"Intersection[...]" called with unsupported type {type(x)}')
 
-def complement_getitem(x):
+def complement_getitem(self, x):
     if isinstance(x, ValueType_):
         return ValueType_(type_name='Complement', absorbed=(x,))
     else:
@@ -122,7 +122,7 @@ def setof_getitem(_, x):
 
 
 
-def rp_getitem(x):
+def rp_getitem(self, x):
     if not isinstance(x, tuple) or len(x)!=3:
         raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got x={x}")
     return ValueType_(type_name='RP', absorbed=(x,))
@@ -216,9 +216,9 @@ ZefRefUID  = ValueType_(type_name='ZefRefUID',  constructor_func=None, pytype=py
 EternalUID = ValueType_(type_name='EternalUID', constructor_func=None, pytype=pyzef.internals.EternalUID)
 UID = BaseUID | ZefRefUID | EternalUID
 
-Instantiated = ValueType_(type_name='Instantiated', constructor_func=None)
-Terminated = ValueType_(type_name='Terminated', constructor_func=None)
-Assigned   = ValueType_(type_name='Assigned',   constructor_func=None)
+# Instantiated = ValueType_(type_name='Instantiated', constructor_func=None)
+# Terminated = ValueType_(type_name='Terminated', constructor_func=None)
+# Assigned   = ValueType_(type_name='Assigned',   constructor_func=None)
 Tagged     = ValueType_(type_name='Tagged',     constructor_func=None)
 
 LazyValue  = ValueType_(type_name='LazyValue',  constructor_func=None)
@@ -308,14 +308,14 @@ def token_getitem(self, thing, token_type):
     if isinstance(thing, str):
         if "internal_id" in self._d:
             raise Exception(f"Can't assign a new internal_id an existing {my_name} with internal_id.")
-        return ValueType_(fill_dict=insert(self._d, "internal_id", thing))
+        return ValueType_(template=self, fill_dict={"internal_id": thing})
 
     # Allow arbitrary types, so long as they can contain EntityTypeTokens
     # if is_a(thing, token_type) or (type(thing) == ValueType_ and is_strict_subtype(token_type, thing)):
     if is_a(thing, token_type) or (type(thing) == ValueType_ and not is_empty(token_type & thing)):
         if "specific" in self._d and not isinstance(self._d["specific"], (AET_QFloat, AET_QInt, AET_Enum)):
             raise Exception(f"Can't assign a new {my_name} token to an existing {my_name} with token.")
-        return ValueType_(fill_dict=insert(self._d, "specific", thing))
+        return ValueType_(template=self, fill_dict={"specific": thing})
 
     raise Exception(f"{my_name} can only contain an {token_type} or an internal id, not {thing}. Note: subtypes must be determinable.")
 
@@ -438,8 +438,16 @@ AET_Enum = ValueType_(type_name='AET_Enum',
                       pytype=internals.AttributeEntityTypeStruct_Enum,
                       )
 
+def AET_ctor(self, x):
+    if type(x) == str:
+        return getattr(self, x)
+    if "specific" in self._d:
+        raise Exception("Can't get AET from item when a specific type of AET is given")
+    return AET[internals.AET(x)]
+
 AET = ValueType_(type_name='AET',
-                constructor_func=lambda x: AET[internals.AET(x)],
+                 constructor_func=AET_ctor,
+                 pass_self=True,
                 attr_funcs=wrap_attr_readonly_token(internals.AET),
                 is_a_func=AET_is_a,
                 is_subtype_func=token_subtype,

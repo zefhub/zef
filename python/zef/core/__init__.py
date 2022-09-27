@@ -124,6 +124,10 @@ from .VT import *
 from .VT.value_type import ValueType_
 
 from .abstract_raes import Entity, AttributeEntity, Relation, TXNode, Root, make_custom_entity
+# TODO Move this somewhere sensible
+def is_a_custom_entity(x, typ):
+    return (type(x) == Entity and x.d["type"] == ET.ZEF_CustomEntity)
+VT.CustomEntity = ValueType_(type_name="CustomEntity", is_a_func=is_a_custom_entity)
 
 from .zef_functions import func
 
@@ -146,6 +150,17 @@ assigned         = make_custom_entity(name_to_display='assigned', predetermined_
 infinity           = make_custom_entity(name_to_display='infinity',    predetermined_uid='4906648460291096')
 nil                = make_custom_entity(name_to_display='nil',         predetermined_uid='1654670075329719') #| register_call_handler[f1] | run[execute] | get['entity'] | collect  # TODO
 
+def is_a_has_uid(x, typ):
+    from ._ops import uid
+    return uid(x) == typ._d["absorbed"][0]
+def early_uid(x):
+    return x.d["uid"]
+HasUID = VT.ValueType_(type_name="HasUID", is_a_func=is_a_has_uid)
+VT.Instantiated = VT.CustomEntity & HasUID[early_uid(instantiated)]
+VT.Terminated = VT.CustomEntity & HasUID[early_uid(terminated)]
+VT.Assigned = VT.CustomEntity & HasUID[early_uid(assigned)]
+
+from .VT import *
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations

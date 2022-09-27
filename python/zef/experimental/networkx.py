@@ -415,9 +415,10 @@ class ProxyEdgeView:
             
 
 def get_props_on(z, include_type):
+    from ..core.internals import get_token
     props = {}
     for rel in z | out_rels[RT] | filter[target | is_a[AET]]:
-        props[str(RT(rel))] = rel|target|value|collect
+        props[str(get_token(RT(rel)))] = rel|target|value|collect
     if include_type:
         props["type"] = rae_type(z)
     return props

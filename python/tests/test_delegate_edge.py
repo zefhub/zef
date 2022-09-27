@@ -25,10 +25,10 @@ class MyTestCase(unittest.TestCase):
 
         I = lambda *args: instantiate(*args, g)
         with Transaction(g):
-            m1 = I(ET.Machine)
-            m2 = I(ET.Machine)
-            r1 = I(m1, RT.EtoE, m2)
-            rel_E_DR = I(m1, RT.EtoDR, r1 | delegate_of | collect)
+            m1 = I(ET.Machine._d["specific"])
+            m2 = I(ET.Machine._d["specific"])
+            r1 = I(m1, RT.EtoE._d["specific"], m2)
+            rel_E_DR = I(m1, RT.EtoDR._d["specific"], r1 | delegate_of | collect)
         zef.pyzef.verification.verify_graph_double_linking(g)
         # serialize_check(g)
 

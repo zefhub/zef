@@ -34,19 +34,19 @@ def yo_implementation(x, display=True):
         import io
         file = io.StringIO()
 
-    if (type(x) == EZefRef or type(x) == ZefRef) and BT(x) == BT.TX_EVENT_NODE:
+    if isinstance(x, (EZefRef | ZefRef) & BT.TX_EVENT_NODE):
         print(tx_view(x), file=file)
-    elif type(x) == EZefRef:
+    elif isinstance(x, EZefRef):
         if is_delegate(x):
             print("\n\n\n**************  delegate EZefRef ********************\n\n", file=file)
         else:
             print(eternalist_view(x), file=file)
-    elif type(x) == ZefRef:
+    elif isinstance(x, ZefRef):
         if is_delegate(x):
             print("\n\n\n**************  delegate ZefRef ********************\n\n", file=file)
         else:
             print(eternalist_view(x), file=file)
-    elif type(x) == Graph:
+    elif isinstance(x, Graph):
         print(graph_info(x), file=file)
     elif "pyzef.Graph" in str(type(x)):
         # This is because of monkeypatching
@@ -462,7 +462,11 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
     return (
         [z for z in filtered_blobs]
         | group_by[zr_type]
-        | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect))]
+        # | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect))]
+        | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | match[
+            (Nil, always[[]]),
+            (Any, now | all)
+        ] | collect))]
         | map[lambda x: rt_block_view(x[0][3:], x[1]) if bt_filter == BT.RELATION_EDGE else aet_et_rt_string_view(x)]
         | join[""]
         | collect

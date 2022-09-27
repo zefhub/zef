@@ -1405,14 +1405,14 @@ def perform_transaction_commands(commands: list, g: Graph):
                             if isinstance(cmd['origin_rae'], Entity):
                                 zz = internals.merge_entity_(
                                     g, 
-                                    rae_type(cmd['origin_rae']), 
+                                    rae_type(cmd['origin_rae'])._d["specific"], 
                                     origin_rae_uid.blob_uid,
                                     origin_rae_uid.graph_uid,
                                 )
                             elif isinstance(cmd['origin_rae'], AttributeEntity):
                                 zz = internals.merge_atomic_entity_(
                                     g, 
-                                    rae_type(cmd['origin_rae']),
+                                    rae_type(cmd['origin_rae'])._d["specific"],
                                     origin_rae_uid.blob_uid,
                                     origin_rae_uid.graph_uid,
                                 )
@@ -1425,7 +1425,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                                 assert z_trg is not None                                    
                                 zz = internals.merge_relation_(
                                     g, 
-                                    rae_type(cmd['origin_rae']),
+                                    rae_type(cmd['origin_rae'])._d["specific"],
                                     to_ezefref(z_src),
                                     to_ezefref(z_trg),
                                     origin_rae_uid.blob_uid,

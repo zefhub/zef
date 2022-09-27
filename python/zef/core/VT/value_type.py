@@ -84,35 +84,49 @@ class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name: str=None, absorbed=(), constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, pytype=None, str_func=None, fill_dict=None):
-            if type_name is None:
-                assert fill_dict is not None and "type_name" in fill_dict
-            self._d = {
-                'type_name': type_name,
-                'absorbed': absorbed,
-                'alias': None,
-            }
+    def __init__(self, type_name:str = None, absorbed=(), constructor_func=None, get_item_func=None, pass_self=None, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, pytype=None, str_func=None, fill_dict=None, template=None):
+            if type_name is not None:
+                assert template is None
+                self._d = {
+                    'type_name': type_name,
+                    'absorbed': absorbed,
+                    'alias': None,
+                }
+
+                if constructor_func is not None:
+                    _value_type_constructor_funcs[type_name] = constructor_func
+                if get_item_func is not None:
+                    _value_type_get_item_funcs[type_name] = get_item_func
+                if is_a_func is not None:
+                    _value_type_is_a_funcs[type_name] = is_a_func
+                if is_subtype_func is not None:
+                    _value_type_is_subtype_funcs[type_name] = is_subtype_func
+                if str_func is not None:
+                    _value_type_str_funcs[type_name] = str_func
+                if pytype is not None:
+                    _value_type_pytypes[type_name] = pytype
+                if attr_funcs != (None, None, None):
+                    _value_type_attr_funcs[type_name] = attr_funcs
+                self.__pass_self = False if pass_self is None else pass_self
+
+            elif template is not None:
+                assert type_name is None
+                assert constructor_func is None
+                assert get_item_func is None
+                assert is_a_func is None
+                assert is_subtype_func is None
+                assert str_func is None
+                assert pytype is None
+                assert pass_self is None
+                assert attr_funcs is (None,None,None)
+                self._d = dict(template._d)
+                self.__pass_self = template.__pass_self
+
+            else:
+                raise Exception("Need type_name or template provided")
+
             if fill_dict is not None:
                 self._d.update(fill_dict)
-
-            if constructor_func is not None:
-                _value_type_constructor_funcs[type_name] = constructor_func
-            if get_item_func is not None:
-                _value_type_get_item_funcs[type_name] = get_item_func
-            if get_item_func is not None:
-                _value_type_get_item_funcs[type_name] = get_item_func
-            if is_a_func is not None:
-                _value_type_is_a_funcs[type_name] = is_a_func
-            if is_subtype_func is not None:
-                _value_type_is_subtype_funcs[type_name] = is_subtype_func
-            if str_func is not None:
-                _value_type_str_funcs[type_name] = str_func
-            if pytype is not None:
-                _value_type_pytypes[type_name] = pytype
-
-            self.__pass_self = pass_self
-            if attr_funcs != (None, None, None):
-                _value_type_attr_funcs[type_name] = attr_funcs
 
     def __instancecheck__(self, instance):
         return is_a_(instance, self)

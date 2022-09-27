@@ -137,7 +137,7 @@ class FunctionConstructor:
                 zefref = promote_to_zefref_func(func)
                 abstract_entity = Entity(zefref)
                 _local_compiled_zef_functions[abstract_entity.d['uid']] = _local_compiled_zef_functions[time_resolved_hashable(zefref)]
-                return ZefOp(((RT.Function, ((0, abstract_entity), )), ))
+                return ZefOp(((internals.RT.Function, ((0, abstract_entity), )), ))
             return inner
 
     @staticmethod
