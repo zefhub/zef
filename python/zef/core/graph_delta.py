@@ -266,7 +266,7 @@ def obtain_ids(x) -> dict:
             ids = merge_no_overwrite(ids, obtain_ids(k))
             ids = merge_no_overwrite(ids, obtain_ids(v))
 
-    elif type(x) in [Entity, AttributeEntity, Relation]:
+    elif isinstance(x, (Entity, AttributeEntity, Relation)):
         ids = {uid(x): x}
         if type(x) == Relation:
             if not is_a(x.d["type"][0], RT):
@@ -274,7 +274,7 @@ def obtain_ids(x) -> dict:
             if not is_a(x.d["type"][2], RT):
                 ids = merge_no_overwrite(ids, obtain_ids(target(x)))
 
-    elif type(x) in [ZefRef, EZefRef]:
+    elif isinstance(x, (ZefRef, EZefRef)):
         ids = {origin_uid(x): x}
 
     elif type(x) == TaggedVal:
@@ -1622,7 +1622,7 @@ def get_absorbed_id(obj):
     if isinstance(obj, (ET, RT, AET)):
         return obj._d.get("internal_id", None)
     else:
-        return obj | absorbed | single_or[None] | collect
+        return LazyValue(obj) | absorbed | single_or[None] | collect
 
 
 def equal_identity(a, b):

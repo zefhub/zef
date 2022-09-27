@@ -1867,23 +1867,43 @@ def all_imp(*args):
         # These options have C++ backing so try them first
         # The specific all[ET.x/AET.x] options (not all[RT.x] though)
         if isinstance(fil, ET) or isinstance(fil, AET):
-            # Note: returning list rather than ZefRefs as more compatible
-            # return list(gs.tx | pyzefops.instances[fil])
-            return gs.tx | pyzefops.instances[fil]
+            after_filter = None
+            if "specific" not in fil._d:
+                if isinstance(fil, ET):
+                    c_fil = internals.ET
+                else:
+                    c_fil = internals.AET
+            else:
+                token = fil._d["specific"]
+                if isinstance(token, (EntityTypeToken, AttributeEntityTypeToken)):
+                    c_fil = token
+                else:
+                    # This must be a more general filter, so we should apply it afterwards
+                    after_filter = token
+                    if isinstance(fil,ET):
+                        c_fil  = internals.ET
+                    else:
+                        c_fil  = internals.AET
+            
+            initial = gs.tx | pyzefops.instances[c_fil]
+            if after_filter is not None:
+                return ZefGenerator(initial | filter[after_filter])
+            else:
+                return initial
         
-        if isinstance(fil, ValueType) and fil.d['type_name'] in {"Union", "Intersection"}:
+        if isinstance(fil, ValueType) and fil._d['type_name'] in {"Union", "Intersection"}:
             representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (ET, AET))] | func[set] | collect
-            value_types = set(fil.d['absorbed']) - representation_types
+            value_types = set(fil._d['absorbed']) - representation_types
             
             if len(value_types) > 0: 
                 # Wrap the remaining ValueTypes after removing representation_types in the original ValueType
-                value_types = {"Union": Union, "Intersection": Intersection}[fil.d['type_name']][tuple(value_types)]      
+                value_types = {"Union": Union, "Intersection": Intersection}[fil._d['type_name']][tuple(value_types)]      
 
-            if fil.d['type_name'] == "Union":
+            if fil._d['type_name'] == "Union":
                 sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in representation_types]))
                 if not value_types: return sets_union
                 return list(set.union(set(filter(gs.tx | pyzefops.instances, lambda x: is_a(x, value_types))), sets_union))
-            elif fil.d['type_name'] == "Intersection":
+            elif fil._d['type_name'] == "Intersection":
                 if len(representation_types) > 1: return []
                 if len(representation_types) == 1: initial = gs.tx | pyzefops.instances[representation_types.pop()]
                 else:  initial = gs.tx | pyzefops.instances

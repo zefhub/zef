@@ -76,6 +76,7 @@ _value_type_get_item_funcs = {}
 _value_type_attr_funcs = {}
 _value_type_is_a_funcs = {}
 _value_type_is_subtype_funcs = {}
+_value_type_simplify_type_funcs = {}
 _value_type_str_funcs = {}
 _value_type_pytypes = {}
 
@@ -162,11 +163,9 @@ class ValueType_:
 
     def __eq__(self, other):
         if isinstance(other, type) and other in [internals.ZefRef, internals.EZefRef]:
-            print(f"""Warning, you tried to compare == between a '{other}'
-and a ValueType. This is likely because you wrote
-`type(x) == SomeValueType`. Instead you should write
-`isinstance(x, SomeValueType)` or
-`representation_type(x) == SomeValueType`.""")
+            import traceback
+            traceback.print_stack()
+            print(f"""Warning, you tried to compare == between a '{other}' and a ValueType. This is likely because you wrote `type(x) == SomeValueType`. Instead you should write `isinstance(x, SomeValueType)` or `representation_type(x) == SomeValueType`.""")
         if not isinstance(other, ValueType_): return False
         # return self._d['type_name'] == other._d['type_name'] and self._d['absorbed'] == other._d['absorbed']
         return self._d == other._d
@@ -340,4 +339,17 @@ def is_strict_subtype(typ1, typ2):
         return False
     elif res == "maybe":
         return False
+    
+def is_empty(typ):
+    typ = simplify_type(typ)
+    from . import SetOf
+    return typ == SetOf
+
+
+
+def simplify_type(typ):
+    if typ._d["type_name"] in _value_type_simplify_type_funcs:
+        return _value_type_simplify_type_funcs[typ._d["type_name"]](typ)
+    return typ
+        
     

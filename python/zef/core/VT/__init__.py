@@ -285,12 +285,13 @@ def token_getitem(self, thing, token_type):
         return ValueType_(fill_dict=insert(self._d, "internal_id", thing))
 
     # Allow arbitrary types, so long as they can contain EntityTypeTokens
-    if is_a(thing, token_type) or (type(thing) == ValueType_ and is_strict_subtype(token_type, thing)):
+    # if is_a(thing, token_type) or (type(thing) == ValueType_ and is_strict_subtype(token_type, thing)):
+    if is_a(thing, token_type) or (type(thing) == ValueType_ and not is_empty(token_type & thing)):
         if "specific" in self._d:
             raise Exception("Can't assign a new {my_name} token to an existing {my_name} with token.")
         return ValueType_(fill_dict=insert(self._d, "specific", thing))
 
-    raise Exception(f"{my_name} can only contain an {token_type} or an internal id, not {thing}")
+    raise Exception(f"{my_name} can only contain an {token_type} or an internal id, not {thing}. Note: subtypes must be determinable.")
 
 def token_str(self):
     my_name = self._d["type_name"]
@@ -300,7 +301,7 @@ def token_str(self):
         if isinstance(self._d["specific"], str):
             s += "[" + str(self._d["specific"]) + "]"
         else:
-            s += "." + str(self._d["specific"][0])
+            s += "." + str(self._d["specific"])
     if "internal_id" in self._d:
         s += f"['{self._d['internal_id']}']"
     return s
@@ -317,9 +318,7 @@ def ET_is_a(x, typ):
             return is_a(internals.ET(x), typ._d["specific"])
         return internals.ET(x) == typ._d["specific"]
     else:
-        if is_type(x) and is_strict_subtype(x, ET[Any]):
-            return True
-        return False
+        return is_type(x) and x._d["type_name"] == "ET"
 def AET_is_a(x, typ):
     from .._ops import is_a
     if "specific" in typ._d:
@@ -332,9 +331,7 @@ def AET_is_a(x, typ):
             return is_a(internals.AET(x), typ._d["specific"])
         return internals.AET(x) == typ._d["specific"]
     else:
-        if is_type(x) and is_strict_subtype(x, AET[Any]):
-            return True
-        return False
+        return is_type(x) and x._d["type_name"] == "AET"
 def RT_is_a(x, typ):
     from .._ops import is_a
     if "specific" in typ._d:
@@ -347,9 +344,7 @@ def RT_is_a(x, typ):
             return is_a(internals.RT(x), typ._d["specific"])
         return internals.RT(x) == typ._d["specific"]
     else:
-        if is_type(x) and is_strict_subtype(x, RT[Any]):
-            return True
-        return False
+        return is_type(x) and x._d["type_name"] == "RT"
 
 EntityTypeToken = ValueType_(type_name='EntityTypeToken',
                              constructor_func=None,
