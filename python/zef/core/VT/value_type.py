@@ -176,7 +176,6 @@ class ValueType_:
 
 
     def __or__(self, other):
-        from ..op_structs import ZefOp
         if isinstance(other, ValueType_):
             return simplify_value_type(ValueType_(type_name='Union', absorbed=(self, other,)))
         else:

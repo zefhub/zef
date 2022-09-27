@@ -289,7 +289,7 @@ def fr_merge_and_retrieve_idx(blobs, k_dict, next_idx, fr):
         if old_idx in old_to_new:
             idx = old_to_new[old_idx]
             new_b = blobs[idx]
-        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], uid)) and key in k_dict:
+        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], UID)) and key in k_dict:
             new_b = blobs[k_dict[key]]
             idx = new_b[0]
         else:
@@ -400,7 +400,7 @@ def flatgraph_to_commands(fg):
         elif isinstance(b[1], AttributeEntityType):
             if idx in idx_key:
                 key = idx_key[idx]
-                if is_a(key, uid):
+                if is_a(key, UID):
                     if b[-1] != None: return AttributeEntity({"type": b[1], "uid": key}) <= b[-1]
                     else:     return AttributeEntity({"type": b[1], "uid": key})
                 else:
@@ -418,7 +418,7 @@ def flatgraph_to_commands(fg):
             if idx in idx_key: 
                 key = idx_key[idx]
                 if for_rt: return Z[key]
-                if is_a(key, uid):
+                if is_a(key, UID):
                     return Relation({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
             if for_rt: return Z[idx]
             src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)
@@ -542,7 +542,7 @@ def fg_merge_imp(fg1, fg2 = None):
         if old_idx in old_to_new:
             idx = old_to_new[old_idx]
             new_b = blobs[idx]
-        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], uid)) and key in k_dict:
+        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], UID)) and key in k_dict:
             new_b = blobs[k_dict[key]]
             idx = new_b[0]
         else:

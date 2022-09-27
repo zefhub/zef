@@ -1870,9 +1870,11 @@ def all_imp(*args):
             after_filter = None
             if "specific" not in fil._d:
                 if isinstance(fil, ET):
-                    c_fil = internals.ET
+                    c_fil = None
+                    after_filter = ET
                 else:
-                    c_fil = internals.AET
+                    c_fil = None
+                    after_filter = AET
             else:
                 token = fil._d["specific"]
                 if isinstance(token, (EntityTypeToken, AttributeEntityTypeToken)):
@@ -1880,14 +1882,14 @@ def all_imp(*args):
                 else:
                     # This must be a more general filter, so we should apply it afterwards
                     after_filter = token
-                    if isinstance(fil,ET):
-                        c_fil  = internals.ET
-                    else:
-                        c_fil  = internals.AET
+                    c_fil = None
             
-            initial = gs.tx | pyzefops.instances[c_fil]
+            if c_fil is None:
+                initial = gs.tx | pyzefops.instances
+            else:
+                initial = gs.tx | pyzefops.instances[c_fil]
             if after_filter is not None:
-                return ZefGenerator(initial | filter[after_filter])
+                return ZefGenerator(lambda: iter(initial | filter[after_filter]))
             else:
                 return initial
         
@@ -6099,13 +6101,13 @@ def out_rels_imp(z, rt_or_bt=None, target_filter=None):
     assert is_a(z, ZefRef) or is_a(z, EZefRef) or is_a(z, FlatRef)
     if is_a(z, FlatRef): return traverse_flatref_imp(z, rt_or_bt, "out", "multi")
 
-    if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
+    if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.outs(z) | filter[is_a[RT]] | collect
     elif rt_or_bt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
     else:
         if isinstance(rt_or_bt, RT) and isinstance(rt_or_bt._d.get("specific", None), RelationTypeToken):
             res = pyzefops.traverse_out_edge_multi(z, rt_or_bt._d["specific"])
-        elif isinstance(rt_or_bt, BT):
-            res = pyzefops.traverse_out_edge_multi(z, rt_or_bt)
+        elif isinstance(rt_or_bt, BT) and isinstance(rt_or_bt._d.get("specific", None), BlobTypeToken):
+            res = pyzefops.traverse_out_edge_multi(z, rt_or_bt._d["specific"])
         else:
             raise Exception("TODO: Need to implement non-specific relation types for out_rels")
     if target_filter: 
@@ -6169,7 +6171,7 @@ def in_rel_imp(z, rt=None, source_filter = None):
 
 
 #---------------------------------------- in_rels -----------------------------------------------
-def in_rels_imp(z, rt=None, source_filter=None):
+def in_rels_imp(z, rt_or_bt=None, source_filter=None):
     """
     Traverse onto all incoming relations of the specified 
     type and return the relations (it does NOT proceed 
@@ -6188,10 +6190,16 @@ def in_rels_imp(z, rt=None, source_filter=None):
     EZefRef -> EZefRefs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "multi")
-    if rt == RT or rt is None: res = pyzefops.ins(z) | filter[is_a[BT.RELATION_EDGE]] | collect
-    elif rt == BT: res = pyzefops.ins(z | to_ezefref | collect)
-    else: res = pyzefops.traverse_in_edge_multi(z, rt)
+    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt_or_bt, "in", "multi")
+    if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.ins(z) | filter[is_a[BT.RELATION_EDGE]] | collect
+    elif rt_or_bt == BT: res = pyzefops.ins(z | to_ezefref | collect)
+    else:
+        if isinstance(rt_or_bt, RT) and isinstance(rt_or_bt._d.get("specific", None), RelationTypeToken):
+            res = pyzefops.traverse_in_edge_multi(z, rt_or_bt._d["specific"])
+        elif isinstance(rt_or_bt, BT) and isinstance(rt_or_bt._d.get("specific", None), BlobTypeToken):
+            res = pyzefops.traverse_in_edge_multi(z, rt_or_bt._d["specific"])
+        else:
+            raise Exception("TODO: Need to implement non-specific relation types for out_rels")
     if source_filter: 
         if isinstance(source_filter, ZefOp): source_filter = Is[source_filter]
         return res | filter[source | is_a[source_filter]] | collect 
@@ -6275,7 +6283,7 @@ def uid_implementation(arg):
         return arg.d["uid"]
     if isinstance(arg, Relation):
         return arg.d["uids"][1]
-    if is_a(arg, uid):
+    if is_a(arg, UID):
         return arg
     return pyzefops.uid(arg)
 
@@ -6834,14 +6842,22 @@ def _is_a_instance_delegate_generic(x, typ):
 
     return False
 
-def has_relation_implementation(z, *args):
-    return pyzefops.has_relation(z, *args)
+def has_relation_implementation(z1, rt, z2):
+    return pyzefops.has_relation(z1, rt._d["specific"], z2)
 
-def relation_implementation(z, *args):
-    return pyzefops.relation(z, *args)
+def relation_implementation(z1, *args):
+    if len(args) == 1:
+        return pyzefops.relation(z, *args)
+    else:
+        rt,z2 = args
+        return pyzefops.relation(z1, rt._d["specific"], z2)
 
 def relations_implementation(z, *args):
-    return pyzefops.relations(z, *args)
+    if len(args) == 1:
+        return pyzefops.relations(z, *args)
+    else:
+        rt,z2 = args
+        return pyzefops.relations(z1, rt._d["specific"], z2)
 
 def rae_type_implementation(z):
     if isinstance(z, Entity):
@@ -6850,7 +6866,14 @@ def rae_type_implementation(z):
         return z.d["type"][1]
     if isinstance(z, AttributeEntity):
         return z.d["type"]
-    return pymain.rae_type(z)
+    # return pymain.rae_type(z)
+    c_rae = pymain.rae_type(z)
+    if isinstance(c_rae, internals.EntityType):
+        return ET[c_rae]
+    if isinstance(c_rae, internals.RelationType):
+        return RT[c_rae]
+    if isinstance(c_rae, internals.AttributeEntityType):
+        return AET[c_rae]
 
 def abstract_type_implementation(z):
     # This is basically rae_type, but also including TXNode and Root
@@ -7354,7 +7377,7 @@ def to_clipboard_imp(x):
             assert ET(el)==ET.ZEF_Function
         return to_clipboard(x | map[zef_fct_to_source_code_string] | join['\n'] | collect)
 
-    if is_a(x, uid):
+    if is_a(x, UID):
         return to_clipboard(str(x))
 
     assert type(x) in {str, int, float, bool}
@@ -8879,7 +8902,7 @@ def fr_merge_and_retrieve_idx(blobs, k_dict, next_idx, fr):
         if old_idx in old_to_new:
             idx = old_to_new[old_idx]
             new_b = blobs[idx]
-        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], uid)) and key in k_dict:
+        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], UID)) and key in k_dict:
             new_b = blobs[k_dict[key]]
             idx = new_b[0]
         else:
@@ -8990,7 +9013,7 @@ def flatgraph_to_commands(fg):
         elif isinstance(b[1], AET):
             if idx in idx_key:
                 key = idx_key[idx]
-                if is_a(key, uid):
+                if is_a(key, UID):
                     if b[-1] != None: return AttributeEntity({"type": b[1], "uid": key}) <= b[-1]
                     else:     return AttributeEntity({"type": b[1], "uid": key})
                 else:
@@ -9008,7 +9031,7 @@ def flatgraph_to_commands(fg):
             if idx in idx_key: 
                 key = idx_key[idx]
                 if for_rt: return Z[key]
-                if is_a(key, uid):
+                if is_a(key, UID):
                     return Relation({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
             if for_rt: return Z[idx]
             src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)

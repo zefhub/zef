@@ -232,7 +232,7 @@ def is_supported_value(o):
 
 def is_supported_zef_value(o):
     from .abstract_raes import Entity, Relation, AttributeEntity
-    if isinstance(o, (BaseUID, EternalUID, ZefRefUID, ZefEnumValue, ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice)): return True
+    if isinstance(o, (BaseUID, EternalUID, ZefRefUID, Enum, ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice)): return True
     return False
 
 def is_supported_on_subscription(o, op):

@@ -132,7 +132,7 @@ def dispatch_ror_graph(g, x):
         x = collect(x)
         # Note that this could produce a new LazyValue if the input was an
         # assign_value. This is fine.
-    if any(isinstance(x, T) for T in {list, tuple, dict, ET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val}):
+    if any(isinstance(x, T) for T in {list, tuple, dict, ET, AET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val}):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -364,7 +364,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
             return
         else:
             raise ValueError(f"Bare RTs without source or target cannot be initialized. You tried to create a {x}.")                    
-    elif type(x) in scalar_types:
+    elif isinstance(x, scalar_types):
         if not allow_scalar:
             raise Exception("Direct values are not allowed at the top level of a GraphDelta, as this is likely to indicate a typo, e.g. (ET.Machine, ET.ShouldBeRTNotET, 'name'). Please use explicit value assignment via (AET.String <= 'name') if you really want this behaviour.")
         return
@@ -517,12 +517,11 @@ def dispatch_cmds_for(expr, gen_id):
     # func = d_dispatch[type(expr)]
 
     func = match(expr, [
-        (ET, always[cmds_for_instantiable]),
-        (AET, always[cmds_for_instantiable]),
-        (tuple, always[P(cmds_for_tuple, gen_id=gen_id)]),
-        (list, always[P(cmds_for_tuple, gen_id=gen_id)]),
-        (dict, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
-         (Any, Error()),
+        (ValueType & (ET | AET), always[cmds_for_instantiable]),
+        (Tuple | List, always[P(cmds_for_tuple, gen_id=gen_id)]),
+        (Dict, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
+        (ZefRef | EZefRef, always[cmds_for_mergable]),
+        (Any, Error()),
     ])
     if is_a(func, Error):
         raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
@@ -583,10 +582,10 @@ def cmds_for_mergable(x):
         cmd['internal_ids'] += [a_id]
 
     if is_a(x, ZefRef) or is_a(x, EZefRef):
-        if BT(x) in {BT.ENTITY_NODE, BT.TX_EVENT_NODE, BT.ROOT_NODE}:
+        if isinstance(x, (BT.ENTITY_NODE, BT.TX_EVENT_NODE, BT.ROOT_NODE)):
             return (), [cmd]
 
-        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE:
+        elif isinstance(x, BT.ATTRIBUTE_ENTITY_NODE):
             cmds = [cmd]
             if isinstance(x, ZefRef):
                 val = x | value | collect
@@ -600,7 +599,7 @@ def cmds_for_mergable(x):
 
             return (), cmds
 
-        elif BT(x) == BT.RELATION_EDGE:
+        elif isinstance(x, BT.RELATION_EDGE):
             return (
                 (x | source | to_ezefref | collect, x | target | to_ezefref | collect),
                 [cmd],
@@ -696,7 +695,7 @@ def cmds_for_lv_set_field(x, gen_id):
         'incoming': incoming,
     }
 
-    if type(assignment) in scalar_types:
+    if isinstance(assignment, scalar_types):
         cmd['value'] = assignment 
     else:
         target_iid,target_exprs = realise_single_node(assignment, gen_id)
@@ -788,7 +787,7 @@ def cmds_for_tuple(x: tuple, gen_id: Callable):
 #------------------------------------------------------------
 
 def is_valid_single_node(x):
-    if type(x) in scalar_types:
+    if isinstance(x, scalar_types):
         return True
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return True
@@ -872,7 +871,7 @@ def realise_single_node(x, gen_id):
             # fill_or_attach behaviour is now basically set_field except when the target is not a value
             iid,exprs = realise_single_node(target, gen_id)
             rt,assignment = LazyValue(op) | absorbed | collect
-            if type(assignment) in scalar_types:
+            if isinstance(assignment, scalar_types):
                 exprs = exprs + [LazyValue(Z[iid]) | set_field[rt][assignment]]
             else:
                 exprs = exprs + [(Z[iid], rt, assignment)]
@@ -881,7 +880,7 @@ def realise_single_node(x, gen_id):
             exprs = exprs + [LazyValue(Z[iid]) | op]
         else:
             raise Exception(f"Don't understand LazyValue type: {op}")
-    elif isinstance(x, ET) or isinstance(x, AET):
+    elif isinstance(x, ValueType) and issubclass(x, (ET,AET)):
         a_id = get_absorbed_id(x)
         if a_id is None:
             iid = gen_id()
@@ -903,11 +902,11 @@ def realise_single_node(x, gen_id):
     elif type(x) == Val:
         iid = gen_id()
         exprs = [TaggedVal(x.arg, iid)]
-    elif type(x) in shorthand_scalar_types:
+    elif isinstance(x, shorthand_scalar_types):
         iid = gen_id()
-        aet = map_scalar_to_aet_type[type(x)](x)
+        aet = map_scalar_to_aet_type(x)
         exprs = [aet[iid], LazyValue(Z[iid]) | assign[x]]
-    elif type(x) in scalar_types:
+    elif isinstance(x, scalar_types):
         raise Exception("A value of type {type(x)} is not allowed to be given in a GraphDelta in the shorthand syntax as it is ambiguous. You might want to explicitly create an AET and assign, or a value node, or a custom AET.")
     elif isinstance(x, ZefOp):
         if len(x) == 1:
@@ -1256,7 +1255,7 @@ def encode(xx):
                 return tuple((step(el, False) for el in x))
         
         # These next few ifs are for checks on syntax only
-        if type(x) in shorthand_scalar_types:
+        if isinstance(x, shorthand_scalar_types):
             if not allow_scalar:
                 raise Exception("Scalars are not allowed on their own to avoid accidental typos such as (ET.X, ET.Y, 'z') when (ET.X, RT.Y, 'z') is meant. If you want this behaviour, then create an explicit AET, i.e. (AET.String <= 'z').")
         
@@ -1276,7 +1275,7 @@ def unpack_receipt(unpacking_template, receipt: dict):
             return [step(el) for el in x]
         if isinstance(x, dict):
             return {k: step(v) for k,v in x.items()}
-        return receipt[x] if isinstance(x, str) or is_a(x, uid) or is_a(x, Delegate) else x
+        return receipt[x] if isinstance(x, str) or is_a(x, UID) or is_a(x, Delegate) else x
     return step(unpacking_template)
 
 
@@ -1334,7 +1333,7 @@ def perform_transaction_commands(commands: list, g: Graph):
 
                     if 'value' in cmd:
                         # AET path
-                        aet = map_scalar_to_aet_type[type(cmd['value'])](cmd['value'])
+                        aet = map_scalar_to_aet_type(cmd['value'])
                     else:
                         # Entity path
                         z_target = d_raes.get(cmd['target_id'], None)
@@ -1372,7 +1371,8 @@ def perform_transaction_commands(commands: list, g: Graph):
                     else:
                         if 'value' in cmd:
                             # AE path
-                            ae = instantiate(aet, g)
+                            aet_token = aet._d["specific"]
+                            ae = instantiate(aet_token, g)
                             internals.assign_value_imp(ae, cmd['value'])
                             if cmd['incoming']:
                                 zz = instantiate(ae, rt_token, z_source, g)
@@ -1398,7 +1398,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                         candidate = most_recent_rae_on_graph(uid(cmd['origin_rae']), g)
                         if candidate is not None:
                             # this is already on the graph. Just assert and move on
-                            assert abstract_type(cmd['origin_rae']) == abstract_type(candidate)
+                            assert abstract_type(cmd['origin_rae']) == abstract_type(candidate), f"Abstract types don't match: {abstract_type(cmd['origin_rae'])!r} != {abstract_type(candidate)!r}"
                             zz = candidate
                         else:
                             origin_rae_uid = uid(cmd['origin_rae'])
@@ -1498,15 +1498,15 @@ def perform_transaction_commands(commands: list, g: Graph):
 
 class TaggedVal:
     def __init__(self, arg, iid):
-        if type(arg) in scalar_types:
+        if isinstance(arg, scalar_types):
             self.primitive = arg
         else:
             self.primitive = SerializedValue.serialize(arg)
         self.iid = iid
 
 
-scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue}
-shorthand_scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue}
+scalar_types = (int, float, bool, str, Time, QuantityFloat, QuantityInt, Enum, SerializedValue)
+shorthand_scalar_types = (int, float, bool, str, Time, QuantityFloat, QuantityInt, Enum, SerializedValue)
 
 def make_enum_aet(x):
     """ hacky work around function for now:
@@ -1532,17 +1532,30 @@ def make_qi_aet(x):
     quantity_unit: str = x.unit.enum_value
     return getattr(AET.QuantityInt, quantity_unit)
 
-map_scalar_to_aet_type = {
-    int:                lambda x: AET.Int,
-    float:              lambda x: AET.Float,
-    bool:               lambda x: AET.Bool,
-    str:                lambda x: AET.String,
-    Time:               lambda x: AET.Time,
-    ZefEnumValue:       make_enum_aet,
-    QuantityFloat:      make_qf_aet, 
-    QuantityInt:        make_qi_aet, 
-    ValueType_:         lambda x: AET.Type,
-    }
+# map_scalar_to_aet_type = {
+#     int:                lambda x: AET.Int,
+#     float:              lambda x: AET.Float,
+#     bool:               lambda x: AET.Bool,
+#     str:                lambda x: AET.String,
+#     Time:               lambda x: AET.Time,
+#     ZefEnumValue:       make_enum_aet,
+#     QuantityFloat:      make_qf_aet, 
+#     QuantityInt:        make_qi_aet, 
+#     ValueType_:         lambda x: AET.Type,
+#     }
+def map_scalar_to_aet_type(x):
+    return LazyValue(x) | match[
+        (Int, always[AET.Int]),
+        (Float, always[AET.Float]),
+        (Bool, always[AET.Bool]),
+        (String, always[AET.String]),
+        (Time, always[AET.Time]),
+        (Enum, make_enum_aet),
+        (QuantityFloat, make_qf_aet), 
+        (QuantityInt, make_qi_aet), 
+        (ValueType, always[AET.Type]),
+    ] | collect
+
 
 def get_curried_arg(op, n):
     """ 
@@ -1619,7 +1632,8 @@ def get_absorbed_id(obj):
     # THIS SHOULDN"T BE NEEDED! FIX!
     # if is_a(obj, RT) or is_a(obj, ZefOp):
     #     obj = LazyValue(obj)
-    if isinstance(obj, (ET, RT, AET)):
+    # if isinstance(obj, (ET, RT, AET)):
+    if isinstance(obj, ValueType) and issubclass(obj, (ET, RT, AET)):
         return obj._d.get("internal_id", None)
     else:
         return LazyValue(obj) | absorbed | single_or[None] | collect

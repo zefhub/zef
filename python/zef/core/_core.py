@@ -24,7 +24,7 @@ from ..pyzef.main import (
     # EZefRef,
     # EZefRefs,
     # EZefRefss,
-    ZefEnumValue,
+    # ZefEnumValue,
     # ZefRef,
     # ZefRefs,
     # ZefRefss,
