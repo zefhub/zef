@@ -316,8 +316,8 @@ class ZefOp:
         
 
     def __lshift__(self, other):
-        if isinstance(other, TraversableABC):
-            return ZefOp( (*self.el_ops, (internals.RT.InInOld, (other, ))) )
+        # if isinstance(other, TraversableABC):
+        #     return ZefOp( (*self.el_ops, (internals.RT.InInOld, (other, ))) )
         if is_valid_LorO_op(other):
             return ZefOp( (*self.el_ops, *unpack_ops(internals.RT.InInOld, other.el_ops)))
         if is_tmpzefop(other):
@@ -326,8 +326,8 @@ class ZefOp:
         
 
     def __rshift__(self, other):
-        if isinstance(other, TraversableABC):
-            return ZefOp( (*self.el_ops, (internals.RT.OutOutOld, (other, ))) )
+        # if isinstance(other, TraversableABC):
+        #     return ZefOp( (*self.el_ops, (internals.RT.OutOutOld, (other, ))) )
         if is_valid_LorO_op(other):
             return ZefOp( (*self.el_ops, *unpack_ops(internals.RT.OutOutOld, other.el_ops)))
         if is_tmpzefop(other):
@@ -374,10 +374,11 @@ class ZefOp:
         else:
             base = (*(cached),)
 
-        if isinstance(other, TraversableABC):
-            res = ZefOp( (*base, (rt, (other, ))) )
-            other_id = id(other)
-        elif isinstance(other, ForEachingOp) or isinstance(other, SubscribingOp) or isinstance(other, CollectingOp):
+        # if isinstance(other, TraversableABC):
+        #     res = ZefOp( (*base, (rt, (other, ))) )
+        #     other_id = id(other)
+        # elif isinstance(other, ForEachingOp) or isinstance(other, SubscribingOp) or isinstance(other, CollectingOp):
+        if isinstance(other, ForEachingOp) or isinstance(other, SubscribingOp) or isinstance(other, CollectingOp):
             if len(other.el_ops) > 0 and is_tmpzefop(other):
                 res = type(other)(ZefOp((*base, *unpack_tmpzefop(rt, other.el_ops))))
             else:
@@ -471,8 +472,8 @@ class CollectingOp:
         if isinstance(other, LazyValue):
             other.el_ops = CollectingOp(ZefOp((*other.el_ops, *self.el_ops)))
             return evaluate_lazy_value(other)
-        if isinstance(other, TraversableABC):
-            return CollectingOp(ZefOp(((internals.RT.TmpZefOp, (other,)), *self.el_ops)))
+        # if isinstance(other, TraversableABC):
+        #     return CollectingOp(ZefOp(((internals.RT.TmpZefOp, (other,)), *self.el_ops)))
         if is_supported_value(other) or is_supported_zef_value(other):
             return LazyValue(other) | self
         raise TypeError(f'We should not have landed here. Value passed {other} of type {type(other)}.')
@@ -501,9 +502,10 @@ class CollectingOp:
             ops = self.el_ops
         base = ((internals.RT.Collect, ()),) if ops == () else (*ops, (internals.RT.Collect, ()))
         
-        if isinstance(other, TraversableABC):
-            res = ZefOp((*base, (rt, (other,))))
-        elif isinstance(other, ForEachingOp) or isinstance(other, SubscribingOp):
+        # if isinstance(other, TraversableABC):
+        #     res = ZefOp((*base, (rt, (other,))))
+        # elif isinstance(other, ForEachingOp) or isinstance(other, SubscribingOp):
+        if isinstance(other, ForEachingOp) or isinstance(other, SubscribingOp):
             if len(other.el_ops) > 0 and other.el_ops[0][0] == internals.RT.TmpZefOp:
                 res = type(other)(ZefOp((*base, (rt, (other.el_ops[0][1])), *other.el_ops[1:])))
             else:
@@ -528,9 +530,10 @@ class CollectingOp:
 
     def lshift_rshift_behavior(self, other, rt):
         base = ((internals.RT.Collect, ()),) if self.el_ops == () else (*self.el_ops, (internals.RT.Collect, ()))
-        if isinstance(other, TraversableABC):
-            res = ZefOp((*base, (rt, (other,))))
-        elif isinstance(other,ZefOp) and other.el_ops[0][0] == internals.RT.TmpZefOp:
+        # if isinstance(other, TraversableABC):
+        #     res = ZefOp((*base, (rt, (other,))))
+        # elif isinstance(other,ZefOp) and other.el_ops[0][0] == internals.RT.TmpZefOp:
+        if isinstance(other,ZefOp) and other.el_ops[0][0] == internals.RT.TmpZefOp:
             res = ZefOp((*base, *unpack_tmpzefop(rt, other.el_ops)))
         else:
             res = ZefOp((*base, *unpack_ops(rt, other.el_ops)))
@@ -630,8 +633,8 @@ class Awaitable:
 
                 if isinstance(other, SubscribingOp): res.func = other.func
 
-            elif isinstance(other, TraversableABC):
-                res = ZefOp(((rt, (other,)), ))
+            # elif isinstance(other, TraversableABC):
+            #     res = ZefOp(((rt, (other,)), ))
             else:
                 res = ZefOp((*unpack_ops(rt, other.el_ops),))
         

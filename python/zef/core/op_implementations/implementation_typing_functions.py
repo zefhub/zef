@@ -5808,9 +5808,11 @@ def to_delegate_type_info(op, curr_type):
 def attempt_to_delegate(args):
     if isinstance(args, tuple):
         assert len(args) == 3
-        return internals.Delegate(internals.Delegate(args[0]._d["specific"]), args[1]._d["specific"], internals.Delegate(args[2]._d["specific"]))
+        args = tuple(x._d["specific"] if isinstance(x, ValueType) else x for x in args)
+        return internals.Delegate(internals.Delegate(args[0]), args[1], internals.Delegate(args[2]))
     else:
-        return internals.Delegate(args._d["specific"])
+        args = args._d["specific"] if isinstance(args, ValueType) else args
+        return internals.Delegate(args)
 
 def delegate_of_implementation(x, arg1=None, arg2=None):
     """

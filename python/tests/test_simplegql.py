@@ -106,6 +106,7 @@ def customRoute(req, context):
             "server_uuid": self.server_uuid,
         } | run
 
+    @unittest.skip("Skipping simplegql for now")
     def test_simplegql(self):
         import jwt
         jwt_user_no_aud = jwt.encode({"email": "user1"}, self.key, "HS256")
