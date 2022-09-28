@@ -911,8 +911,15 @@ namespace zefDB {
         auto & ae = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(z_ae);
         ValueRepType primitive_type = get_vrt_from_ctype(value);
 
-        if(!internals::is_compatible(value, AET(z_ae)))
-            throw std::runtime_error("assign_value got value which can't fit into this attribute entity. FIXME: details");
+        if(!internals::is_compatible(value, AET(z_ae))) {
+            std::string aet_s;
+            AttributeEntityType aet = AET(z_ae);
+            if(aet.complex_value)
+                aet_s = "A complex AET";
+            else
+                aet_s = to_str(aet.rep_type);
+            throw std::runtime_error("assign_value got value which can't fit into this attribute entity. AET='" + aet_s + "', value_type='" + typeid(T).name() + "', value='" + to_str(value) + "'.");
+        }
 
         auto & gd = *graph_data(z_ae);
         // Need a transaction to keep both the value node and assignment together
