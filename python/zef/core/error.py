@@ -240,6 +240,7 @@ class _Error:
     RuntimeError = _ErrorType()
     ValueError   = _ErrorType()
     NotImplementedError = _ErrorType()
+    KeyError = _ErrorType()
     BasicError = _ErrorType()
     UnexpectedError = _ErrorType()
     MapError = _ErrorType()
@@ -479,9 +480,9 @@ def filter_tb_to_before_zef(tb):
     l = l[:i]
     return l
 
-def convert_python_exception(exc):
+def convert_python_exception(exc, filter_frames=True):
     tb = exc.__traceback__
-    frames = process_python_tb(tb)
+    frames = process_python_tb(tb, filter_frames)
 
 
     out = {
@@ -520,3 +521,12 @@ def process_python_tb(tb, filter=True):
         frame_info = [frame for frame in frame_info if "op_structs.py" not in frame["filename"]]
 
     return frame_info
+
+
+def make_custom_error(e, err_type, err_message, context):
+    py_e,frames = convert_python_exception(e)
+    err_instance = err_type
+    if err_message: py_e['args'] = ((err_message, ))
+    err_instance.nested = py_e
+    err_instance = add_error_context(err_instance, {"frames": frames})
+    return add_error_context(err_instance, context)

@@ -176,7 +176,7 @@ from inspect import isfunction, getfullargspec
 from types import LambdaType
 from typing import Generator, Iterable, Iterator
 from ._core import *
-from .error import Error, _ErrorType, ExceptionWrapper, EvalEngineCoreError, add_error_context, convert_python_exception
+from .error import Error, _ErrorType, ExceptionWrapper, EvalEngineCoreError, add_error_context, convert_python_exception, make_custom_error
 from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
@@ -877,6 +877,8 @@ class LazyValue:
             from .error import process_python_tb
             frames = process_python_tb(tb)
             err = add_error_context(e.wrapped, {"frames": frames})
+            if getattr(e, "keep_traceback", None):
+                raise ExceptionWrapper(err) from e
             raise ExceptionWrapper(err) from None
         except Exception as e:
             raise e
@@ -996,20 +998,34 @@ class LazyValue:
                     # If this raises an error then it will be handled as EvalEngineCoreError
                     # so that we can keep the traceback of the original nested error
                     if len(op[1]) > 1: # i.e run[impure_func]
-                        curr_value = op[1][1](curr_value)
+                        try:
+                            curr_value = op[1][1](curr_value)
+                        except Exception as e:
+                            # raise e
+                            message = f"Failed while trying to run this impure function {op[1][1]}: \n{e.args}"
+                            err =  Error.Panic()
+                            err.keep_traceback = True
+                            err = make_custom_error(e, err, message, cur_context)
+                            err.__traceback__ = e.__traceback__
+                            raise err
                     elif isinstance(curr_value, dict): 
-                        curr_value = _op_to_functions[op[0]][0](curr_value)
+                        try:
+                            curr_value = _op_to_functions[op[0]][0](curr_value)
+                        except Exception as e:
+                            message = f"Failed while trying to run the following FX: {curr_value}"
+                            raise make_custom_error(e, Error.Panic(), message, cur_context) from None
                     else:
-                        raise NotImplementedError(f"only effects or nullary functions can be passed to 'run' to be executed in the imperative shell. Received {curr_value}")
+                        message = f"only effects or nullary functions can be passed to 'run' to be executed in the imperative shell. Received {curr_value}"
+                        raise make_custom_error(NotImplementedError(), Error.NotImplementedError(), message, cur_context) from None
                     break
 
                 
                 try:
                     to_call_func = _op_to_functions[op[0]][0]
                 except KeyError as e:
-                    raise KeyError(f"Cannot find {e} inside dispatch dictionary") from None
+                    raise make_custom_error(e, Error.KeyError(), f"Cannot find {e} inside dispatch dictionary",cur_context) from None
                 except Exception as e:
-                    raise Exception(f"Error happened trying to access dispatch function for {op[0]}") from None
+                    raise make_custom_error(e, Error.Panic(), f"Error happened trying to access dispatch function for {op[0]}",cur_context) from None
 
 
                 got_error = None
@@ -1128,6 +1144,11 @@ class LazyValue:
         except _ErrorType as exc:
             # print("9")
             # return ExceptionWrapper(exc) #from None
+            if getattr(exc, "keep_traceback", None):
+                wrapper = ExceptionWrapper(exc)
+                wrapper.keep_traceback = True
+                print(exc.__traceback__)
+                raise wrapper from exc
             raise ExceptionWrapper(exc) from None
         
         except Exception as exc:
