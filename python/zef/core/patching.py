@@ -408,27 +408,24 @@ AttributeEntityType.__repr__ = AttributeEntityType_repr
 #                                                      |___/                  |__/                                                                                             
 
 
+class EntityValueInstance_:
+    def __init__(self, entity_type, **kwargs):
+        self._entity_type: EntityType = entity_type
+        self._kwargs = kwargs
+        
+    def __repr__(self):
+        nl = '\n'
+        return f'ET.{str(self._entity_type)}({f", ".join([f"{k}={repr(v)}" for k, v in self._kwargs.items()])})'
+    
+    def __getattr__(self, name):
+        return self._kwargs[name]
+
+
+
+
 def entity_type_call_func(self, *args, **kwargs):
-    new_obj = EntityType(self.value)
-    if '_absorbed' in self.__dict__:
-        new_obj._absorbed = self._absorbed
-    new_obj._absorbed_dict = kwargs      # put this in a separate substructure to not interfere with the normal absorbed values
-    return new_obj
+    return EntityValueInstance_(EntityType(self.value), **kwargs)
 
 EntityType.__call__ = entity_type_call_func
 
 
-
-def entity_type_repr_func(self):
-    absorbed_str = ''.join([f"[{el}]" for el in self._absorbed]) if '_absorbed' in self.__dict__ else ""
-    absorbed_dict_str = '(' + ', '.join([ f"{k}={repr(v)}" for k, v in self._absorbed_dict.items()]) + ')'if '_absorbed_dict' in self.__dict__ else ""
-    return f'ET.{str(self)}{absorbed_str}{absorbed_dict_str}'
-
-EntityType.__repr__ = entity_type_repr_func
-
-
-# allow accessing fields with dot notation
-def entity_type_getattr_func(self, name):
-    return self._absorbed_dict[name]
-
-EntityType.__getattr__ = entity_type_getattr_func
