@@ -163,12 +163,6 @@ def exception_handler(self, etype, evalue, tb, tb_offset=None):
             print(zef_ui_err(evalue.wrapped))
         except Exception as e:
             print(evalue)
-    elif isinstance(evalue, EvalEngineCoreError): 
-        # Do we need to do different handling here?
-        try:
-            print(zef_ui_err(evalue))
-        except Exception as e:
-            print(evalue)
     else:
         print(evalue)
 

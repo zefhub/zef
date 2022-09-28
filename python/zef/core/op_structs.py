@@ -486,18 +486,14 @@ class ZefOp:
         from .error import EvalEngineCoreError
         try:
             res = lzy_val | collect_op
-        except EvalEngineCoreError as e:
-            tb = e.__traceback__
-            from .error import process_python_tb
-            frames = process_python_tb(tb)
-            err = add_error_context(e, {"frames": frames})
-            raise err from None
-        except Exception as e:
+        except ExceptionWrapper as e:
             tb = e.__traceback__
             from .error import process_python_tb
             frames = process_python_tb(tb)
             err = add_error_context(e.wrapped, {"frames": frames})
             raise ExceptionWrapper(err) from None
+        except Exception as e:
+            raise e
         # Raise if this didn't evaluate!
         if isinstance(res, CollectingOp):
             raise Exception(f"ZefOp call didn't evaluate! {res}")
@@ -866,12 +862,6 @@ class LazyValue:
         from .error import EvalEngineCoreError
         try:
             if should_trigger_eval(res_lazyval): return evaluate_lazy_value(res_lazyval)
-        except EvalEngineCoreError as e:
-            tb = e.__traceback__
-            from .error import process_python_tb
-            frames = process_python_tb(tb)
-            err = add_error_context(e, {"frames": frames})
-            raise err from e
         except ExceptionWrapper as e:
             tb = e.__traceback__
             from .error import process_python_tb
@@ -992,7 +982,6 @@ class LazyValue:
 
                 if op[0] == RT.Collect: continue
 
-
                 if op[0] == RT.Run:
                     
                     # If this raises an error then it will be handled as EvalEngineCoreError
@@ -1019,7 +1008,6 @@ class LazyValue:
                         raise make_custom_error(NotImplementedError(), Error.NotImplementedError(), message, cur_context) from None
                     break
 
-                
                 try:
                     to_call_func = _op_to_functions[op[0]][0]
                 except KeyError as e:
