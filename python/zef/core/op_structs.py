@@ -986,17 +986,18 @@ class LazyValue:
                     
                     # If this raises an error then it will be handled as EvalEngineCoreError
                     # so that we can keep the traceback of the original nested error
+                    # TODO:
+                    # For FX and impure function errors, work on either displaying the frames or the traceback object.
                     if len(op[1]) > 1: # i.e run[impure_func]
                         try:
                             curr_value = op[1][1](curr_value)
                         except Exception as e:
-                            # raise e
                             message = f"Failed while trying to run this impure function {op[1][1]}: \n{e.args}"
                             err =  Error.Panic()
                             err.keep_traceback = True
                             err = make_custom_error(e, err, message, cur_context)
                             err.__traceback__ = e.__traceback__
-                            raise err
+                            raise err from e
                     elif isinstance(curr_value, dict): 
                         try:
                             curr_value = _op_to_functions[op[0]][0](curr_value)
@@ -1131,12 +1132,11 @@ class LazyValue:
         
         except _ErrorType as exc:
             # print("9")
-            # return ExceptionWrapper(exc) #from None
             if getattr(exc, "keep_traceback", None):
                 wrapper = ExceptionWrapper(exc)
                 wrapper.keep_traceback = True
-                print(exc.__traceback__)
-                raise wrapper from exc
+                wrapper.__traceback__ = exc.__traceback__
+                raise wrapper
             raise ExceptionWrapper(exc) from None
         
         except Exception as exc:
