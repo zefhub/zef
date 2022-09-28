@@ -454,13 +454,21 @@ def BT_is_a(x, typ):
                 return True
         return False
 
-EntityTypeToken = ValueType_(type_name='EntityTypeToken',
-                             constructor_func=None,
-                             pytype=internals.EntityType,
-                             )
+
+def ET_ctor(self, *args, **kwargs):
+    if "specific" in self._d:
+        return EntityValueInstance(self, *args, **kwargs)
+    else:
+        return internals.ET(*args, **kwargs)
+    
+from ..patching import EntityValueInstance_
+EntityValueInstance = ValueType_(type_name='EntityValueInstance', pytype=EntityValueInstance_)
+EntityTypeToken = ValueType_(type_name='EntityTypeToken', pytype=internals.EntityType)
 
 ET = ValueType_(type_name='ET',
-                constructor_func=lambda x: ET[internals.ET(x)],
+                # constructor_func=lambda x: ET[internals.ET(x)],
+                constructor_func=ET_ctor,
+                pass_self=True,
                 attr_funcs=wrap_attr_readonly_token(internals.ET),
                 is_a_func=ET_is_a,
                 is_subtype_func=token_subtype,

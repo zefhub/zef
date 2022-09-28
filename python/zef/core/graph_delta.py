@@ -132,7 +132,7 @@ def dispatch_ror_graph(g, x):
         x = collect(x)
         # Note that this could produce a new LazyValue if the input was an
         # assign_value. This is fine.
-    if any(isinstance(x, T) for T in {list, tuple, dict, ET, AET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val}):
+    if any(isinstance(x, T) for T in {list, tuple, dict, ET, AET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val, EntityValueInstance}):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -389,6 +389,9 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif isinstance(x, Val):
         return
 
+    elif isinstance(x, EntityValueInstance):
+        return
+
     else:
         raise ValueError(f"Unexpected type passed to init list of GraphDelta: {x} of type {type(x)}")
 
@@ -520,6 +523,7 @@ def dispatch_cmds_for(expr, gen_id):
         (Dict, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
         (ZefRef | EZefRef, always[cmds_for_mergable]),
         (Val, always[cmds_for_value_node]),
+        (EntityValueInstance, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
         (Any, Error()),
     ])
     if is_a(func, Error):
@@ -945,6 +949,10 @@ def realise_single_node(x, gen_id):
                 raise Exception("Not allowed to use lists inside of a dictionary syntax anymore")
             else:
                 exprs.append(Z[iid] | set_field[k][v])
+    elif isinstance(x, EntityValueInstance):
+        exprs = expand_helper(x, gen_id)
+        # TODO: Make the iid be returned explicitly.
+        iid = get_absorbed_id(exprs[0])
     else:
         raise TypeError(f'in GraphDelta encode step: for type(x)={type(x)}')
 
@@ -1670,3 +1678,58 @@ def merge_no_overwrite(a,b):
             raise Exception(f"The internal id '{k}' refers to multiple objects, including '{a[k]!r}' and '{v!r}'. This is ambiguous and not allowed.")
         a[k] = v
     return a
+
+
+
+
+# Temporary copy paste
+def expand_helper(x, gen_id):
+    if type(x) in {str, int, float, bool}:
+        return (x, )
+
+    elif isinstance(x, EntityValueInstance):
+        res = []
+        assert isinstance(x, EntityValueInstance)
+        ent_id = gen_id()
+        me = Z[ent_id]
+        res.append(x._entity_type[ent_id])
+
+        for k, v in x._kwargs.items():
+            if isinstance(v, EntityValueInstance):
+                sub_obj_instrs = expand_helper(v, gen_id)
+                res.append( (me, RT(to_pascal_case(k)), sub_obj_instrs[0]) )
+                res.extend(sub_obj_instrs[1:])
+            
+            elif isinstance(v, set):
+                for el in v:
+                    sub_obj_instrs = expand_helper(el, gen_id)
+                    res.append( (me, RT(to_pascal_case(k)), sub_obj_instrs[0]) )
+                    res.extend(sub_obj_instrs[1:])
+            
+            elif type(v) in {list, tuple}:
+                list_id = gen_id()
+                res.append( (me, RT(to_pascal_case(k)), ET.ZEF_List[list_id]) )
+
+                # generate ids for each relation, that we can inter-connect them
+                list_ids = [gen_id() for _ in range(len(v))]
+                res.extend(list_ids 
+                      | sliding[2] 
+                      | map[lambda p: (Z[p[0]], RT.ZEF_NextElement, Z[p[1]])]
+                      | collect
+                    )
+                for el, edge_id in zip(v, list_ids):
+                    sub_obj_instrs = expand_helper(el, gen_id)
+                    res.append( (ET.ZEF_List[list_id], RT.ZEF_ListElement[edge_id], sub_obj_instrs[0]) )
+                    res.extend(sub_obj_instrs[1:])
+            else:
+                res.append( (me, RT(to_pascal_case(k)), v) )
+        return res
+    
+def expand_object_to_instructions(x, id_generator=None):
+    def make_gen_id():
+        c = 0
+        while True:
+            yield f"_id_{c}"
+            c += 1
+    
+    return expand_helper(x, make_gen_id())
