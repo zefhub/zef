@@ -1513,7 +1513,6 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
     - related zefop: get_field
     - related zefop: insert
     - related zefop: remove
-    - related zefop: select_in
     """
     from typing import Generator
     if is_a(d, FlatGraph):
