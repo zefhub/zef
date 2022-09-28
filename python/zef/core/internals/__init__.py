@@ -218,7 +218,11 @@ def assign_value_imp(z, value):
 
     if not isinstance(value, scalar_types):
         value = SerializedValue.serialize(value)
-    c_assign_value(z, value)
+    try:
+        c_assign_value(z, value)
+    except Exception as exc:
+        print(f"There was an exception in the c call for assign value. z={z} and value={value} and aet={aet}")
+        raise
 
 
 def instantiate_value_node_imp(value, g):

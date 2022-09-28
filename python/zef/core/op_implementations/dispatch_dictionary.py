@@ -68,6 +68,7 @@ _op_to_functions = {
         internals.RT.Ins:             (Ins_imp, None),
         internals.RT.Out:             (Out_imp, None),
         internals.RT.Outs:            (Outs_imp, None),
+        internals.RT.InsAndOuts:      (ins_and_outs_imp, None),
         internals.RT.InRel:           (in_rel_imp, None),
         internals.RT.InRels:          (in_rels_imp, None),
         internals.RT.OutRel:          (out_rel_imp, None),

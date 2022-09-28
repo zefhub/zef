@@ -135,6 +135,7 @@ from .op_structs import ZefOp, LazyValue
 
 from .serialization import serialize, deserialize
 
+from .user_value_type import UserValueType
 
 # instantiating these here, since not all of the core has been
 # initialized when Python imports the abstract_raes module
