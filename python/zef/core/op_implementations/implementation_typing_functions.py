@@ -4837,6 +4837,8 @@ def events_imp(z_tx_or_rae, filter_on=None):
 
     """
     from zef.pyzef import zefops as pyzefops
+    # TODO: can remove this once imports are sorted out
+    from .. import instantiated, terminated, assigned
     # Note: we can't use the python to_frame here as that calls into us.
     
 
@@ -6215,11 +6217,11 @@ def source_implementation(zr, *curried_args):
         return fr_source_imp(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
-    if isinstance(zr, Delegate):
+    if isinstance(zr, AbstractDelegate):
         from ...pyzef.internals import DelegateRelationTriple
         if not isinstance(zr.item, DelegateRelationTriple):
             raise Exception(f"Can't take the source of a non-relation-triple Delegate ({zr})")
-        return Delegate(zr.order + zr.item.source.order, zr.item.source.item)
+        return internals.Delegate(zr.order + zr.item.source.order, zr.item.source.item)
     if is_a(zr, ET):
         raise Exception(f"Can't take the source of an entity (have {zr}), only relations have sources/targets")
     return (pyzefops.source)(zr, *curried_args)
@@ -6229,11 +6231,11 @@ def target_implementation(zr):
         return fr_target_imp(zr)
     if isinstance(zr, Relation):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
-    if isinstance(zr, Delegate):
+    if isinstance(zr, AbstractDelegate):
         from ...pyzef.internals import DelegateRelationTriple
         if not isinstance(zr.item, DelegateRelationTriple):
             raise Exception(f"Can't take the target of a non-relation-triple Delegate ({zr})")
-        return Delegate(zr.order + zr.item.target.order, zr.item.target.item)
+        return instance.Delegate(zr.order + zr.item.target.order, zr.item.target.item)
     if is_a(zr, ET):
         raise Exception(f"Can't take the target of an entity (have {zr}), only relations have sources/targets")
     return pyzefops.target(zr)
@@ -6250,9 +6252,10 @@ def value_implementation(zr, maybe_tx=None):
 
     from ...pyzef.zefops import SerializedValue
     if isinstance(val, SerializedValue):
-        return val.deserialize()
-    else:
-        return val
+        val = val.deserialize()
+    if isinstance(val, AttributeEntityTypeToken):
+        val = AET[val]
+    return val
 
 def time_implementation(x, *curried_args):
     """
@@ -6613,33 +6616,33 @@ def is_a_implementation(x, typ):
 
 
 
-    def valuetype_matching(el, vt):
-        if vt == VT.Any: return True
+    # def valuetype_matching(el, vt):
+    #     if vt == VT.Any: return True
 
-        # TODO: compare on actual ValueType_ along with its absorbed subtypes. 
-        # TODO: Extend list
-        vt_name_to_python_type = {
-            "Nil": type(None),
-            "Bool": bool,
-            "Int": int,
-            "Float":  float,
-            "String": str,
-            "List": list,
-            "Dict": dict,
-            "Set": set,
-            "Bytes": bytes,
-        }
+    #     # TODO: compare on actual ValueType_ along with its absorbed subtypes. 
+    #     # TODO: Extend list
+    #     vt_name_to_python_type = {
+    #         "Nil": type(None),
+    #         "Bool": bool,
+    #         "Int": int,
+    #         "Float":  float,
+    #         "String": str,
+    #         "List": list,
+    #         "Dict": dict,
+    #         "Set": set,
+    #         "Bytes": bytes,
+    #     }
 
-        if vt._d['type_name'] in {"Int", "Float", "Bool"}:
-            python_type = vt_name_to_python_type[vt._d['type_name']]
-            try:
-                return isinstance(el, python_type) or python_type(el) == el
-            except:
-                return False
+    #     # if vt._d['type_name'] in {"Int", "Float", "Bool"}:
+    #     #     python_type = vt_name_to_python_type[vt._d['type_name']]
+    #     #     try:
+    #     #         return isinstance(el, python_type) or python_type(el) == el
+    #     #     except:
+    #     #         return False
 
-        if vt._d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
-        python_type = vt_name_to_python_type[vt._d['type_name']]
-        return isinstance(el, python_type)
+    #     if vt._d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
+    #     python_type = vt_name_to_python_type[vt._d['type_name']]
+    #     return isinstance(el, python_type)
     
 
     if isinstance(typ, ValueType):

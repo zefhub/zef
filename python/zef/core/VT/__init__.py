@@ -200,16 +200,24 @@ HasValue       = ValueType_(type_name='HasValue',            constructor_func=No
 SameAs         = ValueType_(type_name='SameAs',                                                 get_item_func = same_as_get_item)
 
 
-Nil        = ValueType_(type_name='Nil',        constructor_func=None, is_a_func=lambda x,typ: x is None)
+def numeric_is_a(x, typ):
+    from .value_type import _value_type_pytypes
+    python_type = _value_type_pytypes[typ._d['type_name']]
+    try:
+        return isinstance(x, python_type) or python_type(x) == x
+    except:
+        return False
+
+Nil        = ValueType_(type_name='Nil',        constructor_func=None, pytype=type(None))
 Any        = ValueType_(type_name='Any',        constructor_func=None, is_a_func=lambda x,typ: True, is_subtype_func=lambda x,typ: True)
-Bool       = ValueType_(type_name='Bool',       constructor_func=None, pytype=bool)
-Int        = ValueType_(type_name='Int',        constructor_func=None, pytype=int)
-Float      = ValueType_(type_name='Float',      constructor_func=None, pytype=float)
+Bool       = ValueType_(type_name='Bool',       constructor_func=None, pytype=bool, is_a_func=numeric_is_a)
+Int        = ValueType_(type_name='Int',        constructor_func=None, pytype=int, is_a_func=numeric_is_a)
+Float      = ValueType_(type_name='Float',      constructor_func=None, pytype=float, is_a_func=numeric_is_a)
 String     = ValueType_(type_name='String',     constructor_func=None, pytype=str)
-Bytes      = ValueType_(type_name='Bytes',      constructor_func=bytes_ctor)
+Bytes      = ValueType_(type_name='Bytes',      constructor_func=bytes_ctor, pytype=bytes)
 Decimal    = ValueType_(type_name='Decimal',    constructor_func=decimal_ctor)
 # TODO: Change this to a proper isa
-List       = ValueType_(type_name='List',       constructor_func=tuple, pytype=list)
+List       = ValueType_(type_name='List',       constructor_func=tuple, is_a_func=lambda x,typ: isinstance(x, (tuple, list)))
 Dict       = ValueType_(type_name='Dict',       constructor_func=None, pytype=dict)
 Set        = ValueType_(type_name='Set',        constructor_func=None, pytype=set)
 EZefRef    = ValueType_(type_name='EZefRef',    constructor_func=None, pytype=pyzef.main.EZefRef)
@@ -274,6 +282,7 @@ DataFrame  = ValueType_(type_name='DataFrame',  constructor_func=None)
 # EZefRefss  = ValueType_(type_name='EZefRefss', constructor_func=None)
 # ZefRefs    = ValueType_(type_name='ZefRefs', constructor_func=None)
 # ZefRefss   = ValueType_(type_name='ZefRefss', constructor_func=None)
+Val        = ValueType_(type_name='Val',        constructor_func=None, pytype=internals.Val)
 
 
 

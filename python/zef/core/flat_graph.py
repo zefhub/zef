@@ -18,9 +18,9 @@ from dataclasses import dataclass
 from . import VT
 
 
-@dataclass
-class Val:
-    arg: VT.Any
+# @dataclass
+# class Val:
+#     arg: VT.Any
 
 class FlatGraph_:
     """

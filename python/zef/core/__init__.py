@@ -83,7 +83,7 @@ from .units import unit
 from .graph_slice import GraphSlice
 
 
-from .flat_graph import FlatGraph_, FlatRef, FlatRefs, Val
+from .flat_graph import FlatGraph_, FlatRef, FlatRefs
 
 # TODO: import the other ValueTypes here and implement constructor by forwarding args
 # from .VT import (

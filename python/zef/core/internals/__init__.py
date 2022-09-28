@@ -200,6 +200,8 @@ def assign_value_imp(z, value):
     from ...pyzef.zefops import SerializedValue, assign_value as c_assign_value
     from ..VT import ValueType_, AET
     from .. import VT
+    from .rel_ent_classes import AET as internal_AET
+    from ..graph_delta import scalar_types
 
     assert isinstance(z, ZefRef) or isinstance(z, EZefRef)
 
@@ -209,10 +211,13 @@ def assign_value_imp(z, value):
         print(z)
         raise Exception("E/ZefRef is not an AET!")
     aet = VT.AET(z)
-    if (not aet._d["specific"].complex_value) and is_a(z, VT.AET.Serialized):
-        value = SerializedValue.serialize(value)
+    if isinstance(value, VT.AET):
+        value = get_token(value)
     if isinstance(value, ValueType_):
-        value = VT.AET[value]
+        value = internal_AET[value]
+
+    if not isinstance(value, scalar_types):
+        value = SerializedValue.serialize(value)
     c_assign_value(z, value)
 
 
@@ -224,12 +229,36 @@ def instantiate_value_node_imp(value, g):
     from .. import VT
     from ..graph_delta import scalar_types
 
-    if isinstance(value, ValueType_):
-        value = VT.AET[value]
-    elif type(value) not in scalar_types:
+    from .rel_ent_classes import AET as internal_AET
+    if isinstance(value, VT.AET):
+        value = get_token(value)
+    elif isinstance(value, ValueType_):
+        value = internal_AET[value]
+
+    if not isinstance(value, scalar_types):
         value = SerializedValue.serialize(value)
     return c_instantiate_value_node(value, g)
 
 
 def get_token(x):
-    return x._d["specific"]
+    token = x._d["specific"]
+    from ..VT import ValueType
+    if isinstance(token, ValueType):
+        from .rel_ent_classes import AET as internal_AET
+        return internal_AET[token]
+    return token
+
+
+from dataclasses import dataclass
+@dataclass(frozen=True)
+class Val:
+    # arg: VT.Any
+    arg: int
+    iid: str = None
+
+    def __getitem__(self, x):
+        if self.iid is not None:
+            raise Exception("Can't overwrite iid")
+        return Val(self.arg, x)
+            
+        

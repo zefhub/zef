@@ -138,7 +138,7 @@ class AttributeEntity:
             return x
         elif isinstance(x, dict):
             assert 'type' in x and 'uid' in x
-            assert type(x['type']) == AttributeEntityType
+            assert issubclass(x['type'], AET)
             x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
@@ -182,7 +182,7 @@ class Relation:
             return x
         elif isinstance(x, dict):
             assert 'type' in x and 'uids' in x
-            assert type(x['type']) == tuple and len(x['type']) == 3 and type(x['type'][1]) == RelationType
+            assert type(x['type']) == tuple and len(x['type']) == 3 and issubclass(x['type'][1], RT)
             assert type(x['uids']) == tuple and len(x['uids']) == 3 
             x['absorbed'] = x.get('absorbed', ())
             self.d = x

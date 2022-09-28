@@ -376,3 +376,11 @@ def AttributeEntityType_repr(self):
         s += ''.join(('[' + repr(el) + ']' for el in self._absorbed))
     return s
 AttributeEntityType.__repr__ = AttributeEntityType_repr
+
+original_AttributeEntityType__str__ = internals.AttributeEntityType.__str__
+def AttributeEntityType_str(self):
+    if self.complex_value:
+        return "COMPLEX(" + str(self.complex_value.deserialize()) + ")"
+    else:
+        return str(self.rep_type)
+AttributeEntityType.__str__ = AttributeEntityType_str

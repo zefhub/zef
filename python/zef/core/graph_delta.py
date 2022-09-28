@@ -277,9 +277,9 @@ def obtain_ids(x) -> dict:
     elif isinstance(x, (ZefRef, EZefRef)):
         ids = {origin_uid(x): x}
 
-    elif type(x) == TaggedVal:
+    elif isinstance(x, Val):
         if x.iid is not None:
-            ids = {x.iid: x.primitive}
+            ids = {x.iid: x.arg}
 
 
     # This is an extra step on top of the previous checks
@@ -386,7 +386,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif type(x) in [Entity, AttributeEntity, Relation]:
         return
 
-    elif type(x) in [Val, TaggedVal]:
+    elif isinstance(x, Val):
         return
 
     else:
@@ -519,6 +519,7 @@ def dispatch_cmds_for(expr, gen_id):
         (Tuple | List, always[P(cmds_for_tuple, gen_id=gen_id)]),
         (Dict, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
         (ZefRef | EZefRef, always[cmds_for_mergable]),
+        (Val, always[cmds_for_value_node]),
         (Any, Error()),
     ])
     if is_a(func, Error):
@@ -544,15 +545,13 @@ def cmds_for_initial_Z(expr):
     return (expr,), ()
 
 def cmds_for_value_node(x):
-    from . import Val
-    if type(x) == Val:
-        x = TaggedVal(x.arg, None)
-
-    cmd = {'cmd': 'instantiate_value_node',
-           'value': x.primitive}
+    cmd = {'cmd': 'instantiate_value_node'}
     
     if x.iid is not None:
         cmd['internal_id'] = x.iid
+
+    val = x.arg
+    cmd['value'] = val
         
     return (), [cmd]
 
@@ -649,10 +648,12 @@ def cmds_for_lv_assign(x, gen_id: Callable):
     cmd = {'cmd': 'assign', 'explicit': True, "internal_id": iid}
 
     val = LazyValue(op) | absorbed | single | collect
-    if type(val) == Val:
-        cmd['value'] = TaggedVal(val.arg, None).primitive
-    else:
-        cmd['value'] = val
+    if isinstance(val, Val):
+        val = val.arg
+    elif isinstance(val, (ZefRef | EZefRef) & BT.VALUE_NODE):
+        val = value(val)
+
+    cmd['value'] = val
 
     return exprs, [cmd]
 
@@ -898,9 +899,13 @@ def realise_single_node(x, gen_id):
     elif type(x) in [Entity, AttributeEntity, Relation, TXNode, Root]:
         exprs = [x]
         iid = origin_uid(x)
-    elif type(x) == Val:
-        iid = gen_id()
-        exprs = [TaggedVal(x.arg, iid)]
+    elif isinstance(x, Val):
+        if x.iid is None:
+            iid = gen_id()
+            exprs = [x[iid]]
+        else:
+            iid = x.iid
+            exprs = [x]
     elif isinstance(x, shorthand_scalar_types):
         iid = gen_id()
         aet = map_scalar_to_aet_type(x)
@@ -1302,13 +1307,18 @@ def perform_transaction_commands(commands: list, g: Graph):
                 
                 # print(f"{i}/{len(g_delta.commands)}: {g.graph_data.write_head * 16 / 1024 / 1024} MB")
                 if cmd['cmd'] == 'instantiate' and (is_a(cmd['rae_type'], ET) or is_a(cmd['rae_type'], AET)):
-                    zz = instantiate(cmd['rae_type']._d["specific"], g)
+                    maybe_token = cmd['rae_type']._d["specific"]
+                    if isinstance(maybe_token, ValueType):
+                        zz = instantiate(internals.AET[maybe_token], g)
+                    else:
+                        zz = instantiate(maybe_token, g)
                 
                 elif cmd['cmd'] == 'instantiate' and is_a(cmd['rae_type'], RT):
                     zz = instantiate(to_ezefref(d_raes[cmd['source']]), cmd['rae_type']._d["specific"], to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
                 
                 elif cmd['cmd'] == 'instantiate_value_node':
-                    zz = instantiate_value_node_imp(cmd['value'], g)
+                    val = cmd['value']
+                    zz = instantiate_value_node_imp(val, g)
                 
                 elif cmd['cmd'] == 'assign':
                     this_id = cmd['internal_id']
@@ -1495,16 +1505,7 @@ def perform_transaction_commands(commands: list, g: Graph):
 # * General utils
 #------------------------------
 
-class TaggedVal:
-    def __init__(self, arg, iid):
-        if isinstance(arg, scalar_types):
-            self.primitive = arg
-        else:
-            self.primitive = SerializedValue.serialize(arg)
-        self.iid = iid
-
-
-scalar_types = (int, float, bool, str, Time, QuantityFloat, QuantityInt, Enum, SerializedValue)
+scalar_types = (int, float, bool, str, Time, QuantityFloat, QuantityInt, Enum, SerializedValue, EntityTypeToken, AttributeEntityTypeToken, RelationTypeToken)
 shorthand_scalar_types = (int, float, bool, str, Time, QuantityFloat, QuantityInt, Enum, SerializedValue)
 
 def make_enum_aet(x):

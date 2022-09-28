@@ -19,13 +19,14 @@ from zef.ops import *
 
 class MyTestCase(unittest.TestCase):
     def test_do_not_show_terminated_relents_in_Transaction(self):
+        from zef.core.internals import get_token
         g = Graph()
         with Transaction(g) as ctx: 
-            m1 = instantiate(ET.Machine, g)
-            m2 = instantiate(ET.Machine, g)
-            m3 = instantiate(ET.Machine, g)
+            m1 = instantiate(get_token(ET.Machine), g)
+            m2 = instantiate(get_token(ET.Machine), g)
+            m3 = instantiate(get_token(ET.Machine), g)
         terminate(m2) | g | run
-        m4 = instantiate(ET.Machine, g)
+        m4 = instantiate(get_token(ET.Machine), g)
 
         self.assertEqual(m4 | frame | collect, g | now | collect)
         ts4 = m4 | frame | graph_slice_index | collect
