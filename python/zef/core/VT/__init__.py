@@ -163,7 +163,33 @@ def intersection_is_a(val, typ):
     return all(is_a_(val, subtyp) for subtyp in typ._d["absorbed"])
 
 
-Pattern        = ValueType_(type_name='Pattern',             constructor_func=None)
+def pattern_vt_matching(x, typ):
+    class Sentinel: pass
+    from .._ops import absorbed, single, collect
+    sentinel = Sentinel() 
+    p = typ | absorbed | single | collect
+    assert (
+        (isinstance(x, Dict) and isinstance(p, Dict)) or
+        (type(x) in {list, tuple} and type(p) in {list, tuple}) 
+    )
+    if isinstance(x, Dict):
+        for k, v in p.items():            
+            r = x.get(k, sentinel)
+            if r is sentinel: return False
+            if not isinstance(v, ValueType): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
+            if not isinstance(r, v): return False  
+        return True
+    elif isinstance(x, list) or isinstance(x, tuple):
+        for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
+            if not isinstance(p_e, ValueType):
+                raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")
+            if not isinstance(x_e, p_e): return False  
+        return True
+
+    raise NotImplementedError(f"Pattern ValueType isn't implemented for {x}")
+
+
+Pattern        = ValueType_(type_name='Pattern',             constructor_func=None, is_a_func=pattern_vt_matching)
 Union          = ValueType_(type_name='Union',               constructor_func=None,             get_item_func=union_getitem, is_a_func=union_is_a)
 Intersection   = ValueType_(type_name='Intersection',        constructor_func=None,             get_item_func=intersection_getitem, is_a_func=intersection_is_a)
 Is             = ValueType_(type_name='Is',                  constructor_func=None,             get_item_func=is_getitem, is_a_func=is_is_a)

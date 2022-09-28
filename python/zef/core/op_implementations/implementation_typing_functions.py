@@ -6475,16 +6475,16 @@ def is_a_implementation(x, typ):
     return isinstance(x, typ)
 
     from ..error import _ErrorType
-    def union_matching(el, union):
-        for t in union._d['absorbed']: 
-            if is_a(el, t): 
-                return True
-        return False
+    # def union_matching(el, union):
+    #     for t in union._d['absorbed']: 
+    #         if is_a(el, t): 
+    #             return True
+    #     return False
 
-    def intersection_matching(el, intersection):
-        for t in intersection._d['absorbed']: 
-            if not is_a(el, t): return False
-        return True
+    # def intersection_matching(el, intersection):
+    #     for t in intersection._d['absorbed']: 
+    #         if not is_a(el, t): return False
+    #     return True
 
     # def is_matching(el, setof):
     #     from typing import Callable
@@ -6535,35 +6535,35 @@ def is_a_implementation(x, typ):
 
 
 
-    def set_of_matching(el, setof):
-        from typing import Callable
-        for set_el in setof._d['absorbed'][0]: 
-            if set_el == el: return True
-        return False
+    # def set_of_matching(el, setof):
+    #     from typing import Callable
+    #     for set_el in setof._d['absorbed'][0]: 
+    #         if set_el == el: return True
+    #     return False
     
-    def pattern_vt_matching(x, typ):
-        class Sentinel: pass
-        sentinel = Sentinel() 
-        p = typ | absorbed | single | collect
-        assert (
-            (isinstance(x, Dict) and isinstance(p, Dict)) or
-            (type(x) in {list, tuple} and type(p) in {list, tuple}) 
-        )
-        if isinstance(x, Dict):
-            for k, v in p.items():            
-                r = x.get(k, sentinel)
-                if r is sentinel: return False
-                if not isinstance(v, ValueType): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
-                if not is_a(r, v): return False  
-            return True
-        elif isinstance(x, list) or isinstance(x, tuple):
-            for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
-                if type(p_e) not in {ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct}:
-                    raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")
-                if not is_a(x_e, p_e): return False  
-            return True
+    # def pattern_vt_matching(x, typ):
+    #     class Sentinel: pass
+    #     sentinel = Sentinel() 
+    #     p = typ | absorbed | single | collect
+    #     assert (
+    #         (isinstance(x, Dict) and isinstance(p, Dict)) or
+    #         (type(x) in {list, tuple} and type(p) in {list, tuple}) 
+    #     )
+    #     if isinstance(x, Dict):
+    #         for k, v in p.items():            
+    #             r = x.get(k, sentinel)
+    #             if r is sentinel: return False
+    #             if not isinstance(v, ValueType): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
+    #             if not is_a(r, v): return False  
+    #         return True
+    #     elif isinstance(x, list) or isinstance(x, tuple):
+    #         for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
+    #             if type(p_e) not in {ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct}:
+    #                 raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")
+    #             if not is_a(x_e, p_e): return False  
+    #         return True
         
-        raise NotImplementedError(f"Pattern ValueType isn't implemented for {x}")
+    #     raise NotImplementedError(f"Pattern ValueType isn't implemented for {x}")
 
 
     def list_matching(x, tp):
