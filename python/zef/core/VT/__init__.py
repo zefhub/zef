@@ -163,7 +163,6 @@ def intersection_is_a(val, typ):
     return all(is_a_(val, subtyp) for subtyp in typ._d["absorbed"])
 
 
-
 Pattern        = ValueType_(type_name='Pattern',             constructor_func=None)
 Union          = ValueType_(type_name='Union',               constructor_func=None,             get_item_func=union_getitem, is_a_func=union_is_a)
 Intersection   = ValueType_(type_name='Intersection',        constructor_func=None,             get_item_func=intersection_getitem, is_a_func=intersection_is_a)
@@ -205,6 +204,19 @@ T          = ValueType_(type_name='T',  constructor_func=None)
 T1         = ValueType_(type_name='T1',  constructor_func=None)
 T2         = ValueType_(type_name='T2',  constructor_func=None)
 T3         = ValueType_(type_name='T3',  constructor_func=None)
+
+
+def delegate_is_a(val, typ):
+    # TODO Need to make some tricky decisions here
+    # For now, any abstract delegate + any delegate zefref counts
+    if isinstance(val, AbstractDelegate):
+        return True
+    if isinstance(val, (ZefRef, EZefRef)):
+        return internals.is_delegate(val)
+    return False
+
+AbstractDelegate = ValueType_(type_name='AbstractDelegate', constructor_func=None, pytype=pyzef.internals.Delegate)
+Delegate         = ValueType_(type_name='Delegate',   constructor_func=None, is_a_func=delegate_is_a)
 
 
 # QuantityInt= ValueType_(type_name='QuantityInt',constructor_func=None)

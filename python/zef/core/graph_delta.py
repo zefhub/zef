@@ -487,9 +487,6 @@ def dispatch_cmds_for(expr, gen_id):
             return cmds_for_initial_Z(expr)
 
         raise RuntimeError(f'We should not have landed here, with expr={expr}')
-    if is_a(expr, Delegate):
-        return cmds_for_delegate(expr)
-
 
 
     # d_dispatch = {
@@ -517,6 +514,7 @@ def dispatch_cmds_for(expr, gen_id):
     # func = d_dispatch[type(expr)]
 
     func = match(expr, [
+        (Delegate, always[cmds_for_delegate]),
         (ValueType & (ET | AET), always[cmds_for_instantiable]),
         (Tuple | List, always[P(cmds_for_tuple, gen_id=gen_id)]),
         (Dict, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
@@ -713,9 +711,10 @@ def cmds_for_delegate(x):
     if a_id is not None:
         internal_ids += [a_id]
 
+    # The to_delegate below takes care of whether x is an AbstractDelegate or a ZefRef
     return (), [{
         'cmd': 'merge', 
-        'origin_rae': x,
+        'origin_rae': to_delegate(x),
         'internal_ids': internal_ids,
         }]
 
@@ -1633,7 +1632,9 @@ def get_absorbed_id(obj):
     # if is_a(obj, RT) or is_a(obj, ZefOp):
     #     obj = LazyValue(obj)
     # if isinstance(obj, (ET, RT, AET)):
-    if isinstance(obj, ValueType) and issubclass(obj, (ET, RT, AET)):
+    if isinstance(obj, AbstractDelegate):
+        return None
+    elif isinstance(obj, ValueType) and issubclass(obj, (ET, RT, AET)):
         return obj._d.get("internal_id", None)
     else:
         return LazyValue(obj) | absorbed | single_or[None] | collect

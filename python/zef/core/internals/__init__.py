@@ -32,6 +32,7 @@ from ...pyzef.internals import (
     BaseUID,
     BlobType,
     BlobTypeStruct,
+    Delegate,
     EntityTypeStruct,
     EternalUID,
     FinishTransaction,

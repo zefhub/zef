@@ -5781,7 +5781,7 @@ def to_delegate_implementation(first_arg, *curried_args):
 
     """
 
-    if isinstance(first_arg, Delegate):
+    if isinstance(first_arg, AbstractDelegate):
         if len(curried_args) == 0:
             return first_arg
         if len(curried_args) == 1:
@@ -5806,9 +5806,9 @@ def to_delegate_type_info(op, curr_type):
 def attempt_to_delegate(args):
     if isinstance(args, tuple):
         assert len(args) == 3
-        return Delegate(Delegate(args[0]._d["specific"]), args[1]._d["specific"], Delegate(args[2]._d["specific"]))
+        return internals.Delegate(internals.Delegate(args[0]._d["specific"]), args[1]._d["specific"], internals.Delegate(args[2]._d["specific"]))
     else:
-        return Delegate(args._d["specific"])
+        return internals.Delegate(args._d["specific"])
 
 def delegate_of_implementation(x, arg1=None, arg2=None):
     """
