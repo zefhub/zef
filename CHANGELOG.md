@@ -1,4 +1,4 @@
-pyzef-0.15.9
+pyzef-0.16.0
 ============
 
 New features:
