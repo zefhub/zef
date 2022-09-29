@@ -44,7 +44,7 @@ def attempt_to_delegate(args):
         return DelegateRef(DelegateRef(args[0]), args[1], DelegateRef(args[2]))
     else:
         args = args._d["specific"] if isinstance(args, ValueType) else args
-        return Delegate(args)
+        return DelegateRef(args)
 
 def delegate_of_imp(x, arg1=None, arg2=None):
     # TODO: Move implementation

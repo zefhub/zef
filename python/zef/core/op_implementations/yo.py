@@ -322,7 +322,7 @@ def timeline_view(zr_or_uzr) -> str:
     def add_directed_rt_to_list(edges, direction: str) -> None:
         for e in edges:
             all_edges.append((e, direction, "Instantiated"))
-            if e | termination_tx | BT | collect == BT.TX_EVENT_NODE:
+            if e | termination_tx | is_a[BT.TX_EVENT_NODE] | collect:
                 all_edges.append((e, direction, "Terminated"))
 
     # Returns the time of the a transaction depending on the BT type and the edge_state.
