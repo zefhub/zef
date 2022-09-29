@@ -31,8 +31,17 @@ Improvements:
 
 - Improvements to many ZefOps.
 
-- More flexible updating process, allowing concurrent processing.
+- More flexible graph update process, allowing concurrent processing.
 
+- Compact view for `graphviz` as default.
+
+- Many improvements to FlatGraphs
+
+Breaking changes:
+-----------------
+
+- We have removed Windows support for this release. We are aiming to reintroduce
+  it for the next release.
 
 
 pyzef-0.15.8
