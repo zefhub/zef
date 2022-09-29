@@ -12,13 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.graph_slice")
+
+
 from ._core import *
-from ._ops import *
 from .abstract_raes import *
 from .internals import EternalUID
 
 class GraphSlice_:
     def __init__(self, *args):
+        # TODO: Temp imports, going to move op definitions around
+        from ._ops import to_ezefref
         """
         Construct a GraphSlice, aka reference frame.
 
@@ -64,8 +69,8 @@ class GraphSlice_:
         
         
     def __repr__(self):
-        from .op_implementations.implementation_typing_functions import graph_slice_index_imp
-        return f"GraphSlice(graph_uid='{str(uid(Graph(self.tx)))}', index={graph_slice_index_imp(self)})"
+        from ._ops import uid, graph_slice_index
+        return f"GraphSlice(graph_uid='{str(uid(Graph(self.tx)))}', index={graph_slice_index(self)})"
 
     def __eq__(self, other):        
         return (
@@ -84,6 +89,8 @@ class GraphSlice_:
         return hash(self.tx)
 
     def __getitem__(self, thing):
+        from ._ops import in_frame, uid, collect
+        
         g = Graph(self.tx)
         ezr = g[thing]
         # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
@@ -98,6 +105,8 @@ class GraphSlice_:
             return ezr | in_frame[GraphSlice(self.tx)] | collect
 
     def __contains__(self, thing):
+        from ._ops import exists_at, uid, collect
+
         if type(thing) in [Entity, AttributeEntity, Relation]:
             return get_instance_rae(uid(thing), self) is not None
 
@@ -107,6 +116,9 @@ class GraphSlice_:
         z = g[thing]
 
         return z | exists_at[GraphSlice(self.tx)] | collect
+
+from .VT import make_VT
+GraphSlice = make_VT("GraphSlice", pytype=GraphSlice_)
 
 
 def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
@@ -141,7 +153,3 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
         return zz
     else:
         raise RuntimeError("Unexpected option in get_instance_rae")
-        
-
-from .VT import value_type
-value_type._value_type_pytypes["GraphSlice"] = GraphSlice_

@@ -13,13 +13,12 @@
 # limitations under the License.
 
 from .fx_types import Effect
-from ..VT import Error
+from ..VT import Error, Image
 import yaml 
 import json 
 import toml
-import  pandas as pd
+import pandas as pd
 import io
-from ..image import Image
 
 #TODO Docstring!
 

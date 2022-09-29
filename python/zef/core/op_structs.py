@@ -13,6 +13,10 @@
 # limitations under the License.
 
 #%%
+
+from .. import report_import
+report_import("zef.core.op_structs")
+
 """ 
 Until we have flat graphs, we represent zefops as tuples of tuples.
 The outer dimensio represents the data flow direction.
@@ -177,6 +181,7 @@ from types import LambdaType
 from typing import Generator, Iterable, Iterator
 from ._core import *
 from .VT import *
+from .VT import make_VT
 from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
@@ -218,20 +223,17 @@ def is_python_scalar_type(o):
     return type(o) in {str, bytes, int, bool, float, type(None)}
 
 def is_supported_value(o):
-    from .VT import ValueType_
     from . import  GraphSlice
     from types import GeneratorType
     from . import Image
-    from .error import _ErrorType
     from ..pyzef.main import Keyword
-    from ..core.bytes import Bytes_
     from types import ModuleType
     if is_python_scalar_type(o): return True
-    if type(o) in {set, range, GeneratorType, list, tuple, dict, ValueType_, GraphSlice, Time, Image, Bytes_, _ErrorType, Keyword, ModuleType}: return True
+    if isinstance(o, (set, range, GeneratorType, list, tuple, dict, ValueType, GraphSlice, Time, Image, Bytes, Error, Keyword, ModuleType)): return True
     return False
 
 def is_supported_zef_value(o):
-    from .abstract_raes import Entity, Relation, AttributeEntity
+    from .VT import Entity, Relation, AttributeEntity
     if isinstance(o, (BaseUID, EternalUID, ZefRefUID, Enum, ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice)): return True
     return False
 
@@ -264,7 +266,7 @@ class Evaluating:
         return "evaluating"
 evaluating = Evaluating()
 
-class ZefOp:    
+class ZefOp_:    
     def __init__(self, el_ops: tuple):
         if isinstance(el_ops, tuple):
             self.el_ops = el_ops
@@ -458,6 +460,27 @@ class ZefOp:
         if isinstance(res, CollectingOp):
             raise Exception(f"ZefOp call didn't evaluate! {res}")
         return res
+
+    def __instancecheck__(self, other):
+        if not isinstance(other, ZefOp):
+            return False
+
+        if len(other.el_ops) != 1 or len(self.el_ops) != 1:
+            raise Exception("Not allowed to use ZefOp as a type directly, if it is a chain. Use a Pattern instead (implementation coming soon)")
+        if len(self.el_ops[0][1]) > 0:
+            raise Exception("Not allowed to use ZefOp as a type directly, if it has any curried arguments. Use a Pattern instead (implementation coming soon)")
+        if other.el_ops[0][0] != self.el_ops[0][0]: return False        
+        # This more complicated logic should fall under "Pattern" now. For example, what should:
+        # isinstance(some_op[3], some_op[Int])
+        # return? Is Int a type here, or a value?
+        # # compare the elements curried into the operator. Recursively use this subtyping function
+        # if len(self.el_ops[0][1]) > len(other.el_ops[0][1]): return False
+        # for el_other, el_self in zip(other.el_ops[0][1], self.el_ops[0][1]):
+        #     if not isinstance(el_other, el_self): return False        
+        # return True
+        return True
+        
+ZefOp = make_VT("ZefOp", pytype=ZefOp_)
 
 class CollectingOp:
     def __init__(self, other: ZefOp):
@@ -941,8 +964,7 @@ class LazyValue:
             except Exception as e:
                 raise RuntimeError(f"An Exception occured while evaluating '{self.initial_val} | {ZefOp(self.el_ops.el_ops)}'.\nThe exception occured while calling {op[0]} with ({curr_value,  *op[1]}). The exception was {e}") from e
             
-            from .error import _ErrorType
-            if isinstance(curr_value, _ErrorType): raise RuntimeError(f"The evaluation engine returned an Error from '{ZefOp((op,))}'.\nThe error was {curr_value}")
+            if isinstance(curr_value, Error): raise RuntimeError(f"The evaluation engine returned an Error from '{ZefOp((op,))}'.\nThe error was {curr_value}")
             
             # if not primary_type_info: 
             #     curr_type, curr_value = find_type_of_current_value(curr_value)

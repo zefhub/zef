@@ -72,38 +72,6 @@ def verify_zef_list(z_list: ZefRef):
 
 
 
-class ZefGenerator:
-    """
-    A class that acts as a uniform interface instead of Python's
-    builtin generator. Defining a regular generator using yield
-    in Python does not always obey value semantics. It still keeps
-    state when iterated over.
-    
-    Example:
-    >>> def repeat(x, n=None):    
-    >>>  def make_wrapper():
-    >>>      if n is None:
-    >>>          while True:
-    >>>              yield x
-    >>>      else:
-    >>>             for _ in range(n):
-    >>>                 yield x
-    >>>  
-    >>>     return ZefGenerator(make_wrapper)
-
-    Returning `wrapper()` directly is equivalent to the class
-    where `__iter__` returns self, thus maintaining state from
-    previous iterations.
-    """
-    def __init__(self, generator_fct):
-        self.generator_fct = generator_fct
-
-    def __iter__(self):
-        return self.generator_fct()
-
-
-
-
 
 ####################################################
 # * TEMPLATE FOR DOCSTRINGS
@@ -5219,7 +5187,7 @@ def time_travel_tp(x, p):
 
 def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
-    if type(z) in [Entity, AttributeEntity, Relation, TXNode, Root]:
+    if isinstance(z, (Entity, AttributeEntity, Relation, TXNode, Root)):
         return uid(z)
     assert BT(z) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
@@ -6381,9 +6349,9 @@ def termination_tx_implementation(z):
 def uid_implementation(arg):
     if isinstance(arg, String):
         return to_uid(arg)
-    if isinstance(arg, (Entity, AttributeEntity, TXNode, Root)):
+    if isinstance(arg, (EntityRef, AttributeEntityRef, TXNode, Root)):
         return arg.d["uid"]
-    if isinstance(arg, Relation):
+    if isinstance(arg, RelationRef):
         return arg.d["uids"][1]
     if is_a(arg, UID):
         return arg
@@ -6555,50 +6523,17 @@ def is_a_implementation(x, typ):
     """
 
     """
+    # To handle user passing by int instead of Int by mistake
+    if typ in [int, float, bool]:
+        py_type_to_vt = {
+            bool: Bool,
+            int: Int,
+            float: Float
+        }
+        print(f"{repr(typ)} was passed as a type, but what you meant was { py_type_to_vt[typ]}!")
+        return is_a(x, py_type_to_vt[typ])
 
-    if type(typ) == ValueType_:
-        return is_a_(x, typ)
-
-    if isinstance(typ, ZefOp):
-        if not isinstance(x, ZefOp):
-            return False
-
-        if len(x.el_ops) != 1 or len(typ.el_ops) != 1: return False
-        if x.el_ops[0][0] != typ.el_ops[0][0]: return False        
-        # compare the elements curried into the operator. Recursively use this subtyping function
-        if len(typ.el_ops[0][1]) > len(x.el_ops[0][1]): return False
-        for el_x, el_typ in zip(x.el_ops[0][1], typ.el_ops[0][1]):
-            if not is_a(el_x, el_typ): return False        
-        return True
-        
-    # Fallback
     return isinstance(x, typ)
-
-    from ..error import _ErrorType
-    # def union_matching(el, union):
-    #     for t in union._d['absorbed']: 
-    #         if is_a(el, t): 
-    #             return True
-    #     return False
-
-    # def intersection_matching(el, intersection):
-    #     for t in intersection._d['absorbed']: 
-    #         if not is_a(el, t): return False
-    #     return True
-
-    # def is_matching(el, setof):
-    #     from typing import Callable
-    #     for t in setof._d['absorbed']: 
-    #         if isinstance(t, ValueType_): 
-    #             return Error.ValueError(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
-    #         elif isinstance(t, (ZefOp, Callable)):
-    #             try:
-    #                 if not t(el): return False
-    #             except:
-    #                 return False
-    #         else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
-    #     return True
-    
 
     def rp_matching(x, rp):
         triple = rp._d['absorbed'][0]
@@ -6633,147 +6568,13 @@ def is_a_implementation(x, typ):
         # If we're here, it should be a VT    
         return is_a(val, my_set)
 
-
-
-    # def set_of_matching(el, setof):
-    #     from typing import Callable
-    #     for set_el in setof._d['absorbed'][0]: 
-    #         if set_el == el: return True
-    #     return False
-    
-    # def pattern_vt_matching(x, typ):
-    #     class Sentinel: pass
-    #     sentinel = Sentinel() 
-    #     p = typ | absorbed | single | collect
-    #     assert (
-    #         (isinstance(x, Dict) and isinstance(p, Dict)) or
-    #         (type(x) in {list, tuple} and type(p) in {list, tuple}) 
-    #     )
-    #     if isinstance(x, Dict):
-    #         for k, v in p.items():            
-    #             r = x.get(k, sentinel)
-    #             if r is sentinel: return False
-    #             if not isinstance(v, ValueType): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
-    #             if not is_a(r, v): return False  
-    #         return True
-    #     elif isinstance(x, list) or isinstance(x, tuple):
-    #         for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
-    #             if type(p_e) not in {ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct}:
-    #                 raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")
-    #             if not is_a(x_e, p_e): return False  
-    #         return True
-        
-    #     raise NotImplementedError(f"Pattern ValueType isn't implemented for {x}")
-
-
-    def list_matching(x, tp):
-        import sys
-        from typing import Generator
-        if not (isinstance(x, list) or isinstance(x, tuple) or isinstance(x, (Generator, ZefGenerator))):
-            return False
-        ab = tp._d['absorbed']
-        if ab != ():
-            if isinstance(x, (Generator, ZefGenerator)):
-                raise NotImplementedError()
-            if len(ab)!=1:    # List takes only one Type argument
-                print('Something went wrong in `is_a[List[...]]`: multiple args curried into ', file=sys.stderr)
-            return x | map[is_a[ab[0]]] | all | collect
-        else:
-            return True
-
-
-    def set_matching(x, tp):
-        import sys
-        if not isinstance(x, Set):
-            return False
-        ab = tp._d['absorbed']
-        if ab != ():
-            if len(ab)!=1:    # List takes only one Type argument
-                print(f'Something went wrong in `is_a[Set[T1]]`: Set takes exactly one subtype, but got {x}', file=sys.stderr)
-            return x | map[is_a[ab[0]]] | all | collect
-        else:
-            return True
-
-
-    def dict_matching(x, tp):
-        import sys
-        if not (isinstance(x, Dict)):
-            return False
-        ab = tp._d['absorbed']
-        if ab != ():
-            if (len(ab)==1 and len(ab[0])==2):    # Dict must contain a type in one [] and that must be a pair
-                T1, T2 = ab[0]
-                return x | items | map[lambda p: is_a(p[0], T1) and is_a(p[1], T2)] | all | collect
-            else:
-                print(f'Something went wrong in `is_a[Dict[T1, T2]]`: exactly two subtypes must be given. Got {ab}', file=sys.stderr)
-                return Error('Error matching Dict[...]')
-        else:
-            return True
-
-
-
-
-    # def valuetype_matching(el, vt):
-    #     if vt == VT.Any: return True
-
-    #     # TODO: compare on actual ValueType_ along with its absorbed subtypes. 
-    #     # TODO: Extend list
-    #     vt_name_to_python_type = {
-    #         "Nil": type(None),
-    #         "Bool": bool,
-    #         "Int": int,
-    #         "Float":  float,
-    #         "String": str,
-    #         "List": list,
-    #         "Dict": dict,
-    #         "Set": set,
-    #         "Bytes": bytes,
-    #     }
-
-    #     # if vt._d['type_name'] in {"Int", "Float", "Bool"}:
-    #     #     python_type = vt_name_to_python_type[vt._d['type_name']]
-    #     #     try:
-    #     #         return isinstance(el, python_type) or python_type(el) == el
-    #     #     except:
-    #     #         return False
-
-    #     if vt._d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
-    #     python_type = vt_name_to_python_type[vt._d['type_name']]
-    #     return isinstance(el, python_type)
-    
-
     if isinstance(typ, ValueType):
-        if typ._d['type_name'] == "Union":
-            return union_matching(x, typ)
-
-        if typ._d['type_name'] == "Intersection":
-            return intersection_matching(x, typ)
-
-        if typ._d['type_name'] == "Is":
-            return is_matching(x, typ)
-
         if typ._d['type_name'] == "RP":
             return rp_matching(x, typ)
 
         if typ._d['type_name'] == "HasValue":
             return has_value_matching(x, typ)
         
-        if typ._d['type_name'] == "SetOf":
-            return set_of_matching(x, typ)
-        
-        if typ._d['type_name'] == "Complement":
-            return not is_a(x, typ._d['absorbed'][0])
-
-        if typ._d['type_name'] == "List":
-            return list_matching(x, typ)
-
-        if typ._d['type_name'] == "Set":
-            return set_matching(x, typ)
-
-        if typ._d['type_name'] == "Dict":
-            return dict_matching(x, typ)
-
-
         if typ._d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
             map_ = {"Instantiated": instantiated, "Assigned": assigned, "Terminated": terminated}
             def compare_absorbed(x, typ):
@@ -6785,35 +6586,7 @@ def is_a_implementation(x, typ):
                 return True
             return without_absorbed(x) == map_[typ._d['type_name']] and compare_absorbed(x, typ)
 
-        if typ._d['type_name'] == "Pattern":
-            return pattern_vt_matching(x, typ)
 
-        if typ._d['type_name'] == "FlatGraph":
-            from zef.core.flat_graph import FlatGraph_
-            return isinstance(x, FlatGraph_)
-
-        return valuetype_matching(x, typ)
-                    
-    # To handle user passing by int instead of Int by mistake
-    if typ in [int, float, bool]:
-        py_type_to_vt = {
-            bool: Bool,
-            int: Int,
-            float: Float
-        }
-        print(f"{repr(typ)} was passed as a type, but what you meant was { py_type_to_vt[typ]}!")
-        return is_a(x, py_type_to_vt[typ])
-
-
-    if type(x) == _ErrorType:
-        if typ == Error:
-            return True
-    if type(x) in [BaseUID, EternalUID, ZefRefUID]:
-        if is_a(typ, ZefOp) and is_a(typ, uid):
-            return True
-        if typ in [BaseUID, EternalUID, ZefRefUID]:
-            return True
-        
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         if isinstance(typ, BlobType):
             return BT(x) == typ
@@ -6836,70 +6609,6 @@ def is_a_implementation(x, typ):
             return x.enum_type == typ.__enum_type
         if isinstance(typ, ZefEnumValue):
             return x == typ
-
-    if isinstance(x, EntityType):
-        if isinstance(typ, EntityTypeStruct):
-            return True
-        if isinstance(typ, EntityType):
-            return x == typ
-        if typ == BT.RELATION_EDGE:
-            return True
-
-    if isinstance(x, RelationType):
-        if isinstance(typ, RelationTypeStruct):
-            return True
-        if isinstance(typ, RelationType):
-            return x == typ
-        if typ == BT.RELATION_EDGE:
-            return True
-
-    if isinstance(x, AttributeEntityType):
-        if isinstance(typ, AttributeEntityTypeStruct):
-            return True
-
-        if isinstance(typ, AttributeEntityType):
-            if typ.complex_value is not None:
-                raise Exception(f"Using is_a on complex AETs (got {typ}) is not yet implemented. Coming soon!")
-            if x.complex_value is not None:
-                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
-            return x == typ
-
-        if typ == AET.QuantityFloat:
-            if x.complex_value is not None:
-                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
-            return internals.is_vrt_a_quantity_float(x.rep_type)
-        if typ == AET.QuantityInt:
-            if x.complex_value is not None:
-                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
-            return internals.is_vrt_a_quantity_int(x.rep_type)
-        if typ == AET.Enum:
-            if x.complex_value is not None:
-                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
-            return internals.is_vrt_a_enum(x.rep_type)
-        if typ == BT.ATTRIBUTE_ENTITY_NODE:
-            return True
-
-    if isinstance(x, EntityTypeStruct):
-        if isinstance(typ, EntityTypeStruct):
-            return True
-
-    if isinstance(x, RelationTypeStruct):
-        if isinstance(typ, RelationTypeStruct):
-            return True
-
-    if isinstance(x, AttributeEntityTypeStruct):
-        if isinstance(typ, AttributeEntityTypeStruct):
-            return True
-        
-    # TODO CHANGE THIS TO ACCEPT ONLY PYTHON TYPES
-    if isinstance(typ, EntityTypeStruct) or isinstance(typ, RelationTypeStruct) or isinstance(x, AttributeEntityTypeStruct):
-        return False
-    try:
-        return isinstance(x, typ)
-    except TypeError:
-        return False
-
-
 
 
 
@@ -7184,7 +6893,9 @@ def terminate_type_info(op, curr_type):
 def assign_imp(z, val):
     # We need to keep the assign value as something that works in the GraphDelta
     # code. So we simply wrap everything up as a LazyValue and return that.
-    return LazyValue(z) | assign[val]
+    # return LazyValue(z) | assign[val]
+    return please_assign({"target": z,
+                          "value": val})
 
 def assign_tp(op, curr_type):
     return VT.Any

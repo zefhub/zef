@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core")
+
 ####################################
 # * Locating libzef
 #----------------------------------
@@ -59,113 +62,56 @@ from .overrides import *
 # actually provide useful exports.
 from . import internals
 from . import pure_utils
-from . import error
 from . import VT
+from . import error
+from . import generators
+from .VT import extended_containers
+from . import user_value_type
 from . import image
+from . import decimal
+from . import bytes
+# Up to here, DEFINITELY no zefops can be called
+from . import abstract_raes
+from . import graph_slice
 from . import op_structs
 from . import _ops
 from . import zef_functions
-from . import abstract_raes
 from . import graph_delta
-from . import graph_slice
 from . import flat_graph
 from . import fx
 from . import serialization
+from . import graph_events
+from . import streams
 
-# from .error import Error
+from .VT import *
 
-from .image import Image
-
-from .fx.fx_types import Effect, FX
+from .fx import FX
 
 from .units import unit
 
-from .graph_slice import GraphSlice
-
-
-from .flat_graph import FlatGraph_, FlatRef, FlatRefs
-
-# TODO: import the other ValueTypes here and implement constructor by forwarding args
-# from .VT import (
-#     TX,
-#     Nil,
-#     Any,
-#     Bool,
-#     Int,
-#     Float,
-#     String,
-#     Bytes,
-#     Decimal,
-#     List,
-#     Dict,
-#     Set,
-#     Stream,
-#     ValueType,
-#     Instantiated, 
-#     Terminated, 
-#     Assigned,
-#     FlatGraph,
-
-#     Union,
-#     Intersection,
-#     Complement,
-#     Is,
-#     SetOf,
-#     RP,
-#     HasValue,
-#     Pattern,
-#     SameAs,
-
-#     RelatedOps,
-#     UsedFor,
-#     OperatesOn
-#     )
-from .VT import *
-from .VT.value_type import ValueType_
-
-from .abstract_raes import Entity, AttributeEntity, Relation, TXNode, Root, make_custom_entity
-# TODO Move this somewhere sensible
-def is_a_custom_entity(x, typ):
-    return (type(x) == Entity and x.d["type"] == ET.ZEF_CustomEntity)
-VT.CustomEntity = ValueType_(type_name="CustomEntity", is_a_func=is_a_custom_entity)
-
 from .zef_functions import func
-
-from .op_structs import ZefOp, LazyValue
 
 from .serialization import serialize, deserialize
 
-from .user_value_type import UserValueType
+from .symbolic_expression import SV, SVs, v, unwrap_vars_hack
+
+# from .user_value_type import UserValueType
 
 # instantiating these here, since not all of the core has been
 # initialized when Python imports the abstract_raes module
 # and a circular import error occurs.
-please_instantiate = make_custom_entity(name_to_display='please_instantiate', predetermined_uid='783320c1c3de2610')
-please_terminate   = make_custom_entity(name_to_display='please_terminate', predetermined_uid='67cb88b71523f6d9')
-please_assign      = make_custom_entity(name_to_display='please_assign',    predetermined_uid='4d4a93522f75ed21')
-
-instantiated     = make_custom_entity(name_to_display='instantiated', predetermined_uid='60252a53a03086b7')
-terminated       = make_custom_entity(name_to_display='terminated', predetermined_uid='4f676154ffeb9dc8')
-assigned         = make_custom_entity(name_to_display='assigned', predetermined_uid='c31287dab677f38c')
-
-infinity           = make_custom_entity(name_to_display='infinity',    predetermined_uid='4906648460291096')
-nil                = make_custom_entity(name_to_display='nil',         predetermined_uid='1654670075329719') #| register_call_handler[f1] | run[execute] | get['entity'] | collect  # TODO
-
-def is_a_has_uid(x, typ):
-    from ._ops import uid
-    return uid(x) == typ._d["absorbed"][0]
-def early_uid(x):
-    return x.d["uid"]
-HasUID = VT.ValueType_(type_name="HasUID", is_a_func=is_a_has_uid)
-VT.Instantiated = VT.CustomEntity & HasUID[early_uid(instantiated)]
-VT.Terminated = VT.CustomEntity & HasUID[early_uid(terminated)]
-VT.Assigned = VT.CustomEntity & HasUID[early_uid(assigned)]
-
-from .VT import *
+# please_instantiate = make_custom_entity(name_to_display='please_instantiate', predetermined_uid='783320c1c3de2610')
+# please_terminate   = make_custom_entity(name_to_display='please_terminate', predetermined_uid='67cb88b71523f6d9')
+# please_assign      = make_custom_entity(name_to_display='please_assign',    predetermined_uid='4d4a93522f75ed21')
+please_instantiate = UserValueType("please_instantiate", Dict, Pattern[{"raet": ET | RT | AET}])
+please_assign = UserValueType("please_assign",
+                              Dict,
+                              # Pattern[{"target": AttributeEntity,
+                              Pattern[{"target": Any,
+                                       "value": Any}])
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
-from .symbolic_expression import SV, SVs, v, unwrap_vars_hack
 
 pyzef.internals.finished_loading_python_core()
 

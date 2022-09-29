@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.serialization")
+
 __all__ = [
     "serialize",
     "deserialize",
@@ -20,13 +23,14 @@ __all__ = [
 from ._core import *
 from .internals import BaseUID, EternalUID, ZefRefUID
 from .VT import *
+from .VT import ValueType_
 from ._ops import *
 from .op_structs import ZefOp, CollectingOp, SubscribingOp, ForEachingOp, LazyValue, Awaitable, is_python_scalar_type
-from .abstract_raes import Entity, Relation, AttributeEntity
-from .error import _ErrorType
-from .image import Image
+from .abstract_raes import Entity_, Relation_, AttributeEntity_
+from .error import Error_
+from .image import Image_
 from .fx.fx_types import FXElement, Effect
-from .flat_graph import FlatGraph_, FlatRef, FlatRefs
+from .flat_graph import FlatGraph_, FlatRef_, FlatRefs_
 from ..pyzef import internals as pyinternals
 from .symbolic_expression import SymbolicExpression_
 
@@ -229,8 +233,8 @@ def serialize_zeftypes(z) -> dict:
         absorbed_args = z.d['absorbed']
         return {"_zeftype": abstract_type, "type": type_or_types, uid_or_uids: serialize_internal(z.d[uid_or_uids]), 'absorbed': serialize_internal(absorbed_args)}
 
-    elif isinstance(z, _ErrorType):
-        return {"_zeftype": "ErrorType", "type": z.name, "args": serialize_list(z.args)}
+    elif isinstance(z, Error):
+        return {"_zeftype": "Error", "type": z.name, "args": serialize_list(z.args)}
 
     elif isinstance(z, FXElement):
         return {"_zeftype": "FXElement", "elements": [e for e in z.d]}
@@ -384,8 +388,8 @@ def deserialize_zeftypes(z) -> dict:
         absorbed_args = deserialize_internal(z['absorbed'])
         return abstract_type({'type': type_or_types, uid_or_uids: uid_or_uids_value, 'absorbed': absorbed_args})
 
-    elif z['_zeftype'] == "ErrorType":
-        return Error.__getattribute__(z['type'])(*deserialize_list(z['args']))
+    elif z['_zeftype'] == "Error":
+        return getattr(Error, z['type'])(*deserialize_list(z['args']))
 
     elif z['_zeftype'] == "Effect":
         return deserialize_dict(z['internal_dict'])
@@ -478,16 +482,16 @@ serialization_mapping[Awaitable] = serialize_zeftypes
 serialization_mapping[internals.BaseUID] = serialize_zeftypes
 serialization_mapping[internals.EternalUID] = serialize_zeftypes
 serialization_mapping[internals.ZefRefUID] = serialize_zeftypes
-serialization_mapping[Entity] = serialize_zeftypes
-serialization_mapping[Relation] = serialize_zeftypes
-serialization_mapping[AttributeEntity] = serialize_zeftypes
-serialization_mapping[_ErrorType] = serialize_zeftypes
-serialization_mapping[Image] = serialize_zeftypes
+serialization_mapping[Entity_] = serialize_zeftypes
+serialization_mapping[Relation_] = serialize_zeftypes
+serialization_mapping[AttributeEntity_] = serialize_zeftypes
+serialization_mapping[Error_] = serialize_zeftypes
+serialization_mapping[Image_] = serialize_zeftypes
 serialization_mapping[FXElement] = serialize_zeftypes
 serialization_mapping[Delegate] = serialize_delegate
 serialization_mapping[FlatGraph_] = serialize_flatgraph_or_flatref
-serialization_mapping[FlatRef] = serialize_flatgraph_or_flatref
-serialization_mapping[FlatRefs] = serialize_flatgraph_or_flatref
+serialization_mapping[FlatRef_] = serialize_flatgraph_or_flatref
+serialization_mapping[FlatRefs_] = serialize_flatgraph_or_flatref
 serialization_mapping[pyinternals.DelegateTX] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRoot] = serialize_delegate
 serialization_mapping[pyinternals.DelegateRelationTriple] = serialize_delegate
@@ -525,7 +529,7 @@ deserialization_mapping["UID"] = deserialize_zeftypes
 deserialization_mapping["Entity"] = deserialize_zeftypes
 deserialization_mapping["Relation"] = deserialize_zeftypes
 deserialization_mapping["AttributeEntity"] = deserialize_zeftypes
-deserialization_mapping["ErrorType"] = deserialize_zeftypes
+deserialization_mapping["Error"] = deserialize_zeftypes
 deserialization_mapping["Image"] = deserialize_zeftypes
 deserialization_mapping["Effect"] = deserialize_zeftypes
 deserialization_mapping["FXElement"] = deserialize_zeftypes

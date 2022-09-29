@@ -19,6 +19,13 @@ __version__ = _version.get_versions()['version']
 # * Exposing common functions
 #------------------------------------------------------
 
+import_order = []
+def report_import(x):
+    if x in import_order:
+        return
+    import_order.append(x)
+report_import("zef")
+
 # This set of imports is to define the order. Later imports are the ones to
 # actually provide useful exports.
 from . import core

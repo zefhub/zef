@@ -12,13 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-class _ErrorType():
-    def __set_name__(self, parent, name):
+from .. import report_import
+report_import("zef.core.error")
+
+class Error_():
+    def __init__(self, name):
         self.name = name
 
+    # def __set_name__(self, parent, name):
+    #     self.name = name
+
     def __call__(self, *args):
-        err = _ErrorType()
-        err.name = self.name
+        err = Error_(self.name)
         err.args = args
         return err
 
@@ -29,25 +34,45 @@ class _ErrorType():
         return f'{self.name}{args}'
 
     def __eq__(self, other):
-        if not isinstance(other, _ErrorType): return False
+        if not isinstance(other, Error_): return False
         return self.name == other.name and self.args == other.args
 
     def __bool__(self):
         return False
     
 
-class _Error:
-    TypeError    = _ErrorType()
-    RuntimeError = _ErrorType()
-    ValueError   = _ErrorType()
-    NotImplementedError = _ErrorType()
-    BasicError = _ErrorType()
+# class _Error:
+#     TypeError    = _ErrorType()
+#     RuntimeError = _ErrorType()
+#     ValueError   = _ErrorType()
+#     NotImplementedError = _ErrorType()
+#     BasicError = _ErrorType()
 
-    def __new__(cls, *args):
-        return cls.BasicError(*args)
+#     def __new__(cls, *args):
+#         return cls.BasicError(*args)
 
-    def __repr__(self):
-        return f'Error'
+#     def __repr__(self):
+#         return f'Error'
 
+predefined_errors = [
+    "TypeError",
+    "RuntimeError",
+    "ValueError",
+    "NotImplementedError",
+    "BasicError",
+]
 
+def error_dir(self):
+    return predefined_errors
+def error_getattr(self, x):
+    return Error_(x)
+def error_ctor(*args):
+    return Error.BasicError(*args)
+    
+
+from .VT import make_VT
+Error = make_VT("Error",
+                pytype=Error_,
+                attr_funcs=(error_getattr, None, error_dir),
+                constructor_func=error_ctor)
 

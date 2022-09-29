@@ -12,11 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .. import report_import
-report_import("zef.core.pure_utils")
+# These are types we wrap from external libraries that we always include in zef.
 
+from . import make_VT
 
-def get_in_pure(d, path, default_val):
-    if len(path) == 0: return d
-    if type(d) != dict: return default_val
-    return get_in_pure(d.get(path[0], default_val), path[1:], default_val)
+from pandas import DataFrame as DataFrame_
+make_VT('DataFrame', pytype=DataFrame_)

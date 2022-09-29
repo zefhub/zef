@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.graph_delta")
+
 __all__ = [
     "GraphDelta",
 ]
@@ -26,7 +29,7 @@ from .VT import *
 from ._ops import *
 from .op_structs import ZefOp, LazyValue
 from .graph_slice import GraphSlice
-from .abstract_raes import Entity, Relation, AttributeEntity, TXNode, Root
+# from .abstract_raes import Entity, Relation, AttributeEntity, TXNode, Root
 from ..pyzef.zefops import SerializedValue
 from .logger import log
 from .internals import instantiate_value_node_imp
@@ -127,12 +130,13 @@ gd_timing = "ZEFDB_GRAPH_DELTA_TIMING" in os.environ
 # * Entrypoint from user code
 #------------------------------------------------------
 def dispatch_ror_graph(g, x):
+    from . import please_assign
     from . import Effect, FX, Val
     if isinstance(x, LazyValue):
         x = collect(x)
         # Note that this could produce a new LazyValue if the input was an
         # assign_value. This is fine.
-    if any(isinstance(x, T) for T in {list, tuple, dict, ET, AET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val, EntityValueInstance}):
+    if isinstance(x, (list, tuple, dict, ET, AET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val, please_assign, EntityValueInstance)):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -266,9 +270,9 @@ def obtain_ids(x) -> dict:
             ids = merge_no_overwrite(ids, obtain_ids(k))
             ids = merge_no_overwrite(ids, obtain_ids(v))
 
-    elif isinstance(x, (Entity, AttributeEntity, Relation)):
+    elif isinstance(x, (EntityRef, AttributeEntityRef, RelationRef)):
         ids = {uid(x): x}
-        if type(x) == Relation:
+        if isinstance(x, RelationRef):
             if not is_a(x.d["type"][0], RT):
                 ids = merge_no_overwrite(ids, obtain_ids(source(x)))
             if not is_a(x.d["type"][2], RT):
@@ -308,6 +312,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     # Check each input item to a GraphDelta to validate its form. Uses
     # id_definitions to assert that references to IDs are to things that are
     # defined in the GraphDelta.
+    from . import please_assign
 
     if isinstance(x, LazyValue):
         # This is checking for an (x <= value) format
@@ -383,7 +388,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif is_a(x, Delegate):
         return
 
-    elif type(x) in [Entity, AttributeEntity, Relation]:
+    elif isinstance(x, (Entity, AttributeEntity, Relation)):
         return
 
     elif isinstance(x, Val):
@@ -392,12 +397,15 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif isinstance(x, EntityValueInstance):
         return
 
+    elif isinstance(x, please_assign):
+        return
+
     else:
         raise ValueError(f"Unexpected type passed to init list of GraphDelta: {x} of type {type(x)}")
 
 @func    
 def verify_relation_source_target(x, id_definitions):
-    if type(x) == Relation:
+    if isinstance(x, RelationRef):
         assert all(u in id_definitions for u in x.d["uids"]), "A Relation doesn't have its corresponding source or target included in the GraphDelta. This is likely because you have an abstract Relation with another Relation as its source/target. These must be included explicitly into the GraphDelta."
 
 
@@ -516,6 +524,7 @@ def dispatch_cmds_for(expr, gen_id):
     #     raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
     # func = d_dispatch[type(expr)]
 
+    from . import please_assign
     func = match(expr, [
         (Delegate, always[cmds_for_delegate]),
         (ValueType & (ET | AET), always[cmds_for_instantiable]),
@@ -524,6 +533,7 @@ def dispatch_cmds_for(expr, gen_id):
         (ZefRef | EZefRef, always[cmds_for_mergable]),
         (Val, always[cmds_for_value_node]),
         (EntityValueInstance, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
+        (please_assign, always[P(cmds_for_please_assign, gen_id=gen_id)]),
         (Any, Error()),
     ])
     if is_a(func, Error):
@@ -637,6 +647,27 @@ def cmds_for_lv_tag(x, gen_id):
            'internal_id': iid}
     return exprs, [cmd]
     
+
+def cmds_for_please_assign(x, gen_id: Callable):
+    from . import Val
+    from . import please_assign
+    assert isinstance(x, please_assign)
+
+    target = x.value["target"]
+    val = x.value["value"]
+        
+    iid,exprs = realise_single_node(target, gen_id)
+
+    cmd = {'cmd': 'assign', 'explicit': True, "internal_id": iid}
+
+    if isinstance(val, Val):
+        val = val.arg
+    elif isinstance(val, BlobPtr & BT.VALUE_NODE):
+        val = value(val)
+
+    cmd['value'] = val
+
+    return exprs, [cmd]
 
 def cmds_for_lv_assign(x, gen_id: Callable):
     from . import Val
@@ -862,15 +893,16 @@ def realise_single_node(x, gen_id):
     if isinstance(x, LazyValue):
         x = collect(x)
 
+    from . import please_assign
     # Now this is a check for whether we are an assign
     if isinstance(x, LazyValue):
         target,op = x | peel | collect
         if is_a(op, terminate) or is_a(op, tag):
             iid,exprs = realise_single_node(target, gen_id)
             exprs = [x]
-        elif is_a(op, assign):
-            iid,exprs = realise_single_node(target, gen_id)
-            exprs = exprs + [LazyValue(Z[iid]) | op]
+        # elif is_a(op, assign):
+        #     iid,exprs = realise_single_node(target, gen_id)
+        #     exprs = exprs + [LazyValue(Z[iid]) | op]
         elif is_a(op, fill_or_attach):
             # fill_or_attach behaviour is now basically set_field except when the target is not a value
             iid,exprs = realise_single_node(target, gen_id)
@@ -884,6 +916,14 @@ def realise_single_node(x, gen_id):
             exprs = exprs + [LazyValue(Z[iid]) | op]
         else:
             raise Exception(f"Don't understand LazyValue type: {op}")
+    elif isinstance(x, please_assign):
+        target = x.value["target"]
+        val = x.value["value"]
+        iid,exprs = realise_single_node(target, gen_id)
+        exprs = exprs + [please_assign({
+                "target": Z[iid],
+                "value": value,
+        })]
     elif isinstance(x, ValueType) and issubclass(x, (ET,AET)):
         a_id = get_absorbed_id(x)
         if a_id is None:

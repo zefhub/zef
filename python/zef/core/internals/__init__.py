@@ -14,6 +14,9 @@
 
 # Note: This should never depend on core at the top level!
 
+from ... import report_import
+report_import("zef.core.internals")
+
 from ...pyzef.main import (
     EntityType,
     RelationType,
@@ -255,7 +258,7 @@ def get_token(x):
 
 from dataclasses import dataclass
 @dataclass(frozen=True)
-class Val:
+class Val_:
     # arg: VT.Any
     arg: int
     iid: str = None
@@ -263,6 +266,4 @@ class Val:
     def __getitem__(self, x):
         if self.iid is not None:
             raise Exception("Can't overwrite iid")
-        return Val(self.arg, x)
-            
-        
+        return Val_(self.arg, x)

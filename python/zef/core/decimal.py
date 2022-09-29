@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.decimal")
 
 class Decimal_:
     def __init__(self, val, decimal_positions):
@@ -100,3 +102,5 @@ class Decimal_:
     def __rmul__(self, x):
         return self*x
 
+from .VT import make_VT
+make_VT('Decimal', pytype=Decimal_)

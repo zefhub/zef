@@ -13,10 +13,10 @@
 # limitations under the License.
 
 from .. import report_import
-report_import("zef.core.pure_utils")
+report_import("zef.core.streams")
 
+from .VT import make_VT
 
-def get_in_pure(d, path, default_val):
-    if len(path) == 0: return d
-    if type(d) != dict: return default_val
-    return get_in_pure(d.get(path[0], default_val), path[1:], default_val)
+# Just a stub for now
+make_VT("Stream")
+make_VT("Awaitable")
