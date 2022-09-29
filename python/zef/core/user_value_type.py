@@ -22,7 +22,7 @@ report_import("zef.core.user_value_type")
 #                           \___/ |___/ \___||_|      \_/    \__,_||_| \__,_| \___|  |_|   \__, || .__/  \___|                        
 #                                                                                          |___/ |_|                                  
 
-from .VT import String, ValueType, Dict, Any, make_VT, is_type_name_
+from .VT import String, ValueType, Dict, Any, make_VT, is_type_name_, PyDict
 
 _user_value_type_registry = {}    # append to this: keep track of all types known to this runtime
 
@@ -146,7 +146,7 @@ def UVT_is_a(x, typ):
     if "user_type_id" in typ._d:
         if not isinstance(x, UserValueInstance):
             return False
-        return x._d["user_type_id"] == typ._d["user_type_id"]
+        return x._user_type_id == typ._d["user_type_id"]
     else:
         if isinstance(x, UserValueInstance):
             # Or should this be false?
@@ -164,39 +164,41 @@ UserValueType = make_VT('UserValueType',
 class UserValueInstance_:
     def __init__(self, user_type_id, value):
         # only store the id here, not the name?
-        self.user_type_id = user_type_id
-        self.value = value
+        self._user_type_id = user_type_id
+        self._value = value
         
     def __repr__(self):
         # look up the name in the _user_value_type_registry from the id
-        type_name = _user_value_type_registry[self.user_type_id].name
-        return f"{type_name}({repr(self.value)})"
+        type_name = _user_value_type_registry[self._user_type_id]._d["name"]
+        return f"{type_name}({repr(self._value)})"
 
     def __eq__(self, other):
         if type(other) is not type(self):
             return False
-        if other.user_type_id != self.user_type_id:
+        if other._user_type_id != self._user_type_id:
             return False
-        if other.value != self.value:
+        if other._value != self._value:
             return False
         return True
 
     def __getattr__(self, other):
-        if not isinstance(self.value, dict):
+        if other.startswith("_"):
+            return object.__getattribute__(self, other)
+        if not isinstance(self._value, PyDict):
             raise AttributeError("UserValueInstance 'dot' access only works on dicts")
-        return self.value[other]
+        return self._value[other]
 
     # required to enable dict(my_user_value_type_instance)
     # fingers crossed that nobody has a field 'keys' 
     # and tries to do my_user_value_type_instance.keys
     def keys(self):
-        if not isinstance(self.value, dict):
+        if not isinstance(self.value, PyDict):
             raise AttributeError("UserValueInstance 'keys' only works on dicts")
-        return self.value.keys()
+        return self._value.keys()
 
     def __getitem__(self, key):
-        if not isinstance(self.value, dict):
+        if not isinstance(self.value, PyDict):
             raise AttributeError("UserValueInstance 'getitem' only works on dicts")
-        return self.value[key]
+        return self._value[key]
 
 UserValueInstance = make_VT('UserValueInstance', pytype=UserValueInstance_)

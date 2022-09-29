@@ -14,7 +14,7 @@
 
 
 # from .value_type import *
-from . import ValueType, make_VT
+from . import ValueType, make_VT, PyDict, PyList
 
 def make_distinct(v):
     """
@@ -27,6 +27,8 @@ def make_distinct(v):
             # we can't import the following at the top of file or even outside this if
             # block: this function executes upon import of zef and leads to 
             # circular dependencies. We do really want to use the value_hash zefop though.
+            #
+            # TODO: Move this to pure_utils
             from ..op_implementations.implementation_typing_functions import value_hash
             h = value_hash(el)
         else:
@@ -216,11 +218,13 @@ def pattern_vt_matching(x, typ):
     class Sentinel: pass
     sentinel = Sentinel() 
     p = typ._d["absorbed"][0]
+
+    # Note: by this point, we only have access to PyDict and not Dict
     assert (
-        (isinstance(x, Dict) and isinstance(p, Dict)) or
-        (isinstance(x, List) and isinstance(p, List))
+        (isinstance(x, PyDict) and isinstance(p, PyDict)) or
+        (isinstance(x, PyList) and isinstance(p, PyList))
     )
-    if isinstance(x, Dict):
+    if isinstance(x, PyDict):
         for k, v in p.items():            
             r = x.get(k, sentinel)
             if r is sentinel: return False

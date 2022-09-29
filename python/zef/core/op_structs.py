@@ -465,8 +465,10 @@ class ZefOp_:
         if not isinstance(other, ZefOp):
             return False
 
-        if len(other.el_ops) != 1 or len(self.el_ops) != 1:
+        if len(self.el_ops) != 1:
             raise Exception("Not allowed to use ZefOp as a type directly, if it is a chain. Use a Pattern instead (implementation coming soon)")
+        if len(other.el_ops) != 1:
+            return False
         if len(self.el_ops[0][1]) > 0:
             raise Exception("Not allowed to use ZefOp as a type directly, if it has any curried arguments. Use a Pattern instead (implementation coming soon)")
         if other.el_ops[0][0] != self.el_ops[0][0]: return False        

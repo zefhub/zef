@@ -135,6 +135,8 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
         ZefRef: this graph knows about this: found instance
         None: this graph knows nothing about this RAE
     """
+    # TODO: Temporary imports while ops are moving around
+    from ._ops import map, target, exists_at, filter, collect, only, in_frame, Ins
     g = Graph(gs.tx)
     if origin_uid not in g:
         return None

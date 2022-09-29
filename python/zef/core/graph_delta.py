@@ -653,8 +653,8 @@ def cmds_for_please_assign(x, gen_id: Callable):
     from . import please_assign
     assert isinstance(x, please_assign)
 
-    target = x.value["target"]
-    val = x.value["value"]
+    target = x.target
+    val = x.value
         
     iid,exprs = realise_single_node(target, gen_id)
 
@@ -917,13 +917,10 @@ def realise_single_node(x, gen_id):
         else:
             raise Exception(f"Don't understand LazyValue type: {op}")
     elif isinstance(x, please_assign):
-        target = x.value["target"]
-        val = x.value["value"]
+        target = x.target
+        val = x.value
         iid,exprs = realise_single_node(target, gen_id)
-        exprs = exprs + [please_assign({
-                "target": Z[iid],
-                "value": value,
-        })]
+        exprs = exprs + [please_assign(target=Z[iid], value=val)]
     elif isinstance(x, ValueType) and issubclass(x, (ET,AET)):
         a_id = get_absorbed_id(x)
         if a_id is None:

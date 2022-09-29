@@ -197,7 +197,7 @@ def ET_ctor(self, *args, **kwargs):
     if "specific" in self._d:
         return EntityValueInstance(self, *args, **kwargs)
     else:
-        return internals.ET(*args, **kwargs)
+        return ET[internals.ET(*args, **kwargs)]
     
 # TODO: Move this somewhere
 from ..patching import EntityValueInstance_

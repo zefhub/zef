@@ -2337,7 +2337,7 @@ def absorbed_imp(x):
     if False:
         pass
     
-    elif type(x) in {Entity, Relation, AttributeEntity}:
+    elif isinstance(x, (EntityRef, RelationRef, AttributeEntityRef)):
         return x.d['absorbed']
 
     elif isinstance(x, ZefOp):
@@ -2426,7 +2426,7 @@ def without_absorbed_imp(x):
         # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
         return ValueType_(type_name=x._d['type_name'])
 
-    elif isinstance(x, (Entity, AttributeEntity, Relation)):
+    elif isinstance(x, (EntityRef, AttributeEntityRef, RelationRef)):
         return type(x)(remove(x.d, 'absorbed'))
     return Error('Not Implemented')
 
@@ -4995,10 +4995,10 @@ def discard_frame_imp(x):
     
     """
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        if   BT(x) == BT.ENTITY_NODE: return Entity(x)
-        elif BT(x) == BT.RELATION_EDGE: return Relation(x)
-        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE: return AttributeEntity(x)
-    if isinstance(x, Entity) or isinstance(x, Relation) or isinstance(x, AttributeEntity):
+        if   BT(x) == BT.ENTITY_NODE: return EntityRef(x)
+        elif BT(x) == BT.RELATION_EDGE: return RelationRef(x)
+        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE: return AttributeEntityRef(x)
+    if isinstance(x, EntityRef) or isinstance(x, RelationRef) or isinstance(x, AttributeEntityRef):
         return x
     raise TypeError(f"'discard_frame' not implemented for type {type(x)}: it was passed {x}")
 
@@ -5187,7 +5187,7 @@ def time_travel_tp(x, p):
 
 def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
-    if isinstance(z, (Entity, AttributeEntity, Relation, TXNode, Root)):
+    if isinstance(z, (EntityRef, AttributeEntityRef, RelationRef, TXNode, Root)):
         return uid(z)
     assert BT(z) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
@@ -5217,17 +5217,17 @@ def origin_uid_tp(x):
 
 def origin_rae_imp(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
-    if type(x) in [Entity, AttributeEntity, Relation, TXNode, Root]:
+    if isinstance(x, (EntityRef, AttributeEntityRef, RelationRef, TXNode, Root)):
         return x
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
+    if isinstance(x, BlobPtr):
         if internals.is_delegate(x):
             raise Exception("TODO: Implement origin_rae(ZefRef) when ZefRef is a delegate")
         if BT(x) == BT.ENTITY_NODE:
-            return Entity(x)
+            return EntityRef(x)
         elif BT(x) == BT.RELATION_EDGE:
-            return Relation(x)
+            return RelationRef(x)
         elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE:
-            return AttributeEntity(x)
+            return AttributeEntityRef(x)
         elif BT(x) == BT.TX_EVENT_NODE:
             return TXNode(x)
         elif BT(x) == BT.ROOT_NODE:
@@ -6280,7 +6280,7 @@ def in_rels_imp(z, rt_or_bt=None, source_filter=None):
 def source_implementation(zr, *curried_args):
     if isinstance(zr, FlatRef):
         return fr_source_imp(zr)
-    if isinstance(zr, Relation):
+    if isinstance(zr, RelationRef):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
     if isinstance(zr, AbstractDelegate):
         from ...pyzef.internals import DelegateRelationTriple
@@ -6294,7 +6294,7 @@ def source_implementation(zr, *curried_args):
 def target_implementation(zr):
     if isinstance(zr, FlatRef):
         return fr_target_imp(zr)
-    if isinstance(zr, Relation):
+    if isinstance(zr, RelationRef):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
     if isinstance(zr, AbstractDelegate):
         from ...pyzef.internals import DelegateRelationTriple
@@ -6671,11 +6671,11 @@ def relations_implementation(z, *args):
         return pyzefops.relations(z1, rt._d["specific"], z2)
 
 def rae_type_implementation(z):
-    if isinstance(z, Entity):
+    if isinstance(z, EntityRef):
         return z.d["type"]
-    if isinstance(z, Relation):
+    if isinstance(z, RelationRef):
         return z.d["type"][1]
-    if isinstance(z, AttributeEntity):
+    if isinstance(z, AttributeEntityRef):
         return z.d["type"]
     # return pymain.rae_type(z)
     c_rae = pymain.rae_type(z)
@@ -8480,7 +8480,7 @@ def fg_insert_imp(fg, new_el):
             assert rae_uid in new_key_dict, "Can't construct an Abstract Relation!"
             return new_key_dict[rae_uid]
         else:
-            rae_class = AttributeEntity if type(rae_type) == AttributeEntityType else Entity
+            rae_class = AttributeEntityRef if isinstance(rae_type, AET) else EntityRef
             return common_logic(rae_class({"type": rae_type, "uid": rae_uid}))
 
     def common_logic(new_el):
@@ -8500,7 +8500,7 @@ def fg_insert_imp(fg, new_el):
             if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None, None))
 
-        elif isinstance(new_el, Entity):
+        elif isinstance(new_el, EntityRef):
             node_type, node_uid = new_el.d['type'], new_el.d['uid']
             if node_uid not in new_key_dict:
                 idx = next_idx()
@@ -8508,7 +8508,7 @@ def fg_insert_imp(fg, new_el):
                 new_key_dict[node_uid] = idx
             idx = new_key_dict[node_uid]
 
-        elif isinstance(new_el, AttributeEntity):
+        elif isinstance(new_el, AttributeEntityRef):
             node_type, node_uid = new_el.d['type'], new_el.d['uid']
             if node_uid not in new_key_dict:
                 idx = next_idx()
@@ -8641,7 +8641,7 @@ def fg_insert_imp(fg, new_el):
         return ent_idx
 
     def _insert_single(new_el):
-        if type(new_el) in {EntityType, AttributeEntityType, Entity, AttributeEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val, Delegate}:
+        if isinstance(new_el, (ET, AET, EntityRef, AttributeEntityRef, ZefOp, LazyValue,BlobPtr, *list(map_scalar_to_aet_type.keys()), Val, Delegate)):
             common_logic(new_el)
         elif isinstance(new_el, tuple) and len(new_el) == 3:
             src, rt, trgt = new_el
@@ -8663,7 +8663,7 @@ def fg_insert_imp(fg, new_el):
             new_blobs.append((idx, rt, [], None, src_idx, trgt_idx))
             if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
             if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
-        elif isinstance(new_el, Relation):
+        elif isinstance(new_el, RelationRef):
             src, rt, trgt = new_el.d['type']
             src_uid, rt_uid, trgt_uid = new_el.d['uids']
 
@@ -8684,7 +8684,7 @@ def fg_insert_imp(fg, new_el):
     if isinstance(new_el, list): 
         def sorting_key(el):
             if isinstance(el, Dict): return 1
-            elif isinstance(el, Relation): return 2
+            elif isinstance(el, RelationRef): return 2
             elif isinstance(el, tuple) and len(el) == 3: 
                 is_z = lambda el: isinstance(el, ZefOp) and inner_zefop_type(el, RT.Z)
                 has_internal_id = lambda rt: isinstance(rt, RT) and (LazyValue(rt) | absorbed | attempt[single][None] | collect) != None
@@ -8751,8 +8751,8 @@ def fr_merge_and_retrieve_idx(blobs, k_dict, next_idx, fr):
 def fg_get_imp(fg, key):
     kdict = fg.key_dict
     if type(key) in {ZefRef, EZefRef} and origin_uid(key) in kdict: return FlatRef(fg, kdict[origin_uid(key)])
-    elif type(key) in {Entity, AttributeEntity} and key.d['uid'] in kdict: return FlatRef(fg, kdict[key.d['uid']])
-    elif isinstance(key, Relation) and key.d['uids'][1] in kdict:return FlatRef(fg, kdict[key.d['uids'][1]])
+    elif type(key) in {EntityRef, AttributeEntityRef} and key.d['uid'] in kdict: return FlatRef(fg, kdict[key.d['uid']])
+    elif isinstance(key, RelationRef) and key.d['uids'][1] in kdict:return FlatRef(fg, kdict[key.d['uids'][1]])
     elif isinstance(key, Val) and  value_hash(key.arg) in kdict: return FlatRef(fg, kdict[value_hash(key.arg)])
     elif key in kdict: return FlatRef(fg, kdict[key])
     else: raise KeyError(f"{key} isn't found in this FlatGraph!")
@@ -8765,11 +8765,11 @@ def fg_remove_imp(fg, key):
         if origin_uid(key) not in kdict: raise error
         idx = kdict[origin_uid(key)]
         key = origin_uid(key)
-    elif type(key) in {Entity, AttributeEntity}: 
+    elif type(key) in {EntityRef, AttributeEntityRef}: 
         if key.d['uid'] not in kdict: raise error
         idx = kdict[key.d['uid']]
         key = key.d['uid']
-    elif isinstance(key, Relation):
+    elif isinstance(key, RelationRef):
         if key.d['uids'][1] not in kdict: raise error
         idx = kdict[key.d['uids'][1]]
         key = key.d['uids'][1]
@@ -8816,7 +8816,7 @@ def flatgraph_to_commands(fg):
         if isinstance(b[1], ET):
             if idx in idx_key:
                 key = idx_key[idx]
-                if is_a(key, uid): return Entity({"type": b[1], "uid": key})
+                if is_a(key, uid): return EntityRef({"type": b[1], "uid": key})
                 else:
                     if for_rt: return Z[key]
                     return b[1][key]
@@ -8827,8 +8827,8 @@ def flatgraph_to_commands(fg):
             if idx in idx_key:
                 key = idx_key[idx]
                 if is_a(key, UID):
-                    if b[-1] != None: return AttributeEntity({"type": b[1], "uid": key}) <= b[-1]
-                    else:     return AttributeEntity({"type": b[1], "uid": key})
+                    if b[-1] != None: return AttributeEntityRef({"type": b[1], "uid": key}) <= b[-1]
+                    else:     return AttributeEntityRef({"type": b[1], "uid": key})
                 else:
                     if for_rt: return Z[key]
                     if b[-1] != None: return b[1][key] <= b[-1]
@@ -8845,7 +8845,7 @@ def flatgraph_to_commands(fg):
                 key = idx_key[idx]
                 if for_rt: return Z[key]
                 if is_a(key, UID):
-                    return Relation({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
+                    return RelationRef({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
             if for_rt: return Z[idx]
             src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)
             trgt_blb = dispatch_on_blob(fg.blobs[b[5]], True)
