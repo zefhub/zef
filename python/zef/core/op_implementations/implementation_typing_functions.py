@@ -4805,7 +4805,7 @@ def events_imp(z_tx_or_rae, filter_on=None):
     """
     from zef.pyzef import zefops as pyzefops
     # TODO: can remove this once imports are sorted out
-    from .. import instantiated, terminated, assigned
+    from ..graph_events import instantiated, terminated, assigned
     # Note: we can't use the python to_frame here as that calls into us.
     
 

@@ -25,7 +25,7 @@ from .internals import BaseUID, EternalUID, ZefRefUID
 from .VT import *
 from .VT import ValueType_
 from ._ops import *
-from .op_structs import ZefOp, CollectingOp, SubscribingOp, ForEachingOp, LazyValue, Awaitable, is_python_scalar_type
+from .op_structs import ZefOp_, CollectingOp, SubscribingOp, ForEachingOp, LazyValue, Awaitable, is_python_scalar_type
 from .abstract_raes import Entity_, Relation_, AttributeEntity_
 from .error import Error_
 from .image import Image_
@@ -203,8 +203,11 @@ def serialize_zeftypes(z) -> dict:
     elif isinstance(z, Time):
         return {"_zeftype": "Time", "value": z.seconds_since_1970} 
 
-    elif type(z) in [ZefOp, CollectingOp, SubscribingOp, ForEachingOp]:
-        z_type = type(z).__name__
+    elif type(z) in [ZefOp_, CollectingOp, SubscribingOp, ForEachingOp]:
+        if type(z) == ZefOp_:
+            z_type = "ZefOp"
+        else:
+            z_type = type(z).__name__
         return serialize_zefops(z_type, z.el_ops)
 
     elif type(z) in [LazyValue, Awaitable]:
@@ -213,7 +216,7 @@ def serialize_zeftypes(z) -> dict:
         else:
             additional_dict = {"pushable": z.pushable}
         z_type = {LazyValue: "LazyValue", Awaitable: "Awaitable"}[type(z)]
-        inner_ztype = {ZefOp: "ZefOp", CollectingOp: "CollectingOp", SubscribingOp: "SubscribingOp", ForEachingOp: "ForEachingOp"}[type(z.el_ops)]
+        inner_ztype = {ZefOp_: "ZefOp", CollectingOp: "CollectingOp", SubscribingOp: "SubscribingOp", ForEachingOp: "ForEachingOp"}[type(z.el_ops)]
 
         return {"_zeftype": z_type, "el_ops": serialize_zefops(inner_ztype, z.el_ops.el_ops), **additional_dict}
 
@@ -473,7 +476,7 @@ serialization_mapping[internals.ZefEnumValue] = serialize_zeftypes
 serialization_mapping[QuantityFloat] = serialize_zeftypes
 serialization_mapping[QuantityInt] = serialize_zeftypes
 serialization_mapping[Time] = serialize_zeftypes
-serialization_mapping[ZefOp] = serialize_zeftypes
+serialization_mapping[ZefOp_] = serialize_zeftypes
 serialization_mapping[CollectingOp] = serialize_zeftypes
 serialization_mapping[SubscribingOp] = serialize_zeftypes
 serialization_mapping[ForEachingOp] = serialize_zeftypes
