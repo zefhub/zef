@@ -197,6 +197,32 @@ void Butler::stop_connection() {
         std::cerr << "Disconnecting from ZefHub" << std::endl;
 }
 
+void wait_for_token_errors(std::vector<Butler::task_ptr> tasks) {
+    bool failed = false;
+    try {
+    for(auto & task : tasks) {
+        auto resp = std::get<TokenQueryResponse>(task->future.get());
+        if(!resp.generic.success) {
+            failed = true;
+            break;
+        }
+    }
+    } catch(...) {
+        failed = true;
+    }
+    if(failed) {
+        std::cerr << "=============================================" << std::endl;
+        std::cerr << "WARNING: problem verifying cached tokens!!!" << std::endl;
+        std::cerr << "WARNING: problem verifying cached tokens!!!" << std::endl;
+        std::cerr << std::endl;
+        std::cerr << "This is probably due to an invalid token cache, saved at $HOME/.zef/tokens_cache.json. You should exit all zef sessions, remove this file, and then start your zef session again." << std::endl;
+        std::cerr << std::endl;
+        std::cerr << "WARNING: problem verifying cached tokens!!!" << std::endl;
+        std::cerr << "WARNING: problem verifying cached tokens!!!" << std::endl;
+        std::cerr << "=============================================" << std::endl;
+    }
+}
+
 void Butler::handle_successful_auth() {
     if(zwitch.zefhub_communication_output())
         std::cerr << "Authenticated with ZefHub" << std::endl;
@@ -225,11 +251,60 @@ void Butler::handle_successful_auth() {
         });
 
     // Request our tokens
+    task_ptr task = add_task(true, 0);
     send_ZH_message({
             {"msg_type", "token"},
             {"msg_version", 1},
-            {"action", "list"}
+            {"action", "list"},
+            {"task_uid", task->task_uid}
         });
+
+    // If we have any tokens loaded from a local cache, check that these are the
+    // valid indices.
+    task_ptr task_validate_ET = add_task(true, 0);
+    send_ZH_message({
+            {"msg_type", "token"},
+            {"msg_version", 1},
+            {"action", "query"},
+            {"task_uid", task_validate_ET->task_uid},
+            {"group", "ET"},
+            {"indices", global_token_store().ETs.all_indices()}
+        });
+    task_ptr task_validate_RT = add_task(true, 0);
+    send_ZH_message({
+            {"msg_type", "token"},
+            {"msg_version", 1},
+            {"action", "query"},
+            {"task_uid", task_validate_RT->task_uid},
+            {"group", "RT"},
+            {"indices", global_token_store().RTs.all_indices()}
+        });
+    task_ptr task_validate_EN = add_task(true, 0);
+    send_ZH_message({
+            {"msg_type", "token"},
+            {"msg_version", 1},
+            {"action", "query"},
+            {"task_uid", task_validate_EN->task_uid},
+            {"group", "EN"},
+            {"indices", global_token_store().ENs.all_indices()}
+        });
+    task_ptr task_validate_KW = add_task(true, 0);
+    send_ZH_message({
+            {"msg_type", "token"},
+            {"msg_version", 1},
+            {"action", "query"},
+            {"task_uid", task_validate_KW->task_uid},
+            {"group", "KW"},
+            {"indices", global_token_store().KWs.all_indices()}
+        });
+
+    std::vector<task_ptr> vec;
+    vec.push_back(task_validate_ET);
+    vec.push_back(task_validate_RT);
+    vec.push_back(task_validate_EN);
+    vec.push_back(task_validate_KW);
+    auto t = std::thread(&wait_for_token_errors, vec);
+    t.detach();
 
     // To tell the managers about the reconnection, we should jump out
     // of the network thread and into the butler thread, which requires

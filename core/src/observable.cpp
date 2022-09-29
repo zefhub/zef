@@ -15,6 +15,7 @@
 #include "graph.h"
 #include "observable.h"
 #include "high_level_api.h"
+#include "ops_imperative.h"
 
 namespace zefDB {
 

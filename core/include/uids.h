@@ -35,20 +35,6 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED void _from_hex(const std::string& uid, void * target_ptr);
         LIBZEF_DLL_EXPORTED void _from_hex(const unsigned char * src, void * target_ptr);
     }
-    
-    // This is apparently the hash_combine that's in boost. Taken from
-    // https://stackoverflow.com/questions/19195183/how-to-properly-hash-the-custom-struct.
-    template <class T>
-    inline void hash_combine(std::size_t & s, const T & v)
-    {
-        std::hash<T> h;
-        s ^= h(v) + 0x9e3779b9 + (s<< 6) + (s>> 2);
-    }
-
-    template <class T>
-    inline size_t get_hash(const T & thing) {
-        return std::hash<T>{}(thing);
-    }
 
 	struct LIBZEF_DLL_EXPORTED BaseUID {
 		static constexpr int size_in_bytes = 8;
@@ -190,9 +176,9 @@ namespace std {
     template<>
     struct hash<zefDB::EternalUID> {
         std::size_t operator() (const zefDB::EternalUID& u) const { 
-            size_t s = *(size_t*)"EternalUID";
-            hash_combine(s, u.graph_uid);
-            hash_combine(s, u.blob_uid);
+            size_t s = zefDB::hash_char_array("EternalUID");
+            zefDB::hash_combine(s, u.graph_uid);
+            zefDB::hash_combine(s, u.blob_uid);
             return s;
         }
     };
@@ -200,10 +186,10 @@ namespace std {
     template<>
     struct hash<zefDB::ZefRefUID> {
         std::size_t operator() (const zefDB::ZefRefUID& u) const { 
-            size_t s = *(size_t*)"ZefRefUID";
-            hash_combine(s, u.graph_uid);
-            hash_combine(s, u.blob_uid);
-            hash_combine(s, u.tx_uid);
+            size_t s = zefDB::hash_char_array("ZefRefUID");
+            zefDB::hash_combine(s, u.graph_uid);
+            zefDB::hash_combine(s, u.blob_uid);
+            zefDB::hash_combine(s, u.tx_uid);
             return s;
         }
     };

@@ -19,8 +19,13 @@ from .value_type import *
 # the following functions add a layer of indirection to prevent circular imports
 
 def graph_ctor(*args, **kwargs):
-    from ... import core
-    return core.Graph(*args, **kwargs)
+    # Go to experimental load path for cases it supports
+    if len(kwargs) == 0 and len(args) == 1 and type(args[0]) == str:
+        from ...experimental.repl_interface import load_graph
+        return load_graph(args[0])
+    else:
+        from ... import core
+        return core.Graph(*args, **kwargs)
 
 
 

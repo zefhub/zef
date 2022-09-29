@@ -1,6 +1,6 @@
 /*[[[cog
 for n in [x for x in en if x[1] == 'Unit' and x[2] != '']:
-    cog.outl(f'case hash_char_array("{n[2]}"): return AtomicEntityType{{ {n[0]} + 2 }};')   # add 2 for 'quantity_float' type offset
+    cog.outl(f'case hash_char_array("{n[2]}"): return ValueRepType{{ {n[0]} + 2 }};')   # add 2 for 'quantity_float' type offset
 ]]]*/
 case hash_char_array("_undefined"): return AtomicEntityType{ 490188288 + 2 };
 case hash_char_array("seconds"): return AtomicEntityType{ 1972227744 + 2 };

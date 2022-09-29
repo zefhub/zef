@@ -32,6 +32,7 @@ option(LIBZEF_FORCE_ASSERTS "Make asserts happen regardless of debug/release bui
 cmake_dependent_option(LIBZEF_STATIC "Compile as a static library rather than a dynamically linked library" FALSE "NOT LIBZEF_PYZEF_BUNDLED" TRUE)
 cmake_dependent_option(LIBZEF_BUNDLED_ZSTD "Bundle libzstd statically in the library" FALSE "NOT LIBZEF_PYZEF_BUNDLED" TRUE)
 cmake_dependent_option(LIBZEF_BUNDLED_CURL "Bundle libcurl statically in the library" FALSE "NOT LIBZEF_PYZEF_BUNDLED" TRUE)
+cmake_dependent_option(LIBZEF_BUNDLED_LIBARCHIVE "Bundle libarchive statically in the library" FALSE "NOT LIBZEF_PYZEF_BUNDLED" TRUE)
 
 if(ZEFDB_ALLOW_NO_TLS)
   message(STATUS "Insecure connections are permitted")
@@ -59,6 +60,9 @@ set(SOURCES
     src/blobs.cpp
     src/graph.cpp
     src/high_level_api.cpp
+    src/ops_imperative.cpp
+    src/zefops.cpp
+    src/high_level_api.cpp
     src/low_level_api.cpp
     src/mmap.cpp
     src/observable.cpp
@@ -74,6 +78,9 @@ set(SOURCES
     src/from_json.cpp
     src/zef_config.cpp
     src/globals.cpp
+    src/external_handlers.cpp
+    src/conversions.cpp
+    src/tar_file.cpp
 
     src/butler/butler.cpp
     src/butler/communication.cpp
@@ -135,15 +142,16 @@ endif()
 
 target_link_libraries(zef PUBLIC nlohmann_json::nlohmann_json)
 target_link_libraries(zef PRIVATE yaml-cpp::yaml-cpp)
-target_link_libraries(zef PUBLIC phmap)
-target_link_libraries(zef PUBLIC range-v3)
-target_link_libraries(zef PRIVATE doctest)
-target_link_libraries(zef PUBLIC websocketpp)
+target_link_libraries(zef PUBLIC external::phmap)
+target_link_libraries(zef PUBLIC external::range-v3)
+target_link_libraries(zef PRIVATE external::doctest)
+target_link_libraries(zef PUBLIC external::websocketpp)
 # target_link_libraries(zef PRIVATE blake3)
-target_link_libraries(zef PRIVATE libcurl)
-target_link_libraries(zef PRIVATE jwt-cpp)
+target_link_libraries(zef PRIVATE external::libcurl)
+target_link_libraries(zef PRIVATE external::jwt-cpp)
 # Until I fix up our header deps this will have to be public
-target_link_libraries(zef PUBLIC libzstd_internal)
+target_link_libraries(zef PUBLIC external::libzstd)
+target_link_libraries(zef PUBLIC external::archive)
 
 if (UNIX AND NOT APPLE)
   target_link_libraries(zef PUBLIC rt)

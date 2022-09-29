@@ -29,7 +29,7 @@ bool is_up_to_date(const UpdateHeads & update_heads) {
     return true;
 }
 
-UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & update_heads) {
+UpdatePayload create_update_payload_current(GraphData & gd, const UpdateHeads & update_heads) {
     if(update_heads.blobs.from > update_heads.blobs.to)
         throw std::runtime_error("Somehow upstream is ahead of us and we're primary!");
 
@@ -48,7 +48,7 @@ UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & up
         {"blob_index_hi", update_heads.blobs.to},
         {"graph_uid", str(internals::get_graph_uid(gd))},
         {"index_of_latest_complete_tx_node", last_tx},
-        {"hash_full_graph", gd.hash(constants::ROOT_NODE_blob_index, update_heads.blobs.to)},
+        {"hash_full_graph", partial_hash(Graph(gd), update_heads.blobs.to, 0, "")},
         {"data_layout_version", internals::get_data_layout_version_info(gd)}
     };
     p.rest = {blobs};
@@ -75,6 +75,7 @@ UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & up
             GEN_CACHE("_uid_lookup", uid_lookup)
             GEN_CACHE("_euid_lookup", euid_lookup)
             GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
         else {
             throw std::runtime_error("Unknown cache");
         }
@@ -86,8 +87,17 @@ UpdatePayload create_update_payload(const GraphData & gd, const UpdateHeads & up
 
     return p;
 }
+UpdatePayload create_update_payload(GraphData & gd, const UpdateHeads & update_heads, std::string target_layout) {
+    if(target_layout == "")
+        target_layout = "0.3.0";
+    if(target_layout == "0.3.0")
+        return create_update_payload_current(gd, update_heads);
+    if(target_layout == "0.2.0")
+        return conversions::create_update_payload_as_if_0_2_0(gd, update_heads);
+    throw std::runtime_error("Don't know how to create update payload for layout: " + to_str(target_layout));
+}
 
-json create_heads_json_from_sync_head(const GraphData & gd, const UpdateHeads & update_heads) {
+json create_json_from_heads_from(const UpdateHeads & update_heads) {
     json j{
         {"blobs_head", update_heads.blobs.from},
     };
@@ -109,6 +119,42 @@ json create_heads_json_from_sync_head(const GraphData & gd, const UpdateHeads & 
             GEN_CACHE("_uid_lookup", uid_lookup)
             GEN_CACHE("_euid_lookup", euid_lookup)
             GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
+        else {
+            throw std::runtime_error("Unknown cache");
+        }
+#undef GEN_CACHE
+
+    }
+
+    j["cache_heads"] = caches;
+
+    return j;
+}
+
+json create_json_from_heads_latest(const UpdateHeads & update_heads) {
+    json j{
+        {"blobs_head", update_heads.blobs.to},
+    };
+    json caches;
+
+    for(auto & cache : update_heads.caches) {
+#define GEN_CACHE(x, y) else if(cache.name == x) {  \
+            caches[x] = {                           \
+                {"name", x},                        \
+                {"head", cache.to},               \
+                {"revision", cache.revision},       \
+            };                                      \
+        }                                           \
+
+        if(false) {}
+        GEN_CACHE("_ETs_used", ETs_used)
+            GEN_CACHE("_RTs_used", RTs_used)
+            GEN_CACHE("_ENs_used", ENs_used)
+            GEN_CACHE("_uid_lookup", uid_lookup)
+            GEN_CACHE("_euid_lookup", euid_lookup)
+            GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
         else {
             throw std::runtime_error("Unknown cache");
         }
@@ -140,12 +186,15 @@ UpdateHeads client_create_update_heads(const GraphData & gd) {
         GEN_CACHE("_uid_lookup", uid_lookup)
         GEN_CACHE("_euid_lookup", euid_lookup)
         GEN_CACHE("_tag_lookup", tag_lookup)
+        GEN_CACHE("_av_hash_lookup", av_hash_lookup)
 #undef GEN_CACHE
         return update_heads;
 }
 
-void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j) {
+void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j, std::string working_layout) {
     j["blobs_head"] = fg.get_latest_blob_index();
+    if(j["blobs_head"] == 0)
+        j["blobs_head"] = constants::ROOT_NODE_blob_index;
 
     json cache_heads;
     auto prefix = fg.get_prefix();
@@ -191,13 +240,21 @@ void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j) {
             {"revision", mapping.get()->revision()},
         };
     }
+    {
+        decltype(GraphData::av_hash_lookup)::element_type mapping(fg, prefix->av_hash_lookup);
+        cache_heads["_av_hash_lookup"] = json{
+            {"head", mapping.get()->size()},
+            {"revision", mapping.get()->revision()},
+        };
+    }
+
+    conversions::modify_update_heads(cache_heads, working_layout);
     j["cache_heads"] = cache_heads;
 }
 
 void apply_sync_heads(GraphData & gd, const UpdateHeads & update_heads) {
     update(gd.heads_locker, [&]() {
         gd.sync_head = update_heads.blobs.to;
-        gd.currently_subscribed = true;
 
         for(auto & cache : update_heads.caches) {
 #define GEN_CACHE(x, y) else if(cache.name == x) {  \
@@ -213,6 +270,7 @@ void apply_sync_heads(GraphData & gd, const UpdateHeads & update_heads) {
                 GEN_CACHE("_uid_lookup", uid_lookup)
                 GEN_CACHE("_euid_lookup", euid_lookup)
                 GEN_CACHE("_tag_lookup", tag_lookup)
+                GEN_CACHE("_av_hash_lookup", av_hash_lookup)
             else
                 throw std::runtime_error("Don't understand cache: " + cache.name);
 #undef GEN_CACHE
@@ -276,6 +334,7 @@ bool heads_apply(const UpdateHeads & heads, const GraphData & gd) {
             GEN_CACHE("_uid_lookup", uid_lookup)
             GEN_CACHE("_euid_lookup", euid_lookup)
             GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
         else
             throw std::runtime_error("Unknown cache");
     }
@@ -313,7 +372,22 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
     if(is_up_to_date(update_heads))
         return;
 
-    UpdatePayload payload = create_update_payload(*me.gd, update_heads);
+    // As we might be doing this fast, we need to make sure that the auth
+    // handshake has happened so that we know the protocol version.
+    wait_for_auth();
+    force_assert(zefdb_protocol_version != -1);
+
+    UpdatePayload payload;
+    {
+        LockGraphData lock{me.gd};
+        if(upstream_layout() == "0.2.0")
+            payload = conversions::create_update_payload_as_if_0_2_0(*me.gd, update_heads);
+        else {
+            force_assert(upstream_layout() == "0.3.0");
+            payload = create_update_payload(*me.gd, update_heads);
+        }
+    }
+
 
     if(me.gd->sync_head == 0)
         payload.j["msg_type"] = "full_graph";
@@ -337,6 +411,7 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
         // TODO: Check if websocket is down, and quit in that case.
         if(!network.connected) {
             std::cerr << "Gave up updating as websocket is disconnected" << std::endl;
+            me.gd->currently_subscribed = false;
             return;
         }
 
@@ -349,7 +424,7 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
         try {
             if(zwitch.developer_output())
                 std::cerr << "Trying to send update for graph " << me.uid << " of range " << update_heads.blobs.from << " to " << update_heads.blobs.to << std::endl;
-            response = wait_on_zefhub_message(payload.j, payload.rest, zefhub_generic_timeout, true, true);
+            response = wait_on_zefhub_message(payload.j, payload.rest, zefhub_generic_timeout, false, true);
 
             if(!response.generic.success) {
                 // There's generally only one reason for a failure. But
@@ -357,13 +432,15 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
                 // sync loop. It's better to just keep retrying rather
                 // than crashing.
 
-                if(response.j.contains("upstream_head")) {
+                if(response.j.contains("blobs_head")) {
                     UpdateHeads parsed_heads = parse_message_update_heads(response.j);
                     apply_sync_heads(*me.gd, parsed_heads);
+                    developer_output("Sync head response was a failure but got an updated heads in response so going to try with that.");
                 } else {
                     // Unknown error - wait a bit
+                    std::cerr << response.j << std::endl;
                     std::cerr << "Unknown error received from ZH from our graph update ('" << response.generic.reason << "'). Setting graph to invalid state." << std::endl;
-                    me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+                    set_into_invalid_state(me);
                     // std::this_thread::sleep_for(std::chrono::seconds(1));
                 }
 
@@ -377,7 +454,7 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
             continue;
         } catch(const std::exception & e) {
             std::cerr << "An exception occurred during a send_update ('" << e.what() << "'). Setting graph to invalid state." << std::endl;
-            me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+            set_into_invalid_state(me);
             wake(me.gd->heads_locker);
             return;
         }

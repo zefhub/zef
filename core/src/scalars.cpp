@@ -18,14 +18,24 @@
 #include "butler/butler.h"
 
 namespace zefDB {
-    Time& Time::operator= (const Time& other) {
-        if (this != &other)
-            new(this) Time(other); // placement new            
-        return *this;
-    }
+    //////////////////////////////
+    // * ZefEnumValue
+    ZefEnumValue ZefEnumStruct::operator() (const std::string& enum_type, const std::string& enum_val) const {
+        // call with EN("MachineStatus", "IDLE")
+        return internals::get_enum_value_from_string(enum_type, enum_val);
+    }    
 
+	std::ostream& operator<<(std::ostream& os, ZefEnumValue zef_enum_val) {
+		auto sp = internals::get_enum_string_pair(zef_enum_val);
+		os << "EN." << sp.first << "." << sp.second;
+		return os;
+	}
 
+	std::string ZefEnumValue::enum_type() const { return internals::get_enum_string_pair(*this).first; }
+	std::string ZefEnumValue::enum_value() const { return  internals::get_enum_string_pair(*this).second; }
 
+    ////////////////////////////////
+    // * QuantityFloat
 
 
     QuantityFloat operator+ (QuantityFloat q1, QuantityFloat q2) { 
@@ -82,6 +92,14 @@ namespace zefDB {
 
 
 
+    //////////////////////////////
+    // * Time
+
+    Time& Time::operator= (const Time& other) {
+        if (this != &other)
+            new(this) Time(other); // placement new            
+        return *this;
+    }
 
 
     Time operator+ (Time t, QuantityFloat duration) {
@@ -108,5 +126,27 @@ namespace zefDB {
     std::ostream& operator<< (std::ostream& os, Time t) { os << "unix time: " << std::fixed << t.seconds_since_1970; return os; }
 
 
+    TimeSlice::TimeSlice(EZefRef uzr) {
+        if ( (uzr | BT) == BT.ROOT_NODE)
+            value = 0;
+        else if ( (uzr | BT) == BT.TX_EVENT_NODE)
+            value = get<blobs_ns::TX_EVENT_NODE>(uzr).time_slice;
+        else
+            throw std::runtime_error("time_slice(uzr) called for a uzr that is not a BT.TX_EVENT_NODE.");
+    }
+    TimeSlice operator| (EZefRef uzr, TimeSlice op) { return TimeSlice(uzr); }
+
+    TimeSlice::TimeSlice(ZefRef zr) : TimeSlice(zr.blob_uzr) {}
+
+    TimeSlice TimeSlice::operator() (ZefRef zr) const {
+        return TimeSlice(zr.blob_uzr);
+    }
+    TimeSlice operator| (ZefRef zr, TimeSlice op) { return TimeSlice(zr); }
+
+    TimeSlice TimeSlice::operator() (EZefRef ezr) const {
+        return TimeSlice{ezr};
+    }
+
+    
 
 }

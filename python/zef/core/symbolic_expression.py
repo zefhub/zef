@@ -92,10 +92,11 @@ Query[
 
 
 from .VT import FlatGraph, Pattern, Any, SetOf
-from ._ops import match, collect, insert, split_if, get, filter, map, Z
+from ._ops import match, collect, insert, split, get, filter, map, Z
 from .zef_functions import func
 from .internals import ET, RT, AET
 from .flat_graph import Val
+from .z_field import ZField_
 
 def merge_flatgraphs(g1, g2) -> FlatGraph:
     """
@@ -136,16 +137,24 @@ class SymbolicExpression_:
     def __repr__(self):
         if self.name is not None:
             # if the name is specified: it is a SV only
-            return f"SV('{self.name}')" if self.absorbed==None else f"SV('{self.name}')['{self.absorbed}']"
+            return f"v.{self.name}" if self.absorbed==None else f"v.{self.name}['{self.absorbed}']"
+            # return f"SV('{self.name}')" if self.absorbed==None else f"SV('{self.name}')['{self.absorbed}']"
             # return f"{self.name}" if self.absorbed==None else f"{self.name}['{self.absorbed}']"
             
         else:
-            return "SymbolicExpression('todo: give more details')"
+            return "Composed SymbolicExpression (todo: expression output)"
+
+    def __hash__(self):
+        return (hash(self.name)+435677842)^hash(self.absorbed)^(hash(self.root_node)+3424242)
+
 
     def __getitem__(self, k):
         if self.root_node is not None:
             raise RuntimeError("a composite SymbolicExpression cannot absorb a value")
         return SymbolicExpression_(name=self.name, absorbed=k)
+
+    def __getattr__(self, name):
+        return ZField_(name)
 
     def __add__(self, other):
         return compose_se(ET.Add, self, other)
@@ -258,7 +267,7 @@ def SVs(names: str):
         raise TypeError("name must be a string")    
 
     return (names 
-        | split_if[lambda c: c==' ' or c==','] 
+        | split[lambda c: c==' ' or c==','] 
         | filter[~SetOf['',' ', ',']] 
         | map[SV]
         | collect
@@ -340,4 +349,18 @@ def unwrap_vars_hack(fg):
     fg2.key_dict = fg.key_dict
     fg2.blobs = tuple((unwrap(x) for x in fg.blobs))
     return fg2
+
+
+
+class ZefVariable_():
+    """
+    A helper class for a shorthand way to 
+    construct a variable called "x2": v.x2
+    """
+    def __getattr__(self, name):
+        return SV(name)
+
+
+v = ZefVariable_()
+
 

@@ -15,7 +15,7 @@
 # Note: This should never depend on core at the top level!
 
 from ...pyzef.internals import (
-    AtomicEntityTypeStruct,
+    AttributeEntityTypeStruct,
     BaseUID,
     BlobType,
     BlobTypeStruct,
@@ -70,12 +70,12 @@ from ...pyzef.internals import (
     is_BaseUID,
     is_EternalUID,
     is_ZefRefUID,
-    is_aet_a_enum,
-    is_aet_a_quantity_float,
-    is_aet_a_quantity_int,
+    is_vrt_a_enum,
+    is_vrt_a_quantity_float,
+    is_vrt_a_quantity_int,
     is_any_UID,
     is_delegate,
-    is_delegate_group,
+    is_delegate_relation_group,
     is_root,
     is_up_to_date,
     list_graph_manager_uids,
@@ -101,6 +101,7 @@ from ...pyzef.internals import (
     stop_connection,
     to_uid,
     validate_message_version,
+    VRT,
     wait_for_auth,
 )
 
@@ -124,6 +125,10 @@ from .merges import register_merge_handler
 register_merge_handler()
 from .schema import register_schema_validator
 register_schema_validator()
+from .value_type_check import register_value_type_check
+register_value_type_check()
+from .determine_primitive_type import register_determine_primitive_type
+register_determine_primitive_type()
 
 BT = BlobTypeStruct()
 
@@ -141,45 +146,73 @@ def Transaction(g, wait=None, rollback_empty=None, check_schema=None):
     global global_transaction_task
     from ...pyzef.zefops import uid
 
+    if wait is None:
+        wait = zwitch.default_wait_for_tx_finish()
+    if rollback_empty is None:
+        rollback_empty = zwitch.default_rollback_empty_tx()
+    if check_schema is None:
+        check_schema = True
+
     cur_task = safe_current_task()
 
-    if cur_task is not None:
+    if cur_task is None:
+        current_tx = StartTransactionReturnTx(g)
+        try:
+            yield current_tx
+        finally:
+            FinishTransaction(g, wait, rollback_empty, check_schema)
+    else:
         prev_val = global_transaction_task.get(uid(g), None)
+
         if prev_val is not None and prev_val != cur_task:
             raise Exception("Can't open a Transaction from a different task to the original Transaction. Note that ZefDB is not safe to create simultaneous transactions from different asyncio tasks. Ideally, there should be no asyncio task switch occuring during a transaction.")
 
         global_transaction_task[uid(g)] = cur_task
-
-    current_tx = StartTransactionReturnTx(g)
-    try:
-        yield current_tx
-    finally:
-        if cur_task is not None:
+        current_tx = StartTransactionReturnTx(g)
+        try:
+            yield current_tx
+        finally:
             if prev_val is None and uid(g) in global_transaction_task:
                 del global_transaction_task[uid(g)]
             else:
                 global_transaction_task[uid(g)] = prev_val
 
-        if wait is None:
-            wait = zwitch.default_wait_for_tx_finish()
-        if rollback_empty is None:
-            rollback_empty = zwitch.default_rollback_empty_tx()
-        if check_schema is None:
-            check_schema = True
-        FinishTransaction(g, wait, rollback_empty, check_schema)
+            FinishTransaction(g, wait, rollback_empty, check_schema)
 
 
 
 def assign_value_imp(z, value):
     from .._ops import is_a
     from ...pyzef.zefops import SerializedValue, assign_value as c_assign_value
-    from ..serialization import serialize, serialization_mapping
+    from ..VT import ValueType_
 
     assert isinstance(z, ZefRef) or isinstance(z, EZefRef)
-    if is_a(z, AET.Serialized):
-        if type(z) in serialization_mapping:
-            from json import dumps
-            value = SerializedValue("tools.serialize", dumps(serialize(value)))
-        else:
-            raise Exception(f"Don't know how to serialize a type of {val}")
-    c_assign_value(z, value)
+
+    # We can't be sure what kind of zefref we have, and if it is complex things
+    # break at the moment, so do this thoroughly here.
+    if not is_a(z, AET):
+        raise Exception("E/ZefRef is not an AET!")
+    aet = AET(z)
+    if (not aet.complex_value) and is_a(z, AET.Serialized):
+        value = SerializedValue.serialize(value)
+    if isinstance(value, ValueType_):
+        value = AET[value]
+    try:
+        c_assign_value(z, value)
+    except Exception as exc:
+        print(f"There was an exception in the c call for assign value. z={z} and value={value} and aet={aet}")
+        raise
+
+
+def instantiate_value_node_imp(value, g):
+    from ...pyzef.zefops import SerializedValue
+    from ...pyzef.main import instantiate_value_node as c_instantiate_value_node
+    from .._ops import is_a
+    from ..VT import ValueType_
+    from ..graph_delta import scalar_types
+
+    if isinstance(value, ValueType_):
+        value = AET[value]
+    elif type(value) not in scalar_types:
+        value = SerializedValue.serialize(value)
+    return c_instantiate_value_node(value, g)

@@ -21,8 +21,8 @@ class MyTestCase(unittest.TestCase):
 
         g = Graph()
         z = AET.String | g | run
-        (z <= "a") | g | run
-        (z <= "b") | g | run
+        z | assign["a"] | g | run
+        z | assign["b"] | g | run
         z | terminate | g | run
 
         g2 = Graph()
@@ -32,14 +32,14 @@ class MyTestCase(unittest.TestCase):
         # Note: slice 1 is created on Graph(), so this is slice 2
         self.assertEqual(ctx | to_graph_slice | graph_slice_index | collect, 2)
 
-        self.assertEqual(ctx | events[Instantiated] | length | collect, 1)
+        self.assertEqual(ctx | events[Instantiated] | length | collect, 2)
         self.assertEqual(ctx | events[Assigned] | length | collect, 0)
         self.assertEqual(ctx | events[events[Terminated]] | length | collect, 0)
 
         txs = z | now[allow_tombstone] | preceding_events[Assigned] | map[absorbed | first | frame | to_tx] | collect
         self.assertEqual([ctx  | frame | graph_slice_index | collect for ctx in txs], [3, 4])
         for ctx in txs:
-            self.assertEqual(ctx | events[Instantiated] | length | collect, 0)
+            self.assertEqual(ctx | events[Instantiated] | length | collect, 1)
             self.assertEqual(ctx | events[Assigned] | length | collect, 1)
             self.assertEqual(ctx | events[Terminated] | length | collect, 0)
             

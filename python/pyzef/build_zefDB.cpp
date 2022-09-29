@@ -42,9 +42,16 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def(py::init<ZefRef>(), "Graph constructor from ZefRef: returns the graph that owns the zefref data, not the reference frame graph")
 		.def_property_readonly("graph_data", [](Graph& g)->GraphData& { return g.my_graph_data(); }, py::return_value_policy::reference)  // the mem policy return_value_policy::reference_internal is used here by default: ties lifetime of property returned to lifetime of parent (also stops parent from being destroyed while this is alive)
 		.def_property_readonly("uid", [](Graph& g)->BaseUID { return uid(g); })
-		.def("hash", &Graph::hash, py::arg("blob_index_lo"), py::arg("blob_index_hi"), py::arg("seed")=0, "calculate the xxhash of the data within the specified blob range. This is non-cryptographic hash fct.")
-		.def("hash", [](Graph& g) { return g.hash(constants::ROOT_NODE_blob_index, g.my_graph_data().read_head); })
-		.def("__repr__", [](const Graph& self) { return "Graph(\"" + str(uid(self)) + "\")"; })
+		.def("hash", &Graph::hash, py::arg("blob_index_lo"), py::arg("blob_index_hi"), py::arg("seed")=0, py::arg("working_layout")="", "calculate the xxhash of the data within the specified blob range. This is non-cryptographic hash fct.")
+		.def("hash", [](Graph& g, std::string working_layout) { return g.hash(constants::ROOT_NODE_blob_index, g.my_graph_data().read_head, 0, working_layout); }, py::arg("working_layout")="")
+		.def("__repr__", [](const Graph& self) {
+            auto& gd = self.my_graph_data();
+            if(gd.local_path == "")
+                return std::string("Graph('") + str(uid(self)) + "')";
+            else
+                return std::string("Graph('file://") + gd.local_path.string() + "')";
+        })
+        .def("__str__", [](const Graph& self) { return to_str(self); })
 		.def("__getitem__", [](const Graph& self, const std::string& key)->std::variant<EZefRef,ZefRef> {try { return self[key]; } catch (...) { throw py::key_error{ "key \"" + to_str(key) + "\" not found in graph with uid " + to_str(self | uid)  }; } }, "key lookup in blob key dictionary for this graph returning a EZefRef")
 		.def("__getitem__", [](const Graph& self, blob_index key_index)->EZefRef {return self[key_index]; }, "blob index lookup for this graph returning a EZefRef")
 		.def("__getitem__", [](const Graph& self, BaseUID key) {return self[key]; }, "key lookup returning EZefRef")
@@ -96,6 +103,13 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
         .def("tag_cache", [](const Graph& self) {
             return self.my_graph_data().tag_lookup->get()->as_vector();
         })
+        .def("avn_cache", [](const Graph& self) {
+            auto temp = self.my_graph_data().av_hash_lookup->get()->as_vector();
+            std::vector<std::pair<value_hash_t, blob_index>> out;
+            std::transform(temp.begin(), temp.end(), std::back_inserter(out),
+                           [&](auto & x) { return std::make_pair(x.key, x.val); });
+            return out;
+        })
 		.def_property_readonly("tags", [](const Graph& self) { return self.my_graph_data().tag_list; } )
 		.def_property_readonly("_raw_ptr", [](const Graph& self) {
             auto ctypes = py::module_::import("ctypes");
@@ -106,6 +120,18 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 			return bool(self.my_graph_data().observables) ? std::optional<Graph>(*(*self.my_graph_data().observables).g_observables) : std::optional<Graph>({}) ;
 		})
 		;
+
+    main_module.def("load_graph",
+                    // &effect_load_graph,
+                    [](std::string tag_or_uid, int mem_style, std::optional<Messages::load_graph_callback_t> callback) {
+                        auto butler = Butler::get_butler();
+                        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::LoadGraph{tag_or_uid, mem_style, callback});
+                        if(!response.generic.success)
+                            throw std::runtime_error("Unable to load graph: " + response.generic.reason);
+                        return response.g;
+                    },
+                    py::arg("tag_or_uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::arg("callback") = std::nullopt,
+                    py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid or tag");
 
 	py::class_<zefDB::Zwitch>(main_module, "Zwitch", py::buffer_protocol())
 		.def(py::init<>())
@@ -148,6 +174,8 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 			throw std::runtime_error("currently_open_tx(g) called, but there are currently no open tx's.");
 		return internals::get_or_create_and_get_tx(g.my_graph_data()); 
 		});
+
+    main_module.def("save_local", py::overload_cast<Graph &>(&save_local), py::call_guard<py::gil_scoped_release>());
 		
 
 	/*
@@ -559,9 +587,20 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 
 	main_module.def("instantiate", py::overload_cast<EntityType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an entity", "entity_type"_a, "g"_a, "uid"_a=py::none());
 	main_module.def("instantiate", py::overload_cast<RelationType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "Invalid call signature for instantiate (you must pass a source and target along with a relation)", "relation_type"_a, "g"_a, "uid"_a=py::none());
-	main_module.def("instantiate", py::overload_cast<AtomicEntityType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an atomic entity", "atomic_entity_type"_a, "g"_a, "uid"_a = py::none());
+	main_module.def("instantiate", py::overload_cast<AttributeEntityType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an atomic entity", "atomic_entity_type"_a, "g"_a, "uid"_a = py::none());
 	main_module.def("instantiate", py::overload_cast<ZefRef, RelationType, ZefRef, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an relation", "src"_a, "relation_type"_a, "dst"_a, "g"_a, "uid"_a = py::none());
 	main_module.def("instantiate", py::overload_cast<EZefRef, RelationType, EZefRef, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an relation", "src"_a, "relation_type"_a, "dst"_a, "g"_a, "uid"_a = py::none());
+
+	main_module.def("instantiate_value_node", &instantiate_value_node<bool>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<int>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<double>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<str>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<Time>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<ZefEnumValue>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<QuantityFloat>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<QuantityInt>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<SerializedValue>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
+	main_module.def("instantiate_value_node", &instantiate_value_node<AttributeEntityType>, py::call_guard<py::gil_scoped_release>(), "value"_a, "g"_a);
 	
 
 //                                   _                    __      _                            

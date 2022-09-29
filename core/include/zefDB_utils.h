@@ -305,7 +305,16 @@ namespace zefDB {
     }
 
     inline bool any_files_with_prefix(std::filesystem::path prefix) {
-        for(auto const& dir_entry : std::filesystem::directory_iterator{prefix.parent_path()}) {
+        std::filesystem::path parent;
+        if(prefix.has_parent_path())
+            parent = prefix.parent_path();
+        else
+            parent = ".";
+
+        if(!std::filesystem::exists(parent))
+            return false;
+
+        for(auto const& dir_entry : std::filesystem::directory_iterator{parent}) {
             std::string dir_str = dir_entry.path().filename().string();
             std::string prefix_str = prefix.filename().string();
             if(starts_with(dir_str, prefix_str))
@@ -341,72 +350,46 @@ namespace zefDB {
 #include <fcntl.h>
 
 namespace zefDB {
-        inline std::string WindowsErrorMsg() {
-            LPVOID lpMsgBuf;
-            FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
-            NULL,
-            GetLastError(),
-            MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-            (LPTSTR)&lpMsgBuf,
-            0, NULL);
+    inline std::string WindowsErrorMsg() {
+        LPVOID lpMsgBuf;
+        FormatMessage(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS,
+                      NULL,
+                      GetLastError(),
+                      MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
+                      (LPTSTR)&lpMsgBuf,
+                      0, NULL);
 
-            std::string ret((LPCTSTR)lpMsgBuf);
+        std::string ret((LPCTSTR)lpMsgBuf);
 
-            LocalFree(lpMsgBuf);
-            return ret;
-        }
+        LocalFree(lpMsgBuf);
+        return ret;
+    }
 
-        constexpr size_t WIN_FILE_LOCK_BYTES = 1024;
-inline bool WindowsLockFile(int fd, bool exclusive=true, bool block=false) {
-            HANDLE h = (HANDLE)_get_osfhandle(fd);
-            OVERLAPPED overlapped;
-            overlapped.Offset = 0;
-            overlapped.OffsetHigh = 0;
-            overlapped.hEvent = 0;
-            int flags = 0;
-            if(exclusive)
-                flags |= LOCKFILE_EXCLUSIVE_LOCK;
-            if(!block)
-                flags |= LOCKFILE_FAIL_IMMEDIATELY;
-            if (!LockFileEx(h, flags, NULL, WIN_FILE_LOCK_BYTES, 0, &overlapped))
-                return false;
-            return true;
+    constexpr size_t WIN_FILE_LOCK_BYTES = 1024;
+    inline bool OSLockFile(int fd, bool exclusive=true, bool block=false) {
+        HANDLE h = (HANDLE)_get_osfhandle(fd);
+        OVERLAPPED overlapped;
+        overlapped.Offset = 0;
+        overlapped.OffsetHigh = 0;
+        overlapped.hEvent = 0;
+        int flags = 0;
+        if(exclusive)
+            flags |= LOCKFILE_EXCLUSIVE_LOCK;
+        if(!block)
+            flags |= LOCKFILE_FAIL_IMMEDIATELY;
+        if (!LockFileEx(h, flags, NULL, WIN_FILE_LOCK_BYTES, 0, &overlapped))
+            return false;
+        return true;
+    }
+    inline void OSUnlockFile(int fd, bool flush=false) {
+        HANDLE h = (HANDLE)_get_osfhandle(fd);
+        if(flush) {
+            if (!FlushFileBuffers(h))
+                throw std::runtime_error("Problem flushing file to disk: " + WindowsErrorMsg());
         }
-        inline void WindowsUnlockFile(int fd, bool flush=false) {
-            HANDLE h = (HANDLE)_get_osfhandle(fd);
-            if(flush) {
-                if (!FlushFileBuffers(h))
-                    throw std::runtime_error("Problem flushing file to disk: " + WindowsErrorMsg());
-            }
-            if (!UnlockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0))
-                    throw std::runtime_error("Problem unlocking file: " + WindowsErrorMsg());
-        }
-
-    struct FileLock {
-        std::filesystem::path path;
-        bool locked = false;
-        int fd = -1;
-        FileLock(std::filesystem::path path, bool exclusive=true)
-            : path(path) {
-            if(std::filesystem::is_directory(path))
-                path /= ".lock";
-            auto path_s = path.string();
-            fd = open(path_s.c_str(), O_RDWR | O_CREAT, 0600);
-            if(fd == -1)
-                throw std::runtime_error("Opening lockfile '" + path.string() + "' failed.");
-                
-            locked = WindowsLockFile(fd, exclusive, true);
-            if(!locked)
-                throw std::runtime_error("Locking file failed.");
-        }
-        ~FileLock() {
-            if(fd != -1) {
-                if(locked)
-                    WindowsUnlockFile(fd);
-                close(fd);
-            }
-        }
-    };
+        if (!UnlockFile(h, 0, 0, WIN_FILE_LOCK_BYTES, 0))
+            throw std::runtime_error("Problem unlocking file: " + WindowsErrorMsg());
+    }
 #else
 }
 
@@ -414,35 +397,88 @@ inline bool WindowsLockFile(int fd, bool exclusive=true, bool block=false) {
 #include <unistd.h>
 
 namespace zefDB {
+
+    inline bool OSLockFile(int fd, bool exclusive=true, bool block=false) {
+        int flags = 0;
+        if(exclusive)
+            flags |= LOCK_EX;
+        if(!block)
+            flags |= LOCK_NB;
+        if(-1 == flock(fd, flags))
+            return false;
+        return true;
+    }
+    inline void OSUnlockFile(int fd, bool flush=false) {
+        if(flush)
+            fsync(fd);
+        if (-1 == flock(fd, LOCK_UN))
+            throw std::runtime_error("Problem unlocking file: " + errno);
+    }
+#endif
+
     // Acquires a lock on a given named file in the given directory. This file
     // should not itself contain any data. Uses flock or similar.
     struct FileLock {
         std::filesystem::path path;
-        int flock_ret = -1;
+        int locked = false;
         int fd = -1;
         FileLock(std::filesystem::path path, bool exclusive=true)
             : path(path) {
             if(std::filesystem::is_directory(path))
                 path /= ".lock";
-            fd = open(path.c_str(), O_RDWR | O_CREAT, 0600);
+            fd = open(path.string().c_str(), O_RDWR | O_CREAT, 0600);
             if(fd == -1)
                 throw std::runtime_error("Opening lockfile '" + path.string() + "' failed.");
                 
-            if(exclusive)
-                flock_ret = flock(fd, LOCK_EX);
-            else
-                flock_ret = flock(fd, LOCK_SH);
-            if(flock_ret == -1)
-                throw std::runtime_error("Locking file failed. Errno: " + to_str(flock_ret));
+            locked = OSLockFile(fd, exclusive, true);
+            if(!locked)
+                throw std::runtime_error("Locking file failed.");
         }
         ~FileLock() {
             if(fd != -1) {
-                if(flock_ret != -1)
-                    flock(fd, LOCK_UN);
+                if(locked)
+                    OSUnlockFile(fd);
                 close(fd);
             }
         }
     };
-#endif
 
+    template<typename T, class... Types>
+    inline bool variant_eq(const T& t, const std::variant<Types...>& v) {
+        const T* c = std::get_if<T>(&v);
+        if(c)
+            return *c == t;
+        else
+            return false;
+    }
+
+    template<typename T, class... Types>
+    inline bool variant_eq(const std::variant<Types...>& v, const T& t) {
+        return variant_eq(t, v);
+    }
+
+    template<class... Types>
+    inline bool variant_eq(const std::variant<Types...>& v, const std::variant<Types...>& t) {
+        return t == v;
+    }
+    
+    // This is apparently the hash_combine that's in boost. Taken from
+    // https://stackoverflow.com/questions/19195183/how-to-properly-hash-the-custom-struct.
+    template <class T>
+    inline void hash_combine(std::size_t & s, const T & v)
+    {
+        std::hash<T> h;
+        s ^= h(v) + 0x9e3779b9 + (s<< 6) + (s>> 2);
+    }
+
+    template <class T>
+    inline size_t get_hash(const T & thing) {
+        return std::hash<T>{}(thing);
+    }
+
+    // STOLEN FROM CPPREFERENCE
+    // helper type for the visitor #4
+    template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
+    // explicit deduction guide (not needed as of C++20)
+    template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 }

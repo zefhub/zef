@@ -2,3 +2,4 @@ pytest
 networkx>=2.6.3
 requests
 pyjwt>=2.2.0
+rich>=12.0.0

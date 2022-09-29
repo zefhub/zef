@@ -67,10 +67,10 @@ RT = RelationTypeStruct()
 
 
 # the following three classes are defined outside AtomicEntitiesClass to not clutter the auto-complete of AET. ...
-class AtomicEntityTypeStruct_Enum():
+class AttributeEntityTypeStruct_Enum():
     # [[[cog
     # for n in [x for x in en if enum_val(x[1]) == '']:
-    #     cog.outl(f'{enum_type(n[1])} = AtomicEntityType(0)')
+    #     cog.outl(f'{enum_type(n[1])} = AttributeEntityType(0)')
     # ]]]
     # [[[end]]]
     def __getattr__(self, enum_type_name):
@@ -82,10 +82,10 @@ class AtomicEntityTypeStruct_Enum():
         pass
 
 
-class AtomicEntityTypeStruct_QuantityFloat():
+class AttributeEntityTypeStruct_QuantityFloat():
     # [[[cog
     # for n in [x for x in en if enum_type(x[1]) == 'Unit' and enum_val(x[1]) != '']:
-    #     cog.outl(f'{enum_val(n[1])} = AtomicEntityType(0)')
+    #     cog.outl(f'{enum_val(n[1])} = AttributeEntityType(0)')
     # ]]]
     # [[[end]]]
     def __getattr__(self, unit_name):
@@ -96,10 +96,10 @@ class AtomicEntityTypeStruct_QuantityFloat():
         pass
 
 
-class AtomicEntityTypeStruct_QuantityInt():
+class AttributeEntityTypeStruct_QuantityInt():
     # [[[cog
     # for n in [x for x in en if enum_type(x[1]) == 'Unit' and enum_val(x[1]) != '']:
-    #     cog.outl(f'{enum_val(n[1])} = AtomicEntityType(0)')
+    #     cog.outl(f'{enum_val(n[1])} = AttributeEntityType(0)')
     # ]]]
     # [[[end]]]
     def __getattr__(self, unit_name):
@@ -111,17 +111,17 @@ class AtomicEntityTypeStruct_QuantityInt():
         pass
 
 
-class AtomicEntityStruct():
-    _unspecified = AtomicEntityType(0)
-    String = AtomicEntityType(1)
-    Bool = AtomicEntityType(2)
-    Float = AtomicEntityType(3)
-    Int = AtomicEntityType(4)
-    Time = AtomicEntityType(5)
+class AttributeEntityStruct():
+    _unspecified = AttributeEntityType(0)
+    String = AttributeEntityType(1)
+    Bool = AttributeEntityType(2)
+    Float = AttributeEntityType(3)
+    Int = AttributeEntityType(4)
+    Time = AttributeEntityType(5)
 
-    Enum = AtomicEntityTypeStruct_Enum()
-    QuantityFloat = AtomicEntityTypeStruct_QuantityFloat()
-    QuantityInt = AtomicEntityTypeStruct_QuantityInt()
+    Enum = AttributeEntityTypeStruct_Enum()
+    QuantityFloat = AttributeEntityTypeStruct_QuantityFloat()
+    QuantityInt = AttributeEntityTypeStruct_QuantityInt()
 
     def __call__(self, arg):
         pass
@@ -129,7 +129,7 @@ class AtomicEntityStruct():
     def __ror__(self, arg):
         pass
 
-AET = AtomicEntityStruct()
+AET = AttributeEntityStruct()
 
 
 

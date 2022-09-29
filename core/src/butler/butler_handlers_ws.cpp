@@ -14,7 +14,6 @@
 
 #include "butler/locking.h"
 
-void handle_token_response(Butler & butler, json & j);
 void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr & task);
 
 
@@ -64,13 +63,10 @@ void Butler::ws_fatal_handler(std::string reason) {
 
 
 void Butler::ws_message_handler(std::string msg) {
-    if(should_stop)
-        return;
-
     auto [j, rest]  = Communication::parse_ZH_message(msg);
 
     if(zwitch.debug_zefhub_json_output())
-        std::cerr << j << std::endl;
+        std::cerr << "Received message: " << j << std::endl;
 
     handle_incoming_message(j, rest);
 
@@ -94,6 +90,20 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
         std::cerr << "Don't know how to handle any protocol type other than 'ZEFDB' currently." << std::endl;
         return;
     }
+
+    if(should_stop) {
+        // Only allow acknowledgement messages to be processed.
+        if(msg_type != "auth_success" &&
+           msg_type != "terminate" &&
+           msg_type != "poke" &&
+           msg_type != "merge_request_response" &&
+           msg_type != "ACK" &&
+           msg_type != "update_response") {
+            developer_output("Ignoring incoming messages of type '" + msg_type + "' as we are shutting down.");
+            return;
+        }
+    }
+
 
     if (!connection_authed) {
         debug_time_print("received handshake response");
@@ -188,9 +198,6 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
             // However, a task_uid of null means we are meant to handle this ourselves.
             if(j["task_uid"].is_null()) {
                 try {
-                if(msg_type == "token_response")
-                    handle_token_response(*this, j);
-                else
                     throw std::runtime_error("Unknown msg meant to be handled by WS loop: " + msg_type);
                 } catch(const std::exception & exc) {
                     std::cerr << std::endl;
@@ -210,6 +217,7 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
             if(!task_promise)
                 throw std::runtime_error("Task uid isn't in the waiting list!");
             try {
+                developer_output("Reacting to upstream msg, found task with uid: " + task_uid);
                 if(msg_type == "poke") {
                     if(zwitch.developer_output())
                         std::cerr << "Got a poke for task " << task_uid << std::endl;
@@ -226,6 +234,7 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                 if(msg_type == "merge_request_response") {
                     auto msg = parse_ws_response<MergeRequestResponse>(j);
                     task_promise->promise.set_value(msg);
+                    wake(task_promise->task->locker);
                 } else if(msg_type == "token_response") {
                     handle_token_response(*this, j, task_promise);
                 } else {
@@ -235,10 +244,12 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                     msg.j = j;
                     msg.rest = rest;
                     task_promise->promise.set_value(msg);
+                    wake(task_promise->task->locker);
                 }
                 return;
             } catch(...) {
                 task_promise->promise.set_exception(std::current_exception());
+                wake(task_promise->task->locker);
                 forget_task(task_uid);
                 throw;
             }
@@ -257,7 +268,7 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
 
 
 
-void handle_token_response(Butler & butler, json & j) {
+void handle_token_response_list(Butler & butler, json & j) {
     auto& tokens = global_token_store();
 
     auto reason = j["reason"].get<std::string>();
@@ -340,12 +351,15 @@ void handle_token_response(Butler & butler, json & j, Butler::task_promise_ptr &
                 else if(group == "EN")
                     tokens.force_add_enum_type(indx, name);
             }
+        } else if (reason == "list") {
+            handle_token_response_list(butler, j);
         } else {
             std::cerr << "WARNING: unexpected reason (" << response.generic.reason << ") during handle_token_response" << std::endl;
         }
     }
 
     task_promise->promise.set_value(response);
+    wake(task_promise->task->locker);
 }
 
 
@@ -543,9 +557,6 @@ void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) 
             return;
         }
 
-        chunk.last_activity = now();
-        ack_success(j["task_uid"], "Accepted chunk");
-
         chunk.buffer.emplace_back(j["bytes_start"].get<int>(), rest_index, rest[0]);
 
         // chunk.rest[rest_index] += rest[0];
@@ -574,6 +585,35 @@ void Butler::handle_incoming_chunked(json & j, std::vector<std::string> & rest) 
             if(!applied_one)
                 break;
         }
+
+        chunk.last_activity = now();
+        // Maybe update the task if it wants to receive messages
+        if(chunk.msg.contains("task_uid")) {
+            std::string parent_task_uid = chunk.msg["task_uid"];
+            auto task_ptr = find_task(parent_task_uid)->task;
+            if(task_ptr->wants_messages) {
+                std::string msg = "CHUNK:";
+                for(int i = 0 ; i < chunk.rest.size() ; i++) {
+                    // TODO: This "name" line is dodgy, as this might not be a
+                    // full_graph/graph_update message!
+                    if(i >= 1)
+                        msg += chunk.msg["caches"][i-1]["name"].get<std::string>();
+                    else
+                        msg += "Blobs";
+                    msg += "/";
+                    msg += to_str(chunk.rest[i].size());
+                    msg += "/";
+                    msg += to_str(chunk.rest_sizes[i]);
+                    msg += ",";
+                }
+                update(task_ptr->locker,
+                       [&task_ptr,&msg]() {
+                           task_ptr->messages.push_back(msg);
+                       });
+            }
+        }
+        ack_success(j["task_uid"], "Accepted chunk");
+
 
         // Check to see if we're finished.
         bool done = true;

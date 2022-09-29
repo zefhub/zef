@@ -16,6 +16,7 @@ from .._core import RT
 from .implementation_typing_functions import * 
 from .yo import yo_implementation, yo_type_info
 from .graphviz import graphviz_imp, graphviz_tp
+from . to_flatgraph import to_flatgraph_imp
 from .func import unpack_implementation, unpack_type_info
 
 _op_to_functions = {
@@ -36,6 +37,7 @@ _op_to_functions = {
         RT.TakeWhilePair:  (take_while_pair_imp, take_while_pair_tp),
         RT.TakeUntil:      (take_until_imp, take_until_tp),
         RT.SkipWhile:      (skip_while_imp, skip_while_tp),
+        RT.SkipUntil:      (skip_until_imp, None),
         RT.Skip :          (skip_imp, skip_tp),
         RT.Nth:            (nth_implementation, nth_type_info),
         RT.Filter:         (filter_implementation, filter_type_info),
@@ -65,6 +67,7 @@ _op_to_functions = {
         RT.Ins:             (Ins_imp, None),
         RT.Out:             (Out_imp, None),
         RT.Outs:            (Outs_imp, None),
+        RT.InsAndOuts:      (ins_and_outs_imp, None),
         RT.InRel:           (in_rel_imp, None),
         RT.InRels:          (in_rels_imp, None),
         RT.OutRel:          (out_rel_imp, None),
@@ -183,8 +186,9 @@ _op_to_functions = {
         RT.Split:           (split_imp, split_tp),
         RT.SplitLeft:       (split_left_imp, None),
         RT.SplitRight:      (split_right_imp, None),
-        RT.SplitIf:         (split_if_imp, None),
         RT.Graphviz:        (graphviz_imp, graphviz_tp),
+        RT.ToFlatGraph:     (to_flatgraph_imp, None),
+        RT.Parse:           (parse_imp, None),
         
         RT.Always:              (always_imp, always_tp),
         
@@ -207,6 +211,7 @@ _op_to_functions = {
         RT.Logarithm:           (logarithm_imp, logarithm_tp),
         RT.Max:                 (max_imp, max_tp),
         RT.Min:                 (min_imp, min_tp),
+        RT.Clamp:               (clamp_imp, None),
         RT.MaxBy:               (max_by_imp, max_by_tp),
         RT.MinBy:               (min_by_imp, min_by_tp),
         RT.Equals:              (equals_imp, equals_tp),
@@ -313,4 +318,6 @@ _op_to_functions = {
         RT.Gather:             (gather_imp, None),
         RT.Alias:              (alias_imp, None),
         RT.Splice:             (splice_imp, None),
+        RT.FlattenDict:        (flatten_dict_imp, None),
+        RT.UnflattenDict:      (unflatten_dict_imp, None),
 }

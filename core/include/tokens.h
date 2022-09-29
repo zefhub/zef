@@ -21,6 +21,7 @@
 #include "fwd_declarations.h"
 #include "append_structures.h"
 #include "butler/threadsafe_map.h"
+#include "scalars.h"
 
 #include <nlohmann/json.hpp>
 using json = nlohmann::json;
@@ -29,122 +30,33 @@ namespace zefDB {
     struct EntityType;
     struct RelationType;
     struct Keyword;
-    struct AtomicEntityType;
+    struct ValueRepType;
     struct ZefEnumValue;
 
     namespace internals {
         LIBZEF_DLL_EXPORTED EntityType get_global_entity_type_from_string(const std::string& entity_type_str);
         LIBZEF_DLL_EXPORTED RelationType get_relation_type_from_string(const std::string& relation_type_str);
         LIBZEF_DLL_EXPORTED Keyword get_keyword_from_string(const std::string& keyword_str);
-        LIBZEF_DLL_EXPORTED AtomicEntityType get_aet_from_enum_type_name_string(const std::string& enum_type_name_str);
-        LIBZEF_DLL_EXPORTED AtomicEntityType get_aet_from_quantity_float_name_string(const std::string& unit_enum_value_str);
-        LIBZEF_DLL_EXPORTED AtomicEntityType get_aet_from_quantity_int_name_string(const std::string& unit_enum_value_str);
+        LIBZEF_DLL_EXPORTED ValueRepType get_vrt_from_enum_type_name_string(const std::string& enum_type_name_str);
+        LIBZEF_DLL_EXPORTED ValueRepType get_vrt_from_quantity_float_name_string(const std::string& unit_enum_value_str);
+        LIBZEF_DLL_EXPORTED ValueRepType get_vrt_from_quantity_int_name_string(const std::string& unit_enum_value_str);
         LIBZEF_DLL_EXPORTED ZefEnumValue get_enum_value_from_string(const std::string& enum_type, const std::string& enum_val);
 
         LIBZEF_DLL_EXPORTED std::string get_string_name_from_entity_type(EntityType et) ;
         LIBZEF_DLL_EXPORTED std::string get_string_name_from_relation_type(RelationType rt) ;
         LIBZEF_DLL_EXPORTED std::string get_string_name_from_keyword(Keyword kw) ;
-        LIBZEF_DLL_EXPORTED std::string get_string_name_from_atomic_entity_type(AtomicEntityType aet);
+        LIBZEF_DLL_EXPORTED std::string get_string_name_from_value_rep_type(ValueRepType vrt);
         LIBZEF_DLL_EXPORTED string_pair get_enum_string_pair(ZefEnumValue en);
 
         LIBZEF_DLL_EXPORTED string_pair split_enum_string(const std::string & name);
 
-        LIBZEF_DLL_EXPORTED ZefEnumValue get_unit_from_aet(const AtomicEntityType & aet);
-        LIBZEF_DLL_EXPORTED std::string get_enum_type_from_aet(const AtomicEntityType & aet);
+        LIBZEF_DLL_EXPORTED ZefEnumValue get_unit_from_vrt(const ValueRepType & aet);
+        LIBZEF_DLL_EXPORTED std::string get_enum_type_from_vrt(const ValueRepType & aet);
     }
 
+    //////////////////////////////
+    // * BlobType
 
-	struct LIBZEF_DLL_EXPORTED AtomicEntityType {
-		constexpr AtomicEntityType(enum_indx n = 0) : value(n) {};
-		enum_indx value;
-        operator str() const;
-	};
-	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, AtomicEntityType aet);
-    inline void to_json(json& j, const AtomicEntityType & aet) {
-        j = json{
-            {"zef_type", "AtomicEntityType"},
-            {"value", aet.value}
-        };
-    }
-
-    inline void from_json(const json& j, AtomicEntityType & aet) {
-        assert(j["zef_type"].get<std::string>() == "AtomicEntityType");
-        j.at("value").get_to(aet.value);
-    }
-
-	struct LIBZEF_DLL_EXPORTED AtomicEntityTypeStruct {
-		struct Enum_ {
-// contextually: only contains enum types
-// internal encoding for Enum:  AET.Enum.SomeEnumType.value % 16 = 1
-#include "blobs.h.AET_enum.gen"
-			// the following allows us to call AET.Enum("SomeNewEnumNameIOnlyKnowAtRuntime")
-			AtomicEntityType operator() (std::string name) const { return internals::get_aet_from_enum_type_name_string(name); }
-		};
-		static constexpr Enum_ Enum{};
-
-		struct QuantityFloat_ {
-			// contextually: only contains enum values of enum type Unit
-			// internal encoding for QuantityFloat:  AET.QuantityFloat.SomeUnit.value % 16 = 2
-#include "blobs.h.AET_qfloat.gen"
-
-            AtomicEntityType operator() (std::string name) const { return internals::get_aet_from_quantity_float_name_string(name); }
-		};
-		static constexpr QuantityFloat_ QuantityFloat{};		
-
-		struct QuantityInt_ {
-			// contextually: only contains enum values of enum type Unit
-			// internal encoding for QuantityInt:  AET.QuantityInt.SomeUnit.value % 16 = 3
-#include "blobs.h.AET_qint.gen"
-
-			AtomicEntityType operator() (std::string name) const { return internals::get_aet_from_quantity_int_name_string(name); }
-		};
-		static constexpr QuantityInt_ QuantityInt{};		
-
-		static constexpr AtomicEntityType _unspecified{ 0 };
-		static constexpr AtomicEntityType String{ 1 };
-		static constexpr AtomicEntityType Bool{ 2 };
-		static constexpr AtomicEntityType Float{ 3 };
-		static constexpr AtomicEntityType Int{ 4 };
-		static constexpr AtomicEntityType Time{ 5 };
-		static constexpr AtomicEntityType Serialized{ 6 };
-
-		AtomicEntityType operator() (EZefRef uzr) const;
-		AtomicEntityType operator() (ZefRef zr) const;
-	};
-            
-	LIBZEF_DLL_EXPORTED AtomicEntityType operator| (EZefRef uzr, const AtomicEntityTypeStruct& AET_); 
-	LIBZEF_DLL_EXPORTED AtomicEntityType operator| (ZefRef zr, const AtomicEntityTypeStruct& AET_);
-
-
-	/*
-	---------- - analogous to----------
-	my_uzr | BT == BT.TO_DELEGATE_EDGE
-
-	my_ent_uzr | ET == ET.CNCMachine
-	my_rel_uzr | RT == RT.UsedBy
-
-
-	---------------- - we want--------------------
-	my_aet_uzr | AET == AET.String
-	my_aet_uzr | AET == AET.Float
-
-	my_aet_uzr | AET == AET.Enum.ProcessOrderStatus
-	my_aet_uzr | AET == AET.QuantityFloat.kilometers_p_hour
-
-	---- - or just ask whether it is a subtype----
-	my_aet_uzr | AET <= AET.Enum								Suggestion:  make subtyping questions    "  my_aet_uzr | AET | is_subtype[AET] "   => True/False
-	my_aet_uzr | AET <= AET.QuantityFloat
-	my_aet_uzr | AET <= AET.QuantityInt 
-	*/
-	inline bool operator== (AtomicEntityType aet1, AtomicEntityType aet2) { return aet1.value == aet2.value; }
-	inline bool operator!= (AtomicEntityType aet1, AtomicEntityType aet2) { return aet1.value != aet2.value; }
-	inline bool operator<= (AtomicEntityType aet1, AtomicEntityType aet_super) { return aet1 == aet_super; }
-	inline bool operator<= (AtomicEntityType aet1, AtomicEntityTypeStruct::Enum_ enum_super_struct) { return (aet1.value >= 65536) && (aet1.value % 16 == 1); }
-	inline bool operator<= (AtomicEntityType aet1, AtomicEntityTypeStruct::QuantityFloat_ quantity_float_super_struct) { return (aet1.value >= 65536) && (aet1.value % 16 == 2); }
-	inline bool operator<= (AtomicEntityType aet1, AtomicEntityTypeStruct::QuantityInt_ quantity_int_super_struct) { return (aet1.value >= 65536) && (aet1.value % 16 == 3); }
-
-
-	constexpr AtomicEntityTypeStruct AET;
 
 	enum class BlobType : unsigned char {
 		_unspecified,
@@ -154,8 +66,8 @@ namespace zefDB {
 		TO_DELEGATE_EDGE,
 		NEXT_TX_EDGE,
 		ENTITY_NODE,
-		ATOMIC_ENTITY_NODE,
-		ATOMIC_VALUE_NODE,
+		ATTRIBUTE_ENTITY_NODE,
+		VALUE_NODE,
 		RELATION_EDGE,
 		DELEGATE_INSTANTIATION_EDGE,
 		DELEGATE_RETIREMENT_EDGE,
@@ -169,8 +81,12 @@ namespace zefDB {
 		ORIGIN_RAE_EDGE,
 		ORIGIN_GRAPH_EDGE,
 		FOREIGN_ENTITY_NODE,
-		FOREIGN_ATOMIC_ENTITY_NODE,
+		FOREIGN_ATTRIBUTE_ENTITY_NODE,
 		FOREIGN_RELATION_EDGE,
+        VALUE_TYPE_EDGE,
+		VALUE_EDGE,
+		ATTRIBUTE_VALUE_ASSIGNMENT_EDGE,
+		_last_blobtype,
 	};
 
 	struct LIBZEF_DLL_EXPORTED BlobTypeStruct {
@@ -181,8 +97,8 @@ namespace zefDB {
 		static constexpr BlobType TO_DELEGATE_EDGE = BlobType::TO_DELEGATE_EDGE;
 		static constexpr BlobType NEXT_TX_EDGE = BlobType::NEXT_TX_EDGE;
 		static constexpr BlobType ENTITY_NODE = BlobType::ENTITY_NODE;
-		static constexpr BlobType ATOMIC_ENTITY_NODE = BlobType::ATOMIC_ENTITY_NODE;
-		static constexpr BlobType ATOMIC_VALUE_NODE = BlobType::ATOMIC_VALUE_NODE;
+		static constexpr BlobType ATTRIBUTE_ENTITY_NODE = BlobType::ATTRIBUTE_ENTITY_NODE;
+		static constexpr BlobType VALUE_NODE = BlobType::VALUE_NODE;
 		static constexpr BlobType RELATION_EDGE = BlobType::RELATION_EDGE;
 		static constexpr BlobType DELEGATE_INSTANTIATION_EDGE = BlobType::DELEGATE_INSTANTIATION_EDGE;
 		static constexpr BlobType DELEGATE_RETIREMENT_EDGE = BlobType::DELEGATE_RETIREMENT_EDGE;
@@ -196,12 +112,11 @@ namespace zefDB {
 		static constexpr BlobType ORIGIN_RAE_EDGE = BlobType::ORIGIN_RAE_EDGE;
 		static constexpr BlobType ORIGIN_GRAPH_EDGE = BlobType::ORIGIN_GRAPH_EDGE;
 		static constexpr BlobType FOREIGN_ENTITY_NODE = BlobType::FOREIGN_ENTITY_NODE;
-		static constexpr BlobType FOREIGN_ATOMIC_ENTITY_NODE = BlobType::FOREIGN_ATOMIC_ENTITY_NODE;
+		static constexpr BlobType FOREIGN_ATTRIBUTE_ENTITY_NODE = BlobType::FOREIGN_ATTRIBUTE_ENTITY_NODE;
 		static constexpr BlobType FOREIGN_RELATION_EDGE = BlobType::FOREIGN_RELATION_EDGE;
-
-		
-			
-			
+		static constexpr BlobType VALUE_TYPE_EDGE = BlobType::VALUE_TYPE_EDGE;
+		static constexpr BlobType VALUE_EDGE = BlobType::VALUE_EDGE;
+		static constexpr BlobType ATTRIBUTE_VALUE_ASSIGNMENT_EDGE = BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE;
 
 		BlobType operator() (EZefRef uzr) const;
 		BlobType operator() (ZefRef zr) const;
@@ -341,16 +256,6 @@ namespace zefDB {
     //////////////////////////////
     // * Zef Enums
 
-
-    struct LIBZEF_DLL_EXPORTED ZefEnumValue {
-        constexpr ZefEnumValue(enum_indx n = 0) : value(n) {};
-        enum_indx value;
-        std::string enum_type();
-        std::string enum_value();
-        bool operator== (const ZefEnumValue& rhs) const { return value == rhs.value; }
-        bool operator!= (const ZefEnumValue& rhs) const { return value != rhs.value; }
-    };
-
     struct LIBZEF_DLL_EXPORTED ZefEnumStruct {
         // both the structs and their instantiations are declared inside this struct
 #include "zef_enums.h.zefenumstruct.gen"
@@ -368,7 +273,71 @@ namespace zefDB {
 
 
 
-    LIBZEF_DLL_EXPORTED std::ostream& operator<<(std::ostream& os, ZefEnumValue zef_enum_val);
+    //////////////////////////////
+    // * ValueRepType
+
+    inline enum_indx round_down_mod16(enum_indx x) {
+        return x - (x % 16);
+    }
+
+	struct LIBZEF_DLL_EXPORTED ValueRepType {
+		constexpr ValueRepType(enum_indx n = 0) : value(n) {};
+		enum_indx value;
+        operator str() const;
+        constexpr bool operator==(const ValueRepType & other) const { return this->value == other.value; }
+        constexpr bool operator!=(const ValueRepType & other) const { return !(*this == other); }
+	};
+	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, ValueRepType aet);
+    inline void to_json(json& j, const ValueRepType & aet) {
+        j = json{
+            {"zef_type", "ValueRepType"},
+            {"value", aet.value}
+        };
+    }
+
+    inline void from_json(const json& j, ValueRepType & aet) {
+        assert(j["zef_type"].get<std::string>() == "ValueRepType");
+        j.at("value").get_to(aet.value);
+    }
+
+    struct ValueRepTypeStruct {
+		struct Enum_ {
+#include "blobs.h.AET_enum.gen"
+			ValueRepType operator() (std::string name) const { return internals::get_vrt_from_enum_type_name_string(name); }
+		};
+		static constexpr Enum_ Enum{};
+
+		struct QuantityFloat_ {
+#include "blobs.h.AET_qfloat.gen"
+            ValueRepType operator() (std::string name) const { return internals::get_vrt_from_quantity_float_name_string(name); }
+		};
+		static constexpr QuantityFloat_ QuantityFloat{};		
+
+		struct QuantityInt_ {
+#include "blobs.h.AET_qint.gen"
+			ValueRepType operator() (std::string name) const { return internals::get_vrt_from_quantity_int_name_string(name); }
+		};
+		static constexpr QuantityInt_ QuantityInt{};		
+
+        static constexpr ValueRepType _unspecified{ 0 };
+		static constexpr ValueRepType String{ 1 };
+		static constexpr ValueRepType Bool{ 2 };
+		static constexpr ValueRepType Float{ 3 };
+		static constexpr ValueRepType Int{ 4 };
+		static constexpr ValueRepType Time{ 5 };
+		static constexpr ValueRepType Serialized{ 6 };
+		static constexpr ValueRepType Any{ 7 };
+		static constexpr ValueRepType Type{ 8 };
+
+		ValueRepType operator() (EZefRef uzr) const;
+		ValueRepType operator() (ZefRef zr) const;
+    };
+    constexpr ValueRepTypeStruct VRT;
+
+	inline bool is_zef_subtype(ValueRepType vrt1, ValueRepType vrt_super) { return vrt1 == vrt_super; }
+	inline bool is_zef_subtype(ValueRepType vrt1, ValueRepTypeStruct::Enum_ enum_super_struct) { return (vrt1.value >= 65536) && (vrt1.value % 16 == 1); }
+	inline bool is_zef_subtype(ValueRepType vrt1, ValueRepTypeStruct::QuantityFloat_ quantity_float_super_struct) { return (vrt1.value >= 65536) && (vrt1.value % 16 == 2); }
+	inline bool is_zef_subtype(ValueRepType vrt1, ValueRepTypeStruct::QuantityInt_ quantity_int_super_struct) { return (vrt1.value >= 65536) && (vrt1.value % 16 == 3); }
 
 
 
@@ -476,7 +445,7 @@ namespace zefDB {
         int order;
         using var_t = std::variant<
             EntityType,
-            AtomicEntityType,
+            ValueRepType,
             RelationType,
 
             DelegateRelationTriple,
@@ -486,7 +455,7 @@ namespace zefDB {
         var_t item;
         Delegate(int order, var_t item) : order(order), item(item) {}
         Delegate(EntityType et) : order(0), item(et) {}
-        Delegate(AtomicEntityType aet) : order(0), item(aet) {}
+        Delegate(ValueRepType vrt) : order(0), item(vrt) {}
         Delegate(RelationType rt) : order(0), item(rt) {}
         Delegate(Delegate source, RelationType rt, Delegate target) : order(0), item(DelegateRelationTriple{rt,source,target}) {}
         Delegate(const Delegate& other) = default;
@@ -516,7 +485,7 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED Delegate delegate_of(ZefRef zr);
 
     LIBZEF_DLL_EXPORTED Delegate delegate_of(EntityType et);
-    LIBZEF_DLL_EXPORTED Delegate delegate_of(AtomicEntityType aet);
+    LIBZEF_DLL_EXPORTED Delegate delegate_of(ValueRepType vrt);
     LIBZEF_DLL_EXPORTED Delegate delegate_of(RelationType rt);
 
     template<class SRC, class TRG>
@@ -560,6 +529,15 @@ namespace std {
     struct hash<zefDB::ZefEnumValue> {
         size_t operator()(const zefDB::ZefEnumValue & en) {
             return zefDB::get_hash(en.value);
+        }
+    };
+
+    template<>
+    struct hash<zefDB::ValueRepType> {
+        std::size_t operator() (const zefDB::ValueRepType& vrt) const { 
+            size_t s = zefDB::hash_char_array("ValueRepType");
+            zefDB::hash_combine(s, zefDB::get_hash(vrt.value));
+            return s;
         }
     };
 }

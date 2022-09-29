@@ -24,10 +24,11 @@ from .. import *
 from ..op_structs import _call_0_args_translation, type_spec
 from .._ops import *
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
+from .flatgraph_implementations import *
 from ..logger import log
 
 from ...pyzef import zefops as pyzefops, main as pymain
-from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AtomicEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
+from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AttributeEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
 from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
@@ -255,7 +256,7 @@ def on_implementation(g, op):
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl                
                 # Type 2: any RAE  i.e on[terminated[ET.Dog]] or on[instantiated[RT.owns]] 
-                elif type(rae_or_zr) in {AtomicEntityType, EntityType, RelationType}: 
+                elif type(rae_or_zr) in {AttributeEntityType, EntityType, RelationType}: 
                     def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: rae_type(absorbed(x)[0]) == rae_or_zr] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl
@@ -271,7 +272,7 @@ def on_implementation(g, op):
                     def src_or_trgt_filter(rae, rae_filter):
                         if isinstance(rae_filter, ZefRef):
                             return to_ezefref(rae) == to_ezefref(rae_filter)
-                        elif isinstance(rae_filter, (EntityType, AtomicEntityType, RelationType)):
+                        elif isinstance(rae_filter, (EntityType, AttributeEntityType, RelationType)):
                             return rae_type(rae) == rae_filter
                         elif isinstance(rae_filter, ValueType_):
                             return is_a(rae, rae_filter)
@@ -297,7 +298,7 @@ def on_implementation(g, op):
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl
             # Type 2: any AET.* i.e on[assigned[AET.String]]
-            elif isinstance(aet_or_zr, AtomicEntityType): 
+            elif isinstance(aet_or_zr, AttributeEntityType): 
                 def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: rae_type(absorbed(x)[0]) == aet_or_zr] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl        
@@ -1292,6 +1293,8 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
                 w.append(next(it))
             yield tuple(w)
         except StopIteration:
+            if len(w) < window_size:
+                return
             yield tuple(w)
             return    
         while True:
@@ -1308,6 +1311,7 @@ def sliding_imp(iterable, window_size: int, stride_step: int=1):
                 return      #TODO!!!!!!!!!!!!!
     
     return ZefGenerator(wrapper)
+
         
 
 def sliding_tp(v_tp, step_tp):
@@ -1468,8 +1472,8 @@ def remove_imp(d: dict, key_to_remove: tuple):
     
     ---- Tags ----
     - operates on: Dict
-    - related zefop: remote_at
-    - related zefop: remote_in
+    - related zefop: remove_at
+    - related zefop: remove_in
     - related zefop: insert
     - related zefop: get
     """
@@ -1509,7 +1513,6 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
     - related zefop: get_field
     - related zefop: insert
     - related zefop: remove
-    - related zefop: select_in
     """
     from typing import Generator
     if is_a(d, FlatGraph):
@@ -1864,15 +1867,19 @@ def all_imp(*args):
         fil = args[1]
         # These options have C++ backing so try them first
         # The specific all[ET.x/AET.x] options (not all[RT.x] though)
-        if isinstance(fil, EntityType) or isinstance(fil, AtomicEntityType):
+        if isinstance(fil, EntityType) or isinstance(fil, AttributeEntityType):
             # Note: returning list rather than ZefRefs as more compatible
             # return list(gs.tx | pyzefops.instances[fil])
             return gs.tx | pyzefops.instances[fil]
         
-        if isinstance(fil, ValueType_):
-            representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (EntityType, AtomicEntityType))] | func[set] | collect
+        if isinstance(fil, ValueType_) and fil.d['type_name'] in {"Union", "Intersection"}:
+            representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (EntityType, AttributeEntityType))] | func[set] | collect
             value_types = set(fil.d['absorbed']) - representation_types
-            if len(value_types) > 0: value_types = Union[tuple(value_types)]        
+            
+            if len(value_types) > 0: 
+                # Wrap the remaining ValueTypes after removing representation_types in the original ValueType
+                value_types = {"Union": Union, "Intersection": Intersection}[fil.d['type_name']][tuple(value_types)]      
+
             if fil.d['type_name'] == "Union":
                 sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in representation_types]))
                 if not value_types: return sets_union
@@ -1883,8 +1890,6 @@ def all_imp(*args):
                 else:  initial = gs.tx | pyzefops.instances
                 if not value_types: return initial
                 return filter(initial, lambda x: is_a(x, value_types))
- 
-
 
         # The remaining options will just use the generic filter and is_a
         return filter(gs.tx | pyzefops.instances, lambda x: is_a(x, fil))
@@ -1905,7 +1910,7 @@ def all_imp(*args):
         # These options have C++ backing so try them first
         # The specific all[ET.x/AET.x] options (not all[RT.x] though)
         # Not using as this is not correct in filtering out the delegates
-        # if isinstance(fil, EntityType) or isinstance(fil, AtomicEntityType):
+        # if isinstance(fil, EntityType) or isinstance(fil, AttributeEntityType):
         #     return g | pyzefops.instances_eternal[fil]
 
         # The remaining options will just use the generic filter and is_a
@@ -1993,7 +1998,7 @@ def trim_left_imp(v, el_to_trim):
     element / character from the left side of a list / string.
 
     ---- Examples ----
-    >>> '..hello..' | trim_left['.']            # => ['hello..']
+    >>> '..hello..' | trim_left['.']            # => 'hello..'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2009,12 +2014,22 @@ def trim_left_imp(v, el_to_trim):
     - used for: string manipulation
     """
     if isinstance(v, str):        
-        return v.lstrip(el_to_trim)
+        if isinstance(el_to_trim, str):
+            return v.lstrip(el_to_trim)
+        elif isinstance(el_to_trim, set):
+            vv = v
+            for el in el_to_trim:
+                vv = vv | chunk[len(el)] | trim_left[{el}] | join[''] | collect
+            return vv
+        else:
+            raise ValueError("Triming a str only takes a string or a set as argument.")
+    
+    predicate = make_predicate(el_to_trim)
     def wrapper():
         it = iter(v)
         try:
             next_el = next(it)
-            while next_el == el_to_trim:
+            while predicate(next_el):
                 next_el = next(it)
             yield next_el
             while True:
@@ -2036,7 +2051,7 @@ def trim_right_imp(v, el_to_trim):
     element / character from the right side of a list / string.
 
     ---- Examples ----
-    >>> '..hello..' | trim_right['.']            # => ['..hello']
+    >>> '..hello..' | trim_right['.']            # => '..hello'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2053,11 +2068,20 @@ def trim_right_imp(v, el_to_trim):
     """
     import itertools 
     if isinstance(v, str):
-        return v.rstrip(el_to_trim)
+        if isinstance(el_to_trim, str):
+            return v.rstrip(el_to_trim)
+        elif isinstance(el_to_trim, set):
+            vv = v
+            for el in el_to_trim:
+                vv = vv | chunk[len(el)] | trim_right[{el}] | join[''] | collect
+            return vv
+        else:
+            raise ValueError("Triming a str only takes a string or a set as argument.")
     # we need to know all elements before deciding what is at the end
     vv = tuple(v)
     vv_rev = vv[::-1]
-    ind = len(list(itertools.takewhile(lambda x: x==el_to_trim, vv_rev)))
+    predicate = make_predicate(el_to_trim)
+    ind = len(list(itertools.takewhile(predicate, vv_rev)))
     return vv if ind==0 else vv[:-ind]
 
 
@@ -2073,7 +2097,7 @@ def trim_imp(v, el_to_trim):
     element / character from both sides of a list / string.
 
     ---- Examples ----
-    >>> '..hello..' | trim['.']            # => ['..hello']
+    >>> '..hello..' | trim['.']            # => 'hello'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2090,12 +2114,24 @@ def trim_imp(v, el_to_trim):
     """
     import itertools 
     if isinstance(v, str):
-        return v.strip(el_to_trim)
+        if isinstance(el_to_trim, str):
+            return v.strip(el_to_trim)
+        elif isinstance(el_to_trim, set):
+            vv = v
+            for el in el_to_trim:
+                # TODO: Need to add padding after chunking to remove correctly from the right
+                vv = vv | chunk[len(el)] | trim[{el}] | join[''] | collect
+            return vv
+        else:
+            raise ValueError("Triming a str only takes a string or a set as argument.")
+                
+
     # we need to know all elements before deciding what is at the end
     vv = tuple(v)
     vv_rev = vv[::-1]
-    ind_left = len(list(itertools.takewhile(lambda x: x==el_to_trim, vv)))
-    ind_right = len(list(itertools.takewhile(lambda x: x==el_to_trim, vv_rev)))    
+    predicate = make_predicate(el_to_trim)
+    ind_left = len(list(itertools.takewhile(predicate, vv)))
+    ind_right = len(list(itertools.takewhile(predicate, vv_rev)))    
     return vv[ind_left:] if ind_right==0 else vv[ind_left:-ind_right]
 
 
@@ -2299,19 +2335,19 @@ def absorbed_imp(x):
     
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AttributeEntity, ZefRef, EZefRef
     - related zefop: without_absorbed
     - related zefop: inject
     - related zefop: inject_list
     - related zefop: reverse_args
     """
-    if isinstance(x, (EntityType, RelationType, AtomicEntityType, Keyword, Delegate)):
+    if isinstance(x, (EntityType, RelationType, AttributeEntityType, Keyword, Delegate)):
         if '_absorbed' not in x.__dict__:
             return ()
         else:
             return x._absorbed
     
-    elif type(x) in {Entity, Relation, AtomicEntity}:
+    elif type(x) in {Entity, Relation, AttributeEntity}:
         return x.d['absorbed']
 
     elif isinstance(x, ZefOp):
@@ -2343,7 +2379,7 @@ def without_absorbed_imp(x):
     
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AttributeEntity, ZefRef, EZefRef
     - related zefop: absorbed
     - related zefop: inject
     - related zefop: inject_list
@@ -2363,8 +2399,11 @@ def without_absorbed_imp(x):
             new_rt = RelationType(x.value)
             return new_rt
         
-    elif isinstance(x, AtomicEntityType):
-        return AtomicEntityType(x.value)
+    elif isinstance(x, AttributeEntityType):
+        if x.complex_value:
+            return AttributeEntityType(x.complex_value)
+        else:
+            return AttributeEntityType(x.rep_type)
                 
     elif isinstance(x, Keyword):
         if '_absorbed' not in x.__dict__:
@@ -2388,7 +2427,7 @@ def without_absorbed_imp(x):
     elif isinstance(x, ValueType_):
         return ValueType_(type_name=x.d['type_name'])
 
-    elif isinstance(x, (Entity, AtomicEntity, RelationType)):
+    elif isinstance(x, (Entity, AttributeEntity, RelationType)):
         return type(x)(remove(x.d, 'absorbed'))
     return Error('Not Implemented')
 
@@ -2539,15 +2578,14 @@ def multiply_tp(a, second, *args):
 
 
 #---------------------------------------- divide -----------------------------------------------
-def divide_imp(a, second=None):    
+def divide_imp(a, b=None):    
     """
     Binary operator to divide two elements. Neither is a list.
-    If am operator is needed that can act on a tuple of length 2,
+    If an operator is needed that can act on a tuple of length 2,
     this can be wrapped in `unpack`.
 
     ---- Examples ----
     10 | divide[2]                # => 5
-    (10, 2) | divide[subtract]    # => 5
 
     ---- Signature ----
     (T1, T2) -> Float
@@ -2564,7 +2602,7 @@ def divide_imp(a, second=None):
     """
     if type(a) in {list, tuple} or type(b) in {list, tuple}:
         raise TypeError(f"`subtract` is a binary operator, i.e. always takes two arguments.")
-    return a-b
+    return a/b
     
     
 def divide_tp(a, second):
@@ -2755,6 +2793,30 @@ def min_by_tp(v_tp, min_by_function_tp):
     
     
     
+    
+
+#---------------------------------------- clamp -----------------------------------------------
+def clamp_imp(x, x_min, x_max):
+    """
+    Clamp x to be between x_min and x_max.
+
+    ---- Examples ----
+    2 | clamp[0][42]        # => 2
+    -2 | clamp[0][42]       # => 0
+    100 | clamp[0][42]      # => 42
+
+    ---- Signature ----
+    (Int|Float, Int|Float, Int|Float) -> Int|Float
+
+    ---- Tags ----
+    used for: maths
+    operates on: Int
+    operates on: Float
+    related zefop: min
+    related zefop: max
+    """
+    if x_max < x_min: return Error(f'clamp: x_min={x_min} must be less than or equal to x_max={x_max}')
+    return max(x_min, min(x, x_max))
 
     
     
@@ -2920,6 +2982,7 @@ def not_imp(x, pred_fct=lambda x: x):
     related zefop: And
     related zefop: xor
     """
+    pred_fct = make_predicate(pred_fct)
     return not pred_fct(x)
 
 
@@ -3032,6 +3095,7 @@ def or_imp(x, *args):
               
     # used as combinator on predicates
     for fct in args:
+        fct = make_predicate(fct)
         res = fct(x)
         assert isinstance(res, bool)
         if res is True:
@@ -3095,14 +3159,32 @@ def skip_imp(v, n: int):
     ---- Examples ----
     >>> range(10) | skip[3]                         # => [3,4,5,6,7,8,9]
     >>> ['a', 'b', 'c', 'd'] | skip[-2]             # => ['a', 'b']
+    >>> 'hello' | skip[-2]                          # => 'hel'
 
     ---- Signature ----
     (List[T], Int) -> List[T]
+    (String, Int) -> String
+
+    ---- Tags ----
+    - operates on: List
+    - operates on: String
+    - used for: list manipulation
+    - used for: string manipulation
+    - related zefop: take
+    - related zefop: slice
+    - related zefop: reverse
+    - related zefop: first
+    - related zefop: last
+    - related zefop: nth
     """
-    if isinstance(v, tuple) or isinstance(v, list) or isinstance(v,str):
-        return itertools.islice(v, n, None)  # None is 'inf' for the upper limit
-    # if isinstance(v, ZefRefs) or isinstance(v, EZefRefs):
-    #     return pyzefops.drop(v, n)
+
+    # handle strings separately: don't return a list, but a string
+    if isinstance(v, str):
+        if n>=0:
+            return v[n:]
+        else:
+            return v[:n]
+
     if n>=0:
         def wrapper():
             it = iter(v)
@@ -3112,7 +3194,8 @@ def skip_imp(v, n: int):
         return ZefGenerator(wrapper)    
     # n<0
     else:
-        cached = tuple(v)
+        # we need to consume all to know where the end is
+        cached = tuple(v)    
         return cached[:n]
     
 
@@ -3204,10 +3287,51 @@ def iterate_type_info(op, curr_type):
     return VT.List
 
 
+def make_predicate(maybe_predicate):
+    # Wrap ValueType or any RAE Type in is_a
+    if isinstance(maybe_predicate, ValueType_) or type(maybe_predicate) in {EntityType, AttributeEntityType, RelationType, EntityTypeStruct, AttributeEntityTypeStruct, RelationTypeStruct}: 
+        predicate = is_a[maybe_predicate]
+    
+    # If a set is passed check the existance of the passed element in the set
+    elif isinstance(maybe_predicate, set): 
+        predicate = lambda x: x in maybe_predicate
+
+    # ZefOps, ZefFunctions, Lambdas, Python Functions
+    elif callable(maybe_predicate) and not isinstance(maybe_predicate, int): 
+        predicate = maybe_predicate
+    
+    # Anything that didn't match will be matched for equality 
+    else:
+        log.warning(f"A value {maybe_predicate} was passed to be used as a ValueType. You should use " + \
+         "{" + str(maybe_predicate) + "} or SetOf[" + str(maybe_predicate) + "] instead!")
+        predicate = lambda x: x == maybe_predicate
+    
+    return predicate
+
 
 #---------------------------------------- skip_while -----------------------------------------------
 def skip_while_imp(it, predicate):
+    """ 
+    Skips the elements of the sequence while the predicate is true.    
+    
+    ---- Examples ----
+    >>> range(10) | skip_while[lambda x: x<4]       # => [4,5,6,7,8,9]
+
+    ---- Signature ----
+    (List[T], (T->Bool)) -> List[T]
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: take
+    - related zefop: take_until
+    - related zefop: skip
+    - related zefop: skip_until
+    - uses: Logic Type
+    - also named (in itertools): dropwhile
+    """
     import itertools
+    predicate = make_predicate(predicate)
     return itertools.dropwhile(predicate, it)
 
 def skip_while_tp(it_tp, pred_type):
@@ -3291,7 +3415,10 @@ def take_while_imp(v, predicate):
     - related zefop: take_until
     - related zefop: skip
     - related zefop: skip_while
+    - related zefop: skip_until
+    - uses: Logic Type
     """
+    predicate = make_predicate(predicate)
     def wrapper():
         it = iter(v)
         for el in it:
@@ -3319,7 +3446,17 @@ def take_until_imp(v, predicate):
 
     ---- Signature ----
     (List[T], (T->Bool)) -> List[T]
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: take
+    - related zefop: take_while
+    - related zefop: skip
+    - related zefop: skip_while
+    - uses: Logic Type
     """
+    predicate = make_predicate(predicate)
     def wrapper():
         it = iter(v)
         for el in it:
@@ -3330,9 +3467,48 @@ def take_until_imp(v, predicate):
                 break
     return ZefGenerator(wrapper)
 
+
 def take_until_tp(it_tp, pred_type):
     return it_tp
 
+
+
+
+#---------------------------------------- take_until -----------------------------------------------
+def skip_until_imp(v: List, predicate):
+    """ 
+    Skips the elements of the sequence while the predicate is true.    
+    
+    ---- Examples ----
+    >>> range(10) | skip_until[lambda x: x>5]   # => [6, 7, 8, 9]
+
+    ---- Signature ----
+    (List[T], (T->Bool)) -> List[T]
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: skip
+    - related zefop: skip_while
+    - related zefop: take_until
+    - related zefop: take_while
+    - uses: Logic Type    
+    """
+    predicate = make_predicate(predicate)
+    def wrapper():
+        it = iter(v)
+        while True:
+            try:
+                x = next(it)
+                if predicate(x):
+                    yield x
+                    break                
+            except StopIteration:
+                return None
+        yield from it
+        return None
+
+    return ZefGenerator(wrapper)
 
 
 
@@ -3661,11 +3837,8 @@ def If_imp(x, pred, true_case_func, false_case_func):
     - related zefop: filter
     """
     try:
-        if isinstance(pred, ValueType_):
-            case = is_a(x, pred)
-        else:
-            # if not a VT: assume it is callable            
-            case = pred(x)
+        pred = make_predicate(pred)
+        case = pred(x)
     except Exception as e:            
         raise RuntimeError(f'\nError within `If` zefop evaluating predicate function: `{pred}` for value  `{x}`: {e}')
     try:
@@ -3735,7 +3908,7 @@ def bypass_imp(x, bypass_type, fct):
     operates on: ZefOp
     """
     type_tup = bypass_type if isinstance(bypass_type, tuple) else (bypass_type,)
-    return if_then_else(
+    return If(
         x, 
         type_tup | reduce[lambda op, el: op[el]][is_a],
         lambda x: x,
@@ -4139,14 +4312,20 @@ def slice_tp(*args):
 
 # ---------------------------------------- split -----------------------------------------------
 
-def split_imp(collection, val):
+def split_imp(collection, val, max_split=-1):
     """ 
     Split a List into a List[List] based on the occurrence of val.
     The value that is split on is not contained in any of the output lists.
 
+    If max_split is set to a positive integer, the split is truncated after
+    that number. If max_split is set to -1, the split is unlimited.
+
     ---- Examples ----
     >>> 'abcdeabfb' | split['b']            # => ['a', 'cdea', 'f', '']
-    >>> [0,1,6,2,3,4,2,] | split[2]         # => [[0, 1, 6], [3, 4], []]    
+    >>> 'abcdeabfb' | split['b'][1]         # => ['a', 'cdeabfb']
+    >>> [0,1,6,2,3,4,2,] | split[2]         # => [[0, 1, 6], [3, 4], []]  
+    >>> '..hello..' | split['..']         # => ['', 'hello', '']
+    >>> '..hello..' | split['.']         # => ['','', 'hello', '', '']
 
     ---- Signature ----
     (List[T], T) -> List[List[T]]
@@ -4158,26 +4337,49 @@ def split_imp(collection, val):
     - used for: string manipulation
     - related zefop: split_left
     - related zefop: split_right
-    - related zefop: split_if
     - related zefop: trim
     """
     if isinstance(collection, str):
-        return collection.split(val)
-    def wrapper():
-        it = iter(collection)
-        try:
-            while True:
-                s = []
-                next_val = next(it)
-                while next_val != val:                
-                    s.append(next_val)
-                    next_val = next(it)                    
+        return collection.split(val, max_split)
+
+    split_function = make_predicate(val)
+    if max_split == -1:       
+        def wrapper():
+            it = iter(collection)
+            try:
+                while True:
+                    s = []
+                    next_val = next(it)
+                    while not split_function(next_val):                
+                        s.append(next_val)
+                        next_val = next(it)                    
+                    yield s
+            except StopIteration:
                 yield s
-        except StopIteration:
-            yield s
-            return
-    return ZefGenerator(wrapper)
-    
+                return
+        return ZefGenerator(wrapper)
+
+    else:
+        assert (max_split >= 0)
+        def wrapper2():
+            run_no=0
+            it = iter(collection)
+            try:
+                while run_no < max_split:
+                    s = []
+                    next_val = next(it)
+                    while not split_function(next_val):                
+                        s.append(next_val)
+                        next_val = next(it)                    
+                    yield s
+                    run_no += 1
+                yield list(it)
+            except StopIteration:
+                yield s
+                return
+
+        return ZefGenerator(wrapper2)
+
 
 def split_tp(*args):
     return VT.Any
@@ -4204,12 +4406,12 @@ def split_left_imp(v, val):
     - used for: string manipulation
     - related zefop: split
     - related zefop: split_right
-    - related zefop: split_if
     - related zefop: trim
     """
     if isinstance(v, str):
         return split_left_imp(iter(v), val) | map[concat] | collect
 
+    split_function = make_predicate(val)
     def wrapper():
         it = iter(v)
         try:
@@ -4218,7 +4420,7 @@ def split_left_imp(v, val):
                 s = []
                 s.append(next_val)
                 next_val = next(it)
-                while next_val != val:                
+                while not split_function(next_val):                
                     s.append(next_val)
                     next_val = next(it)                    
                 yield s
@@ -4249,12 +4451,12 @@ def split_right_imp(v, val):
     - used for: string manipulation
     - related zefop: split
     - related zefop: split_left
-    - related zefop: split_if
     - related zefop: trim
     """
     if isinstance(v, str):
         return split_right_imp(iter(v), val) | map[concat] | collect
 
+    split_function = make_predicate(val)
     def wrapper():
         it = iter(v)
         try:
@@ -4262,7 +4464,7 @@ def split_right_imp(v, val):
                 s = []
                 next_val = next(it)
                 s.append(next_val)
-                while next_val != val:                
+                while not split_function(next_val):                
                     next_val = next(it)                    
                     s.append(next_val)
                 yield s
@@ -4270,52 +4472,6 @@ def split_right_imp(v, val):
             if s!=[]: yield s
             return
     return ZefGenerator(wrapper)
-
-
-# ------------------------------------------ split_if ---------------------------------------------
-def split_if_imp(v, split_function):
-    """ 
-    Similar to split, but the user provides a predicate function 
-    that determines the positions to split on.
-
-    The symbols that are split on, are not included in the result.
-
-    ---- Examples ----
-    >>> 'good4morning2to6you' | split_if[is_numeric]    # => ['good', 'morning', 'to', 'you']
-    >>> range(10) | split_if[lambda x: x % 3 == 0 ]     # => [[], [1, 2], [4, 5], [7, 8], []]
-
-    ---- Signature ----
-    (List[T], T->Bool) -> List[List[T]]
-
-    ---- Tags ----
-    - operates on: List
-    - operates on: String
-    - used for: list manipulation
-    - used for: string manipulation
-    - related zefop: split
-    - related zefop: concat
-    - related zefop: trim
-    - used for: predicate
-    """
-    if isinstance(v, str):
-        return v | func[tuple] | split_if[split_function] | map[join] | collect
-    def wrapper():
-        it = iter(v)
-        try:
-            while True:
-                s = []
-                next_val = next(it)
-                while not split_function(next_val):                
-                    s.append(next_val)
-                    next_val = next(it)                    
-                yield s
-        except StopIteration:
-            yield s
-            return
-    return ZefGenerator(wrapper)
-
-
-
 
 
 # --------------------------------------- now ------------------------------------------------
@@ -4581,7 +4737,7 @@ def preceding_events_imp(x, filter_on=None):
     if BT(x) not in [
             BT.ENTITY_NODE,
             BT.RELATION_EDGE,
-            BT.ATOMIC_ENTITY_NODE,
+            BT.ATTRIBUTE_ENTITY_NODE,
             ]:
         raise TypeError(f"`preceding_events` can only be called on RAEs and GraphSlices and lists all relevant events form the past.")
 
@@ -4792,7 +4948,7 @@ def in_frame_imp(z, *args):
             raise RuntimeError('origin node not found in reference frame graph!')
 
         zz = g_frame[the_origin_uid]
-        if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
+        if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
             z_candidates = zz | Ins[BT.ORIGIN_RAE_EDGE] | map[target] | filter[exists_at[target_frame]] | collect
             if len(z_candidates) > 1:
                 raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {the_origin_uid}")
@@ -4817,19 +4973,19 @@ def discard_frame_imp(x):
 
     ---- Signature ----
     ZefRef[ET[T1]] -> Entity[T1]
-    ZefRef[AET[T1]] -> AtomicEntity[T1]
+    ZefRef[AET[T1]] -> AttributeEntity[T1]
     ZefRef[RT[T1]] -> Relation[T1]
     ZefRef[BT.TX] -> TX           # TODO
     ZefRef[BT.Root] -> Graph      # TODO
 
     EZefRef[ET[T1]] -> Entity[T1]
-    EZefRef[AET[T1]] -> AtomicEntity[T1]
+    EZefRef[AET[T1]] -> AttributeEntity[T1]
     EZefRef[RT[T1]] -> Relation[T1]
     EZefRef[BT.TX] -> TX          # TODO
     EZefRef[BT.Root] -> Graph     # TODO
 
     Entity[T1] -> Entity[T1]
-    AtomicEntity[T1] -> AtomicEntity[T1]
+    AttributeEntity[T1] -> AttributeEntity[T1]
     Relation[T1] -> Relation[T1]
 
     ---- Tags ----
@@ -4838,8 +4994,8 @@ def discard_frame_imp(x):
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         if   BT(x) == BT.ENTITY_NODE: return Entity(x)
         elif BT(x) == BT.RELATION_EDGE: return Relation(x)
-        elif BT(x) == BT.ATOMIC_ENTITY_NODE: return AtomicEntity(x)
-    if isinstance(x, Entity) or isinstance(x, Relation) or isinstance(x, AtomicEntity):
+        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE: return AttributeEntity(x)
+    if isinstance(x, Entity) or isinstance(x, Relation) or isinstance(x, AttributeEntity):
         return x
     raise TypeError(f"'discard_frame' not implemented for type {type(x)}: it was passed {x}")
 
@@ -5028,9 +5184,9 @@ def time_travel_tp(x, p):
 
 def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
-    if type(z) in [Entity, AtomicEntity, Relation, TXNode, Root]:
+    if type(z) in [Entity, AttributeEntity, Relation, TXNode, Root]:
         return uid(z)
-    assert BT(z) in {BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
+    assert BT(z) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
         return uid(to_ezefref(z))
     if BT(z) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
@@ -5040,7 +5196,7 @@ def origin_uid_imp(z) -> EternalUID:
         # z itself is the origin
         return uid(to_ezefref(z))
     z_or = origin_candidates | only | collect
-    if BT(z_or) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATOMIC_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
+    if BT(z_or) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
         # the origin was from a different graph
         g_origin_uid = z_or | Out[BT.ORIGIN_GRAPH_EDGE] | base_uid | collect
         return EternalUID(z_or | base_uid | collect, g_origin_uid)
@@ -5058,7 +5214,7 @@ def origin_uid_tp(x):
 
 def origin_rae_imp(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
-    if type(x) in [Entity, AtomicEntity, Relation, TXNode, Root]:
+    if type(x) in [Entity, AttributeEntity, Relation, TXNode, Root]:
         return x
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         if internals.is_delegate(x):
@@ -5067,8 +5223,8 @@ def origin_rae_imp(x):
             return Entity(x)
         elif BT(x) == BT.RELATION_EDGE:
             return Relation(x)
-        elif BT(x) == BT.ATOMIC_ENTITY_NODE:
-            return AtomicEntity(x)
+        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE:
+            return AttributeEntity(x)
         elif BT(x) == BT.TX_EVENT_NODE:
             return TXNode(x)
         elif BT(x) == BT.ROOT_NODE:
@@ -5208,8 +5364,9 @@ def map_implementation(v, f):
     case.    
 
     ---- Examples -----
-    >>> [3, 4, 5] | map[add[1]]                      # => [4, 5, 6]
-    >>> [1, 2, 3] | map[str, add[100]]               # => [('1', 101), ('2', 102), ('3', 103)]
+    >>> [3, 4, 5] | map[add[1]]                            # => [4, 5, 6]
+    >>> [1, 2, 3] | map[str, add[100]]                     # => [('1', 101), ('2', 102), ('3', 103)]
+    >>> {'a': 1, 'b': 2} | map[lambda k, v: (k+'!', v+1)]  # => {'a!': 2, 'b!': 3}
 
     ---- Signature ----
     (List[T1], (T1 -> T2))  -> List[T2]
@@ -5222,23 +5379,27 @@ def map_implementation(v, f):
     """
     import builtins
     input_type = parse_input_type(type_spec(v))
+
+    if isinstance(v, dict):
+        return dict( (f(k,v) for k,v in v.items() ) )
+
     if input_type == "awaitable":
         observable_chain = v
         # Ugly hack for ZefOp
         f._allow_bool = True
         return observable_chain.pipe(rxops.map(f))
+
+    if not isinstance(v, Iterable): raise TypeError(f"Map only accepts values that are Iterable. Type {type(v)} was passed")
+    if isinstance(f, list) or isinstance(f, tuple):
+        def wrapper_list():
+            for el in v:            
+                yield tuple(ff(el) for ff in f)
+        return ZefGenerator(wrapper_list)
     else:
-        if not isinstance(v, Iterable): raise TypeError(f"Map only accepts values that are Iterable. Type {type(v)} was passed")
-        if isinstance(f, list) or isinstance(f, tuple):
-            def wrapper_list():
-                for el in v:            
-                    yield tuple(ff(el) for ff in f)
-            return ZefGenerator(wrapper_list)
-        else:
-            def wrapper():
-                for el in v:
-                    yield f(el)
-            return ZefGenerator(wrapper)
+        def wrapper():
+            for el in v:
+                yield f(el)
+        return ZefGenerator(wrapper)
 
 
 
@@ -5406,6 +5567,9 @@ def nth_implementation(iterable, n):
     (LazyValue[List[T]], Int) -> LazyValue[Union[T, Error]]
     (Awaitable[List[T]], Int) -> Awaitable[Union[T, Error]]    
     """
+    if isinstance(iterable, dict): 
+        raise TypeError(f"`nth` was called on a dict, but is only supported for Lists")
+
     if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
         return iterable | all | nth[n] | collect
         
@@ -5424,7 +5588,7 @@ def nth_implementation(iterable, n):
 
 
 
-#---------------------------------------- select_by_field -----------------------------------------------
+#---------------------------------------- select_keys -----------------------------------------------
 def select_keys_imp(d: dict, *keys: list):
     """
     Given a dictionary, return a new dictionary containing 
@@ -5492,10 +5656,7 @@ def filter_implementation(itr, pred_or_vt):
     - used for: control flow
     - operates on: List
     """
-    if isinstance(pred_or_vt, ValueType_): pred = is_a[pred_or_vt]
-    elif isinstance(pred_or_vt, set): pred = lambda x: x in pred_or_vt
-    else: pred = pred_or_vt
-    
+    pred = make_predicate(pred_or_vt)
     input_type = parse_input_type(type_spec(itr))
     if input_type == "tools":
         # As this is an intermediate, we return an explicit generator
@@ -5728,6 +5889,16 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
     ---- Signature ----
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: In
+    - related zefop: Ins
+    - related zefop: Outs
+    - related zefop: ins_and_outs
+    - related zefop: target
+    - related zefop: source
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "single")
@@ -5763,7 +5934,7 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
 #---------------------------------------- Outs -----------------------------------------------
 def Outs_imp(z, rt=None, target_filter = None):
     """
-    Traverse along all outgoing relation of the specified 
+    Traverse along all outgoing relations of the specified 
     type to the thing attached to the target of each relation.
 
     For a ZefRef, it will always stay in the same time
@@ -5775,8 +5946,16 @@ def Outs_imp(z, rt=None, target_filter = None):
     >>> z1s_friend = z1 | Outs[RT.FriendOf]
 
     ---- Signature ----
-    ZefRef -> ZefRefs
-    EZefRef -> EZefRefs
+    ZefRef -> List[ZefRef]
+    EZefRef -> List[EZefRef]
+    
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: Ins
+    - related zefop: Out
+    - related zefop: In
+    - related zefop: ins_and_outs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
@@ -5803,6 +5982,16 @@ def In_imp(z, rt=None, source_filter = None):
     ---- Signature ----
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: Out
+    - related zefop: Ins
+    - related zefop: Outs
+    - related zefop: ins_and_outs
+    - related zefop: target
+    - related zefop: source
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
@@ -5813,7 +6002,7 @@ def In_imp(z, rt=None, source_filter = None):
 #---------------------------------------- Ins -----------------------------------------------
 def Ins_imp(z, rt=None, source_filter = None):
     """
-    Traverse along all incoming relation of the specified 
+    Traverse along all incoming relations of the specified 
     type to the thing attached to the source of each relation.
 
     For a ZefRef, it will always stay in the same time
@@ -5825,13 +6014,48 @@ def Ins_imp(z, rt=None, source_filter = None):
     >>> z1s_friend = z1 | Ins[RT.FriendOf]
 
     ---- Signature ----
-    ZefRef -> ZefRefs
-    EZefRef -> EZefRefs
+    ZefRef -> List[ZefRef]
+    EZefRef -> List[EZefRef]
+    
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: Outs
+    - related zefop: In
+    - related zefop: Out
+    - related zefop: ins_and_outs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
 
     return in_rels_imp(z, rt, source_filter) | map[source] | collect
+
+#---------------------------------------- isn_and_outs -----------------------------------------------
+def ins_and_outs_imp(z, rel_type=RT):
+    """
+    Traverse along all incoming AND outgoing relations of 
+    the specified type to the thing attached to the source 
+    of each relation.
+
+    For a ZefRef, it will always stay in the same time
+    slice of the given graph.
+    
+    When Used on an EZefRef, the eternal graph is traversed.
+
+    ---- Examples ----
+    >>> z1s_friend = z1 | ins_and_outs[RT.FriendOf]
+
+    ---- Signature ----
+    ZefRef -> List[ZefRef]
+    EZefRef -> List[EZefRef]
+    
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: Ins, Outs
+    """
+
+    return [*Outs(z, rel_type), *Ins(z, rel_type)]
 
 
 #---------------------------------------- out_rel -----------------------------------------------
@@ -5853,6 +6077,14 @@ def out_rel_imp(z, rt=None, target_filter = None):
     ---- Signature ----
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: out_rels
+    - related zefop: in_rel
+    - related zefop: Out
+    - related zefop: Outs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "single")
@@ -5886,6 +6118,7 @@ def out_rel_imp(z, rt=None, target_filter = None):
         raise Exception(help_hint())
     return single(opts)
 
+
 #---------------------------------------- out_rels -----------------------------------------------
 def out_rels_imp(z, rt=None, target_filter=None):
     """
@@ -5904,6 +6137,14 @@ def out_rels_imp(z, rt=None, target_filter=None):
     ---- Signature ----
     ZefRef -> ZefRefs
     EZefRef -> EZefRefs
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: in_rels
+    - related zefop: out_rel
+    - related zefop: Out
+    - related zefop: Outs
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "multi")
@@ -5937,6 +6178,14 @@ def in_rel_imp(z, rt=None, source_filter = None):
     ---- Signature ----
     ZefRef -> ZefRef | Error
     EZefRef -> EZefRef | Error
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: in_rels
+    - related zefop: out_rel
+    - related zefop: In
+    - related zefop: Ins
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "single")
@@ -5989,6 +6238,14 @@ def in_rels_imp(z, rt=None, source_filter=None):
     ---- Signature ----
     ZefRef -> ZefRefs
     EZefRef -> EZefRefs
+
+    ---- Tags ----
+    - used for: graph traversal
+    - operates on: ZefRef, EZefRef
+    - related zefop: out_rels
+    - related zefop: in_rel
+    - related zefop: In
+    - related zefop: Ins
     """
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "multi")
@@ -6043,12 +6300,7 @@ def value_implementation(zr, maybe_tx=None):
 
     from ...pyzef.zefops import SerializedValue
     if isinstance(val, SerializedValue):
-        if val.type == "tools.serialize":
-            from ..serialization import deserialize
-            from json import loads
-            return deserialize(loads(val.data))
-        else:
-            raise Exception(f"Don't know how to deserialize a type of {val.type}")
+        return val.deserialize()
     else:
         return val
 
@@ -6079,7 +6331,7 @@ def termination_tx_implementation(z):
 def uid_implementation(arg):
     if isinstance(arg, str):
         return to_uid(arg)
-    if isinstance(arg, (Entity, AtomicEntity, TXNode, Root)):
+    if isinstance(arg, (Entity, AttributeEntity, TXNode, Root)):
         return arg.d["uid"]
     if isinstance(arg, Relation):
         return arg.d["uids"][1]
@@ -6106,7 +6358,8 @@ def first_tx_for_low_level_blob(z):
         return first_tx_for_low_level_blob(z | in_rel[BT.TO_DELEGATE_EDGE] | collect)
     elif BT(z) in [BT.ENTITY_NODE,
                    BT.RELATION_EDGE,
-                   BT.ATOMIC_ENTITY_NODE]:
+                   BT.ATTRIBUTE_ENTITY_NODE,
+                   BT.VALUE_NODE]:
         # Chronological order is mandatory so we find the first instantiation edge
         return first_tx_for_low_level_blob(z | in_rel[BT.RAE_INSTANCE_EDGE] | collect)
     if BT(z) in [BT.DELEGATE_INSTANTIATION_EDGE,
@@ -6121,7 +6374,7 @@ def first_tx_for_low_level_blob(z):
                    BT.ORIGIN_GRAPH_EDGE,
                    BT.FOREIGN_ENTITY_NODE,
                    BT.FOREIGN_RELATION_EDGE,
-                   BT.FOREIGN_ATOMIC_ENTITY_NODE,
+                   BT.FOREIGN_ATTRIBUTE_ENTITY_NODE,
                    BT.FOREIGN_GRAPH_NODE]:
         raise TypeError(f"Can't yet determine events for this kind of blob: {BT(z)}")
                    
@@ -6219,13 +6472,13 @@ def representation_type_imp(x):
             # QuantityFloat: VT.QuantityFloat,
             # QuantityInt: VT.QuantityInt,
             # EntityType: VT.EntityType,
-            # AtomicEntityType: VT.AtomicEntityType,
+            # AttributeEntityType: VT.AttributeEntityType,
             # RelationType: VT.RelationType,
             ZefRef: VT.ZefRef,
             EZefRef: VT.EZefRef,
             # TX: VT.TX
             # Entity: VT.Entity,
-            # AtomicEntity: VT.AtomicEntity,
+            # AttributeEntity: VT.AttributeEntity,
             # Relation: VT.Relation,
             ZefOp: VT.ZefOp,
             Graph: VT.Graph,
@@ -6336,7 +6589,7 @@ def is_a_implementation(x, typ):
             return True
         elif isinstance(x, list) or isinstance(x, tuple):
             for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
-                if type(p_e) not in {ValueType_, EntityTypeStruct, RelationTypeStruct, AtomicEntityTypeStruct}:
+                if type(p_e) not in {ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct}:
                     raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")
                 if not is_a(x_e, p_e): return False  
             return True
@@ -6531,18 +6784,30 @@ def is_a_implementation(x, typ):
         if typ == BT.RELATION_EDGE:
             return True
 
-    if isinstance(x, AtomicEntityType):
-        if isinstance(typ, AtomicEntityTypeStruct):
+    if isinstance(x, AttributeEntityType):
+        if isinstance(typ, AttributeEntityTypeStruct):
             return True
-        if isinstance(typ, AtomicEntityType):
+
+        if isinstance(typ, AttributeEntityType):
+            if typ.complex_value is not None:
+                raise Exception(f"Using is_a on complex AETs (got {typ}) is not yet implemented. Coming soon!")
+            if x.complex_value is not None:
+                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
             return x == typ
+
         if typ == AET.QuantityFloat:
-            return internals.is_aet_a_quantity_float(x)
+            if x.complex_value is not None:
+                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
+            return internals.is_vrt_a_quantity_float(x.rep_type)
         if typ == AET.QuantityInt:
-            return internals.is_aet_a_quantity_int(x)
+            if x.complex_value is not None:
+                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
+            return internals.is_vrt_a_quantity_int(x.rep_type)
         if typ == AET.Enum:
-            return internals.is_aet_a_enum(x)
-        if typ == BT.ATOMIC_ENTITY_NODE:
+            if x.complex_value is not None:
+                raise Exception(f"Using is_a on complex AETs (got {x}) is not yet implemented. Coming soon!")
+            return internals.is_vrt_a_enum(x.rep_type)
+        if typ == BT.ATTRIBUTE_ENTITY_NODE:
             return True
 
     if isinstance(x, EntityTypeStruct):
@@ -6553,8 +6818,8 @@ def is_a_implementation(x, typ):
         if isinstance(typ, RelationTypeStruct):
             return True
 
-    if isinstance(x, AtomicEntityTypeStruct):
-        if isinstance(typ, AtomicEntityTypeStruct):
+    if isinstance(x, AttributeEntityTypeStruct):
+        if isinstance(typ, AttributeEntityTypeStruct):
             return True
 
     if isinstance(x, ZefOp):
@@ -6568,7 +6833,7 @@ def is_a_implementation(x, typ):
             return True
         
     # TODO CHANGE THIS TO ACCEPT ONLY PYTHON TYPES
-    if isinstance(typ, EntityTypeStruct) or isinstance(typ, RelationTypeStruct) or isinstance(x, AtomicEntityTypeStruct):
+    if isinstance(typ, EntityTypeStruct) or isinstance(typ, RelationTypeStruct) or isinstance(x, AttributeEntityTypeStruct):
         return False
     try:
         return isinstance(x, typ)
@@ -6591,7 +6856,7 @@ def _is_a_instance_delegate_generic(x, typ):
     if typ == Z:
         return True
     if typ == RAE:
-        if BT(x) in [BT.ENTITY_NODE, BT.RELATION_EDGE, BT.ATOMIC_ENTITY_NODE]:
+        if BT(x) in [BT.ENTITY_NODE, BT.RELATION_EDGE, BT.ATTRIBUTE_ENTITY_NODE]:
             return True
     if isinstance(typ, EntityType):
         if BT(x) != BT.ENTITY_NODE:
@@ -6608,15 +6873,15 @@ def _is_a_instance_delegate_generic(x, typ):
                 and _is_a_instance_delegate_generic(x, typ[1])
                 and _is_a_instance_delegate_generic(pyzefops.target(x), typ[2]))
     if is_a(typ, AET):
-        if BT(x) != BT.ATOMIC_ENTITY_NODE:
+        if BT(x) != BT.ATTRIBUTE_ENTITY_NODE:
             return False
         return is_a(AET(x), typ)
     if isinstance(typ, EntityTypeStruct):
         return BT(x) == BT.ENTITY_NODE
     if isinstance(typ, RelationTypeStruct):
         return BT(x) == BT.RELATION_EDGE
-    if isinstance(typ, AtomicEntityTypeStruct):
-        return BT(x) == BT.ATOMIC_ENTITY_NODE
+    if isinstance(typ, AttributeEntityTypeStruct):
+        return BT(x) == BT.ATTRIBUTE_ENTITY_NODE
 
     return False
 
@@ -6634,7 +6899,7 @@ def rae_type_implementation(z):
         return z.d["type"]
     if isinstance(z, Relation):
         return z.d["type"][1]
-    if isinstance(z, AtomicEntity):
+    if isinstance(z, AttributeEntity):
         return z.d["type"]
     return pymain.rae_type(z)
 
@@ -7026,9 +7291,14 @@ def merge_imp(a, second=None, *args):
     Clojure has a similar operator:
     https://clojuredocs.org/clojure.core/merge
 
+    Also has the ability to merge 2 FlatGraphs together or a list of FlatGraphs.
+
     ---- Examples -----
     >>> [{'a': 1, 'b': 42}, {'a': 2, 'c': 43}] | merge          # => {'a': 2, 'b': 42, 'c': 43}
     >>> {'a': 1, 'b': 42} | merge[ {'a': 2, 'c': 43} ]
+    >>> fg1 | merge[fg2] | collect
+    >>> [fg1, fg2, fg3] | merge | collect
+
 
     ---- Signature ----
     List[Dict]          -> Dict
@@ -7042,6 +7312,8 @@ def merge_imp(a, second=None, *args):
     from typing import Generator
     if is_a(a, FlatGraph) and is_a(second, FlatGraph):
         return fg_merge_imp(a, second)
+    elif isinstance(a, list) and is_a(a[0], FlatGraph):
+        return fg_merge_imp(a)
     elif second is None:
         assert isinstance(a, tuple) or isinstance(a, list) or isinstance(a, (Generator, ZefGenerator))
         return {k: v for d in a for k, v in d.items()}
@@ -7139,7 +7411,7 @@ def to_clipboard_imp(x):
     assert type(x) in {str, int, float, bool}
     return {
         'type': FX.Clipboard.CopyTo,
-        'value': x
+        'content': x
     }
 
 
@@ -7424,7 +7696,7 @@ def to_pipeline_imp(ops: list):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AttributeEntity, ZefRef, EZefRef
     - related zefop: inject
     - related zefop: inject_list
     - related zefop: absorbed
@@ -7452,7 +7724,7 @@ def inject_imp(x, injectee):
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AttributeEntity, ZefRef, EZefRef
     - related zefop: inject_list
     - related zefop: absorbed
     - related zefop: without_absorbed
@@ -7475,11 +7747,11 @@ def inject_list_imp(v, injectee):
     as multiple [...][...]...
 
     ---- Examples ----
-    >>> [pred1, pred2, pred3] | inject[And]         # => And[pred1][pred2][pred3]
+    >>> [pred1, pred2, pred3] | inject_list[And]         # => And[pred1][pred2][pred3]
 
     ---- Tags ----
     - used for: control flow
-    - operates on: ZefOp, Value Types, Entity, Relation, AtomicEntity, ZefRef, EZefRef
+    - operates on: ZefOp, Value Types, Entity, Relation, AttributeEntity, ZefRef, EZefRef
     - related zefop: inject
     - related zefop: absorbed
     - related zefop: without_absorbed
@@ -7702,7 +7974,7 @@ def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
     @func
     def get_template_representation(p, id_lookup):
         label = result = None
-        if type(p) == EntityType or type(p) == AtomicEntityType:
+        if type(p) == EntityType or type(p) == AttributeEntityType:
             result = instance_rep(p)
             label = get_label(p)
         elif type(p) == tuple:
@@ -8423,10 +8695,12 @@ def fg_insert_imp(fg, new_el):
             assert rae_uid in new_key_dict, "Can't construct an Abstract Relation!"
             return new_key_dict[rae_uid]
         else:
-            rae_class = AtomicEntity if type(rae_type) == AtomicEntityType else Entity
+            rae_class = AttributeEntity if type(rae_type) == AttributeEntityType else Entity
             return common_logic(rae_class({"type": rae_type, "uid": rae_uid}))
 
     def common_logic(new_el):
+        nonlocal new_blobs, new_key_dict
+
         if isinstance(new_el, EntityType):
             idx = next_idx()
             internal_id = new_el | absorbed | attempt[single][None] | collect
@@ -8434,7 +8708,7 @@ def fg_insert_imp(fg, new_el):
             if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None))
 
-        elif isinstance(new_el, AtomicEntityType):
+        elif isinstance(new_el, AttributeEntityType):
             idx = next_idx()
             internal_id = new_el | absorbed | attempt[single][None] | collect
             new_el = new_el | without_absorbed | collect
@@ -8449,7 +8723,7 @@ def fg_insert_imp(fg, new_el):
                 new_key_dict[node_uid] = idx
             idx = new_key_dict[node_uid]
 
-        elif isinstance(new_el, AtomicEntity):
+        elif isinstance(new_el, AttributeEntity):
             node_type, node_uid = new_el.d['type'], new_el.d['uid']
             if node_uid not in new_key_dict:
                 idx = next_idx()
@@ -8459,6 +8733,28 @@ def fg_insert_imp(fg, new_el):
 
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Instantiated):
             raise ValueError("!!!!SHOULD NO LONGER ARRIVE HERE!!!!")
+        
+        elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Terminate):
+            to_be_removed = LazyValue(new_el) | absorbed | attempt[first][None] | collect
+            idx = None
+            if to_be_removed:
+                try:
+                    new_fg = FlatGraph()
+                    new_fg.key_dict = new_key_dict
+                    new_fg.blobs = (*new_blobs,)
+                    new_fg = fg_remove_imp(new_fg, to_be_removed)
+                    new_blobs, new_key_dict = [*new_fg.blobs], {**new_fg.key_dict}
+                except KeyError:
+                    pass
+                except:
+                    raise Exception(f"An exception happened while trying to perform {new_el} on {fg}")
+
+        elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Assign):
+            internals = LazyValue(new_el) | absorbed  | collect
+            assert len(internals) == 2, f"assign should have both the entity and the value to be assigned got {internals} instead"
+            ref, val = internals
+            idx = common_logic(ref <= val)
+
 
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
             key = peel(new_el)| first | second | first | collect
@@ -8468,10 +8764,10 @@ def fg_insert_imp(fg, new_el):
         # i.e: z4 <= 42 ; AET.String <= "42" ; AET.String['z1'] <= 42 ; Z['n1'] <= 42
         elif isinstance(new_el, LazyValue) and length(peel(new_el)) == 2:
             first_op = peel(new_el)[0]
-            if isinstance(first_op, AtomicEntityType):
+            if isinstance(first_op, AttributeEntityType):
                     internal_id = first_op | absorbed | attempt[single][None] | collect
                     aet_maybe = first_op | without_absorbed | collect
-                    assert isinstance(aet_maybe, AtomicEntityType), f"{new_el} should be of type AET"
+                    assert isinstance(aet_maybe, AttributeEntityType), f"{new_el} should be of type AET"
                     aet_value = peel(peel(new_el)[1])[0][1][0]
                     idx = next_idx()
                     new_blobs.append((idx, aet_maybe, [], None, aet_value))
@@ -8482,13 +8778,13 @@ def fg_insert_imp(fg, new_el):
                     aet_value = peel(peel(new_el)[1])[0][1][0]
                     if key not in new_key_dict and not isinstance(key, int): raise KeyError(f"{key} doesn't exist in internally known ids!")
                     idx = new_key_dict.get(key, key)
-                    assert isinstance(new_blobs[idx][1], AtomicEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
+                    assert isinstance(new_blobs[idx][1], AttributeEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
                     new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
                 else:
                     raise ValueError(f"Expected a Z['n1'] <= 42 got {new_el} instead!")
             elif isinstance(first_op, ZefRef) or isinstance(first_op, EZefRef):
                 idx = common_logic(first_op)
-                assert isinstance(new_blobs[idx][1], AtomicEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
+                assert isinstance(new_blobs[idx][1], AttributeEntityType), f"This key must refer to an AET found {new_blobs[idx][1]}"
                 aet_value = peel(peel(new_el)[1])[0][1][0]
                 new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
             else:
@@ -8518,7 +8814,7 @@ def fg_insert_imp(fg, new_el):
 
         elif type(new_el) in {ZefRef, EZefRef}:
             idx = common_logic(origin_rae(new_el))
-            if isinstance(new_blobs[idx][1], AtomicEntityType) and isinstance(new_el, ZefRef):
+            if isinstance(new_blobs[idx][1], AttributeEntityType) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))
         elif isinstance(new_el, Delegate):
             if isinstance(new_el.item, DelegateRelationTriple):
@@ -8560,7 +8856,7 @@ def fg_insert_imp(fg, new_el):
         return ent_idx
 
     def _insert_single(new_el):
-        if type(new_el) in {EntityType, AtomicEntityType, Entity, AtomicEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val, Delegate}:
+        if type(new_el) in {EntityType, AttributeEntityType, Entity, AttributeEntity, ZefOp, LazyValue,ZefRef, EZefRef, *list(map_scalar_to_aet_type.keys()), Val, Delegate}:
             common_logic(new_el)
         elif isinstance(new_el, tuple) and len(new_el) == 3:
             src, rt, trgt = new_el
@@ -8600,10 +8896,21 @@ def fg_insert_imp(fg, new_el):
         else: 
             raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\nnew_el={new_el}")
         
-    if isinstance(new_el, list): [_insert_single(el) for el in new_el]
+    if isinstance(new_el, list): 
+        def sorting_key(el):
+            if isinstance(el, dict): return 1
+            elif isinstance(el, Relation): return 2
+            elif isinstance(el, tuple) and len(el) == 3: 
+                is_z = lambda el: isinstance(el, ZefOp) and inner_zefop_type(el, RT.Z)
+                has_internal_id = lambda rt: isinstance(rt, RelationType) and (LazyValue(rt) | absorbed | attempt[single][None] | collect) != None
+                return 3 + sum([is_z(el) for el in el]) - has_internal_id(el[1])
+            return 0
+        new_el.sort(key=sorting_key)
+        [_insert_single(el) for el in new_el]
     elif isinstance(new_el, dict): 
         _insert_dict(new_el)
-    else: _insert_single(new_el)
+    else: 
+        _insert_single(new_el)
         
     new_fg.key_dict = new_key_dict
     new_fg.blobs = (*new_blobs,)
@@ -8659,7 +8966,7 @@ def fr_merge_and_retrieve_idx(blobs, k_dict, next_idx, fr):
 def fg_get_imp(fg, key):
     kdict = fg.key_dict
     if type(key) in {ZefRef, EZefRef} and origin_uid(key) in kdict: return FlatRef(fg, kdict[origin_uid(key)])
-    elif type(key) in {Entity, AtomicEntity} and key.d['uid'] in kdict: return FlatRef(fg, kdict[key.d['uid']])
+    elif type(key) in {Entity, AttributeEntity} and key.d['uid'] in kdict: return FlatRef(fg, kdict[key.d['uid']])
     elif isinstance(key, Relation) and key.d['uids'][1] in kdict:return FlatRef(fg, kdict[key.d['uids'][1]])
     elif isinstance(key, Val) and  value_hash(key.arg) in kdict: return FlatRef(fg, kdict[value_hash(key.arg)])
     elif key in kdict: return FlatRef(fg, kdict[key])
@@ -8673,7 +8980,7 @@ def fg_remove_imp(fg, key):
         if origin_uid(key) not in kdict: raise error
         idx = kdict[origin_uid(key)]
         key = origin_uid(key)
-    elif type(key) in {Entity, AtomicEntity}: 
+    elif type(key) in {Entity, AttributeEntity}: 
         if key.d['uid'] not in kdict: raise error
         idx = kdict[key.d['uid']]
         key = key.d['uid']
@@ -8731,18 +9038,18 @@ def flatgraph_to_commands(fg):
             else:
                 if b[1][idx] in return_elements: return Z[idx]
                 return  b[1][idx] 
-        elif isinstance(b[1], AtomicEntityType):
+        elif isinstance(b[1], AttributeEntityType):
             if idx in idx_key:
                 key = idx_key[idx]
                 if is_a(key, uid):
-                    if b[-1]: return AtomicEntity({"type": b[1], "uid": key}) <= b[-1]
-                    else:     return AtomicEntity({"type": b[1], "uid": key})
+                    if b[-1] != None: return AttributeEntity({"type": b[1], "uid": key}) <= b[-1]
+                    else:     return AttributeEntity({"type": b[1], "uid": key})
                 else:
                     if for_rt: return Z[key]
-                    if b[-1]: return b[1][key] <= b[-1]
+                    if b[-1] != None: return b[1][key] <= b[-1]
                     else:     return b[1][key]
             else:
-                if b[-1]: 
+                if b[-1] != None: 
                     if (b[1][idx] <= b[-1]) in return_elements: return Z[idx] <= b[-1]
                     return b[1][idx] <= b[-1]
                 else:     
@@ -8800,7 +9107,7 @@ def fr_target_imp(fr):
 def fr_value_imp(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
-    assert isinstance(blob[1], AtomicEntityType), "Can only ask for the value of an AET"
+    assert isinstance(blob[1], AttributeEntityType), "Can only ask for the value of an AET"
     return blob[-1]
 
 def traverse_flatref_imp(fr, rt, direction, traverse_type):
@@ -8854,7 +9161,16 @@ def transact_imp(data, g, **kwargs):
     from typing import Generator
     from ..graph_delta import construct_commands
     if is_a(data, FlatGraph):
-        commands = flatgraph_to_commands(data)
+        if isinstance(g, Graph):
+            commands = flatgraph_to_commands(data)
+        else:
+            fg = data
+            commands = g
+            return fg_insert_imp(fg, commands)
+    elif is_a(g, FlatGraph):
+        fg = g
+        commands = data
+        return fg_insert_imp(fg, commands)
     elif type(data) in {list, tuple}:
         commands = construct_commands(data)
     elif isinstance(data, (Generator, ZefGenerator)):
@@ -8871,62 +9187,6 @@ def transact_imp(data, g, **kwargs):
 def transact_tp(op, curr_type):
     return VT.Effect
 
-
-def fg_merge_imp(fg1, fg2):
-    def idx_generator(n):
-        def next_idx():
-            nonlocal n
-            n = n + 1
-            return n
-        return next_idx
-
-    blobs, k_dict = [*fg1.blobs], {**fg1.key_dict}
-    next_idx = idx_generator(length(blobs) - 1)
-
-    idx_key_2 = {i:k for k,i in fg2.key_dict.items()}
-    old_to_new = {}
-
-    def retrieve_or_insert_blob(new_b):
-        old_idx = new_b[0]
-        key = idx_key_2.get(new_b[0], None)
-
-        if old_idx in old_to_new:
-            idx = old_to_new[old_idx]
-            new_b = blobs[idx]
-        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], uid)) and key in k_dict:
-            new_b = blobs[k_dict[key]]
-            idx = new_b[0]
-        else:
-            idx = next_idx()
-            if key: k_dict[key] = idx
-            new_b = (idx, new_b[1], [], *new_b[3:])
-            blobs.append(new_b)
-        old_to_new[old_idx] = idx
-        return new_b
-
-    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RelationType)] | sort[lambda b: -len(b[2])]:
-        rt_key = idx_key_2.get(b[0], None)
-
-        src_b, trgt_b = fg2.blobs[b[4]], fg2.blobs[b[5]]
-        src_b  = retrieve_or_insert_blob(src_b)
-        trgt_b = retrieve_or_insert_blob(trgt_b)
-        
-        idx = next_idx()
-        rt_b = (idx, b[1], [], None, src_b[0], trgt_b[0])
-        src_b[2].append(idx)
-        trgt_b[2].append(-idx)
-        if rt_key: k_dict[rt_key] = idx
-        blobs.append(rt_b)
-        old_to_new[b[0]] = idx
-
-            
-    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RelationType)]:
-        if b[0] not in old_to_new: retrieve_or_insert_blob(b)
-
-    new_fg = FlatGraph()
-    new_fg.blobs = blobs
-    new_fg.key_dict = k_dict
-    return new_fg
 
 
 #-----------------------------Range----------------------------------------
@@ -9158,6 +9418,7 @@ def to_bytes_imp(x: String) -> Bytes:
     ---- Tags ----
     used for: type conversion
     operates on: String
+    related zefop: utf8bytes_to_string
     """
     from zef.core.bytes import Bytes_
     if isinstance(x, str): return Bytes(x.encode())     # default: utf8
@@ -9182,6 +9443,7 @@ def utf8bytes_to_string_imp(b: Bytes) -> String | VT.Error:
     ---- Tags ----
     used for: type conversion
     operates on: Bytes
+    related zefop: to_bytes
     """
     return bytes(b).decode()
 
@@ -9535,7 +9797,6 @@ def split_on_next_imp(s, el_to_split_on):
 
     ---- Tags ----
     - related zefop: split
-    - related zefop: split_if
     - related zefop: chunk
     - operates on: List
     - operates on: String
@@ -10046,5 +10307,185 @@ def splice_imp(x, start_pos, els_to_replace, replacement):
 
     else:
         return Error(f'Unsupported type passed to "splice": {type(x)}')
+
+
+
+
+
+
+def parse_imp(data: str, grammar: str) -> FlatGraph:
+    """
+    Parse a string with a given grammar and return a flat graph.
+    Uses the Lark parser.
+
+    
+    ---- Examples ----
+    >>> grammar = '''
+    ... ?start: sum
+    ... 
+    ... ?sum: term
+    ...   | sum "+" term        -> add
+    ...   | sum "-" term        -> subtract
+    ... 
+    ... ?term: item
+    ...   | term "*"  item      -> multiply
+    ...   | term "/"  item      -> divide
+    ... 
+    ... ?item: NUMBER           -> number
+    ...   | "-" item            -> negative
+    ...   | CNAME               -> variable
+    ...   | "(" start ")"
+    ... 
+    ... %import common.NUMBER
+    ... %import common.WS
+    ... %import common.CNAME
+    ... %ignore WS
+    ... '''
+    ... 
+    ... "(5 * (3 / x)) + y - 1 + 7" | parse[grammar] | graphviz | c
+
+
+    ---- Tags ----
+    - operates on: String
+    - used for: parsing
+    """    
+    import lark
+    from .to_flatgraph import to_flatgraph_imp
+    def lark_2_dict(tr):
+        """convert lark tree to dict"""
+
+        get_val_as_str = lambda x: x if isinstance(x, str) else x.value
+
+        if isinstance(tr, lark.tree.Tree):
+            return {
+                # 'type': tr.data.value,        # we don't need to know that this is a RULE. 
+                'type': get_val_as_str(tr.data),        # we don't need to know that this is a RULE. 
+                'children': [lark_2_dict(c) for c in tr.children]
+            }
+        elif isinstance(tr, lark.lexer.Token):
+            return {
+                'type': tr.type,
+                'value': tr.value
+            }
+
+    parser = lark.Lark(grammar)
+    tree = parser.parse(data)    
+    return to_flatgraph_imp(lark_2_dict(tree))
+
+
+
+
+
+def flatten_dict_imp(y):
+    """
+    Given a potentially nested plain data structure 
+    (anything isomorphic to JSON), return a flattened 
+    version where the keys are paths given as tuples.
+
+    ---- Examples ----
+    >>> {'a': 42} | flatten_dict     # => [ ('a',): 42]
+    >>> {'a': 42, b: {'x': 'hello'}} | flatten_dict     # => [ ('a',): 42, ('b', 'x'): 'hello']    
+
+    ---- Tags ----
+    related zefop: unflatten_dict
+    related zefop: get_in
+    related zefop: insert_in
+    operates on: Dict
+    operates on: List    
+    used for: dict manipulation
+    used for: list manipulation
+    """
+    def is_terminal(x):
+        return type(x) in {int, float, str, bool, type(None)}
+    
+    def f(d: Dict, path: tuple) -> tuple:
+        if isinstance(d, dict):
+            return tuple(
+                    (((*path, k), v), ) if is_terminal(v) else f(v, (*path, k)) for k, v in d.items()
+                ) | concat
+        elif type(d) in {list, tuple}:
+            return tuple(
+                    (((*path, i), v), ) if is_terminal(v) else f(v, (*path, i)) for i, v in enumerate(d)
+                ) | concat            
+        else:
+            raise TypeError(f'{type(d)} is not a dict or a list')
+
+    if is_terminal(y):
+        return {(): y}
+    return dict(f(y, ()))
+
+
+
+
+
+def unflatten_dict_imp(d: Dict) -> Dict:
+    """
+    Given a flattened dictionary, return a nested version.
+    
+    *Caution*: integer keys are also used as dictionary keys
+    for now, i.e. no list is constructed. This may change in 
+    the future
+
+    ---- Examples ----
+    >>> {('a',): 42, ('b', 'd'): 'hello'} | unflatten_dict   # => {'a': 42, 'b': {'d': 'hello'}}
+
+    ---- Tags ----
+    related zefop: flatten_dict
+    operates on: Dict
+    used for: dict manipulation
+    """
+    @func
+    def insert_in_dict_with_idx(d: dict, path, value):
+        assert isinstance(path, list) or isinstance(path, tuple)
+        res = {**d}    
+        # purely side effectful
+        def insert(obj, path):      
+
+            def _insert_list(ll, path):
+                # If the next element in the path is an int then we need to insert a new list
+                if isinstance(path[1], int):
+                    ll.append([])
+
+                # If the next element in the path is a string then we could need to insert a new dict
+                else:
+                    if path[0] == len(ll): # Only insert a new dict if it wasn't inserted before in this path.
+                        ll.append({})
+                
+            def _insert_dict(new_d, path):
+                if path[0] not in new_d:
+
+                    if isinstance(path[1], int):
+                        new_d[path[0]] = []
+                    else: 
+                        new_d[path[0]] = {}
+                else:
+                    if not isinstance(path[1], int):
+                        new_d[path[0]] = {**new_d[path[0]]}
+
+            
+            # If it is the only remaining object, then it is the object to be added or appended
+            if len(path) == 1:
+
+                if isinstance(path[0], int): 
+                    obj.append(value)
+                else: 
+                    obj[path[0]] = value
+
+            # Depending on the current state of our path, we could either have a list or a dict
+            else: 
+                if isinstance(obj, dict):
+                    _insert_dict(obj, path)
+                elif isinstance(obj, list): 
+                    _insert_list(obj, path)
+
+                insert(obj[path[0]], path[1:])        
+
+        insert(res, path)        
+        return res
+
+    if () in d:
+        return d[()]    
+    op = d | items | map[inject_list[insert_in_dict_with_idx]] | to_pipeline | collect
+    return op({})
 
 

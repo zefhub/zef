@@ -17,8 +17,8 @@ from ...ops import *
 
 from ...core.fx.http import send_response, permit_cors, middleware, middleware_worker, fallback_not_found, route
 
-from .generate_api import generate_resolvers_fcts
-from ariadne import make_executable_schema, graphql_sync
+from .generate_api2 import generate_resolvers_fcts
+from ariadne import graphql_sync
 
 from functools import partial as P
 import json
@@ -45,7 +45,8 @@ def resolve_token(context, request):
     parts = token_header.split()
     if len(parts) != 2 or parts[0] != "Bearer":
         # raise Exception(f"x-auth-header is of the wrong format ({token_header})")
-        log.error("x-auth-header is of the wrong format", token_header=token_header)
+        if context["debug_level"] >= 0:
+            log.error("x-auth-header is of the wrong format", token_header=token_header)
         raise Exception("Invalid auth header")
     token = parts[1]
 
@@ -81,12 +82,16 @@ def query(request, context):
             if auth_context is None and not (root | Outs[RT.AuthPublic] | single_or[None] | value_or[True] | collect):
                 raise Exception("No auth and public is False.")
         except Exception as exc:
-            log.error("Auth failed", exc_info=exc)
+            if context["debug_level"] >= 0:
+                log.error("Auth failed", exc_info=exc)
             return {
                 "response_body": "Auth failed",
                 "response_status": 400,
                 **request
             }
+
+        if context["debug_level"] >= 4:
+            log.debug("DEBUG 4: auth_context", auth_context=auth_context)
     else:
         auth_context = None
 
@@ -112,8 +117,9 @@ def query(request, context):
                        "auth": auth_context,
                        "debug_level": context["debug_level"]},
     )
-    if not success or "errors" in data:
-        log.error("Failure in GQL query.", data=data, q=q, auth_context=auth_context)
+    if context["debug_level"] >= 0:
+        if not success or "errors" in data:
+            log.error("Failure in GQL query.", data=data, q=q, auth_context=auth_context)
 
     response = json.dumps(data)
     if context["debug_level"] >= 3:
@@ -133,8 +139,9 @@ def start_server(z_gql_root,
                  debug_level=0,
                  ):
 
-    schema,objects = generate_resolvers_fcts(z_gql_root)
-    ari_schema = make_executable_schema(schema, objects)
+    gql_dict = generate_resolvers_fcts(z_gql_root)
+    from .. import make_graphql_api
+    ari_schema = make_graphql_api(gql_dict)
 
     from logging import getLogger
     if debug_level < 4:
@@ -154,15 +161,17 @@ def start_server(z_gql_root,
         from jwt import PyJWKClient
         context["jwk_client"] = PyJWKClient(url)
 
+    additional_routes = create_additional_routes(z_gql_root | Outs[RT.Route] | collect, context)
 
     http_r = {
         'type': FX.HTTP.StartServer,
         'port': port,
-        'pipe_into': (map[middleware_worker[permit_cors,
-                                            route["/"][insert_in[["response_body"]]["Healthy"]],
-                                            route["/gql"][P(query, context=context)],
-                                            fallback_not_found,
-                                            send_response]]
+        'pipe_into': (map[middleware_worker[[permit_cors,
+                                             route["/"][insert_in[["response_body"]]["Healthy"]],
+                                             route["/gql"][P(query, context=context)],
+                                             *additional_routes,
+                                             fallback_not_found,
+                                             send_response]]]
                       | subscribe[run]),
         'logging': logging,
         'bind_address': bind_address,
@@ -171,3 +180,18 @@ def start_server(z_gql_root,
         raise Exception("Error in creating server") from http_r.args[0]
 
     return http_r["server_uuid"]
+
+
+def create_additional_route(z_route, context):
+    s_route = z_route | F.Route | collect
+    hook = func[z_route | F.Hook | collect]
+
+    curried_hook = P(hook, context=context)
+
+    return route[s_route][curried_hook]
+
+def create_additional_routes(z_routes, context):
+    return z_routes | map[P(create_additional_route, context=context)] | collect
+
+
+        

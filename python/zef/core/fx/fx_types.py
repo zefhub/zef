@@ -61,6 +61,7 @@ class _HTTP_Class():
 
 class _Websocket_Class():
     _name = "Websocket"
+    ConnectToServer = FXElement(('Websocket', 'ConnectToServer'))
     StartServer = FXElement(('Websocket', 'StartServer'))
     StopServer = FXElement(('Websocket', 'StopServer'))
     SendMessage = FXElement(('Websocket', 'SendMessage'))
@@ -90,10 +91,12 @@ class _GraphQL_Class():
 class _LocalFile_Class():
     _name = "LocalFile"
     Read = FXElement(('LocalFile', 'Read'))
+    ReadBinary = FXElement(('LocalFile', 'ReadBinary'))
     Load = FXElement(('LocalFile', 'Load'))
     Write = FXElement(('LocalFile', 'Write'))
     Save = FXElement(('LocalFile', 'Save'))
     SystemOpenWith = FXElement(('LocalFile', 'SystemOpenWith'))
+    MonitorPath     = FXElement(('LocalFile', 'MonitorPath'))
     
 
 class _S3_Class():
@@ -113,6 +116,7 @@ class _Graph_Class():
     TakeTransactorRole = FXElement(('Graph', 'TakeTransactorRole'))
     ReleaseTransactorRole = FXElement(('Graph', 'ReleaseTransactorRole'))
     Transact = FXElement(('Graph', 'Transact'))
+    Load = FXElement(('Graph', 'Load'))
     # Or does it make more sense to write FX.Tag.Graph? Tagging of RAEs definitely belongs into a GraphDelta / graph tx though
 
 class _Stream_Class():

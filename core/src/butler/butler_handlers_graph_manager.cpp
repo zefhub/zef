@@ -24,6 +24,9 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         return;
     }
 
+    if(!me.gd->should_sync)
+        return;
+
     if(me.gd->sync_head == 0 && me.gd->is_primary_instance) {
         // We are set to sync, but we have never got around to letting zefhub know about our graph. So instead we'll wait for the sync thread to take care of it. We'll help it along by forcing a wake.
         wake(me.gd->heads_locker);
@@ -37,6 +40,8 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         std::cerr << "Resubscribing to graph: " << me.uid << std::endl;
 
     me.debug_last_action = "About to resubscribe";
+
+    std::string working_layout = butler.upstream_layout();
 
     // Interesting point here - we could send out read_head, but
     // if we've written more to it then upstream would get
@@ -52,12 +57,16 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         LockGraphData lock{me.gd};
         update_heads = client_create_update_heads(*me.gd);
         if(me.gd->sync_head == 0)
-            hash_to = me.gd->write_head.load();
-        else
+            hash_to = me.gd->read_head.load();
+        else {
             hash_to = me.gd->sync_head.load();
-        hash = partial_hash(Graph(me.gd, false), hash_to);
+            if(me.gd->read_head < hash_to)
+                hash_to = me.gd->read_head;
+        }
+
+        hash = partial_hash(Graph(me.gd, false), hash_to, 0, working_layout);
     }
-    json j = create_heads_json_from_sync_head(*me.gd, update_heads);
+    json j = create_json_from_heads_from(update_heads);
     j["msg_type"] = "subscribe_to_graph";
     j["msg_version"] = 3;
     j["graph_uid"] = str(me.uid);
@@ -65,11 +74,9 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     j["hash_index"] = hash_to;
 
     auto response = butler.wait_on_zefhub_message<GenericZefHubResponse>(j);
-    if(zwitch.graph_event_output())
-        std::cerr << "Got response: " << response.j << std::endl;
 
     if(!response.generic.success) {
-        me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+        butler.set_into_invalid_state(me);
         std::cerr << "UNKNOWN ERROR WHEN RESUBSCRIBING FOR GRAPH (" << me.uid << "): " << response.generic.reason << std::endl;
         std::cerr << "UNKNOWN ERROR WHEN RESUBSCRIBING FOR GRAPH (" << me.uid << "): " << response.generic.reason << std::endl;
         std::cerr << "UNKNOWN ERROR WHEN RESUBSCRIBING FOR GRAPH (" << me.uid << "): " << response.generic.reason << std::endl;
@@ -93,7 +100,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         bool bad = true;
         if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
             // We were ahead of upstream, see if we agree with what they had.
-            auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>());
+            auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>(), 0, working_layout);
             if(our_hash == response.j["hash"].get<uint64_t>()) {
                 if(zwitch.graph_event_output())
                     std::cerr << "We were ahead of upstream but our hashes agree." << std::endl;
@@ -103,7 +110,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
         if(bad) {
             // TODO: Make sure we unsubscribe to the graph
-            me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+            butler.set_into_invalid_state(me);
             std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
             std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
             std::cerr << "GRAPH (" << me.uid << ") DID NOT MATCH HASH WITH UPSTREAM WHEN RESUBSCRIBING: " << response.generic.reason << std::endl;
@@ -119,12 +126,19 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
     // Now we try and get the primary role back again, if we had it before.
     if(me.gd->is_primary_instance) {
-        auto response = butler.wait_on_zefhub_message({
-                {"msg_type", "make_primary"},
-                {"graph_uid", str(me.uid)},
-                {"take_on", true},
-            });
+        UpdateHeads our_heads;
+        {
+            LockGraphData lock{me.gd};
+            our_heads = client_create_update_heads(*me.gd);
+        }
+        json j = create_json_from_heads_from(our_heads);
+        j["msg_type"] = "make_primary";
+        j["graph_uid"] = str(me.uid);
+        j["take_on"] = true;
+        auto response = butler.wait_on_zefhub_message(j);
         if(!response.generic.success) {
+            std::cerr << "We were rejected when trying to reclaim transactor role: " << response.generic.reason << std::endl;
+
             if(me.gd->sync_head.load() == me.gd->write_head) {
                 // We were up to date, so warn about this and demote our graph
                 // ourselves.
@@ -144,6 +158,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
         }
     }
 
+    if(zwitch.graph_event_output())
     me.debug_last_action = "Resubscribed to zefhub";
     me.gd->currently_subscribed = true;
 
@@ -151,8 +166,20 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     // not automatically wake up. So we trigger the heads_locker just in case.
     wake(me.gd->heads_locker);
 
-    if(zwitch.graph_event_output())
-        std::cerr << "Upstream head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
+    if(zwitch.graph_event_output()) {
+        std::cerr << "Resubscribed to graph: " << str(me.uid) << std::endl;
+        std::cerr << "Upstream/our head: " << me.gd->sync_head.load() << "/" << me.gd->read_head.load() << std::endl;
+    }
+}
+
+
+void Butler::set_into_invalid_state(Butler::GraphTrackingData & me) {
+    me.gd->error_state = GraphData::ErrorState::UNSPECIFIED_ERROR;
+    if(me.gd->is_primary_instance && me.gd->should_sync) {
+        std::cerr << "Giving up transactor role" << std::endl;
+        me.queue.push(std::make_shared<RequestWrapper>(MakePrimary{Graph(*me.gd), false}), true);
+    }
+    // TODO: Maybe also unsubscribe here?
 }
 
 
@@ -187,8 +214,17 @@ int resolve_memory_style(int mem_style, bool synced) {
     return mem_style;
 }
 
-void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, bool double_link, bool update_upstream) {
+void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload_in, bool double_link, bool update_upstream) {
     LockGraphData lock{&gd};
+
+    std::string working_layout = payload_in.j["data_layout_version"];
+    UpdatePayload payload;
+    if(working_layout == "0.2.0")
+        payload = conversions::convert_payload_0_2_0_to_0_3_0(payload_in);
+    else {
+        force_assert(working_layout == "0.3.0");
+        payload = payload_in;
+    }
 
     UpdateHeads heads = parse_payload_update_heads(payload);
 
@@ -226,6 +262,7 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, boo
         GEN_CACHE("_uid_lookup", uid_lookup)
         GEN_CACHE("_euid_lookup", euid_lookup)
         GEN_CACHE("_tag_lookup", tag_lookup)
+        GEN_CACHE("_av_hash_lookup", av_hash_lookup)
         else
             throw std::runtime_error("Unknown cache");
 #undef GEN_CACHE
@@ -238,16 +275,17 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload, boo
     // if(!verification::verify_graph_double_linking(g))
     //     throw std::runtime_error("Bad double linking");
 
-    if(payload.j.contains("hash_full_graph")){
-        if(payload.j["hash_full_graph"].get<uint64_t>() != gd.hash(constants::ROOT_NODE_blob_index, gd.write_head)) {
+    // Note: we use payload_in here instead of payload as that may have clobbered the hash.
+    if(payload_in.j.contains("hash_full_graph")){
+        if(payload_in.j["hash_full_graph"].get<uint64_t>() != gd.hash(constants::ROOT_NODE_blob_index, gd.write_head, 0, working_layout)) {
             // This must be somewhere I can't find, but redoing here
-            blob_index indx = constants::ROOT_NODE_blob_index;
-            while(indx < gd.write_head) {
-                EZefRef uzr{indx, gd};
-                // visit([](auto & x) { std::cerr << x << std::endl; }, uzr);
-                visit([](auto & x) { manual_os_call(std::cerr, x) << std::endl; }, uzr);
-                indx += num_blob_indexes_to_move(size_of_blob(uzr));
-            }
+            // blob_index indx = constants::ROOT_NODE_blob_index;
+            // while(indx < gd.write_head) {
+            //     EZefRef uzr{indx, gd};
+            //     // visit([](auto & x) { std::cerr << x << std::endl; }, uzr);
+            //     visit_blob([](auto & x) { manual_os_call(std::cerr, x) << std::endl; }, uzr);
+            //     indx += num_blob_indexes_to_move(size_of_blob(uzr));
+            // }
 
             throw std::runtime_error("Hashes disagree");
         }
@@ -328,7 +366,12 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
     if(is_BaseUID(content.tag_or_uid) && str(me.uid) != content.tag_or_uid)
         throw std::runtime_error("Shouldn't get here with wrong uid: '" + str(me.uid) + "' - '" + content.tag_or_uid + "'");
 
+    if(content.callback)
+        (*content.callback)("GRAPH UID:" + str(me.uid));
+
     if(me.gd != nullptr) {
+        if(content.callback)
+            (*content.callback)("Graph " + str(me.uid) + " already present in butler");
         msg->promise.set_value(GraphLoaded(Graph{me.gd, false}));
         return;
     }
@@ -371,11 +414,16 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
         // This shouldn't ever be needed.
         // me.gd->managing_thread_id = std::this_thread::get_id();
 
+        wait_for_auth();
+
         // This is where all of the user-requested
         // options (like primary role) should come into
         // play.
+        std::string working_layout = upstream_layout();
 
         if (existed) {
+            if(content.callback)
+                (*content.callback)("Loading from existing FileGraph");
             // TODO: Need to send hash along to confirm we're right if we've
             // actually got the latest
             // TODO: It is possible that we could change
@@ -393,9 +441,9 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                     {"msg_version", 3},
                     {"graph_uid", str(me.uid)},
             };
-            parse_filegraph_update_heads(*fg, j);
+            parse_filegraph_update_heads(*fg, j, working_layout);
             
-            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"]);
+            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
             j["hash_index"] = j["blobs_head"];
             auto response = wait_on_zefhub_message(j);
             int msg_version = 0;
@@ -420,10 +468,9 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                     bool bad = true;
                     if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
                         // We were ahead of upstream, see if we agree with what they had.
-                        auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>());
+                        auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>(), 0, working_layout);
                         if(our_hash == response.j["hash"].get<uint64_t>()) {
-                            if(zwitch.developer_output())
-                                std::cerr << "We were ahead of upstream but our hashes agree." << std::endl;
+                            developer_output("We were ahead of upstream but our hashes agree.");
                             bad = false;
                         }
                     }
@@ -445,8 +492,23 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                         _g = Graph{me.gd, false};
                         me.gd->is_primary_instance = false;
 
-                        if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
-                            // TODO: We need to inform upstream that we had to reset.
+                        // We need to inform upstream that we had to reset.
+                        if(zefdb_protocol_version >= 7) {
+                            json j{
+                                {"msg_type", "graph_heads"},
+                                {"msg_version", 1},
+                                {"graph_uid", str(me.uid)},
+                            };
+                            parse_filegraph_update_heads(*fg, j, working_layout);
+                            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
+                            j["hash_index"] = j["blobs_head"];
+                            auto response = wait_on_zefhub_message(j);
+                            if(!response.generic.success) {
+                                developer_output("Problem letting ZefHub know that we reset our heads.");
+                                msg->promise.set_value(GraphLoaded(response.generic.reason));
+                                me.please_stop = true;
+                                return;
+                            }
                         }
                     }
                 }
@@ -472,12 +534,17 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                 }
             }
         } else {
+            if(content.callback)
+                (*content.callback)("Requesing full graph of " + str(me.uid) + " from upstream");
             auto response = wait_on_zefhub_message({
                     {"msg_type", "subscribe_to_graph"},
                     {"graph_uid_or_tag", str(me.uid)},
                 },
-                {}
-                // constants::zefhub_subscribe_to_graph_timeout_default
+                {},
+                zefhub_generic_timeout,
+                false,
+                false,
+                content.callback
             );
             if(!response.generic.success) {
                 msg->promise.set_value(GraphLoaded(response.generic.reason));
@@ -536,6 +603,9 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
         // Now we can kick off the sync thread.
         spawn_graph_sync_thread(me);
 
+        if(content.callback)
+            (*content.callback)("Finished loading graph");
+
         msg->promise.set_value(GraphLoaded(_g));
     } catch (const std::runtime_error & e) {
         std::cerr << "Exception in LoadGraph, going to cleanup graph manager thread. (" << e.what() << ")" << std::endl;
@@ -557,37 +627,56 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LocalGr
         }
 
         // Create a new file graph at the location, rather than in the usual place
-        MMap::FileGraph * fg = nullptr;
-        auto fg_prefix = local_graph_prefix(content.dir);
-        if(content.new_graph) {
-            if(any_files_with_prefix(fg_prefix))
-                throw std::runtime_error("Filegraph (" + str(me.uid) + ") already exists (@ " + fg_prefix.string() + ") but we're trying to create a new graph!"); 
-
-            auto uid_file = local_graph_uid_path(content.dir);
-            std::ofstream file(uid_file);
-            file << str(me.uid);
-        } else {
-            if(!MMap::filegraph_exists(fg_prefix))
-                throw std::runtime_error("Filegraph (" + str(me.uid) + ") doesn't exist (@ " + fg_prefix.string() + ") can't load!"); 
-        }
-        fg = new MMap::FileGraph(fg_prefix, me.uid, false);
-
-        // The mmap steals the file graph ptr
-        me.gd = create_GraphData(MMap::MMAP_STYLE_FILE_BACKED, fg, me.uid, content.new_graph);
-        // Grab a reference while we are manipulating things in here
+        me.gd = create_GraphData(MMap::MMAP_STYLE_ANONYMOUS, nullptr, me.uid, content.new_graph);
+        // Lock this down for safety while we're in here.
         Graph _g{me.gd, false};
+
+        if(content.new_graph) {
+            if(std::filesystem::exists(content.path))
+                throw std::runtime_error("Local file (" + content.path.string() + ") already exists"); 
+            if(content.path.has_parent_path())
+                std::filesystem::create_directories(content.path.parent_path());
+        } else {
+            // We load the graph from disk and turn it into the same format as
+            // if we received a graph from upstream.
+            auto payload = internals::payload_from_local_file(content.path);
+
+            LockGraphData gd_lock{me.gd};
+            apply_update_with_caches(*me.gd, payload, false, true);
+
+            me.gd->manager_tx_head = me.gd->latest_complete_tx.load();
+            me.gd->sync_head = me.gd->read_head.load();
+        }
 
         if(internals::get_graph_uid(*me.gd) != me.uid)
             throw std::runtime_error("Local graph UID differed from what was passed - weird internal inconsistency.");
 
         me.gd->is_primary_instance = true;
         me.gd->should_sync = false;
-        // me.gd->local_tokens = std::make_unique<TokenStore>(*fg);
+        me.gd->local_path = std::filesystem::absolute(content.path);
+
+        if(content.new_graph) {
+            save_local(*me.gd);
+        }
+
+        // Check the used tokens in case we need to get a whole batch at once.
+        {
+            auto ptr = me.gd->ETs_used->get();
+            msg_push(TokenQuery{TokenQuery::ET, {}, ptr->as_vector(), false, true}, false, true);
+        }
+        {
+            auto ptr = me.gd->RTs_used->get();
+            msg_push(TokenQuery{TokenQuery::RT, {}, ptr->as_vector(), false, true}, false, true);
+        }
+        {
+            auto ptr = me.gd->ENs_used->get();
+            msg_push(TokenQuery{TokenQuery::EN, {}, ptr->as_vector(), false, true}, false, true);
+        }
 
         // Now we can kick off the sync thread, even if we aren't syncing just at the moment.
         spawn_graph_sync_thread(me);
 
-        msg->promise.set_value(GraphLoaded(_g));
+        msg->promise.set_value(GraphLoaded(Graph(*me.gd)));
     } catch (const std::runtime_error & e) {
         std::cerr << "Exception in LocalGraph, going to cleanup graph manager thread. (" << e.what() << ")" << std::endl;
         me.please_stop = true;
@@ -602,7 +691,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, DoneWit
     if(me.gd->reference_count == 0) {
         me.please_stop = true;
         if(zwitch.graph_event_output())
-            std::cerr << "Closing graph " << me.uid << std::endl;
+            std::cerr << "Closing graph " << str(me.uid) << std::endl;
     }
 }
 
@@ -690,6 +779,11 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
         return;
     }
 
+    if(me.gd->local_path != "") {
+        msg->promise.set_value(GenericResponse{false, "Can't sync local graphs without giving up consistency"});
+        return;
+    }
+
     if(butler_is_master) {
         update(me.gd->heads_locker, me.gd->should_sync, content.sync);
         msg->promise.set_value(GenericResponse(true));
@@ -708,6 +802,25 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
         return;
     }
 
+    
+    if(content.sync) {
+        // Try and send out an update. We add in a wait on the
+        // network, as the user calling sync() will expect us to
+        // make more of an effort to get any updates to upstream.
+        // network.wait_for_connected(constants::zefhub_reconnect_timeout);
+        wait_for_auth(constants::zefhub_reconnect_timeout);
+        if(upstream_layout() == "0.2.0") {
+            // Only allow sync to turn on if we can convert the layout for this graph. (it is compatible)
+            char * blobs_ptr = (char*)(me.gd) + constants::ROOT_NODE_blob_index * constants::blob_indx_step_in_bytes;
+            char * end = (char*)(me.gd) + me.gd->read_head.load() * constants::blob_indx_step_in_bytes;
+            size_t len = end - blobs_ptr;
+            if(!conversions::can_convert_0_3_0_to_0_2_0(blobs_ptr, len)) {
+                msg->promise.set_value(GenericResponse{false, "Can't sync a graph which is not comptabile with 0.2.0 data layout"});
+                return;
+            }
+        }
+    }
+
     update(me.gd->heads_locker, me.gd->should_sync, content.sync);
 
     // Note: if the graph was already set to sync, the manager should be
@@ -719,11 +832,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
 
     if(me.gd->is_primary_instance) {
         if (content.sync) {
-            // Try and send out an update. We add in a wait on the
-            // network, as the user calling sync() will expect us to
-            // make more of an effort to get any updates to upstream.
-            // network.wait_for_connected(constants::zefhub_reconnect_timeout);
-            wait_for_auth(constants::zefhub_reconnect_timeout);
             // wait_for_auth();
             if(!network.connected) {
                 msg->promise.set_value(GenericResponse{false, "Network did not reconnect in time."});
@@ -814,6 +922,37 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, GraphUp
     if(me.gd->is_primary_instance)
         throw std::runtime_error("Shouldn't be receiving updates if we are the primary role!");
 
+    // We first check that this update applies. If it doesn't then send a heads
+    // update to zefhub.
+    UpdateHeads heads = parse_payload_update_heads(content.payload);
+
+    if(!heads_apply(heads, *me.gd)) {
+        if(zefdb_protocol_version < 7) {
+            // Error out
+            throw std::runtime_error("Heads of update don't fit onto graph.");
+        } else {
+            if(zwitch.graph_event_output())
+                std::cerr << "Warning: got an update we couldn't apply. Letting upstream know what our heads are." << std::endl;
+            std::string working_layout = upstream_layout();
+            UpdateHeads our_heads;
+            {
+                LockGraphData lock{me.gd};
+                our_heads = client_create_update_heads(*me.gd);
+            }
+            json j = create_json_from_heads_latest(our_heads);
+            j["msg_type"] = "graph_heads";
+            j["msg_version"] = 1;
+            j["graph_uid"] = str(me.uid);
+            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
+            j["hash_index"] = j["blobs_head"];
+            auto response = wait_on_zefhub_message(j);
+            if(!response.generic.success)
+                throw std::runtime_error("Problem letting ZefHub know our latest heads.");
+            return;
+        }
+    }
+
+    // Everything is good - continue
     apply_update_with_caches(*me.gd, content.payload, true, true);
 
     // TODO: In the future, we need to acknowledge that we have applied this update successfully.
@@ -886,7 +1025,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
                     // py::gil_scoped_acquire acquire;
                     // auto pymerge = py::module_::import("zef.core.internals.merges").attr("_graphdelta_merge");
                     // json receipt = pymerge(Graph(*me.gd), payload.delta);
-                    json receipt = pass_to_merge_handler(Graph(*me.gd), payload.commands);
+                    json receipt = internals::pass_to_merge_handler(Graph(*me.gd), payload.commands);
 
                     if(content.task_uid) {
                         if(content.msg_version <= 0) {
@@ -981,8 +1120,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewTran
 
 template<>
 void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, Reconnected & content, Butler::msg_ptr & msg) {
-    // Note: sync_head == 0 means we are a local graph.
-    if (me.gd->sync_head == 0 && !me.gd->should_sync) {
+    if (!me.gd->should_sync) {
         msg->promise.set_value(GenericResponse(true));
         return;
     }
@@ -1001,7 +1139,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, Disconn
 
 template<>
 void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePrimary & content, Butler::msg_ptr & msg) {
-    if(me.gd->error_state != GraphData::ErrorState::OK) {
+    if(me.gd->error_state != GraphData::ErrorState::OK && content.make_primary) {
         msg->promise.set_value(GenericResponse{false, "Graph is in error state"});
         return;
     }
@@ -1018,19 +1156,38 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePri
         return;
     }
 
+    UpdateHeads heads;
+    {
+        LockGraphData lock{me.gd};
+        heads = client_create_update_heads(*me.gd);
+    }
+
+    // First make sure we believe we have everything that upstream has
+    if(me.gd->read_head < me.gd->sync_head) {
+        developer_output("Retrying syncing while taking transactor role");
+        // TODO: This effectively spin-locks, need to fix up.
+        me.queue.push(std::move(msg), true);
+        return;
+    }
+
+    json j = create_json_from_heads_from(heads);
+    j["msg_type"] = "make_primary";
+    j["graph_uid"] = str(me.uid);
+    j["take_on"] = content.make_primary;
+
     // Add a new task to the list.
-    auto response = wait_on_zefhub_message({
-            {"msg_type", "make_primary"},
-            {"graph_uid", str(me.uid)},
-            {"take_on", content.make_primary},
-        });
+    auto response = wait_on_zefhub_message(j);
     if(!response.generic.success) {
+        if(response.j.contains("blobs_head")) {
+            developer_output("While trying to take transactor role, we were told we were out of date. Going to sync and try again.");
+            me.queue.push(std::move(msg), true);
+            return;
+        }
         if(content.make_primary)
             msg->promise.set_value(GenericResponse("Couldn't make graph primary: " + response.generic.reason));
         else
             msg->promise.set_value(GenericResponse("Couldn't take primary role away from graph: " + response.generic.reason));
-    }
-    else {
+    } else {
         me.gd->is_primary_instance = content.make_primary;
         msg->promise.set_value(GenericResponse(true));
     }
@@ -1074,8 +1231,8 @@ std::string Butler::GraphTrackingData::info_str() {
             {"queue_size", queue.num_messages.load()},
             {"gd", to_str((void*)gd)},
             {"last_action", debug_last_action},
-            {"sync_joinable", sync_thread->joinable()},
-            {"manager_joinable", managing_thread->joinable()},
+            {"sync_joinable", sync_thread && sync_thread->joinable()},
+            {"manager_joinable", managing_thread && managing_thread->joinable()},
         });
     return j.dump();
 }
