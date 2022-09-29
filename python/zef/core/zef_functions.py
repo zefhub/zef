@@ -138,7 +138,7 @@ class FunctionConstructor:
             promote_to_zefref_func = zef_function_decorator(*args, **kwds)
             def inner(func):
                 zefref = promote_to_zefref_func(func)
-                abstract_entity = Entity(zefref)
+                abstract_entity = EntityRef(zefref)
                 _local_compiled_zef_functions[abstract_entity.d['uid']] = _local_compiled_zef_functions[time_resolved_hashable(zefref)]
                 return ZefOp(((internals.RT.Function, ((0, abstract_entity), )), ))
             return inner

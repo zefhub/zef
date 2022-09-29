@@ -59,7 +59,7 @@ from ..pyzef.internals import (
     # BT,
     # AttributeEntityType,
     KW,
-    Delegate,
+    # Delegate,
 )
 
 # from .internals import Transaction, ET, RT, EN, AET

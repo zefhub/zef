@@ -251,3 +251,8 @@ BT = make_VT('BT',
 
 # BT         = ValueType_(type_name='BT',   constructor_func=pyzef.internals.BT, attr_funcs=wrap_attr_readonly(internals.BT, None), pytype=internals.BlobType)
 
+
+def tx_is_a(x, typ):
+    return isinstance(x, BT.TX_EVENT_NODE)
+
+TX = make_VT("TX", is_a_func=tx_is_a)

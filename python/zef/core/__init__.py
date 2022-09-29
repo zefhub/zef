@@ -73,6 +73,7 @@ from . import bytes
 # Up to here, DEFINITELY no zefops can be called
 from . import abstract_raes
 from . import graph_slice
+from . import delegates
 from . import op_structs
 from . import _ops
 from . import zef_functions

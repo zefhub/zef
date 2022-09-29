@@ -30,6 +30,12 @@ internals.DelegateRelationTriple.__hash__ = lambda self: hash((self.rt, self.sou
 internals.DelegateTX.__hash__ = lambda self: hash(internals.DelegateTX)
 internals.DelegateRoot.__hash__ = lambda self: hash(internals.DelegateRoot)
 
+# TODO: Fix this up
+def delayed_instancecheck_Delegate(self, other):
+    from .delegates import instancecheck_Delegate
+    return instancecheck_Delegate(self, other)
+internals.Delegate.__instancecheck__ = delayed_instancecheck_Delegate
+
 
 from ..pyzef.main import EntityType, RelationType
 from ..pyzef.internals import AttributeEntityType, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct, BlobTypeStruct, BlobType

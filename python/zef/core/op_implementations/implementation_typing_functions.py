@@ -1892,7 +1892,7 @@ def all_imp(*args):
             raise Exception(f"all can only take a maximum of 2 arguments, got {len(args)} instead")
 
         fil = args[1]
-        if fil == VT.TX:
+        if fil == TX:
             return pyzefops.tx(g)
 
         # These options have C++ backing so try them first
@@ -4756,7 +4756,7 @@ def preceding_events_imp(x, filter_on=None):
     else:
         zr = x
 
-        from .. import instantiated, terminated, assigned
+        from ..graph_events import instantiated, terminated, assigned
 
         def make_val_as_from_tx(tx):
             aet_at_frame = pyzefops.to_frame(zr, tx)
@@ -5750,36 +5750,12 @@ def to_delegate_implementation(first_arg, *curried_args):
 
     """
 
-    if isinstance(first_arg, AbstractDelegate):
-        if len(curried_args) == 0:
-            return first_arg
-        if len(curried_args) == 1:
-            return internals.delegate_to_ezr(first_arg, curried_args[0], False, 0)
-        if len(curried_args) == 2:
-            return internals.delegate_to_ezr(first_arg, curried_args[0], curried_args[1], 0)
-        raise Exception("Too many args for to_delegate with a Delegate")
-
-    if isinstance(first_arg, ZefRef) or isinstance(first_arg, EZefRef):
-        assert len(curried_args) == 0
-        return internals.ezr_to_delegate(first_arg)
-
-    raise Exception(f"Unknown type for to_delegate: {type(first_arg)}. Maybe you meant to write delegate_of?")
-
+    from ..delegates import to_delegate_imp
+    return to_delegate_imp(first_arg, *curried_args)
 
 def to_delegate_type_info(op, curr_type):
     return None
 
-
-# This is for internal use only - it tries to convert a tuple or single RAET
-# into a delegate of order zero.
-def attempt_to_delegate(args):
-    if isinstance(args, tuple):
-        assert len(args) == 3
-        args = tuple(x._d["specific"] if isinstance(x, ValueType) else x for x in args)
-        return internals.Delegate(internals.Delegate(args[0]), args[1], internals.Delegate(args[2]))
-    else:
-        args = args._d["specific"] if isinstance(args, ValueType) else args
-        return internals.Delegate(args)
 
 def delegate_of_implementation(x, arg1=None, arg2=None):
     """
@@ -5823,41 +5799,8 @@ def delegate_of_implementation(x, arg1=None, arg2=None):
     ---- Tags ----
     - related zefop: to_delegate
     """
-    if isinstance(x, EZefRef) or isinstance(x, ZefRef):
-        assert arg2 is None
-        if arg1 is None:
-            create = False
-        else:
-            create = arg1
-        assert isinstance(create, Bool)
-
-        d = pyzefops.delegate_of(to_delegate(x))
-        z = to_delegate(d, Graph(x), create)
-        if z is None:
-            return None
-        if isinstance(x, ZefRef):
-            z = z | in_frame[frame(x)] | collect
-        return z
-
-    if isinstance(x, Delegate):
-        if arg1 is None:
-            create = False
-            g = None
-        else:
-            g = arg1
-            if arg2 is None:
-                create = False
-            else:
-                create = arg2
-
-        d = pyzefops.delegate_of(x)
-        if g is None:
-            return d
-        else:
-            return to_delegate(d, g, create)
-
-    # Fallback
-    return delegate_of_implementation(attempt_to_delegate(x), arg1, arg2)
+    from ..delegates import delegate_of_imp
+    return delegate_of_imp(x, arg1, arg2)
 
 def delegate_of_type_info(op, curr_type):
     return None

@@ -183,7 +183,7 @@ make_VT('Is',
         is_a_func=is_is_a)
 
 
-def setof_ctor(*args):
+def setof_ctor(self, *args):
     """
     Can be called with either SetOf[5,6,7] or SetOf(5,6,7).
     When calling with square brackets, a tuple must always be 
@@ -209,6 +209,7 @@ def setof_is_a(x, typ):
 
 make_VT('SetOf',
         constructor_func=setof_ctor,
+        pass_self=True,
         get_item_func=setof_getitem,
         is_a_func=setof_is_a)
 
