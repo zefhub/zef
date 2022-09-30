@@ -96,21 +96,6 @@ from .serialization import serialize, deserialize
 
 from .symbolic_expression import SV, SVs, v, unwrap_vars_hack
 
-# from .user_value_type import UserValueType
-
-# instantiating these here, since not all of the core has been
-# initialized when Python imports the abstract_raes module
-# and a circular import error occurs.
-# please_instantiate = make_custom_entity(name_to_display='please_instantiate', predetermined_uid='783320c1c3de2610')
-# please_terminate   = make_custom_entity(name_to_display='please_terminate', predetermined_uid='67cb88b71523f6d9')
-# please_assign      = make_custom_entity(name_to_display='please_assign',    predetermined_uid='4d4a93522f75ed21')
-please_instantiate = UserValueType("please_instantiate", Dict, Pattern[{"raet": ET | RT | AET}])
-please_assign = UserValueType("please_assign",
-                              Dict,
-                              # Pattern[{"target": AttributeEntity,
-                              Pattern[{"target": Any,
-                                       "value": Any}])
-
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
 

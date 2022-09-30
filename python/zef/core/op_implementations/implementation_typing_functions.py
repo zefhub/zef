@@ -6837,7 +6837,8 @@ def assign_imp(z, val):
     # We need to keep the assign value as something that works in the GraphDelta
     # code. So we simply wrap everything up as a LazyValue and return that.
     # return LazyValue(z) | assign[val]
-    return please_assign({"target": z,
+    from ..graph_delta import PleaseAssign
+    return PleaseAssign({"target": z,
                           "value": val})
 
 def assign_tp(op, curr_type):

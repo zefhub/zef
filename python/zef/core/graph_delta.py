@@ -34,6 +34,17 @@ from ..pyzef.zefops import SerializedValue
 from .logger import log
 from .internals import instantiate_value_node_imp
 
+from .VT import make_VT
+
+PleaseInstantiate = UserValueType("PleaseInstantiate", Dict, Pattern[{"raet": ET | RT | AET}])
+PleaseAssign = UserValueType("PleaseAssign",
+                              Dict,
+                              # Pattern[{"target": AttributeEntity,
+                              # Pattern[{"target": Any,
+                              Pattern[{"target": AttributeEntity | ZefOp[Z],
+                                       "value": Any}])
+PleaseCommand = PleaseInstantiate | PleaseAssign
+
 from abc import ABC
 class ListOrTuple(ABC):
     pass
@@ -130,13 +141,12 @@ gd_timing = "ZEFDB_GRAPH_DELTA_TIMING" in os.environ
 # * Entrypoint from user code
 #------------------------------------------------------
 def dispatch_ror_graph(g, x):
-    from . import please_assign
     from . import Effect, FX, Val
     if isinstance(x, LazyValue):
         x = collect(x)
         # Note that this could produce a new LazyValue if the input was an
         # assign_value. This is fine.
-    if isinstance(x, (list, tuple, dict, ET, AET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val, please_assign, EntityValueInstance)):
+    if isinstance(x, (list, tuple, dict, ET, AET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val, PleaseCommand, EntityValueInstance)):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -312,7 +322,6 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     # Check each input item to a GraphDelta to validate its form. Uses
     # id_definitions to assert that references to IDs are to things that are
     # defined in the GraphDelta.
-    from . import please_assign
 
     if isinstance(x, LazyValue):
         # This is checking for an (x <= value) format
@@ -397,7 +406,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif isinstance(x, EntityValueInstance):
         return
 
-    elif isinstance(x, please_assign):
+    elif isinstance(x, PleaseCommand):
         return
 
     else:
@@ -524,7 +533,6 @@ def dispatch_cmds_for(expr, gen_id):
     #     raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
     # func = d_dispatch[type(expr)]
 
-    from . import please_assign
     func = match(expr, [
         (Delegate, always[cmds_for_delegate]),
         (ValueType & (ET | AET), always[cmds_for_instantiable]),
@@ -533,7 +541,7 @@ def dispatch_cmds_for(expr, gen_id):
         (ZefRef | EZefRef, always[cmds_for_mergable]),
         (Val, always[cmds_for_value_node]),
         (EntityValueInstance, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
-        (please_assign, always[P(cmds_for_please_assign, gen_id=gen_id)]),
+        (PleaseAssign, always[P(cmds_for_please_assign, gen_id=gen_id)]),
         (Any, Error()),
     ])
     if is_a(func, Error):
@@ -650,8 +658,7 @@ def cmds_for_lv_tag(x, gen_id):
 
 def cmds_for_please_assign(x, gen_id: Callable):
     from . import Val
-    from . import please_assign
-    assert isinstance(x, please_assign)
+    assert isinstance(x, PleaseAssign)
 
     target = x.target
     val = x.value
@@ -893,7 +900,6 @@ def realise_single_node(x, gen_id):
     if isinstance(x, LazyValue):
         x = collect(x)
 
-    from . import please_assign
     # Now this is a check for whether we are an assign
     if isinstance(x, LazyValue):
         target,op = x | peel | collect
@@ -916,11 +922,11 @@ def realise_single_node(x, gen_id):
             exprs = exprs + [LazyValue(Z[iid]) | op]
         else:
             raise Exception(f"Don't understand LazyValue type: {op}")
-    elif isinstance(x, please_assign):
+    elif isinstance(x, PleaseAssign):
         target = x.target
         val = x.value
         iid,exprs = realise_single_node(target, gen_id)
-        exprs = exprs + [please_assign(target=Z[iid], value=val)]
+        exprs = exprs + [PleaseAssign(target=Z[iid], value=val)]
     elif isinstance(x, ValueType) and issubclass(x, (ET,AET)):
         a_id = get_absorbed_id(x)
         if a_id is None:
