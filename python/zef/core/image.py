@@ -12,9 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.image")
+
 import zstd
 
-class Image:
+class Image_:
     def __init__(self, data, format='svg'):
         self.format = format
         self.compression = 'zstd'
@@ -60,3 +63,6 @@ class Image:
             "type": FX.LocalFile.SystemOpenWith,
             "filepath": filename
         } | run
+
+from .VT import make_VT
+make_VT("Image", pytype=Image_)

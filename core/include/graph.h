@@ -39,9 +39,8 @@
 #include "fwd_declarations.h"
 #include "zefDB_utils.h"
 #include "scalars.h"
-#include "zefref.h"
-#include "blobs.h"
 #include "observable.h"
+#include "tokens.h"
 #include "xxhash64.h"
 #include "butler/locking.h"
 #include "butler/threadsafe_map.h"
@@ -59,56 +58,13 @@ namespace zefDB {
     namespace Messages {
         struct UpdatePayload;
     }
+
+    // Need a forward declaration of ZefRef
+    struct EZefRef;
+    struct ZefRef;
 }
 
 namespace zefDB {
-
-	namespace internals {
-        // 2020/10/13 Danny commented because it doesn't look like this is used.
-		// // data container used to pass info from the zefscription manager thread to the main thread, which needs to perform the verifications 
-		// // and execute the action blobs_ns. An object of this type is dynamically allocated on the heap and a ptr from GraphData points to it.
-		// // The ptr also acts as a flag: if it is set, there are updates available		
-		// struct GraphUpdateData {			
-		// 	blob_index blob_index_lo;  // execute actions between these blob limits
-		// 	blob_index blob_index_hi;
-		// 	blob_index index_of_latest_complete_tx_node;
-		// 	int revision;
-		// };
-
-		struct local_view_gd {
-			GraphData* gd_ptr = nullptr;
-			bool update_available_on_this_view_graph = false;
-		};
-		
-		enum_indx generate_unused_random_number_in_enum_reserved_range(const thread_safe_zef_enum_bidirectional_map& enum_map);
-		LIBZEF_DLL_EXPORTED size_t make_hash(EZefRef z_for_uid, RelationType rt, bool is_out_rel, bool is_instantiation);
-
-        LIBZEF_DLL_EXPORTED void start_zefscription_manager(std::string url="");
-
-
-
-
-
-
-		// the actual struct placed into the queue for execution
-		struct LIBZEF_DLL_EXPORTED q_element {
-			double priority;
-			std::function<void(Graph)> fct;
-		};
-		using q_vec = std::vector<std::optional<q_element>>;
-
-		// this function is mutating and is called by the operator 'g | Q[...]'.
-		// It queues the function on the execution q of the graph g.
-		// No osrting by prioirty is performed on insertion, 
-		// a linear search for the highest priority task is performed upon execution.
-		// This may seem inefficient at first glance, but is like to be faster than a 
-		// memory scattered priority q based on a heap, etc...
-		// make the matrix elements optional<> : completed tasks can be set tol null 
-		// instead of popping and rearranging the vector contents
-		LIBZEF_DLL_EXPORTED void q_function_on_graph(std::function<void(Graph)>& fct, double priority, GraphData& gd);
-		void execute_queued_fcts(GraphData& gd);
-		// the execution logic for the Q is in FinishTransaction(GraphData&)
-	}
 
 
 
@@ -118,83 +74,6 @@ namespace zefDB {
 	//   |_____|_____| | (_| | | | (_| | |_) | | | |  | | |  __|  _|  __| | |  __| | | | (_|  __/  | | | | | | (_| | | | | (_| | (_| |  __| |    |_____|_____|
 	//                  \__, |_|  \__,_| .__/|_| |_|  |_|  \___|_|  \___|_|  \___|_| |_|\___\___|  |_| |_| |_|\__,_|_| |_|\__,_|\__, |\___|_|                 
 	//                  |___/          |_|                                                                                      |___/                  
-
-
-//     // This struct exists to make flat hash maps possible. Either the UID is
-//     // stored directly into the map as the key, or the struct contains a pointer
-//     // to a string. This way, only the strings require dynamic allocation. 
-//     struct UID_or_string {
-//         // Manual version of a variant for space optimisation - I think, need to benchmark to confirm.
-//         bool is_uid;
-//         union {
-//             UID uid;
-//             std::string s;
-//         };
-
-//         UID_or_string(const UID_or_string & other) : is_uid(other.is_uid) {
-//             if(is_uid)
-//                 uid = other.uid;
-//             else
-//                 s = other.s;
-//         }
-//         // TODO: There is a memory problem happening here... need to debug.
-//         // UID_or_string(UID_or_string && other) : is_uid(other.is_uid) {
-//         //     if(other.is_uid)
-//         //         uid = std::move(other.uid);
-//         //     else
-//         //         s = std::move(other.s);
-//         // }
-//         UID_or_string(const UID & uid) : is_uid(true), uid(uid) {}
-//         UID_or_string(UID && uid) : is_uid(true), uid(std::move(uid)) {}
-//         UID_or_string(const std::string & s) : is_uid(false), s(s) {
-//             // For my testing sanity
-//             if(zefDB::is_uid(s)) {
-//                 print_backtrace();
-//                 throw std::runtime_error("Shouldn't be passing in UIDs as strings for the key_dict.");
-//             }
-//         }
-//         UID_or_string(std::string && s) : is_uid(false), s(std::move(s)) {
-//             // For my testing sanity
-//             if(zefDB::is_uid(this->s)) {
-//                 print_backtrace();
-//                 throw std::runtime_error("Shouldn't be passing in UIDs as strings for the key_dict.");
-//             }
-//         }
-
-//         ~UID_or_string() {
-//             if(is_uid)
-//                 uid.~UID();
-//             else
-//                 s.~basic_string();
-//         }
-
-//         bool operator==(const UID_or_string & other) const {
-//             if (is_uid && other.is_uid)
-//                 return uid == other.uid;
-//             else if (!is_uid && !other.is_uid)
-//                 return s == other.s;
-//             return false;
-//         }
-
-//         struct HashFct {
-//             std::size_t operator()(UID_or_string const & obj) const {
-//                 if(obj.is_uid)
-//                     return UID::HashFct{}(obj.uid);
-//                 else
-//                     return std::hash<std::string>{}(obj.s);
-//             }
-//         };
-//     };
-//     } // namespace zefDB
-// namespace std {
-//     template<>
-//     struct hash<zefDB::UID_or_string> {
-//         size_t operator() (const zefDB::UID_or_string & uid) const {
-//             return zefDB::UID_or_string::HashFct{}(uid);
-//         }
-//     };
-// }
-
     // This is to distinguish between "dispatching strings" vs "definitely a tag"
     struct LIBZEF_DLL_EXPORTED TagString {
         std::string s;
@@ -352,11 +231,10 @@ namespace zefDB {
 
 		// make the matrix elements optional<> : completed tasks can be set tol null. Instead of popping and rearranging the vector contents
 		// put this into an optional that the bit that stores whether any(!) fct is to be executed after a tx is closing is directly in the graphdata memory
-		std::optional<internals::q_vec> q_fcts_to_execute_when_txs_close = std::nullopt;	
 
 		// easy way to get access to the associated graph from any object in the mempool, 
 		// which gets this GraphData struct froma bit of memory arithmetics (relative to its own address)
-		EZefRef get_ROOT_node() { return EZefRef(constants::ROOT_NODE_blob_index ,*this); }
+		EZefRef get_ROOT_node();
 		std::uintptr_t ptr_to_write_head_location() { return (std::uintptr_t(this) + constants::blob_indx_step_in_bytes * write_head); }
 		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
 		uint64_t hash_partial(blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
@@ -389,6 +267,16 @@ namespace zefDB {
 //   |_____|_____|_____|_____|_____|_____|_____|_____|_____|    | |_| | | | (_| | |_) | | | |    |_____|_____|_____|_____|_____|_____|_____|_____|_____|
 //                                                               \____|_|  \__,_| .__/|_| |_|                                                           
 //                                                                              |_|                                                           
+    struct LIBZEF_DLL_EXPORTED GraphRef {
+        BaseUID uid;
+
+        GraphRef(BaseUID uid) : uid(uid) {}
+        GraphRef(Graph g);
+    };
+
+	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, GraphRef& g);
+
+    struct _InternalEmptyGraph {};
 	struct LIBZEF_DLL_EXPORTED Graph {
 		// this is the parent object that owns and manages all the memory. The memory pool should be copyable with memcopy
 		
@@ -398,24 +286,28 @@ namespace zefDB {
 		GraphData& my_graph_data() const { return *(GraphData*)mem_pool; }
 		operator GraphData& () const { return *(GraphData*)mem_pool; }
 
+        // Deleting the no-arguments ctor to better handle creating Graph objects and then initialising them.
+        Graph() = delete;
+        explicit Graph(_InternalEmptyGraph) : mem_pool(0) {};
         // This version is for creating a new local graph.
-        explicit Graph(bool sync=false, int mem_style=MMap::MMAP_STYLE_AUTO, bool internal_use_only=false);
+        explicit Graph(bool sync, int mem_style=MMap::MMAP_STYLE_AUTO, bool internal_use_only=false);
         // This version is about preparing a graph for other jobs.
 		explicit Graph(int mem_style, MMap::FileGraph * fg = nullptr, std::optional<BaseUID> uid = {}) ;
         explicit Graph(const std::filesystem::path & directory);
 
-		explicit Graph(GraphData& gd) ;
+		explicit Graph(const GraphData& gd) ;
 		explicit Graph(EZefRef uzr) ;		
 		explicit Graph(ZefRef zr) ;
         // Stop the implicit cast from GraphData* ptr to bool
         explicit Graph(void * ptr) = delete;
-        explicit Graph(GraphData * ptr, bool stealing_reference);
+        explicit Graph(const GraphData * ptr, bool stealing_reference);
 
 		explicit Graph(const std::string& graph_uid_or_tag_or_file, int mem_style = MMap::MMAP_STYLE_AUTO) ;
         explicit Graph(const char * graph_uid_or_tag, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(std::string(graph_uid_or_tag), mem_style) {}
 		explicit Graph(const BaseUID& graph_uid, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(str(graph_uid), mem_style) {};
 
         static Graph create_from_bytes(Messages::UpdatePayload && payload, int mem_style=MMap::MMAP_STYLE_AUTO, bool internal_use_only = false);
+        Graph(const GraphRef& ref) : Graph(ref.uid) {};
 
         // copy ctor
         Graph(const Graph& g);
@@ -467,72 +359,6 @@ namespace zefDB {
     inline void save_local(Graph & g) {
         save_local(g.my_graph_data());
     }
-
-
-//                              _                                  _   _                       _                                         
-//                             | |_ _ __ __ _ _ __  ___  __ _  ___| |_(_) ___  _ __        ___| | __ _ ___ ___                           
-//    _____ _____ _____ _____  | __| '__/ _` | '_ \/ __|/ _` |/ __| __| |/ _ \| '_ \      / __| |/ _` / __/ __|  _____ _____ _____ _____ 
-//   |_____|_____|_____|_____| | |_| | | (_| | | | \__ \ (_| | (__| |_| | (_) | | | |    | (__| | (_| \__ \__ \ |_____|_____|_____|_____|
-//                              \__|_|  \__,_|_| |_|___/\__,_|\___|\__|_|\___/|_| |_|     \___|_|\__,_|___/___/                          
-//                       
-
-    LIBZEF_DLL_EXPORTED void StartTransaction(GraphData& gd) ;
-    inline void StartTransaction(Graph & g) { StartTransaction(g.my_graph_data()); }
-
-    LIBZEF_DLL_EXPORTED ZefRef StartTransactionReturnTx(GraphData& gd) ;
-    inline ZefRef StartTransactionReturnTx(Graph & g) { return StartTransactionReturnTx(g.my_graph_data()); }
-
-    LIBZEF_DLL_EXPORTED void FinishTransaction(GraphData& gd, bool wait, bool rollback_empty_tx, bool check_schema);
-    LIBZEF_DLL_EXPORTED void FinishTransaction(GraphData& gd, bool wait, bool rollback_empty_tx);
-    LIBZEF_DLL_EXPORTED void FinishTransaction(GraphData& gd, bool wait);
-    LIBZEF_DLL_EXPORTED void FinishTransaction(GraphData& gd) ;
-    inline void FinishTransaction(Graph & g, bool wait, bool rollback_empty_tx, bool check_schema) { FinishTransaction(g.my_graph_data(), wait, rollback_empty_tx, check_schema); }
-    inline void FinishTransaction(Graph & g, bool wait, bool rollback_empty_tx) { FinishTransaction(g.my_graph_data(), wait, rollback_empty_tx); }
-    inline void FinishTransaction(Graph & g, bool wait) { FinishTransaction(g.my_graph_data(), wait); }
-    inline void FinishTransaction(Graph & g) { FinishTransaction(g.my_graph_data()); }
-
-    LIBZEF_DLL_EXPORTED void AbortTransaction(GraphData& gd);
-    inline void AbortTransaction(Graph& g) { AbortTransaction(g.my_graph_data()); }
-
-	// lightweight object with no data. Only role is to give a zefDB graph access to the number of open transactions
-	// at any time. If >0 transactions are open, any changes / appending to the graph are grouped under one tx_node.
-	struct LIBZEF_DLL_EXPORTED Transaction {
-		// if we use a ZefRef, the reassignment to a new memory pool in case of a reassignment can be taken care of by the ZefRef mechanics
-		EZefRef graph_data_that_i_am_marking;
-        // Danny: I can't see where this is used so I'm commenting it out for now.
-		// bool this_transaction_already_unregistered_from_graph = false;
-        bool wait;
-        bool rollback_empty;
-        bool check_schema;
-			
-		Transaction() = delete;
-		Transaction(const Transaction&) = delete;
-		Transaction(Transaction&&) = delete;  // this could be weakened and implemented if needed
-        // The default behaviour is based on zwitch so we have to do things the long-winded way here.
-		Transaction(GraphData& gd);
-		Transaction(GraphData& gd, bool wait);
-		Transaction(GraphData& gd, bool wait, bool rollback_empty);
-		Transaction(GraphData& gd, bool wait, bool rollback_empty, bool check_schema) :
-        wait(wait),
-        rollback_empty(rollback_empty),
-        check_schema(check_schema) {
-            StartTransaction(gd);
-            graph_data_that_i_am_marking.blob_ptr = &gd;
-		}
-		Transaction(Graph& g) : Transaction(g.my_graph_data()) {}
-		Transaction(Graph& g, bool wait) : Transaction(g.my_graph_data(), wait) {}
-		Transaction(Graph& g, bool wait, bool rollback_empty) : Transaction(g.my_graph_data(), wait, rollback_empty) {}
-		Transaction(Graph& g, bool wait, bool rollback_empty, bool check_schema) : Transaction(g.my_graph_data(), wait, rollback_empty, check_schema) {}
-		~Transaction() {
-            GraphData& gd = *(GraphData*)graph_data_that_i_am_marking.blob_ptr;
-			try {
-				FinishTransaction(gd, wait, rollback_empty, check_schema);
-			}
-			catch (const std::exception& exc) {
-				std::cerr << "Error occurred on Transaction closing: " << exc.what() << "\n";
-			}
-		}
-	};
 
     // This is related to a transaction, but is more low-level
     struct LockGraphData {
@@ -592,6 +418,11 @@ namespace zefDB {
 	} //internals
 
     LIBZEF_DLL_EXPORTED void run_subscriptions(GraphData & gd, EZefRef transaction_uzr);
+
+	namespace internals {
+		LIBZEF_DLL_EXPORTED size_t make_hash(EZefRef z_for_uid, RelationType rt, bool is_out_rel, bool is_instantiation);
+
+	}
 
 }
 

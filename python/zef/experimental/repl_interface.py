@@ -88,7 +88,7 @@ async def load_graph_async(tag_or_uid, stream):
     # Doing this here because stream needs to be subscribed to first
     eff = {"type": FX.Graph.Load,
            "tag_or_uid": tag_or_uid,
-           "mem_style": internals.MMAP_STYLE_ANONYMOUS,
+           # "mem_style": internals.MMAP_STYLE_ANONYMOUS,
            "progress_stream": stream
            }
     # Because this is not async, need to run this in a separate thread to not cause blocking of asyncio queue

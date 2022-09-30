@@ -80,6 +80,10 @@ namespace zefDB {
     }
 	bool operator!= (ZefRef b1, ZefRef b2) { return !(b1 == b2); }
 
+    bool EZefRef::is_graph_alive() {
+        return MMap::is_graph_mem_alive(blob_ptr);
+    }
+
 	blob_index index(EZefRef b) {
 		#ifdef ZEF_DEBUG
 		assert(b.blob_ptr != nullptr);
@@ -96,6 +100,8 @@ namespace zefDB {
 		#ifdef ZEF_DEBUG
 		assert(b.blob_ptr != nullptr);
 		#endif // ZEF_DEBUG
+        if(!b.is_graph_alive())
+            throw std::runtime_error("Trying to get GraphData of a EZefRef for an unloaded graph.");
 		return graph_data(b.blob_ptr);
 	}
 

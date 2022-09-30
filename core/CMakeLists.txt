@@ -81,6 +81,7 @@ set(SOURCES
     src/external_handlers.cpp
     src/conversions.cpp
     src/tar_file.cpp
+    src/transaction.cpp
 
     src/butler/butler.cpp
     src/butler/communication.cpp

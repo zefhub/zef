@@ -16,6 +16,8 @@
 // TODO: Figure out these manual circular dependency breaks
 #include "graph.h"
 #include "butler/butler.h"
+#include "zefref.h"
+#include "blobs.h"
 
 namespace zefDB {
     //////////////////////////////

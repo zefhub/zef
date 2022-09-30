@@ -12,14 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fx_types import Effect
-from ..VT import Error
+# These are types we wrap from external libraries that we always include in zef.
 
-def graph_sync_handler(eff: Effect):
-    try:
-        from ...pyzef.main import sync
-        sync(eff["graph"], eff["sync_state"])
-        return {}
-    except Exception as e:
-        return Error(f'executing FX.Graph.Sync for effect {eff}:\n{repr(e)}')
+from . import make_VT
 
+from pandas import DataFrame as DataFrame_
+make_VT('DataFrame', pytype=DataFrame_)

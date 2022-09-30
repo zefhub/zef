@@ -12,14 +12,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .fx_types import Effect
-from ..VT import Error
+from .. import report_import
+report_import("zef.core.streams")
 
-def graph_sync_handler(eff: Effect):
-    try:
-        from ...pyzef.main import sync
-        sync(eff["graph"], eff["sync_state"])
-        return {}
-    except Exception as e:
-        return Error(f'executing FX.Graph.Sync for effect {eff}:\n{repr(e)}')
+from .VT import make_VT
 
+# Just a stub for now
+make_VT("Stream")
+make_VT("Awaitable")

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.zef_functions")
+
 """
 TODO: make the decorator @zef_function(g, ...) also work if we don't have the primary instance: remote merge if someone else has the primary instance
 
@@ -57,6 +60,7 @@ import traceback
 
 from . import internals
 from ._core import *
+from .VT import *
 from ._ops import *
 
 
@@ -126,27 +130,37 @@ class FunctionConstructor:
     @staticmethod
     def __call__(*args, **kwds):
         from types import FunctionType
-        from .abstract_raes import Entity
+        # from .abstract_raes import Entity
         if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], FunctionType):
-            return ZefOp(((RT.Function, ((1, args[0]), )), ))
+            return ZefOp(((internals.RT.Function, ((1, args[0]), )), ))
         else:
             from zef.core.zef_functions import zef_function_decorator, _local_compiled_zef_functions, time_resolved_hashable
             promote_to_zefref_func = zef_function_decorator(*args, **kwds)
             def inner(func):
                 zefref = promote_to_zefref_func(func)
-                abstract_entity = Entity(zefref)
+                abstract_entity = EntityRef(zefref)
                 _local_compiled_zef_functions[abstract_entity.d['uid']] = _local_compiled_zef_functions[time_resolved_hashable(zefref)]
-                return ZefOp(((RT.Function, ((0, abstract_entity), )), ))
+                return ZefOp(((internals.RT.Function, ((0, abstract_entity), )), ))
             return inner
 
     @staticmethod
     def __getitem__(arg):
         # TODO we gotta check if arg is of type Zef Lambda once we implement it
         # return ZefOp(((RT.Function, ((1, arg), )), ))
-        return ZefOp(((RT.Function, ((1, arg), )), ))
+        return ZefOp(((internals.RT.Function, ((1, arg), )), ))
 
 
 func = FunctionConstructor()
+
+def zef_func_is_a(x, typ):
+    if not isinstance(x, ZefOp):
+        return False
+    if len(peel(x)) > 1:
+        return False
+    from .internals import get_token
+    return peel(x)[0][0] == get_token(RT.Function)
+from .VT import make_VT
+make_VT("ZefFunction", is_a_func=zef_func_is_a)
 
 ##################################
 # * Implementation
@@ -515,7 +529,6 @@ from ..pyzef import main
 main.ZefRef.__call__ = _overloaded_zefref_call
 
 def abstract_entity_call(entity, *args, **kwargs):
-    from .abstract_raes import Entity
     if not isinstance(entity, Entity): 
         raise TypeError(f'Trying to call using abstract entity but {entity} was given instead')
     try:    # it's cheaper to ask for forgiveness

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ...pyzef.internals import login, login_manual, logout
-from ..error import Error
+from ..VT import Error
 from .fx_types import Effect
 
 def zefhub_login_handler(eff: Effect):

@@ -69,7 +69,7 @@
 
 
 from .fx_types import Effect
-from ..error import Error
+from ..VT import Error
 
 
 def clipboard_copy_to_handler(eff: dict):

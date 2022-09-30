@@ -221,7 +221,7 @@ def graphviz_imp(zz, *flags):
             return ''
     
     def is_node(z):
-        return str(z | BT | collect)[-5:] == '_NODE'
+        return str(z | func[BT] | collect)[-5:] == '_NODE'
     
     @func
     def add_node(z, compact_view=False):

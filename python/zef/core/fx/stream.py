@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .fx_types import Effect
-from .._core import EZefRef, ET
+from ..VT import ET, EZefRef
 from .state import _state
 from ..op_structs import Awaitable
 from .._ops import *

@@ -14,6 +14,7 @@
 
 
 #include "ops_imperative.h"
+#include "transaction.h"
 
 namespace zefDB {
     namespace imperative {

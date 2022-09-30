@@ -932,7 +932,7 @@ def internal_resolve_field(z, info, z_field, auth_required=True):
         opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, info)
         # This is to mimic the behaviour that people probably expect from a
         # non-list resolver.
-        if type(opts) not in [list,tuple]:
+        if not isinstance(opts, List):
             if opts is None:
                 opts = []
             else:
@@ -1270,9 +1270,9 @@ def commit_with_post_checks(actions, post_checks, info):
                 if kind in ["unique"]:
                     pass
                 else:
-                    if type(obj) == str:
+                    if isinstance(obj, String):
                         obj = r[obj]
-                    assert type(obj) == ZefRef
+                    assert isinstance(obj, ZefRef)
                     obj = obj | in_frame[g | now | collect][allow_tombstone] | collect
 
                 if kind == "add":
