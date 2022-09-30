@@ -304,9 +304,11 @@ def timeline_view(zr_or_uzr) -> str:
         #     return f'<<<<<<<<<  <---- Cloned: ....'
         if BT(low_level_edge_uzr) == BT.ATOMIC_VALUE_ASSIGNMENT_EDGE:
             return f'    x      <---- Value assignment: {value_of_aet_at_tx(uzr,low_level_edge_uzr | source | collect)}'  # get the value: pass the respective tx
+        if BT(low_level_edge_uzr) == BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
+            return f'    x      <---- Value assignment: {value_of_aet_at_tx(uzr,low_level_edge_uzr | source | collect)}'  # get the value: pass the respective tx
         if BT(low_level_edge_uzr) == BT.TERMINATION_EDGE:
             return f'=========  <---- Termination'
-        raise Exception("To be fixed with new lineage system")
+        raise Exception(f"To be fixed with new lineage system ({BT(low_level_edge_uzr)})")
 
     # Function: visually list all details about a single relation.
     # Output is affected by the "in" or "out" direction and also the state of the rt_uzr.

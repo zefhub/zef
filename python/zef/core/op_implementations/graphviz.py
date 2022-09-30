@@ -203,7 +203,7 @@ def graphviz_imp(zz, *flags):
             return ''
     
     def is_node(z):
-        return str(z | BT | collect)[-5:] == '_NODE'
+        return str(z | func[BT] | collect)[-5:] == '_NODE'
     
     def add_node(z):
         G.node(str(index(z)),  label=nice_name(z), fontsize='12px', color=nice_color(z), shape=nice_shape(z), style=nice_style(z))
