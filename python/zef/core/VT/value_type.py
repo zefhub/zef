@@ -137,6 +137,8 @@ class ValueType_:
     def __str__(self):
         str_func = _value_type_str_funcs.get(self._d["type_name"], None)
         if str_func is None:
+            if self._d["alias"] is not None:
+                return self._d["alias"]
             return self.__get_nice_name() + (
                 '' if self._d['absorbed'] is None
                 else ''.join([ f"[{repr(el)}]" for el in self._d['absorbed'] ])
