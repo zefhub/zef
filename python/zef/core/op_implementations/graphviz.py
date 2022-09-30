@@ -147,7 +147,7 @@ def graphviz_imp(zz, *flags):
         plotting_eternal_graph = True
 
     edge_colors = {}
-    def nice_name(z: EZefRef) -> str:
+    def nice_name(z: EZefRef, compact_view = False) -> str:
         def val_to_str(z):
             v = value(z)
             if v is None: return 'None'
@@ -155,7 +155,16 @@ def graphviz_imp(zz, *flags):
             else: return str(v)
 
         if BT(z)==BT.ENTITY_NODE:
-            return f"{ET(z)!r}"        
+            if compact_view: 
+                rts = z | out_rels | filter[lambda z: BT(target(z)) == BT.ATTRIBUTE_ENTITY_NODE] | collect
+                title = f"{ET(z)!r}"
+                return f"""<<TABLE TITLE='{title}' CELLPADDING='0' CELLSPACING='0'>
+                <TR><TD>{title}</TD></TR>
+                {''.join([f"<TR><TD ALIGN='LEFT'><FONT POINT-SIZE='10'><B>{RT(rt)!r}</B>: {val_to_str(target(rt))}</FONT></TD></TR>" for rt in rts])}
+                </TABLE>
+                >""" 
+            return f"{ET(z)!r}"    
+
         if BT(z)==BT.TX_EVENT_NODE:
             return f"TX"
         if BT(z)==BT.ATTRIBUTE_ENTITY_NODE:
@@ -165,6 +174,14 @@ def graphviz_imp(zz, *flags):
                 val_maybe = (f"\n▷{val_to_str(z)}") if isinstance(z, ZefRef) else ''
                 return f"{AET(z)!r}{val_maybe}"        
         if BT(z)==BT.RELATION_EDGE:
+            if compact_view: 
+                rts = z | out_rels | filter[lambda z: BT(target(z)) == BT.ATTRIBUTE_ENTITY_NODE] | collect
+                title = f"{RT(z)!r}"
+                return f"""<<TABLE TITLE='{title}' CELLPADDING='0' CELLSPACING='0' BORDER='0'>
+                <TR><TD>{title}</TD></TR>
+                {''.join([f"<TR><TD ALIGN='LEFT'><FONT POINT-SIZE='10'>{RT(rt)!r}: {val_to_str(target(rt))}</FONT></TD></TR>" for rt in rts])}
+                </TABLE>
+                >""" 
             return f"{RT(z)!r}"        
         if BT(z)==BT.VALUE_NODE:
             return f"Val({val_to_str(z)})"
@@ -186,10 +203,11 @@ def graphviz_imp(zz, *flags):
         else:            
             return hex_color_for_type(BT(z))
 
-    def nice_shape(z):
+    def nice_shape(z, compact_view = False):
         if BT(z) == BT.TX_EVENT_NODE:
             return 'triangle'
         elif BT(z) == BT.ENTITY_NODE:
+            if compact_view: return 'note'
             return 'oval'            
         elif BT(z) == BT.ATTRIBUTE_ENTITY_NODE:
             return 'rectangle'
@@ -205,13 +223,15 @@ def graphviz_imp(zz, *flags):
     def is_node(z):
         return str(z | func[BT] | collect)[-5:] == '_NODE'
     
-    def add_node(z):
-        G.node(str(index(z)),  label=nice_name(z), fontsize='12px', color=nice_color(z), shape=nice_shape(z), style=nice_style(z))
-        
-    def add_edge_as_gv_node(z):
+    @func
+    def add_node(z, compact_view=False):
+        G.node(str(index(z)),  label=nice_name(z, compact_view), fontsize='12px', color=nice_color(z), shape=nice_shape(z,compact_view), style=nice_style(z))
+
+    @func 
+    def add_edge_as_gv_node(z, compact_view=False):
         col = nice_color(z)
         edge_colors[index(z)] = col
-        G.node(str(index(z)), label=nice_name(z), color=col, shape='none', style='', fontsize='10px', fontcolor=col)
+        G.node(str(index(z)), label=nice_name(z, compact_view), color=col, shape='none', style='', fontsize='10px', fontcolor=col)
         
     def add_gv_edges(z):
         # ------- hacky / dirty way for now: just try going to source / target and swallow error if anything fails :| --------
@@ -223,10 +243,18 @@ def graphviz_imp(zz, *flags):
         except Exception as e:
             #print(f"add_gv_edges failed for {z} e={e}")
             pass
-        
+
     nodes, edges = zz | group_by[is_node][(True,False)] | map[second] |  collect
-    nodes | for_each[add_node]
-    edges | for_each[add_edge_as_gv_node]
+    if 'expand' in flags or plotting_eternal_graph:
+        nodes | for_each[add_node]
+        edges | for_each[add_edge_as_gv_node]
+    else:
+        nodes = nodes | filter[lambda z: BT(z) not in  {BT.ATTRIBUTE_ENTITY_NODE,BT.VALUE_NODE}] | collect
+        nodes | for_each[add_node[True]]
+        edges  = edges | filter[lambda z: BT(target(z)) != BT.ATTRIBUTE_ENTITY_NODE] | collect
+        edges | for_each[add_edge_as_gv_node[True]]
+
+
     edges | for_each[add_gv_edges]
 
     # Convert the Graphviz Graph to svg string and then to an Image
