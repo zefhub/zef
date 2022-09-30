@@ -154,7 +154,7 @@ def dispatch_ror_graph(g, x):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
-            if 'internal_id' in cmd:
+            if 'internal_id' in cmd or 'internal_ids' in cmd:
                 return cmd
             if 'origin_rae' in cmd:
                 if is_a(cmd['origin_rae'], Delegate):
@@ -695,7 +695,7 @@ def cmds_for_please_terminate(x):
         'origin_rae': origin_rae(target)
         }
     if a_id is not None:
-        cmd['internal_id'] = a_id
+        cmd['internal_ids'] = [a_id]
 
     return (), [cmd]
 
@@ -1080,13 +1080,13 @@ def validate_and_compress_unique_assignment(cmds):
             | map[second | check_list_is_distinct])
             
 
+def combine_ids(x, y):
+    assert x["origin_rae"] == y["origin_rae"]
+    return {**x,
+            "internal_ids": x["internal_ids"] + y["internal_ids"]}
+
 @func
 def combine_internal_ids_for_merges(cmds):
-    def combine_ids(x, y):
-        assert x["origin_rae"] == y["origin_rae"]
-        return {**x,
-                "internal_ids": x["internal_ids"] + y["internal_ids"]}
-    
     return (cmds
               # Convert each item to a dictionary using the origin_rae as key
             | map[lambda x: {x["origin_rae"]: x}]
@@ -1094,21 +1094,29 @@ def combine_internal_ids_for_merges(cmds):
               # Now we should have one big dict with each command
             | values)
 
+# @func
+# def combine_terminates(cmds):
+#     @func
+#     def check_list_is_distinct(cmds):
+#         # cmds = cmds | distinct | collect
+#         # if length(cmds) == 1:
+#         #     return cmds[0]
+#         if not cmds | map[equals[first(cmds)]] | all | collect:
+#             ids = cmds | map[get["internal_id"][None]] | collect
+#             raise ValueError(f'There may be at most one id for a terminated ZefRef. There were multiple for assignment to {cmds[0]["origin_rae"]!r} with ids {ids}')
+#         return cmds[0]
+
+#     return (cmds
+#             | group_by[get["origin_rae"]]
+#             | map[second | check_list_is_distinct])
 @func
 def combine_terminates(cmds):
-    @func
-    def check_list_is_distinct(cmds):
-        # cmds = cmds | distinct | collect
-        # if length(cmds) == 1:
-        #     return cmds[0]
-        if not cmds | map[equals[first(cmds)]] | all | collect:
-            ids = cmds | map[get["internal_id"][None]] | collect
-            raise ValueError(f'There may be at most one id for a terminated ZefRef. There were multiple for assignment to {cmds[0]["origin_rae"]!r} with ids {ids}')
-        return cmds[0]
-
     return (cmds
-            | group_by[get["origin_rae"]]
-            | map[second | check_list_is_distinct])
+            # Convert each item to a dictionary using the origin_rae as key
+            | map[lambda x: {x["origin_rae"]: x}]
+            | reduce[merge_with[combine_ids]][{}]
+            # Now we should have one big dict with each command
+            | values)
 
 @func
 def combine_instantiates(cmds):
@@ -1167,8 +1175,8 @@ def get_id(cmd):
 
 def get_ids(cmd):
     ids = []
-    if cmd['cmd'] == 'merge':
-        ids += cmd["internal_ids"]
+    if cmd['cmd'] in ['merge', "terminate"]:
+        ids += cmd.get("internal_ids", [])
         if isinstance(cmd['origin_rae'], Delegate):
             ids += [cmd['origin_rae']]
         else:
@@ -1196,7 +1204,7 @@ def resolve_dag_ordering_step(arg: dict)->dict:
             return not isinstance(cmd['origin_rae'], Relation) or (cmd['origin_rae'].d["uids"][0] in ids and cmd['origin_rae'].d["uids"][2] in ids)
         if cmd['cmd'] == 'terminate':
             # Don't terminate if there an upcoming operation that will create this item
-            return all(get_id(cmd) not in get_ids(other) for other in input if other['cmd'] != 'terminate')
+            return all(my_id not in get_ids(other) for other in input for my_id in get_ids(cmd) if other['cmd'] != 'terminate')
         if cmd['cmd'] == 'assign':
             # The object to be assigned needs to exist.
             return get_id(cmd) in ids
