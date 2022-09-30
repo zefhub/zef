@@ -229,7 +229,7 @@ def is_supported_value(o):
     from ..pyzef.main import Keyword
     from types import ModuleType
     if is_python_scalar_type(o): return True
-    if isinstance(o, (set, range, GeneratorType, list, tuple, dict, ValueType, GraphSlice, Time, Image, Bytes, Error, Keyword, ModuleType)): return True
+    if isinstance(o, (set, range, GeneratorType, list, tuple, dict, ValueType, GraphSlice, Time, Image, Bytes, Error, Keyword, ModuleType, UserValueInstance)): return True
     return False
 
 def is_supported_zef_value(o):
@@ -489,7 +489,7 @@ def zefop_is_a(x, typ):
     if typ._d["absorbed"] is None:
         return isinstance(x, ZefOp_)
     return isinstance(x, typ._d["absorbed"][0])
-ZefOp = make_VT("ZefOp", pytype=ZefOp_)
+ZefOp = make_VT("ZefOp", pytype=ZefOp_, is_a_func=zefop_is_a)
 
 class CollectingOp:
     def __init__(self, other: ZefOp):

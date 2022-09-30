@@ -184,14 +184,20 @@ class UserValueInstance_:
     def __getattr__(self, other):
         if other.startswith("_"):
             return object.__getattribute__(self, other)
-        if not isinstance(self._value, PyDict):
-            raise AttributeError("UserValueInstance 'dot' access only works on dicts")
-        return self._value[other]
+        if isinstance(self._value, PyDict):
+            return self._value[other]
+        else:
+            return getattr(self._value, other)
+
+    def __dir__(self):
+        if isinstance(self._value, PyDict):
+            return list(self._value.keys())
+        return dir(self._value)
 
     # required to enable dict(my_user_value_type_instance)
     # fingers crossed that nobody has a field 'keys' 
     # and tries to do my_user_value_type_instance.keys
-    def keys(self):
+    def _keys(self):
         if not isinstance(self.value, PyDict):
             raise AttributeError("UserValueInstance 'keys' only works on dicts")
         return self._value.keys()

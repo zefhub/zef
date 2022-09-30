@@ -253,7 +253,7 @@ class TXNode_:
         temp.d['absorbed'] = (*self.d['absorbed'], x)
         return temp
         
-make_VT('TXNode', pytype=TXNode_)
+TXNode = make_VT('TXNode', pytype=TXNode_)
 
 class Root_:
     """ 
@@ -295,7 +295,7 @@ class Root_:
         temp.d['absorbed'] = (*self.d['absorbed'], x)
         return temp
 
-make_VT('Root', pytype=Root_)
+Root = make_VT('Root', pytype=Root_)
 
 
 def abstract_rae_from_rae_type_and_uid(rae_type, uid):
@@ -308,6 +308,7 @@ def abstract_rae_from_rae_type_and_uid(rae_type, uid):
         raise Exception("Unable to create an abstract Relation without knowing its source and target")
         
 
+RAE = insert_VT('RAE', Entity | AttributeEntity | Relation | TXNode | Root)
 
 
 

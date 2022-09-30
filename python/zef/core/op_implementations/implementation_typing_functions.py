@@ -6822,13 +6822,12 @@ def InIn_type_info(op, curr_type):
     return curr_type
 
 def terminate_implementation(z, *args):
+    from ..graph_delta import PleaseTerminate
     # We need to keep terminate as something that works in the GraphDelta code.
     # So we simply wrap everything up as a LazyValue and return that.
-    if len(args) == 1:
-        return LazyValue(z) | terminate[args[0]]
-    else:
-        assert len(args) == 0
-        return LazyValue(z) | terminate
+    assert len(args) <= 1
+    internal_id = args[0] if len(args) == 1 else None
+    return PleaseTerminate(target=z, internal_id=internal_id)
 
 def terminate_type_info(op, curr_type):
     return curr_type

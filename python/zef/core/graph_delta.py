@@ -36,14 +36,18 @@ from .internals import instantiate_value_node_imp
 
 from .VT import make_VT
 
-PleaseInstantiate = UserValueType("PleaseInstantiate", Dict, Pattern[{"raet": ET | RT | AET}])
+PleaseInstantiate = UserValueType("PleaseInstantiate", Dict, Pattern[{"raet": RAET}])
+PleaseTerminate = UserValueType("PleaseInstantiate", Dict, Pattern[{
+    "target": RAE | ZefOp[Z],
+    "internal_id": String | Nil,
+}])
 PleaseAssign = UserValueType("PleaseAssign",
                               Dict,
                               # Pattern[{"target": AttributeEntity,
                               # Pattern[{"target": Any,
                               Pattern[{"target": AttributeEntity | ZefOp[Z],
                                        "value": Any}])
-PleaseCommand = PleaseInstantiate | PleaseAssign
+PleaseCommand = PleaseInstantiate | PleaseAssign | PleaseTerminate
 
 from abc import ABC
 class ListOrTuple(ABC):
@@ -150,6 +154,8 @@ def dispatch_ror_graph(g, x):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
+            if 'internal_id' in cmd:
+                return cmd
             if 'origin_rae' in cmd:
                 if is_a(cmd['origin_rae'], Delegate):
                     internal_id = cmd['origin_rae']
@@ -325,17 +331,19 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
 
     if isinstance(x, LazyValue):
         # This is checking for an (x <= value) format
-        if is_a(x.el_ops, assign):
-            return
-        elif is_a(x.el_ops, terminate):
-            return
+        if False:
+            pass
+        # if is_a(x.el_ops, assign):
+        #     return
+        # elif is_a(x.el_ops, terminate):
+        #     return
         elif is_a(x.el_ops, tag):
             return
         elif is_a(x.el_ops, fill_or_attach):
             return
         elif is_a(x.el_ops, set_field):
             return
-        raise Exception(f"A LazyValue must have come from (x | assign), (x | terminate), (x | fill_or_attach) or (x | tag) only. Got {x}")
+        raise Exception(f"A LazyValue must have come from (x | fill_or_attach) or (x | tag) only. Got {x}")
 
     # Note: just is_a(x, Z) will also mean ZefRefs will be hit
     elif is_a(x, ZefOp) and is_a(x, Z):
@@ -488,10 +496,12 @@ def dispatch_cmds_for(expr, gen_id):
 
     # If we have a lazy value the second time around, then this must be an actual action to perform.
     if isinstance(expr, LazyValue):
-        if is_a(expr.el_ops, assign):
-            return cmds_for_lv_assign(expr, gen_id)
-        elif is_a(expr.el_ops, terminate):
-            return cmds_for_lv_terminate(expr)
+        if False:
+            pass
+        # elif is_a(expr.el_ops, assign):
+        #     return cmds_for_lv_assign(expr, gen_id)
+        # elif is_a(expr.el_ops, terminate):
+        #     return cmds_for_lv_terminate(expr)
         elif is_a(expr.el_ops, set_field):
             return cmds_for_lv_set_field(expr, gen_id)
         elif is_a(expr.el_ops, fill_or_attach):
@@ -499,7 +509,7 @@ def dispatch_cmds_for(expr, gen_id):
         elif is_a(expr.el_ops, tag):
             return cmds_for_lv_tag(expr, gen_id)
         else:
-            raise Exception("LazyValue obtained which is not an assign or terminate")
+            raise Exception("LazyValue obtained which is not known")
 
     elif isinstance(expr, ZefOp):
         # If we have a chain beginning with a Z, convert to LazyValue
@@ -533,22 +543,20 @@ def dispatch_cmds_for(expr, gen_id):
     #     raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
     # func = d_dispatch[type(expr)]
 
-    func = match(expr, [
-        (Delegate, always[cmds_for_delegate]),
-        (ValueType & (ET | AET), always[cmds_for_instantiable]),
-        (Tuple | List, always[P(cmds_for_tuple, gen_id=gen_id)]),
-        (Dict, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
-        (ZefRef | EZefRef, always[cmds_for_mergable]),
-        (Val, always[cmds_for_value_node]),
-        (EntityValueInstance, always[P(cmds_for_complex_expr, gen_id=gen_id)]),
-        (PleaseAssign, always[P(cmds_for_please_assign, gen_id=gen_id)]),
-        (Any, Error()),
-    ])
-    if is_a(func, Error):
+    def error_handler(x):
         raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
-
-
-    return func(expr)
+    return expr | match[
+        (Delegate,               cmds_for_delegate),
+        (ValueType & (ET | AET), cmds_for_instantiable),
+        (Tuple | List,           P(cmds_for_tuple, gen_id=gen_id)),
+        (Dict,                   P(cmds_for_complex_expr, gen_id=gen_id)),
+        (ZefRef | EZefRef,       cmds_for_mergable),
+        (Val,                    cmds_for_value_node),
+        (EntityValueInstance,    P(cmds_for_complex_expr, gen_id=gen_id)),
+        (PleaseAssign,           P(cmds_for_please_assign, gen_id=gen_id)),
+        (PleaseTerminate,        cmds_for_please_terminate),
+        (Any,                    error_handler),
+    ] | collect
 
 
 
@@ -676,41 +684,16 @@ def cmds_for_please_assign(x, gen_id: Callable):
 
     return exprs, [cmd]
 
-def cmds_for_lv_assign(x, gen_id: Callable):
-    from . import Val
-    assert isinstance(x, LazyValue)
+def cmds_for_please_terminate(x):
+    assert isinstance(x, PleaseTerminate)
 
-    assert len(x | peel | collect) == 2
-    target,op = x | peel | collect
+    target = x.target
+    a_id = x.internal_id
 
-    assert is_a(op, assign)
-        
-    iid,exprs = realise_single_node(target, gen_id)
-
-    cmd = {'cmd': 'assign', 'explicit': True, "internal_id": iid}
-
-    val = LazyValue(op) | absorbed | single | collect
-    if isinstance(val, Val):
-        val = val.arg
-    elif isinstance(val, (ZefRef | EZefRef) & BT.VALUE_NODE):
-        val = value(val)
-
-    cmd['value'] = val
-
-    return exprs, [cmd]
-
-def cmds_for_lv_terminate(x):
-    assert isinstance(x, LazyValue)
-
-    assert len(x | peel | collect) == 2
-    target,op = x | peel | collect
-
-    assert is_a(op, terminate)
     cmd = {
         'cmd': 'terminate', 
         'origin_rae': origin_rae(target)
         }
-    a_id = get_absorbed_id(LazyValue(op))
     if a_id is not None:
         cmd['internal_id'] = a_id
 
@@ -903,7 +886,8 @@ def realise_single_node(x, gen_id):
     # Now this is a check for whether we are an assign
     if isinstance(x, LazyValue):
         target,op = x | peel | collect
-        if is_a(op, terminate) or is_a(op, tag):
+        # if is_a(op, terminate) or is_a(op, tag):
+        if is_a(op, tag):
             iid,exprs = realise_single_node(target, gen_id)
             exprs = [x]
         # elif is_a(op, assign):
@@ -927,6 +911,15 @@ def realise_single_node(x, gen_id):
         val = x.value
         iid,exprs = realise_single_node(target, gen_id)
         exprs = exprs + [PleaseAssign(target=Z[iid], value=val)]
+    elif isinstance(x, PleaseTerminate):
+        target = x.target
+        iid = x.internal_id
+        if iid is None:
+            iid = gen_id()
+            new_terminate = PleaseTerminate(insert(x._value, "internal_id", iid))
+            exprs = [new_terminate]
+        else:
+            exprs = [x]
     elif isinstance(x, ValueType) and issubclass(x, (ET,AET)):
         a_id = get_absorbed_id(x)
         if a_id is None:

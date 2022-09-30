@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import make_VT, ValueType, SetOf, BlobPtr
+from . import make_VT, insert_VT, ValueType, SetOf, BlobPtr
 from .value_type import is_empty_, is_type_name_
 from .. import internals
 
@@ -256,3 +256,5 @@ def tx_is_a(x, typ):
     return isinstance(x, BT.TX_EVENT_NODE)
 
 TX = make_VT("TX", is_a_func=tx_is_a)
+
+RAET = insert_VT("RAET", ET | RT | AET)
