@@ -938,7 +938,9 @@ def internal_resolve_field(z, info, z_field, auth_required=True):
             if is_triple:
                 opts = opts | filter[is_a[rae_type(target(relation))]]
     elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
-        opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, info)
+        # TODO: Sort this out when renaming info -> ctx/sctx
+        context = info.context
+        opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, context, z_field, context)
         # This is to mimic the behaviour that people probably expect from a
         # non-list resolver.
         if not isinstance(opts, List):
@@ -1212,12 +1214,16 @@ def pass_auth_generic(z, schema_node, info, rt_list):
     else:
         return True
 
+    context = info.context
+    auth = info.context | get["auth"][None] | collect
     # TODO: Later on these will be zef functions so easier to call
     return temporary__call_string_as_func(
+        # TODO: Update this call signature
         to_call | value | collect,
         z=z,
-        info=info,
-        type_node=schema_node
+        type_node=schema_node,
+        context=context,
+        auth=auth
     )
 
 @func
@@ -1258,7 +1264,9 @@ def temporary__call_string_as_func(s, **kwds):
     if isinstance(out, LazyValue):
         out = collect(out)
     elif isinstance(out, ZefOp):
-        out = out(kwds.get("z", None))
+        input = {"z": kwds["z"],
+                 "ctx": kwds["context"]}
+        out = out(input)
 
     return out
 
