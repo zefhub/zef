@@ -5619,7 +5619,7 @@ def select_keys_imp(d: dict, *keys: list):
 
 
 
-#---------------------------------------- select_by_field -----------------------------------------------
+#---------------------------------------- modulo -----------------------------------------------
 def modulo_imp(m: int, n: int):
     """
     The modulo function.
@@ -5639,7 +5639,7 @@ def modulo_imp(m: int, n: int):
     
 
 
-#---------------------------------------- select_by_field -----------------------------------------------
+#---------------------------------------- filter -----------------------------------------------
 def filter_implementation(itr, pred_or_vt):
     """
     Filters an iterable or stream lazily.
@@ -5692,7 +5692,7 @@ def select_by_field_imp(zrs : Iterable[ZefRef], rt: RT, val):
     - related zefop: filter
     - related zefop: value    
     """
-    return pyzefops.select_by_field_impl(zrs, rt, val)
+    return pyzefops.select_by_field_impl(zrs, internals.get_token(rt), val)
 
 def select_by_field_tp(v_tp):
     return VT.Any
