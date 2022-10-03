@@ -588,6 +588,8 @@ class CollectingOp:
         raise TypeError(f'Unexpected type in "ZefType << CollectingOp" expression. It was called with {other} of type {type(other)}' )
         
     def __eq__(self, other):
+        if not hasattr(other, "el_ops"):
+            return NotImplemented
         return self.el_ops == other.el_ops
 
     def __call__(self, *args):
@@ -598,6 +600,10 @@ class CollectingOp:
         # collect([1,2,3] | map[...] | last)
         if len(args) == 1:
             return args[0] | self
+
+    def __hash__(self):
+        return hash(self.el_ops)
+        
 
 
 class ConcreteAwaitable:
