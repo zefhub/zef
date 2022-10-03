@@ -33,6 +33,7 @@ from .fx.fx_types import FXElement, Effect
 from .flat_graph import FlatGraph_, FlatRef_, FlatRefs_
 from ..pyzef import internals as pyinternals
 from .symbolic_expression import SymbolicExpression_
+from .user_value_type import UserValueInstance_
 
 ##############################
 # * Definition
@@ -293,6 +294,13 @@ def serialize_symbolicexpression(se):
         "absorbed": serialize_internal(se.absorbed)
     }
 
+def serialize_user_value_instance(uvi):
+    return {
+        "_zeftype": "UserValueInstance",
+        "user_type_id": uvi._user_type_id,
+        "value": serialize_internal(uvi._value),
+    }
+
 
 def deserialize_tuple(json_d: dict) -> tuple:
     return tuple(deserialize_internal(el) for el in json_d["items"])
@@ -464,6 +472,12 @@ def deserialize_symbolicexpression(d):
         absorbed = deserialize_internal(d["absorbed"]),
     )
 
+def deserialize_user_value_instance(d):
+    return UserValueInstance_(
+        d["user_type_id"],
+        deserialize_internal(d["value"]),
+    )
+
 serialization_mapping[internals.ZefRef] = serialize_zeftypes
 # serialization_mapping[ZefRefs] = serialize_zeftypes
 serialization_mapping[internals.EZefRef] = serialize_zeftypes
@@ -503,6 +517,7 @@ serialization_mapping[list] = serialize_list
 serialization_mapping[tuple] = serialize_tuple
 serialization_mapping[dict] = serialize_dict
 serialization_mapping[SymbolicExpression_] = serialize_symbolicexpression
+serialization_mapping[UserValueInstance_] = serialize_user_value_instance
 
 deserialization_mapping["dict"] = deserialize_dict
 deserialization_mapping["tuple"] = deserialize_tuple
@@ -545,3 +560,4 @@ deserialization_mapping["pyinternals.DelegateRoot"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateRelationTriple"] = deserialize_delegate
 deserialization_mapping["ValueType"] = deserialize_valuetype
 deserialization_mapping["SymbolicExpression"] = deserialize_symbolicexpression
+deserialization_mapping["UserValueInstance"] = deserialize_user_value_instance

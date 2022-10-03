@@ -19,6 +19,8 @@ from zef.ops import *
 
 class MyTestCase(unittest.TestCase):
     def test_serialization(self):
+        from zef.core.graph_delta import PleaseAssign
+
         g = Graph()
         z = ET.Machine | g | run
         a,b,c = (z, RT.Something, "data") | g | run
@@ -28,6 +30,7 @@ class MyTestCase(unittest.TestCase):
         to_check += [origin_rae(b)]
         to_check += [origin_rae(c)]
         to_check += [uid(z)]
+        to_check += [PleaseAssign(target=origin_rae(c), value=5)]
 
         to_check += [
             {"key": 5,
