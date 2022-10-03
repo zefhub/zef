@@ -136,8 +136,8 @@ def UVT_ctor(self, *args, **kwargs):
         return new_uvt
 
 def UVT_str(self):
-    if "absorbed" in self._d:
-        return f"UserValueType(name={self.name}, representation_type={self._d['representation_type']}, constraints={self._d['constraints']})"
+    if "name" in self._d:
+        return f"UserValueType(name={self._d['name']}, representation_type={self._d['representation_type']}, constraints={self._d['constraints']})"
     else:
         return "UserValueType"
 
