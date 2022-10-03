@@ -12,12 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import make_VT, Error, ZefGenerator, PyList, PySet, PyTuple, PyDict
+from . import make_VT, Error, ZefGenerator, PyList, PySet, PyTuple, PyDict, is_type_name_
 
 
 
 # TODO: Change this to a proper isa
-make_VT('Tuple', pytype=tuple)
+def tuple_override_subtype(tup, typ):
+    if is_type_name_(typ, "List"):
+        return True
+    return "maybe"
+make_VT('Tuple', pytype=tuple, override_subtype_func=tuple_override_subtype)
 
 def list_is_a(x, typ):
     import sys

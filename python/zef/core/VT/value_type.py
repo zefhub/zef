@@ -291,7 +291,10 @@ def is_subtype_(typ1, typ2):
     assert is_type_(typ2), f"is_subtype got a non-type: {typ2}"
 
     if typ1._d["type_name"] in _value_type_override_subtype_funcs:
-        return _value_type_override_subtype_funcs[typ1._d["type_name"]](typ1, typ2)
+        result = _value_type_override_subtype_funcs[typ1._d["type_name"]](typ1, typ2)
+        if result is True or result is False:
+            return result
+        # Otherwise, "maybe" and continue on, in the hopes the other type knows how.
 
     if typ2._d["type_name"] in _value_type_is_subtype_funcs:
         return _value_type_is_subtype_funcs[typ2._d["type_name"]](typ1, typ2)
@@ -299,8 +302,8 @@ def is_subtype_(typ1, typ2):
         if len(typ2._d["absorbed"]) == 0 and len(typ1._d["absorbed"]) > 0:
             return True
         else:
-            # TODO: Default covariant or other subtyping behaviour here.
-            return "maybe"
+            # Going to default to nonvariant
+            return typ1._d == typ2._d
     else:
         # raise Exception(f"ValueType '{typ1._d['type_name']}' has no is_subtype implementation")
         return False
