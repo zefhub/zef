@@ -61,6 +61,9 @@ def union_getitem(self, x):
 def union_is_a(val, typ):
     return any(isinstance(val, subtyp) for subtyp in typ._d["absorbed"])
 
+def union_override_subtype(union, typ):
+    return all(issubclass(x, typ) for x in union._d["absorbed"])
+
 
 def union_simplify(x):
     """
@@ -81,13 +84,25 @@ def union_simplify(x):
     # flatten out unions: Union[Union[A][B]][C]  == Union[A][B][C]
     old_abs = x._d['absorbed']
     absorbed = tuple((el._d['absorbed'] if is_union_VT(el) else (el,) for el in old_abs))  # flatten this out
-    return Union[tuple(make_distinct((a2 for a1 in absorbed for a2 in a1)))]
+    flattened = list(make_distinct(a2 for a1 in absorbed for a2 in a1))
+    supers = []
+    for i,x in enumerate(flattened):
+        for j,y in enumerate(flattened):
+            if j != i:
+                if issubclass(x,y):
+                    break
+        else:
+            supers.append(x)
+    if len(supers) == 1:
+        return supers[0]
+    return Union[tuple(supers)]
 
 
 Union = make_VT('Union',
                 get_item_func=union_getitem,
                 is_a_func=union_is_a,
-                simplify_type_func=union_simplify)
+                simplify_type_func=union_simplify,
+                override_subtype_func=union_override_subtype)
 
 def intersection_getitem(self, x):
     if self._d["absorbed"] is not None:
@@ -104,6 +119,11 @@ def intersection_getitem(self, x):
 
 def intersection_is_a(val, typ):
     return all(isinstance(val, subtyp) for subtyp in typ._d["absorbed"])
+
+def intersection_override_subtype(intersection, typ):
+    raise NotImplementedError("This is tricky!")
+    # TODO: basically want to add the new type into the intersection and then
+    # check if the resultant set is provably empty
 
 def intersection_simplify(x):
     """
@@ -124,12 +144,26 @@ def intersection_simplify(x):
     # flatten out Intersections: Intersection[Intersection[A][B]][C]  == Intersection[A][B][C]
     old_abs = x._d['absorbed']
     absorbed = tuple((el._d['absorbed'] if is_intersection_VT(el) else (el,) for el in old_abs))  # flatten this out
-    return Intersection[tuple(make_distinct((a2 for a1 in absorbed for a2 in a1)))]
+    flattened = make_distinct((a2 for a1 in absorbed for a2 in a1))
+    supers = []
+    for i,x in enumerate(flattened):
+        for j,y in enumerate(flattened):
+            if j != i:
+                if issubclass(y,x):
+                    break
+        else:
+            supers.append(x)
+
+    if len(supers) == 1:
+        return supers[0]
+    # TODO: If there is no overlap between any of the individual sets, this should return the empty set
+    return Intersection[tuple(supers)]
 
 Intersection = make_VT('Intersection',
                        get_item_func=intersection_getitem,
                        is_a_func=intersection_is_a,
-                       simplify_type_func=intersection_simplify)
+                       simplify_type_func=intersection_simplify,
+                       override_subtype_func=intersection_override_subtype)
 
 def complement_getitem(self, x):
     if self._d["absorbed"] is not None:
@@ -207,11 +241,15 @@ def setof_getitem(self, x):
 def setof_is_a(x, typ):
     return x in typ._d["absorbed"][0]
 
+def setof_override_subtype(setof, typ):
+    return all(isinstance(x, typ) for x in setof._d["absorbed"][0])
+
 make_VT('SetOf',
         constructor_func=setof_ctor,
         pass_self=True,
         get_item_func=setof_getitem,
-        is_a_func=setof_is_a)
+        is_a_func=setof_is_a,
+        override_subtype_func=setof_override_subtype)
 
 
 

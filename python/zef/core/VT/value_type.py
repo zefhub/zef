@@ -76,6 +76,8 @@ _value_type_get_item_funcs = {}
 _value_type_attr_funcs = {}
 _value_type_is_a_funcs = {}
 _value_type_is_subtype_funcs = {}
+# These funcs are for the VERY limited group that combines sets together.
+_value_type_override_subtype_funcs = {}
 _value_type_simplify_type_funcs = {}
 _value_type_str_funcs = {}
 _value_type_pytypes = {}
@@ -84,7 +86,7 @@ class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name:str, absorbed=None, pytype=None, constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, str_func=None, simplify_type_func=None):
+    def __init__(self, type_name:str, absorbed=None, pytype=None, constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, override_subtype_func=None, str_func=None, simplify_type_func=None):
             self._d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
@@ -103,6 +105,9 @@ class ValueType_:
             if is_subtype_func is not None:
                 assert type_name not in _value_type_is_subtype_funcs
                 _value_type_is_subtype_funcs[type_name] = is_subtype_func
+            if override_subtype_func is not None:
+                assert type_name not in _value_type_override_subtype_funcs
+                _value_type_override_subtype_funcs[type_name] = override_subtype_func
             if str_func is not None:
                 assert type_name not in _value_type_str_funcs
                 _value_type_str_funcs[type_name] = str_func
@@ -284,6 +289,9 @@ def is_a_(obj, typ):
 def is_subtype_(typ1, typ2):
     assert is_type_(typ1), f"is_subtype got a non-type: {typ1}"
     assert is_type_(typ2), f"is_subtype got a non-type: {typ2}"
+
+    if typ1._d["type_name"] in _value_type_override_subtype_funcs:
+        return _value_type_override_subtype_funcs[typ1._d["type_name"]](typ1, typ2)
 
     if typ2._d["type_name"] in _value_type_is_subtype_funcs:
         return _value_type_is_subtype_funcs[typ2._d["type_name"]](typ1, typ2)
