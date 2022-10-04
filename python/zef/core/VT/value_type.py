@@ -198,7 +198,8 @@ class ValueType_:
 
 
     def __hash__(self):
-        return hash(self._d['type_name']) ^ hash(self._d['absorbed'])
+        # return hash(self._d['type_name']) ^ hash(self._d['absorbed'])
+        return hash_frozen(self._d)
 
 
     def __or__(self, other):
@@ -329,3 +330,32 @@ def is_empty_(typ):
 def is_type_name_(typ, name):
     return isinstance(typ, ValueType_) and typ._d["type_name"] == name
     
+
+
+# Temporary hash, probably needs to be merged into other code
+
+def hash_frozen(obj):
+    if type(obj) == dict:
+        h = hash("dict")
+        for key in sorted(obj):
+            h ^= hash(key)
+            h ^= hash_frozen(obj[key])
+        return h
+    elif type(obj) == set:
+        all_hs = [hash_frozen(x) for x in obj]
+        h = hash("set")
+        for h_i in sorted(all_hs):
+            h ^= h_i
+        return h
+    elif type(obj) == list:
+        h = hash("list")
+        for x in obj:
+            h ^= hash_frozen(x)
+        return h
+    elif type(obj) == tuple:
+        h = hash("tuple")
+        for x in obj:
+            h ^= hash_frozen(x)
+        return h
+            
+    return hash(obj)

@@ -83,7 +83,7 @@ def union_simplify(x):
     """
     # flatten out unions: Union[Union[A][B]][C]  == Union[A][B][C]
     old_abs = x._d['absorbed']
-    absorbed = tuple((el._d['absorbed'] if is_union_VT(el) else (el,) for el in old_abs))  # flatten this out
+    absorbed = tuple(el._d['absorbed'] if is_union_VT(el) else (el,) for el in old_abs)  # flatten this out
     flattened = list(make_distinct(a2 for a1 in absorbed for a2 in a1))
     supers = []
     for i,x in enumerate(flattened):
@@ -121,9 +121,18 @@ def intersection_is_a(val, typ):
     return all(isinstance(val, subtyp) for subtyp in typ._d["absorbed"])
 
 def intersection_override_subtype(intersection, typ):
-    raise NotImplementedError("This is tricky!")
+    # raise NotImplementedError("This is tricky!")
+    # print("WARNING: using intersection subtype override is not rigorous yet")
     # TODO: basically want to add the new type into the intersection and then
     # check if the resultant set is provably empty
+    #
+    # For now do the easy cases and return "maybe" otherwise
+    result = any(issubclass(x, typ) for x in intersection._d["absorbed"])
+    if result is False:
+        print("WARNING: using intersection subtype override is not rigorous yet")
+        result = "maybe"
+    return result
+
 
 def intersection_simplify(x):
     """
@@ -143,8 +152,8 @@ def intersection_simplify(x):
     """
     # flatten out Intersections: Intersection[Intersection[A][B]][C]  == Intersection[A][B][C]
     old_abs = x._d['absorbed']
-    absorbed = tuple((el._d['absorbed'] if is_intersection_VT(el) else (el,) for el in old_abs))  # flatten this out
-    flattened = make_distinct((a2 for a1 in absorbed for a2 in a1))
+    absorbed = tuple(el._d['absorbed'] if is_intersection_VT(el) else (el,) for el in old_abs)  # flatten this out
+    flattened = list(make_distinct(a2 for a1 in absorbed for a2 in a1))
     supers = []
     for i,x in enumerate(flattened):
         for j,y in enumerate(flattened):
