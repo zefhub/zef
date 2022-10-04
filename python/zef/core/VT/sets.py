@@ -252,13 +252,6 @@ def setof_ctor(self, *args):
         return NotImplemented
     return self._replace(absorbed=(args, ))
 
-def setof_getitem(self, x):
-    if len(self._d["absorbed"]) > 0:
-        return NotImplemented
-    if not isinstance(x, tuple):
-        raise TypeError(f"`SetOf[...]` must be called with a tuple, either explicitly or implicitly. e.g. SetOf[3,4], SetOf[(3,4)]. When wrapping one value, use SetOf[42,]. It was called with {x}. ")
-    return self._replace(absorbed=(x, ))
-
 def setof_is_a(x, typ):
     if len(typ._d["absorbed"]) == 0:
         return NotImplemented
@@ -272,7 +265,6 @@ def setof_override_subtype(setof, typ):
 make_VT('SetOf',
         constructor_func=setof_ctor,
         pass_self=True,
-        get_item_func=setof_getitem,
         is_a_func=setof_is_a,
         override_subtype_func=setof_override_subtype)
 
