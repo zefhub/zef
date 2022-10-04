@@ -174,14 +174,17 @@ class ValueType_:
 
 
     def __getitem__(self, x):
+        if type(x) == str:
+            if len(self._d["absorbed"]) > 0:
+                raise Exception(f"Cannot provide a second absorbed name to {self._d['type_name']}")
+            new_absorbed = self._d["absorbed"] + (x,)
+            return self._replace(absorbed=new_absorbed)
+
         try:
             f = _value_type_get_item_funcs[self._d["type_name"]]
         except KeyError:
-            # Default get_item behaviour is to append to the absorbed
-            new_absorbed = self._d["absorbed"] + (x,)
-            return self._replace(absorbed=new_absorbed)
+            raise Exception(f"There is no getitem function for a ValueType of type {self._d['type_name']}")
         return f(self, x)
-
 
     def __eq__(self, other):
         if isinstance(other, type) and other in [internals.ZefRef, internals.EZefRef]:
