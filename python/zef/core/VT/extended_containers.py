@@ -29,7 +29,7 @@ def list_is_a(x, typ):
     if not isinstance(x, (PyList, PyTuple, Generator, ZefGenerator)):
         return False
     ab = typ._d['absorbed']
-    if ab is None:
+    if len(ab) == 0:
         return True
 
     if isinstance(x, (Generator, ZefGenerator)):
@@ -45,7 +45,7 @@ def set_is_a(x, typ):
     if not isinstance(x, PySet):
         return False
     ab = typ._d['absorbed']
-    if ab is None:
+    if len(ab) == 0:
         return True
 
     if len(ab)!=1:    # List takes only one Type argument
@@ -59,7 +59,7 @@ def dict_is_a(x, typ):
     if not isinstance(x, PyDict):
         return False
     ab = typ._d['absorbed']
-    if ab is None:
+    if len(ab) == 0:
         return True
 
     if (len(ab)!=1 or len(ab[0])!=2):    # Dict must contain a type in one [] and that must be a pair

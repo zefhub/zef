@@ -486,7 +486,7 @@ def zefop_is_a(x, typ):
     # Note: this is only hit for the Zefop value type, not for actual zefops or zefop chains
     # TODO: Proper testing with patterns. For now, just passing to the ZefOp_
     # class to handle basic "zefop type" checks.
-    if typ._d["absorbed"] is None:
+    if len(typ._d["absorbed"]) == 0:
         return isinstance(x, ZefOp_)
     return isinstance(x, typ._d["absorbed"][0])
 ZefOp = make_VT("ZefOp", pytype=ZefOp_, is_a_func=zefop_is_a)

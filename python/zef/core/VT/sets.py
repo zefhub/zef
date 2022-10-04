@@ -45,24 +45,22 @@ def is_intersection_VT(y):
 
 
 def union_getitem(self, x):
-    if self._d["absorbed"] is not None:
+    if len(self._d["absorbed"]) > 0:
         return NotImplemented
-    # from . import ZefOp
-    if isinstance(x, tuple):
-        return self._replace(absorbed=x)
-    elif isinstance(x, ValueType):
-        return self._replace(absorbed=(x,))
-    # Disallow??
-    # elif isinstance(x, ZefOp):
-    #     return ValueType_(type_name='Union', absorbed=(x,))
-    else:
-        raise Exception(f'"Union[...]" called with unsupported type {type(x)}')
+    if not isinstance(x, tuple):
+        x = (x,)
+    assert all(isinstance(el, ValueType) for el in x), "Union requires ValueTypes"
+    return self._replace(absorbed=(x,))
 
 def union_is_a(val, typ):
-    return any(isinstance(val, subtyp) for subtyp in typ._d["absorbed"])
+    if len(typ._d["absorbed"]) == 0:
+        return NotImplemented
+    return any(isinstance(val, subtyp) for subtyp in typ._d["absorbed"][0])
 
 def union_override_subtype(union, typ):
-    return all(issubclass(x, typ) for x in union._d["absorbed"])
+    if len(union._d["absorbed"]) == 0:
+        return NotImplemented
+    return all(issubclass(x, typ) for x in union._d["absorbed"][0])
 
 
 def union_simplify(x):
@@ -82,9 +80,11 @@ def union_simplify(x):
 
     """
     # flatten out unions: Union[Union[A][B]][C]  == Union[A][B][C]
-    old_abs = x._d['absorbed']
-    absorbed = tuple(el._d['absorbed'] if is_union_VT(el) else (el,) for el in old_abs)  # flatten this out
-    flattened = list(make_distinct(a2 for a1 in absorbed for a2 in a1))
+    if len(x._d["absorbed"]) == 0:
+        return x
+    old_abs = x._d['absorbed'][0]
+    types = tuple(el._d['absorbed'][0] if is_union_VT(el) else (el,) for el in old_abs)  # flatten this out
+    flattened = list(make_distinct(a2 for a1 in types for a2 in a1))
     supers = []
     for i,x in enumerate(flattened):
         for j,y in enumerate(flattened):
@@ -105,29 +105,28 @@ Union = make_VT('Union',
                 override_subtype_func=union_override_subtype)
 
 def intersection_getitem(self, x):
-    if self._d["absorbed"] is not None:
+    if len(self._d["absorbed"]) > 0:
         return NotImplemented
-    # from ..op_structs import ZefOp
-    if isinstance(x, tuple):
-        return self._replace(absorbed=x)
-    elif isinstance(x, ValueType):
-        return self._replace(absorbed=(x,))
-    # elif isinstance(x, ZefOp):
-    #     return ValueType_(type_name='Intersection', absorbed=(x,))
-    else:
-        raise Exception(f'"Intersection[...]" called with unsupported type {type(x)}')
+    if not isinstance(x, tuple):
+        x = (x,)
+    assert all(isinstance(el, ValueType) for el in x), "Intersection requires ValueTypes"
+    return self._replace(absorbed=(x,))
 
 def intersection_is_a(val, typ):
-    return all(isinstance(val, subtyp) for subtyp in typ._d["absorbed"])
+    if len(typ._d["absorbed"]) == 0:
+        return NotImplemented
+    return all(isinstance(val, subtyp) for subtyp in typ._d["absorbed"][0])
 
 def intersection_override_subtype(intersection, typ):
+    if len(intersection._d["absorbed"]) == 0:
+        return NotImplemented
     # raise NotImplementedError("This is tricky!")
     # print("WARNING: using intersection subtype override is not rigorous yet")
     # TODO: basically want to add the new type into the intersection and then
     # check if the resultant set is provably empty
     #
     # For now do the easy cases and return "maybe" otherwise
-    result = any(issubclass(x, typ) for x in intersection._d["absorbed"])
+    result = any(issubclass(x, typ) for x in intersection._d["absorbed"][0])
     if result is False:
         print("WARNING: using intersection subtype override is not rigorous yet")
         result = "maybe"
@@ -151,9 +150,11 @@ def intersection_simplify(x):
 
     """
     # flatten out Intersections: Intersection[Intersection[A][B]][C]  == Intersection[A][B][C]
-    old_abs = x._d['absorbed']
-    absorbed = tuple(el._d['absorbed'] if is_intersection_VT(el) else (el,) for el in old_abs)  # flatten this out
-    flattened = list(make_distinct(a2 for a1 in absorbed for a2 in a1))
+    if len(x._d["absorbed"]) == 0:
+        return x
+    old_abs = x._d['absorbed'][0]
+    types = tuple(el._d['absorbed'][0] if is_intersection_VT(el) else (el,) for el in old_abs)  # flatten this out
+    flattened = list(make_distinct(a2 for a1 in types for a2 in a1))
     supers = []
     for i,x in enumerate(flattened):
         for j,y in enumerate(flattened):
@@ -175,7 +176,7 @@ Intersection = make_VT('Intersection',
                        override_subtype_func=intersection_override_subtype)
 
 def complement_getitem(self, x):
-    if self._d["absorbed"] is not None:
+    if len(self._d["absorbed"]) > 0:
         return NotImplemented
     if isinstance(x, ValueType):
         return self._replace(absorbed=(x,))
@@ -191,7 +192,7 @@ make_VT('Complement',
         is_a_func=complement_is_a)
 
 def is_getitem(self, x):
-    if self._d["absorbed"] is not None:
+    if len(self._d["absorbed"]) > 0:
         return NotImplemented
 
     # TODO: I want to change this to just "callables" as otherwise the different
@@ -200,17 +201,19 @@ def is_getitem(self, x):
     from ..op_structs import ZefOp
     from .. import func
     if isinstance(x, tuple):
-        return self._replace(absorbed=x)
-    elif isinstance(x, ZefOp):
         return self._replace(absorbed=(x,))
+    elif isinstance(x, ZefOp):
+        return self._replace(absorbed=((x,),))
     elif isinstance(x, Callable):
         return self._replace(absorbed=(func[x],))
     else:
         raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
 
 def is_is_a(el, typ):
+    if len(typ._d["absorbed"]) == 0:
+        return NotImplemented
     from typing import Callable
-    for t in typ._d['absorbed']:
+    for t in typ._d['absorbed'][0]:
         if isinstance(t, ValueType):
             return Error.ValueError(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
         elif isinstance(t, Callable) or isinstance(t, ZefOp):
@@ -236,21 +239,25 @@ def setof_ctor(self, *args):
     SetOf[42,] is valid    
     SetOf[42, 43] is valid    
     """
-    if self._d["absorbed"] is not None:
+    if len(self._d["absorbed"]) > 0:
         return NotImplemented
     return self._replace(absorbed=(args, ))
 
 def setof_getitem(self, x):
-    if self._d["absorbed"] is not None:
+    if len(self._d["absorbed"]) > 0:
         return NotImplemented
     if not isinstance(x, tuple):
         raise TypeError(f"`SetOf[...]` must be called with a tuple, either explicitly or implicitly. e.g. SetOf[3,4], SetOf[(3,4)]. When wrapping one value, use SetOf[42,]. It was called with {x}. ")
     return self._replace(absorbed=(x, ))
 
 def setof_is_a(x, typ):
+    if len(typ._d["absorbed"]) == 0:
+        return NotImplemented
     return x in typ._d["absorbed"][0]
 
 def setof_override_subtype(setof, typ):
+    if len(setof._d["absorbed"]) == 0:
+        return NotImplemented
     return all(isinstance(x, typ) for x in setof._d["absorbed"][0])
 
 make_VT('SetOf',

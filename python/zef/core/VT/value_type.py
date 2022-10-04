@@ -86,7 +86,7 @@ class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name:str, absorbed=None, pytype=None, constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, override_subtype_func=None, str_func=None, simplify_type_func=None):
+    def __init__(self, type_name:str, absorbed=(), pytype=None, constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, override_subtype_func=None, str_func=None, simplify_type_func=None):
             self._d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
@@ -145,8 +145,7 @@ class ValueType_:
             if self._d["alias"] is not None:
                 return self._d["alias"]
             return self.__get_nice_name() + (
-                '' if self._d['absorbed'] is None
-                else ''.join([ f"[{repr(el)}]" for el in self._d['absorbed'] ])
+                ''.join([ f"[{repr(el)}]" for el in self._d['absorbed'] ])
             )
         return str_func(self)
 
@@ -179,10 +178,7 @@ class ValueType_:
             f = _value_type_get_item_funcs[self._d["type_name"]]
         except KeyError:
             # Default get_item behaviour is to append to the absorbed
-            if self._d["absorbed"] is None:
-                new_absorbed = (x,)
-            else:
-                new_absorbed = self._d["absorbed"] + (x,)
+            new_absorbed = self._d["absorbed"] + (x,)
             return self._replace(absorbed=new_absorbed)
         return f(self, x)
 
