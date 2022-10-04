@@ -371,3 +371,10 @@ def generic_subtype_get_item(self, x):
     # else:
     #     raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
     return self._replace(subtype=x)
+
+def generic_subtype_str(self):
+    s = self._d["type_name"]
+    if "subtype" in self._d:
+        s += f"[{self._d['subtype']}]"
+    s += ''.join(f"[{x!r}]" for x in self._d["absorbed"])
+    return s
