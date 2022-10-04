@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from . import make_VT, Error, ZefGenerator, PyList, PySet, PyTuple, PyDict
-from .value_type import is_type_name_, generic_subtype_get_item, generic_subtype_str
+from .value_type import is_type_name_, generic_subtype_get_item, generic_subtype_str, generic_covariant_is_subtype
 
 
 
@@ -24,7 +24,8 @@ def tuple_override_subtype(tup, typ):
     return "maybe"
 make_VT('Tuple', pytype=tuple, override_subtype_func=tuple_override_subtype,
         get_item_func=generic_subtype_get_item,
-        str_func=generic_subtype_str)
+        str_func=generic_subtype_str,
+        is_subtype_func=generic_covariant_is_subtype)
 
 def list_is_a(x, typ):
     import sys
@@ -43,7 +44,8 @@ make_VT('List',
         constructor_func=tuple,
         is_a_func=list_is_a,
         get_item_func=generic_subtype_get_item,
-        str_func=generic_subtype_str)
+        str_func=generic_subtype_str,
+        is_subtype_func=generic_covariant_is_subtype)
 
 def set_is_a(x, typ):
     import sys
@@ -56,7 +58,8 @@ def set_is_a(x, typ):
     return all(isinstance(item, ab) for item in x)
 make_VT('Set', pytype=set, is_a_func=set_is_a,
         get_item_func=generic_subtype_get_item,
-        str_func=generic_subtype_str)
+        str_func=generic_subtype_str,
+        is_subtype_func=generic_covariant_is_subtype)
 
 
 def dict_is_a(x, typ):
@@ -75,4 +78,5 @@ def dict_is_a(x, typ):
     return all(isinstance(key, T1) and isinstance(val, T2) for key,val in x.items())
 make_VT('Dict', pytype=dict, is_a_func=dict_is_a,
         get_item_func=generic_subtype_get_item,
-        str_func=generic_subtype_str)
+        str_func=generic_subtype_str,
+        is_subtype_func=generic_covariant_is_subtype)

@@ -300,12 +300,11 @@ def is_subtype_(typ1, typ2):
 
     if typ2._d["type_name"] in _value_type_is_subtype_funcs:
         return _value_type_is_subtype_funcs[typ2._d["type_name"]](typ1, typ2)
-    elif typ1._d["type_name"] == typ2._d["type_name"]:
-        if len(typ2._d["absorbed"]) == 0 and len(typ1._d["absorbed"]) > 0:
-            return True
-        else:
-            # Going to default to nonvariant
-            return typ1._d == typ2._d
+
+    # Fallback
+    if typ1._d["type_name"] == typ2._d["type_name"]:
+        # Going to default to nonvariant
+        return typ1._d == typ2._d
     else:
         # raise Exception(f"ValueType '{typ1._d['type_name']}' has no is_subtype implementation")
         return False
@@ -378,3 +377,15 @@ def generic_subtype_str(self):
         s += f"[{self._d['subtype']}]"
     s += ''.join(f"[{x!r}]" for x in self._d["absorbed"])
     return s
+
+def generic_covariant_is_subtype(x, super):
+    if x._d["type_name"] != super._d["type_name"]:
+        return False
+    if "subtype" not in super._d:
+        return True
+
+    from . import List
+    if isinstance(super._d["subtype"], List):
+        return all(is_subtype_(a,b) is True for a,b in zip(x._d["subtype"], super._d["subtype"]))
+    else:
+        return is_subtype_(x._d["subtype"], super._d["subtype"]) is True
