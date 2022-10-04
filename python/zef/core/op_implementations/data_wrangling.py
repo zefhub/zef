@@ -135,3 +135,35 @@ def to_object(d: Dict, rules: List) -> Entity:
     obj = create_object(d, idx_generator(), idx_to_obj)
     LazyValue(obj) | iterate[resolve_unknown[rules][idx_to_obj]] | take_while[lambda x: x]  | collect
     return obj, idx_to_obj
+
+@func
+def identify_and_merge(obj, idx_to_obj, identification_rules):
+    def retrieve_obj(et):
+        return idx_to_obj[et._d['internal_id']]
+    
+    def merge_identities(obj, other):
+        other._entity_type = obj._entity_type
+        other._kwargs = {}
+        idx_to_obj.pop(other._entity_type._d['internal_id'])
+
+    def try_identification(et, o1, o2):
+        try:
+            return identification_rules[et](o1, o2)
+        except:
+            return False
+
+    groups = flatten_object(obj) | map[first | first] | func[set] | group_by[lambda et: et._d['specific']] | collect
+    for et, group in groups:
+        if len(group) < 2: continue
+        for o1, o2 in zip(group, group[1:]):
+            o1, o2 = retrieve_obj(o1), retrieve_obj(o2)
+            if try_identification(et, o1, o2):
+                merge_identities(o1, o2)
+                return obj
+    
+    return None
+
+
+def identification_step(obj, idx_to_obj, identification_rules):
+    LazyValue(obj) | iterate[identify_and_merge[idx_to_obj][identification_rules]]  |  take_while[lambda x: x]  | collect
+    return obj
