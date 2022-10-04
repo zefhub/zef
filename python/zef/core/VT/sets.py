@@ -117,6 +117,7 @@ def intersection_is_a(val, typ):
         return NotImplemented
     return all(isinstance(val, subtyp) for subtyp in typ._d["absorbed"][0])
 
+warned_about_intersection = False
 def intersection_override_subtype(intersection, typ):
     if len(intersection._d["absorbed"]) == 0:
         return NotImplemented
@@ -128,7 +129,15 @@ def intersection_override_subtype(intersection, typ):
     # For now do the easy cases and return "maybe" otherwise
     result = any(issubclass(x, typ) for x in intersection._d["absorbed"][0])
     if result is False:
-        print("WARNING: using intersection subtype override is not rigorous yet")
+        global warned_about_intersection
+        if not warned_about_intersection:
+            print("WARNING: using intersection subtype override is not rigorous yet")
+            print("WARNING: using intersection subtype override is not rigorous yet")
+            print("WARNING: using intersection subtype override is not rigorous yet")
+            print("WARNING: using intersection subtype override is not rigorous yet")
+            print("WARNING: using intersection subtype override is not rigorous yet")
+            warned_about_intersection = True
+
         result = "maybe"
     return result
 
