@@ -273,10 +273,18 @@ def setof_override_subtype(setof, typ):
         return NotImplemented
     return all(isinstance(x, typ) for x in setof._d["instances"])
 
+def setof_str(self):
+    s = self._d["type_name"]
+    if "instances" in self._d:
+        s += "[" + ", ".join(repr(x) for x in self._d['instances']) + "]"
+    s += ''.join(f"[{x!r}]" for x in self._d["absorbed"])
+    return s
+
 make_VT('SetOf',
         constructor_func=setof_ctor,
         pass_self=True,
         is_a_func=setof_is_a,
+        str_func=setof_str,
         override_subtype_func=setof_override_subtype)
 
 
