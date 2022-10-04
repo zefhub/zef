@@ -183,7 +183,7 @@ class ValueType_:
         try:
             f = _value_type_get_item_funcs[self._d["type_name"]]
         except KeyError:
-            raise Exception(f"There is no getitem function for a ValueType of type {self._d['type_name']}")
+            raise Exception(f"There is no getitem function for a ValueType of type {self._d['type_name']}") from None
         return f(self, x)
 
     def __eq__(self, other):
@@ -280,8 +280,10 @@ def is_type_(typ):
 def is_a_(obj, typ):
     assert is_type_(typ), f"Can't do a is_a_ on a non-ValueType '{typ}'"
     if typ._d["type_name"] in _value_type_is_a_funcs:
-        return _value_type_is_a_funcs[typ._d["type_name"]](obj, typ)
-    elif typ._d["type_name"] in _value_type_pytypes:
+        out = _value_type_is_a_funcs[typ._d["type_name"]](obj, typ)
+        if out is not NotImplemented:
+            return out
+    if typ._d["type_name"] in _value_type_pytypes:
         return isinstance(obj, _value_type_pytypes[typ._d["type_name"]])
     else:
         raise Exception(f"ValueType '{typ._d['type_name']}' has no is_a implementation")
@@ -358,3 +360,14 @@ def hash_frozen(obj):
         return h
             
     return hash(obj)
+
+
+def generic_subtype_get_item(self, x):
+    from . import ValueType
+    if "subtype" in self._d:
+        return NotImplemented
+    # if isinstance(x, ValueType):
+    #     return self._replace(subtype=(x,))
+    # else:
+    #     raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
+    return self._replace(subtype=x)

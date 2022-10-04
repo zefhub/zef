@@ -15,21 +15,22 @@
 import unittest  # pytest takes ages to run anything as soon as anything from zef is imported
 from zef import *
 from zef.ops import *
+from zef import internals
 
 def SetupGraph():
     print()
     g = Graph()
     with Transaction(g):
         for k in range(13456):
-            instantiate(ET.Machine._d["specific"], g)
+            instantiate(internals.get_token(ET.Machine), g)
     with Transaction(g):
-        instantiate(ET.ProcessOrder._d["specific"], g)
-        instantiate(ET.Machine._d["specific"], g)
-        m = instantiate(ET.Machine._d["specific"], g)
+        instantiate(internals.get_token(ET.ProcessOrder), g)
+        instantiate(internals.get_token(ET.Machine), g)
+        m = instantiate(internals.get_token(ET.Machine), g)
 
-        scr = instantiate(ET.ZEF_Script._d["specific"], g)
-        s = instantiate(AET.String._d["specific"], g)
-        instantiate(scr, RT.ZEF_Python._d["specific"], s, g)
+        scr = instantiate(internals.get_token(ET.ZEF_Script), g)
+        s = instantiate(internals.get_token(AET.String), g)
+        instantiate(scr, internals.get_token(RT.ZEF_Python), s, g)
 
     return g,m,scr,s
     

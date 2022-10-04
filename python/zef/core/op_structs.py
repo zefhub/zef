@@ -181,7 +181,7 @@ from types import LambdaType
 from typing import Generator, Iterable, Iterator
 from ._core import *
 from .VT import *
-from .VT import make_VT
+from .VT import make_VT, generic_subtype_get_item
 from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
@@ -252,7 +252,7 @@ def op_chain_pretty_print(el_ops):
         # if p[0] == RT.OutOutOld:
         #     return f"\n>> todo!!!!"            
         return to_snake_case(str(p[0])) + ''.join([param_to_str(pp) for pp in p[1]])
-    return ' | '.join(el_ops | map[el_op_to_str] | collect)
+    return ' | '.join(el_op_to_str(x) for x in el_ops)
 
 #   _                          ___                  ___                    _                                _           _    _               
 #  | |      __ _  ____ _   _  / _ \  _ __   ___    |_ _| _ __ ___   _ __  | |  ___  _ __ ___    ___  _ __  | |_   __ _ | |_ (_)  ___   _ __  
@@ -489,7 +489,10 @@ def zefop_is_a(x, typ):
     if len(typ._d["absorbed"]) == 0:
         return isinstance(x, ZefOp_)
     return isinstance(x, typ._d["absorbed"][0])
-ZefOp = make_VT("ZefOp", pytype=ZefOp_, is_a_func=zefop_is_a)
+ZefOp = make_VT("ZefOp",
+                pytype=ZefOp_,
+                is_a_func=zefop_is_a,
+                get_item_func=generic_subtype_get_item)
 
 class CollectingOp:
     def __init__(self, other: ZefOp):
@@ -714,7 +717,8 @@ class Awaitable:
             for op in ops if kind == "Subscribe" else ops[:-1]:
                 observable_chain = _op_to_functions[op[0]][0](observable_chain,  *op[1])
 
-                curr_type = VT.Awaitable[_op_to_functions[op[0]][1](op,  *absorbed(curr_type))]
+                abs = curr_type._d["subtype"]
+                curr_type = VT.Awaitable[_op_to_functions[op[0]][1](op,  abs)]
                 concrete_awaitable = ConcreteAwaitable(observable_chain, curr_type, concrete_awaitable.chain)
 
             if kind == "Subscribe":
@@ -727,12 +731,14 @@ class Awaitable:
             else:
                 observable_chain = observable_chain.pipe(rxops.to_list())
                 def type_assertion_wrapper(el):
-                    if isinstance(el, list) and absorbed(curr_type)[0] != "List":
+                    abs = curr_type._d["subtype"]
+                    if isinstance(el, list) and abs != "List":
                         return ops[-1][1][0](only(el))
                     return ops[-1][1][0](el)
                 observable_chain.subscribe(type_assertion_wrapper)
 
-            concrete_awaitable = ConcreteAwaitable(observable_chain, *absorbed(curr_type), concrete_awaitable.chain)
+            abs = curr_type._d["subtype"]
+            concrete_awaitable = ConcreteAwaitable(observable_chain, abs, concrete_awaitable.chain)
             return observable_chain 
         
         raise NotImplementedError(f"Awaitable evalation not implemented with {type(source)}")

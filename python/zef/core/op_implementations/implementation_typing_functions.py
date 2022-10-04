@@ -1835,7 +1835,7 @@ def all_imp(*args):
         # The specific all[ET.x/AET.x] options (not all[RT.x] though)
         if isinstance(fil, ET) or isinstance(fil, AET):
             after_filter = None
-            if "specific" not in fil._d:
+            if "token" not in fil._d:
                 if isinstance(fil, ET):
                     c_fil = None
                     after_filter = ET
@@ -1843,7 +1843,7 @@ def all_imp(*args):
                     c_fil = None
                     after_filter = AET
             else:
-                token = fil._d["specific"]
+                token = internals.get_token(fil)
                 if isinstance(token, (EntityTypeToken, AttributeEntityTypeToken)):
                     c_fil = token
                 else:
@@ -2417,14 +2417,7 @@ def without_absorbed_imp(x):
         return ZefOp( ((x.el_ops[0][0], ()),) )
 
     elif isinstance(x, ValueType):
-        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
-        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
-        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
-        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
-        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
-        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
-        # TODO: Just in case I forgot - this needs to use dict_extra or whatever that becomes
-        return ValueType_(type_name=x._d['type_name'])
+        return x._replace(absorbed=())
 
     elif isinstance(x, (EntityRef, AttributeEntityRef, RelationRef)):
         return type(x)(remove(x.d, 'absorbed'))
@@ -5309,10 +5302,10 @@ def run_effect_implementation(eff):
 
 
 def hasout_implementation(zr, rt):
-    return curry_args_in_zefop(pyzefops.has_out, zr, (rt._d["specific"],))
+    return curry_args_in_zefop(pyzefops.has_out, zr, (internals.get_token(rt),))
 
 def hasin_implementation(zr, rt):
-    return curry_args_in_zefop(pyzefops.has_in, zr, (rt._d["specific"],))
+    return curry_args_in_zefop(pyzefops.has_in, zr, (internals.get_token(rt),))
 
 
 
@@ -6100,10 +6093,10 @@ def out_rels_imp(z, rt_or_bt=None, target_filter=None):
     if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.outs(z) | filter[is_a[RT]] | collect
     elif rt_or_bt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
     else:
-        if isinstance(rt_or_bt, RT) and isinstance(rt_or_bt._d.get("specific", None), RelationTypeToken):
-            res = pyzefops.traverse_out_edge_multi(z, rt_or_bt._d["specific"])
-        elif isinstance(rt_or_bt, BT) and isinstance(rt_or_bt._d.get("specific", None), BlobTypeToken):
-            res = pyzefops.traverse_out_edge_multi(z, rt_or_bt._d["specific"])
+        if isinstance(rt_or_bt, RT) and isinstance(internals.get_token(rt_or_bt), RelationTypeToken):
+            res = pyzefops.traverse_out_edge_multi(z, internals.get_token(rt_or_bt))
+        elif isinstance(rt_or_bt, BT) and isinstance(internals.get_token(rt_or_bt), BlobTypeToken):
+            res = pyzefops.traverse_out_edge_multi(z, internals.get_token(rt_or_bt))
         else:
             raise Exception("TODO: Need to implement non-specific relation types for out_rels")
     if target_filter: 
@@ -6206,10 +6199,10 @@ def in_rels_imp(z, rt_or_bt=None, source_filter=None):
     if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.ins(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt_or_bt == BT: res = pyzefops.ins(z | to_ezefref | collect)
     else:
-        if isinstance(rt_or_bt, RT) and isinstance(rt_or_bt._d.get("specific", None), RelationTypeToken):
-            res = pyzefops.traverse_in_edge_multi(z, rt_or_bt._d["specific"])
-        elif isinstance(rt_or_bt, BT) and isinstance(rt_or_bt._d.get("specific", None), BlobTypeToken):
-            res = pyzefops.traverse_in_edge_multi(z, rt_or_bt._d["specific"])
+        if isinstance(rt_or_bt, RT) and isinstance(internals.get_token(rt_or_bt), RelationTypeToken):
+            res = pyzefops.traverse_in_edge_multi(z, internals.get_token(rt_or_bt))
+        elif isinstance(rt_or_bt, BT) and isinstance(internals.get_token(rt_or_bt), BlobTypeToken):
+            res = pyzefops.traverse_in_edge_multi(z, internals.get_token(rt_or_bt))
         else:
             raise Exception("TODO: Need to implement non-specific relation types for out_rels")
     if source_filter: 
@@ -6597,21 +6590,21 @@ def _is_a_instance_delegate_generic(x, typ):
     return False
 
 def has_relation_implementation(z1, rt, z2):
-    return pyzefops.has_relation(z1, rt._d["specific"], z2)
+    return pyzefops.has_relation(z1, internals.get_token(rt), z2)
 
 def relation_implementation(z1, *args):
     if len(args) == 1:
         return pyzefops.relation(z, *args)
     else:
         rt,z2 = args
-        return pyzefops.relation(z1, rt._d["specific"], z2)
+        return pyzefops.relation(z1, internals.get_token(rt), z2)
 
 def relations_implementation(z, *args):
     if len(args) == 1:
         return pyzefops.relations(z, *args)
     else:
         rt,z2 = args
-        return pyzefops.relations(z1, rt._d["specific"], z2)
+        return pyzefops.relations(z1, internals.get_token(rt), z2)
 
 def rae_type_implementation(z):
     if isinstance(z, EntityRef):

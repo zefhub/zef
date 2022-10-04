@@ -45,23 +45,30 @@ def is_intersection_VT(y):
 
 
 def union_getitem(self, x):
-    if len(self._d["absorbed"]) > 0:
-        return NotImplemented
+    if "types" in self._d:
+        raise Exception("Can't absorb types twice for a Union")
     if not isinstance(x, tuple):
         x = (x,)
     assert all(isinstance(el, ValueType) for el in x), "Union requires ValueTypes"
-    return self._replace(absorbed=(x,))
+    return self._replace(types=x)
 
 def union_is_a(val, typ):
-    if len(typ._d["absorbed"]) == 0:
+    if "types" not in typ._d:
         return NotImplemented
-    return any(isinstance(val, subtyp) for subtyp in typ._d["absorbed"][0])
+    return any(isinstance(val, subtyp) for subtyp in typ._d["types"])
 
 def union_override_subtype(union, typ):
-    if len(union._d["absorbed"]) == 0:
+    if "types" not in typ._d:
         return NotImplemented
-    return all(issubclass(x, typ) for x in union._d["absorbed"][0])
+    return all(issubclass(x, typ) for x in union._d["types"])
 
+def union_str(self):
+    s = "Union"
+    if "types" in self._d:
+        s += "[" + ", ".join(str(x) for x in self._d["types"]) + "]"
+    if len(self._d["absorbed"]) > 0:
+        s += f"[{self._d['absorbed'][0]}]"
+    return s
 
 def union_simplify(x):
     """
@@ -80,10 +87,10 @@ def union_simplify(x):
 
     """
     # flatten out unions: Union[Union[A][B]][C]  == Union[A][B][C]
-    if len(x._d["absorbed"]) == 0:
+    if "types" not in x._d:
         return x
-    old_abs = x._d['absorbed'][0]
-    types = tuple(el._d['absorbed'][0] if is_union_VT(el) else (el,) for el in old_abs)  # flatten this out
+    old_abs = x._d['types']
+    types = tuple(el._d['types'] if is_union_VT(el) else (el,) for el in old_abs)  # flatten this out
     flattened = list(make_distinct(a2 for a1 in types for a2 in a1))
     supers = []
     for i,x in enumerate(flattened):
@@ -102,24 +109,25 @@ Union = make_VT('Union',
                 get_item_func=union_getitem,
                 is_a_func=union_is_a,
                 simplify_type_func=union_simplify,
-                override_subtype_func=union_override_subtype)
+                override_subtype_func=union_override_subtype,
+                str_func=union_str)
 
 def intersection_getitem(self, x):
-    if len(self._d["absorbed"]) > 0:
-        return NotImplemented
+    if "types" in self._d:
+        raise Exception("Can't absorb types twice for an Intersection")
     if not isinstance(x, tuple):
         x = (x,)
     assert all(isinstance(el, ValueType) for el in x), "Intersection requires ValueTypes"
-    return self._replace(absorbed=(x,))
+    return self._replace(types=x)
 
 def intersection_is_a(val, typ):
-    if len(typ._d["absorbed"]) == 0:
+    if "types" not in typ._d:
         return NotImplemented
-    return all(isinstance(val, subtyp) for subtyp in typ._d["absorbed"][0])
+    return all(isinstance(val, subtyp) for subtyp in typ._d["types"])
 
 warned_about_intersection = False
 def intersection_override_subtype(intersection, typ):
-    if len(intersection._d["absorbed"]) == 0:
+    if "types" not in intersection._d:
         return NotImplemented
     # raise NotImplementedError("This is tricky!")
     # print("WARNING: using intersection subtype override is not rigorous yet")
@@ -127,7 +135,7 @@ def intersection_override_subtype(intersection, typ):
     # check if the resultant set is provably empty
     #
     # For now do the easy cases and return "maybe" otherwise
-    result = any(issubclass(x, typ) for x in intersection._d["absorbed"][0])
+    result = any(issubclass(x, typ) for x in intersection._d["types"])
     if result is False:
         global warned_about_intersection
         if not warned_about_intersection:
@@ -159,10 +167,10 @@ def intersection_simplify(x):
 
     """
     # flatten out Intersections: Intersection[Intersection[A][B]][C]  == Intersection[A][B][C]
-    if len(x._d["absorbed"]) == 0:
+    if "types" not in x._d:
         return x
-    old_abs = x._d['absorbed'][0]
-    types = tuple(el._d['absorbed'][0] if is_intersection_VT(el) else (el,) for el in old_abs)  # flatten this out
+    old_abs = x._d['types']
+    types = tuple(el._d['types'] if is_intersection_VT(el) else (el,) for el in old_abs)  # flatten this out
     flattened = list(make_distinct(a2 for a1 in types for a2 in a1))
     supers = []
     for i,x in enumerate(flattened):
@@ -185,10 +193,10 @@ Intersection = make_VT('Intersection',
                        override_subtype_func=intersection_override_subtype)
 
 def complement_getitem(self, x):
-    if len(self._d["absorbed"]) > 0:
+    if "type" in self._d:
         return NotImplemented
     if isinstance(x, ValueType):
-        return self._replace(absorbed=(x,))
+        return self._replace(type=(x,))
     else:
         raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
 
@@ -201,8 +209,8 @@ make_VT('Complement',
         is_a_func=complement_is_a)
 
 def is_getitem(self, x):
-    if len(self._d["absorbed"]) > 0:
-        return NotImplemented
+    if "predicate" in self._d:
+        raise Exception("Can't absorb a second predicate into an Is")
 
     # TODO: I want to change this to just "callables" as otherwise the different
     # behaviour could lead to unexpected problems
@@ -210,33 +218,36 @@ def is_getitem(self, x):
     from ..op_structs import ZefOp
     from .. import func
     if isinstance(x, tuple):
-        return self._replace(absorbed=(x,))
+        return self._replace(predicate=x)
     elif isinstance(x, ZefOp):
-        return self._replace(absorbed=((x,),))
+        return self._replace(predicate=(x,))
     elif isinstance(x, Callable):
-        return self._replace(absorbed=(func[x],))
+        return self._replace(predicate=(func[x],))
     else:
         raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
 
 def is_is_a(el, typ):
-    if len(typ._d["absorbed"]) == 0:
+    if "predicate" not in typ._d:
         return NotImplemented
     from typing import Callable
-    for t in typ._d['absorbed'][0]:
+    from . import ZefOp
+    for t in typ._d['predicate']:
         if isinstance(t, ValueType):
-            return Error.ValueError(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
+            # return Error.ValueError(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
+            raise Exception(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
         elif isinstance(t, Callable) or isinstance(t, ZefOp):
             try:
                 if not t(el): return False
             except:
                 return False
-        else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
+        else:
+            # return Error.ValueError(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
+            return Exception(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
     return True
 
 make_VT('Is',
         get_item_func=is_getitem,
         is_a_func=is_is_a)
-
 
 def setof_ctor(self, *args):
     """
@@ -248,19 +259,19 @@ def setof_ctor(self, *args):
     SetOf[42,] is valid    
     SetOf[42, 43] is valid    
     """
-    if len(self._d["absorbed"]) > 0:
+    if "instances" in self._d:
         return NotImplemented
-    return self._replace(absorbed=(args, ))
+    return self._replace(instances=args)
 
 def setof_is_a(x, typ):
-    if len(typ._d["absorbed"]) == 0:
+    if "instances" not in typ._d:
         return NotImplemented
-    return x in typ._d["absorbed"][0]
+    return x in typ._d["instances"]
 
 def setof_override_subtype(setof, typ):
-    if len(setof._d["absorbed"]) == 0:
+    if "instances" not in setof._d:
         return NotImplemented
-    return all(isinstance(x, typ) for x in setof._d["absorbed"][0])
+    return all(isinstance(x, typ) for x in setof._d["instances"])
 
 make_VT('SetOf',
         constructor_func=setof_ctor,
@@ -270,10 +281,15 @@ make_VT('SetOf',
 
 
 
+def pattern_getitem(self, x):
+    if "pattern" in self._d:
+        raise Exception("Pattern can't take a second pattern")
+    return self._replace(pattern=x)
+
 def pattern_vt_matching(x, typ):
     class Sentinel: pass
     sentinel = Sentinel() 
-    p = typ._d["absorbed"][0]
+    p = typ._d["pattern"]
 
     # Note: by this point, we only have access to PyDict and not Dict
     if not ((isinstance(x, PyDict) and isinstance(p, PyDict)) or
@@ -296,5 +312,6 @@ def pattern_vt_matching(x, typ):
     raise NotImplementedError(f"Pattern ValueType isn't implemented for {x}")
 
 
-make_VT('Pattern', is_a_func=pattern_vt_matching)
+make_VT('Pattern', is_a_func=pattern_vt_matching,
+        get_item_func=pattern_getitem)
 

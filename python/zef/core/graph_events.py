@@ -22,7 +22,7 @@ __all__ = [
 ]
 
 from .VT import *
-from .VT import make_VT, insert_VT
+from .VT import make_VT, insert_VT, generic_subtype_get_item
 
 # from .abstract_raes import Entity, AttributeEntity, Relation, TXNode, Root, make_custom_entity
 from .abstract_raes import make_custom_entity
@@ -41,10 +41,10 @@ nil                = make_custom_entity(name_to_display='nil',         predeterm
 
 def is_a_has_uid(x, typ):
     from ._ops import uid
-    return uid(x) == typ._d["absorbed"][0]
+    return uid(x) == typ._d["subtype"]
 def early_uid(x):
     return x.d["uid"]
-HasUID = make_VT("HasUID", is_a_func=is_a_has_uid)
+HasUID = make_VT("HasUID", is_a_func=is_a_has_uid, get_item_func=generic_subtype_get_item)
 insert_VT("Instantiated", CustomEntity & HasUID[early_uid(instantiated)])
 insert_VT("Terminated", CustomEntity & HasUID[early_uid(terminated)])
 insert_VT("Assigned", CustomEntity & HasUID[early_uid(assigned)])

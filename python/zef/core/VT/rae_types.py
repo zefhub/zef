@@ -23,13 +23,13 @@ AET_Enum = make_VT('AET_Enum', pytype=internals.AttributeEntityTypeStruct_Enum)
 
 def wrap_attr_readonly_token(orig):
     def this_get_attr(self, name):
-        if "specific" in self._d:
+        if "token" in self._d:
             # This is just for AETs
-            if isinstance(self._d["specific"], AET_QFloat):
+            if isinstance(self._d["token"], AET_QFloat):
                 out = getattr(orig.QuantityFloat, name)
-            elif isinstance(self._d["specific"], AET_QInt):
+            elif isinstance(self._d["token"], AET_QInt):
                 out = getattr(orig.QuantityInt, name)
-            elif isinstance(self._d["specific"], AET_Enum):
+            elif isinstance(self._d["token"], AET_Enum):
                 out = getattr(orig.Enum, name)
             else:
                 raise AttributeError(name)
@@ -37,13 +37,13 @@ def wrap_attr_readonly_token(orig):
             out = getattr(orig, name)
         return self[out]
     def this_dir(self):
-        if "specific" in self._d:
+        if "token" in self._d:
             # This is just for AETs
-            if isinstance(self._d["specific"], AET_QFloat):
+            if isinstance(self._d["token"], AET_QFloat):
                 return dir(orig.QuantityFloat)
-            elif isinstance(self._d["specific"], AET_QInt):
+            elif isinstance(self._d["token"], AET_QInt):
                 return dir(orig.QuantityInt)
-            elif isinstance(self._d["specific"], AET_Enum):
+            elif isinstance(self._d["token"], AET_Enum):
                 return dir(orig.Enum)
             else:
                 return []
@@ -54,64 +54,60 @@ def token_subtype(other, this):
     # This seems generic and could be extracted out as "covariance test"
     if other._d["type_name"] != this._d["type_name"]:
         return False
-    if "specific" not in other._d:
-        return "specific" not in this._d
-    if "specific" not in this._d:
+    if "token" not in other._d:
+        return "token" not in this._d
+    if "token" not in this._d:
         return True
-    if isinstance(this._d["specific"], ValueType):
-        return isinstance(other._d["specific"], this._d["specific"])
+    if isinstance(this._d["token"], ValueType):
+        return isinstance(other._d["token"], this._d["token"])
     else:
-        return isinstance(other._d["specific"], SetOf(this._d["specific"]))
+        return isinstance(other._d["token"], SetOf(this._d["token"]))
 
 def token_getitem(self, thing, token_type):
     my_name = self._d["type_name"]
-    if isinstance(thing, str):
-        if "internal_id" in self._d:
-            raise Exception(f"Can't assign a new internal_id an existing {my_name} with internal_id.")
-        return self._replace(internal_id=thing)
 
     # Allow arbitrary types, so long as they can contain EntityTypeTokens
     #
     # Or should we simply add the intersection automatically and allow null sets?
     # if is_a(thing, token_type) or (type(thing) == ValueType_ and is_strict_subtype(token_type, thing)):
     if isinstance(thing, token_type) or (isinstance(thing, ValueType) and not is_empty_(token_type & thing)):
-        if "specific" in self._d and not isinstance(self._d["specific"], (AET_QFloat, AET_QInt, AET_Enum)):
+        if "token" in self._d and not isinstance(self._d["token"], (AET_QFloat, AET_QInt, AET_Enum)):
             raise Exception(f"Can't assign a new {my_name} token to an existing {my_name} with token.")
-        return self._replace(specific=thing)
+        return self._replace(token=thing)
 
     raise Exception(f"{my_name} can only contain an {token_type} or an internal id, not {thing}. Note: subtypes must be determinable.")
 
 def token_str(self):
     my_name = self._d["type_name"]
     s = my_name
-    if "specific" in self._d:
-        if isinstance(self._d["specific"], str):
-            s += "[" + str(self._d["specific"]) + "]"
+    if "token" in self._d:
+        if isinstance(self._d["token"], str):
+            s += "[" + str(self._d["token"]) + "]"
         else:
-            s += "." + str(self._d["specific"])
-    if "internal_id" in self._d:
-        s += f"['{self._d['internal_id']}']"
+            s += "." + str(self._d["token"])
+    if len(self._d["absorbed"]) > 0:
+        s += f"['{self._d['absorbed'][0]}']"
     return s
 
 def ET_is_a(x, typ):
-    if "specific" in typ._d:
+    if "token" in typ._d:
         if not isinstance(x, BlobPtr):
             return False
         if internals.BT(x) != internals.BT.ENTITY_NODE:
             return False
         if internals.is_delegate(x):
             return False
-        if isinstance(typ._d["specific"], ValueType):
-            return isinstance(internals.ET(x), typ._d["specific"])
-        return internals.ET(x) == typ._d["specific"]
+        if isinstance(typ._d["token"], ValueType):
+            return isinstance(internals.ET(x), typ._d["token"])
+        return internals.ET(x) == typ._d["token"]
     else:
         if isinstance(x, BlobPtr):
             return (internals.BT(x) == internals.BT.ENTITY_NODE
                     and not internals.is_delegate(x))
         return isinstance(x, ValueType) and x._d["type_name"] == "ET"
 def AET_is_a(x, typ):
-    if "specific" in typ._d:
-        token = typ._d["specific"]
+    if "token" in typ._d:
+        token = typ._d["token"]
 
         if isinstance(x, BlobPtr):
             if internals.BT(x) != internals.BT.ATTRIBUTE_ENTITY_NODE:
@@ -120,9 +116,9 @@ def AET_is_a(x, typ):
                 return False
             x_aet = internals.AET(x)
         elif isinstance(x, ValueType) and x._d["type_name"] == "AET":
-            if "specific" not in x._d:
+            if "token" not in x._d:
                 return False
-            x_aet = x._d["specific"]
+            x_aet = x._d["token"]
         elif isinstance(x, (AttributeEntityTypeToken, AET_QFloat, AET_QInt, AET_Enum)):
             x_aet = x
         else:
@@ -154,7 +150,7 @@ def AET_is_a(x, typ):
                     and not internals.is_delegate(x))
         return is_type_name_(x, "AET")
 def RT_is_a(x, typ):
-    if "specific" in typ._d:
+    if "token" in typ._d:
         if not isinstance(x, BlobPtr):
             return False
         if internals.BT(x) != internals.BT.RELATION_EDGE:
@@ -162,21 +158,21 @@ def RT_is_a(x, typ):
         if internals.is_delegate(x):
             return False
         # TODO: EntityTypeToken
-        if isinstance(typ._d["specific"], ValueType):
-            return isinstance(internals.RT(x), typ._d["specific"])
-        return internals.RT(x) == typ._d["specific"]
+        if isinstance(typ._d["token"], ValueType):
+            return isinstance(internals.RT(x), typ._d["token"])
+        return internals.RT(x) == typ._d["token"]
     else:
         if isinstance(x, BlobPtr):
             return (internals.BT(x) == internals.BT.RELATION_EDGE
                     and not internals.is_delegate(x))
         return isinstance(x, ValueType) and x._d["type_name"] == "RT"
 def BT_is_a(x, typ):
-    if "specific" not in typ._d:
+    if "token" not in typ._d:
         if isinstance(x, BlobPtr):
             return True
         return isinstance(x, ValueType) and x._d["type_name"] == "BT"
     else:
-        c_bt = typ._d["specific"]
+        c_bt = typ._d["token"]
         if not isinstance(c_bt, BlobTypeToken):
             raise Exception("TODO")
         if isinstance(x, BlobPtr):
@@ -194,7 +190,7 @@ def BT_is_a(x, typ):
 
 
 def ET_ctor(self, *args, **kwargs):
-    if "specific" in self._d:
+    if "token" in self._d:
         return EntityValueInstance(self, *args, **kwargs)
     else:
         return ET[internals.ET(*args, **kwargs)]
@@ -217,7 +213,7 @@ AttributeEntityTypeToken = make_VT('AttributeEntityTypeToken', pytype=internals.
 def AET_ctor(self, x):
     if type(x) == str:
         return getattr(self, x)
-    if "specific" in self._d:
+    if "token" in self._d:
         return NotImplemented
     return AET[internals.AET(x)]
 

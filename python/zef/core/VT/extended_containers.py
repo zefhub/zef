@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import make_VT, Error, ZefGenerator, PyList, PySet, PyTuple, PyDict, is_type_name_
+from . import make_VT, Error, ZefGenerator, PyList, PySet, PyTuple, PyDict, is_type_name_, generic_subtype_get_item
 
 
 
@@ -21,24 +21,27 @@ def tuple_override_subtype(tup, typ):
     if is_type_name_(typ, "List"):
         return True
     return "maybe"
-make_VT('Tuple', pytype=tuple, override_subtype_func=tuple_override_subtype)
+make_VT('Tuple', pytype=tuple, override_subtype_func=tuple_override_subtype,
+        get_item_func=generic_subtype_get_item)
 
 def list_is_a(x, typ):
     import sys
     from typing import Generator
     if not isinstance(x, (PyList, PyTuple, Generator, ZefGenerator)):
         return False
-    ab = typ._d['absorbed']
-    if len(ab) == 0:
+    if 'subtype' not in typ._d:
         return True
-
+    ab = typ._d['subtype']
     if isinstance(x, (Generator, ZefGenerator)):
         raise NotImplementedError()
     if len(ab)!=1:    # List takes only one Type argument
         print('Something went wrong in `is_a[List[...]]`: multiple args curried into ', file=sys.stderr)
 
     return all(isinstance(item, ab[0]) for item in x)
-make_VT('List', constructor_func=tuple, is_a_func=list_is_a)
+make_VT('List',
+        constructor_func=tuple,
+        is_a_func=list_is_a,
+        get_item_func=generic_subtype_get_item)
 
 def set_is_a(x, typ):
     import sys
@@ -51,7 +54,8 @@ def set_is_a(x, typ):
     if len(ab)!=1:    # List takes only one Type argument
         print(f'Something went wrong in `is_a[Set[T1]]`: Set takes exactly one subtype, but got {x}', file=sys.stderr)
     return all(isinstance(item, ab[0]) for item in x)
-make_VT('Set', pytype=set, is_a_func=set_is_a)
+make_VT('Set', pytype=set, is_a_func=set_is_a,
+        get_item_func=generic_subtype_get_item)
 
 
 def dict_is_a(x, typ):
@@ -68,4 +72,5 @@ def dict_is_a(x, typ):
 
     T1, T2 = ab[0]
     return all(isinstance(key, T1) and isinstance(val, T2) for key,val in x.items())
-make_VT('Dict', pytype=dict, is_a_func=dict_is_a)
+make_VT('Dict', pytype=dict, is_a_func=dict_is_a,
+        get_item_func=generic_subtype_get_item)

@@ -248,7 +248,7 @@ def instantiate_value_node_imp(value, g):
 
 
 def get_token(x):
-    token = x._d["specific"]
+    token = x._d["token"]
     from ..VT import ValueType
     if isinstance(token, ValueType):
         from .rel_ent_classes import AET as internal_AET

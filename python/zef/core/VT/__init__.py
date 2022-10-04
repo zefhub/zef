@@ -16,7 +16,7 @@ from ... import report_import
 report_import("zef.core.VT")
 
 from functools import partial
-from .value_type import ValueType_, is_type_name_
+from .value_type import ValueType_, is_type_name_, generic_subtype_get_item
 from .. import internals
 from ... import pyzef
 
