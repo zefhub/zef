@@ -76,6 +76,8 @@ _value_type_get_item_funcs = {}
 _value_type_attr_funcs = {}
 _value_type_is_a_funcs = {}
 _value_type_is_subtype_funcs = {}
+# These funcs are for the VERY limited group that combines sets together.
+_value_type_override_subtype_funcs = {}
 _value_type_simplify_type_funcs = {}
 _value_type_str_funcs = {}
 _value_type_pytypes = {}
@@ -84,7 +86,7 @@ class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name:str, absorbed=None, pytype=None, constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, str_func=None, simplify_type_func=None):
+    def __init__(self, type_name:str, absorbed=(), pytype=None, constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, override_subtype_func=None, str_func=None, simplify_type_func=None):
             self._d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
@@ -103,6 +105,9 @@ class ValueType_:
             if is_subtype_func is not None:
                 assert type_name not in _value_type_is_subtype_funcs
                 _value_type_is_subtype_funcs[type_name] = is_subtype_func
+            if override_subtype_func is not None:
+                assert type_name not in _value_type_override_subtype_funcs
+                _value_type_override_subtype_funcs[type_name] = override_subtype_func
             if str_func is not None:
                 assert type_name not in _value_type_str_funcs
                 _value_type_str_funcs[type_name] = str_func
@@ -140,8 +145,7 @@ class ValueType_:
             if self._d["alias"] is not None:
                 return self._d["alias"]
             return self.__get_nice_name() + (
-                '' if self._d['absorbed'] is None
-                else ''.join([ f"[{repr(el)}]" for el in self._d['absorbed'] ])
+                ''.join([ f"[{repr(el)}]" for el in self._d['absorbed'] ])
             )
         return str_func(self)
 
@@ -174,10 +178,7 @@ class ValueType_:
             f = _value_type_get_item_funcs[self._d["type_name"]]
         except KeyError:
             # Default get_item behaviour is to append to the absorbed
-            if self._d["absorbed"] is None:
-                new_absorbed = (x,)
-            else:
-                new_absorbed = self._d["absorbed"] + (x,)
+            new_absorbed = self._d["absorbed"] + (x,)
             return self._replace(absorbed=new_absorbed)
         return f(self, x)
 
@@ -193,7 +194,8 @@ class ValueType_:
 
 
     def __hash__(self):
-        return hash(self._d['type_name']) ^ hash(self._d['absorbed'])
+        # return hash(self._d['type_name']) ^ hash(self._d['absorbed'])
+        return hash_frozen(self._d)
 
 
     def __or__(self, other):
@@ -285,14 +287,20 @@ def is_subtype_(typ1, typ2):
     assert is_type_(typ1), f"is_subtype got a non-type: {typ1}"
     assert is_type_(typ2), f"is_subtype got a non-type: {typ2}"
 
+    if typ1._d["type_name"] in _value_type_override_subtype_funcs:
+        result = _value_type_override_subtype_funcs[typ1._d["type_name"]](typ1, typ2)
+        if result is True or result is False:
+            return result
+        # Otherwise, "maybe" and continue on, in the hopes the other type knows how.
+
     if typ2._d["type_name"] in _value_type_is_subtype_funcs:
         return _value_type_is_subtype_funcs[typ2._d["type_name"]](typ1, typ2)
     elif typ1._d["type_name"] == typ2._d["type_name"]:
         if len(typ2._d["absorbed"]) == 0 and len(typ1._d["absorbed"]) > 0:
             return True
         else:
-            # TODO: Default covariant or other subtyping behaviour here.
-            return "maybe"
+            # Going to default to nonvariant
+            return typ1._d == typ2._d
     else:
         # raise Exception(f"ValueType '{typ1._d['type_name']}' has no is_subtype implementation")
         return False
@@ -318,3 +326,32 @@ def is_empty_(typ):
 def is_type_name_(typ, name):
     return isinstance(typ, ValueType_) and typ._d["type_name"] == name
     
+
+
+# Temporary hash, probably needs to be merged into other code
+
+def hash_frozen(obj):
+    if type(obj) == dict:
+        h = hash("dict")
+        for key in sorted(obj):
+            h ^= hash(key)
+            h ^= hash_frozen(obj[key])
+        return h
+    elif type(obj) == set:
+        all_hs = [hash_frozen(x) for x in obj]
+        h = hash("set")
+        for h_i in sorted(all_hs):
+            h ^= h_i
+        return h
+    elif type(obj) == list:
+        h = hash("list")
+        for x in obj:
+            h ^= hash_frozen(x)
+        return h
+    elif type(obj) == tuple:
+        h = hash("tuple")
+        for x in obj:
+            h ^= hash_frozen(x)
+        return h
+            
+    return hash(obj)

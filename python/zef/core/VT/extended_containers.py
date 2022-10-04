@@ -12,12 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import make_VT, Error, ZefGenerator, PyList, PySet, PyTuple, PyDict
+from . import make_VT, Error, ZefGenerator, PyList, PySet, PyTuple, PyDict, is_type_name_
 
 
 
 # TODO: Change this to a proper isa
-make_VT('Tuple', pytype=tuple)
+def tuple_override_subtype(tup, typ):
+    if is_type_name_(typ, "List"):
+        return True
+    return "maybe"
+make_VT('Tuple', pytype=tuple, override_subtype_func=tuple_override_subtype)
 
 def list_is_a(x, typ):
     import sys
@@ -25,7 +29,7 @@ def list_is_a(x, typ):
     if not isinstance(x, (PyList, PyTuple, Generator, ZefGenerator)):
         return False
     ab = typ._d['absorbed']
-    if ab is None:
+    if len(ab) == 0:
         return True
 
     if isinstance(x, (Generator, ZefGenerator)):
@@ -41,7 +45,7 @@ def set_is_a(x, typ):
     if not isinstance(x, PySet):
         return False
     ab = typ._d['absorbed']
-    if ab is None:
+    if len(ab) == 0:
         return True
 
     if len(ab)!=1:    # List takes only one Type argument
@@ -55,7 +59,7 @@ def dict_is_a(x, typ):
     if not isinstance(x, PyDict):
         return False
     ab = typ._d['absorbed']
-    if ab is None:
+    if len(ab) == 0:
         return True
 
     if (len(ab)!=1 or len(ab[0])!=2):    # Dict must contain a type in one [] and that must be a pair

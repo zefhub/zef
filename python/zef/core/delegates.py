@@ -104,7 +104,7 @@ def delegate_is_a(x, typ):
         return False
 
     # Get to here, x is at least some kind of delegate
-    if typ._d["absorbed"] is None:
+    if len(typ._d["absorbed"]) == 0:
         return True
 
     raise NotImplementedError("TODO")
