@@ -292,7 +292,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def(py::init<SerializedValue>())	
 		.def_readonly("rep_type", &AttributeEntityType::rep_type)
 		.def_readonly("complex_value", &AttributeEntityType::complex_value)
-		.def("__repr__", [](const AttributeEntityType& self)->std::string { return to_str(self); })
+		.def("__repr__", [](const AttributeEntityType& self)->std::string { return "libzefToken" + to_str(self); })
 		.def("__str__", [](const AttributeEntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const AttributeEntityType& self, const AttributeEntityType& other)->bool { return self == other; }, py::is_operator())
 		.def("__hash__", [](const AttributeEntityType& self) {
