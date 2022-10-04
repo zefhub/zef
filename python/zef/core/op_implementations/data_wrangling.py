@@ -71,42 +71,41 @@ def match_rule(rule, pattern):
 
 
 
-
-@func
-def resolve_unknown(obj: Entity, rules: List, mapping: Dict) -> Entity:
-    from zef.core.patching import EntityValueInstance_
+def flatten_object(obj: Entity) -> list[list[tuple, tuple]]:
     """
     Takes an object of type EntityValueInstance_ and flattens it out to pairs of tuples ((source, rt, target), (src_id?, None, trgt_id?)).
     It recursively calls itself if at any level a non-terminal object is found.
     """
-    def flatten_object(obj: Entity) -> list[list[tuple, tuple]]:
-        
-        @func
-        def flatten_to_tuples_with_ids(obj, rt, trgt) -> tuple:
-            def generate_type_and_id_maybe(obj):
-                return (obj._entity_type, obj._entity_type._d['internal_id']) if isinstance(obj, EntityValueInstance_) else (obj, None)
-            
-            return ((obj, rt, trgt) | map[generate_type_and_id_maybe] | zip | collect) # -> # [(obj, t[0], t[1]), (id?, None, None)]
-
-        @func
-        def mapping(rt_and_trgt, obj):
-            rt, trgt = rt_and_trgt
-            if isinstance(trgt, EntityValueInstance_):
-                flattened = flatten_object(trgt)
-                return [flatten_to_tuples_with_ids(obj, rt, trgt), *flattened]
-            
-            elif isinstance(trgt, (list, set)):
-                flattened = trgt | map[flatten_object] | concat | collect
-                return [*(trgt | map[lambda trgt: flatten_to_tuples_with_ids(obj, rt, trgt)] | collect), *flattened]
-
-            else:
-                return [flatten_to_tuples_with_ids(obj, rt, trgt)]
-
-        
-        if not isinstance(obj, EntityValueInstance_): return []
-        return obj._kwargs | items | map[mapping[obj]] | concat | collect
+    from zef.core.patching import EntityValueInstance_
     
+    @func
+    def flatten_to_tuples_with_ids(obj, rt, trgt) -> tuple:
+        def generate_type_and_id_maybe(obj):
+            return (obj._entity_type, obj._entity_type._d['internal_id']) if isinstance(obj, EntityValueInstance_) else (obj, None)
+        
+        return ((obj, rt, trgt) | map[generate_type_and_id_maybe] | zip | collect) # -> # [(obj, t[0], t[1]), (id?, None, None)]
 
+    @func
+    def mapping(rt_and_trgt, obj):
+        rt, trgt = rt_and_trgt
+        if isinstance(trgt, EntityValueInstance_):
+            flattened = flatten_object(trgt)
+            return [flatten_to_tuples_with_ids(obj, rt, trgt), *flattened]
+        
+        elif isinstance(trgt, (list, set)):
+            flattened = trgt | map[flatten_object] | concat | collect
+            return [*(trgt | map[lambda trgt: flatten_to_tuples_with_ids(obj, rt, trgt)] | collect), *flattened]
+
+        else:
+            return [flatten_to_tuples_with_ids(obj, rt, trgt)]
+
+    
+    if not isinstance(obj, EntityValueInstance_): return []
+    return obj._kwargs | items | map[mapping[obj]] | concat | collect
+
+
+@func
+def resolve_unknown(obj: Entity, rules: List, mapping: Dict) -> Entity:
     # For each path tries to match it against the rules set. If there is a match, the enity_type of the matched object is replaced.
     patterns_and_ids = flatten_object(obj) 
     for pattern, ids in patterns_and_ids:
@@ -116,7 +115,7 @@ def resolve_unknown(obj: Entity, rules: List, mapping: Dict) -> Entity:
             if Z_pos != -1 and mapping.get(ids[Z_pos], None) and is_same_et(mapping[ids[Z_pos]]._entity_type, ET.ZEF_Unknown):
                 mapping[ids[Z_pos]]._entity_type = replacement[ids[Z_pos]]
                 return obj
-        
+
     return None
 
 
@@ -135,4 +134,4 @@ def to_object(d: Dict, rules: List) -> Entity:
     idx_to_obj = {}
     obj = create_object(d, idx_generator(), idx_to_obj)
     LazyValue(obj) | iterate[resolve_unknown[rules][idx_to_obj]] | take_while[lambda x: x]  | collect
-    return obj
+    return obj, idx_to_obj
