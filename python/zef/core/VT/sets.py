@@ -268,10 +268,9 @@ def pattern_vt_matching(x, typ):
     p = typ._d["absorbed"][0]
 
     # Note: by this point, we only have access to PyDict and not Dict
-    assert (
-        (isinstance(x, PyDict) and isinstance(p, PyDict)) or
-        (isinstance(x, PyList) and isinstance(p, PyList))
-    )
+    if not ((isinstance(x, PyDict) and isinstance(p, PyDict)) or
+            (isinstance(x, PyList) and isinstance(p, PyList))):
+        return False
     if isinstance(x, PyDict):
         for k, v in p.items():            
             r = x.get(k, sentinel)
