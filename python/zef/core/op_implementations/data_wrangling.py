@@ -142,9 +142,14 @@ def identify_and_merge(obj, idx_to_obj, identification_rules):
         return idx_to_obj[et._d['internal_id']]
     
     def merge_identities(obj, other):
-        other._entity_type = obj._entity_type
-        other._kwargs = {}
+        # Remove overlapping obj from the dict
         idx_to_obj.pop(other._entity_type._d['internal_id'])
+        
+        # Overwrite the internal id of the other object with the internal id of the obj
+        other._entity_type = obj._entity_type
+
+        # Reset the overlapping object's internal dict
+        other._kwargs = {}
 
     def try_identification(et, o1, o2):
         try:
