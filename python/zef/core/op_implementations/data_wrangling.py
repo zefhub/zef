@@ -205,7 +205,7 @@ def identify_and_merge_step(obj, idx_to_obj, identification_rules):
     return None
 
 
-def match_identities(obj_or_list, identification_rules):
+def match_identities(obj_or_list, identification_rules: Dict) -> List[object]:
     idx_to_obj = {}
     if isinstance(obj_or_list, list):
         obj_or_list | for_each[create_idx_to_obj_d[idx_to_obj]]
@@ -213,3 +213,53 @@ def match_identities(obj_or_list, identification_rules):
         create_idx_to_obj_d(obj_or_list, idx_to_obj)
     LazyValue(obj_or_list) | iterate[identify_and_merge_step[idx_to_obj][identification_rules]]  | take_while[lambda x: x]  | collect
     return list(idx_to_obj.values())
+
+
+# TODO merge with create_idx_to_obj_d
+@func 
+def generate_id_to_objs(obj, idx_to_objs):
+    from zef.core.patching import EntityValueInstance_
+    def traverse_nested(v):
+        if isinstance(v, EntityValueInstance_):
+            generate_id_to_objs(v, idx_to_objs)
+        elif isinstance(v, (list, set)):
+            [generate_id_to_objs(x, idx_to_objs) for x in v]
+
+    if not isinstance(obj, EntityValueInstance_): return
+    
+    idx_to_objs[get_et_id(obj._entity_type)].add(obj)
+    obj._kwargs | items | map[lambda t: traverse_nested(t[1])] | collect
+   
+    return idx_to_objs
+
+
+def match_with_entity_and_replace_step(obj_list, idx_to_objs, identification_rules, gs):
+    def try_retrieve_entity(obj):
+        et = without_absorbed(obj._entity_type)
+        try:
+            return identification_rules[et](obj, gs)
+        except:
+            return None
+
+    def replace_all_in_d(obj, ent):
+        @func
+        def over_write_obj(o, new_id): 
+            o._entity_type = without_absorbed(o._entity_type)[new_id]
+            o._kwargs = {}
+            
+        obj_id = get_et_id(obj._entity_type)
+        entity_id = str(uid(ent))
+        idx_to_objs[obj_id] | for_each[over_write_obj[entity_id]]
+
+    for obj in obj_list:
+        ent = try_retrieve_entity(obj)
+        if ent: replace_all_in_d(obj, ent)
+
+
+
+def match_entities(obj_list: List[object], entity_identification_rules: Dict, gs: GraphSlice) -> List[object]:
+    from collections import defaultdict
+    idx_to_objs = defaultdict(set)
+    obj_list | for_each[generate_id_to_objs[idx_to_objs]]
+    match_with_entity_and_replace_step(obj_list, idx_to_objs, entity_identification_rules, gs)
+    return obj_list
