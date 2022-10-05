@@ -164,7 +164,6 @@ namespace zefDB {
 	// domain specific nodes to shorten node and edge type lookups. This list should be append-only, 
 	// i.e. previous string types can be added here for improved performance
 	struct LIBZEF_DLL_EXPORTED EntityTypeStruct{
-        GraphData * gd = nullptr;
 #include "blobs.h.ET.gen"
 		EntityType operator() (const std::string& string_input) const;  // we want to be able to use RT("CNCMachine") for unknown types
 		EntityType operator() (const char* char_array_input) const { return operator()(std::string(char_array_input)); }

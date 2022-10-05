@@ -12,16 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
+from .. import report_import
+report_import("zef.core.error")
+
+
 # This is an exception only for our internal evaluation engine logic. This error
 # should never propagate outside of the evaluation engine, and instead be
 # converted to an ExceptionWrapper, which will print nicely.
-class _ErrorType(Exception):
-    def __set_name__(self, parent, name):
+class Error_(Exception):
+    def __init__(self, name):
         self.name = name
 
+    # def __set_name__(self, parent, name):
+    #     self.name = name
+
     def __call__(self, *args):
-        err = _ErrorType()
-        err.name = self.name
+        err = Error_(self.name)
         err.args = args
         err.contexts = []
         err.nested = None
@@ -47,7 +54,7 @@ class _ErrorType(Exception):
         
 
     def __eq__(self, other):
-        if not isinstance(other, _ErrorType): return False
+        if not isinstance(other, Error_): return False
         return self.name == other.name and self.args == other.args
 
     def __bool__(self):
@@ -235,26 +242,38 @@ class ExceptionWrapper(Exception):
 # want.
     
 
-class _Error:
-    TypeError    = _ErrorType()
-    RuntimeError = _ErrorType()
-    ValueError   = _ErrorType()
-    NotImplementedError = _ErrorType()
-    KeyError = _ErrorType()
-    BasicError = _ErrorType()
-    UnexpectedError = _ErrorType()
-    MapError = _ErrorType()
-    MatchError = _ErrorType()
-    Panic = _ErrorType()
 
-    def __call__(self, *args):
-        return self.BasicError(*args)
+#     def __new__(cls, *args):
+#         return cls.BasicError(*args)
 
-    def __repr__(self):
-        return f'Error'
+#     def __repr__(self):
+#         return f'Error'
 
+predefined_errors = [
+    "TypeError",
+    "RuntimeError",
+    "ValueError",
+    "NotImplementedError",
+    "BasicError",
+    "UnexpectedError",
+    "MapError",
+    "MatchError",
+    "Panic",
+]
 
-Error = _Error()
+def error_dir(self):
+    return predefined_errors
+def error_getattr(self, x):
+    return Error_(x)
+def error_ctor(*args):
+    return Error.BasicError(*args)
+    
+
+from .VT import make_VT
+Error = make_VT("Error",
+                pytype=Error_,
+                attr_funcs=(error_getattr, None, error_dir),
+                constructor_func=error_ctor)
 
 class EvalEngineCoreError(Exception):
     def __init__(self, exc):
@@ -361,7 +380,7 @@ def str_frame_info(frames):
 
 def str_zef_error(error):
     s = ""
-    if type(error) == _ErrorType:
+    if type(error) == Error_:
         if error.nested is not None:
             s += str_zef_error(error.nested)
             s += "\n^^^^^\nCaused "

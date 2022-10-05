@@ -126,7 +126,7 @@ def to_flatgraph_imp(d: dict):
     An operator that allows transforming plain Zef values (dicts, lists, 
     scalars and nested forms thereof) to FlatGraphs in a standardized form.
 
-    Dicts: if a key "type" is specified, this is not attached as child,
+    Dicts: if a key "_type" is specified, this is not attached as child,
     but the associated value is assumed to be a string, which is used 
     as the type name. All other keys are attached as children.
 

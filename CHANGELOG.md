@@ -1,4 +1,4 @@
-pyzef-0.15.9
+pyzef-0.16.0
 ============
 
 New features:
@@ -6,17 +6,17 @@ New features:
 
 - `VALUE_NODE`s as low level blobs. Attribute entities now reference values and
   reuse stored blobs.
+
 - `Val(...)` syntax in a GraphDelta will create a value node.
 
-Breaking changes:
------------------
-
-- 
+- Can load and save graphs locally.
 
 Fixes:
 ------
 
 - Graphs record which ET/RT/ENs they are using again.
+
+- Issues with value nodes in graph caches.
 
 Improvements:
 -------------
@@ -25,7 +25,23 @@ Improvements:
   - Custom routes handled by hooks can be given as Zef.Route lines in the
     graphql file.
 
+- Refactor GraphQL module from `gql` to `graphql`.
 
+- Improvements to many FX.
+
+- Improvements to many ZefOps.
+
+- More flexible graph update process, allowing concurrent processing.
+
+- Compact view for `graphviz` as default.
+
+- Many improvements to FlatGraphs
+
+Breaking changes:
+-----------------
+
+- We have removed Windows support for this release. We are aiming to reintroduce
+  it for the next release.
 
 
 pyzef-0.15.8

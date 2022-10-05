@@ -23,7 +23,6 @@
 #include <functional>
 #include <memory>
 #include "fwd_declarations.h"
-#include "blobs.h"
 #include "zefDB_utils.h"
 
 namespace zefDB {

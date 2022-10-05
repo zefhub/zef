@@ -81,8 +81,10 @@ namespace zefDB {
                         std::cerr << "Starting butler automatically. Call initialise_butler if you want more control." << std::endl;
                     butler_allow_auto_start = false;
                     initialise_butler();
-                } else
+                } else {
+                    abort();
                     throw std::runtime_error("This action needs the zefDB butler running, yet its autostart has been disabled. Note: autostart is disabled after the butler has been started once.");
+                }
             }
             return butler;
         }
@@ -115,9 +117,6 @@ namespace zefDB {
             initialise_butler(std::get<std::string>(get_config_var("login.zefhubURL")));
         }
         void initialise_butler(std::string zefhub_uri) {
-#ifdef DEBUG
-            internals::static_checks();
-#endif
             if(!validate_config_file()) {
                 std::cerr << "WARNING: config options are invalid..." << std::endl;
             }
@@ -141,6 +140,10 @@ namespace zefDB {
 
             // std::cerr << "Before making butler" << std::endl;
             butler = std::make_unique<Butler>(zefhub_uri);
+
+// #ifdef DEBUG
+//             internals::static_checks();
+// #endif
 
             // std::cerr << "Before making butler thread" << std::endl;
             butler->thread = std::make_unique<std::thread>(&Butler::msgqueue_listener, &(*butler));
@@ -175,10 +178,11 @@ namespace zefDB {
 
         void long_wait_or_kill(std::thread & thread, std::promise<bool> & return_value, std::string name, std::optional<std::function<void()>> extra_print = {}) {
             try {
+                int wait_seconds = 60;
                     auto future = return_value.get_future();
-                    auto status = future.wait_for(std::chrono::seconds(1));
+                    auto status = future.wait_for(std::chrono::seconds(wait_seconds));
                     if (status == std::future_status::timeout) {
-                        std::cerr << "Thread taking a long time to shutdown... " << name << std::endl;
+                        std::cerr << "Thread taking a long time to shutdown... " << name << ". Going to wait for " << wait_seconds << " s." << std::endl;
                         if(extra_print)
                             (*extra_print)();
                         if(check_env_bool("ZEFDB_DEVELOPER_THREAD_LONGWAIT"))
@@ -186,7 +190,7 @@ namespace zefDB {
                         else
                             status = future.wait_for(std::chrono::seconds(10));
                         if (status == std::future_status::timeout) {
-                            std::cerr << "Gave up on waiting for thread: " << name << std::endl;
+                            std::cerr << "Gave up on waiting for thread after " << wait_seconds << " s: " << name << std::endl;
                             thread.detach();
                             return;
                         }
@@ -634,7 +638,6 @@ namespace zefDB {
                         // TODO:
                         update(me.gd->heads_locker, me.gd->manager_tx_head, index(this_tx));
                     }
-                    internals::execute_queued_fcts(*me.gd);
 
                     if(me.gd->error_state != GraphData::ErrorState::OK)
                         throw std::runtime_error("Sync worker for graph detected invalid state and is aborting");
@@ -657,11 +660,16 @@ namespace zefDB {
                 }
 
                 if(send_update_future)
-                    send_update_future.get();
+                    send_update_future->get();
 
                 // This is the last hail mary before we shut down. Required for the logic of remove_graph_manager.
-                if(me.gd->should_sync && me.gd->is_primary_instance)
+                if(me.gd->should_sync &&
+                   me.gd->is_primary_instance &&
+                   me.gd->sync_head < me.gd->read_head.load()
+                ) {
+                    developer_output("The last hail mary send_update has been triggered. sync_head=" + to_str(me.gd->sync_head.load()) + " and read_head=" + to_str(me.gd->read_head.load()));
                     send_update(me);
+                }
 
                 me.sync_return_value.set_value(true);
             } catch(const std::exception & e) {
@@ -903,7 +911,7 @@ namespace zefDB {
 
         Graph Butler::get_local_process_graph() {
             if(!local_process_graph) {
-                Graph g;
+                Graph g(false);
                 set_keep_alive(g);
                 local_process_graph = g;
             }

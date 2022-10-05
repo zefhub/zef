@@ -18,38 +18,40 @@ from zef import *
 
 class MyTestCase(unittest.TestCase):
     def test_info(self):
+        from zef.core.internals import get_token
+
         g = Graph()
 
-        instantiate(AET.String, g)
-        instantiate(AET.String, g)
-        f = instantiate(AET.String, g)
+        instantiate(get_token(AET.String), g)
+        instantiate(get_token(AET.String), g)
+        f = instantiate(get_token(AET.String), g)
 
-        w = instantiate(ET.Worker, g)
+        w = instantiate(get_token(ET.Worker), g)
 
         assign(f, 'Fritz')
         assign(f, 'Ninja')
 
-        instantiate(w, RT.YearOfBirth, f, g)
+        instantiate(w, get_token(RT.YearOfBirth), f, g)
         assign(f, 'Ninja2')
         assign(f, 'Ninja')
         assign(f, 'Yolandi')
 
 
-        man = instantiate(ET.Manager, g)
-        m = instantiate(ET.Machine, g)
-        m2 = instantiate(ET.Machine, g)
+        man = instantiate(get_token(ET.Manager), g)
+        m = instantiate(get_token(ET.Machine), g)
+        m2 = instantiate(get_token(ET.Machine), g)
 
-        m3 = instantiate(ET.Machine, g)
-        n = instantiate(AET.String, g)
+        m3 = instantiate(get_token(ET.Machine), g)
+        n = instantiate(get_token(AET.String), g)
 
 
-        instantiate(w, RT.CanOperate, m, g)
-        instantiate(w, RT.Name, n, g)
-        instantiate(w, RT.CanOperate, m2, g)
-        rr = instantiate(w, RT.CanOperate, m3, g)
-        instantiate(w, RT.CanOperate, m3, g)
+        instantiate(w, get_token(RT.CanOperate), m, g)
+        instantiate(w, get_token(RT.Name), n, g)
+        instantiate(w, get_token(RT.CanOperate), m2, g)
+        rr = instantiate(w, get_token(RT.CanOperate), m3, g)
+        instantiate(w, get_token(RT.CanOperate), m3, g)
 
-        can_op = instantiate(man, RT.CanOperate, w, g)
+        can_op = instantiate(man, get_token(RT.CanOperate), w, g)
 
         terminate(f) | g | run
         terminate(w) | g | run

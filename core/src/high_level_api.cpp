@@ -17,6 +17,7 @@
 #include "ops_imperative.h"
 #include "synchronization.h"
 #include "external_handlers.h"
+#include "transaction.h"
 #include <iterator>
 #include <unordered_set>
 #include <doctest/doctest.h>
@@ -203,15 +204,15 @@ namespace zefDB {
         return response.j["matches"].get<std::vector<std::string>>();
 	}
 
-    std::optional<std::string> lookup_uid(const std::string& tag) {
+    std::optional<GraphRef> lookup_uid(const std::string& tag) {
         auto butler = Butler::get_butler();
         auto response = butler->msg_push_timeout<Messages::GenericZefHubResponse>(Messages::UIDQuery{tag});
         if(!response.generic.success)
             throw std::runtime_error("Failed with uid lookup: " + response.generic.reason);
         if(response.j.contains("graph_uid"))
-            return response.j["graph_uid"].get<std::string>();
+            return GraphRef(BaseUID::from_hex(response.j["graph_uid"].get<std::string>()));
         else
-            return std::optional<std::string>();
+            return std::optional<GraphRef>();
     }
 
 
@@ -911,8 +912,15 @@ namespace zefDB {
         auto & ae = get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(z_ae);
         ValueRepType primitive_type = get_vrt_from_ctype(value);
 
-        if(!internals::is_compatible(value, AET(z_ae)))
-            throw std::runtime_error("assign_value got value which can't fit into this attribute entity. FIXME: details");
+        if(!internals::is_compatible(value, AET(z_ae))) {
+            std::string aet_s;
+            AttributeEntityType aet = AET(z_ae);
+            if(aet.complex_value)
+                aet_s = "A complex AET";
+            else
+                aet_s = to_str(aet.rep_type);
+            throw std::runtime_error("assign_value got value which can't fit into this attribute entity. AET='" + aet_s + "', value_type='" + typeid(T).name() + "', value='" + to_str(value) + "'.");
+        }
 
         auto & gd = *graph_data(z_ae);
         // Need a transaction to keep both the value node and assignment together

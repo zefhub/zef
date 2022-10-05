@@ -20,26 +20,32 @@ class TestStringMethods(unittest.TestCase):
 
     def test_blobtype_name(self):
         g = Graph()
-        et = instantiate(ET.Entity, g)
-        rt = instantiate(et, RT.Relation, et, g)
-        aet = instantiate(AET.String, g)
+        from zef.core.internals import get_token
+        from zef.ops import token_name
 
-        self.assertEqual(str(BT(et)), 'ENTITY_NODE')
-        self.assertEqual(str(BT(aet)), 'ATTRIBUTE_ENTITY_NODE')
-        self.assertEqual(str(BT(rt)), 'RELATION_EDGE')
+        et = instantiate(get_token(ET.Entity), g)
+        rt = instantiate(et, get_token(RT.Relation), et, g)
+        aet = instantiate(get_token(AET.String), g)
 
-        self.assertEqual(str(ET(et)), 'Entity')
-        self.assertEqual(repr(ET(et)), 'ET.Entity')
+        self.assertEqual(str(BT(et)), 'BT.ENTITY_NODE')
+        self.assertEqual(str(BT(aet)), 'BT.ATTRIBUTE_ENTITY_NODE')
+        self.assertEqual(str(BT(rt)), 'BT.RELATION_EDGE')
+        self.assertEqual(token_name(BT(et)), 'ENTITY_NODE')
+        self.assertEqual(token_name(BT(aet)), 'ATTRIBUTE_ENTITY_NODE')
+        self.assertEqual(token_name(BT(rt)), 'RELATION_EDGE')
 
-        self.assertEqual(str(AET(aet)), 'String')
-        self.assertEqual(repr(AET(aet)), 'AET.String')
+        self.assertEqual(token_name(ET(et)), 'Entity')
+        self.assertEqual(str(ET(et)), 'ET.Entity')
 
-        self.assertEqual(str(RT(rt)), 'Relation')
-        self.assertEqual(repr(RT(rt)), 'RT.Relation')
+        self.assertEqual(token_name(AET(aet)), 'String')
+        self.assertEqual(str(AET(aet)), 'AET.String')
 
-        aet2 = instantiate(AET.QuantityFloat.kilograms, g)
-        self.assertEqual(repr(AET(aet2)), 'AET.QuantityFloat.kilograms')
-        self.assertEqual(str(AET(aet2)), 'QuantityFloat.kilograms')
+        self.assertEqual(token_name(RT(rt)), 'Relation')
+        self.assertEqual(str(RT(rt)), 'RT.Relation')
+
+        aet2 = instantiate(get_token(AET.QuantityFloat.kilograms), g)
+        self.assertEqual(str(AET(aet2)), 'AET.QuantityFloat.kilograms')
+        self.assertEqual(token_name(AET(aet2)), 'QuantityFloat.kilograms')
 
         en = EN.Unit.kilograms
         self.assertEqual(repr(en), 'EN.Unit.kilograms')

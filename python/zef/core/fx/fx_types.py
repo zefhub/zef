@@ -15,6 +15,8 @@
 
 #---------------------------------------------------------------------------------------
 
+from ..VT import make_VT
+
 # allow value based comparisons
 class FXElement():
     def __init__(self, args):
@@ -48,6 +50,7 @@ class FXElement():
             'type': self,
         }
 
+EffectType = make_VT("EffectType", pytype=FXElement)
 
 
 class _HTTP_Class():
@@ -189,7 +192,7 @@ _group_types = [ _Clipboard_Class,_FX_Class,_GraphQL_Class,_Graph_Class,_HTTP_Cl
 # just a function, since Effect will just become a value.
 # same syntax as a regular constructor and equivalent to to_effect.
 # The latter is the more usual option to use in the context of piping
-def Effect(*args, **kwargs) -> dict:
+def effect_ctor(*args, **kwargs) -> dict:
     """
     Effects can be constructed via keyword arguments
     or by passing in a dictionary.
@@ -206,3 +209,9 @@ def Effect(*args, **kwargs) -> dict:
     else:
         return kwargs
 
+def effect_is_a(x, typ):
+    return isinstance(x, Pattern[{"type": EffectType}])
+
+Effect = make_VT("Effect",
+                 constructor_func=effect_ctor,
+                 is_a_func=effect_is_a)

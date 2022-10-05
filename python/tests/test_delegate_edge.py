@@ -17,6 +17,7 @@ import unittest  # pytest takes ages to run anything as soon as anything from ze
 import zef
 from zef import *
 from zef.ops import *
+from zef import internals
 
 
 class MyTestCase(unittest.TestCase):
@@ -25,10 +26,10 @@ class MyTestCase(unittest.TestCase):
 
         I = lambda *args: instantiate(*args, g)
         with Transaction(g):
-            m1 = I(ET.Machine)
-            m2 = I(ET.Machine)
-            r1 = I(m1, RT.EtoE, m2)
-            rel_E_DR = I(m1, RT.EtoDR, r1 | delegate_of | collect)
+            m1 = I(internals.get_token(ET.Machine))
+            m2 = I(internals.get_token(ET.Machine))
+            r1 = I(m1, internals.get_token(RT.EtoE), m2)
+            rel_E_DR = I(m1, internals.get_token(RT.EtoDR), r1 | delegate_of | collect)
         zef.pyzef.verification.verify_graph_double_linking(g)
         # serialize_check(g)
 

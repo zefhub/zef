@@ -63,13 +63,10 @@ void Butler::ws_fatal_handler(std::string reason) {
 
 
 void Butler::ws_message_handler(std::string msg) {
-    if(should_stop)
-        return;
-
     auto [j, rest]  = Communication::parse_ZH_message(msg);
 
     if(zwitch.debug_zefhub_json_output())
-        std::cerr << j << std::endl;
+        std::cerr << "Received message: " << j << std::endl;
 
     handle_incoming_message(j, rest);
 
@@ -93,6 +90,20 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
         std::cerr << "Don't know how to handle any protocol type other than 'ZEFDB' currently." << std::endl;
         return;
     }
+
+    if(should_stop) {
+        // Only allow acknowledgement messages to be processed.
+        if(msg_type != "auth_success" &&
+           msg_type != "terminate" &&
+           msg_type != "poke" &&
+           msg_type != "merge_request_response" &&
+           msg_type != "ACK" &&
+           msg_type != "update_response") {
+            developer_output("Ignoring incoming messages of type '" + msg_type + "' as we are shutting down.");
+            return;
+        }
+    }
+
 
     if (!connection_authed) {
         debug_time_print("received handshake response");
@@ -206,6 +217,7 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
             if(!task_promise)
                 throw std::runtime_error("Task uid isn't in the waiting list!");
             try {
+                developer_output("Reacting to upstream msg, found task with uid: " + task_uid);
                 if(msg_type == "poke") {
                     if(zwitch.developer_output())
                         std::cerr << "Got a poke for task " << task_uid << std::endl;

@@ -12,15 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.flat_graph")
+
 from operator import ne
 from ._ops import *
 from dataclasses import dataclass
-from . import VT
+from .VT import *
+from .VT import make_VT
 
 
-@dataclass
-class Val:
-    arg: VT.Any
+# @dataclass
+# class Val:
+#     arg: VT.Any
 
 class FlatGraph_:
     """
@@ -62,8 +66,10 @@ class FlatGraph_:
     def __getitem__(self, key):
         return get(self, key)
 
+make_VT("FlatGraph", pytype=FlatGraph_)
 
-class FlatRef:
+
+class FlatRef_:
     def __init__(self, fg, idx):
         self.fg = fg
         self.idx = idx
@@ -85,7 +91,9 @@ class FlatRef:
     def __rshift__(self, other):
         return LazyValue(self) >> other
 
-class FlatRefs:
+make_VT("FlatRef", pytype=FlatRef_)
+
+class FlatRefs_:
     def __init__(self, fg, idxs):
         self.fg = fg
         self.idxs = idxs
@@ -112,3 +120,5 @@ class FlatRefs:
     
     def __rshift__(self, other):
         return LazyValue(self) >> other
+
+make_VT("FlatRefs", pytype=FlatRefs_)

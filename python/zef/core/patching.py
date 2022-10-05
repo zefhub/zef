@@ -14,7 +14,9 @@
 
 from ..pyzef.main import *
 from ..pyzef import main, zefops, internals
-from ._core import ET, AttributeEntityType, EntityType
+# from ._core import ET, AttributeEntityType, EntityType
+from ..pyzef.main import EntityType
+from ..pyzef.internals import ET, AttributeEntityType
 
 main.ZefRef.__hash__ = lambda self: hash(((index(self)), index(self | zefops.tx)))
 main.EZefRef.__hash__ = lambda self: index(self)
@@ -27,6 +29,12 @@ internals.Delegate.__hash__ = lambda self: hash((self.order, self.item))
 internals.DelegateRelationTriple.__hash__ = lambda self: hash((self.rt, self.source, self.target))
 internals.DelegateTX.__hash__ = lambda self: hash(internals.DelegateTX)
 internals.DelegateRoot.__hash__ = lambda self: hash(internals.DelegateRoot)
+
+# TODO: Fix this up
+def delayed_instancecheck_Delegate(self, other):
+    from .delegates import instancecheck_Delegate
+    return instancecheck_Delegate(self, other)
+internals.Delegate.__instancecheck__ = delayed_instancecheck_Delegate
 
 
 from ..pyzef.main import EntityType, RelationType
@@ -180,7 +188,21 @@ def eq_with_absorbed(x, y, orig_eq):
     orig_res = orig_eq(x, y)
     if orig_res == NotImplemented:
         return NotImplemented
-    return orig_res and getattr(x, '_absorbed', ()) == getattr(y, '_absorbed', ())
+    
+    if orig_res == False:
+        return False
+
+    try:
+        absrbd1 = x.__getattribute__('_absorbed')
+    except AttributeError:
+        absrbd1 = ()
+    
+    try:
+        absrbd2 = y.__getattribute__('_absorbed')
+    except AttributeError:
+        absrbd2 = ()
+
+    return absrbd1 == absrbd2
 
 def wrap_eq(typ):
     orig = typ.__eq__
@@ -190,7 +212,11 @@ def wrap_eq(typ):
 
 def hash_with_absorbed(self, orig_hash):
     orig_res = orig_hash(self)
-    return hash((orig_res,) + getattr(self, '_absorbed', ()))
+    try:
+        absrbd = self.__getattribute__('_absorbed')
+    except AttributeError:
+        absrbd = ()
+    return hash((orig_res,) + absrbd)
 
 def wrap_hash(typ):
     orig = typ.__hash__
@@ -281,9 +307,9 @@ EZefRef.__le__ = convert_to_assign
 
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):
-    from .abstract_raes import Entity, AttributeEntity, Relation
+    from .abstract_raes import Entity_, AttributeEntity_, Relation_
     from ._ops import origin_uid
-    if type(x) in [Entity, AttributeEntity, Relation]:
+    if type(x) in [Entity_, AttributeEntity_, Relation_]:
         return origin_uid(x) in self
 
     if type(x) in [ZefRef, EZefRef]:
@@ -296,10 +322,10 @@ main.Graph.__contains__ = Graph__contains__
     
 original_Graph__getitem__ = main.Graph.__getitem__
 def Graph__getitem__(self, x):
-    from .abstract_raes import Entity, AttributeEntity, Relation
+    from .abstract_raes import Entity_, AttributeEntity_, Relation_
     from ._ops import uid, target
     from .internals import BT
-    if type(x) in [Entity, AttributeEntity, Relation]:
+    if type(x) in [Entity_, AttributeEntity_, Relation_]:
         return self[uid(x)]
 
     res = original_Graph__getitem__(self, x)
@@ -323,8 +349,8 @@ main.Graph.__getitem__ = Graph__getitem__
 
 original_Graph__init__ = main.Graph.__init__
 def Graph__init__(self, *args, **kwds):
-    from .graph_slice import GraphSlice
-    if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], GraphSlice):
+    from .graph_slice import GraphSlice_
+    if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], GraphSlice_):
         return original_Graph__init__(self, args[0].tx)
 
     return original_Graph__init__(self, *args, **kwds)
@@ -374,3 +400,42 @@ def AttributeEntityType_repr(self):
         s += ''.join(('[' + repr(el) + ']' for el in self._absorbed))
     return s
 AttributeEntityType.__repr__ = AttributeEntityType_repr
+
+original_AttributeEntityType__str__ = internals.AttributeEntityType.__str__
+def AttributeEntityType_str(self):
+    if self.complex_value:
+        return "COMPLEX(" + str(self.complex_value.deserialize()) + ")"
+    else:
+        return str(self.rep_type)
+AttributeEntityType.__str__ = AttributeEntityType_str
+
+
+
+#                           _____         _    _  _               ___   _        _              _       _   _         _           _    _                                       
+#                          | ____| _ __  | |_ (_)| |_  _   _     / _ \ | |__    (_)  ___   ___ | |_    | \ | |  ___  | |_   __ _ | |_ (_)  ___   _ __                          
+#   _____  _____  _____    |  _|  | '_ \ | __|| || __|| | | |   | | | || '_ \   | | / _ \ / __|| __|   |  \| | / _ \ | __| / _` || __|| | / _ \ | '_ \     _____  _____  _____ 
+#  |_____||_____||_____|   | |___ | | | || |_ | || |_ | |_| |   | |_| || |_) |  | ||  __/| (__ | |_    | |\  || (_) || |_ | (_| || |_ | || (_) || | | |   |_____||_____||_____|
+#                          |_____||_| |_| \__||_| \__| \__, |    \___/ |_.__/  _/ | \___| \___| \__|   |_| \_| \___/  \__| \__,_| \__||_| \___/ |_| |_|                        
+#                                                      |___/                  |__/                                                                                             
+
+
+class EntityValueInstance_:
+    def __init__(self, entity_type, **kwargs):
+        self._entity_type: EntityType = entity_type
+        self._kwargs = kwargs
+        
+    def __repr__(self):
+        nl = '\n'
+        return f'ET.{str(self._entity_type)}({f", ".join([f"{k}={repr(v)}" for k, v in self._kwargs.items()])})'
+    
+    def __getattr__(self, name):
+        return self._kwargs[name]
+
+
+
+
+def entity_type_call_func(self, *args, **kwargs):
+    return EntityValueInstance_(EntityType(self.value), **kwargs)
+
+EntityType.__call__ = entity_type_call_func
+

@@ -122,16 +122,15 @@ def generate_fct(field_dict, g, allow_none):
             "graphql_info": info,
             # To be extended
         }
-        if is_a(resolver, ZefOp):
-            if peel(resolver)[0][0] == RT.Function:
-                args = get_zef_function_args(resolver, g)
-                arg_values = select_keys(context, *args).values()
-                # Check if some args that are present in the Zef Function aren't present in context dict
-                if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
-                arg_values = [context[x] for x in args]
-                return resolver(*arg_values)
-            else:
-                return resolver(obj)
+        if isinstance(resolver, ZefFunction):
+            args = get_zef_function_args(resolver, g)
+            arg_values = select_keys(context, *args).values()
+            # Check if some args that are present in the Zef Function aren't present in context dict
+            if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
+            arg_values = [context[x] for x in args]
+            return resolver(*arg_values)
+        elif isinstance(resolver, ZefOp):
+            return resolver(obj)
         elif isinstance(resolver, LazyValue):
             return resolver()
         else:

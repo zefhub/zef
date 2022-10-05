@@ -16,16 +16,36 @@ import structlog
 
 # Trying to keep a config that doesn't interfer with any user's global settings
 # for structlog if they happen to use it.
-log = structlog.wrap_logger(None,
-    processors=[
-        # structlog.stdlib.filter_by_level,
-        # structlog.stdlib.add_logger_name,
-        structlog.stdlib.add_log_level,
-        # structlog.stdlib.PositionalArgumentsFormatter(),
-        structlog.processors.TimeStamper(fmt="iso"),
-        # The following only does anything if exc_info is passed as a keyword
-        # structlog.processors.format_exc_info,
-        structlog.processors.UnicodeDecoder(),
-        structlog.dev.ConsoleRenderer(colors=True),
-    ]
-)
+import os
+logger_type = os.environ.get("ZEFDB_LOGGER", "RICH").upper()
+if logger_type not in ["RICH","PLAIN"]:
+    print(f"Did not understand ZEFDB_LOGGER type of {logger_type}, going to use PLAIN by default.")
+    logger_type = "PLAIN"
+if logger_type == "RICH":
+    log = structlog.wrap_logger(None,
+        processors=[
+            # structlog.stdlib.filter_by_level,
+            # structlog.stdlib.add_logger_name,
+            structlog.stdlib.add_log_level,
+            # structlog.stdlib.PositionalArgumentsFormatter(),
+            structlog.processors.TimeStamper(fmt="iso"),
+            # The following only does anything if exc_info is passed as a keyword
+            # structlog.processors.format_exc_info,
+            structlog.processors.UnicodeDecoder(),
+            structlog.dev.ConsoleRenderer(colors=True),
+        ]
+    )
+elif logger_type == "PLAIN":
+    log = structlog.wrap_logger(None,
+        processors=[
+            structlog.stdlib.add_log_level,
+            structlog.processors.TimeStamper(fmt="iso"),
+            # The following only does anything if exc_info is passed as a keyword
+            # structlog.processors.format_exc_info,
+            structlog.processors.UnicodeDecoder(),
+            # structlog.processors.KeyValueRenderer(),
+            structlog.dev.ConsoleRenderer(colors=False, exception_formatter=structlog.dev.plain_traceback),
+        ]
+    )
+else:
+    raise Exception("Should never get here")

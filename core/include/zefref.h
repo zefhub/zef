@@ -28,6 +28,7 @@
 #include "fwd_declarations.h"
 #include "zefDB_utils.h"
 #include "scalars.h"
+#include "graph.h"
 
 namespace zefDB {
 	using std::cout;
@@ -38,7 +39,7 @@ namespace zefDB {
 		void* blob_ptr = nullptr;
 				
 		//EZefRef(const EZefRef& b) : blob_ptr(b.blob_ptr) {}  // can we just keep the default ctor? Otherwise we also have to generte cpy assignment opr etc.
-		EZefRef() = default;
+		EZefRef() : blob_ptr(nullptr) {}
 		EZefRef(const EZefRef& b) = default;
 		explicit EZefRef(ZefRef uzr);
 		explicit EZefRef(void* ptr);
@@ -47,6 +48,8 @@ namespace zefDB {
 		EZefRef(blob_index my_blob_index, const Graph& graph);
 		explicit operator bool() const { return blob_ptr != nullptr &&  (*(char*)blob_ptr != char(0)); }		
 		//EZefRef& operator=(const EZefRef& b) {blob_ptr = b.blob_ptr; return *this;}
+
+        bool is_graph_alive();
 	};
 
 
@@ -61,7 +64,7 @@ namespace zefDB {
 		explicit ZefRef(EZefRef uzr) : blob_uzr(EZefRef(uzr)), tx(EZefRef{ nullptr }) {};
 	};
 
-	inline EZefRef::EZefRef(ZefRef b) : blob_ptr(b.blob_uzr.blob_ptr) {};
+	inline EZefRef::EZefRef(ZefRef b) : EZefRef(b.blob_uzr) {};
 
     inline void * ptr_from_blob_index(blob_index ind, const GraphData& gd) {
         return (void*)(((std::uintptr_t)&gd) + constants::blob_indx_step_in_bytes*ind);
@@ -83,6 +86,8 @@ namespace zefDB {
 
 	template <typename T>
 	T& get(EZefRef uzr) {
+        if(!uzr.is_graph_alive())
+            throw std::runtime_error("EZefRef of unloaded graph used when trying to obtain its data.");
 		return *(T*)uzr.blob_ptr;
 	}
 	

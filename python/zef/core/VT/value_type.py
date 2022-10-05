@@ -64,168 +64,328 @@ This custom structure may rearrange and parse terms.
 ---------- User Defined Types ----------
 needed?
 """
-from ..error import Error
+# from ..error import Error
 from .._core import *
-from ..internals import *
+from .. import internals
 
 
 # For certain value types, the user may want to call e.g. Float(4.5).
 # This looks up the associated function 
 _value_type_constructor_funcs = {}
 _value_type_get_item_funcs = {}
+_value_type_attr_funcs = {}
+_value_type_is_a_funcs = {}
+_value_type_is_subtype_funcs = {}
+# These funcs are for the VERY limited group that combines sets together.
+_value_type_override_subtype_funcs = {}
+_value_type_simplify_type_funcs = {}
+_value_type_str_funcs = {}
+_value_type_pytypes = {}
 
 class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name: str, absorbed=(), constructor_func=None, get_item_func=None, pass_self=False):
-            self.d = {
+    def __init__(self, type_name:str, absorbed=(), pytype=None, constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, override_subtype_func=None, str_func=None, simplify_type_func=None):
+            self._d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
                 'alias': None,
             }
-            if constructor_func is not None:
-                _value_type_constructor_funcs[type_name] = constructor_func
-            if get_item_func is not None:
-                _value_type_get_item_funcs[type_name] = get_item_func
 
-            self.pass_self = pass_self
-            self.allowed_types = (ValueType_, EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct, BlobTypeStruct, BlobType, AttributeEntityType, EntityType, RelationType)
+            if constructor_func is not None:
+                assert type_name not in _value_type_constructor_funcs
+                _value_type_constructor_funcs[type_name] = (constructor_func, pass_self)
+            if get_item_func is not None:
+                assert type_name not in _value_type_get_item_funcs
+                _value_type_get_item_funcs[type_name] = get_item_func
+            if is_a_func is not None:
+                assert type_name not in _value_type_is_a_funcs
+                _value_type_is_a_funcs[type_name] = is_a_func
+            if is_subtype_func is not None:
+                assert type_name not in _value_type_is_subtype_funcs
+                _value_type_is_subtype_funcs[type_name] = is_subtype_func
+            if override_subtype_func is not None:
+                assert type_name not in _value_type_override_subtype_funcs
+                _value_type_override_subtype_funcs[type_name] = override_subtype_func
+            if str_func is not None:
+                assert type_name not in _value_type_str_funcs
+                _value_type_str_funcs[type_name] = str_func
+            if simplify_type_func is not None:
+                assert type_name not in _value_type_simplify_type_funcs
+                _value_type_simplify_type_funcs[type_name] = simplify_type_func
+            if pytype is not None:
+                assert type_name not in _value_type_pytypes
+                _value_type_pytypes[type_name] = pytype
+            if attr_funcs != (None, None, None):
+                assert type_name not in _value_type_attr_funcs
+                _value_type_attr_funcs[type_name] = attr_funcs
+
+    def _replace(self, **kwargs):
+        new_vt = ValueType_(self._d["type_name"])
+        new_vt._d = dict(self._d)
+        new_vt._d.update(kwargs)
+        return new_vt
+
+
+    def __instancecheck__(self, instance):
+        return is_a_(instance, self)
+    def __subclasscheck__(self, subclass):
+        return is_subtype_(subclass, self) is True
+
+    # def __repr__(self):
+    def __get_nice_name(self):
+        if self._d['alias'] != None:
+            return self._d['alias']
+        return self._d['type_name']
+
+    def __str__(self):
+        str_func = _value_type_str_funcs.get(self._d["type_name"], None)
+        if str_func is None:
+            if self._d["alias"] is not None:
+                return self._d["alias"]
+            return self.__get_nice_name() + (
+                ''.join([ f"[{repr(el)}]" for el in self._d['absorbed'] ])
+            )
+        return str_func(self)
 
     def __repr__(self):
-        if self.d['alias'] != None:
-            return self.d['alias']
-        return self.d['type_name'] + (
-            '' if self.d['absorbed'] == () 
-            else ''.join([ f"[{repr(el)}]" for el in self.d['absorbed'] ])
-        )
+        return str(self)
 
 
     def __call__(self, *args, **kwargs):
         try:
-            f = _value_type_constructor_funcs[self.d["type_name"]]
+            f,pass_self = _value_type_constructor_funcs[self._d["type_name"]]
         except KeyError:
-            return Error(f'{self.d["type_name"]}(...) was called, but no constructor function was registered for this type')
-        if self.pass_self: return f(self, *args, **kwargs)
-        return f(*args, **kwargs)
+            try:
+                f = _value_type_pytypes[self._d["type_name"]]
+                pass_self = False
+            except KeyError:
+                from .. import Error
+                raise Exception(f'{self.__get_nice_name()}(...) was called, but no constructor function was registered for this type')
+                return Error(f'{self.__get_nice_name()}(...) was called, but no constructor function was registered for this type')
+        if pass_self:
+            out = f(self, *args, **kwargs)
+        else:
+            out = f(*args, **kwargs)
+        if out is NotImplemented:
+            raise Exception("Constructor cannot be called for this instance of value type {self.__get_nice_name()}")
+        return out
 
 
     def __getitem__(self, x):
-        try:
-            f = _value_type_get_item_funcs[self.d["type_name"]]
-            if self.pass_self: return f(self, x)
-            return f(x)
-        except KeyError:
-            return ValueType_(self.d["type_name"], absorbed=(*self.d['absorbed'], x))
+        if type(x) == str:
+            if len(self._d["absorbed"]) > 0:
+                raise Exception(f"Cannot provide a second absorbed name to {self._d['type_name']}")
+            new_absorbed = self._d["absorbed"] + (x,)
+            return self._replace(absorbed=new_absorbed)
 
+        try:
+            f = _value_type_get_item_funcs[self._d["type_name"]]
+        except KeyError:
+            raise Exception(f"There is no getitem function for a ValueType of type {self._d['type_name']}") from None
+        return f(self, x)
 
     def __eq__(self, other):
+        if isinstance(other, type) and other in [internals.ZefRef, internals.EZefRef]:
+            import traceback
+            traceback.print_stack()
+            print(f"""Warning, you tried to compare == between a '{other}' and a ValueType. This is likely because you wrote `type(x) == SomeValueType`. Instead you should write `isinstance(x, SomeValueType)` or `representation_type(x) == SomeValueType`.""")
         if not isinstance(other, ValueType_): return False
-        return self.d['type_name'] == other.d['type_name'] and self.d['absorbed'] == other.d['absorbed']
+        # return self._d['type_name'] == other._d['type_name'] and self._d['absorbed'] == other._d['absorbed']
+        return self._d == other._d
 
 
     def __hash__(self):
-        return hash(self.d['type_name']) ^ hash(self.d['absorbed'])
+        # return hash(self._d['type_name']) ^ hash(self._d['absorbed'])
+        return hash_frozen(self._d)
 
 
     def __or__(self, other):
-        from ..op_structs import ZefOp
-        if isinstance(other, self.allowed_types):
-            return simplify_value_type(ValueType_(type_name='Union', absorbed=(self, other,)))
-        elif isinstance(other, ZefOp):
-            return other.__ror__(self)
+        from .sets import Union
+        if isinstance(other, ValueType_):
+            return simplify_type(Union[self, other])
         else:
-            raise Exception(f'"ValueType_`s "|" called with unsupported type {type(other)}')
+            return NotImplemented
 
     def __ror__(self, other):
         # Is | commutative? Going to assume it isn't
-        if isinstance(other, self.allowed_types):
-            return simplify_value_type(ValueType_(type_name='Union', absorbed=(other, self,)))
+        if isinstance(other, ValueType_):
+            from .sets import Union
+            return simplify_type(Union[other, self])
         else:
-            raise Exception(f'"ValueType_`s right-side "|" called with unsupported type {type(other)}')
+            return NotImplemented
     
     def __and__(self, other):
-        if isinstance(other, self.allowed_types):
-            return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(self, other,)))
+        if isinstance(other, ValueType_):
+            from .sets import Intersection
+            return simplify_type(Intersection[self, other])
         else:
-            raise Exception(f'"ValueType_`s "&" called with unsupported type {type(other)}')
+            return NotImplemented
 
     def __rand__(self, other):
         # Is & commutative? Going to assume it isn't
-        if isinstance(other, self.allowed_types):
-            return simplify_value_type(ValueType_(type_name='Intersection', absorbed=(other, self,)))
+        if isinstance(other, ValueType_):
+            from .sets import Intersection
+            return simplify_type(Intersection[other, self])
         else:
-            raise Exception(f'"ValueType_`s right-side "&" called with unsupported type {type(other)}')
+            return NotImplemented
 
     def __invert__(self):
-        return ValueType_(type_name='Complement', absorbed=(self,))
-
+        from .sets import Complemented
+        return Complement[self]
 
     def __contains__(self, x):
         """
         Allows checking membership in form
         >>> 4 in Int
         """
-        from ..op_implementations.implementation_typing_functions import is_a_implementation
-        return is_a_implementation(x, self)
+        return isinstance(x, self)
+
+    def __getattribute__(self, name):
+        if name.startswith("_"):
+            return object.__getattribute__(self, name)
+
+        get_attr_func, set_attr_func, dir_func = _value_type_attr_funcs.get(self._d["type_name"], (None,None,None))
+        if get_attr_func is None:
+            raise AttributeError(name)
+        return get_attr_func(self, name)
+
+    def __setattribute__(self, name, value):
+        if name.startswith("_"):
+            return object.__getattribute__(self, name)
+
+        get_attr_func, set_attr_func, dir_func = _value_type_attr_funcs.get(self._d["type_name"], (None,None,None))
+        if set_attr_func is None:
+            raise AttributeError
+        return set_attr_func(self, name, value)
+
+    def __dir__(self):
+        get_attr_func, set_attr_func, dir_func = _value_type_attr_funcs.get(self._d["type_name"], (None,None,None))
+        if get_attr_func is None:
+            return object.__dir__(self)
+        return dir_func(self)
+
+
+def simplify_type(typ):
+    if typ._d["type_name"] in _value_type_simplify_type_funcs:
+        return _value_type_simplify_type_funcs[typ._d["type_name"]](typ)
+    return typ
+        
     
+# Internal use only
+def is_type_(typ):
+    return type(typ) == ValueType_
 
-def make_distinct(v):
-    """
-    utility function to replace the 'distinct'
-    zefop and preserve order.
-    """
-    seen = set()
-    for el in v:
-        if isinstance(el, set):
-            # we can't import the following at the top of file or even outside this if
-            # block: this function executes upon import of zef and leads to 
-            # circular dependencies. We do really want to use the value_hash zefop though.
-            from ..op_implementations.implementation_typing_functions import value_hash
-            h = value_hash(el)
-        else:
-            h = el
-        if h not in seen:
-            yield el
-            seen.add(h)
-
-
-def simplify_value_type(x):
-    """
-    Only simplifies nested Union and Intersection.
-    It does not change any absorbed values, but
-    only rearranges on the outer level of Zef Values.
-
-    Union and Intersection behave analogous to + and *.
-
-    I[U[A, B], C] = I[U[A,C], U[B,C]]              # True
-    I[U[Ev, Od], Pos] = I[U[Ev,Pos], U[Odd,Pos]]   # True
-    (A+B)*C = A*C + B*C
-    
-    U[I[Ev, Od], Pos] = U[I[Ev,Pos], I[Odd,Pos]]   # This is False!!!!
-
-
-    """
-    def is_a_union(y):
-        try:
-            return y.d['type_name'] == 'Union'
-        except:
-            return False
-    def is_a_intersection(y):
-        try:
-            return y.d['type_name'] == 'Intersection'
-        except:
-            return False
-
-    if is_a_union(x):
-        # flatten out unions: Union[Union[A][B]][C]  == Union[A][B][C]
-        old_abs = x.d['absorbed']
-        absorbed = tuple((el.d['absorbed'] if is_a_union(el) else (el,) for el in old_abs))  # flatten this out
-        return ValueType_(type_name='Union', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
-    elif is_a_intersection(x):
-        # flatten out Intersections: Intersection[Intersection[A][B]][C]  == Intersection[A][B][C]
-        old_abs = x.d['absorbed']
-        absorbed = tuple((el.d['absorbed'] if is_a_intersection(el) else (el,) for el in old_abs))  # flatten this out
-        return ValueType_(type_name='Intersection', absorbed=tuple(make_distinct((a2 for a1 in absorbed for a2 in a1))))
+def is_a_(obj, typ):
+    assert is_type_(typ), f"Can't do a is_a_ on a non-ValueType '{typ}'"
+    if typ._d["type_name"] in _value_type_is_a_funcs:
+        out = _value_type_is_a_funcs[typ._d["type_name"]](obj, typ)
+        if out is not NotImplemented:
+            return out
+    if typ._d["type_name"] in _value_type_pytypes:
+        return isinstance(obj, _value_type_pytypes[typ._d["type_name"]])
     else:
-        return x
+        raise Exception(f"ValueType '{typ._d['type_name']}' has no is_a implementation")
+
+def is_subtype_(typ1, typ2):
+    assert is_type_(typ1), f"is_subtype got a non-type: {typ1}"
+    assert is_type_(typ2), f"is_subtype got a non-type: {typ2}"
+
+    if typ1._d["type_name"] in _value_type_override_subtype_funcs:
+        result = _value_type_override_subtype_funcs[typ1._d["type_name"]](typ1, typ2)
+        if result is True or result is False:
+            return result
+        # Otherwise, "maybe" and continue on, in the hopes the other type knows how.
+
+    if typ2._d["type_name"] in _value_type_is_subtype_funcs:
+        return _value_type_is_subtype_funcs[typ2._d["type_name"]](typ1, typ2)
+
+    # Fallback
+    if typ1._d["type_name"] == typ2._d["type_name"]:
+        # Going to default to nonvariant
+        return typ1._d == typ2._d
+    else:
+        # raise Exception(f"ValueType '{typ1._d['type_name']}' has no is_subtype implementation")
+        return False
+
+def is_strict_subtype_(typ1, typ2):
+    res = is_subtype_(typ1, typ2)
+
+    if typ1 == typ2:
+        return False
+    elif res is True:
+        return True
+    elif res is False:
+        return False
+    elif res == "maybe":
+        return False
+    
+def is_empty_(typ):
+    typ = simplify_type(typ)
+    from . import SetOf
+    return typ == SetOf
+
+
+def is_type_name_(typ, name):
+    return isinstance(typ, ValueType_) and typ._d["type_name"] == name
+    
+
+
+# Temporary hash, probably needs to be merged into other code
+
+def hash_frozen(obj):
+    if type(obj) == dict:
+        h = hash("dict")
+        for key in sorted(obj):
+            h ^= hash(key)
+            h ^= hash_frozen(obj[key])
+        return h
+    elif type(obj) == set:
+        all_hs = [hash_frozen(x) for x in obj]
+        h = hash("set")
+        for h_i in sorted(all_hs):
+            h ^= h_i
+        return h
+    elif type(obj) == list:
+        h = hash("list")
+        for x in obj:
+            h ^= hash_frozen(x)
+        return h
+    elif type(obj) == tuple:
+        h = hash("tuple")
+        for x in obj:
+            h ^= hash_frozen(x)
+        return h
+            
+    return hash(obj)
+
+
+def generic_subtype_get_item(self, x):
+    from . import ValueType
+    if "subtype" in self._d:
+        return NotImplemented
+    # if isinstance(x, ValueType):
+    #     return self._replace(subtype=(x,))
+    # else:
+    #     raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
+    return self._replace(subtype=x)
+
+def generic_subtype_str(self):
+    s = self._d["type_name"]
+    if "subtype" in self._d:
+        s += f"[{self._d['subtype']}]"
+    s += ''.join(f"[{x!r}]" for x in self._d["absorbed"])
+    return s
+
+def generic_covariant_is_subtype(x, super):
+    if x._d["type_name"] != super._d["type_name"]:
+        return False
+    if "subtype" not in super._d:
+        return True
+
+    from . import List
+    if isinstance(super._d["subtype"], List):
+        return all(is_subtype_(a,b) is True for a,b in zip(x._d["subtype"], super._d["subtype"]))
+    else:
+        return is_subtype_(x._d["subtype"], super._d["subtype"]) is True

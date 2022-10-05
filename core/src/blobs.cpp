@@ -101,14 +101,20 @@ namespace zefDB {
             // We create a mmap here as further down we use EZefRefs. These call
             // into ensure mmap etc...
             void * mem = MMap::create_mmap();
-            MMap::ensure_or_alloc_range(mem, 1024);
+            MMap::ensure_or_alloc_range(mem, (42+100)*16);
 
             size_t size;
             EZefRef uzr;
 
-#define BLOB(x) new (mem) blobs_ns::x{}; \
-            uzr = EZefRef{mem}; \
-            size = size_of_blob(EZefRef{mem}); \
+            // Note we use a deeper part of the memory range, as the EZefRef
+            // creates a Graph reference that modifies the reference counter in
+            // the earlier part of the memory.
+            //
+            //
+            void * loc = (void*)((uintptr_t)mem + 42*16);
+#define BLOB(x) new (loc) blobs_ns::x{}; \
+            uzr = EZefRef{loc}; \
+            size = size_of_blob(EZefRef{loc}); \
             std::cerr << std::setw(30) << #x << " is " << size/float(constants::blob_indx_step_in_bytes) << " blobs big."; \
             if(size > constants::blob_indx_step_in_bytes && (size%constants::blob_indx_step_in_bytes)/float(constants::blob_indx_step_in_bytes) != 0) \
                 std::cerr << "  *******************"; \
@@ -147,7 +153,7 @@ namespace zefDB {
             BLOB(VALUE_TYPE_EDGE);
             BLOB(VALUE_EDGE);
 
-            MMap::destroy_mmap(mem);
+            MMap::free_mmap(MMap::info_from_blobs(mem));
 #undef BLOB
         }
 

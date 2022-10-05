@@ -17,7 +17,7 @@ from zef.ops import *
 import zef
 
 from zef.core.op_implementations.implementation_typing_functions import ZefGenerator
-from zef.core.error import _ErrorType
+from zef.core.error import Error_
 
 @func
 def generate_from_x(x):
@@ -66,7 +66,7 @@ def user_transform(x, fct):
             if working | fct | collect: # Location of Panic exception - from frame 3 but in frame 2
                 return x
             working += 1
-    except _ErrorType as exc:
+    except Error_ as exc:
         raise
 
     return 2*x

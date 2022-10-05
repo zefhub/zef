@@ -292,8 +292,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def(py::init<SerializedValue>())	
 		.def_readonly("rep_type", &AttributeEntityType::rep_type)
 		.def_readonly("complex_value", &AttributeEntityType::complex_value)
-		.def("__repr__", [](const AttributeEntityType& self)->std::string { return to_str(self); })
-		.def("__str__", [](const AttributeEntityType& self)->std::string { return str(self); })
+        .def_property_readonly("name", [](AttributeEntityType& self)->std::string { return str(self); })
+		.def("__repr__", [](const AttributeEntityType& self)->std::string { return "libzefToken" + to_str(self); })
+		// .def("__str__", [](const AttributeEntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const AttributeEntityType& self, const AttributeEntityType& other)->bool { return self == other; }, py::is_operator())
 		.def("__hash__", [](const AttributeEntityType& self) {
             if(self.complex_value)
@@ -604,7 +605,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
         return update_heads;
     },
-        "Low-level function to see if an update needs to be sent out.", py::call_guard<py::gil_scoped_release>());
+        // DO NOT RELEASE THE GIL FOR THIS FUNCTION
+        "Low-level function to see if an update needs to be sent out.");
 
     internals_submodule.def("create_update_heads", [](GraphData & gd) {
         return internals::full_graph_heads(gd);

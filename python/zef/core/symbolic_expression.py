@@ -95,7 +95,7 @@ from .VT import FlatGraph, Pattern, Any, SetOf
 from ._ops import match, collect, insert, split, get, filter, map, Z
 from .zef_functions import func
 from .internals import ET, RT, AET
-from .flat_graph import Val
+# from .flat_graph import Val
 from .z_field import ZField_
 
 def merge_flatgraphs(g1, g2) -> FlatGraph:
