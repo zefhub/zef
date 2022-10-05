@@ -10210,3 +10210,13 @@ def unflatten_dict_imp(d: Dict) -> Dict:
     return op({})
 
 
+def token_name_imp(raet: RAET) -> String:
+    assert isinstance(raet, (ET, RT, AET))
+
+    if "token" not in raet._d:
+        raise Exception("No token inside of RAET")
+
+    token = raet._d.get("token", None)
+    assert isinstance(token, (EntityTypeToken, RelationTypeToken, AttributeEntityTypeToken))
+
+    return token.name
