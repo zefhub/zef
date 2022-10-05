@@ -146,7 +146,7 @@ def to_object(o: Dict|List, rules: List) -> Entity:
     if isinstance(o, list):
         return o | map[create_and_resolve_single_dict] | collect
     elif isinstance(o, dict):
-        return create_and_resolve_single_dict(o), idx_to_obj
+        return create_and_resolve_single_dict(o)
     else:
         raise Exception("Input must be a dictionary or a list of dictionaries.")
 
@@ -183,6 +183,25 @@ def identify_and_merge_step(obj, idx_to_obj, identification_rules):
     return None
 
 
-def match_identities(obj, idx_to_obj, identification_rules):
+def create_idx_to_obj_d(obj, idx_to_obj): 
+    """
+    Pure function that traverse the object and creates a dictionary mapping the internal ids of the objects to the objects themselves.
+    """
+    from zef.core.patching import EntityValueInstance_
+    def traverse_nested(v):
+        if isinstance(v, EntityValueInstance_):
+            create_idx_to_obj_d(v, idx_to_obj)
+        elif isinstance(v, (list, set)):
+            [create_idx_to_obj_d(x, idx_to_obj) for x in v]
+
+    if not isinstance(obj, EntityValueInstance_): return
+    
+    idx_to_obj[get_et_id(obj._entity_type)] = obj
+    obj._kwargs | items | map[lambda t: traverse_nested(t[1])] | collect
+   
+    return idx_to_obj
+
+def match_identities(obj, identification_rules):
+    idx_to_obj = create_idx_to_obj_d(obj, {})
     LazyValue(obj) | iterate[identify_and_merge_step[idx_to_obj][identification_rules]]  | take_while[lambda x: x]  | collect
     return obj
