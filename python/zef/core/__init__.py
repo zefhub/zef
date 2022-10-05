@@ -101,12 +101,10 @@ from . import op_implementations
 
 
 # Overloading ipython exception handler
-from IPython import get_ipython
-ip = get_ipython()
 def exception_handler(self, etype, evalue, tb, tb_offset=None):
     self.showtraceback((etype, evalue, tb), tb_offset=tb_offset)  # standard IPython's printout
     from zef.core.error import zef_ui_err
-    from .error import ExceptionWrapper, EvalEngineCoreError
+    from .error import ExceptionWrapper
     if isinstance(evalue, ExceptionWrapper): 
         try:
             print(zef_ui_err(evalue.wrapped))
@@ -114,9 +112,12 @@ def exception_handler(self, etype, evalue, tb, tb_offset=None):
             print(evalue)
     else:
         print(evalue)
-
-ip.set_custom_exc((Exception,), exception_handler) 
-
+try:
+    from IPython import get_ipython
+    ip = get_ipython()
+    ip.set_custom_exc((Exception,), exception_handler) 
+except:
+    pass
 pyzef.internals.finished_loading_python_core()
 
 # ############################################
