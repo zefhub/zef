@@ -254,14 +254,14 @@ def op_chain_pretty_print(el_ops):
 
     def el_op_to_str(p):
         import types
-        if p[0] == RT.Function:
+        if p[0] == internals.RT.Function:
             inner_f = p[1][0][1]
             if isinstance(inner_f, types.FunctionType):
                 name = inner_f.__name__
                 return name + ''.join([param_to_str(pp) for pp in p[1][1:]])
         # if p[0] == RT.OutOutOld:
         #     return f"\n>> todo!!!!"            
-        return to_snake_case(str(p[0])) + ''.join([param_to_str(pp) for pp in p[1]])
+        return to_snake_case(p[0].name) + ''.join([param_to_str(pp) for pp in p[1]])
     return ' | '.join(el_op_to_str(x) for x in el_ops)
 
 #   _                          ___                  ___                    _                                _           _    _               
@@ -1019,10 +1019,9 @@ class LazyValue:
                     "op": curr_op,
                 }
 
-                if op[0] == RT.Collect: continue
+                if op[0] == internals.RT.Collect: continue
 
-                if op[0] == RT.Run:
-                    
+                if op[0] == internals.RT.Run:
                     # If this raises an error then it will be handled as EvalEngineCoreError
                     # so that we can keep the traceback of the original nested error
                     # TODO:

@@ -206,12 +206,6 @@ def zef_ui_err(err):
         return ""
     
     except Exception as exc:
-        # TODO turn off this feedback
-        import sys
-        trace_back = sys.exc_info()[2]
-        line = trace_back.tb_lineno
-        Frame(Code(str(f"{exc} @line: {line}"), language = "python3"), title= "Error occured in Visual Output", expand=True) | show
-        
         return zef_ui_err_fallback(err)
 
 
@@ -353,8 +347,12 @@ class EvalEngineCoreError(Exception):
 def add_error_context(error, context):
     return prepend_error_contexts(error, [context])
 def prepend_error_contexts(error, contexts):
-    from copy import copy
-    out = copy(error)
+    # from copy import copy
+    err = Error_(error.name)
+    err.args = error.args
+    err.contexts = error.contexts
+    err.nested = error.nested
+    out = err
     if getattr(out, "contexts", None) is None:
         out.contexts = []
 
