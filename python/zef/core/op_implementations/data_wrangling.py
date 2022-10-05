@@ -17,7 +17,7 @@ from ...ops import *
 from ..VT import *
 
 
-def idx_generator(n=0):
+def make_idx_generator(n=0):
     def next_idx():
         nonlocal n
         n = n + 1
@@ -136,17 +136,17 @@ def to_object(o: Dict|List, rules: List) -> Entity:
     """
     validate_rules(rules)
     idx_to_obj = {}
-    idx = idx_generator()
+    idx_generator = make_idx_generator()
     def create_and_resolve_single_dict(d: Dict):
         assert isinstance(d, dict), f"Expected a dict, got {d}"
-        obj = create_object(d, idx, idx_to_obj)
+        obj = create_object(d, idx_generator, idx_to_obj)
         LazyValue(obj) | iterate[resolve_unknown[rules][idx_to_obj]] | take_while[lambda x: x]  | collect
         return obj
     
     if isinstance(o, list):
         return o | map[create_and_resolve_single_dict] | collect
     elif isinstance(o, dict):
-        return create_and_resolve_single_dict(o)
+        return create_and_resolve_single_dict(o), idx_to_obj
     else:
         raise Exception("Input must be a dictionary or a list of dictionaries.")
 
