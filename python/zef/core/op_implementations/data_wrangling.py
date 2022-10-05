@@ -153,11 +153,11 @@ def to_object(o: Dict|List, rules: List) -> Entity:
 @func
 def identify_and_merge_step(obj, idx_to_obj, identification_rules):
     def retrieve_obj(et):
-        return idx_to_obj[et._d['internal_id']]
+        return idx_to_obj[get_et_id(et)]
     
     def merge_identities(obj, other):
         # Remove overlapping obj from the dict
-        idx_to_obj.pop(other._entity_type._d['internal_id'])
+        idx_to_obj.pop(get_et_id(other._entity_type))
         
         # Overwrite the internal id of the other object with the internal id of the obj
         other._entity_type = obj._entity_type
@@ -171,7 +171,7 @@ def identify_and_merge_step(obj, idx_to_obj, identification_rules):
         except:
             return False
 
-    groups = flatten_object(obj) | map[first | first] | func[set] | group_by[lambda et: et._d['specific']] | collect
+    groups = flatten_object(obj) | map[first | first] | func[set] | group_by[without_absorbed] | collect
     for et, group in groups:
         if len(group) < 2: continue
         for o1, o2 in zip(group, group[1:]):
@@ -184,5 +184,5 @@ def identify_and_merge_step(obj, idx_to_obj, identification_rules):
 
 
 def match_identities(obj, idx_to_obj, identification_rules):
-    LazyValue(obj) | iterate[identify_and_merge_step[idx_to_obj][identification_rules]]  |  take_while[lambda x: x]  | collect
+    LazyValue(obj) | iterate[identify_and_merge_step[idx_to_obj][identification_rules]]  | take_while[lambda x: x]  | collect
     return obj
