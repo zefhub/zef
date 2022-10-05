@@ -1088,7 +1088,7 @@ class LazyValue:
                     got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
                 
                 else:
-                    if type(new_value) == Error_:
+                    if isinstance(new_value, Error):
                         # Here we have a choice - depends on what the caller expects, an Error or an exception
                         # Could also pass this down the line
                         # Need to distinguish between a caller wanting an error or wanting an exception
@@ -1100,7 +1100,7 @@ class LazyValue:
                         else:
                             pass
                         pass
-                    elif type(new_value) == ZefGenerator:
+                    elif isinstance(new_value, ZefGenerator):
                         new_value = new_value.add_context(cur_context)
 
                 if got_error is not None:

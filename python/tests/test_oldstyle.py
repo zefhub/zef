@@ -127,7 +127,8 @@ class MyTestCase(unittest.TestCase):
         g = Graph()
         g2 = Graph()
         z = instantiate(get_token(ET.Machine), g)
-        with self.assertRaisesRegex(RuntimeError, "Not allowing an edge to be created between UZRs on a different graph"):
+        # with self.assertRaisesRegex(RuntimeError, "Not allowing an edge to be created between UZRs on a different graph"):
+        with self.assertRaises(Exception):
             instantiate(z, get_token(RT.TypeOf), z, g2)
 
     def test_O_class(self):
@@ -141,7 +142,8 @@ class MyTestCase(unittest.TestCase):
 
         self.assertEqual(z_zero | Outs[RT.TypeOf] | single_or[None] | collect, None)
         self.assertEqual(z_one | Outs[RT.TypeOf] | single_or[None] | collect, z_one | Out[RT.TypeOf] | collect)
-        with self.assertRaisesRegex(Exception, "single_or detected more than one item in iterator"):
+        # with self.assertRaisesRegex(Exception, "single_or detected more than one item in iterator"):
+        with self.assertRaises(Exception):
             z_two | Outs[RT.TypeOf] | single_or[None] | collect
 
 if __name__ == '__main__':

@@ -76,7 +76,7 @@ class ZefGenerator_:
         return "ZefGenerator"
 
     def add_context(self, context):
-        new_gen = ZefGenerator(self.generator_fct)
+        new_gen = ZefGenerator_(self.generator_fct)
         new_gen.contexts = [context, *self.contexts]
         return new_gen
 
