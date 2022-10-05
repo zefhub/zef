@@ -1095,11 +1095,12 @@ class LazyValue:
 
                         # Build details here
                         # if user_wants_exception:
+                        # TODO Can we add context about frame here?
                         if True:
+                            new_value.nested = {"type": new_value.name, "args": new_value.args}
                             got_error = new_value
                         else:
                             pass
-                        pass
                     elif isinstance(new_value, ZefGenerator):
                         new_value = new_value.add_context(cur_context)
                     
