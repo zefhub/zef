@@ -59,7 +59,7 @@ def make_box_details(op_chain, out_types, op_purity):
 !! This is an incomplete/incorrect output !!
 Operator 🔗:    {op_chain}
 Signature:      {out_types[0]} -> {out_types[-1]}
-Purity:         {random.SystemRandom().choice(['🌿 pristenly pure', '👹 possibly mutating'])}\n\n"""
+Purity:         {random.SystemRandom().choice(['🌿 pristinely pure', '👹 possibly mutating'])}\n\n"""
 
 
 @func
