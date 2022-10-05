@@ -151,6 +151,26 @@ def to_object(o: Dict|List, rules: List) -> Entity:
         raise Exception("Input must be a dictionary or a list of dictionaries.")
 
 @func
+def create_idx_to_obj_d(obj, idx_to_obj): 
+    """
+    Pure function that traverse the object and creates a dictionary mapping the internal ids of the objects to the objects themselves.
+    """
+    from zef.core.patching import EntityValueInstance_
+    def traverse_nested(v):
+        if isinstance(v, EntityValueInstance_):
+            create_idx_to_obj_d(v, idx_to_obj)
+        elif isinstance(v, (list, set)):
+            [create_idx_to_obj_d(x, idx_to_obj) for x in v]
+
+    if not isinstance(obj, EntityValueInstance_): return
+    
+    idx_to_obj[get_et_id(obj._entity_type)] = obj
+    obj._kwargs | items | map[lambda t: traverse_nested(t[1])] | collect
+   
+    return idx_to_obj
+
+
+@func
 def identify_and_merge_step(obj, idx_to_obj, identification_rules):
     def retrieve_obj(et):
         return idx_to_obj[get_et_id(et)]
@@ -170,8 +190,10 @@ def identify_and_merge_step(obj, idx_to_obj, identification_rules):
             return identification_rules[et](o1, o2)
         except:
             return False
-
-    groups = flatten_object(obj) | map[first | first] | func[set] | group_by[without_absorbed] | collect
+    if isinstance(obj, list):
+        groups = obj | map[flatten_object] | concat | map[first | first] | func[set] | group_by[without_absorbed] | collect
+    else:
+        groups = flatten_object(obj) | map[first | first] | func[set] | group_by[without_absorbed] | collect
     for et, group in groups:
         if len(group) < 2: continue
         for o1, o2 in zip(group, group[1:]):
@@ -183,25 +205,11 @@ def identify_and_merge_step(obj, idx_to_obj, identification_rules):
     return None
 
 
-def create_idx_to_obj_d(obj, idx_to_obj): 
-    """
-    Pure function that traverse the object and creates a dictionary mapping the internal ids of the objects to the objects themselves.
-    """
-    from zef.core.patching import EntityValueInstance_
-    def traverse_nested(v):
-        if isinstance(v, EntityValueInstance_):
-            create_idx_to_obj_d(v, idx_to_obj)
-        elif isinstance(v, (list, set)):
-            [create_idx_to_obj_d(x, idx_to_obj) for x in v]
-
-    if not isinstance(obj, EntityValueInstance_): return
-    
-    idx_to_obj[get_et_id(obj._entity_type)] = obj
-    obj._kwargs | items | map[lambda t: traverse_nested(t[1])] | collect
-   
-    return idx_to_obj
-
-def match_identities(obj, identification_rules):
-    idx_to_obj = create_idx_to_obj_d(obj, {})
-    LazyValue(obj) | iterate[identify_and_merge_step[idx_to_obj][identification_rules]]  | take_while[lambda x: x]  | collect
-    return obj
+def match_identities(obj_or_list, identification_rules):
+    idx_to_obj = {}
+    if isinstance(obj_or_list, list):
+        obj_or_list | for_each[create_idx_to_obj_d[idx_to_obj]]
+    else:
+        create_idx_to_obj_d(obj_or_list, idx_to_obj)
+    LazyValue(obj_or_list) | iterate[identify_and_merge_step[idx_to_obj][identification_rules]]  | take_while[lambda x: x]  | collect
+    return list(idx_to_obj.values())
