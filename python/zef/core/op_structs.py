@@ -1088,20 +1088,22 @@ class LazyValue:
                     got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
                 
                 else:
-                    if isinstance(new_value, Error):
+                    if isinstance(new_value, Error_):
                         # Here we have a choice - depends on what the caller expects, an Error or an exception
                         # Could also pass this down the line
                         # Need to distinguish between a caller wanting an error or wanting an exception
 
                         # Build details here
                         # if user_wants_exception:
+                        # TODO Can we add context about frame here?
                         if True:
+                            new_value.nested = {"type": new_value.name, "args": new_value.args}
                             got_error = new_value
                         else:
                             pass
-                        pass
                     elif isinstance(new_value, ZefGenerator):
                         new_value = new_value.add_context(cur_context)
+                    
 
                 if got_error is not None:
                     raise add_error_context(got_error, cur_context) from None
@@ -1148,7 +1150,7 @@ class LazyValue:
                             e = add_error_context(e, cur_context)
                             raise e from None
 
-                        if type(val) == Error_:
+                        if isinstance(val, Error_):
                             raise add_error_context(val, cur_context) from None
 
                         return_list.append(val)

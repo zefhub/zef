@@ -108,11 +108,14 @@ def zef_ui_err(err):
         #### Title ####
         title = Text(name, color="#FF9494", italic=True)
 
+
+        stack_lst = []
         ##### Header ####
-        if top_frame:
-            stack_lst = [Text(f"\n{nested['type']} occured in {top_frame['func_name']}", color="#189ad3")]
-        else:
-            stack_lst = [Text(f"\n{nested['type']}", color="#189ad3")]
+        err_type = nested.get('type', None)
+        if top_frame and err_type:
+            stack_lst += [Text(f"\n{nested['type']} occured in {top_frame['func_name']}", color="#189ad3")]
+        elif err_type:
+            stack_lst += [Text(f"\n{nested['type']}", color="#189ad3")]
 
 
         ##### Frames ####
@@ -197,7 +200,7 @@ def zef_ui_err(err):
             stack_lst += [tc_header, tc_fail_body]
 
         ##### Error Messages ####
-        if nested['args']:
+        if nested.get('args', None):
             err_msg_header = Text("\n==Error Message==", bold=True, justify="center", italic=True)
             err_msg = Text(f"\n{','.join([str(arg) for arg in nested['args']])}", color="#FF9494")
             stack_lst += [err_msg_header, err_msg]
@@ -208,10 +211,8 @@ def zef_ui_err(err):
     
     except Exception as exc:
         import traceback
-        import sys
-
+        print("!Visual Error output failed!")
         print(traceback.format_exc())
-        print(sys.exc_info()[2])
         return zef_ui_err_fallback(err)
 
 
