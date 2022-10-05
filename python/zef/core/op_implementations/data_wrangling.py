@@ -26,9 +26,13 @@ def idx_generator(n=0):
 
 
 def is_same_et(et1, et2):
-    return et1._d['specific'] == et2._d['specific']
+    return without_absorbed(et1) == without_absorbed(et2)
 
+def get_et_id(et):
+    assert len(absorbed(et)) == 1, f"{et} didn't have excatly a single absorbed arg!"
+    return absorbed(et)[0]
 
+@func
 def create_object(d: Dict, generator, idx_to_obj) -> Entity:
 
     def mapping(v):
@@ -81,7 +85,7 @@ def flatten_object(obj: Entity) -> list[list[tuple, tuple]]:
     @func
     def flatten_to_tuples_with_ids(obj, rt, trgt) -> tuple:
         def generate_type_and_id_maybe(obj):
-            return (obj._entity_type, obj._entity_type._d['internal_id']) if isinstance(obj, EntityValueInstance_) else (obj, None)
+            return (obj._entity_type, get_et_id(obj._entity_type)) if isinstance(obj, EntityValueInstance_) else (obj, None)
         
         return ((obj, rt, trgt) | map[generate_type_and_id_maybe] | zip | collect) # -> # [(obj, t[0], t[1]), (id?, None, None)]
 
@@ -125,19 +129,29 @@ def validate_rules(rules: List) -> Bool:
     return True
 
 
-def to_object(d: Dict, rules: List) -> Entity:
+def to_object(o: Dict|List, rules: List) -> Entity:
     """
-    Given a dictionary defining an object and a set of rules. The initial object with prefilled unknowns is iterated
+    Given a dictionary (or a list of dicts) defining an object and a set of rules. The initial object with prefilled unknowns is iterated
     on until rules no longer match. The final object is returned.
     """
     validate_rules(rules)
     idx_to_obj = {}
-    obj = create_object(d, idx_generator(), idx_to_obj)
-    LazyValue(obj) | iterate[resolve_unknown[rules][idx_to_obj]] | take_while[lambda x: x]  | collect
-    return obj, idx_to_obj
+    idx = idx_generator()
+    def create_and_resolve_single_dict(d: Dict):
+        assert isinstance(d, dict), f"Expected a dict, got {d}"
+        obj = create_object(d, idx, idx_to_obj)
+        LazyValue(obj) | iterate[resolve_unknown[rules][idx_to_obj]] | take_while[lambda x: x]  | collect
+        return obj
+    
+    if isinstance(o, list):
+        return o | map[create_and_resolve_single_dict] | collect
+    elif isinstance(o, dict):
+        return create_and_resolve_single_dict(o)
+    else:
+        raise Exception("Input must be a dictionary or a list of dictionaries.")
 
 @func
-def identify_and_merge(obj, idx_to_obj, identification_rules):
+def identify_and_merge_step(obj, idx_to_obj, identification_rules):
     def retrieve_obj(et):
         return idx_to_obj[et._d['internal_id']]
     
@@ -169,6 +183,6 @@ def identify_and_merge(obj, idx_to_obj, identification_rules):
     return None
 
 
-def identification_step(obj, idx_to_obj, identification_rules):
-    LazyValue(obj) | iterate[identify_and_merge[idx_to_obj][identification_rules]]  |  take_while[lambda x: x]  | collect
+def match_identities(obj, idx_to_obj, identification_rules):
+    LazyValue(obj) | iterate[identify_and_merge_step[idx_to_obj][identification_rules]]  |  take_while[lambda x: x]  | collect
     return obj
