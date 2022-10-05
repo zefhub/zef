@@ -128,24 +128,25 @@ def zef_ui_err(err):
             stack_lst += [file_text]
 
         ##### Carret Highlighting ####
-        chain_str   = make_lazy_value_pretty(chains[0]['chain'])
-        arrow_str   = "--> "
-        if len(chain_str) + len(arrow_str) > MAX_CONSOLE_WIDTH:
-            chain_str = chain_str[:MAX_CONSOLE_WIDTH - len(arrow_str) - 5] + "... "  
-        stack_lst += [Text([Text("\n--> ", color="#33b864"), chain_str])]
+        if chains:
+            chain_str   = make_lazy_value_pretty(chains[0]['chain'])
+            arrow_str   = "--> "
+            if len(chain_str) + len(arrow_str) > MAX_CONSOLE_WIDTH:
+                chain_str = chain_str[:MAX_CONSOLE_WIDTH - len(arrow_str) - 5] + "... "  
+            stack_lst += [Text([Text("\n--> ", color="#33b864"), chain_str])]
 
-        def make_carrets_if_found(chain_str, failed_func, arrow_str):
-            if "_implementation" in failed_func: failed_func = failed_func[:failed_func.index("_implementation")]
-            if "_imp" in failed_func: failed_func = failed_func[:failed_func.index("_imp")]
-            idx = chain_str.find(failed_func) 
-            if idx == -1: 
-                return []
-            padding = idx + len(arrow_str)
-            error_carrets = f"{' ' * padding}{'^' * len(failed_func)}"
-            return  [Text(error_carrets, color="#FF9494")]
+            def make_carrets_if_found(chain_str, failed_func, arrow_str):
+                if "_implementation" in failed_func: failed_func = failed_func[:failed_func.index("_implementation")]
+                if "_imp" in failed_func: failed_func = failed_func[:failed_func.index("_imp")]
+                idx = chain_str.find(failed_func) 
+                if idx == -1: 
+                    return []
+                padding = idx + len(arrow_str)
+                error_carrets = f"{' ' * padding}{'^' * len(failed_func)}"
+                return  [Text(error_carrets, color="#FF9494")]
 
-        failed_func = str(ZefOp((chains[-1]['op'],),))
-        stack_lst += make_carrets_if_found(chain_str, failed_func, arrow_str)
+            failed_func = str(ZefOp((chains[-1]['op'],),))
+            stack_lst += make_carrets_if_found(chain_str, failed_func, arrow_str)
 
         ##### States or Context #####
         if len(states) < 1:
@@ -206,6 +207,11 @@ def zef_ui_err(err):
         return ""
     
     except Exception as exc:
+        import traceback
+        import sys
+
+        print(traceback.format_exc())
+        print(sys.exc_info()[2])
         return zef_ui_err_fallback(err)
 
 
