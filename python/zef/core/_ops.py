@@ -376,6 +376,8 @@ splice          = make_zefop(internals.RT.Splice)
 flatten_dict    = make_zefop(internals.RT.FlattenDict)
 unflatten_dict  = make_zefop(internals.RT.UnflattenDict)
 
+
+token_name      = make_zefop(internals.RT.TokenName)
           
 # match
 # split_before

@@ -201,8 +201,9 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	py::class_<zefDB::EntityType>(main_module, "EntityType", py::buffer_protocol(), py::dynamic_attr())		
         .def(py::init<token_value_t>())
         .def_readonly("value", &EntityType::entity_type_indx)
+        .def_property_readonly("name", [](EntityType& self)->std::string { return str(self); })
 		.def("__repr__", [](const EntityType& self)->std::string { return "libzefToken" + to_str(self); })
-		.def("__str__", [](const EntityType& self)->std::string { return str(self); })
+		// .def("__str__", [](const EntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const EntityType& self, const EntityType& other)->bool {return self==other; }, py::is_operator())
 		.def("__hash__", [](const EntityType& self) {return get_hash(self); })  // similar to the python hash for a python int: just use the int itself as the hash
 		.def("__int__", [](const EntityType& self)->int {return self.entity_type_indx; })  // similar to the python hash for a python int: just use the int itself as the hash
@@ -212,8 +213,9 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	py::class_<zefDB::RelationType>(main_module, "RelationType", py::buffer_protocol(), py::dynamic_attr())
         .def(py::init<token_value_t>())
         .def_readonly("value", &RelationType::relation_type_indx)
+        .def_property_readonly("name", [](RelationType& self)->std::string { return str(self); })
 		.def("__repr__", [](const RelationType& self)->std::string { return "libzefToken" + to_str(self); })
-		.def("__str__", [](const RelationType& self)->std::string {return str(self); })
+		// .def("__str__", [](const RelationType& self)->std::string {return str(self); })
 		.def("__eq__", [](const RelationType& self, const RelationType& other)->bool {return self.relation_type_indx == other.relation_type_indx; }, py::is_operator())
 		.def("__hash__", [](const RelationType& self) {return get_hash(self); })
 		.def("__copy__", [](const RelationType& self)->RelationType {return self; })

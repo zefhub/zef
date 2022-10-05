@@ -21,6 +21,8 @@ class TestStringMethods(unittest.TestCase):
     def test_blobtype_name(self):
         g = Graph()
         from zef.core.internals import get_token
+        from zef.ops import token_name
+
         et = instantiate(get_token(ET.Entity), g)
         rt = instantiate(et, get_token(RT.Relation), et, g)
         aet = instantiate(get_token(AET.String), g)
@@ -28,22 +30,22 @@ class TestStringMethods(unittest.TestCase):
         self.assertEqual(str(BT(et)), 'BT.ENTITY_NODE')
         self.assertEqual(str(BT(aet)), 'BT.ATTRIBUTE_ENTITY_NODE')
         self.assertEqual(str(BT(rt)), 'BT.RELATION_EDGE')
-        self.assertEqual(str(get_token(BT(et))), 'ENTITY_NODE')
-        self.assertEqual(str(get_token(BT(aet))), 'ATTRIBUTE_ENTITY_NODE')
-        self.assertEqual(str(get_token(BT(rt))), 'RELATION_EDGE')
+        self.assertEqual(token_name(BT(et)), 'ENTITY_NODE')
+        self.assertEqual(token_name(BT(aet)), 'ATTRIBUTE_ENTITY_NODE')
+        self.assertEqual(token_name(BT(rt)), 'RELATION_EDGE')
 
-        self.assertEqual(str(get_token(ET(et))), 'Entity')
+        self.assertEqual(token_name(ET(et)), 'Entity')
         self.assertEqual(str(ET(et)), 'ET.Entity')
 
-        self.assertEqual(str(get_token(AET(aet))), 'String')
+        self.assertEqual(token_name(AET(aet)), 'String')
         self.assertEqual(str(AET(aet)), 'AET.String')
 
-        self.assertEqual(str(get_token(RT(rt))), 'Relation')
+        self.assertEqual(token_name(RT(rt)), 'Relation')
         self.assertEqual(str(RT(rt)), 'RT.Relation')
 
         aet2 = instantiate(get_token(AET.QuantityFloat.kilograms), g)
         self.assertEqual(str(AET(aet2)), 'AET.QuantityFloat.kilograms')
-        self.assertEqual(str(get_token(AET(aet2))), 'QuantityFloat.kilograms')
+        self.assertEqual(token_name(AET(aet2)), 'QuantityFloat.kilograms')
 
         en = EN.Unit.kilograms
         self.assertEqual(repr(en), 'EN.Unit.kilograms')

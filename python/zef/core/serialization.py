@@ -189,7 +189,7 @@ def serialize_zeftypes(z) -> dict:
 
     elif isinstance(z, RelationTypeToken) or isinstance(z, EntityTypeToken) or isinstance(z, AttributeEntityTypeToken):
         bt_type = {internals.RelationType: "RTToken", internals.EntityType: "ETToken", internals.AttributeEntityType: "AETToken"}[type(z)]
-        return {"_zeftype": bt_type, "value": str(z)}
+        return {"_zeftype": bt_type, "value": token_name(z)}
 
     elif isinstance(z, Graph):
         return {"_zeftype": "Graph", "guid": str(uid(z))}

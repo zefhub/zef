@@ -321,4 +321,5 @@ _op_to_functions = {
         internals.RT.Splice:             (splice_imp, None),
         internals.RT.FlattenDict:        (flatten_dict_imp, None),
         internals.RT.UnflattenDict:      (unflatten_dict_imp, None),
+        internals.RT.TokenName:          (token_name_imp, None),
 }
