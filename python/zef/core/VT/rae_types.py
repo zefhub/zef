@@ -81,10 +81,12 @@ def token_str(self):
     my_name = self._d["type_name"]
     s = my_name
     if "token" in self._d:
-        if isinstance(self._d["token"], str):
-            s += "[" + str(self._d["token"]) + "]"
-        else:
+        if isinstance(self._d["token"], (EntityTypeToken, RelationTypeToken, AttributeEntityTypeToken)):
+            s += "." + self._d["token"].name
+        elif isinstance(self._d["token"], BlobTypeToken):
             s += "." + str(self._d["token"])
+        else:
+            s += "[" + str(self._d["token"]) + "]"
     if len(self._d["absorbed"]) > 0:
         s += f"['{self._d['absorbed'][0]}']"
     return s
