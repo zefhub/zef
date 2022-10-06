@@ -313,7 +313,7 @@ def json_to_minimal_nodes(json, g):
                 elif field_name in ["_AllowQuery", "_AllowAdd", "_AllowUpdate", "_AllowUpdatePost", "_AllowDelete"]:
                     # TODO: Turn into a zef function later on
                     actions += [(Z[type_name], RT(field_name[1:]), field)]
-                elif field_name in ["_OnCreate", "_OnRemove", "_OnUpdaate"]:
+                elif field_name in ["_OnCreate", "_OnRemove", "_OnUpdate"]:
                     # Find the zef function that this corresponds to
                     if field not in now(g):
                         raise Exception(f"Hook named {field} not found on schema graph")
