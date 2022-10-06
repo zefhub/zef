@@ -1597,9 +1597,9 @@ def make_qi_aet(x):
 #     }
 def map_scalar_to_aet_type(x):
     return LazyValue(x) | match[
+        (PyBool, always[AET.Bool]),
         (Int, always[AET.Int]),
         (Float, always[AET.Float]),
-        (Bool, always[AET.Bool]),
         (String, always[AET.String]),
         (Time, always[AET.Time]),
         (Enum, make_enum_aet),
