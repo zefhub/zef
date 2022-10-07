@@ -1195,7 +1195,7 @@ class LazyValue:
 def type_checking_context(op, function, inp):
     from .op_implementations.implementation_typing_functions import is_a_implementation
     try:
-        if op[0] == RT.Function:
+        if op[0] == internals.RT.Function:
             function = op[1][0][1]
             import types
             assert type(function) == types.FunctionType, "Failed function check"
@@ -1204,7 +1204,6 @@ def type_checking_context(op, function, inp):
         full_arg_spec = inspect.getfullargspec(function)
         args, annotations = full_arg_spec.args, full_arg_spec.annotations
         assert len(annotations) > 0, "Missing Annotations"
-
         arg_type = annotations.get(args[0], None)
         assert arg_type is not None, "Failed retrieving the annotation for input arg"
         return {"type_check": {"expected": {"input":inp, "arg": args[0], "type": arg_type}, "result": is_a_implementation(inp, arg_type), "function": function}}
