@@ -461,7 +461,7 @@ def iteration_step(state: dict, gen_id)->dict:
     # WARNING: this mutates but is necessary for speed
     if not isinstance(exprs, list):
         exprs = list(exprs)
-    expr = exprs.pop()
+    expr = exprs.pop(0)
 
     new_exprs,new_cmds = dispatch_cmds_for(expr, gen_id)
 
