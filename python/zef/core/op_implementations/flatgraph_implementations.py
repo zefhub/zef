@@ -553,7 +553,7 @@ def fg_merge_imp(fg1, fg2 = None):
         old_to_new[old_idx] = idx
         return new_b
 
-    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RelationType)] | sort[lambda b: -len(b[2])]:
+    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RT)] | sort[lambda b: -len(b[2])]:
         rt_key = idx_key_2.get(b[0], None)
 
         src_b, trgt_b = fg2.blobs[b[4]], fg2.blobs[b[5]]
@@ -569,7 +569,7 @@ def fg_merge_imp(fg1, fg2 = None):
         old_to_new[b[0]] = idx
 
             
-    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RelationType)]:
+    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RT)]:
         if b[0] not in old_to_new: retrieve_or_insert_blob(b)
 
     new_fg = FlatGraph()

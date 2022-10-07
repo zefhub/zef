@@ -8453,7 +8453,7 @@ def to_zef_list_tp(op, curr_type):
 
 #-----------------------------FlatGraph Implementations-----------------------------------
 def fg_insert_imp(fg, new_el):
-    from ..graph_delta import map_scalar_to_aet_type
+    from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types
     from ...pyzef.internals import DelegateRelationTriple
 
     assert is_a(fg, FlatGraph)
@@ -8516,7 +8516,7 @@ def fg_insert_imp(fg, new_el):
         elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Instantiated):
             raise ValueError("!!!!SHOULD NO LONGER ARRIVE HERE!!!!")
         
-        elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Terminate):
+        elif isinstance(new_el, ZefOp[terminate]):
             to_be_removed = LazyValue(new_el) | absorbed | attempt[first][None] | collect
             idx = None
             if to_be_removed:
@@ -8531,14 +8531,15 @@ def fg_insert_imp(fg, new_el):
                 except:
                     raise Exception(f"An exception happened while trying to perform {new_el} on {fg}")
 
-        elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Assign):
+        elif isinstance(new_el, ZefOp[assign]):
             internals = LazyValue(new_el) | absorbed  | collect
             assert len(internals) == 2, f"assign should have both the entity and the value to be assigned got {internals} instead"
             ref, val = internals
             idx = common_logic(ref <= val)
 
 
-        elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
+        # elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
+        elif isinstance(new_el, ZefOp[Z]):
             key = peel(new_el)| first | second | first | collect
             if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
             idx = new_key_dict.get(key, key)
@@ -8589,8 +8590,8 @@ def fg_insert_imp(fg, new_el):
                 # new index of the blob originally in the other FlatGraph
                 idx = fr_merge_and_retrieve_idx(new_blobs, new_key_dict,next_idx, new_el)
 
-        elif type(new_el) in list(map_scalar_to_aet_type.keys()): 
-            aet = map_scalar_to_aet_type[type(new_el)](new_el)
+        elif isinstance(new_el, shorthand_scalar_types):
+            aet = map_scalar_to_aet_type(new_el)
             idx = next_idx()
             new_blobs.append((idx, aet, [], None, new_el))
 
@@ -8638,14 +8639,14 @@ def fg_insert_imp(fg, new_el):
         return ent_idx
 
     def _insert_single(new_el):
-        if isinstance(new_el, (ET, AET, EntityRef, AttributeEntityRef, ZefOp, LazyValue,BlobPtr, *list(map_scalar_to_aet_type.keys()), Val, Delegate)):
+        if isinstance(new_el, (ET, AET, EntityRef, AttributeEntityRef, ZefOp, LazyValue,BlobPtr, *shorthand_scalar_types, Val, Delegate)):
             common_logic(new_el)
         elif isinstance(new_el, tuple) and len(new_el) == 3:
             src, rt, trgt = new_el
             src_idx = common_logic(src)
             trgt_idx = common_logic(trgt)
             assert isinstance(src_idx, Int) and isinstance(trgt_idx, Int), "Couldn't find/create src or target!"
-            assert type(rt) in {RelationType, ZefOp}, "Tuples must have Relation as second item."
+            assert issubclass(rt, RT) or isinstance(rt, ZefOp), "Tuples must have Relation as second item."
             idx = next_idx()
 
             # Case of RT.A['a']
@@ -8664,8 +8665,8 @@ def fg_insert_imp(fg, new_el):
             src, rt, trgt = new_el.d['type']
             src_uid, rt_uid, trgt_uid = new_el.d['uids']
 
-            if type(src) == RelationType and src_uid not in new_key_dict: raise ValueError("Source of an abstract Relation can't be a Relation that wasn't inserted before!")
-            if type(trgt) == RelationType and trgt_uid not in new_key_dict: raise ValueError("Target of an abstract Relation can't be a Relation that wasn't inserted before!")
+            if isinstance(src, RT) and src_uid not in new_key_dict: raise ValueError("Source of an abstract Relation can't be a Relation that wasn't inserted before!")
+            if isinstance(trgt, RT) and trgt_uid not in new_key_dict: raise ValueError("Target of an abstract Relation can't be a Relation that wasn't inserted before!")
             src_idx = construct_abstract_rae_and_return_idx(src, src_uid)
             trgt_idx = construct_abstract_rae_and_return_idx(trgt, trgt_uid)
             idx = next_idx()
@@ -8792,7 +8793,7 @@ def fg_remove_imp(fg, key):
                 key = idx_key.get(idx, None)
                 if key : del(kdict[key])
             else: del(kdict[key])
-            if type(blob_type) == RelationType:
+            if issubclass(blob_type, RT):
                 src_idx, trgt_idx = blob[4:]
                 if blobs[src_idx] and idx in blobs[src_idx][2]: blobs[src_idx][2].remove(idx)
                 if blobs[trgt_idx] and -idx in blobs[trgt_idx][2]: blobs[trgt_idx][2].remove(-idx)
@@ -8854,9 +8855,9 @@ def flatgraph_to_commands(fg):
             if for_rt:
                 return Z[value_hash(b[-1])]
             else:
-                from ..graph_delta import map_scalar_to_aet_type
-                if type(b[-1]) in map_scalar_to_aet_type:
-                    aet = map_scalar_to_aet_type[type(b[-1])](b[-1])
+                from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types
+                if isinstance(b[-1], shorthand_scalar_types):
+                    aet = map_scalar_to_aet_type(b[-1])
                     return aet[value_hash(b[-1])] <= (b[-1])
                 else:
                     return AET.Serialized[value_hash(b[-1])] <= to_json(b[-1])
