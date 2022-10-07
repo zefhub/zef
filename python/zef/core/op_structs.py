@@ -1099,6 +1099,7 @@ class LazyValue:
                         if True:
                             new_value.nested = {"type": new_value.name, "args": new_value.args}
                             got_error = new_value
+                            got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
                         else:
                             pass
                     elif isinstance(new_value, ZefGenerator):
