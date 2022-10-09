@@ -95,10 +95,11 @@ def resolve_args(args):
 def get_zef_function_args(z_fct, g):
     from ..core.zef_functions import zef_function_args
     zefref_or_func = peel(z_fct)[0][1][0][1]
-    if type(zefref_or_func) == Entity:
+    if is_a(zefref_or_func, Entity):
         full_arg_spec = zef_function_args(g[zefref_or_func] | now  | collect)
         args, defaults =  full_arg_spec.args, full_arg_spec.defaults
-        return args[:len(args) - len(defaults)]
+        if defaults: args = args[:len(args) - len(defaults)]
+        return args
     else:
         import types
         assert type(zefref_or_func) == types.FunctionType
@@ -113,7 +114,7 @@ def get_zef_function_args(z_fct, g):
 def generate_fct(field_dict, g, allow_none):
     resolver = field_dict["resolver"]
     if resolver is None and not allow_none:
-        raise ValueError("A type's field resolver shouldn't be set to None! \
+        raise ValueError("A type's field resolver shouldn't be set to None! \n\
             To use default values for your resolver, explicitly call fill_types_default_resolvers on your schema dictionary!")
 
     def resolve_field(obj, info, **kwargs):
@@ -121,6 +122,7 @@ def generate_fct(field_dict, g, allow_none):
             "obj": obj,
             "query_args": kwargs,
             "graphql_info": info,
+            "g": g,
             # To be extended
         }
         if isinstance(resolver, ZefFunction):
