@@ -90,6 +90,13 @@ class _GraphQL_Class():
     StopPlayground = FXElement(('GraphQL', 'StopPlayground'))
     GenerateSchemaString = FXElement(('GraphQL', 'GenerateSchemaString'))
 
+class _GraphQL2_Class():
+    _name = "GraphQL2"
+    StartServer = FXElement(('GraphQL2', 'StartServer'))
+    StopServer = FXElement(('GraphQL2', 'StopServer'))
+    StartPlayground = FXElement(('GraphQL2', 'StartPlayground'))
+    StopPlayground = FXElement(('GraphQL2', 'StopPlayground'))
+
 
 class _LocalFile_Class():
     _name = "LocalFile"
@@ -171,6 +178,7 @@ class _FX_Class:
     Websocket = _Websocket_Class()
     Subprocess = _Subprocess_Class()
     GraphQL = _GraphQL_Class()
+    GraphQL2 = _GraphQL2_Class()
     ZefUI = _ZefUI_Class()
     LocalFile = _LocalFile_Class()
     S3 = _S3_Class()
