@@ -25,13 +25,14 @@ def fill_types_default_resolvers(schema_d):
         # If resolver is either unset or set None
         resolver = field_dict.get("resolver", None)
         if resolver: return None
-        return (('_Types', type_name, field_name, 'resolver'), get[field_name])
+        return (('_Types', type_name, field_name, 'resolver'), field[RT(to_pascal_case(field_name))])
 
 
     # Generate a list of Tuples[path, default_resolver] for fields where resolver is either unset or set to None
     paths_and_defaults = (
         schema_d['_Types']
         | items
+        | filter[lambda x: x[0] not in {"Query", "Mutation"}]
         | map[lambda type_t: (type_t[1] 
                             | items 
                             | map[lambda field_t: generate_default_if_unset(type_t[0], *field_t)] 
