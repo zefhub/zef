@@ -33,11 +33,12 @@ make_VT('Enum', pytype=pyzef.main.ZefEnumValue)
 
 def graph_ctor(*args, **kwargs):
     # Go to experimental load path for cases it supports
-    if len(kwargs) == 0 and len(args) == 1 and type(args[0]) == str:
-        from ...experimental.repl_interface import load_graph
-        return load_graph(args[0])
-    else:
-        from ...core import internals
-        return internals.Graph(*args, **kwargs)
+    # TODO: Uncomment this once event loop issue with IPython is figured out.
+    # if len(kwargs) == 0 and len(args) == 1 and type(args[0]) == str:
+    #     from ...experimental.repl_interface import load_graph
+    #     return load_graph(args[0])
+    # else:
+    from ...core import internals
+    return internals.Graph(*args, **kwargs)
 
 make_VT('Graph', constructor_func=graph_ctor, pytype=pyzef.main.Graph)
