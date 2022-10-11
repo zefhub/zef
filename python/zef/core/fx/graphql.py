@@ -30,6 +30,9 @@ def graphql_start_server_handler(eff: Effect):
         "type": FX.GraphQL.StartServer,
         "port": 5001, (default=5000) 
         "schema_root": z_schema,
+        --- OR ---
+        "schema_dict": d,
+        "g": g,
         "path": "/gql", (default="/gql")
         "playground_path": "/", (default=None)
         "open_browser": False (default=False)
@@ -38,7 +41,14 @@ def graphql_start_server_handler(eff: Effect):
 
 
     from ...gql.generate_gql_api import make_api
-    schema = make_api(eff['schema_root'])
+    from ...graphql import make_graphql_api
+
+    if "schema_root" in eff:
+        schema = make_api(eff['schema_root'])
+    elif "schema_dict" in eff and "g" in eff:
+        schema = make_graphql_api(eff['schema_dict'], eff['g'])
+    else:
+        raise Exception("Either schema_root or schema_dict and g must be provided to run a GraphQL server")
     port = eff.get("port", 5000)
 
     gql_path = eff.get("path", "/gql")
@@ -100,13 +110,22 @@ def graphql_start_playground_handler(eff: dict):
     {
         "type": FX.GraphQL.StartPlayground,
         "schema_root": z_schema,
+        --- OR ---
+        "schema_dict": d,
+        "g": g,
         "port": 5001, (default=5000)
         "path": "/gql", (default="/gql")
         "playground_path": "/", (default="/")
         "open_browser": True (default=True)
     } | run
     """   
-    schema = eff['schema_root']
+    if "schema_root" in eff:
+        schema = {"schema_root": eff['schema_root']}
+    elif "schema_dict" in eff and "g" in eff:
+        schema = {"schema_dict": eff['schema_dict'], "g": eff['g']}
+    else:
+        raise Exception("Either schema_root or schema_dict and g must be provided to run a GraphQL Playground")
+
     port = eff.get("port", 5000)
 
     gql_path = eff.get("path", "/gql")
@@ -121,7 +140,7 @@ def graphql_start_playground_handler(eff: dict):
     http_r = {
         "type": FX.GraphQL.StartServer,
         "port": port,
-        "schema_root": schema,
+        **schema,
         "path": gql_path,
         "playground_path": playground_path,
         "open_browser": open_browser,
