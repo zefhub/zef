@@ -100,24 +100,31 @@ from .symbolic_expression import SV, SVs, v, unwrap_vars_hack
 from . import op_implementations
 
 
-# Overloading ipython exception handler
-def exception_handler(self, etype, evalue, tb, tb_offset=None):
-    self.showtraceback((etype, evalue, tb), tb_offset=tb_offset)  # standard IPython's printout
+def visual_exception_view(error_value):
     from zef.core.error import zef_ui_err
     from .error import ExceptionWrapper
-    if isinstance(evalue, ExceptionWrapper): 
+    if isinstance(error_value, ExceptionWrapper): 
         try:
-            print(zef_ui_err(evalue.wrapped))
+            print(zef_ui_err(error_value.wrapped))
         except Exception as e:
-            print(evalue)
-    else:
-        print(evalue)
+            pass
 try:
     from IPython import get_ipython
     ip = get_ipython()
-    ip.set_custom_exc((Exception,), exception_handler) 
+    def ip_exception_handler(self, etype, evalue, tb, tb_offset=None):
+        self.showtraceback((etype, evalue, tb), tb_offset=tb_offset)  # standard IPython's printout
+        visual_exception_view(evalue)
+    
+    # Overloading ipython exception handler
+    ip.set_custom_exc((Exception,), ip_exception_handler) 
 except:
-    pass
+    import sys
+    def sys_except_hook(exctype, value, traceback):
+        sys.__excepthook__(exctype, value, traceback)
+        visual_exception_view(value)
+    
+    # Overloading python exception handler
+    sys.excepthook = sys_except_hook
 pyzef.internals.finished_loading_python_core()
 
 # ############################################
