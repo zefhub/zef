@@ -25,7 +25,6 @@ def yo_implementation(x, display=True):
     import inspect
     from ..fx.fx_types import FXElement, _group_types
     from ..fx import _effect_handlers
-    from ..graph_slice import GraphSlice
     
     if display:
         import sys
@@ -34,28 +33,28 @@ def yo_implementation(x, display=True):
         import io
         file = io.StringIO()
 
-    if isinstance(x, (EZefRef | ZefRef) & BT.TX_EVENT_NODE):
+    if is_a(x, (EZefRef | ZefRef) & BT.TX_EVENT_NODE):
         print(tx_view(x), file=file)
-    elif isinstance(x, EZefRef):
+    elif is_a(x, EZefRef):
         if is_delegate(x):
             print("\n\n\n**************  delegate EZefRef ********************\n\n", file=file)
         else:
             print(eternalist_view(x), file=file)
-    elif isinstance(x, ZefRef):
+    elif is_a(x, ZefRef):
         if is_delegate(x):
             print("\n\n\n**************  delegate ZefRef ********************\n\n", file=file)
         else:
             print(eternalist_view(x), file=file)
-    elif isinstance(x, Graph):
+    elif is_a(x, Graph):
         print(graph_info(x), file=file)
     elif "pyzef.Graph" in str(type(x)):
         # This is because of monkeypatching
         print(graph_info(x), file=file)
 
-    elif isinstance(x, GraphSlice):
+    elif is_a(x, GraphSlice):
         return yo_implementation(x | to_tx | collect, display)
 
-    elif type(x) == ZefOp:
+    elif is_a(x, ZefOp):
         if len(x.el_ops) == 1:
             from .dispatch_dictionary import _op_to_functions
             if len(x.el_ops) == 1:
