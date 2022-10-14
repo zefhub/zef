@@ -21,6 +21,8 @@ def generate_mapping_for_et(et, g):
     z = delegate_of(et, g)
     connected_rels = z | out_rels[RT] | collect
     mapping =  connected_rels | map[rae_type] | collect
+    # TODO, should this be removed and handled with returning empty table?
+    if len(mapping) < 1: raise Exception(f"Couldn't find any out RTs from {et}'s delegate.")
     return mapping
 
 @func
