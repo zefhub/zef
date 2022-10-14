@@ -23,7 +23,8 @@ def same_as_get_item(y):
 
 
 SameAs      = make_VT('SameAs', get_item_func = same_as_get_item)
-Tagged     = make_VT('Tagged'   )
-LazyValue  = make_VT('LazyValue')
-Function   = make_VT('Function' )
-GraphDelta = make_VT('GraphDelta')
+# TODO Add or remove these once decided their importance
+# Tagged     = make_VT('Tagged'   )
+# LazyValue  = make_VT('LazyValue')
+# Function   = make_VT('Function' )
+# GraphDelta = make_VT('GraphDelta')
