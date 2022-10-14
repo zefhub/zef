@@ -129,7 +129,7 @@ def validate_rules(rules: List) -> Bool:
     return True
 
 
-def to_object(o: Dict|List, rules: List) -> Entity:
+def infer_types(o: Dict|List, rules: List) -> Entity:
     """
     Given a dictionary (or a list of dicts) defining an object and a set of rules. The initial object with prefilled unknowns is iterated
     on until rules no longer match. The final object is returned.
@@ -205,7 +205,7 @@ def identify_and_merge_step(obj, idx_to_obj, identification_rules):
     return None
 
 
-def match_identities(obj_or_list, identification_rules: Dict) -> List[object]:
+def deduplicate(obj_or_list, identification_rules: Dict) -> List[object]:
     idx_to_obj = {}
     if isinstance(obj_or_list, list):
         obj_or_list | for_each[create_idx_to_obj_d[idx_to_obj]]
@@ -257,7 +257,7 @@ def match_with_entity_and_replace_step(obj_list, idx_to_objs, identification_rul
 
 
 
-def match_entities(obj_list: List[object], entity_identification_rules: Dict, gs: GraphSlice) -> List[object]:
+def identify_entities(obj_list: List[object], entity_identification_rules: Dict, gs: GraphSlice) -> List[object]:
     from collections import defaultdict
     idx_to_objs = defaultdict(set)
     obj_list | for_each[generate_id_to_objs[idx_to_objs]]
