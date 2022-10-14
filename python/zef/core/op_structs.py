@@ -1032,8 +1032,8 @@ class LazyValue:
                         except Exception as e:
                             message = f"Failed while trying to run this impure function {op[1][1]}: \n{e.args}"
                             err =  Error.Panic()
-                            err.keep_traceback = True
                             err = make_custom_error(e, err, message, cur_context)
+                            err.keep_traceback = True
                             err.__traceback__ = e.__traceback__
                             raise err from e
                     elif isinstance(curr_value, dict): 
