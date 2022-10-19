@@ -165,8 +165,9 @@ def RT_is_a(x, typ):
         return internals.RT(x) == typ._d["token"]
     else:
         if isinstance(x, BlobPtr):
+            # TODO: not was removed from the second part of this condition. In case something breaks check here!
             return (internals.BT(x) == internals.BT.RELATION_EDGE
-                    and not internals.is_delegate(x))
+                    and internals.is_delegate(x))
         return isinstance(x, ValueType) and x._d["type_name"] == "RT"
 def BT_is_a(x, typ):
     if "token" not in typ._d:
