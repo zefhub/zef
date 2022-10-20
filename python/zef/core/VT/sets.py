@@ -201,7 +201,7 @@ def complement_getitem(self, x):
         raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
 
 def complement_is_a(val, typ):
-    return not isinstance(val, typ)
+    return not isinstance(val, typ._d['type'])
 
 
 make_VT('Complement',
