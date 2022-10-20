@@ -202,7 +202,7 @@ class ValueType_:
 
 
     def __or__(self, other):
-        from .sets import Union
+        from . import Union
         if isinstance(other, ValueType_):
             return simplify_type(Union[self, other])
         else:
@@ -211,14 +211,14 @@ class ValueType_:
     def __ror__(self, other):
         # Is | commutative? Going to assume it isn't
         if isinstance(other, ValueType_):
-            from .sets import Union
+            from . import Union
             return simplify_type(Union[other, self])
         else:
             return NotImplemented
     
     def __and__(self, other):
         if isinstance(other, ValueType_):
-            from .sets import Intersection
+            from . import Intersection
             return simplify_type(Intersection[self, other])
         else:
             return NotImplemented
@@ -226,13 +226,13 @@ class ValueType_:
     def __rand__(self, other):
         # Is & commutative? Going to assume it isn't
         if isinstance(other, ValueType_):
-            from .sets import Intersection
+            from . import Intersection
             return simplify_type(Intersection[other, self])
         else:
             return NotImplemented
 
     def __invert__(self):
-        from .sets import Complemented
+        from . import Complement
         return Complement[self]
 
     def __contains__(self, x):
