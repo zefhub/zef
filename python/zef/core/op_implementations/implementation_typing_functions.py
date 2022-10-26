@@ -9939,13 +9939,17 @@ def gather_imp(z_initial, rules=None):
 
     ---------------- A: Explicit Rules -----------------
     Giving an explicit rule set:
-    >>> rules = [
-    >>>     (Z[ET.A], RT.R1, ET.B),        # from source
-    >>>     (Z[Any], RT.R2, AET.String),    
-    >>>     (ET.Bar, RT.R2, Z[ET.Foo]),    # from target moving in the opposite direction of the relation
-    >>> ]
-    then 
-    >>> z1 | gather[rules]
+    >>> rules = {
+    >>>     'from_source': [
+    >>>             (Any, RT.Director, ET.Person),
+    >>>             (Any,  RT.FirstName, AET.String),
+    >>>     ],
+    >>>     'from_target': [
+    >>>         (Any, RT.Writer, ET.Person,),
+    >>>     ]
+    >>> }
+    >>> z1 | gather[rules] | collect
+
     will iteratively traverse the graph until there is nothing more to be collected.
     What do the rules specify in this case? For example, the first rule (ET.A, RT.R1, ET.B)
     being part of 'from_source' mean that if one were to stand on a node of type "ET.A" as a source,
@@ -9956,7 +9960,6 @@ def gather_imp(z_initial, rules=None):
     For certain entity types, predefined rule sets are associated.
     B1) For ET.ZEF_Function, a rule set to gather all things related to that function is predefined.
     Future: Also for ET.ZEF_EffectModule, ET.ZEF_Op
-    
     """
 
 
@@ -9964,11 +9967,11 @@ def gather_imp(z_initial, rules=None):
     if rules is None:
         if z_initial | is_a[ET.ZEF_Function] | collect:
             zef_fct_rules =  [
-                        (Z[ET.ZEF_Function], RT.PythonSourceCode, AET.String),
-                        (Z[ET.ZEF_Function], RT.OriginalName,     AET.String),
-                        (Z[ET.ZEF_Function], RT.Binding,          ET.ZEF_Function),
-                        (Z[RT.Binding],      RT.Name,             AET.String),
-                        (Z[RT.Binding],      RT.UseTimeSlice,     AET.String),
+                        (ET.ZEF_Function, RT.PythonSourceCode, AET.String),
+                        (ET.ZEF_Function, RT.OriginalName,     AET.String),
+                        (ET.ZEF_Function, RT.Binding,          ET.ZEF_Function),
+                        (RT.Binding,      RT.Name,             AET.String),
+                        (RT.Binding,      RT.UseTimeSlice,     AET.String),
                     ]
             return gather_imp(z_initial, zef_fct_rules)           
         else:
@@ -9977,18 +9980,14 @@ def gather_imp(z_initial, rules=None):
 
     # --------------------------------- verify the rules data structure-------------------------------
     # TODO: once type checking is in place, hoist this out of the body into the function signature
-    ValidRule = (
-        List &
-        Is[length | equals[3]] & (
-            Is[first | without_absorbed | equals[Z]] |
-            Is[last | without_absorbed | equals[Z]] 
-        ))
-    def EveryElement(T):
-        return List & Is[ map[is_a[T]] | all  ]
+    ValidTriple    = Tuple & Is[length | equals[3]]
+    ValidRuleList  = List & Is[ map[is_a[ValidTriple]] | all  ] 
+    ValidRulesDict = Dict & (
+        (Is[contains['from_source']] & Is[get['from_source'] | is_a[ValidRuleList]]) | 
+        (Is[contains['from_target']] & Is[get['from_target'] | is_a[ValidRuleList]])
+    )
 
-    ValidRuleList = EveryElement(ValidRule)
-
-    if not rules | is_a[ValidRuleList] | collect:
+    if not rules | is_a[ValidRulesDict] | collect:
         return Error(f'`gather` called with an invalid set of rules: {rules}')
 
 
@@ -10007,9 +10006,8 @@ def gather_imp(z_initial, rules=None):
                 return []
             return z | in_rels[rel_tp][src_tp] | map[lambda rel: (rel, source(rel))] | concat | collect
  
-        from_source_rules = rules | filter[first | without_absorbed | equals[Z]] | map[lambda x: (absorbed(x[0])[0], x[1], x[2])] | collect
-        from_target_rules = rules | filter[last  | without_absorbed | equals[Z]] | map[lambda x: (x[0], x[1], absorbed(x[2])[0])] | collect
-
+        from_source_rules = rules.get('from_source', [])
+        from_target_rules = rules.get('from_target', [])
         return (
             from_source_rules | map[from_single_rule_from_source] | concat | collect,
             from_target_rules | map[from_single_rule_from_target] | concat | collect,
