@@ -810,26 +810,38 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     // Message encoding/decoding, exposed for ZefHub
     internals_submodule.def("prepare_ZH_message", [](const py::dict & d, const std::vector<std::string> & list) {
-        json j = d;
-        std::string s;
+        json j;
+        std::cerr << "Before extract j from d" << std::endl;
         {
-            py::gil_scoped_release release;
-            s = Communication::prepare_ZH_message(j, list);
+            py::gil_scoped_acquire acquire;
+            j = d;
         }
-        return py::bytes(s);
-    });
+        std::cerr << "Before calling internal prepare ZH message" << std::endl;
+        std::string s = Communication::prepare_ZH_message(j, list);
+        std::cerr << "Before conveting s to bytes" << std::endl;
+        {
+            py::gil_scoped_acquire acquire;
+            return py::bytes(s);
+        }
+    },  py::call_guard<py::gil_scoped_release>());
     internals_submodule.def("prepare_ZH_message", [](const std::string & j_s, const std::vector<std::string> & list) {
-        json j = json::parse(j_s);
+        json j;
+        std::cerr << "Before extract j from d" << std::endl;
+        {
+            py::gil_scoped_acquire acquire;
+            j = json::parse(j_s);
+        }
         if(!j.is_object())
             throw std::runtime_error("When passing json as a string, need it to parse into an object.");
             
-        std::string s;
+        std::cerr << "Before calling internal prepare ZH message" << std::endl;
+        std::string s = Communication::prepare_ZH_message(j, list);
+        std::cerr << "Before conveting s to bytes" << std::endl;
         {
-            py::gil_scoped_release release;
-            s = Communication::prepare_ZH_message(j, list);
+            py::gil_scoped_acquire acquire;
+            return py::bytes(s);
         }
-        return py::bytes(s);
-    });
+    },  py::call_guard<py::gil_scoped_release>());
     internals_submodule.def("parse_ZH_message", [](const std::string & s) {
         auto tup = Communication::parse_ZH_message(s);
         auto v_in = std::get<1>(tup);
