@@ -59,6 +59,6 @@ def config_typeinfo(v_tp):
     return VT.Any
 
 
-_op_to_functions[RT.Config] = (config_implementation, config_typeinfo)
+_op_to_functions[internals.RT.Config] = (config_implementation, config_typeinfo)
 
-config = ZefOp(((RT.Config, ()), ))
+config = ZefOp(((internals.RT.Config, ()), ))
