@@ -3382,8 +3382,12 @@ def skip_while_imp(it, predicate):
     """
     import itertools
     predicate = make_predicate(predicate)
-    return itertools.dropwhile(predicate, it)
-
+    res = itertools.dropwhile(predicate, it)
+    def wrapper():
+            it = iter(res)
+            for el in it:
+                yield el                
+    return ZefGenerator(wrapper)
 def skip_while_tp(it_tp, pred_type):
     return it_tp
 
