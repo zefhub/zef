@@ -846,10 +846,12 @@ void fill_internals_module(py::module_ & internals_submodule) {
         auto tup = Communication::parse_ZH_message(s);
         auto v_in = std::get<1>(tup);
         std::vector<py::bytes> v;
+        std::cerr << "About to acquire GIL in parse_ZH_message" << std::endl;
         {
             py::gil_scoped_acquire acquire;
             std::transform(v_in.cbegin(), v_in.cend(), std::back_inserter(v),
                            [](auto & x) { return py::bytes(x); });
+            std::cerr << "About to release GIL in parse_ZH_message" << std::endl;
             return std::make_tuple(std::get<0>(tup), v);
         }
     },  py::call_guard<py::gil_scoped_release>());
