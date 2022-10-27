@@ -18,7 +18,7 @@ from .fx_types import Effect, FX
 from ..VT import Pattern, SetOf, Error
 from uuid import uuid4
 from .._ops import *
-# from ..error import Error
+# from .._error import Error
 
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import threading

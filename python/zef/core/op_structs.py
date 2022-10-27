@@ -180,7 +180,7 @@ from inspect import isfunction, getfullargspec
 from types import LambdaType
 from typing import Generator, Iterable, Iterator
 from ._core import *
-from .error import  ExceptionWrapper, EvalEngineCoreError, add_error_context, convert_python_exception, make_custom_error
+from ._error import  ExceptionWrapper, EvalEngineCoreError, add_error_context, convert_python_exception, make_custom_error
 from .VT import *
 from .VT import make_VT, generic_subtype_get_item
 from . import internals, VT
@@ -481,12 +481,12 @@ class ZefOp_:
             collect_op = CollectingOp(curried_op)
         
         lzy_val = LazyValue(args[0]) if not isinstance(args[0], LazyValue) else args[0]
-        from .error import EvalEngineCoreError
+        from ._error import EvalEngineCoreError
         try:
             res = lzy_val | collect_op
         except ExceptionWrapper as e:
             tb = e.__traceback__
-            from .error import process_python_tb
+            from ._error import process_python_tb
             frames = process_python_tb(tb)
             err = add_error_context(e.wrapped, {"frames": frames})
             raise ExceptionWrapper(err) from None
@@ -897,12 +897,12 @@ class LazyValue:
         res_lazyval = LazyValue(self.initial_val)
         res_lazyval.el_ops = res
 
-        from .error import EvalEngineCoreError
+        from ._error import EvalEngineCoreError
         try:
             if should_trigger_eval(res_lazyval): return evaluate_lazy_value(res_lazyval)
         except ExceptionWrapper as e:
             tb = e.__traceback__
-            from .error import process_python_tb
+            from ._error import process_python_tb
             frames = process_python_tb(tb)
             err = add_error_context(e.wrapped, {"frames": frames})
             if getattr(e, "keep_traceback", None):
@@ -1002,7 +1002,7 @@ class LazyValue:
     def evaluate(self, unpack_generator = True):
         from .op_implementations.dispatch_dictionary import _op_to_functions
         from .op_implementations.implementation_typing_functions import ZefGenerator
-        from ..core.error import Error_
+        from ..core._error import Error_
 
         curr_op = None
         curr_value = self.initial_val
@@ -1069,7 +1069,7 @@ class LazyValue:
                 except ExceptionWrapper as e:
                     # Continue the panic, attaching more tb info
                     tb = e.__traceback__
-                    from .error import process_python_tb
+                    from ._error import process_python_tb
                     frames = process_python_tb(tb)
                     got_error = add_error_context(e.wrapped, {"frames": frames})
                     got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))

@@ -64,7 +64,7 @@ This custom structure may rearrange and parse terms.
 ---------- User Defined Types ----------
 needed?
 """
-# from ..error import Error
+# from .._error import Error
 from .._core import *
 from .. import internals
 

@@ -26,8 +26,8 @@ from .._ops import *
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
 from .flatgraph_implementations import *
 from ..logger import log
-from ..error import Error_, Error
-from ..error import EvalEngineCoreError, ExceptionWrapper, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
+from .._error import Error_, Error
+from .._error import EvalEngineCoreError, ExceptionWrapper, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
 
 from ...pyzef import zefops as pyzefops, main as pymain
 from ..internals import BaseUID, EternalUID, ZefRefUID, to_uid, ZefEnumStruct, ZefEnumStructPartial
@@ -6473,7 +6473,7 @@ def representation_type_imp(x):
     ET     | representation_type    # ValueType
 
     """
-    from ...core.bytes import Bytes_
+    from ...core._bytes import Bytes_
     tp = type(x)    
     try:
         return {
@@ -9207,7 +9207,7 @@ def to_bytes_imp(x: String) -> Bytes:
     operates on: String
     related zefop: utf8bytes_to_string
     """
-    from zef.core.bytes import Bytes_
+    from zef.core._bytes import Bytes_
     if isinstance(x, String): return Bytes(x.encode())     # default: utf8
     if isinstance(x, bytes): return Bytes(x)
     if isinstance(x, Bytes_): return x

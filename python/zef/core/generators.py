@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .VT import *
-from .error import *
+from ._error import *
 class ZefGenerator_:
     """
     A class that acts as a uniform interface instead of Python's

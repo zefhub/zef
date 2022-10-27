@@ -63,13 +63,13 @@ from .overrides import *
 from . import internals
 from . import pure_utils
 from . import VT
-from . import error
+from . import _error
 from . import generators
 from .VT import extended_containers
 from . import user_value_type
-from . import image
-from . import decimal
-from . import bytes
+from . import _image
+from . import _decimal
+from . import _bytes
 # Up to here, DEFINITELY no zefops can be called
 from . import abstract_raes
 from . import graph_slice
@@ -101,8 +101,8 @@ from . import op_implementations
 
 
 def visual_exception_view(error_value):
-    from zef.core.error import zef_ui_err
-    from .error import ExceptionWrapper
+    from zef.core._error import zef_ui_err
+    from ._error import ExceptionWrapper
     if isinstance(error_value, ExceptionWrapper): 
         try:
             print(zef_ui_err(error_value.wrapped))

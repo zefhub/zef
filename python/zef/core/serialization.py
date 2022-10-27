@@ -27,8 +27,8 @@ from .VT import ValueType_
 from ._ops import *
 from .op_structs import ZefOp_, CollectingOp, SubscribingOp, ForEachingOp, LazyValue, Awaitable, is_python_scalar_type
 from .abstract_raes import Entity_, Relation_, AttributeEntity_
-from .error import Error_
-from .image import Image_
+from ._error import Error_
+from ._image import Image_
 from .fx.fx_types import FXElement, Effect
 from .flat_graph import FlatGraph_, FlatRef_, FlatRefs_
 from ..pyzef import internals as pyinternals
