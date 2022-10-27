@@ -92,29 +92,33 @@ def token_str(self):
     return s
 
 def ET_is_a(x, typ):
+    from . import DelegateRef
     if "token" in typ._d:
-        if not isinstance(x, BlobPtr):
+        if isinstance(x, DelegateRef):
+            return x.item == typ._d["token"]
+        elif isinstance(x, BlobPtr):
+            if internals.BT(x) != internals.BT.ENTITY_NODE:
+                return False
+            if isinstance(typ._d["token"], ValueType):
+                return isinstance(internals.ET(x), typ._d["token"])
+            return internals.ET(x) == typ._d["token"]
+        else:
             return False
-        if internals.BT(x) != internals.BT.ENTITY_NODE:
-            return False
-        if internals.is_delegate(x):
-            return False
-        if isinstance(typ._d["token"], ValueType):
-            return isinstance(internals.ET(x), typ._d["token"])
-        return internals.ET(x) == typ._d["token"]
     else:
-        if isinstance(x, BlobPtr):
-            return (internals.BT(x) == internals.BT.ENTITY_NODE
-                    and not internals.is_delegate(x))
+        if isinstance(x, DelegateRef):
+            return isinstance(x.item, EntityTypeToken)
+        elif isinstance(x, BlobPtr):
+            return internals.BT(x) == internals.BT.ENTITY_NODE
         return isinstance(x, ValueType) and x._d["type_name"] == "ET"
 def AET_is_a(x, typ):
+    from . import DelegateRef
     if "token" in typ._d:
         token = typ._d["token"]
 
-        if isinstance(x, BlobPtr):
+        if isinstance(x, DelegateRef):
+            x_aet = x.item
+        elif isinstance(x, BlobPtr):
             if internals.BT(x) != internals.BT.ATTRIBUTE_ENTITY_NODE:
-                return False
-            if internals.is_delegate(x):
                 return False
             x_aet = internals.AET(x)
         elif isinstance(x, ValueType) and x._d["type_name"] == "AET":
@@ -147,27 +151,36 @@ def AET_is_a(x, typ):
                     return internals.is_vrt_a_enum(x_aet.rep_type)
         return False
     else:
-        if isinstance(x, BlobPtr):
-            return (internals.BT(x) == internals.BT.ATTRIBUTE_ENTITY_NODE
-                    and not internals.is_delegate(x))
+        if isinstance(x, DelegateRef):
+            return isinstance(x.item, AtomicEntityTypeToken)
+        elif isinstance(x, BlobPtr):
+            return internals.BT(x) == internals.BT.ATTRIBUTE_ENTITY_NODE
         return is_type_name_(x, "AET")
 def RT_is_a(x, typ):
+    from . import DelegateRef
     if "token" in typ._d:
-        if not isinstance(x, BlobPtr):
+        if isinstance(x, DelegateRef):
+            if type(x.item) == internals.DelegateRelationTriple:
+                return x.item.rt == typ._d["token"]
+            else:
+                return x.item == typ._d["token"]
+        elif isinstance(x, BlobPtr):
+            if internals.BT(x) != internals.BT.RELATION_EDGE:
+                return False
+            # TODO: EntityTypeToken
+            if isinstance(typ._d["token"], ValueType):
+                return isinstance(internals.RT(x), typ._d["token"])
+            return internals.RT(x) == typ._d["token"]
+        else:
             return False
-        if internals.BT(x) != internals.BT.RELATION_EDGE:
-            return False
-        if internals.is_delegate(x):
-            return False
-        # TODO: EntityTypeToken
-        if isinstance(typ._d["token"], ValueType):
-            return isinstance(internals.RT(x), typ._d["token"])
-        return internals.RT(x) == typ._d["token"]
     else:
-        if isinstance(x, BlobPtr):
+        if isinstance(x, DelegateRef):
+            if type(x.item) == internals.DelegateRelationTriple:
+                return isinstance(x.item.rt, RelationTypeToken)
+            return isinstance(x.item, RelationTypeToken)
+        elif isinstance(x, BlobPtr):
             # TODO: not was removed from the second part of this condition. In case something breaks check here!
-            return (internals.BT(x) == internals.BT.RELATION_EDGE
-                    and internals.is_delegate(x))
+            return internals.BT(x) == internals.BT.RELATION_EDGE
         return isinstance(x, ValueType) and x._d["type_name"] == "RT"
 def BT_is_a(x, typ):
     if "token" not in typ._d:

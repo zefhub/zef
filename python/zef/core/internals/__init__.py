@@ -36,6 +36,7 @@ from ...pyzef.internals import (
     BlobType,
     BlobTypeStruct,
     Delegate,
+    DelegateRelationTriple,
     EntityTypeStruct,
     EternalUID,
     FinishTransaction,
