@@ -1040,7 +1040,7 @@ class LazyValue:
                         try:
                             curr_value = _op_to_functions[op[0]][0](curr_value)
                         except Exception as e:
-                            message = f"Failed while trying to run the following FX: {curr_value}"
+                            message = f"Failed while trying to run the following FX: {str(curr_value)[:50]}...\n{e}"
                             raise make_custom_error(e, Error.Panic(), message, cur_context) from None
                     else:
                         message = f"only effects or nullary functions can be passed to 'run' to be executed in the imperative shell. Received {curr_value}"
