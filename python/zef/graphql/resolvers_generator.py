@@ -35,6 +35,7 @@ def fill_types_default_resolvers(schema_d):
         | filter[lambda x: x[0] not in {"Query", "Mutation"}]
         | map[lambda type_t: (type_t[1] 
                             | items 
+                            | filter[lambda kv: not kv[0].startswith("_")]
                             | map[lambda field_t: generate_default_if_unset(type_t[0], *field_t)] 
                             | collect)
             ] 
