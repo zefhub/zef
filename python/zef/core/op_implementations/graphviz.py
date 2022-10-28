@@ -185,7 +185,7 @@ def graphviz_imp(zz, *flags):
             return f"{RT(z)!r}"        
         if BT(z)==BT.VALUE_NODE:
             return f"Val({val_to_str(z)})"
-        return f"BT.{BT(z)}"[:-5]
+        return f"{BT(z)}"[:-5]
     
     def nice_color(z: EZefRef)->str:
         if BT(z) == BT.ENTITY_NODE:
