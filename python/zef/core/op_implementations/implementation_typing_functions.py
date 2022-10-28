@@ -9398,9 +9398,9 @@ def blueprint_imp(x, include_edges=False):
     if isinstance(x, Graph):
         g = x
 
-        rules = [
-            (Z[Any], BT.TO_DELEGATE_EDGE, Any)
-        ]
+        rules = {"from_source": [
+            (Any, BT.TO_DELEGATE_EDGE, Any)
+        ]}
 
         all_items = g | root | gather[rules] | collect
 
@@ -9931,7 +9931,7 @@ def indexes_of_imp(v, ElType):
 
 
 
-def gather_imp(initial: List[ZefRef] | ZefRef, rules, max_step = float('inf')) -> Set[ZefRef]:
+def gather_imp(initial: List[ZefRef | EZefRef] | ZefRef, rules, max_step = float('inf')) -> Set[ZefRef]:
     """ 
     An operator that given a launch point on a graph, gathers up 
     a subgraph by traversing based on a rules pattern that is specified.
@@ -10030,7 +10030,7 @@ def gather_imp(initial: List[ZefRef] | ZefRef, rules, max_step = float('inf')) -
 
     if isinstance(initial, (list,set)):
         initial = set(initial)
-    elif is_a(initial, ZefRef):
+    elif is_a(initial, ZefRef) or is_a(initial, EZefRef):
         initial = {initial}
     else:
         raise TypeError(f'`gather` called with an invalid initial value: {initial}')
