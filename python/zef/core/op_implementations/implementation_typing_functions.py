@@ -9931,7 +9931,7 @@ def indexes_of_imp(v, ElType):
 
 
 
-def gather_imp(z_initial, rules=None):
+def gather_imp(initial: List[ZefRef] | ZefRef, rules, max_step = float('inf')) -> Set[ZefRef]:
     """ 
     An operator that given a launch point on a graph, gathers up 
     a subgraph by traversing based on a rules pattern that is specified.
@@ -9964,18 +9964,19 @@ def gather_imp(z_initial, rules=None):
 
 
     # ------------------------------ catch all cases for implicit rules ----------------------------------
-    if rules is None:
-        if z_initial | is_a[ET.ZEF_Function] | collect:
-            zef_fct_rules =  [
-                        (ET.ZEF_Function, RT.PythonSourceCode, AET.String),
-                        (ET.ZEF_Function, RT.OriginalName,     AET.String),
-                        (ET.ZEF_Function, RT.Binding,          ET.ZEF_Function),
-                        (RT.Binding,      RT.Name,             AET.String),
-                        (RT.Binding,      RT.UseTimeSlice,     AET.String),
-                    ]
-            return gather_imp(z_initial, zef_fct_rules)           
-        else:
-            raise TypeError(f"Implicit rules not defined in 'gather' operator for {rae_type(z_initial)}")
+    # TODO enable this once ZefFunctions are stable
+    # if rules is None:
+    #     if z_initial | is_a[ET.ZEF_Function] | collect:
+    #         zef_fct_rules =  [
+    #                     (ET.ZEF_Function, RT.PythonSourceCode, AET.String),
+    #                     (ET.ZEF_Function, RT.OriginalName,     AET.String),
+    #                     (ET.ZEF_Function, RT.Binding,          ET.ZEF_Function),
+    #                     (RT.Binding,      RT.Name,             AET.String),
+    #                     (RT.Binding,      RT.UseTimeSlice,     AET.String),
+    #                 ]
+    #         return gather_imp(z_initial, zef_fct_rules)           
+    #     else:
+    #         raise TypeError(f"Implicit rules not defined in 'gather' operator for {rae_type(z_initial)}")
 
 
     # --------------------------------- verify the rules data structure-------------------------------
@@ -10019,13 +10020,26 @@ def gather_imp(z_initial, rules=None):
         return {
             'gathered': new_gathered,
             'frontier': new_frontier,
+            'iteration': d['iteration'] + 1.0,
         }
     
-    frontier_is_empty = get['frontier'] | length | equals[0]    
+    frontier_is_empty = get['frontier'] | length | equals[0]
+    max_step_reached  = get['iteration'] | equals[max_step]
+    stop_condition    = Or[frontier_is_empty][max_step_reached]
+
+
+    if isinstance(initial, (list,set)):
+        initial = set(initial)
+    elif is_a(initial, ZefRef):
+        initial = {initial}
+    else:
+        raise TypeError(f'`gather` called with an invalid initial value: {initial}')
+
     return {
         'gathered': set(),
-        'frontier': {z_initial, },
-    } | iterate[step] | take_until[frontier_is_empty] | last | get['gathered'] | collect
+        'frontier': initial,
+        'iteration': 0.0,
+    } | iterate[step] | take_until[stop_condition] | last | get['gathered'] | collect
 
 
 
