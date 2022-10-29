@@ -436,120 +436,160 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                 std::cerr << "Loaded GUID: " << me.uid << " has heads of read:tx = " << me.gd->read_head.load() << ":" << me.gd->latest_complete_tx.load() << std::endl;
             }
 
-            json j{
-                    {"msg_type", "subscribe_to_graph"},
-                    {"msg_version", 3},
-                    {"graph_uid", str(me.uid)},
-            };
-            parse_filegraph_update_heads(*fg, j, working_layout);
-            
-            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
-            j["hash_index"] = j["blobs_head"];
-            auto response = wait_on_zefhub_message(j);
+            GenericZefHubResponse response;
+
+            while(true) {
+                json j{
+                        {"msg_type", "subscribe_to_graph"},
+                        {"msg_version", 3},
+                        {"graph_uid", str(me.uid)},
+                };
+                parse_filegraph_update_heads(*fg, j, working_layout);
+
+                j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
+                j["hash_index"] = j["blobs_head"];
+                response = wait_on_zefhub_message(j);
+
+                if(response.generic.success)
+                    break;
+
+                if(response.generic.reason == "Already subscribed") {
+                    std::cerr << "Upstream told us that we were already subscribed to the graph. Going to send an unsubscribe and try again." << std::endl;
+                    auto unsub_response = wait_on_zefhub_message({
+                            {"msg_type", "unsubscribe_from_graph"},
+                            {"graph_uid", str(me.uid)},
+                        });
+                    if(!unsub_response.generic.success)
+                        throw std::runtime_error("There was a problem in unsubscribing for an already subscribed graph: " + unsub_response.generic.reason);
+
+                    continue;
+                } else {
+                    msg->promise.set_value(GraphLoaded(response.generic.reason));
+                    me.please_stop = true;
+                    return;
+                }
+
+                throw std::runtime_error("Unreachable code");
+            }
+
             int msg_version = 0;
             if(response.j.contains("msg_version"))
                 msg_version = response.j["msg_version"].get<int>();
 
-            if(!response.generic.success) {
-                msg->promise.set_value(GraphLoaded(response.generic.reason));
-                me.please_stop = true;
-                return;
-            } else {
-                bool hash_agreed;
-                if(msg_version <= 2)
-                    hash_agreed = true;
-                // ZefHub was incorrectly just replying with the same version in response,
-                // so we have to use other details in the response to validate this.
-                else if(!response.j.contains("hash_agreed"))
-                    hash_agreed = true;
-                else
-                    hash_agreed = response.j["hash_agreed"].get<bool>();
-                if(!hash_agreed) {
-                    bool bad = true;
-                    if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
-                        // We were ahead of upstream, see if we agree with what they had.
-                        auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>(), 0, working_layout);
-                        if(our_hash == response.j["hash"].get<uint64_t>()) {
-                            developer_output("We were ahead of upstream but our hashes agree.");
-                            bad = false;
-                        }
-                    }
-
-                    if(bad) {
-                        // TODO: This could lose data if we had stuff that
-                        // upstream didn't have. Handle this carefully.
-                        std::cerr << "Warning hashes disagreed with upstream when loading graph. Going to wipe graph and try again from fresh." << std::endl;
-                        std::filesystem::path path_prefix = fg->path_prefix;
-                        // This is a little annoying - it's the only place that the
-                        // GraphData killing code is reused. I hope I can get around
-                        // this some other time.
-                        MMap::destroy_mmap((void*)me.gd);
-                        MMap::delete_filegraph_files(path_prefix);
-                        // Note: the fg pointer was stolen by the mmap alloc info,
-                        // so no `delete fg` here.
-                        fg = new MMap::FileGraph(path_prefix, me.uid, true, false);
-                        me.gd = create_GraphData(mem_style, fg, me.uid, false);
-                        _g = Graph{me.gd, false};
-                        me.gd->is_primary_instance = false;
-
-                        // We need to inform upstream that we had to reset.
-                        if(zefdb_protocol_version >= 7) {
-                            json j{
-                                {"msg_type", "graph_heads"},
-                                {"msg_version", 1},
-                                {"graph_uid", str(me.uid)},
-                            };
-                            parse_filegraph_update_heads(*fg, j, working_layout);
-                            j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
-                            j["hash_index"] = j["blobs_head"];
-                            auto response = wait_on_zefhub_message(j);
-                            if(!response.generic.success) {
-                                developer_output("Problem letting ZefHub know that we reset our heads.");
-                                msg->promise.set_value(GraphLoaded(response.generic.reason));
-                                me.please_stop = true;
-                                return;
-                            }
-                        }
+            bool hash_agreed;
+            if(msg_version <= 2)
+                hash_agreed = true;
+            // ZefHub was incorrectly just replying with the same version in response,
+            // so we have to use other details in the response to validate this.
+            else if(!response.j.contains("hash_agreed"))
+                hash_agreed = true;
+            else
+                hash_agreed = response.j["hash_agreed"].get<bool>();
+            if(!hash_agreed) {
+                bool bad = true;
+                if(response.j["hash_beyond_our_knowledge"].get<bool>()) {
+                    // We were ahead of upstream, see if we agree with what they had.
+                    auto our_hash = partial_hash(Graph(me.gd, false), response.j["hash_index"].get<blob_index>(), 0, working_layout);
+                    if(our_hash == response.j["hash"].get<uint64_t>()) {
+                        developer_output("We were ahead of upstream but our hashes agree.");
+                        bad = false;
                     }
                 }
 
+                if(bad) {
+                    // TODO: This could lose data if we had stuff that
+                    // upstream didn't have. Handle this carefully.
+                    std::cerr << "Warning hashes disagreed with upstream when loading graph. Going to wipe graph and try again from fresh." << std::endl;
+                    std::filesystem::path path_prefix = fg->path_prefix;
+                    // This is a little annoying - it's the only place that the
+                    // GraphData killing code is reused. I hope I can get around
+                    // this some other time.
+                    MMap::destroy_mmap((void*)me.gd);
+                    MMap::delete_filegraph_files(path_prefix);
+                    // Note: the fg pointer was stolen by the mmap alloc info,
+                    // so no `delete fg` here.
+                    fg = new MMap::FileGraph(path_prefix, me.uid, true, false);
+                    me.gd = create_GraphData(mem_style, fg, me.uid, false);
+                    _g = Graph{me.gd, false};
+                    me.gd->is_primary_instance = false;
 
-                me.gd->should_sync = true;
-                me.gd->currently_subscribed = true;
-
-                if(response.j.contains("tag_list"))
-                    me.gd->tag_list = response.j["tag_list"].get<std::vector<std::string>>();
-
-                LockGraphData gd_lock{me.gd};
-                UpdateHeads heads = parse_message_update_heads(response.j);
-                apply_sync_heads(*me.gd, heads);
-                developer_output("Upstream head: " + to_str(me.gd->sync_head.load()) + "/" + to_str(me.gd->read_head.load()));
-
-                if(me.gd->sync_head < me.gd->read_head.load()) {
-                    std::cerr << "WARNING:" << std::endl;
-                    std::cerr << "WARNING:" << std::endl;
-                    std::cerr << "WARNING: loaded graph is ahead of upstream. You should take the transactor role to update upstream as soon as possible." << std::endl;
-                    std::cerr << "WARNING:" << std::endl;
-                    std::cerr << "WARNING:" << std::endl;
+                    // We need to inform upstream that we had to reset.
+                    if(zefdb_protocol_version >= 7) {
+                        json j{
+                            {"msg_type", "graph_heads"},
+                            {"msg_version", 1},
+                            {"graph_uid", str(me.uid)},
+                        };
+                        parse_filegraph_update_heads(*fg, j, working_layout);
+                        j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
+                        j["hash_index"] = j["blobs_head"];
+                        auto response = wait_on_zefhub_message(j);
+                        if(!response.generic.success) {
+                            developer_output("Problem letting ZefHub know that we reset our heads.");
+                            msg->promise.set_value(GraphLoaded(response.generic.reason));
+                            me.please_stop = true;
+                            return;
+                        }
+                    }
                 }
+            }
+
+            me.gd->should_sync = true;
+            me.gd->currently_subscribed = true;
+
+            if(response.j.contains("tag_list"))
+                me.gd->tag_list = response.j["tag_list"].get<std::vector<std::string>>();
+
+            LockGraphData gd_lock{me.gd};
+            UpdateHeads heads = parse_message_update_heads(response.j);
+            apply_sync_heads(*me.gd, heads);
+            developer_output("Upstream head: " + to_str(me.gd->sync_head.load()) + "/" + to_str(me.gd->read_head.load()));
+
+            if(me.gd->sync_head < me.gd->read_head.load()) {
+                std::cerr << "WARNING:" << std::endl;
+                std::cerr << "WARNING:" << std::endl;
+                std::cerr << "WARNING: loaded graph is ahead of upstream. You should take the transactor role to update upstream as soon as possible." << std::endl;
+                std::cerr << "WARNING:" << std::endl;
+                std::cerr << "WARNING:" << std::endl;
             }
         } else {
             if(content.callback)
                 (*content.callback)("Requesing full graph of " + str(me.uid) + " from upstream");
-            auto response = wait_on_zefhub_message({
-                    {"msg_type", "subscribe_to_graph"},
-                    {"graph_uid_or_tag", str(me.uid)},
-                },
-                {},
-                zefhub_generic_timeout,
-                false,
-                false,
-                content.callback
-            );
-            if(!response.generic.success) {
-                msg->promise.set_value(GraphLoaded(response.generic.reason));
-                me.please_stop = true;
-                return;
+
+            GenericZefHubResponse response;
+
+            while(true) {
+                response = wait_on_zefhub_message({
+                        {"msg_type", "subscribe_to_graph"},
+                        {"graph_uid_or_tag", str(me.uid)},
+                    },
+                    {},
+                    zefhub_generic_timeout,
+                    false,
+                    false,
+                    content.callback
+                    );
+
+                if(response.generic.success)
+                    break;
+
+                if(response.generic.reason == "Already subscribed") {
+                    std::cerr << "Upstream told us that we were already subscribed to the graph. Going to send an unsubscribe and try again." << std::endl;
+                    auto unsub_response = wait_on_zefhub_message({
+                            {"msg_type", "unsubscribe_from_graph"},
+                            {"graph_uid", str(me.uid)},
+                        });
+                    if(!unsub_response.generic.success)
+                        throw std::runtime_error("There was a problem in unsubscribing for an already subscribed graph.");
+
+                    continue;
+                } else {
+                    msg->promise.set_value(GraphLoaded(response.generic.reason));
+                    me.please_stop = true;
+                    return;
+                }
+
+                throw std::runtime_error("Unreachable code");
             }
 
             if(str(me.uid) != response.j["graph_uid"].get<std::string>())
