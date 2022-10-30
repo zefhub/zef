@@ -71,6 +71,11 @@ def union_override_subtype(union, typ):
     subtypes = get_union_intersection_subtypes(union)
     return all(issubclass(x, typ) for x in subtypes)
 
+def union_is_subtype(other, union):
+    assert union_validation(union)
+    subtypes = get_union_intersection_subtypes(union)
+    return any(issubclass(other, x) for x in subtypes)
+
 def union_simplify(x):
     """
     Only simplifies nested Union and Intersection.
@@ -106,6 +111,7 @@ def union_simplify(x):
 
 Union = make_VT('Union',
                 is_a_func=union_is_a,
+                is_subtype_func=union_is_subtype,
                 simplify_type_func=union_simplify,
                 override_subtype_func=union_override_subtype)
 
