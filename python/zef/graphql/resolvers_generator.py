@@ -18,14 +18,14 @@ from ariadne import ObjectType, MutationType, SubscriptionType, EnumType, Scalar
 
 
 #--------------------------Resolvers Generator-------------------------
-def fill_types_default_resolvers(schema_d):
+def fill_types_default_resolvers(schema_d, replace_policy=lambda field_name: field[RT(to_pascal_case(field_name))]):
     if "_Types" not in schema_d: return schema_d
 
     def generate_default_if_unset(type_name, field_name, field_dict):
         # If resolver is either unset or set None
         resolver = field_dict.get("resolver", None)
         if resolver: return None
-        return (('_Types', type_name, field_name, 'resolver'), field[RT(to_pascal_case(field_name))])
+        return (('_Types', type_name, field_name, 'resolver'), replace_policy(field_name))
 
 
     # Generate a list of Tuples[path, default_resolver] for fields where resolver is either unset or set to None
