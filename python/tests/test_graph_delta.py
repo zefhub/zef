@@ -168,5 +168,59 @@ class MyTestCase(unittest.TestCase):
                          y | origin_rae | collect)
         self.assertEqual(z | F.Name | collect, "Joe")
 
+    def test_object_notation(self):
+        g = Graph()
+
+        x = ET.Person(
+            first_name="Joe",
+            last_name="Bloggs",
+            height=99,
+            friend=ET.Person(
+                first_name="Jane",
+                last_name="Doe",
+                height=142,
+            )
+        )
+
+        z_joe = x | g | run
+        self.assertEqual(rae_type(z_joe), ET.Person)
+        self.assertEqual(z_joe | F.FirstName | collect, "Joe")
+        self.assertEqual(z_joe | F.LastName | collect, "Bloggs")
+        self.assertEqual(z_joe | F.Height | collect, 99)
+        z_jane = z_joe | F.Friend | collect
+        self.assertEqual(rae_type(z_jane), ET.Person)
+        self.assertEqual(z_jane | F.FirstName | collect, "Jane")
+        self.assertEqual(z_jane | F.LastName | collect, "Doe")
+        self.assertEqual(z_jane | F.Height | collect, 142)
+
+        g = Graph()
+
+        y = ET.Person["joe"](
+            first_name="Joe",
+            last_name="Bloggs",
+            height=99,
+            friend=ET.Person["jane"](
+                first_name="Jane",
+                last_name="Doe",
+                height=142,
+            )
+        )
+
+        r = [y] | transact[g] | run
+
+        z_joe = r["joe"]
+        self.assertEqual(rae_type(z_joe), ET.Person)
+        self.assertEqual(z_joe | F.FirstName | collect, "Joe")
+        self.assertEqual(z_joe | F.LastName | collect, "Bloggs")
+        self.assertEqual(z_joe | F.Height | collect, 99)
+
+        z_jane = r["jane"]
+        self.assertEqual(z_joe | F.Friend | collect, z_jane)
+        self.assertEqual(rae_type(z_jane), ET.Person)
+        self.assertEqual(z_jane | F.FirstName | collect, "Jane")
+        self.assertEqual(z_jane | F.LastName | collect, "Doe")
+        self.assertEqual(z_jane | F.Height | collect, 142)
+            
+
 if __name__ == '__main__':
     unittest.main()
