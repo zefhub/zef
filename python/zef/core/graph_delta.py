@@ -301,6 +301,14 @@ def obtain_ids(x) -> dict:
         if x.iid is not None:
             ids = {x.iid: x.arg}
 
+    elif isinstance(x, EntityValueInstance):
+        id = get_absorbed_id(x._entity_type)
+        if id is not None:
+            ids = {id: x}
+
+        for item in x._kwargs.values():
+            ids = merge_no_overwrite(ids, obtain_ids(item))
+
 
     # This is an extra step on top of the previous checks
     # if type(x) in [Entity, AttributeEntity, Relation, EntityType,

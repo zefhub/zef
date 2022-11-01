@@ -206,7 +206,10 @@ class MyTestCase(unittest.TestCase):
             )
         )
 
-        r = [y] | transact[g] | run
+        r = [
+            y,
+            (Z["jane"], RT.Something, Z["joe"]),
+        ] | transact[g] | run
 
         z_joe = r["joe"]
         self.assertEqual(rae_type(z_joe), ET.Person)
@@ -220,6 +223,8 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(z_jane | F.FirstName | collect, "Jane")
         self.assertEqual(z_jane | F.LastName | collect, "Doe")
         self.assertEqual(z_jane | F.Height | collect, 142)
+
+        self.assertEqual(z_jane | Out[RT.Something] | collect, z_joe)
             
 
 if __name__ == '__main__':
