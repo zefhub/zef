@@ -544,7 +544,7 @@ def dispatch_cmds_for(expr, gen_id):
     # func = d_dispatch[type(expr)]
 
     def error_handler(x):
-        raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")            
+        raise TypeError(f"transform_to_commands was called for type {type(expr)} value={expr}, but no handler in dispatch dict")
     return expr | match[
         (Delegate,               cmds_for_delegate),
         (ValueType & (ET | AET), cmds_for_instantiable),
@@ -1734,9 +1734,13 @@ def expand_helper(x, gen_id):
     elif isinstance(x, EntityValueInstance):
         res = []
         assert isinstance(x, EntityValueInstance)
-        ent_id = gen_id()
+        et = x._entity_type
+        ent_id = get_absorbed_id(et)
+        if ent_id is None:
+            ent_id = gen_id()
+            et = et[ent_id]
         me = Z[ent_id]
-        res.append(x._entity_type[ent_id])
+        res.append(et)
 
         for k, v in x._kwargs.items():
             if isinstance(v, EntityValueInstance):
