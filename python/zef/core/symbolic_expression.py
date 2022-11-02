@@ -91,7 +91,7 @@ Query[
 """
 
 
-from .VT import FlatGraph, Pattern, Any, SetOf
+from .VT import FlatGraph, Pattern, Any, SetOf, Val
 from ._ops import match, collect, insert, split, get, filter, map, Z
 from .zef_functions import func
 from .internals import ET, RT, AET

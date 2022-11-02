@@ -14,7 +14,7 @@
 
 from .. import *
 from .._ops import *
-from ..VT import Is, Any
+from ..VT import Is, Any, Val
 from ..internals import VRT
 
 def graphviz_imp(zz, *flags):
