@@ -152,7 +152,7 @@ def AET_is_a(x, typ):
         return False
     else:
         if isinstance(x, DelegateRef):
-            return isinstance(x.item, AtomicEntityTypeToken)
+            return isinstance(x.item, AttributeEntityTypeToken)
         elif isinstance(x, BlobPtr):
             return internals.BT(x) == internals.BT.ATTRIBUTE_ENTITY_NODE
         return is_type_name_(x, "AET")
