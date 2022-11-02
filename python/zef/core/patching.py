@@ -426,7 +426,7 @@ class EntityValueInstance_:
         
     def __repr__(self):
         nl = '\n'
-        return f'ET.{str(self._entity_type)}({f", ".join([f"{k}={repr(v)}" for k, v in self._kwargs.items()])})'
+        return f'{self._entity_type}({f", ".join([f"{k}={repr(v)}" for k, v in self._kwargs.items()])})'
     
     def __getattr__(self, name):
         return self._kwargs[name]
