@@ -20,7 +20,6 @@ ZefRef = make_VT('ZefRef', pytype=pyzef.main.ZefRef)
 insert_VT("BlobPtr", ZefRef | EZefRef)
 make_VT('GraphRef', pytype=pyzef.main.GraphRef)
 make_VT('Time', pytype=pyzef.main.Time)
-make_VT('AbstractDelegate', pytype=pyzef.internals.Delegate)
 
 BaseUID = make_VT('BaseUID', pytype=pyzef.internals.BaseUID)
 EternalUID = make_VT('EternalUID', pytype=pyzef.internals.EternalUID)

@@ -225,6 +225,22 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(z_jane | F.Height | collect, 142)
 
         self.assertEqual(z_jane | Out[RT.Something] | collect, z_joe)
+
+    def test_delegate_creation(self):
+        g = Graph()
+
+        d,r,s = (delegate_of(ET.Person), RT.Alias, "PersonEntity") | g | run
+
+        z = ET.Person | g | run
+
+        self.assertEqual(delegate_of(z) | to_delegate | collect, delegate_of(ET.Person))
+        self.assertEqual(value(s), "PersonEntity")
+        self.assertEqual(to_ezefref(delegate_of(z)), to_ezefref(d))
+        self.assertEqual(rae_type(r), RT.Alias)
+        self.assertEqual(source(r), d)
+        self.assertEqual(target(r), s)
+        # TODO: Redo this when we know how it should look.
+        # self.assertEqual(isinstance(delegate_of(z), delegate_of(ET.Person)))
             
 
 if __name__ == '__main__':

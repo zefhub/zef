@@ -389,6 +389,10 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
         for item in x:
             verify_input_el(item, id_definitions, False, allow_scalar)
         return
+
+    elif is_a(x, Delegate):
+        return
+
     elif isinstance(x, RT):
         if allow_rt:
             return
@@ -409,9 +413,6 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
         if length(LazyValue(x) | absorbed) != 1:
             raise Exception(f"ZefOp has more than one op inside of it. {x}")
         raise Exception(f"Not allowing ZefOps except for those starting with Z. Got {x}")
-
-    elif is_a(x, Delegate):
-        return
 
     elif isinstance(x, (Entity, AttributeEntity, Relation)):
         return
@@ -745,7 +746,7 @@ def cmds_for_delegate(x):
     if a_id is not None:
         internal_ids += [a_id]
 
-    # The to_delegate below takes care of whether x is an AbstractDelegate or a ZefRef
+    # The to_delegate below takes care of whether x is a DelegateRef or a ZefRef
     return (), [{
         'cmd': 'merge', 
         'origin_rae': to_delegate(x),
@@ -1693,7 +1694,7 @@ def get_absorbed_id(obj):
     # if is_a(obj, RT) or is_a(obj, ZefOp):
     #     obj = LazyValue(obj)
     # if isinstance(obj, (ET, RT, AET)):
-    if isinstance(obj, AbstractDelegate):
+    if isinstance(obj, DelegateRef):
         return None
     elif isinstance(obj, ValueType) and issubclass(obj, (ET, RT, AET)):
         return obj | absorbed | single_or[None] | collect

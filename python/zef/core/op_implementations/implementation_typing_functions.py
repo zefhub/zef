@@ -6283,7 +6283,7 @@ def source_implementation(zr, *curried_args):
         return fr_source_imp(zr)
     if isinstance(zr, RelationRef):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
-    if isinstance(zr, AbstractDelegate):
+    if isinstance(zr, DelegateRef):
         from ...pyzef.internals import DelegateRelationTriple
         if not isinstance(zr.item, DelegateRelationTriple):
             raise Exception(f"Can't take the source of a non-relation-triple Delegate ({zr})")
@@ -6297,7 +6297,7 @@ def target_implementation(zr):
         return fr_target_imp(zr)
     if isinstance(zr, RelationRef):
         return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
-    if isinstance(zr, AbstractDelegate):
+    if isinstance(zr, DelegateRef):
         from ...pyzef.internals import DelegateRelationTriple
         if not isinstance(zr.item, DelegateRelationTriple):
             raise Exception(f"Can't take the target of a non-relation-triple Delegate ({zr})")

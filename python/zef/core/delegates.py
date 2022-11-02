@@ -20,7 +20,7 @@ from ..pyzef import zefops as pyzefops
 def to_delegate_imp(first_arg, *curried_args):
     # TODO: Break this up and document
 
-    if isinstance(first_arg, AbstractDelegate):
+    if isinstance(first_arg, DelegateRef):
         if len(curried_args) == 0:
             return first_arg
         if len(curried_args) == 1:
