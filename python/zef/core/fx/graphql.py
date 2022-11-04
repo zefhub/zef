@@ -75,7 +75,8 @@ def graphql_start_server_handler(eff: Effect):
         elif req["path"] == gql_path:
             success, result = graphql_sync(schema, json.loads(req["request_body"]))
             req["response_body"] = json.dumps(result)
-            req["response_headers"] = select_keys(req["request_headers"], 'content-type', 'Content-Length')
+            req["response_headers"]["Content-Type"] = "application/json"
+            req["response_headers"]["Access-Control-Allow-Origin"] = "*"
         return req
 
 
