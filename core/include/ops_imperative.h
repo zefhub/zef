@@ -41,6 +41,7 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED ZefRef now(EZefRef ezr, bool allow_terminated=false);
         LIBZEF_DLL_EXPORTED ZefRef now(ZefRef zr, bool allow_terminated=false);
         LIBZEF_DLL_EXPORTED ZefRef now(const GraphData & gd);
+        LIBZEF_DLL_EXPORTED Time now();
 
         /* LIBZEF_DLL_EXPORTED ZefRefs to_frame(EZefRefs uzr, EZefRef tx, bool allow_terminated=false);
          * LIBZEF_DLL_EXPORTED ZefRefs to_frame(ZefRefs uzr, EZefRef tx, bool allow_terminated=false);
@@ -206,6 +207,12 @@ namespace zefDB {
 
         LIBZEF_DLL_EXPORTED EZefRef to_ezefref(ZefRef zr);
         LIBZEF_DLL_EXPORTED EZefRef to_ezefref(EZefRef zr);
+
+        LIBZEF_DLL_EXPORTED EternalUID origin_uid(EZefRef ezr);
+        LIBZEF_DLL_EXPORTED EternalUID origin_uid(ZefRef zr);
+
+        LIBZEF_DLL_EXPORTED EternalUID uid(const EZefRef uzr);
+        LIBZEF_DLL_EXPORTED ZefRefUID uid(const ZefRef zr);
 
         ////////////////////////////////////
         // * templated tools

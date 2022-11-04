@@ -82,6 +82,7 @@ set(SOURCES
     src/conversions.cpp
     src/tar_file.cpp
     src/transaction.cpp
+    src/revise.cpp
 
     src/butler/butler.cpp
     src/butler/communication.cpp

@@ -803,10 +803,15 @@ namespace zefDB {
                     // get into all kinds of trouble if upstream is a little
                     // busy with other messages and we try and resubscribe again
                     // soon.
-                    wait_on_zefhub_message({
+                    json unsub_msg = {
                             {"msg_type", "unsubscribe_from_graph"},
                             {"graph_uid", str(gtd->uid)},
-                        });
+                    };
+                    if(should_stop)
+                        // If we are stopping, then the network will never return, so don't wait.
+                        send_ZH_message(unsub_msg);
+                    else
+                        wait_on_zefhub_message(unsub_msg);
                 }
                 gtd->debug_last_action = "Sent out unsubscribe";
 

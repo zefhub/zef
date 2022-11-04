@@ -218,6 +218,10 @@ namespace zefDB {
             return now(zr.blob_uzr, allow_terminated);
         }
 
+        Time now() {
+            return Time{ std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() * 1E-6 };
+        }
+
         //////////////////////////////
         // * to_frame
 
@@ -1539,8 +1543,62 @@ namespace zefDB {
         EZefRef to_ezefref(EZefRef zr) {
             return zr;
         }
-    }
 
-    
+        //////////////////////////////
+        // * origin_uid
+
+        EternalUID origin_uid(EZefRef ezr) {
+            if(!internals::has_uid(ezr))
+                throw std::runtime_error("origin_uid can't take the uid of a " + to_str(BT(ezr)));
+            if(BT(ezr) == BT.TX_EVENT_NODE ||
+               BT(ezr) == BT.ROOT_NODE)
+                return uid(ezr);
+
+            EZefRefs origin_candidates = traverse_out_node_multi(
+                                        traverse_in_edge(ezr, BT.RAE_INSTANCE_EDGE),
+                                        BT.ORIGIN_RAE_EDGE);
+            if(length(origin_candidates) == 0) {
+                // z itself is the origin
+                return uid(ezr);
+            }
+            EZefRef z_or = only(origin_candidates);
+            return uid(z_or);
+        }
+
+        EternalUID origin_uid(ZefRef zr) {
+            return origin_uid(zr.blob_uzr);
+        }
+       
+        //////////////////////////////
+        // * uid
+
+        EternalUID uid(const EZefRef uzr) {
+            // Special handling for foreign RAEs. We want invertibility for
+            // g[uid(z)] to be true, which means returning the foreign
+            // EternalUID in that case.
+            if(internals::is_foreign_rae_blob(BT(uzr))) {
+                if(BT(uzr) == BT.FOREIGN_GRAPH_NODE)
+                    return EternalUID(internals::get_blob_uid(uzr),
+                                      internals::get_blob_uid(uzr));
+                else
+                    return EternalUID(internals::get_blob_uid(uzr),
+                                      internals::get_blob_uid(traverse_out_node(uzr, BT.ORIGIN_GRAPH_EDGE)));
+            }
+            return EternalUID(internals::get_blob_uid(uzr),
+                              internals::get_graph_uid(uzr));
+        }
+        ZefRefUID uid(const ZefRef zr) {
+            // Note that it makes no sense to have a foreign blob as a
+            // ZefRef. In fact it is downright confusing - does the graph
+            // UID belong to the current graph or the foreign graph? So
+            // reject this outright.
+            if(internals::is_foreign_rae_blob(BT(zr)))
+                throw std::runtime_error("Cannot get the ZefRefUID of a ZefRef pointing at a foreign RAE blob. You should convert to an EZefRef first.");
+            return ZefRefUID(internals::get_blob_uid(to_ezefref(zr)),
+                             internals::get_blob_uid(to_ezefref(zr.tx)),
+                             internals::get_graph_uid(to_ezefref(zr)));
+        }
+
+    }
 
 }

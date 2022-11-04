@@ -179,9 +179,10 @@ namespace zefDB {
             ping_counts++;
             ping_accum += ping_time;
             if(ping_counts > max_pings) {
-                ping_accum *= max_pings / ping_counts;
+                ping_accum *= double(max_pings) / double(ping_counts);
                 ping_counts = max_pings;
             }
+            developer_output("Received pong in " + to_str(ping_time) + "ms. Average ping time is now: " + to_str(ping_accum / ping_counts) + "ms.");
         };
         void PersistentConnection::open_handler(websocketpp::connection_hdl hdl) {
             debug_time_print("start of open_handler");
@@ -501,6 +502,7 @@ namespace zefDB {
 
 
         void PersistentConnection::send_ping() {
+            developer_output("Sending ping");
             visit_con([this](auto & con) {
                 if(!con)
                     return;
@@ -518,7 +520,7 @@ namespace zefDB {
         void PersistentConnection::manager_runner() {
             try {
                 while(true) {
-                    wait_pred(locker, [this]() { return !wspp_in_control || should_stop; });
+                    wait_pred(locker, [this]() { return !wspp_in_control || should_stop; }, ping_interval);
 
                     if(should_stop)
                         break;

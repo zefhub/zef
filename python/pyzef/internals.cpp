@@ -854,4 +854,6 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     internals_submodule.def("register_determine_primitive_type", &internals::register_determine_primitive_type);
     internals_submodule.add_object("_cleanup_determine_primitive_type", py::capsule(&internals::remove_determine_primitive_type));
+
+    internals_submodule.def("copy_graph_slice", &copy_graph_slice,  py::call_guard<py::gil_scoped_release>());
 }

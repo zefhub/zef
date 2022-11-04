@@ -1,3 +1,8 @@
+pyzef-0.16.1
+============
+
+Minor update to the libzef core to include a `copy_graph_slice` function.
+
 pyzef-0.16.0
 ============
 
