@@ -190,7 +190,7 @@ namespace zefDB {
             std::unordered_set<blob_index> handled_nodes;
 
             blob_index cur_index = start_index;
-			while (cur_index < end_index) {
+            while (cur_index < end_index) {
                 EZefRef ezr{cur_index,gd};
 
                 if(has_source_target_node(ezr)) {

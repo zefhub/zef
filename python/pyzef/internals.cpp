@@ -492,7 +492,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
     // Allow python to force destructing a Graph object, mostly for situations in zefhub
     internals_submodule.def("delete_graphdata", [](Graph & g) { g.delete_graphdata(); }, "This is a low-level graph destructor function. Do not use if you don't know what you are doing.");
 
-    py::class_<Messages::UpdatePayload>(internals_submodule, "UpdatePayload", py::buffer_protocol())
+    py::class_<Messages::UpdatePayload>(internals_submodule, "UpdatePayload")
         // .def(py::init<nlohmann::json, std::vector<std::string>>())
         .def(py::init([](py::dict & j, std::vector<py::bytes> & b) {
             Messages::UpdatePayload out{j};
@@ -511,7 +511,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
                 std::transform(self.rest.begin(), self.rest.end(), std::back_inserter(out),
                                [](const auto & it) { return it; });
                 return out;
-            });
+            })
+        .def("__eq__", [](const Butler::UpdatePayload & self, const Butler::UpdatePayload & other) {
+            return self.j == other.j && self.rest == other.rest;
+        }, py::is_operator())
+        ;
 
     // Define the special graph constructor seperately
     internals_submodule.def("create_graph_from_bytes", [](Messages::UpdatePayload payload, int mem_style) { return Graph::create_from_bytes(std::move(payload), mem_style); }, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");

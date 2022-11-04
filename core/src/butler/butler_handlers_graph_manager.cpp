@@ -334,7 +334,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
         }
 
         // The mmap steals the file graph ptr
-        me.gd = create_GraphData(mem_style, fg, me.uid, !content.payload);
+        me.gd = create_GraphData(mem_style, fg, me.uid, !(content.payload || content.internal_use_only));
         // Grab a reference while we are manipulating things in here
         Graph _g{me.gd, false};
 

@@ -38,9 +38,14 @@ class MyTestCase(unittest.TestCase):
         for i,tx in enumerate(g | all[TX] | skip[1] | collect):
             g_clone_before_tx = g_clones[i]
 
+            before_heads = zef.internals.create_update_heads(g_clone_before_tx.graph_data)
+            before_payload = zef.internals.create_update_payload(g_clone_before_tx.graph_data, before_heads, "")
             for j in range(i+1,len(g_clones)):
                 g_partial = zef.pyzef.internals.create_partial_graph(g_clones[j], g_clone_before_tx.graph_data.write_head)
                 self.assertEqual(g_clone_before_tx.hash(), g_partial.hash())
+
+                after_payload = zef.internals.create_update_payload(g_partial.graph_data, before_heads, "")
+                self.assertEqual(before_payload, after_payload)
 
     def test_abort_transaction(self):
         g = Graph()

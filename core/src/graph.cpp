@@ -492,25 +492,47 @@ namespace zefDB {
         // Create a graph with "internal_use" turned on.
         Graph g{false, MMap::MMAP_STYLE_ANONYMOUS, true};
         GraphData & gd = g.my_graph_data();
-        LockGraphData lock(&gd);
+        // GraphData * gd = create_GraphData(MMap::MMAP_STYLE_ANONYMOUS, nullptr, {}, false);
+        // Graph g{gd, false};
+        // LockGraphData lock(&gd);
+
         // std::cerr << "Created temporary internal graph with uid: " << uid(g) << std::endl;
-        
-        
-        char * lo_ptr = (char*)&gd + index_lo * constants::blob_indx_step_in_bytes;
-        size_t len = (index_hi - index_lo)*constants::blob_indx_step_in_bytes;
-        MMap::ensure_or_alloc_range(lo_ptr, len);
 
         {
             GraphData & old_gd = old_g.my_graph_data();
             LockGraphData old_lock(&old_gd);
 
+            char * lo_ptr = (char*)&gd + index_lo * constants::blob_indx_step_in_bytes;
+            // Note we copy the whole lot across, so that roll back can unapply the caches properly
+            size_t len = (old_gd.read_head - index_lo)*constants::blob_indx_step_in_bytes;
+            MMap::ensure_or_alloc_range(lo_ptr, len);
+
             char * old_lo_ptr = (char*)&old_gd + index_lo * constants::blob_indx_step_in_bytes;
             Butler::ensure_or_get_range(old_lo_ptr, len);
             std::memcpy(lo_ptr, old_lo_ptr, len);
-            gd.write_head = index_hi;
+            // gd.write_head = index_hi;
+            gd.write_head = old_gd.read_head.load();
+            gd.latest_complete_tx = old_gd.latest_complete_tx.load();
+
+#define GEN_CACHE(x, y) {                                               \
+                auto ptr = gd.y->get_writer();                          \
+                auto old_ptr = old_gd.y->get();                         \
+                auto diff = old_ptr->create_diff(0, old_ptr->size());   \
+                ptr->apply_diff(diff, ptr.ensure_func());               \
+            }
+
+            GEN_CACHE("_ETs_used", ETs_used)
+            GEN_CACHE("_RTs_used", RTs_used)
+            GEN_CACHE("_ENs_used", ENs_used)
+            GEN_CACHE("_uid_lookup", uid_lookup)
+            GEN_CACHE("_euid_lookup", euid_lookup)
+            GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
+#undef GEN_CACHE
         }
 
-        roll_back_using_only_existing(gd);
+        // roll_back_using_only_existing(gd);
+        roll_back_to(gd, index_hi, true);
 
         gd.read_head = gd.write_head.load();
 
@@ -643,9 +665,18 @@ namespace zefDB {
             cur_index += blob_index_size(ezr);
         }
 
+        EZefRef earliest_tx(nullptr);
+        
         for(auto it = all_indices.rbegin(); it != all_indices.rend(); it++) {
             EZefRef ezr{*it, gd};
             internals::unapply_action_blob(gd, ezr, roll_back_caches);
+            if(BT(ezr) == BT.TX_EVENT_NODE) {
+                earliest_tx = ezr;
+            }
+        }
+
+        if(earliest_tx.blob_ptr != nullptr) {
+            gd.latest_complete_tx = index(earliest_tx << BT.NEXT_TX_EDGE);
         }
 
         // Note: we could immediately move the write_head to index_hi in order
