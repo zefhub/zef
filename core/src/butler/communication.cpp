@@ -518,7 +518,7 @@ namespace zefDB {
         void PersistentConnection::manager_runner() {
             try {
                 while(true) {
-                    wait_pred(locker, [this]() { return !wspp_in_control || should_stop; });
+                    wait_pred(locker, [this]() { return !wspp_in_control || should_stop; }, ping_interval);
 
                     if(should_stop)
                         break;
