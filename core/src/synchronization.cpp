@@ -405,10 +405,11 @@ namespace zefDB {
             case BlobType::INSTANTIATION_EDGE:
             case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
             case BlobType::ORIGIN_GRAPH_EDGE:
+            case BlobType::ORIGIN_RAE_EDGE:
             case BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
                 return;
 			default:
-                throw std::runtime_error("Unhandled apply action");
+                throw std::runtime_error("Unhandled unapply action: " + to_str(get<BlobType>(uzr_to_blob)));
 			};
 		}
 

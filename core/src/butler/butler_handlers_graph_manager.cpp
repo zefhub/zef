@@ -530,6 +530,15 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                             me.please_stop = true;
                             return;
                         }
+
+                        if(!response.j["hash_agreed"]) {
+                            std::cerr << "A weird problem is happening with our resubscribe. We had to let upstream know about our actual graph heads, but even then hashes didn't agree. What is going on??" << std::endl;
+
+                            std::cerr << "This will be handled better in the future, but for now we are going to abort this resubscribe. Delete your cached graph manually if you cannot resolve this problem another way." << std::endl;
+                            msg->promise.set_value(GraphLoaded("Hashes disagreed after letting upstream know about our latest heads."));
+                            me.please_stop = true;
+                            return;
+                        }
                     }
                 }
             }

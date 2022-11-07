@@ -470,9 +470,9 @@ namespace zefDB {
         if(index_hi == gd.write_head)
             return gd.hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
 
-        GraphDataWrapper old_g = create_partial_graph(g.my_graph_data(), index_hi);
+        GraphDataWrapper old_gdw = create_partial_graph(g.my_graph_data(), index_hi);
         // return old_g.hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
-        return old_g->hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
+        return old_gdw->hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
     }
 
     GraphDataWrapper create_partial_graph(GraphData & cur_gd, blob_index index_hi) {
