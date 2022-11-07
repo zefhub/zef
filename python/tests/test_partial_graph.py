@@ -23,15 +23,15 @@ class MyTestCase(unittest.TestCase):
 
         g_clones = []
         for i in range(10):
-            g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+            g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
             [ET.Machine]*10 | g | run
 
         # Add in a couple of manual edge cases
-        g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+        g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
         z = ET.Machine | g | run
-        g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+        g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
         [(z, RT.Something, z), (z, RT.Something2, z)] | g | run
-        g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+        g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
         z | terminate | g | run
         g_clones += [g]
 
@@ -41,8 +41,8 @@ class MyTestCase(unittest.TestCase):
             before_heads = zef.internals.create_update_heads(g_clone_before_tx.graph_data)
             before_payload = zef.internals.create_update_payload(g_clone_before_tx.graph_data, before_heads, "")
             for j in range(i+1,len(g_clones)):
-                g_partial = zef.pyzef.internals.create_partial_graph(g_clones[j], g_clone_before_tx.graph_data.write_head)
-                self.assertEqual(g_clone_before_tx.hash(), g_partial.hash())
+                g_partial = zef.pyzef.internals.create_partial_graph(g_clones[j].graph_data, g_clone_before_tx.graph_data.write_head)
+                self.assertEqual(g_clone_before_tx.graph_data.hash(), g_partial.graph_data.hash())
 
                 after_payload = zef.internals.create_update_payload(g_partial.graph_data, before_heads, "")
                 self.assertEqual(before_payload, after_payload)

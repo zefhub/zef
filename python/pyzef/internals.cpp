@@ -634,6 +634,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_readonly("revision", &GraphData::revision)
 		.def_readwrite("tag_list", &GraphData::tag_list)
 		.def("__repr__", [](const GraphData& self)->std::string { std::stringstream ss; ss << self; return ss.str(); })
+		.def("hash", &GraphData::hash, py::arg("blob_index_lo"), py::arg("blob_index_hi"), py::arg("seed")=0, py::arg("working_layout")="")
+		.def("hash", [](GraphData& gd, std::string working_layout) { return gd.hash(constants::ROOT_NODE_blob_index, gd.read_head, 0, working_layout); }, py::arg("working_layout")="")
 		;
 
 	py::class_<zefDB::GraphDataWrapper>(internals_submodule, "GraphDataWrapper")
