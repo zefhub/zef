@@ -58,10 +58,14 @@ class MyTestCase(unittest.TestCase):
             [ET.Machine]*10 | g | run
             a,b,c = (ET.Machine, RT.Something, 5) | g | run
             g_clone_in_tx = zef.pyzef.internals.create_partial_graph(g.graph_data, head_before)
+            hash_in_tx = zef.pyzef.internals.partial_hash(g, head_before)
         g_clone_after = zef.pyzef.internals.create_partial_graph(g.graph_data, head_before)
+        hash_after = zef.pyzef.internals.partial_hash(g, head_before)
             
         self.assertEqual(g_clone_after.graph_data.hash(), hash_before)
         self.assertEqual(g_clone_in_tx.graph_data.hash(), hash_before)
+        self.assertEqual(hash_after, hash_before)
+        self.assertEqual(hash_in_tx, hash_before)
 
     def test_abort_transaction(self):
         g = Graph()
