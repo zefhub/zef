@@ -760,8 +760,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("early_token_list", &Butler::early_token_list);
 	internals_submodule.def("created_token_list", &Butler::created_token_list);
 
-	internals_submodule.def("get_blobs_as_bytes", [](Graph& g, blob_index start_index, blob_index end_index)->py::bytes {
-        return py::bytes(internals::get_blobs_as_bytes(g.my_graph_data(), start_index, end_index)); 
+	internals_submodule.def("get_blobs_as_bytes", [](GraphData& gd, blob_index start_index, blob_index end_index)->py::bytes {
+        return py::bytes(internals::get_blobs_as_bytes(gd, start_index, end_index)); 
 		}, "read the content of the memory pool filled with blobs_ns for a given graph", py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload, py::call_guard<py::gil_scoped_release>());
 	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads);

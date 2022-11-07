@@ -196,8 +196,13 @@ namespace zefDB {
                 if(has_source_target_node(ezr)) {
                     blob_index src = source_node_index(ezr);
                     blob_index trg = target_node_index(ezr);
+                    blob_index maybe_avae = 0;
+                    if(BT(ezr) == BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE)
+                        maybe_avae = get<blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE>(ezr).value_edge_index;
 
-                    for(blob_index orig_indx : {src, trg}) {
+                    for(blob_index orig_indx : {src, trg, maybe_avae}) {
+                        if(orig_indx == 0)
+                            continue;
                         if(orig_indx < start_index && handled_nodes.find(orig_indx) == handled_nodes.end()) {
                             // Find the original blob and the latest deferred edge
                             // list in the original section
@@ -220,7 +225,8 @@ namespace zefDB {
                             blob_index * list_start = edge_indexes(subseq_ezr);
                             blob_index * list_end = list_start + num;
                             blob_index * new_point = list_start;
-                            while(new_point < list_end && abs(*new_point) < start_index)
+                            // The comparison to zero is not necessary here but is a failsafe.
+                            while(new_point < list_end && abs(*new_point) < start_index && abs(*new_point) != 0)
                                 new_point++;
                             if(new_point != list_end) {
                                 int new_ind = (new_point - list_start);
@@ -240,7 +246,7 @@ namespace zefDB {
                                 *last_blob = blob_index_from_ptr(ptr);
                             }
 
-                            handled_nodes.insert(src);
+                            handled_nodes.insert(orig_indx);
                         }
                     }
                 }

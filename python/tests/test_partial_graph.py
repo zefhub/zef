@@ -29,6 +29,7 @@ class MyTestCase(unittest.TestCase):
         # Add in a couple of manual edge cases
         g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
         z = ET.Machine | g | run
+        (z, RT.Something, 1) | g | run
         g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
         [(z, RT.Something, z), (z, RT.Something2, z)] | g | run
         g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
@@ -66,6 +67,27 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(g_clone_in_tx.graph_data.hash(), hash_before)
         self.assertEqual(hash_after, hash_before)
         self.assertEqual(hash_in_tx, hash_before)
+
+    def test_partial_from_merges(self):
+        g = Graph()
+        g2 = Graph()
+
+        a,b,c = (ET.Machine, RT.Something, 5) | g | run
+        a2,b2,c2 = (ET.Machine, RT.Something, 5) | g2 | run
+        
+        hash_before = g.hash()
+        head_before = g.graph_data.read_head
+        with Transaction(g):
+            a | terminate | g | run
+            [ET.Machine]*10 | g | run
+            a3,b3,c3 = [a2,b2,c2] | g | run
+        with Transaction(g):
+            terminate(a3) | g | run
+        g_clone_after = zef.pyzef.internals.create_partial_graph(g.graph_data, head_before)
+        hash_after = zef.pyzef.internals.partial_hash(g, head_before)
+            
+        self.assertEqual(g_clone_after.graph_data.hash(), hash_before)
+        self.assertEqual(hash_after, hash_before)
 
     def test_abort_transaction(self):
         g = Graph()
