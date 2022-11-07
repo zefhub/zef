@@ -837,6 +837,10 @@ def is_valid_single_node(x):
         return True
     return False
 
+def is_RT_token(x):
+    from .VT.value_type import is_type_name_
+    return is_type_name_(x, "RT")
+
 def is_valid_relation_template(x):
     # Check for the relation templates:
     # Either:
@@ -847,7 +851,7 @@ def is_valid_relation_template(x):
     # 5. (a, [(RT.x, b), (RT.y, c)])
     # Note: tuple/list can be used interchangably
     # Note: 5. deliberately does not have its symmetric counterpart. This could be introduced later.
-    if any(isinstance(item, RT) for item in x):
+    if any(is_RT_token(item) for item in x):
         # Cases 1-4 above
         if len(x) != 3:
             raise Exception(f"A list has an RT but isn't 3 elements long: {x}")
@@ -855,11 +859,11 @@ def is_valid_relation_template(x):
             raise Exception(f"A list has an RT but it isn't in the second position: {x}")
         # Note: if there are any lists involved, we cannot have a given ID as it
         # would have to be given to multiple instantiated relations.
-        if not is_a(x[1], RT) and (isinstance(x[0], ListOrTuple) or isinstance(x[2], ListOrTuple)):
+        if not is_RT_token(x[1]) and (isinstance(x[0], ListOrTuple) or isinstance(x[2], ListOrTuple)):
             raise Exception("An RT with an internal name is not allowed with multiple sources or targets")
         return True
     elif len(x) == 2 and isinstance(x[1], ListOrTuple):
-        return all(isinstance(item, ListOrTuple) and len(item) == 2 and isinstance(item[0], RT) and is_valid_single_node(item[1]) for item in x[1])
+        return all(isinstance(item, ListOrTuple) and len(item) == 2 and is_RT_token(item[0]) and is_valid_single_node(item[1]) for item in x[1])
     return False
 
 
