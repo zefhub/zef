@@ -23,24 +23,71 @@ class MyTestCase(unittest.TestCase):
 
         g_clones = []
         for i in range(10):
-            g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+            g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
             [ET.Machine]*10 | g | run
 
         # Add in a couple of manual edge cases
-        g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+        g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
         z = ET.Machine | g | run
-        g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+        (z, RT.Something, 1) | g | run
+        g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
         [(z, RT.Something, z), (z, RT.Something2, z)] | g | run
-        g_clones += [zef.pyzef.internals.create_partial_graph(g, g.graph_data.write_head)]
+        g_clones += [zef.pyzef.internals.create_partial_graph(g.graph_data, g.graph_data.write_head)]
         z | terminate | g | run
         g_clones += [g]
 
         for i,tx in enumerate(g | all[TX] | skip[1] | collect):
             g_clone_before_tx = g_clones[i]
 
+            before_heads = zef.internals.create_update_heads(g_clone_before_tx.graph_data)
+            before_payload = zef.internals.create_update_payload(g_clone_before_tx.graph_data, before_heads, "")
             for j in range(i+1,len(g_clones)):
-                g_partial = zef.pyzef.internals.create_partial_graph(g_clones[j], g_clone_before_tx.graph_data.write_head)
-                self.assertEqual(g_clone_before_tx.hash(), g_partial.hash())
+                g_partial = zef.pyzef.internals.create_partial_graph(g_clones[j].graph_data, g_clone_before_tx.graph_data.write_head)
+                self.assertEqual(g_clone_before_tx.graph_data.hash(), g_partial.graph_data.hash())
+
+                after_payload = zef.internals.create_update_payload(g_partial.graph_data, before_heads, "")
+                self.assertEqual(before_payload, after_payload)
+
+    def test_partial_during_transaction(self):
+        g = Graph()
+
+        a,b,c = (ET.Machine, RT.Something, 5) | g | run
+        hash_before = g.hash()
+        head_before = g.graph_data.read_head
+        with Transaction(g):
+            a | terminate | g | run
+            [ET.Machine]*10 | g | run
+            a,b,c = (ET.Machine, RT.Something, 5) | g | run
+            g_clone_in_tx = zef.pyzef.internals.create_partial_graph(g.graph_data, head_before)
+            hash_in_tx = zef.pyzef.internals.partial_hash(g, head_before)
+        g_clone_after = zef.pyzef.internals.create_partial_graph(g.graph_data, head_before)
+        hash_after = zef.pyzef.internals.partial_hash(g, head_before)
+            
+        self.assertEqual(g_clone_after.graph_data.hash(), hash_before)
+        self.assertEqual(g_clone_in_tx.graph_data.hash(), hash_before)
+        self.assertEqual(hash_after, hash_before)
+        self.assertEqual(hash_in_tx, hash_before)
+
+    def test_partial_from_merges(self):
+        g = Graph()
+        g2 = Graph()
+
+        a,b,c = (ET.Machine, RT.Something, 5) | g | run
+        a2,b2,c2 = (ET.Machine, RT.Something, 5) | g2 | run
+        
+        hash_before = g.hash()
+        head_before = g.graph_data.read_head
+        with Transaction(g):
+            a | terminate | g | run
+            [ET.Machine]*10 | g | run
+            a3,b3,c3 = [a2,b2,c2] | g | run
+        with Transaction(g):
+            terminate(a3) | g | run
+        g_clone_after = zef.pyzef.internals.create_partial_graph(g.graph_data, head_before)
+        hash_after = zef.pyzef.internals.partial_hash(g, head_before)
+            
+        self.assertEqual(g_clone_after.graph_data.hash(), hash_before)
+        self.assertEqual(hash_after, hash_before)
 
     def test_abort_transaction(self):
         g = Graph()

@@ -493,7 +493,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
     // Allow python to force destructing a Graph object, mostly for situations in zefhub
     internals_submodule.def("delete_graphdata", [](Graph & g) { g.delete_graphdata(); }, "This is a low-level graph destructor function. Do not use if you don't know what you are doing.");
 
-    py::class_<Messages::UpdatePayload>(internals_submodule, "UpdatePayload", py::buffer_protocol())
+    py::class_<Messages::UpdatePayload>(internals_submodule, "UpdatePayload")
         // .def(py::init<nlohmann::json, std::vector<std::string>>())
         .def(py::init([](py::dict & j, std::vector<py::bytes> & b) {
             Messages::UpdatePayload out{j};
@@ -512,7 +512,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
                 std::transform(self.rest.begin(), self.rest.end(), std::back_inserter(out),
                                [](const auto & it) { return it; });
                 return out;
-            });
+            })
+        .def("__eq__", [](const Butler::UpdatePayload & self, const Butler::UpdatePayload & other) {
+            return self.j == other.j && self.rest == other.rest;
+        }, py::is_operator())
+        ;
 
     // Define the special graph constructor seperately
     internals_submodule.def("create_graph_from_bytes", [](Messages::UpdatePayload payload, int mem_style) { return Graph::create_from_bytes(std::move(payload), mem_style); }, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");
@@ -631,7 +635,13 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_readonly("revision", &GraphData::revision)
 		.def_readwrite("tag_list", &GraphData::tag_list)
 		.def("__repr__", [](const GraphData& self)->std::string { std::stringstream ss; ss << self; return ss.str(); })
+		.def("hash", &GraphData::hash, py::arg("blob_index_lo"), py::arg("blob_index_hi"), py::arg("seed")=0, py::arg("working_layout")="")
+		.def("hash", [](GraphData& gd, std::string working_layout) { return gd.hash(constants::ROOT_NODE_blob_index, gd.read_head, 0, working_layout); }, py::arg("working_layout")="")
 		;
+
+	py::class_<zefDB::GraphDataWrapper>(internals_submodule, "GraphDataWrapper")
+		.def_property_readonly("graph_data", [](GraphDataWrapper gdw)->GraphData& { return *(gdw.gd); }, py::return_value_policy::reference)
+        ;
 
 	
 
@@ -751,8 +761,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 	internals_submodule.def("early_token_list", &Butler::early_token_list);
 	internals_submodule.def("created_token_list", &Butler::created_token_list);
 
-	internals_submodule.def("get_blobs_as_bytes", [](Graph& g, blob_index start_index, blob_index end_index)->py::bytes {
-        return py::bytes(internals::get_blobs_as_bytes(g.my_graph_data(), start_index, end_index)); 
+	internals_submodule.def("get_blobs_as_bytes", [](GraphData& gd, blob_index start_index, blob_index end_index)->py::bytes {
+        return py::bytes(internals::get_blobs_as_bytes(gd, start_index, end_index)); 
 		}, "read the content of the memory pool filled with blobs_ns for a given graph", py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload, py::call_guard<py::gil_scoped_release>());
 	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads);

@@ -33,7 +33,13 @@ UpdatePayload create_update_payload_current(GraphData & gd, const UpdateHeads & 
     if(update_heads.blobs.from > update_heads.blobs.to)
         throw std::runtime_error("Somehow upstream is ahead of us and we're primary!");
 
+    // TODO: need to find the latest complete tx in the blob range given.
     blob_index last_tx = gd.latest_complete_tx;
+    if(last_tx > update_heads.blobs.to) {
+        std::cerr << "WARNING: latest tx is ahead of blobs_to" << std::endl;
+        std::cerr << "WARNING: latest tx is ahead of blobs_to" << std::endl;
+        std::cerr << "WARNING: latest tx is ahead of blobs_to" << std::endl;
+    }
 
     // This here is a dodgy internal hack to grab the whole graph so we can send the blobs/uids out:
     char * blobs_ptr = (char*)(&gd) + update_heads.blobs.from * constants::blob_indx_step_in_bytes;

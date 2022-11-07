@@ -277,8 +277,11 @@ namespace zefDB {
         return (GraphData*)mem_pool;
     }
 
-
-
+    GraphDataWrapper::GraphDataWrapper(GraphData * ptr) {
+        gd = std::shared_ptr<GraphData>(ptr, [](GraphData * gd) {
+            MMap::destroy_mmap((void*)gd);
+        });
+    }
 
 
 
@@ -465,20 +468,20 @@ namespace zefDB {
         if(index_hi == gd.write_head)
             return gd.hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
 
-        Graph old_g = create_partial_graph(g, index_hi);
-        return old_g.hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
+        GraphDataWrapper old_gdw = create_partial_graph(g.my_graph_data(), index_hi);
+        // return old_g.hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
+        return old_gdw->hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
     }
 
-    Graph create_partial_graph(Graph old_g, blob_index index_hi) {
+    GraphDataWrapper create_partial_graph(GraphData & cur_gd, blob_index index_hi) {
         blob_index index_lo = constants::ROOT_NODE_blob_index;
         {
-            GraphData & old_gd = old_g.my_graph_data();
-            LockGraphData old_lock(&old_gd);
+            LockGraphData cur_lock(&cur_gd);
             // // Optimised common case
-            // if(index_hi == old_gd.write_head)
-            //     return old_gd.hash(index_lo, index_hi);
-            if(index_hi > old_gd.write_head)
-                throw std::runtime_error("in create_partial_graph: index_hi is larger than old graph");
+            // if(index_hi == cur_gd.write_head)
+            //     return cur_gd.hash(index_lo, index_hi);
+            if(index_hi > cur_gd.write_head)
+                throw std::runtime_error("in create_partial_graph: index_hi is larger than current graph");
             if(index_hi < index_lo)
                 throw std::runtime_error("in create_partial_graph: index_hi (" + to_str(index_hi) + ") is before the root node!");
         }
@@ -488,139 +491,168 @@ namespace zefDB {
         // what's inside the root blob after we copy it over.
 
         // Create a graph with "internal_use" turned on.
-        Graph g{false, MMap::MMAP_STYLE_ANONYMOUS, true};
-        GraphData & gd = g.my_graph_data();
-        LockGraphData lock(&gd);
+        // Graph g{false, MMap::MMAP_STYLE_ANONYMOUS, true};
+        // GraphData & gd = g.my_graph_data();
+        GraphData * gd = create_GraphData(MMap::MMAP_STYLE_ANONYMOUS, nullptr, {}, false);
+        // Graph g{gd, false};
+        // LockGraphData lock(&gd);
+
         // std::cerr << "Created temporary internal graph with uid: " << uid(g) << std::endl;
-        
-        
-        char * lo_ptr = (char*)&gd + index_lo * constants::blob_indx_step_in_bytes;
-        size_t len = (index_hi - index_lo)*constants::blob_indx_step_in_bytes;
-        MMap::ensure_or_alloc_range(lo_ptr, len);
 
         {
-            GraphData & old_gd = old_g.my_graph_data();
-            LockGraphData old_lock(&old_gd);
+            LockGraphData cur_lock(&cur_gd);
+            // Note: even though we hold a lock on the GraphData, this doesn't
+            // mean that a transaction isn't open. Instead, we can be sure that
+            // our thread is the only one allowed to write to the graph, so the
+            // data will be stable while we are in here.
+            //
+            // The effect of this is that we must use write_head below, as we
+            // need to rewind everything affected by blobs past the read_head
+            // too.
 
-            char * old_lo_ptr = (char*)&old_gd + index_lo * constants::blob_indx_step_in_bytes;
-            Butler::ensure_or_get_range(old_lo_ptr, len);
-            std::memcpy(lo_ptr, old_lo_ptr, len);
-            gd.write_head = index_hi;
+            char * lo_ptr = (char*)gd + index_lo * constants::blob_indx_step_in_bytes;
+            // Note we copy the whole lot across, so that roll back can unapply the caches properly
+            size_t len = (cur_gd.write_head - index_lo)*constants::blob_indx_step_in_bytes;
+            MMap::ensure_or_alloc_range(lo_ptr, len);
+
+            char * cur_lo_ptr = (char*)&cur_gd + index_lo * constants::blob_indx_step_in_bytes;
+            Butler::ensure_or_get_range(cur_lo_ptr, len);
+            std::memcpy(lo_ptr, cur_lo_ptr, len);
+            // gd.write_head = index_hi;
+            gd->write_head = cur_gd.write_head.load();
+            gd->latest_complete_tx = cur_gd.latest_complete_tx.load();
+
+#define GEN_CACHE(x, y) {                                               \
+                auto ptr = gd->y->get_writer();                          \
+                auto cur_ptr = cur_gd.y->get();                         \
+                auto diff = cur_ptr->create_diff(0, cur_ptr->size());   \
+                ptr->apply_diff(diff, ptr.ensure_func());               \
+            }
+
+            GEN_CACHE("_ETs_used", ETs_used)
+            GEN_CACHE("_RTs_used", RTs_used)
+            GEN_CACHE("_ENs_used", ENs_used)
+            GEN_CACHE("_uid_lookup", uid_lookup)
+            GEN_CACHE("_euid_lookup", euid_lookup)
+            GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
+#undef GEN_CACHE
         }
 
-        roll_back_using_only_existing(gd);
+        // roll_back_using_only_existing(gd);
+        roll_back_to(*gd, index_hi, true);
 
-        gd.read_head = gd.write_head.load();
+        gd->read_head = gd->write_head.load();
 
-        return g;
+        return GraphDataWrapper(gd);
     }
 
-    void roll_back_using_only_existing(GraphData & gd) {
-        // This assumes we have been given (up to write_head) a set of blobs
-        // which may refer to things beyond the write_head. We update these
-        // existing blobs so as to forget anything that lies outside their
-        // range.
+    // void roll_back_using_only_existing(GraphData & gd) {
+    //     // This assumes we have been given (up to write_head) a set of blobs
+    //     // which may refer to things beyond the write_head. We update these
+    //     // existing blobs so as to forget anything that lies outside their
+    //     // range.
 
-        LockGraphData lock(&gd);
+    //     LockGraphData lock(&gd);
 
-        blob_index index_hi = gd.write_head;
+    //     blob_index index_hi = gd.write_head;
 
-        std::unordered_set<blob_index> updated_last_blobs;
+    //     std::unordered_set<blob_index> updated_last_blobs;
 
-        TimeSlice latest_time_slice;
-        blob_index latest_complete_tx = 0;
+    //     TimeSlice latest_time_slice;
+    //     blob_index latest_complete_tx = 0;
 
-        blob_index cur_index = constants::ROOT_NODE_blob_index;
-        while(cur_index < index_hi) {
-            EZefRef ezr{cur_index, gd};
-            int this_size = size_of_blob(ezr);
-            int new_last_blob = -1;
-            bool is_start_of_edges = false;
-            if(internals::has_edge_list(ezr)) {
-                visit_blob_with_edges([&](auto & edges) {
-                    int this_last_blob_offset = -1;
-                    for(int i = 0; i < edges.local_capacity ; i++) {
-                        if(abs(edges.indices[i]) >= index_hi) {
-                            edges.indices[i] = 0;
-                            if(this_last_blob_offset == -1)
-                                this_last_blob_offset = i;
-                        }
-                    }
+    //     blob_index cur_index = constants::ROOT_NODE_blob_index;
+    //     while(cur_index < index_hi) {
+    //         EZefRef ezr{cur_index, gd};
+    //         int this_size = size_of_blob(ezr);
+    //         int new_last_blob = -1;
+    //         bool is_start_of_edges = false;
+    //         if(internals::has_edge_list(ezr)) {
+    //             visit_blob_with_edges([&](auto & edges) {
+    //                 int this_last_blob_offset = -1;
+    //                 for(int i = 0; i < edges.local_capacity ; i++) {
+    //                     if(abs(edges.indices[i]) >= index_hi) {
+    //                         edges.indices[i] = 0;
+    //                         if(this_last_blob_offset == -1)
+    //                             this_last_blob_offset = i;
+    //                     }
+    //                 }
 
-                    if(edges.indices[edges.local_capacity] >= index_hi) {
-                        edges.indices[edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
-                        if(this_last_blob_offset == -1)
-                            this_last_blob_offset = edges.local_capacity;
-                    }
+    //                 if(edges.indices[edges.local_capacity] >= index_hi) {
+    //                     edges.indices[edges.local_capacity] = blobs_ns::sentinel_subsequent_index;
+    //                     if(this_last_blob_offset == -1)
+    //                         this_last_blob_offset = edges.local_capacity;
+    //                 }
 
-                    if(this_last_blob_offset != -1) {
-                        if(this_last_blob_offset == 0)
-                            new_last_blob = 0;
-                        else {
-                            uintptr_t direct_ptr = (uintptr_t)&edges.indices[this_last_blob_offset];
-                            blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
-                            new_last_blob = blob_index_from_ptr(ptr);
-                        }
-                    }
-                }, ezr);
+    //                 if(this_last_blob_offset != -1) {
+    //                     if(this_last_blob_offset == 0)
+    //                         new_last_blob = 0;
+    //                     else {
+    //                         uintptr_t direct_ptr = (uintptr_t)&edges.indices[this_last_blob_offset];
+    //                         blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
+    //                         new_last_blob = blob_index_from_ptr(ptr);
+    //                     }
+    //                 }
+    //             }, ezr);
 
-                if(new_last_blob != -1) {
-                    if(get<BlobType>(ezr) == BlobType::DEFERRED_EDGE_LIST_NODE) {
-                        auto def = (blobs_ns::DEFERRED_EDGE_LIST_NODE*)ezr.blob_ptr;
-                        // We only update if the source blob wasn't previously updated.
-                        if(updated_last_blobs.count(def->first_blob) == 0) {
-                            EZefRef orig_ezr{def->first_blob, gd};
-                            *internals::last_edge_holding_blob(orig_ezr) = new_last_blob;
-                            updated_last_blobs.insert(def->first_blob);
-                        } else {
-                            // If we get here something is weird - we are
-                            // removing items from a deferred edge list that
-                            // *must* be beyond the end of the index_hi.
-                            throw std::runtime_error("We should never get here!");
-                        }
-                    } else {
-                        *internals::last_edge_holding_blob(ezr) = new_last_blob;
-                    }
+    //             if(new_last_blob != -1) {
+    //                 if(get<BlobType>(ezr) == BlobType::DEFERRED_EDGE_LIST_NODE) {
+    //                     auto def = (blobs_ns::DEFERRED_EDGE_LIST_NODE*)ezr.blob_ptr;
+    //                     // We only update if the source blob wasn't previously updated.
+    //                     if(updated_last_blobs.count(def->first_blob) == 0) {
+    //                         EZefRef orig_ezr{def->first_blob, gd};
+    //                         *internals::last_edge_holding_blob(orig_ezr) = new_last_blob;
+    //                         updated_last_blobs.insert(def->first_blob);
+    //                     } else {
+    //                         // If we get here something is weird - we are
+    //                         // removing items from a deferred edge list that
+    //                         // *must* be beyond the end of the index_hi.
+    //                         throw std::runtime_error("We should never get here!");
+    //                     }
+    //                 } else {
+    //                     *internals::last_edge_holding_blob(ezr) = new_last_blob;
+    //                 }
 
-                    updated_last_blobs.insert(cur_index);
-                }
-            }
+    //                 updated_last_blobs.insert(cur_index);
+    //             }
+    //         }
 
-            if(get<BlobType>(ezr) == BlobType::TX_EVENT_NODE) {
-                auto tx = (blobs_ns::TX_EVENT_NODE*)ezr.blob_ptr;
-                if(tx->time_slice > latest_time_slice) {
-                    latest_time_slice = tx->time_slice;
-                    latest_complete_tx = cur_index;
-                }
-            }
+    //         if(get<BlobType>(ezr) == BlobType::TX_EVENT_NODE) {
+    //             auto tx = (blobs_ns::TX_EVENT_NODE*)ezr.blob_ptr;
+    //             if(tx->time_slice > latest_time_slice) {
+    //                 latest_time_slice = tx->time_slice;
+    //                 latest_complete_tx = cur_index;
+    //             }
+    //         }
 
-            cur_index += blob_index_size(ezr);
-        }
+    //         cur_index += blob_index_size(ezr);
+    //     }
 
-        // We also need to update terminated time slices. Unfortunately we can't
-        // do this until we know what the latest time slice was, hence why this
-        // occurs outside of the loop above.
+    //     // We also need to update terminated time slices. Unfortunately we can't
+    //     // do this until we know what the latest time slice was, hence why this
+    //     // occurs outside of the loop above.
         
-        cur_index = constants::ROOT_NODE_blob_index;
-        while(cur_index < index_hi) {
-            EZefRef ezr{cur_index, gd};
-            if(get<BlobType>(ezr) == BlobType::ENTITY_NODE) {
-                auto rae = (blobs_ns::ENTITY_NODE*)ezr.blob_ptr;
-                if(rae->termination_time_slice > latest_time_slice)
-                    rae->termination_time_slice = TimeSlice();
-            } else if(get<BlobType>(ezr) == BlobType::ATTRIBUTE_ENTITY_NODE) {
-                auto rae = (blobs_ns::ATTRIBUTE_ENTITY_NODE*)ezr.blob_ptr;
-                if(rae->termination_time_slice > latest_time_slice)
-                    rae->termination_time_slice = TimeSlice();
-            } else if(get<BlobType>(ezr) == BlobType::RELATION_EDGE) {
-                auto rae = (blobs_ns::RELATION_EDGE*)ezr.blob_ptr;
-                if(rae->termination_time_slice > latest_time_slice)
-                    rae->termination_time_slice = TimeSlice();
-            }
-            cur_index += blob_index_size(ezr);
-        }
-        gd.latest_complete_tx = latest_complete_tx;
-    }
+    //     cur_index = constants::ROOT_NODE_blob_index;
+    //     while(cur_index < index_hi) {
+    //         EZefRef ezr{cur_index, gd};
+    //         if(get<BlobType>(ezr) == BlobType::ENTITY_NODE) {
+    //             auto rae = (blobs_ns::ENTITY_NODE*)ezr.blob_ptr;
+    //             if(rae->termination_time_slice > latest_time_slice)
+    //                 rae->termination_time_slice = TimeSlice();
+    //         } else if(get<BlobType>(ezr) == BlobType::ATTRIBUTE_ENTITY_NODE) {
+    //             auto rae = (blobs_ns::ATTRIBUTE_ENTITY_NODE*)ezr.blob_ptr;
+    //             if(rae->termination_time_slice > latest_time_slice)
+    //                 rae->termination_time_slice = TimeSlice();
+    //         } else if(get<BlobType>(ezr) == BlobType::RELATION_EDGE) {
+    //             auto rae = (blobs_ns::RELATION_EDGE*)ezr.blob_ptr;
+    //             if(rae->termination_time_slice > latest_time_slice)
+    //                 rae->termination_time_slice = TimeSlice();
+    //         }
+    //         cur_index += blob_index_size(ezr);
+    //     }
+    //     gd.latest_complete_tx = latest_complete_tx;
+    // }
 
     void roll_back_to(GraphData & gd, blob_index index_hi, bool roll_back_caches) {
         LockGraphData lock(&gd);
@@ -641,9 +673,18 @@ namespace zefDB {
             cur_index += blob_index_size(ezr);
         }
 
+        EZefRef earliest_tx(nullptr);
+        
         for(auto it = all_indices.rbegin(); it != all_indices.rend(); it++) {
             EZefRef ezr{*it, gd};
             internals::unapply_action_blob(gd, ezr, roll_back_caches);
+            if(BT(ezr) == BT.TX_EVENT_NODE) {
+                earliest_tx = ezr;
+            }
+        }
+
+        if(earliest_tx.blob_ptr != nullptr) {
+            gd.latest_complete_tx = index(earliest_tx << BT.NEXT_TX_EDGE);
         }
 
         // Note: we could immediately move the write_head to index_hi in order
