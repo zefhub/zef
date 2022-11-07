@@ -352,12 +352,13 @@ namespace zefDB {
             // it would be compile-time optimised anyway though
             size_t page_ind_low = ptr_to_page_ind(ptr);
             size_t page_ind_high = ptr_to_page_ind((char*)ptr+(size-1));
-            for (auto page_ind = page_ind_low ; page_ind <= page_ind_high ; page_ind++)
+            for (auto page_ind = page_ind_low ; page_ind <= page_ind_high ; page_ind++) {
 #ifdef ZEFDB_TEST_NO_MMAP_CHECKS
                 ensure_page_direct(info, page_ind);
 #else
                 ensure_page(info, page_ind);
 #endif
+            }
         }
 
 

@@ -381,6 +381,27 @@ namespace zefDB {
 		LIBZEF_DLL_EXPORTED EZefRef get_latest_complete_tx_node(GraphData& gd, blob_index latest_complete_tx_hint = constants::ROOT_NODE_blob_index);
 	}
 
+    // This is just useful for internal use. Using a GraphData without involving the butler.
+    //
+    // Maybe this can be what the butler uses in the future.
+    //
+    // Should be instead able to use a shared_ptr with a custom deleter, but
+    // this doesn't seem to work with pybind (it deletes immediately when
+    // returned to python). So instead we make a thin wrapper.
+    struct LIBZEF_DLL_EXPORTED GraphDataWrapper {
+        std::shared_ptr<GraphData> gd;
+
+        GraphData* operator->() { return gd.get(); }
+
+        GraphDataWrapper(GraphData * gd);
+        // GraphDataWrapper(GraphDataWrapper && other) = default;
+        // GraphDataWrapper & operator=(GraphDataWrapper && other) = default;
+    };
+
+    // using GraphDataWrapper = std::shared_ptr<GraphData>;
+    // LIBZEF_DLL_EXPORTED GraphDataWrapper make_GraphData_wrapper(GraphData * ptr);
+
+        
 
 
 //                                                                ____                 _                                                                
@@ -392,6 +413,7 @@ namespace zefDB {
 	struct LIBZEF_DLL_EXPORTED Graph {
 		// this is the parent object that owns and manages all the memory. The memory pool should be copyable with memcopy
 		
+        // TODO: This could be changed into a GraphDataWrapper
 		uintptr_t mem_pool = 0; //pointer to the beginning of the used memory pool for nodes and edges. First element is the GraphData. precalc this for lookups
         std::weak_ptr<Butler::Butler> butler_weak;
 		//blob_id_to_index_map index_from_id;
@@ -461,7 +483,7 @@ namespace zefDB {
 
 	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, Graph& g);
 
-    LIBZEF_DLL_EXPORTED Graph create_partial_graph(Graph old_g, blob_index index_hi);
+    LIBZEF_DLL_EXPORTED GraphDataWrapper create_partial_graph(GraphData & cur_gd, blob_index index_hi);
     LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string working_layout);
 
     inline void save_local(Graph & g) {

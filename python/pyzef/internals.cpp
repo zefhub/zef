@@ -636,6 +636,10 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def("__repr__", [](const GraphData& self)->std::string { std::stringstream ss; ss << self; return ss.str(); })
 		;
 
+	py::class_<zefDB::GraphDataWrapper>(internals_submodule, "GraphDataWrapper")
+		.def_property_readonly("graph_data", [](GraphDataWrapper gdw)->GraphData& { return *(gdw.gd); }, py::return_value_policy::reference)
+        ;
+
 	
 
 
