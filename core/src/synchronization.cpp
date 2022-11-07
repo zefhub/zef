@@ -190,14 +190,19 @@ namespace zefDB {
             std::unordered_set<blob_index> handled_nodes;
 
             blob_index cur_index = start_index;
-			while (cur_index < end_index) {
+            while (cur_index < end_index) {
                 EZefRef ezr{cur_index,gd};
 
                 if(has_source_target_node(ezr)) {
                     blob_index src = source_node_index(ezr);
                     blob_index trg = target_node_index(ezr);
+                    blob_index maybe_avae = 0;
+                    if(BT(ezr) == BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE)
+                        maybe_avae = get<blobs_ns::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE>(ezr).value_edge_index;
 
-                    for(blob_index orig_indx : {src, trg}) {
+                    for(blob_index orig_indx : {src, trg, maybe_avae}) {
+                        if(orig_indx == 0)
+                            continue;
                         if(orig_indx < start_index && handled_nodes.find(orig_indx) == handled_nodes.end()) {
                             // Find the original blob and the latest deferred edge
                             // list in the original section
@@ -214,32 +219,34 @@ namespace zefDB {
                                     break;
                                 subseq_ezr = EZefRef{*subseq_index, gd};
                             }
+                            int num = local_edge_indexes_capacity(subseq_ezr);
 
                             // We remove all edges past the first one which is new.
                             blob_index * list_start = edge_indexes(subseq_ezr);
+                            blob_index * list_end = list_start + num;
                             blob_index * new_point = list_start;
-                            while(abs(*new_point) < start_index)
+                            // The comparison to zero is not necessary here but is a failsafe.
+                            while(new_point < list_end && abs(*new_point) < start_index && abs(*new_point) != 0)
                                 new_point++;
-
-                            int num = local_edge_indexes_capacity(subseq_ezr);
-                            // Does this need a sizeof?
-                            int new_ind = (new_point - list_start);
-                            memset(new_point, 0, (num - new_ind)*sizeof(blob_index));
+                            if(new_point != list_end) {
+                                int new_ind = (new_point - list_start);
+                                memset(new_point, 0, (num - new_ind)*sizeof(blob_index));
+                            }
 
                             // Also remove any deferred edge list (no need to check, just always do it)
                             *subseq_index = blobs_ns::sentinel_subsequent_index;
 
                             // And finally update the last_blob
                             blob_index * last_blob = internals::last_edge_holding_blob(orig_ezr);
-                            if(new_point == list_start)
+                            if(new_point == list_start) {
                                 *last_blob = 0;
-                            else {
+                            } else {
                                 uintptr_t direct_ptr = (uintptr_t)new_point;
                                 blob_index * ptr = (blob_index*)(direct_ptr - (direct_ptr % constants::blob_indx_step_in_bytes));
                                 *last_blob = blob_index_from_ptr(ptr);
                             }
 
-                            handled_nodes.insert(src);
+                            handled_nodes.insert(orig_indx);
                         }
                     }
                 }
@@ -404,10 +411,11 @@ namespace zefDB {
             case BlobType::INSTANTIATION_EDGE:
             case BlobType::NEXT_TAG_NAME_ASSIGNMENT_EDGE:
             case BlobType::ORIGIN_GRAPH_EDGE:
+            case BlobType::ORIGIN_RAE_EDGE:
             case BlobType::ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
                 return;
 			default:
-                throw std::runtime_error("Unhandled apply action");
+                throw std::runtime_error("Unhandled unapply action: " + to_str(get<BlobType>(uzr_to_blob)));
 			};
 		}
 

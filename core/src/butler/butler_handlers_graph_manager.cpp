@@ -334,7 +334,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NewGrap
         }
 
         // The mmap steals the file graph ptr
-        me.gd = create_GraphData(mem_style, fg, me.uid, !content.payload);
+        me.gd = create_GraphData(mem_style, fg, me.uid, !(content.payload || content.internal_use_only));
         // Grab a reference while we are manipulating things in here
         Graph _g{me.gd, false};
 
@@ -527,6 +527,15 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                         if(!response.generic.success) {
                             developer_output("Problem letting ZefHub know that we reset our heads.");
                             msg->promise.set_value(GraphLoaded(response.generic.reason));
+                            me.please_stop = true;
+                            return;
+                        }
+
+                        if(!response.j["hash_agreed"]) {
+                            std::cerr << "A weird problem is happening with our resubscribe. We had to let upstream know about our actual graph heads, but even then hashes didn't agree. What is going on??" << std::endl;
+
+                            std::cerr << "This will be handled better in the future, but for now we are going to abort this resubscribe. Delete your cached graph manually if you cannot resolve this problem another way." << std::endl;
+                            msg->promise.set_value(GraphLoaded("Hashes disagreed after letting upstream know about our latest heads."));
                             me.please_stop = true;
                             return;
                         }

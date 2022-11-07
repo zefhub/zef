@@ -380,7 +380,6 @@ void apply_action_TERMINATION_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches
 void unapply_action_TERMINATION_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches) {
     auto this_rel_ent_instance_edge = EZefRef(target_node_index(uzr), gd);
     auto rel_ent_that_was_terminated = EZefRef(target_node_index(this_rel_ent_instance_edge), gd);
-    std::cerr << "Going to set " << rel_ent_that_was_terminated << " to have a zero termination slice" << std::endl;
     switch (get<BlobType>(rel_ent_that_was_terminated)) {
     case BlobType::ATTRIBUTE_ENTITY_NODE: {
         get<blobs_ns::ATTRIBUTE_ENTITY_NODE>(rel_ent_that_was_terminated).termination_time_slice.value = 0;
