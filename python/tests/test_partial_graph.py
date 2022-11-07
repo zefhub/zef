@@ -47,6 +47,22 @@ class MyTestCase(unittest.TestCase):
                 after_payload = zef.internals.create_update_payload(g_partial.graph_data, before_heads, "")
                 self.assertEqual(before_payload, after_payload)
 
+    def test_partial_during_transaction(self):
+        g = Graph()
+
+        a,b,c = (ET.Machine, RT.Something, 5) | g | run
+        hash_before = g.hash()
+        head_before = g.graph_data.read_head
+        with Transaction(g):
+            a | terminate | g | run
+            [ET.Machine]*10 | g | run
+            a,b,c = (ET.Machine, RT.Something, 5) | g | run
+            g_clone_in_tx = zef.pyzef.internals.create_partial_graph(g.graph_data, head_before)
+        g_clone_after = zef.pyzef.internals.create_partial_graph(g.graph_data, head_before)
+            
+        self.assertEqual(g_clone_after.graph_data.hash(), hash_before)
+        self.assertEqual(g_clone_in_tx.graph_data.hash(), hash_before)
+
     def test_abort_transaction(self):
         g = Graph()
 

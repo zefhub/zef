@@ -503,17 +503,25 @@ namespace zefDB {
 
         {
             LockGraphData cur_lock(&cur_gd);
+            // Note: even though we hold a lock on the GraphData, this doesn't
+            // mean that a transaction isn't open. Instead, we can be sure that
+            // our thread is the only one allowed to write to the graph, so the
+            // data will be stable while we are in here.
+            //
+            // The effect of this is that we must use write_head below, as we
+            // need to rewind everything affected by blobs past the read_head
+            // too.
 
             char * lo_ptr = (char*)gd + index_lo * constants::blob_indx_step_in_bytes;
             // Note we copy the whole lot across, so that roll back can unapply the caches properly
-            size_t len = (cur_gd.read_head - index_lo)*constants::blob_indx_step_in_bytes;
+            size_t len = (cur_gd.write_head - index_lo)*constants::blob_indx_step_in_bytes;
             MMap::ensure_or_alloc_range(lo_ptr, len);
 
             char * cur_lo_ptr = (char*)&cur_gd + index_lo * constants::blob_indx_step_in_bytes;
             Butler::ensure_or_get_range(cur_lo_ptr, len);
             std::memcpy(lo_ptr, cur_lo_ptr, len);
             // gd.write_head = index_hi;
-            gd->write_head = cur_gd.read_head.load();
+            gd->write_head = cur_gd.write_head.load();
             gd->latest_complete_tx = cur_gd.latest_complete_tx.load();
 
 #define GEN_CACHE(x, y) {                                               \
