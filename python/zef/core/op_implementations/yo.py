@@ -377,6 +377,7 @@ def graph_info(g) -> str:
     bl = blobs(g)
     grouped_by_bts =  dict(
         bl 
+        | filter[Not[is_delegate]]
         | group_by[BT] 
         | filter[lambda x: x[0] in {BT.TX_EVENT_NODE, BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}] 
         | collect
