@@ -520,11 +520,17 @@ class ZefOp_:
         return True
         
 def zefop_is_a(x, typ):
-    assert generic_subtype_validate(typ)
     # Note: this is only hit for the Zefop value type, not for actual zefops or zefop chains
     # TODO: Proper testing with patterns. For now, just passing to the ZefOp_
     # class to handle basic "zefop type" checks.
-    subtype = generic_subtype_get(typ)
+    from .VT.helpers import remove_names, absorbed
+    items = remove_names(absorbed(typ))
+    if len(items) >= 2:
+        raise Exception(f"ZefOp type cannot have more than 1 item absorbed, found {items}")
+    elif len(items) == 0:
+        subtype = None
+    else:
+        subtype = items[0]
     if subtype is None:
         return isinstance(x, ZefOp_)
     return isinstance(x, subtype)

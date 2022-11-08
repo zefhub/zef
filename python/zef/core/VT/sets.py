@@ -14,7 +14,7 @@
 
 
 # from .value_type import *
-from . import ValueType, make_VT, PyDict, PyList
+from . import ValueType, make_VT, PyDict, PyList, PyTuple
 from .helpers import remove_names, absorbed, type_name
 
 def make_distinct(v):
@@ -44,24 +44,33 @@ def is_intersection_VT(y):
     return isinstance(y, ValueType) and y._d['type_name'] == 'Intersection'
 
 
+def get_union_intersection_subtypes(typ):
+    subtypes = remove_names(absorbed(typ))[0]
+    if not isinstance(subtypes, PyTuple):
+        subtypes = (subtypes,)
+    return subtypes
 
-# TODO: Not yet used
+
 def union_validation(typ):
-    assert all(isinstance(el, ValueType) for el in remove_names(absorbed(typ))), "Union requires ValueTypes"
+    abs = remove_names(absorbed(typ))
+    if len(abs) != 1:
+        raise Exception(f"Union needs exactly 1 absorbed type or tuple of types (has {abs})")
+    subtypes = abs[0]
+    if not isinstance(subtypes, PyTuple):
+        subtypes = (subtypes,)
+    assert all(isinstance(el, ValueType) for el in subtypes), "Union requires ValueTypes"
+    return True
 
 def union_is_a(val, typ):
-    subtypes = remove_names(absorbed(typ))
-    if len(subtypes) == 0:
-        return NotImplemented
+    assert union_validation(typ)
+    subtypes = get_union_intersection_subtypes(typ)
     return any(isinstance(val, subtyp) for subtyp in subtypes)
 
 def union_override_subtype(union, typ):
-    subtypes = remove_names(absorbed(typ))
-    if len(subtypes) == 0:
-        return NotImplemented
+    assert union_validation(union)
+    subtypes = get_union_intersection_subtypes(union)
     return all(issubclass(x, typ) for x in subtypes)
 
-# TODO: Not yet used
 def union_simplify(x):
     """
     Only simplifies nested Union and Intersection.
@@ -79,10 +88,8 @@ def union_simplify(x):
 
     """
     # flatten out unions: Union[Union[A][B]][C]  == Union[A][B][C]
-    if "types" not in x._d:
-        return x
-    old_abs = x._d['types']
-    types = tuple(el._d['types'] if is_union_VT(el) else (el,) for el in old_abs)  # flatten this out
+    old_subtypes = get_union_intersection_subtypes(x)
+    types = tuple(get_union_intersection_subtypes(el) if is_union_VT(el) else (el,) for el in old_subtypes)  # flatten this out
     flattened = list(make_distinct(a2 for a1 in types for a2 in a1))
     supers = []
     for i,x in enumerate(flattened):
@@ -102,28 +109,31 @@ Union = make_VT('Union',
                 simplify_type_func=union_simplify,
                 override_subtype_func=union_override_subtype)
 
-# TODO: Not yet used
 def intersection_validation(typ):
-    assert all(isinstance(el, ValueType) for el in remove_names(absorbed(typ))), "Intersection requires ValueTypes"
+    abs = remove_names(absorbed(typ))
+    if len(abs) != 1:
+        raise Exception("Intersection needs exactly 1 absorbed type or tuple of types")
+    subtypes = abs[0]
+    if not isinstance(subtypes, PyTuple):
+        subtypes = (subtypes,)
+    assert all(isinstance(el, ValueType) for el in subtypes), "Intersection requires ValueTypes"
+    return True
 
 def intersection_is_a(val, typ):
-    subtypes = remove_names(absorbed(typ))
-    if len(subtypes) == 0:
-        return NotImplemented
+    assert intersection_validation(typ)
+    subtypes = get_union_intersection_subtypes(typ)
     return all(isinstance(val, subtyp) for subtyp in subtypes)
 
 warned_about_intersection = False
 def intersection_override_subtype(intersection, typ):
-    subtypes = remove_names(absorbed(typ))
-    if len(subtypes) == 0:
-        return NotImplemented
+    assert intersection_validation(intersection)
+    subtypes = get_union_intersection_subtypes(intersection)
     # raise NotImplementedError("This is tricky!")
 
     # An intersection X is a subtype of Y, if the intersection of X and ~Y is
     # empty. Since we can't prove this yet, go for a cop-out.
     #
     # For now do the easy cases and return "maybe" otherwise
-    subtypes = remove_names(absorbed(intersection))
     result = any(issubclass(x, typ) for x in subtypes)
     if result is False:
         global warned_about_intersection
@@ -139,7 +149,6 @@ def intersection_override_subtype(intersection, typ):
     return result
 
 
-# TODO: Not yet used
 def intersection_simplify(x):
     """
     Only simplifies nested Union and Intersection.
@@ -157,10 +166,8 @@ def intersection_simplify(x):
 
     """
     # flatten out Intersections: Intersection[Intersection[A][B]][C]  == Intersection[A][B][C]
-    if "types" not in x._d:
-        return x
-    old_abs = x._d['types']
-    types = tuple(el._d['types'] if is_intersection_VT(el) else (el,) for el in old_abs)  # flatten this out
+    old_subtypes = get_union_intersection_subtypes(x)
+    types = tuple(get_union_intersection_subtypes(el) if is_intersection_VT(el) else (el,) for el in old_subtypes)  # flatten this out
     flattened = list(make_distinct(a2 for a1 in types for a2 in a1))
     supers = []
     for i,x in enumerate(flattened):
@@ -261,20 +268,20 @@ make_VT('SetOf',
 
 
 
-def pattern_validation(self, x):
+def pattern_validation(self):
     abs = remove_names(absorbed(self))
     if len(abs) != 1:
         raise Exception(f"Pattern requires a single absorbed item not {abs}")
         
     pattern = abs[0]
-    if not isinstance(pattern, PyDict | List):
+    if not isinstance(pattern, PyDict | PyList):
         raise Exception(f"Pattern takes either a dictionary or a list not {pattern}")
 
     return True
 
 def pattern_vt_matching(x, typ):
     assert pattern_validation(typ)
-    p = remove_names(absorbed(self))[0]
+    p = remove_names(absorbed(typ))[0]
 
     class Sentinel: pass
     sentinel = Sentinel() 
@@ -290,7 +297,7 @@ def pattern_vt_matching(x, typ):
             if not isinstance(v, ValueType): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
             if not isinstance(r, v): return False  
         return True
-    elif isinstance(x, List):
+    elif isinstance(x, PyList):
         for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
             if not isinstance(p_e, ValueType):
                 raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")

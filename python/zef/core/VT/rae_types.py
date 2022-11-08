@@ -27,7 +27,7 @@ AET_Enum = make_VT('AET_Enum', pytype=internals.AttributeEntityTypeStruct_Enum)
 def get_token(typ):
     abs = remove_names(absorbed(typ))
     if len(abs) >= 2:
-        raise Exception("Token type has more than one absorbed token")
+        raise Exception(f"Token type has more than one absorbed token: {abs}")
     if len(abs) == 0:
         return None
     return abs[0]
@@ -41,24 +41,26 @@ def wrap_attr_readonly_token(orig):
             out = getattr(orig, name)
         else:
             # This is just for AETs
-            if isinstance(self._d["token"], AET_QFloat):
+            if isinstance(token, AET_QFloat):
                 out = getattr(orig.QuantityFloat, name)
-            elif isinstance(self._d["token"], AET_QInt):
+            elif isinstance(token, AET_QInt):
                 out = getattr(orig.QuantityInt, name)
-            elif isinstance(self._d["token"], AET_Enum):
+            elif isinstance(token, AET_Enum):
                 out = getattr(orig.Enum, name)
             else:
                 raise AttributeError(name)
-        return self[out]
+        assert len(names_of(self)) == 0, "Going to lose names"
+        base_token_type = self._replace(absorbed=())
+        return base_token_type[out]
     def this_dir(self):
         token = get_token(self)
         if token is not None:
             # This is just for AETs
-            if isinstance(self._d["token"], AET_QFloat):
+            if isinstance(token, AET_QFloat):
                 return dir(orig.QuantityFloat)
-            elif isinstance(self._d["token"], AET_QInt):
+            elif isinstance(token, AET_QInt):
                 return dir(orig.QuantityInt)
-            elif isinstance(self._d["token"], AET_Enum):
+            elif isinstance(token, AET_Enum):
                 return dir(orig.Enum)
             else:
                 return []

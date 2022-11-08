@@ -1895,7 +1895,9 @@ def all_imp(*args):
         # The specific all[ET.x/AET.x] options (not all[RT.x] though)
         if isinstance(fil, ET) or isinstance(fil, AET):
             after_filter = None
-            if "token" not in fil._d:
+            from ..VT.rae_types import get_token
+            token = get_token(fil)
+            if token is None:
                 if isinstance(fil, ET):
                     c_fil = None
                     after_filter = ET
@@ -1903,7 +1905,6 @@ def all_imp(*args):
                     c_fil = None
                     after_filter = AET
             else:
-                token = internals.get_c_token(fil)
                 if isinstance(token, (EntityTypeToken, AttributeEntityTypeToken)):
                     c_fil = token
                 else:
@@ -1920,6 +1921,7 @@ def all_imp(*args):
             else:
                 return initial
         
+        # TODO: Probably rewrite this to take advantage of the above c-level calls
         if isinstance(fil, ValueType) and fil._d['type_name'] in {"Union", "Intersection"}:
             representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (ET, AET))] | func[set] | collect
             value_types = set(fil._d['absorbed']) - representation_types

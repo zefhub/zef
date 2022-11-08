@@ -48,6 +48,9 @@ make_VT("ValueType", pytype=ValueType_)
 # Bootstrap types
 from . import python_types
 
+# TODO: This should be replaced with the proper symbolic variables
+Variable = String
+
 from . import sets
 
 from . import libzef_types
@@ -65,7 +68,3 @@ from . import codebase_query
 # TODO: Move this around to be somewhere sensible
 from ..internals import Val_
 make_VT("Val", pytype=Val_)
-
-
-# TODO: This should be replaced with the proper symbolic variables
-Variable = String
