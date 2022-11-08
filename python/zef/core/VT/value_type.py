@@ -72,7 +72,6 @@ from .. import internals
 # For certain value types, the user may want to call e.g. Float(4.5).
 # This looks up the associated function 
 _value_type_constructor_funcs = {}
-_value_type_get_item_funcs = {}
 _value_type_attr_funcs = {}
 _value_type_is_a_funcs = {}
 _value_type_is_subtype_funcs = {}
@@ -86,7 +85,7 @@ class ValueType_:
     """ 
     Zef ValueTypes are Values themselves.
     """
-    def __init__(self, type_name:str, absorbed=(), pytype=None, constructor_func=None, get_item_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, override_subtype_func=None, str_func=None, simplify_type_func=None):
+    def __init__(self, type_name:str, absorbed=(), pytype=None, constructor_func=None, pass_self=False, attr_funcs=(None,None,None), is_a_func=None, is_subtype_func=None, override_subtype_func=None, simplify_type_func=None, str_func=None):
             self._d = {
                 'type_name': type_name,
                 'absorbed': absorbed,
@@ -96,9 +95,6 @@ class ValueType_:
             if constructor_func is not None:
                 assert type_name not in _value_type_constructor_funcs
                 _value_type_constructor_funcs[type_name] = (constructor_func, pass_self)
-            if get_item_func is not None:
-                assert type_name not in _value_type_get_item_funcs
-                _value_type_get_item_funcs[type_name] = get_item_func
             if is_a_func is not None:
                 assert type_name not in _value_type_is_a_funcs
                 _value_type_is_a_funcs[type_name] = is_a_func
@@ -174,17 +170,8 @@ class ValueType_:
 
 
     def __getitem__(self, x):
-        if type(x) == str:
-            if len(self._d["absorbed"]) > 0:
-                raise Exception(f"Cannot provide a second absorbed name to {self._d['type_name']}")
-            new_absorbed = self._d["absorbed"] + (x,)
-            return self._replace(absorbed=new_absorbed)
-
-        try:
-            f = _value_type_get_item_funcs[self._d["type_name"]]
-        except KeyError:
-            raise Exception(f"There is no getitem function for a ValueType of type {self._d['type_name']}") from None
-        return f(self, x)
+        new_absorbed = self._d["absorbed"] + (x,)
+        return self._replace(absorbed=new_absorbed)
 
     def __eq__(self, other):
         if isinstance(other, type) and other in [internals.ZefRef, internals.EZefRef]:
@@ -284,6 +271,11 @@ def is_a_(obj, typ):
         if out is not NotImplemented:
             return out
     if typ._d["type_name"] in _value_type_pytypes:
+        from .helpers import remove_names, absorbed
+        # If something is absorbed, then we don't know how to handle it so error
+        abs = remove_names(absorbed(typ))
+        if len(abs) > 0:
+            raise Exception(f"Absorbed arguments in a {type_name(typ)} cannot be used (have {abs}), as it is a native-python type domainted ValueType")
         return isinstance(obj, _value_type_pytypes[typ._d["type_name"]])
     else:
         raise Exception(f"ValueType '{typ._d['type_name']}' has no is_a implementation")
@@ -331,6 +323,10 @@ def is_type_name_(typ, name):
     return isinstance(typ, ValueType_) and typ._d["type_name"] == name
     
 
+def absorbed(typ):
+    return typ._d["absorbed"]
+def type_name(typ):
+    return typ._d["type_name"]
 
 # Temporary hash, probably needs to be merged into other code
 
@@ -360,32 +356,3 @@ def hash_frozen(obj):
             
     return hash(obj)
 
-
-def generic_subtype_get_item(self, x):
-    from . import ValueType
-    if "subtype" in self._d:
-        return NotImplemented
-    # if isinstance(x, ValueType):
-    #     return self._replace(subtype=(x,))
-    # else:
-    #     raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
-    return self._replace(subtype=x)
-
-def generic_subtype_str(self):
-    s = self._d["type_name"]
-    if "subtype" in self._d:
-        s += f"[{self._d['subtype']}]"
-    s += ''.join(f"[{x!r}]" for x in self._d["absorbed"])
-    return s
-
-def generic_covariant_is_subtype(x, super):
-    if x._d["type_name"] != super._d["type_name"]:
-        return False
-    if "subtype" not in super._d:
-        return True
-
-    from . import List
-    if isinstance(super._d["subtype"], List):
-        return all(is_subtype_(a,b) is True for a,b in zip(x._d["subtype"], super._d["subtype"]))
-    else:
-        return is_subtype_(x._d["subtype"], super._d["subtype"]) is True

@@ -15,6 +15,7 @@
 
 # from .value_type import *
 from . import ValueType, make_VT, PyDict, PyList
+from .helpers import remove_names, absorbed, type_name
 
 def make_distinct(v):
     """
@@ -44,32 +45,23 @@ def is_intersection_VT(y):
 
 
 
-def union_getitem(self, x):
-    if "types" in self._d:
-        raise Exception("Can't absorb types twice for a Union")
-    if not isinstance(x, tuple):
-        x = (x,)
-    assert all(isinstance(el, ValueType) for el in x), "Union requires ValueTypes"
-    return self._replace(types=x)
+# TODO: Not yet used
+def union_validation(typ):
+    assert all(isinstance(el, ValueType) for el in remove_names(absorbed(typ))), "Union requires ValueTypes"
 
 def union_is_a(val, typ):
-    if "types" not in typ._d:
+    subtypes = remove_names(absorbed(typ))
+    if len(subtypes) == 0:
         return NotImplemented
-    return any(isinstance(val, subtyp) for subtyp in typ._d["types"])
+    return any(isinstance(val, subtyp) for subtyp in subtypes)
 
 def union_override_subtype(union, typ):
-    if "types" not in typ._d:
+    subtypes = remove_names(absorbed(typ))
+    if len(subtypes) == 0:
         return NotImplemented
-    return all(issubclass(x, typ) for x in union._d["types"])
+    return all(issubclass(x, typ) for x in subtypes)
 
-def union_str(self):
-    s = "Union"
-    if "types" in self._d:
-        s += "[" + ", ".join(str(x) for x in self._d["types"]) + "]"
-    if len(self._d["absorbed"]) > 0:
-        s += f"[{self._d['absorbed'][0]}]"
-    return s
-
+# TODO: Not yet used
 def union_simplify(x):
     """
     Only simplifies nested Union and Intersection.
@@ -106,36 +98,33 @@ def union_simplify(x):
 
 
 Union = make_VT('Union',
-                get_item_func=union_getitem,
                 is_a_func=union_is_a,
                 simplify_type_func=union_simplify,
-                override_subtype_func=union_override_subtype,
-                str_func=union_str)
+                override_subtype_func=union_override_subtype)
 
-def intersection_getitem(self, x):
-    if "types" in self._d:
-        raise Exception("Can't absorb types twice for an Intersection")
-    if not isinstance(x, tuple):
-        x = (x,)
-    assert all(isinstance(el, ValueType) for el in x), "Intersection requires ValueTypes"
-    return self._replace(types=x)
+# TODO: Not yet used
+def intersection_validation(typ):
+    assert all(isinstance(el, ValueType) for el in remove_names(absorbed(typ))), "Intersection requires ValueTypes"
 
 def intersection_is_a(val, typ):
-    if "types" not in typ._d:
+    subtypes = remove_names(absorbed(typ))
+    if len(subtypes) == 0:
         return NotImplemented
-    return all(isinstance(val, subtyp) for subtyp in typ._d["types"])
+    return all(isinstance(val, subtyp) for subtyp in subtypes)
 
 warned_about_intersection = False
 def intersection_override_subtype(intersection, typ):
-    if "types" not in intersection._d:
+    subtypes = remove_names(absorbed(typ))
+    if len(subtypes) == 0:
         return NotImplemented
     # raise NotImplementedError("This is tricky!")
-    # print("WARNING: using intersection subtype override is not rigorous yet")
-    # TODO: basically want to add the new type into the intersection and then
-    # check if the resultant set is provably empty
+
+    # An intersection X is a subtype of Y, if the intersection of X and ~Y is
+    # empty. Since we can't prove this yet, go for a cop-out.
     #
     # For now do the easy cases and return "maybe" otherwise
-    result = any(issubclass(x, typ) for x in intersection._d["types"])
+    subtypes = remove_names(absorbed(intersection))
+    result = any(issubclass(x, typ) for x in subtypes)
     if result is False:
         global warned_about_intersection
         if not warned_about_intersection:
@@ -150,6 +139,7 @@ def intersection_override_subtype(intersection, typ):
     return result
 
 
+# TODO: Not yet used
 def intersection_simplify(x):
     """
     Only simplifies nested Union and Intersection.
@@ -187,66 +177,51 @@ def intersection_simplify(x):
     return Intersection[tuple(supers)]
 
 Intersection = make_VT('Intersection',
-                       get_item_func=intersection_getitem,
                        is_a_func=intersection_is_a,
                        simplify_type_func=intersection_simplify,
                        override_subtype_func=intersection_override_subtype)
 
-def complement_getitem(self, x):
-    if "type" in self._d:
-        return NotImplemented
-    if isinstance(x, ValueType):
-        return self._replace(type=(x,))
-    else:
-        raise Exception(f'"Complement[...]" called with unsupported type {type(x)}')
+def complement_validation(typ):
+    abs = remove_names(absorbed(typ))
+    if len(abs) != 1:
+        raise Exception(f"Complement requires a single type not {abs}")
+    assert isinstance(abs[0], ValueType), f"Complement require a ValueType not {abs[0]}"
 
 def complement_is_a(val, typ):
-    return not isinstance(val, typ._d['type'])
+    complement_validation(typ)
+    subtype = remove_names(absorbed(typ))[0]
+    return not isinstance(val, subtype)
 
 
 make_VT('Complement',
-        get_item_func=complement_getitem,
         is_a_func=complement_is_a)
 
-def is_getitem(self, x):
-    if "predicate" in self._d:
-        raise Exception("Can't absorb a second predicate into an Is")
+def is_validation(typ):
+    abs = remove_names(absorbed(typ))
+    if len(abs) != 1:
+        raise Exception(f"Is requires a single predicate not {abs}")
 
+    subtype = abs[0]
+    
     # TODO: I want to change this to just "callables" as otherwise the different
     # behaviour could lead to unexpected problems
     from typing import Callable
     from ..op_structs import ZefOp
     from .. import func
-    if isinstance(x, tuple):
-        return self._replace(predicate=x)
-    elif isinstance(x, ZefOp):
-        return self._replace(predicate=(x,))
-    elif isinstance(x, Callable):
-        return self._replace(predicate=(func[x],))
-    else:
-        raise Exception(f'"Is[...]" called with unsupported type {type(x)}')
+    if isinstance(subtype, (ZefOp, Callable)):
+        return True
+    raise Exception(f'"Is[...]" called with unsupported type {subtype}')
 
 def is_is_a(el, typ):
-    if "predicate" not in typ._d:
-        return NotImplemented
-    from typing import Callable
-    from . import ZefOp
-    for t in typ._d['predicate']:
-        if isinstance(t, ValueType):
-            # return Error.ValueError(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
-            raise Exception(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
-        elif isinstance(t, Callable) or isinstance(t, ZefOp):
-            try:
-                if not t(el): return False
-            except:
-                return False
-        else:
-            # return Error.ValueError(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
-            return Exception(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
+    is_validation(typ)
+    predicate = remove_names(absorbed(typ))[0]
+    try:
+        if not predicate(el): return False
+    except:
+        return False
     return True
 
 make_VT('Is',
-        get_item_func=is_getitem,
         is_a_func=is_is_a)
 
 def setof_ctor(self, *args):
@@ -259,45 +234,50 @@ def setof_ctor(self, *args):
     SetOf[42,] is valid    
     SetOf[42, 43] is valid    
     """
-    if "instances" in self._d:
+    abs = remove_names(absorbed(typ))
+    if len(abs) > 0:
         return NotImplemented
-    return self._replace(instances=args)
+    new_setof = self
+    for arg in args:
+        new_setof = new_setof[arg]
+    return new_setof
+
+def setof_validation(typ):
+    # There are no constraints
+    return True
 
 def setof_is_a(x, typ):
-    if "instances" not in typ._d:
-        return NotImplemented
-    return x in typ._d["instances"]
+    abs = remove_names(absorbed(typ))
+    return x in abs
 
 def setof_override_subtype(setof, typ):
-    if "instances" not in setof._d:
-        return NotImplemented
-    return all(isinstance(x, typ) for x in setof._d["instances"])
-
-def setof_str(self):
-    s = self._d["type_name"]
-    if "instances" in self._d:
-        s += "[" + ", ".join(repr(x) for x in self._d['instances']) + "]"
-    s += ''.join(f"[{x!r}]" for x in self._d["absorbed"])
-    return s
+    return all(isinstance(x, typ) for x in remove_names(absorbed(setof)))
 
 make_VT('SetOf',
         constructor_func=setof_ctor,
         pass_self=True,
         is_a_func=setof_is_a,
-        str_func=setof_str,
         override_subtype_func=setof_override_subtype)
 
 
 
-def pattern_getitem(self, x):
-    if "pattern" in self._d:
-        raise Exception("Pattern can't take a second pattern")
-    return self._replace(pattern=x)
+def pattern_validation(self, x):
+    abs = remove_names(absorbed(self))
+    if len(abs) != 1:
+        raise Exception(f"Pattern requires a single absorbed item not {abs}")
+        
+    pattern = abs[0]
+    if not isinstance(pattern, PyDict | List):
+        raise Exception(f"Pattern takes either a dictionary or a list not {pattern}")
+
+    return True
 
 def pattern_vt_matching(x, typ):
+    assert pattern_validation(typ)
+    p = remove_names(absorbed(self))[0]
+
     class Sentinel: pass
     sentinel = Sentinel() 
-    p = typ._d["pattern"]
 
     # Note: by this point, we only have access to PyDict and not Dict
     if not ((isinstance(x, PyDict) and isinstance(p, PyDict)) or
@@ -320,6 +300,5 @@ def pattern_vt_matching(x, typ):
     raise NotImplementedError(f"Pattern ValueType isn't implemented for {x}")
 
 
-make_VT('Pattern', is_a_func=pattern_vt_matching,
-        get_item_func=pattern_getitem)
+make_VT('Pattern', is_a_func=pattern_vt_matching)
 

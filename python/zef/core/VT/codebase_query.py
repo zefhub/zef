@@ -13,11 +13,13 @@
 # limitations under the License.
 
 from . import make_VT
+from .helpers import remove_names, absorbed
 
-def rp_getitem(self, x):
-    if not isinstance(x, tuple) or len(x)!=3:
-        raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got x={x}")
-    return self._replace(absorbed = (x,))
+def rp_validation(self):
+    abs = remove_names(absorbed(self))
+    if not len(abs)!=3:
+        raise TypeError(f"`RP`[...]  must be initialized with a triple to match on. Got x={abs}")
+    return True
 
 def operates_on_ctor(x):
     from .._ops import operates_on, contains
@@ -34,14 +36,15 @@ def used_for_ctor(x):
     from .._ops import used_for, contains
     return Is[used_for | contains[x]]
 
+# TODO: is_a for everything above
 
 
-RP          = make_VT('RP', get_item_func=rp_getitem)
+RP          = make_VT('RP')
 HasValue    = make_VT('HasValue')   # TODO Remove this later
 Query      = make_VT('Query'    )
-OperatesOn  = make_VT('OperatesOn',   constructor_func = operates_on_ctor,  get_item_func = operates_on_ctor)
-RelatedOps  = make_VT('RelatedOps',   constructor_func = related_ops_ctor,  get_item_func = related_ops_ctor)
-UsedFor     = make_VT('UsedFor',      constructor_func = used_for_ctor, get_item_func =used_for_ctor)
+OperatesOn  = make_VT('OperatesOn',   constructor_func = operates_on_ctor)#,  get_item_func = operates_on_ctor)
+RelatedOps  = make_VT('RelatedOps',   constructor_func = related_ops_ctor)#,  get_item_func = related_ops_ctor)
+UsedFor     = make_VT('UsedFor',      constructor_func = used_for_ctor)#, get_item_func =used_for_ctor)
 
 
 

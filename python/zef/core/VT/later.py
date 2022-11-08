@@ -14,15 +14,22 @@
 
 from . import make_VT
 
-# the following functions add a layer of indirection to prevent circular imports
+from .helpers import remove_names, absorbed
 
-def same_as_get_item(y):
-    from . import Is
-    from ..op_implementations.implementation_typing_functions import discard_frame_imp
-    return Is[lambda x: discard_frame_imp(x) == discard_frame_imp(y)]
+def same_as_validation(typ):
+    abs = remove_names(absorbed(typ))
+    if len(abs) != 1:
+        raise Exception(f"SameAs needs exactly one absorbed argument, have {abs}")
+    return True
+
+def same_as_is_a(x, typ):
+    assert same_as_validation(typ)
+    
+    thing = remove_names(absorbed(typ))[0]
+    return discard_frame_imp(x) == discard_frame_imp(thing)
 
 
-SameAs      = make_VT('SameAs', get_item_func = same_as_get_item)
+SameAs      = make_VT('SameAs', is_a_func = same_as_is_a)
 # TODO Add or remove these once decided their importance
 # Tagged     = make_VT('Tagged'   )
 # LazyValue  = make_VT('LazyValue')

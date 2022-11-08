@@ -29,24 +29,24 @@ def numeric_is_a(x, typ):
     except:
         return False
 
-make_VT("PyBool", pytype=bool)
-make_VT("Bool", pytype=bool, is_a_func=numeric_is_a)
+PyBool = make_VT("PyBool", pytype=bool)
+Bool = make_VT("Bool", pytype=bool, is_a_func=numeric_is_a)
 
-make_VT("PyInt", pytype=int)
-make_VT("Int", pytype=int, is_a_func=numeric_is_a)
+PyInt = make_VT("PyInt", pytype=int)
+Int = make_VT("Int", pytype=int, is_a_func=numeric_is_a)
 
-make_VT("PyFloat", pytype=float)
-make_VT("Float", pytype=float, is_a_func=numeric_is_a)
+PyFloat = make_VT("PyFloat", pytype=float)
+Float = make_VT("Float", pytype=float, is_a_func=numeric_is_a)
 
-make_VT('String', pytype=str)
-make_VT('PyBytes', pytype=bytes)
+String = make_VT('String', pytype=str)
+PyBytes = make_VT('PyBytes', pytype=bytes)
 
 from frozendict import frozendict
-make_VT('PyList', pytype=list)
+PyList = make_VT('PyList', pytype=list)
 def PyDict_is_a(x, typ):
     return isinstance(x, (dict, frozendict))
-make_VT('PyDict', pytype=dict, is_a_func=PyDict_is_a)
-make_VT('PySet', pytype=set)
+PyDict = make_VT('PyDict', pytype=dict, is_a_func=PyDict_is_a)
+PySet = make_VT('PySet', pytype=set)
 
-make_VT('PyTuple', pytype=tuple)
+PyTuple = make_VT('PyTuple', pytype=tuple)
 

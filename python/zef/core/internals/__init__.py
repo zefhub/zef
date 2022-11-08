@@ -216,7 +216,7 @@ def assign_value_imp(z, value):
         raise Exception("E/ZefRef is not an AET!")
     aet = VT.AET(z)
     if isinstance(value, VT.AET):
-        value = get_token(value)
+        value = get_c_token(value)
     if isinstance(value, ValueType_):
         value = internal_AET[value]
 
@@ -239,7 +239,7 @@ def instantiate_value_node_imp(value, g):
 
     from .rel_ent_classes import AET as internal_AET
     if isinstance(value, VT.AET):
-        value = get_token(value)
+        value = get_c_token(value)
     elif isinstance(value, ValueType_):
         value = internal_AET[value]
 
@@ -248,8 +248,9 @@ def instantiate_value_node_imp(value, g):
     return c_instantiate_value_node(value, g)
 
 
-def get_token(x):
-    token = x._d["token"]
+def get_c_token(x):
+    from ..VT.rae_types import get_token
+    token = get_token(x)
     from ..VT import ValueType
     if isinstance(token, ValueType):
         from .rel_ent_classes import AET as internal_AET

@@ -1372,14 +1372,14 @@ def perform_transaction_commands(commands: list, g: Graph):
                 
                 # print(f"{i}/{len(g_delta.commands)}: {g.graph_data.write_head * 16 / 1024 / 1024} MB")
                 if cmd['cmd'] == 'instantiate' and (is_a(cmd['rae_type'], ET) or is_a(cmd['rae_type'], AET)):
-                    maybe_token = internals.get_token(cmd['rae_type'])
+                    maybe_token = internals.get_c_token(cmd['rae_type'])
                     if isinstance(maybe_token, ValueType):
                         zz = instantiate(internals.AET[maybe_token], g)
                     else:
                         zz = instantiate(maybe_token, g)
                 
                 elif cmd['cmd'] == 'instantiate' and is_a(cmd['rae_type'], RT):
-                    zz = instantiate(to_ezefref(d_raes[cmd['source']]), internals.get_token(cmd['rae_type']), to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
+                    zz = instantiate(to_ezefref(d_raes[cmd['source']]), internals.get_c_token(cmd['rae_type']), to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
                 
                 elif cmd['cmd'] == 'instantiate_value_node':
                     val = cmd['value']
@@ -1415,7 +1415,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                             raise KeyError("set_field called with entity that is not known {cmd['target_id']}")
 
                     rt = cmd['rt']
-                    rt_token = internals.get_token(cmd['rt'])
+                    rt_token = internals.get_c_token(cmd['rt'])
                     if cmd['incoming']:
                         opts = z_source | in_rels[rt] | collect
                     else:
@@ -1445,7 +1445,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                     else:
                         if 'value' in cmd:
                             # AE path
-                            aet_token = internals.get_token(aet)
+                            aet_token = internals.get_c_token(aet)
                             ae = instantiate(aet_token, g)
                             internals.assign_value_imp(ae, cmd['value'])
                             if cmd['incoming']:
@@ -1479,14 +1479,14 @@ def perform_transaction_commands(commands: list, g: Graph):
                             if isinstance(cmd['origin_rae'], Entity):
                                 zz = internals.merge_entity_(
                                     g, 
-                                    internals.get_token(rae_type(cmd['origin_rae'])),
+                                    internals.get_c_token(rae_type(cmd['origin_rae'])),
                                     origin_rae_uid.blob_uid,
                                     origin_rae_uid.graph_uid,
                                 )
                             elif isinstance(cmd['origin_rae'], AttributeEntity):
                                 zz = internals.merge_atomic_entity_(
                                     g, 
-                                    internals.get_token(rae_type(cmd['origin_rae'])),
+                                    internals.get_c_token(rae_type(cmd['origin_rae'])),
                                     origin_rae_uid.blob_uid,
                                     origin_rae_uid.graph_uid,
                                 )
@@ -1499,7 +1499,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                                 assert z_trg is not None                                    
                                 zz = internals.merge_relation_(
                                     g, 
-                                    internals.get_token(rae_type(cmd['origin_rae'])),
+                                    internals.get_c_token(rae_type(cmd['origin_rae'])),
                                     to_ezefref(z_src),
                                     to_ezefref(z_trg),
                                     origin_rae_uid.blob_uid,

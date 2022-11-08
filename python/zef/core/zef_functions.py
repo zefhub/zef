@@ -157,8 +157,8 @@ def zef_func_is_a(x, typ):
         return False
     if len(peel(x)) > 1:
         return False
-    from .internals import get_token
-    return peel(x)[0][0] == get_token(RT.Function)
+    from .internals import get_c_token
+    return peel(x)[0][0] == get_c_token(RT.Function)
 from .VT import make_VT
 make_VT("ZefFunction", is_a_func=zef_func_is_a)
 

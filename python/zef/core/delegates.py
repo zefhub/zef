@@ -40,10 +40,10 @@ def to_delegate_imp(first_arg, *curried_args):
 def attempt_to_delegate(args):
     if isinstance(args, tuple):
         assert len(args) == 3
-        args = tuple(internals.get_token(x) if isinstance(x, ValueType) else x for x in args)
+        args = tuple(internals.get_c_token(x) if isinstance(x, ValueType) else x for x in args)
         return DelegateRef(DelegateRef(args[0]), args[1], DelegateRef(args[2]))
     else:
-        args = internals.get_token(args) if isinstance(args, ValueType) else args
+        args = internals.get_c_token(args) if isinstance(args, ValueType) else args
         return DelegateRef(args)
 
 def delegate_of_imp(x, arg1=None, arg2=None):

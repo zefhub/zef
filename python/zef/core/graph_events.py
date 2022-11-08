@@ -22,7 +22,8 @@ __all__ = [
 ]
 
 from .VT import *
-from .VT import make_VT, insert_VT, generic_subtype_get_item
+from .VT import make_VT, insert_VT
+from .VT.helpers import generic_subtype_get, generic_subtype_validate
 
 # from .abstract_raes import Entity, AttributeEntity, Relation, TXNode, Root, make_custom_entity
 from .abstract_raes import make_custom_entity
@@ -40,11 +41,13 @@ infinity           = make_custom_entity(name_to_display='infinity',    predeterm
 nil                = make_custom_entity(name_to_display='nil',         predetermined_uid='1654670075329719') #| register_call_handler[f1] | run[execute] | get['entity'] | collect  # TODO
 
 def is_a_has_uid(x, typ):
+    assert generic_subtype_validate(typ)
     from ._ops import uid
-    return uid(x) == typ._d["subtype"]
+    return uid(x) == generic_subtype_get(typ)
+# TODO: This is "early" because it is available before the uid zefop. Change this if possible.
 def early_uid(x):
     return x.d["uid"]
-HasUID = make_VT("HasUID", is_a_func=is_a_has_uid, get_item_func=generic_subtype_get_item)
+HasUID = make_VT("HasUID", is_a_func=is_a_has_uid)
 insert_VT("Instantiated", CustomEntity & HasUID[early_uid(instantiated)])
 insert_VT("Terminated", CustomEntity & HasUID[early_uid(terminated)])
 insert_VT("Assigned", CustomEntity & HasUID[early_uid(assigned)])

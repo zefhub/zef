@@ -182,7 +182,8 @@ from typing import Generator, Iterable, Iterator
 from ._core import *
 from ._error import  ExceptionWrapper, EvalEngineCoreError, add_error_context, convert_python_exception, make_custom_error
 from .VT import *
-from .VT import make_VT, generic_subtype_get_item
+from .VT import make_VT
+from .VT.helpers import generic_subtype_validate, generic_subtype_get
 from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
@@ -519,16 +520,17 @@ class ZefOp_:
         return True
         
 def zefop_is_a(x, typ):
+    assert generic_subtype_validate(typ)
     # Note: this is only hit for the Zefop value type, not for actual zefops or zefop chains
     # TODO: Proper testing with patterns. For now, just passing to the ZefOp_
     # class to handle basic "zefop type" checks.
-    if "subtype" not in typ._d:
+    subtype = generic_subtype_get(typ)
+    if subtype is None:
         return isinstance(x, ZefOp_)
-    return isinstance(x, typ._d["subtype"])
+    return isinstance(x, subtype)
 ZefOp = make_VT("ZefOp",
                 pytype=ZefOp_,
-                is_a_func=zefop_is_a,
-                get_item_func=generic_subtype_get_item)
+                is_a_func=zefop_is_a)
 
 class CollectingOp:
     def __init__(self, other: ZefOp):

@@ -16,7 +16,7 @@ from ... import report_import
 report_import("zef.core.VT")
 
 from functools import partial
-from .value_type import ValueType_, is_type_name_, generic_subtype_get_item
+from .value_type import ValueType_, is_type_name_
 from .. import internals
 from ... import pyzef
 
@@ -65,3 +65,7 @@ from . import codebase_query
 # TODO: Move this around to be somewhere sensible
 from ..internals import Val_
 make_VT("Val", pytype=Val_)
+
+
+# TODO: This should be replaced with the proper symbolic variables
+Variable = String

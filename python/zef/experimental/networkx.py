@@ -415,7 +415,6 @@ class ProxyEdgeView:
             
 
 def get_props_on(z, include_type):
-    from ..core.internals import get_token
     props = {}
     for rel in z | out_rels[RT] | filter[target | is_a[AET]]:
         props[token_name(RT(rel))] = rel|target|value|collect

@@ -15,9 +15,8 @@
 from .. import report_import
 report_import("zef.core.streams")
 
-from .VT import make_VT, generic_subtype_get_item
+from .VT import make_VT
 
 # Just a stub for now
 make_VT("Stream")
-make_VT("Awaitable",
-        get_item_func=generic_subtype_get_item)
+make_VT("Awaitable")
