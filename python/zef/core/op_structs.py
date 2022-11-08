@@ -761,7 +761,7 @@ class Awaitable:
             for op in ops if kind == "Subscribe" else ops[:-1]:
                 observable_chain = _op_to_functions[op[0]][0](observable_chain,  *op[1])
 
-                abs = curr_type._d["subtype"]
+                abs = generic_subtype_get(curr_type)
                 curr_type = VT.Awaitable[_op_to_functions[op[0]][1](op,  abs)]
                 concrete_awaitable = ConcreteAwaitable(observable_chain, curr_type, concrete_awaitable.chain)
 
@@ -775,13 +775,13 @@ class Awaitable:
             else:
                 observable_chain = observable_chain.pipe(rxops.to_list())
                 def type_assertion_wrapper(el):
-                    abs = curr_type._d["subtype"]
+                    abs = generic_subtype_get(curr_type)
                     if isinstance(el, list) and abs != "List":
                         return ops[-1][1][0](only(el))
                     return ops[-1][1][0](el)
                 observable_chain.subscribe(type_assertion_wrapper)
 
-            abs = curr_type._d["subtype"]
+            abs = generic_subtype_get(curr_type)
             concrete_awaitable = ConcreteAwaitable(observable_chain, abs, concrete_awaitable.chain)
             return observable_chain 
         

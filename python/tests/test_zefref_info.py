@@ -18,7 +18,7 @@ from zef import *
 
 class MyTestCase(unittest.TestCase):
     def test_info(self):
-        from zef.core.internals import get_token
+        from zef.core.VT.rae_types import get_token
 
         g = Graph()
 

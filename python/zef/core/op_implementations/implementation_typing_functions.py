@@ -10297,9 +10297,10 @@ def unflatten_dict_imp(d: Dict) -> Dict:
 
 def token_name_imp(raet: RAET) -> String:
     if isinstance(raet, (ET, RT, AET, BT)):
-        if "token" not in raet._d:
+        from ..VT.rae_types import get_token
+        token = get_token(raet)
+        if token is None:
             raise Exception("No token inside of RAET")
-        token = raet._d.get("token", None)
         assert isinstance(token, (EntityTypeToken, RelationTypeToken, AttributeEntityTypeToken, BlobTypeToken))
     else:
         assert isinstance(raet, (EntityTypeToken, RelationTypeToken, AttributeEntityTypeToken, BlobTypeToken))

@@ -17,7 +17,7 @@ from zef import *
 from zef.ops import *
 import zef
 
-from zef.core.internals import get_token
+from zef.core.VT.rae_types import get_token
 
 class MyTestCase(unittest.TestCase):
 

@@ -20,7 +20,7 @@ class TestStringMethods(unittest.TestCase):
 
     def test_blobtype_name(self):
         g = Graph()
-        from zef.core.internals import get_token
+        from zef.core.VT.rae_types import get_token
         from zef.ops import token_name
 
         et = instantiate(get_token(ET.Entity), g)

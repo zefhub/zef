@@ -21,7 +21,7 @@ from zef.pyzef.zefops import on_value_assignment, subscribe, keep_alive, on_inst
 class MyTestCase(unittest.TestCase):
 
     def test_subscribe(self):
-        from zef.core.internals import get_token
+        from zef.core.VT.rae_types import get_token
         g = Graph()
         z = instantiate(get_token(AET.Int), g)
 

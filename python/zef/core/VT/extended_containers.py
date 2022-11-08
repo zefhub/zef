@@ -50,11 +50,11 @@ def set_is_a(x, typ):
     import sys
     if not isinstance(x, PySet):
         return False
-    if 'subtype' not in typ._d:
+    subtype = generic_subtype_get(typ)
+    if subtype is None:
         return True
-    ab = typ._d['subtype']
 
-    return all(isinstance(item, ab) for item in x)
+    return all(isinstance(item, subtype) for item in x)
 make_VT('Set', pytype=set, is_a_func=set_is_a,
         is_subtype_func=generic_covariant_is_subtype)
 

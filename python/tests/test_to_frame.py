@@ -19,7 +19,7 @@ from zef.ops import *
 
 class MyTestCase(unittest.TestCase):
     def test_do_not_show_terminated_relents_in_Transaction(self):
-        from zef.core.internals import get_token
+        from zef.core.VT.rae_types import get_token
         g = Graph()
         with Transaction(g) as ctx: 
             m1 = instantiate(get_token(ET.Machine), g)

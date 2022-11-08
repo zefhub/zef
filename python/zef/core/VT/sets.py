@@ -241,7 +241,7 @@ def setof_ctor(self, *args):
     SetOf[42,] is valid    
     SetOf[42, 43] is valid    
     """
-    abs = remove_names(absorbed(typ))
+    abs = remove_names(absorbed(self))
     if len(abs) > 0:
         return NotImplemented
     new_setof = self

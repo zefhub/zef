@@ -22,15 +22,15 @@ def SetupGraph():
     g = Graph()
     with Transaction(g):
         for k in range(13456):
-            instantiate(internals.get_token(ET.Machine), g)
+            instantiate(internals.get_c_token(ET.Machine), g)
     with Transaction(g):
-        instantiate(internals.get_token(ET.ProcessOrder), g)
-        instantiate(internals.get_token(ET.Machine), g)
-        m = instantiate(internals.get_token(ET.Machine), g)
+        instantiate(internals.get_c_token(ET.ProcessOrder), g)
+        instantiate(internals.get_c_token(ET.Machine), g)
+        m = instantiate(internals.get_c_token(ET.Machine), g)
 
-        scr = instantiate(internals.get_token(ET.ZEF_Script), g)
-        s = instantiate(internals.get_token(AET.String), g)
-        instantiate(scr, internals.get_token(RT.ZEF_Python), s, g)
+        scr = instantiate(internals.get_c_token(ET.ZEF_Script), g)
+        s = instantiate(internals.get_c_token(AET.String), g)
+        instantiate(scr, internals.get_c_token(RT.ZEF_Python), s, g)
 
     return g,m,scr,s
     
