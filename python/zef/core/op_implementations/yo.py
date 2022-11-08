@@ -467,7 +467,7 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
         # | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect))]
         | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | match[
             (Nil, always[[]]),
-            (Any, now | all)
+            (Any, now | all | filter[bt_filter])
         ] | collect))]
         | map[lambda x: rt_block_view(x[0][3:], x[1]) if bt_filter == BT.RELATION_EDGE else aet_et_rt_string_view(x)]
         | join[""]
