@@ -355,13 +355,15 @@ def transpose_imp(iterable):
     - used for: linear algebra
     - same naming as: C++ Ranges V3
     """
-    its = [iter(el) for el in iterable]
-    while True:
-        try:
-            yield [next(it) for it in its]
-        except StopIteration:
-            # if any one of the iterators completes, this completes
-            return
+    def transpose_generator():
+        its = [iter(el) for el in iterable]
+        while True:
+            try:
+                yield [next(it) for it in its]
+            except StopIteration:
+                # if any one of the iterators completes, this completes
+                return
+    return ZefGenerator(transpose_generator)
 
 
 def transpose_tp(op, curr_type):
@@ -3283,7 +3285,7 @@ def scan_implementation(iterable, fct, initial_val=None):
     ---- Signature ----    
     (List[T1], ((T2, T1)->T2), T2)  ->  List[T2]
     """
-    return itertools.accumulate(iterable, fct, initial=initial_val)
+    return ZefGenerator(lambda: itertools.accumulate(iterable, fct, initial=initial_val))
 
 
 
