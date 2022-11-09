@@ -122,7 +122,7 @@ namespace zefDB {
         return false;
     }
 
-    std::variant<EntityType, RelationType, AttributeEntityType> rae_type(EZefRef uzr) {
+    std::variant<EntityType, RelationType, AttributeEntityType, ValueRepType> rae_type(EZefRef uzr) {
         // Given any ZefRef or EZefRef, return the ET, RT or AET. Throw an error if it is a different blob type.
         if (BT(uzr)==BT.ENTITY_NODE)
             return ET(uzr);
@@ -133,6 +133,8 @@ namespace zefDB {
                 return VRT(uzr);
             else
                 return AET(uzr);
+        } else if (BT(uzr)==BT.VALUE_NODE) {
+            return VRT(uzr);
         } else
             throw std::runtime_error("Item is not a RAE blob type: " + to_str(BT(uzr)));
     }

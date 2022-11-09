@@ -6690,6 +6690,9 @@ def rae_type_implementation(z):
         return RT[c_rae]
     if isinstance(c_rae, internals.AttributeEntityType):
         return AET[c_rae]
+    if isinstance(c_rae, internals.ValueRepType):
+        return VRT[c_rae]
+    raise Exception(f"Don't know how to recast {c_rae}")
 
 def abstract_type_implementation(z):
     # This is basically rae_type, but also including TXNode and Root

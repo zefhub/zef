@@ -22,6 +22,10 @@ AET_QFloat = make_VT('AET_QFloat', pytype=internals.AttributeEntityTypeStruct_Qu
 AET_QInt = make_VT('AET_QInt', pytype=internals.AttributeEntityTypeStruct_QuantityInt)
 AET_Enum = make_VT('AET_Enum', pytype=internals.AttributeEntityTypeStruct_Enum)
 
+VRT_QFloat = make_VT('VRT_QFloat', pytype=internals.ValueRepTypeStruct_QuantityFloat)
+VRT_QInt = make_VT('VRT_QInt', pytype=internals.ValueRepTypeStruct_QuantityInt)
+VRT_Enum = make_VT('VRT_Enum', pytype=internals.ValueRepTypeStruct_Enum)
+
 # Helpers
 
 def get_token(typ):
@@ -226,6 +230,48 @@ def BT_is_a(x, typ):
             if isinstance(x, AET):
                 return True
         return False
+def VRT_is_a(x, typ):
+    from . import DelegateRef
+    token = get_token(typ)
+    if token is None:
+        if isinstance(x, DelegateRef):
+            return isinstance(x.item, ValueRepTypeToken)
+        elif isinstance(x, BlobPtr):
+            return internals.BT(x) in [internals.BT.ATTRIBUTE_ENTITY_NODE,
+                                       internals.BT.VALUE_NODE]
+        return is_type_name_(x, "VRT")
+    else:
+        if isinstance(x, DelegateRef):
+            x_vrt = x.item
+        elif isinstance(x, BlobPtr):
+            if internals.BT(x) not in [internals.BT.ATTRIBUTE_ENTITY_NODE,
+                                       internals.BT.VALUE_NODE]:
+                return False
+            x_vrt = internals.VRT(x)
+        elif isinstance(x, ValueType) and type_name(x) == "VRT":
+            x_vrt = get_token(x)
+            if x_vrt is None:
+                return False
+        elif isinstance(x, (ValueRepTypeToken, VRT_QFloat, VRT_QInt, VRT_Enum)):
+            x_vrt = x
+        else:
+            return False
+
+        if isinstance(token, ValueType):
+            return isinstance(x_vrt, token)
+
+        if token == x_vrt:
+            return True
+
+        if isinstance(token, (VRT_QFloat, VRT_QInt, VRT_Enum)):
+            if isinstance(x_aet, AttributeEntityTypeToken):
+                if isinstance(token, VRT_QFloat):
+                    return internals.is_vrt_a_quantity_float(x_vrt)
+                if isinstance(token, VRT_QInt):
+                    return internals.is_vrt_a_quantity_int(x_vrt)
+                if isinstance(token, VRT_QEnum):
+                    return internals.is_vrt_a_enum(x_vrt)
+        return False
 
 
 def ET_ctor(self, *args, **kwargs):
@@ -251,7 +297,8 @@ AttributeEntityTypeToken = make_VT('AttributeEntityTypeToken', pytype=internals.
 def AET_ctor(self, x):
     if type(x) == str:
         return getattr(self, x)
-    if "token" in self._d:
+    token = get_token(self)
+    if token is not None:
         return NotImplemented
     return AET[internals.AET(x)]
 
@@ -281,6 +328,22 @@ BT = make_VT('BT',
              str_func=token_str)
 
 # BT         = ValueType_(type_name='BT',   constructor_func=pyzef.internals.BT, attr_funcs=wrap_attr_readonly(internals.BT, None), pytype=internals.BlobType)
+
+ValueRepTypeToken = make_VT('ValueRepTypeToken', pytype=internals.ValueRepType)
+def VRT_ctor(self, x):
+    if type(x) == str:
+        return getattr(self, x)
+    token = get_token(self)
+    if token is not None:
+        return NotImplemented
+    return VRT[internals.VRT(x)]
+VRT = make_VT('VRT',
+              constructor_func=VRT_ctor,
+              pass_self=True,
+              attr_funcs=wrap_attr_readonly_token(internals.VRT),
+              is_a_func=VRT_is_a,
+              is_subtype_func=token_subtype,
+              str_func=token_str)
 
 
 def tx_is_a(x, typ):

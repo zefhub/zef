@@ -107,7 +107,7 @@ def tx_view(zr_or_uzr) -> str:
 
     def instantiated_or_terminated_string_view(lst):
         return (f"{len(lst)}x:     ({zr_type(lst[0])})\n"
-                + "\n".join(seq(lst).map(lambda x: f"    ({uid(x)})"))
+                + "\n".join(seq(lst).map(lambda x: f"    ({uid_or_value_hash(x)})"))
                 + "\n\n")
 
     def tx_block_view(uzrs, fn):
@@ -138,6 +138,13 @@ total terminations:     {length(uzr | events[Terminated])}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Terminations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 {tx_block_view(uzr | events[Terminated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
 """
+
+def uid_or_value_hash(x):
+    if BT(x) == BT.VALUE_NODE:
+        return f"hash: {internals.value_hash(value(x))})"
+    if internals.has_uid(to_ezefref(x)):
+        return uid(x)
+    raise Exception(f"Don't know how to represent UID of object ({x})")
 
 
 def indent_lines(s: str, indent_amount=4):

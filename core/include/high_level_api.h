@@ -121,8 +121,8 @@ namespace zefDB {
                                  
                                  
                                  
-    LIBZEF_DLL_EXPORTED std::variant<EntityType, RelationType, AttributeEntityType> rae_type(EZefRef uzr);
-    inline std::variant<EntityType, RelationType, AttributeEntityType> rae_type(ZefRef zr) {
+    LIBZEF_DLL_EXPORTED std::variant<EntityType, RelationType, AttributeEntityType, ValueRepType> rae_type(EZefRef uzr);
+    inline std::variant<EntityType, RelationType, AttributeEntityType, ValueRepType> rae_type(ZefRef zr) {
         return rae_type(zr.blob_uzr);
     }                            
                                  

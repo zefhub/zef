@@ -53,6 +53,11 @@ from ...pyzef.internals import (
     Subscription,
     UpdateHeads,
     UpdatePayload,
+    ValueRepType,
+    ValueRepTypeStruct_QuantityFloat,
+    ValueRepTypeStruct_QuantityInt,
+    ValueRepTypeStruct_Enum,
+    VRT,
     ZefEnumStruct,
     ZefEnumStructPartial,
     ZefRefUID,
@@ -82,6 +87,7 @@ from ...pyzef.internals import (
     graph_as_UpdatePayload,
     gtd_info_str,
     has_delegate,
+    has_uid,
     heads_apply,
     initialise_butler,
     initialise_butler_as_master,
@@ -119,7 +125,7 @@ from ...pyzef.internals import (
     stop_connection,
     to_uid,
     validate_message_version,
-    VRT,
+    value_hash,
     wait_for_auth,
 )
 

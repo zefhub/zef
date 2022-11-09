@@ -117,6 +117,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
     });
     internals_submodule.def("make_random_uid", []() { return make_random_uid(); } );
 
+    internals_submodule.def("has_uid", &internals::has_uid);
+
+    internals_submodule.def("value_hash", [](const value_variant_t& val) { return internals::value_hash(val); });
+    internals_submodule.def("value_hash", [](const SerializedValue& val) { return internals::value_hash(val); });
+
 	internals_submodule.def("size_of_blob", &size_of_blob);
 
 	internals_submodule.def("show_blob_details", [](const EZefRef & uzr) {
