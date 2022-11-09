@@ -164,16 +164,17 @@ def dispatch_rich_panel(component):
     import rich.panel as rp
 
     def resolve_attributes(d):
-        allowed_keys = ["title", "subtitle", "box"]
+        allowed_keys = ["title", "subtitle", "box", "expand", "padding"]
         attributes = select_keys(d, *allowed_keys)
         if "title" in attributes and is_a_component(attributes["title"], Text): 
             attributes["title"] = dispatch_rich_text(attributes["title"])
         
         if "subtitle" in attributes and is_a_component(attributes["subtitle"], Text): 
             attributes["subtitle"] = dispatch_rich_text(attributes["subtitle"])
-
+        
         if "box" in attributes:
             attributes["box"] = box_constants_mapping(attributes["box"])
+
 
         return attributes
     
@@ -344,7 +345,7 @@ def match_and_dispatch(component):
 
 def print_rich(displayable):
     import rich
-    console = rich.console.Console(width = 120)
+    console = rich.console.Console(width = 160)
     displayable = match_and_dispatch(displayable)
     console.print(displayable)
 
