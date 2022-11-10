@@ -427,12 +427,12 @@ void Butler::handle_incoming_merge_request(json & j) {
     int msg_version = 0;
     if(j.contains("msg_version"))
         msg_version = j["msg_version"].get<int>();
-    int preferred_msg_version = 2;
+    int preferred_msg_version = 3;
 
     if(msg_version <= 0) {
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 2},
+                    {"msg_version", 3},
                     {"task_uid", task_uid},
                     {"success", false},
                     {"reason", "Version too old"},
@@ -452,7 +452,7 @@ void Butler::handle_incoming_merge_request(json & j) {
         } else {
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 2},
+                    {"msg_version", preferred_msg_version},
                     {"task_uid", task_uid},
                     {"success", false},
                     {"reason", "Don't understand payload type: '" + payload_type + "'"},
@@ -486,7 +486,7 @@ void Butler::handle_incoming_merge_request(json & j) {
         } else {
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 1},
+                    {"msg_version", preferred_msg_version},
                     {"task_uid", task_uid},
                     {"success", false},
                     {"reason", "Don't have target graph loaded"},

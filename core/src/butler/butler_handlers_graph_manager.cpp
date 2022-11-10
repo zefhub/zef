@@ -1040,7 +1040,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
                 send_ZH_message({
                         {"msg_type", "merge_request_response"},
                         {"task_uid", *content.task_uid},
-                        {"msg_version", 1},
+                        {"msg_version", 3},
                         {"success", false},
                         {"reason", text},
                     });
@@ -1082,7 +1082,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
                         } else {
                             send_ZH_message({
                                 {"msg_type", "merge_request_response"},
-                                {"msg_version", 1},
+                                {"msg_version", 3},
                                 {"task_uid", *content.task_uid},
                                 {"success", true},
                                 {"reason", "merged"},
