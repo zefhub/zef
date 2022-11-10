@@ -344,7 +344,10 @@ def match_and_dispatch(component):
     ] | collect
 
 def print_rich(displayable):
-    import rich
+    try:
+        import rich
+    except:
+        raise ImportError("Please install rich: pip install rich")
     console = rich.console.Console(width = 160)
     displayable = match_and_dispatch(displayable)
     console.print(displayable)
