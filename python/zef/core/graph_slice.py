@@ -107,7 +107,7 @@ class GraphSlice_:
     def __contains__(self, thing):
         from ._ops import exists_at, uid, collect
 
-        if type(thing) in [Entity, AttributeEntity, Relation]:
+        if isinstance(thing, (EntityRef, AttributeEntityRef, RelationRef)):
             return get_instance_rae(uid(thing), self) is not None
 
         g = Graph(self.tx)
