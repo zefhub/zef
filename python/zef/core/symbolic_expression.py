@@ -91,11 +91,9 @@ Query[
 """
 
 
-from .VT import FlatGraph, Pattern, Any, SetOf, Val
+from .VT import FlatGraph, Pattern, Any, SetOf, Val, ET, RT, AET
 from ._ops import match, collect, insert, split, get, filter, map, Z
 from .zef_functions import func
-from .internals import ET, RT, AET
-# from .flat_graph import Val
 from .z_field import ZField_
 
 def merge_flatgraphs(g1, g2) -> FlatGraph:
@@ -285,7 +283,6 @@ def compose_se(op_type, arg1, arg2):
     is_composite_se = lambda x: isinstance(x, SymbolicExpression_) and x.name == None
     arg1_composite_se = is_composite_se(arg1)
     arg2_composite_se = is_composite_se(arg2)
-
     # neither side is a composite SE: start with fresh graph
     if (not arg1_composite_se) and (not arg2_composite_se):
         res = (fg 
