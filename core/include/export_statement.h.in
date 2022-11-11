@@ -16,6 +16,8 @@
 
 #pragma once
 
+#cmakedefine LIBZEF_PACKAGE_VERSION "@LIBZEF_PACKAGE_VERSION@"
+
 #cmakedefine LIBZEF_FORCE_ASSERTS
 #ifdef LIBZEF_FORCE_ASSERTS
 #undef NDEBUG

@@ -247,7 +247,8 @@ void Butler::handle_successful_auth() {
     send_ZH_message({
             {"msg_type", "register_metadata"},
             {"hostname", hostname},
-            {"client_version", zefdb_protocol_version.load()}
+            {"client_version", zefdb_protocol_version.load()},
+            {"libzef_version", LIBZEF_PACKAGE_VERSION}
         });
 
     // Request our tokens

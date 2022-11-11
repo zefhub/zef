@@ -21,6 +21,10 @@ import configparser
 
 import subprocess
 
+sys.path += [""]
+import versioneer
+versioneer_version = versioneer.get_version()
+
 # This setup has been stolen and merged from a few places... it really needs to
 # be fixed up.
 class CMakeExtension(Extension):
@@ -74,6 +78,7 @@ class cmake_build_ext(build_ext):
 
                 f"-DCMAKE_INSTALL_PREFIX={extdir}",
                 "-DCMAKE_OSX_DEPLOYMENT_TARGET=10.15",
+                f"-DLIBZEF_PACKAGE_VERSION={versioneer_version}",
             ] + ext.cmake_args
 
             # For debugging CI builds
@@ -196,9 +201,6 @@ else:
     with open("../README.md", "rb") as file:
         long_desc = file.read().decode("utf-8")
 
-sys.path += [""]
-import versioneer
-
 with open("requirements.txt") as file:
     reqs = [z.strip() for z in file.readlines() if z.strip()]
 
@@ -207,7 +209,7 @@ setup(
     long_description=long_desc,
     long_description_content_type="text/markdown",
     python_requires=">=3.7",
-    version=versioneer.get_version(),
+    version=versioneer_version,
     packages=find_packages(),
     install_requires=reqs,
     ext_modules=[pyzef_ext],
