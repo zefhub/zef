@@ -18,3 +18,4 @@ case-converter>=1.0.2
 watchdog>=2.1.9
 frozendict>=2.3.4
 rich>=12.6.0
+blake3>=0.3.1
