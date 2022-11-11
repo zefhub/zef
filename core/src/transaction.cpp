@@ -158,7 +158,6 @@ namespace zefDB {
         // in case this was the last transaction that is closed, we want to mark the 
         // transcation node as complete: any write mod to the graph will trigger a new tx hereafter
         if (gd.number_of_open_tx_sessions == 0) {
-            blob_index manager_tx = 0;
             {
                 RAII_CallAtEnd call_at_end([&]() {
                     update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
@@ -206,15 +205,8 @@ namespace zefDB {
                     gd.read_head = gd.write_head.load();
                     gd.latest_complete_tx = gd.index_of_open_tx_node;
                     gd.index_of_open_tx_node = 0;
-                    manager_tx = gd.manager_tx_head;
                 });
             }
-            // Let's check in this thread - here at least we should be able to see the next tx edge
-            // EZefRef debug_tx{manager_tx, gd};
-            // if(!(debug_tx | has_out[BT.NEXT_TX_EDGE])) {
-            //     std::cerr << "guid: " << uid(gd) << std::endl;
-            //     std::cerr << "CAN'T SEE NEXT_TX_EDGE EVEN FROM WITHIN FINISH TRANSACTION!!!!" << std::endl;
-            // }
 
             // Note: we have to give up the lock on the thread by this point, as
             // we could block waiting for the msg_queue of the graph manager in
@@ -227,7 +219,11 @@ namespace zefDB {
             // Wait if requested and we aren't running subscriptions.
             if(std::this_thread::get_id() != gd.sync_thread_id) {
                 if(wait) {
-                    wait_pred(gd.heads_locker, [&]() { return gd.latest_complete_tx.load() == gd.manager_tx_head; });
+                    while(true) {
+                        if(wait_pred(gd.heads_locker, [&]() { return gd.latest_complete_tx.load() == gd.manager_tx_head; }, std::chrono::seconds(5)))
+                            break;
+                        developer_output("Still waiting for sync thread to catch up");
+                    }
                 }
             }
         }

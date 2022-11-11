@@ -587,17 +587,17 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("heads_apply", &Butler::heads_apply, "Low-level function to see an update can be applied onto a graph.", py::call_guard<py::gil_scoped_release>());
     internals_submodule.def("parse_payload_update_heads", &Butler::parse_payload_update_heads, py::call_guard<py::gil_scoped_release>());
 
-    internals_submodule.def("create_update_heads", [](GraphData & gd, blob_index blob_head, py::dict cache_heads) {
+    internals_submodule.def("create_update_heads", [](GraphData & gd, blob_index blob_head, json cache_heads) {
         LockGraphData lock{&gd};
 
         Butler::UpdateHeads update_heads{ {blob_head, gd.read_head} };
 
-        for(auto & it : cache_heads) {
-            std::string name = py::cast<std::string>(it.first);
+        for(auto & it : cache_heads.items()) {
+            std::string name = it.key();
             if(false) {}
 #define GEN_CACHE(x,y) else if(name == x) { \
                 auto ptr = gd.y->get(); \
-                update_heads.caches.push_back({x, py::cast<size_t>(it.second["head"]), ptr->size(), py::cast<size_t>(it.second["revision"])}); \
+                update_heads.caches.push_back({x, it.value()["head"].get<size_t>(), ptr->size(), it.value()["revision"].get<size_t>()}); \
             }
 
             GEN_CACHE("_ETs_used", ETs_used)
@@ -614,7 +614,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
         return update_heads;
     },
-        // DO NOT RELEASE THE GIL FOR THIS FUNCTION
+        py::call_guard<py::gil_scoped_release>(),
         "Low-level function to see if an update needs to be sent out.");
 
     internals_submodule.def("create_update_heads", [](GraphData & gd) {
