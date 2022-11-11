@@ -73,10 +73,16 @@ def zef_ui_err(err):
     from ..ui import Text,VStack, Frame, show, Code
     from ..core.op_implementations.implementation_typing_functions import ZefGenerator
 
+    def truncate_obj_str(obj, max_len=20):
+        obj_str = str(obj)
+        index_of_newline = obj_str.find('\n')
+        if index_of_newline != -1: obj_str = obj_str[:index_of_newline] + "..."
+        if len(obj_str) > max_len: obj_str = obj_str[:max_len] + "... "
+        return obj_str
+
     def make_lazy_value_pretty(lzy_val: LazyValue) -> str:
         if not isinstance(lzy_val, LazyValue): return str(lzy_val)
-        initial_value = str(lzy_val.initial_val)
-        if len(initial_value) > 20: initial_value = initial_value[:20] + "... "
+        initial_value = truncate_obj_str(lzy_val.initial_val)
         internal_ops = lzy_val.el_ops.el_ops
         internal_ops = ZefOp(internal_ops,)
         return f"{initial_value} | {internal_ops}" 
@@ -157,7 +163,7 @@ def zef_ui_err(err):
             context_header = Text("\n==Context==\n", bold=True, justify="center", italic=True)
             code_str = f"""
     chain = {make_lazy_value_pretty(chain['chain'])}
-    input = {chain['input']}
+    input = {truncate_obj_str(chain['input'], 40)}
     op    = {ZefOp((chain['op'],),)}
             """
             context_code = Code(code_str, language = "python3")
@@ -169,7 +175,7 @@ def zef_ui_err(err):
             for i, chain in enumerate(reversed(chains)):
                 if isinstance(chain['input'], ZefGenerator): break
                 code_str = f"""
-    input = {chain['input']}
+    input = {truncate_obj_str(chain['input'], 40)}
             """
                 chain_state = Code(code_str, language = "python3")
                 state_frame = Frame(chain_state, title=repr(ZefOp((chain['op'],),)))
