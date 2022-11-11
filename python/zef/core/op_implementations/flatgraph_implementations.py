@@ -36,7 +36,6 @@ def fg_insert_imp(fg, new_el):
     assert is_a(fg, FlatGraph)
     new_fg = FlatGraph()
     new_blobs, new_key_dict = [*fg.blobs], {**fg.key_dict}
-
     def idx_generator(n):
         def next_idx():
             nonlocal n
@@ -62,14 +61,14 @@ def fg_insert_imp(fg, new_el):
 
         if isinstance(new_el, ET):
             idx = next_idx()
-            internal_id = new_el | absorbed | attempt[single][None] | collect
+            internal_id = new_el | absorbed | attempt[second][None] | collect
             new_el = new_el | without_absorbed | collect
             if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None))
 
         elif isinstance(new_el, AET):
             idx = next_idx()
-            internal_id = new_el | absorbed | attempt[single][None] | collect
+            internal_id = new_el | absorbed | attempt[second][None] | collect
             new_el = new_el | without_absorbed | collect
             if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None, None))
@@ -118,7 +117,6 @@ def fg_insert_imp(fg, new_el):
         # elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
         elif isinstance(new_el, ZefOp[Z]):
             key = peel(new_el)| first | second | first | collect
-            print(key)
             if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
             idx = new_key_dict.get(key, key)
 
@@ -192,7 +190,7 @@ def fg_insert_imp(fg, new_el):
                     if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
                     new_key_dict[new_el] = idx
             else:
-                internal_id = new_el | absorbed | attempt[single][None] | collect
+                internal_id = new_el | absorbed | attempt[second][None] | collect
                 new_el = new_el | without_absorbed | collect
                 if new_el in new_key_dict:
                     idx = new_key_dict[new_el]
@@ -229,7 +227,7 @@ def fg_insert_imp(fg, new_el):
 
             # Case of RT.A['a']
             if isinstance(rt, RT):
-                internal_id = LazyValue(rt) | absorbed | attempt[single][None] | collect
+                internal_id = LazyValue(rt) | absorbed | attempt[second][None] | collect
                 rt = LazyValue(rt) | without_absorbed | collect
                 if internal_id: new_key_dict[internal_id] = idx
             # Case of Z['a']
@@ -263,7 +261,7 @@ def fg_insert_imp(fg, new_el):
             elif isinstance(el, RelationRef): return 2
             elif isinstance(el, tuple) and len(el) == 3: 
                 is_z = lambda el: isinstance(el, ZefOp) and inner_zefop_type(el, RT.Z)
-                has_internal_id = lambda rt: isinstance(rt, RT) and (LazyValue(rt) | absorbed | attempt[single][None] | collect) != None
+                has_internal_id = lambda rt: isinstance(rt, RT) and (LazyValue(rt) | absorbed | attempt[second][None] | collect) != None
                 return 3 + sum([is_z(el) for el in el]) - has_internal_id(el[1])
             return 0
         new_el.sort(key=sorting_key)
