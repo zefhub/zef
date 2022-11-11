@@ -536,6 +536,13 @@ namespace zefDB {
                 // std::cerr << "Starting graph manager shutdown" << std::endl;
                 remove_graph_manager(me);
 
+                // We close the queue here, so that it happens after the graph
+                // manager has disappeared from the GM list. This way new
+                // messages will be going to a freshly created graph manager and
+                // we can transfer all lingering messages over to it too.
+                if(!me->queue._closed) me->queue.set_closed();
+                me->debug_last_action = "Closed queue";
+
                 // Now pop all messages - the only ones we act upon are the
                 // LoadGraphs, which we feed back onto the main butler
                 // again.
@@ -546,9 +553,9 @@ namespace zefDB {
                 do {
                     if(msg == nullptr)
                         continue;
-                    if(std::holds_alternative<LoadGraph>(msg->content))
-                        msg_push(std::move(msg->content), false, true);
-                    else {
+                    if(std::holds_alternative<LoadGraph>(msg->content)) {
+                        msg_push_internal_move_whole_msg(std::move(msg), true);
+                    } else {
                         // We don't need to set promises, just make sure the promises are destructed, which is done through popping.
                     }
                 } while(me->queue.pop_any(msg));
@@ -773,9 +780,14 @@ namespace zefDB {
                 if(zwitch.developer_output())
                     std::cerr << "Reset the keep alive" << std::endl;
                 gtd->gd->started_destructing = true;
-                if(!gtd->queue._closed)
-                    gtd->queue.set_closed();
-                gtd->debug_last_action = "Closed queue";
+
+                // We no longer close the queue here, but leave it for the graph
+                // manager thread. That is the place which manages messages and
+                // it is better to have the graph removed from the manager
+                // before the queue is closed, so that messages can be
+                // transferred from the closing queue to a new one.
+                // if(!gtd->queue._closed) gtd->queue.set_closed();
+                // gtd->debug_last_action = "Closed queue";
 
                 // This order of cleanup is important. First, make sure we send
                 // out any updates, so that any new manager will not conflict

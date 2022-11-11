@@ -328,6 +328,11 @@ void Butler::msg_push(Request && content, bool wait, bool ignore_closed) {
         future.get();
 }
 
+void Butler::msg_push_internal_move_whole_msg(std::shared_ptr<RequestWrapper> && msg, bool ignore_closed) {
+    // This is an internal-use only to do the "trivial" move of the entire message onto the queue. Just a way to stop writing hard-coded message pushing
+    msgqueue.push(std::move(msg), ignore_closed);
+}
+
 std::string Butler::upstream_name() {
     if(network.uri == "")
         return "LOCAL";

@@ -321,6 +321,8 @@ namespace zefDB {
 
             void msg_push(Request && content, bool wait = true, bool ignore_closed=false);
 
+            void msg_push_internal_move_whole_msg(std::shared_ptr<RequestWrapper> && msg, bool ignore_closed);
+
             // NOTE: This should not be used very much because it is far better
             // to keep the timeouts in one place i.e. the graph manager. The
             // only time this could be useful is if there is nobody blocking on
