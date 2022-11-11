@@ -135,6 +135,7 @@ namespace zefDB {
                 return;
             }
 
+            developer_output("libzef version: '" LIBZEF_PACKAGE_VERSION "'");
             // Going to try some weird debugging
             std::set_terminate( terminate_handler );
 
@@ -281,25 +282,20 @@ namespace zefDB {
                 std::cerr << "Removing local process graph" << std::endl;
             butler->local_process_graph.reset();
 
-            if(zwitch.developer_output())
-                std::cerr << "Stopping network" << std::endl;
+            developer_output("Stopping network");
             butler->network.stop_running();
-            if(zwitch.developer_output())
-                std::cerr << "Clear waiting tasks" << std::endl;
+            developer_output("Clear waiting tasks");
             butler->waiting_tasks.clear();
-            if(zwitch.developer_output())
-                std::cerr << "Save tokens to cache" << std::endl;
+            developer_output("Save tokens to cache");
             global_token_store().save_cached_tokens();
 
-            if(zwitch.developer_output())
-                std::cerr << "Joining main butler thread" << std::endl;
+            developer_output("Joining main butler thread");
             long_wait_or_kill(*butler->thread, butler->return_value, "butler");
             // This seems to be necessary if there's someone else holding onto
             // the butler shared_ptr. I'm not sure why this is the case though,
             // because we have already joined the thread.
             butler->thread.reset();
-            if(zwitch.developer_output())
-                std::cerr << "Finished stopping butler" << std::endl;
+            developer_output("Finished stopping butler");
             butler.reset();
 
             _running = false;
