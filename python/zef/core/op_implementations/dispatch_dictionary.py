@@ -19,6 +19,7 @@ from .graphviz import graphviz_imp, graphviz_tp
 from . to_flatgraph import to_flatgraph_imp
 from .func import unpack_implementation, unpack_type_info
 from .. import internals
+from ..fx.fx_runtime import fx_runtime
 
 _op_to_functions = {
         internals.RT.ApplyFunctions: (apply_functions_imp, None),
@@ -115,7 +116,7 @@ _op_to_functions = {
         internals.RT.Assert:          (assert_implementation, assert_type_info),
         internals.RT.HasOut:          (hasout_implementation, hasout_type_info),
         internals.RT.HasIn:           (hasin_implementation, hasin_type_info),
-        internals.RT.Run:             (run_effect_implementation, None),
+        internals.RT.Run:             (fx_runtime, None),
         internals.RT.Tap:             (tap_imp, tap_tp),
         internals.RT.Push:            (push_imp, push_tp),
         internals.RT.IsA:             (is_a_implementation, is_a_type_info),
