@@ -71,6 +71,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     j["msg_version"] = 3;
     j["graph_uid"] = str(me.uid);
     j["hash"] = hash;
+    j["hash_type"] = "blobs_full";
     j["hash_index"] = hash_to;
 
     auto response = butler.wait_on_zefhub_message<GenericZefHubResponse>(j);
@@ -447,6 +448,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                 parse_filegraph_update_heads(*fg, j, working_layout);
 
                 j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
+                j["hash_type"] = "blobs_full";
                 j["hash_index"] = j["blobs_head"];
                 response = wait_on_zefhub_message(j);
 
@@ -522,6 +524,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadGra
                         };
                         parse_filegraph_update_heads(*fg, j, working_layout);
                         j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
+                        j["hash_type"] = "blobs_full";
                         j["hash_index"] = j["blobs_head"];
                         auto response = wait_on_zefhub_message(j);
                         if(!response.generic.success) {
@@ -993,6 +996,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, GraphUp
             j["msg_version"] = 1;
             j["graph_uid"] = str(me.uid);
             j["hash"] = partial_hash(Graph(me.gd, false), j["blobs_head"], 0, working_layout);
+            j["hash_type"] = "blobs_full";
             j["hash_index"] = j["blobs_head"];
             auto response = wait_on_zefhub_message(j);
             if(!response.generic.success)
