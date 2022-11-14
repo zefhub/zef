@@ -32,6 +32,16 @@ from typing import Generator, Iterable, Iterator
 def fg_insert_imp(fg, new_el):
     from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types
     from ...pyzef.internals import DelegateRelationTriple
+    from ...core.VT.helpers import names_of, remove_names, absorbed
+
+
+    def without_names(raet):
+        abs = remove_names(absorbed(raet))
+        return raet._replace(absorbed=abs)
+
+    def internal_name(rae):
+        names = names_of(rae)
+        return names[0] if names else None
 
     assert is_a(fg, FlatGraph)
     new_fg = FlatGraph()
@@ -61,15 +71,15 @@ def fg_insert_imp(fg, new_el):
 
         if isinstance(new_el, ET):
             idx = next_idx()
-            internal_id = new_el | absorbed | attempt[second][None] | collect
-            new_el = new_el | without_absorbed | collect
+            internal_id = internal_name(new_el)
+            new_el = without_names(new_el)
             if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None))
 
         elif isinstance(new_el, AET):
             idx = next_idx()
-            internal_id = new_el | absorbed | attempt[second][None] | collect
-            new_el = new_el | without_absorbed | collect
+            internal_id = internal_name(new_el)
+            new_el = without_names(new_el)
             if internal_id: new_key_dict[internal_id] = idx
             new_blobs.append((idx, new_el, [], None, None))
 
@@ -124,8 +134,8 @@ def fg_insert_imp(fg, new_el):
         elif isinstance(new_el, LazyValue) and length(peel(new_el)) == 2:
             first_op = peel(new_el)[0]
             if isinstance(first_op, AET):
-                    internal_id = first_op | absorbed | attempt[single][None] | collect
-                    aet_maybe = first_op | without_absorbed | collect
+                    internal_id = internal_name(new_el)
+                    aet_maybe = without_names(new_el)
                     assert isinstance(aet_maybe, AET), f"{new_el} should be of type AET"
                     aet_value = peel(peel(new_el)[1])[0][1][0]
                     idx = next_idx()
@@ -190,8 +200,8 @@ def fg_insert_imp(fg, new_el):
                     if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
                     new_key_dict[new_el] = idx
             else:
-                internal_id = new_el | absorbed | attempt[second][None] | collect
-                new_el = new_el | without_absorbed | collect
+                internal_id = internal_name(new_el)
+                new_el = without_names(new_el)
                 if new_el in new_key_dict:
                     idx = new_key_dict[new_el]
                 else:
@@ -227,8 +237,8 @@ def fg_insert_imp(fg, new_el):
 
             # Case of RT.A['a']
             if isinstance(rt, RT):
-                internal_id = LazyValue(rt) | absorbed | attempt[second][None] | collect
-                rt = LazyValue(rt) | without_absorbed | collect
+                internal_id = internal_name(rt)
+                rt = without_names(rt)
                 if internal_id: new_key_dict[internal_id] = idx
             # Case of Z['a']
             elif isinstance(rt, ZefOp) and inner_zefop_type(rt, RT.Z): 
@@ -261,7 +271,7 @@ def fg_insert_imp(fg, new_el):
             elif isinstance(el, RelationRef): return 2
             elif isinstance(el, tuple) and len(el) == 3: 
                 is_z = lambda el: isinstance(el, ZefOp) and inner_zefop_type(el, RT.Z)
-                has_internal_id = lambda rt: isinstance(rt, RT) and (LazyValue(rt) | absorbed | attempt[second][None] | collect) != None
+                has_internal_id = lambda rt: isinstance(rt, RT) and (internal_name(rt)) != None
                 return 3 + sum([is_z(el) for el in el]) - has_internal_id(el[1])
             return 0
         new_el.sort(key=sorting_key)
