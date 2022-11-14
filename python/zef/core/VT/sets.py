@@ -250,21 +250,28 @@ def setof_ctor(self, *args):
     abs = remove_names(absorbed(self))
     if len(abs) > 0:
         return NotImplemented
-    new_setof = self
-    for arg in args:
-        new_setof = new_setof[arg]
-    return new_setof
+    return self[args]
 
 def setof_validation(typ):
-    # There are no constraints
+    assert type_name(typ) == "SetOf"
+    items = remove_names(absorbed(typ))
+    if len(items) >= 2:
+        raise Exception("SetOf can't have multiple absorbed arguments")
     return True
 
+def setof_get_items(typ):
+    setof_validation(typ)
+    items = remove_names(absorbed(typ))
+    if len(items) == 0:
+        return ()
+    return items[0]
+
 def setof_is_a(x, typ):
-    abs = remove_names(absorbed(typ))
+    abs = setof_get_items(typ)
     return x in abs
 
 def setof_override_subtype(setof, typ):
-    return all(isinstance(x, typ) for x in remove_names(absorbed(setof)))
+    return all(isinstance(x, typ) for x in setof_get_items(setof))
 
 make_VT('SetOf',
         constructor_func=setof_ctor,
