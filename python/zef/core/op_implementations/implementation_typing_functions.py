@@ -345,10 +345,10 @@ def transpose_imp(iterable):
     original List, if the operation succeeds.
 
     ---- Examples ----
-    >>> [ [2,3,4], [5,6,7] ]                    # => [ [2, 5], [3,6], [4,7] ]
+    >>> [ [2,3,4], [5,6,7] ] | transpose             # => [ [2, 5], [3,6], [4,7] ]
      
     >>> # terminates upon the shortest one:
-    >>> [ range(2, infinity), [5,6], [15,16,17] ]    # => [[2, 5, 15], [3, 6, 16]]
+    >>> [ range(2, infinity), [5,6], [15,16,17] ] | transpose    # => [[2, 5, 15], [3, 6, 16]]
 
     ---- Tags ----
     - used for: list manipulation
@@ -1094,7 +1094,9 @@ def interleave_imp(v, first_curried_list_maybe=None, *args):
     """
     Interleaves elements of an arbitrary number M of lists.
     Length of output is determined by the length of the 
-    shortest input list N_shortest: M*N_shortest
+    shortest input list N_shortest: M*N_shortest.
+
+    Note: "interleave" is equivelent to "transpose | concat"
     
     ---- Examples ----
     >>> # Either called with a list of of lists (or equivalent for streams)
@@ -1115,6 +1117,7 @@ def interleave_imp(v, first_curried_list_maybe=None, *args):
     - related zefop: interleave_longest
     - related zefop: concat
     - related zefop: merge
+    - related zefop: transpose
     - operates on: List
     - same naming as: C++ Ranges V3
     """
@@ -3356,9 +3359,10 @@ def make_predicate(maybe_predicate):
     
     # Anything that didn't match will be matched for equality 
     else:
-        log.warning(f"A value {maybe_predicate} was passed to be used as a ValueType. You should use " + \
-         "{" + str(maybe_predicate) + "} or SetOf[" + str(maybe_predicate) + "] instead!")
+        log.warning(f"A value {repr(maybe_predicate)} was passed to be used as a ValueType. You should use " + \
+         "{" + repr(maybe_predicate) + "} or SetOf[" + repr(maybe_predicate) + "] instead!")
         predicate = lambda x: x == maybe_predicate
+        # raise RuntimeError('aaaaarg')
     
     return predicate
 
@@ -9706,7 +9710,7 @@ def flatten_dict_imp(y):
 
     ---- Examples ----
     >>> {'a': 42} | flatten_dict     # => [ ('a',): 42]
-    >>> {'a': 42, b: {'x': 'hello'}} | flatten_dict     # => [ ('a',): 42, ('b', 'x'): 'hello']    
+    >>> {'a': 42, 'b': {'x': 'hello'}} | flatten_dict     # => [ ('a',): 42, ('b', 'x'): 'hello']    
 
     ---- Tags ----
     related zefop: unflatten_dict
