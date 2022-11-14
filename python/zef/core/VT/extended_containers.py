@@ -12,19 +12,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import make_VT, Error, ZefGenerator, PyList, PySet, PyTuple, PyDict
+from . import make_VT, Error, ZefGenerator, PyList, PySet, PyTuple, PyDict, ValueType
 from .value_type import is_type_name_
-from .helpers import remove_names, absorbed, generic_subtype_validate, generic_subtype_get, generic_covariant_is_subtype
+from .helpers import remove_names, absorbed, generic_subtype_validate, generic_subtype_get, generic_covariant_is_subtype, type_name
 
 
 
 # TODO: Change this to a proper isa
+def tuple_validation(tup):
+    items = remove_names(absorbed(tup))
+    if len(items) == 0:
+        return True
+    if len(items) >= 2:
+        raise Exception("Tuple can't have more than one curried item")
+    tup_params = items[0]
+    assert all(isinstance(x, ValueType) for x in tup_params)
+    return True
+
+def tuple_get_params(tup):
+    assert tuple_validation(tup)
+    items = remove_names(absorbed(tup))
+    if len(items) == 0:
+        return ()
+    return items[0]
+    
 def tuple_override_subtype(tup, typ):
+    assert tuple_validation(tup)
     if is_type_name_(typ, "List"):
         return True
     return "maybe"
+
+def tuple_is_subtype(x, tup):
+    assert tuple_validation(tup)
+    if type_name(x) != "Tuple":
+        # TODO: Lists etc should be allowed
+        return False
+    assert tuple_validation(x)
+    tup_params = tuple_get_params(tup)
+    x_params = tuple_get_params(x)
+
+    return all(issubclass(a,b) is True for a,b in zip(x_params, tup_params))
+
 make_VT('Tuple', pytype=tuple, override_subtype_func=tuple_override_subtype,
-        is_subtype_func=generic_covariant_is_subtype)
+        is_subtype_func=tuple_is_subtype)
 
 def list_is_a(x, typ):
     assert generic_subtype_validate(typ)

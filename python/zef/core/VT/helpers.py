@@ -90,7 +90,7 @@ def generic_covariant_parameters(typ):
 def generic_covariant_is_subtype(x, super):
     if type_name(x) != type_name(super):
         return False
-    super_params = generic_subtype_parameters(super)
-    x_params = generic_subtype_parameters(x)
+    super_params = generic_covariant_parameters(super)
+    x_params = generic_covariant_parameters(x)
 
     return all(is_subtype_(a,b) is True for a,b in zip(x_params, super_params))
