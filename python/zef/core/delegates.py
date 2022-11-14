@@ -104,9 +104,22 @@ def delegate_of_imp(x, arg1=None, arg2=None):
     return delegate_of_imp(attempt_to_delegate(x), arg1, arg2)
 
 
+def DelegateRef_ctor(*args):
+    from .VT.helpers import type_name
+    from .VT.rae_types import get_token
+    if len(args) < 1 or len(args) > 3:
+        raise Exception("DelegateRef constructor requires 1, 2 or 3 arguments")
+    def to_c_token_maybe(x):
+        if isinstance(x, ValueType) and type_name(x) in ["ET", "RT", "VRT"]:
+            return get_token(x)
+        return x
+
+    args = [to_c_token_maybe(x) for x in args]
+    return internals.Delegate(*args)
 
 # TODO: Need a is_a for this too - or rather make this the main workhorse
-DelegateRef = make_VT("DelegateRef", pytype=internals.Delegate)
+DelegateRef = make_VT("DelegateRef", pytype=internals.Delegate,
+                      constructor_func=DelegateRef_ctor)
 
 
 def delegate_is_a(x, typ):

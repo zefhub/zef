@@ -5826,17 +5826,17 @@ def delegate_of_implementation(x, arg1=None, arg2=None):
     ET/RT/AET/RelationTriple type, or another delegate. The output will always
     be one order of delegate higher than the input.
     
-    With one additional argument, which must be a Graph, this will lookup the
-    ZefRef of the equivalent delegate on the graph, if it exists. A second
-    additional argument, set to True, forces the creation of the ZefRef on the
-    graph.
+    With one additional argument, which must be a Graph or GraphSlice, this will
+    lookup the ZefRef of the equivalent delegate on the graph, if it exists. A
+    second additional argument, set to True, forces the creation of the ZefRef
+    on the graph.
     
     This and `to_delegate` can be used interchangably in many ways.
 
     ---- Examples ----
     >>> z | delegate_of
     >>> z | delegate_of | to_delegate == z | to_delegate | delegate_of
-    >>> ET.Machine | delegate_of == Delegate(ET.Machine) | delegate_of
+    >>> ET.Machine | delegate_of == DelegateRef(ET.Machine) | delegate_of
     >>> (ET.A, RT.B, ET.C) | delegate_of | source == ET.A | delegate_of
     >>> z | delegate_of | all    # Get all instances that are the same type as z
     
@@ -5846,7 +5846,7 @@ def delegate_of_implementation(x, arg1=None, arg2=None):
     >>> z = ET.Machine | g | run
     ... dz = z | delegate_of | collect
     ... a,b,c = (dz, RT.Meta, "metadata") | g | run
-    ... b | delegate_of | discard_frame == (delegate_of(ET.Machine), RT.Meta, AET.String) | delegate_of[g]
+    ... b | delegate_of | to_ezefref == (delegate_of(ET.Machine), RT.Meta, VRT.String) | delegate_of[g]
 
     ---- Signature ----
     Delegate -> Delegate
