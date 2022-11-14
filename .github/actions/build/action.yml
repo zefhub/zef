@@ -177,6 +177,15 @@ runs:
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         bash scripts/assert_no_created_tokens.sh
 
+    - name: Check pyi file up to date
+      if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
+      shell: bash
+      env:
+        ZEFDB_OFFLINE_MODE: TRUE
+      run: |
+        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        bash scripts/assert_pyi_file_up_to_date.sh
+
     - name: Run python tests linux/macos
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash

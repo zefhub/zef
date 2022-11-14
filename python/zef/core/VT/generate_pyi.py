@@ -18,9 +18,14 @@ from zef.core import VT
 value_types = [x for x in dir(VT) if isinstance(getattr(VT, x), VT.ValueType)]
 value_types.sort()
 
-import os
-# pyi_filename = os.path.join(os.path.dirname(__dir__), "__init__.pyi")
+import os, sys
 pyi_filename = "__init__.pyi"
+
+if len(sys.argv) == 2:
+    pyi_filename = sys.argv[1]
+else:
+    assert len(sys.argv) == 1, "Script should be called with no arguments or one argument, the location in which to save the file."
+
 with open(pyi_filename, "w") as file:
     file.write("""# Copyright 2022 Synchronous Technologies Pte Ltd
 #
