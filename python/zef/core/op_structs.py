@@ -999,7 +999,9 @@ class LazyValue:
         return NotImplemented
 
     def __hash__(self):
-        return hash((self.initial_val, self.el_ops))
+        # return hash((self.initial_val, self.el_ops))
+        from .VT.value_type import hash_frozen
+        return hash_frozen((self.initial_val, self.el_ops))
 
 
     def __bool__(self):
