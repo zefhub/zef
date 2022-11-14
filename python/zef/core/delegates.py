@@ -23,11 +23,27 @@ def to_delegate_imp(first_arg, *curried_args):
     if isinstance(first_arg, DelegateRef):
         if len(curried_args) == 0:
             return first_arg
+        if isinstance(curried_args[0], Graph):
+            g = curried_args[0]
+        else:
+            assert isinstance(curried_args[0], GraphSlice)
+            g = Graph(curried_args[0])
         if len(curried_args) == 1:
-            return internals.delegate_to_ezr(first_arg, curried_args[0], False, 0)
-        if len(curried_args) == 2:
-            return internals.delegate_to_ezr(first_arg, curried_args[0], curried_args[1], 0)
-        raise Exception("Too many args for to_delegate with a Delegate")
+            d_ezr = internals.delegate_to_ezr(first_arg, g, False, 0)
+        elif len(curried_args) == 2:
+            d_ezr = internals.delegate_to_ezr(first_arg, g, curried_args[1], 0)
+        else:
+            raise Exception("Too many args for to_delegate with a Delegate")
+
+        if d_ezr is None:
+            return None
+        elif isinstance(curried_args[0], Graph):
+            return d_ezr
+        else:
+            from ._ops import in_frame, exists_at
+            if not exists_at(d_ezr, curried_args[0]):
+                raise Exception("Delegate does not exist at given graph slice.")
+            return in_frame(d_ezr, curried_args[0])
 
     if isinstance(first_arg, ZefRef) or isinstance(first_arg, EZefRef):
         assert len(curried_args) == 0
