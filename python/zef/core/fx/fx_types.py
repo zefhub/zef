@@ -121,6 +121,12 @@ class _Graph_Class():
     Load = FXElement(('Graph', 'Load'))
     # Or does it make more sense to write FX.Tag.Graph? Tagging of RAEs definitely belongs into a GraphDelta / graph tx though
 
+class _Studio_Class():
+    _name = "Studio"
+    StartServer = FXElement(('Studio', 'StartServer'))
+    StopServer = FXElement(('Studio', 'StopServer'))
+
+
 class _Stream_Class():
     _name = "Stream"
     CreatePushableStream = FXElement(('Stream', 'CreatePushableStream'))
@@ -174,6 +180,7 @@ class _FX_Class:
     LocalFile = _LocalFile_Class()
     S3 = _S3_Class()
     Graph = _Graph_Class()
+    Studio = _Studio_Class()
     FX = _FX_Class()
     Stream = _Stream_Class()
     Privileges = _Privileges_Class()
@@ -184,7 +191,7 @@ class _FX_Class:
 
 FX = _FX_Class()
 
-_group_types = [ _Clipboard_Class,_FX_Class,_GraphQL_Class,_Graph_Class,_HTTP_Class,_LocalFile_Class,_Privileges_Class,_S3_Class,_Stream_Class,_Websocket_Class,_ZefHub_Class,_ZefUI_Class]
+_group_types = [ _Clipboard_Class,_FX_Class,_GraphQL_Class,_Studio_Class, _Graph_Class,_HTTP_Class,_LocalFile_Class,_Privileges_Class,_S3_Class,_Stream_Class,_Websocket_Class,_ZefHub_Class,_ZefUI_Class]
 #---------------------------------------------------------------------------------------
     
 

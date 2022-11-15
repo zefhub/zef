@@ -107,6 +107,11 @@ from .local_file import (
     monitor_path_handler,
 )
 
+from .zef_studio import (
+    studio_start_server_handler,
+    studio_stop_server_handler,
+)
+
 # note the ".d" to access the tuple of Strings!
 _effect_handlers = {
     FX.HTTP.StartServer.d: http_start_server_handler,
@@ -126,6 +131,8 @@ _effect_handlers = {
     FX.GraphQL.StopPlayground.d: graphql_stop_playground_handler,
     FX.GraphQL.GenerateSchemaString.d: graphql_generate_schema_string_handler,
 
+    FX.Studio.StartServer.d: studio_start_server_handler,
+    FX.Studio.StopServer.d: studio_stop_server_handler,
     
     FX.Stream.CreatePushableStream.d: stream_create_pushable_stream_handler,
     FX.Stream.Push.d: stream_push_handler,
