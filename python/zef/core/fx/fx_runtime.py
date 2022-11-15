@@ -24,7 +24,8 @@ def create_eff_to_process_graph_wish(eff: Dict) -> 'FX':
         "port" : eff.get('port', 5000),
         "bind_address" : eff.get('bind_address', "0.0.0.0"),                      
         "fx_type" : Val(eff['type']),   
-        "pipe_into" : Val(eff.get('pipe_into', None)),       
+        # TODO fix pipeinto being unserializeable if python objects are found
+        # "pipe_into" : Val(eff.get('pipe_into', None)),       
         "pushable_stream": pushable_stream.stream_ezefref,
         # "url" : 'ulfsproject.zefhub.io',    
     }
@@ -49,11 +50,12 @@ def create_http_server(eff: Dict, server_zr: ZefRef) -> Dict:
         open_requests = {}
 
         # Retrieve the pushable stream from the graph
-        pushable_stream = Awaitable(server_zr | Out[RT.PushableStream] | collect)
+        pushable_stream = Awaitable(to_ezefref(server_zr | Out[RT.PushableStream] | collect), True)
         server_uuid = str(uid(server_zr))
 
         # TODO Get this information from the graph
-        if eff.get('pipe_into', None) is not None: pushable_stream | eff['pipe_into']
+        if eff.get('pipe_into', None) is not None:  pushable_stream | eff['pipe_into']
+
         port = eff.get('port', 5000)
         bind_address = eff.get('bind_address', "localhost")
         do_logging = eff.get('logging', True)
@@ -65,7 +67,6 @@ def create_http_server(eff: Dict, server_zr: ZefRef) -> Dict:
             "server_uuid": server_uuid,
             "port": port
         }
-
         # Instantiate HTTP server
         server = OurHTTPServer((bind_address, port), Handler, do_logging=do_logging)
 
