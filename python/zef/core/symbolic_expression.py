@@ -135,7 +135,7 @@ class SymbolicExpression_:
     def __repr__(self):
         if self.name is not None:
             # if the name is specified: it is a SV only
-            return f"v.{self.name}" if self.absorbed==None else f"v.{self.name}['{self.absorbed}']"
+            return f"V.{self.name}" if self.absorbed==None else f"V.{self.name}['{self.absorbed}']"
             # return f"SV('{self.name}')" if self.absorbed==None else f"SV('{self.name}')['{self.absorbed}']"
             # return f"{self.name}" if self.absorbed==None else f"{self.name}['{self.absorbed}']"
             
@@ -358,6 +358,6 @@ class ZefVariable_():
         return SV(name)
 
 
-v = ZefVariable_()
+V = ZefVariable_()
 
 

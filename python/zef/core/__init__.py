@@ -94,7 +94,7 @@ from .zef_functions import func
 
 from .serialization import serialize, deserialize
 
-from .symbolic_expression import SV, SVs, v, unwrap_vars_hack
+from .symbolic_expression import SV, SVs, V, unwrap_vars_hack
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
