@@ -38,6 +38,13 @@ def get_token(typ):
 def has_token(typ):
     return get_token(typ) is not None
 
+def get_token_tolerant(typ):
+    # This allows anything in the absorbed and takes just the first likely item
+    opts = [x for x in absorbed(typ) if isinstance(x, (EntityTypeToken, RelationTypeToken, BlobTypeToken, AttributeEntityTypeToken))]
+    if len(opts) == 0:
+        return None
+    return opts[0]
+
 def wrap_attr_readonly_token(orig):
     def this_get_attr(self, name):
         token = get_token(self)
@@ -102,7 +109,7 @@ def token_validation(self, token_type):
 def token_str(self):
     my_name = self._d["type_name"]
     s = my_name
-    token = get_token(self)
+    token = get_token_tolerant(self)
     if token is not None:
         if isinstance(token, (EntityTypeToken, RelationTypeToken, AttributeEntityTypeToken)):
             s += "." + token.name
@@ -111,9 +118,12 @@ def token_str(self):
         else:
             s += "[" + str(token) + "]"
 
-    names = names_of(self)
-    for name in names:
-        s += f"['{self._d['absorbed'][0]}']"
+        other_abs = [x for x in absorbed(self) if x is not token]
+    else:
+        other_abs = absorbed(self)
+
+    for thing in other_abs:
+        s += f"[{thing!r}]"
     return s
 
 def ET_is_a(x, typ):

@@ -45,7 +45,7 @@ PleaseAssign = UserValueType("PleaseAssign",
                               Dict,
                               # Pattern[{"target": AttributeEntity,
                               # Pattern[{"target": Any,
-                              Pattern[{"target": AttributeEntity | ZefOp[Z],
+                              Pattern[{"target": AttributeEntity | ZefOp[Z] | AET,
                                        "value": Any}])
 PleaseCommand = PleaseInstantiate | PleaseAssign | PleaseTerminate
 
