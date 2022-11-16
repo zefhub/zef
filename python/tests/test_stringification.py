@@ -20,12 +20,12 @@ class TestStringMethods(unittest.TestCase):
 
     def test_blobtype_name(self):
         g = Graph()
-        from zef.core.VT.rae_types import get_token
+        from zef.core.VT.rae_types import RAET_get_token
         from zef.ops import token_name
 
-        et = instantiate(get_token(ET.Entity), g)
-        rt = instantiate(et, get_token(RT.Relation), et, g)
-        aet = instantiate(get_token(AET.String), g)
+        et = instantiate(RAET_get_token(ET.Entity), g)
+        rt = instantiate(et, RAET_get_token(RT.Relation), et, g)
+        aet = instantiate(RAET_get_token(AET.String), g)
 
         self.assertEqual(str(BT(et)), 'BT.ENTITY_NODE')
         self.assertEqual(str(BT(aet)), 'BT.ATTRIBUTE_ENTITY_NODE')
@@ -43,7 +43,7 @@ class TestStringMethods(unittest.TestCase):
         self.assertEqual(token_name(RT(rt)), 'Relation')
         self.assertEqual(str(RT(rt)), 'RT.Relation')
 
-        aet2 = instantiate(get_token(AET.QuantityFloat.kilograms), g)
+        aet2 = instantiate(RAET_get_token(AET.QuantityFloat.kilograms), g)
         self.assertEqual(str(AET(aet2)), 'AET.QuantityFloat.kilograms')
         self.assertEqual(token_name(AET(aet2)), 'QuantityFloat.kilograms')
 

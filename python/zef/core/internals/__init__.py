@@ -255,8 +255,8 @@ def instantiate_value_node_imp(value, g):
 
 
 def get_c_token(x):
-    from ..VT.rae_types import get_token
-    token = get_token(x)
+    from ..VT.rae_types import RAET_get_token
+    token = RAET_get_token(x)
     from ..VT import ValueType
     if isinstance(token, ValueType):
         from .rel_ent_classes import AET as internal_AET

@@ -21,9 +21,9 @@ from zef.pyzef.zefops import on_value_assignment, subscribe, keep_alive, on_inst
 class MyTestCase(unittest.TestCase):
 
     def test_subscribe(self):
-        from zef.core.VT.rae_types import get_token
+        from zef.core.VT.rae_types import RAET_get_token
         g = Graph()
-        z = instantiate(get_token(AET.Int), g)
+        z = instantiate(RAET_get_token(AET.Int), g)
 
         on_value_assign_list = []
         def OnValueAssign(x, l):
@@ -37,10 +37,10 @@ class MyTestCase(unittest.TestCase):
             l += [("inst", RT(x))]
         def OnTerm(x, l):
             l += [("term", RT(x))]
-        sub2 = z | subscribe[on_instantiation[outgoing][get_token(RT.Map)]][keep_alive[False]][lambda x: OnInst(x, on_rel_list)]
-        sub3 = z | subscribe[on_instantiation[outgoing][get_token(RT.Value)]][lambda x: OnInst(x, on_rel_list)]
-        sub4 = z | subscribe[on_termination[outgoing][get_token(RT.Map)]][lambda x: OnTerm(x, on_rel_list)]
-        sub5 = z | subscribe[on_termination[outgoing][get_token(RT.Value)]][lambda x: OnTerm(x, on_rel_list)]
+        sub2 = z | subscribe[on_instantiation[outgoing][RAET_get_token(RT.Map)]][keep_alive[False]][lambda x: OnInst(x, on_rel_list)]
+        sub3 = z | subscribe[on_instantiation[outgoing][RAET_get_token(RT.Value)]][lambda x: OnInst(x, on_rel_list)]
+        sub4 = z | subscribe[on_termination[outgoing][RAET_get_token(RT.Map)]][lambda x: OnTerm(x, on_rel_list)]
+        sub5 = z | subscribe[on_termination[outgoing][RAET_get_token(RT.Value)]][lambda x: OnTerm(x, on_rel_list)]
 
         z | assign[1] | g | run
         z | assign[2] | g | run

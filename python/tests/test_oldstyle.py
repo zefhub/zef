@@ -17,35 +17,35 @@ from zef import *
 from zef.ops import *
 import zef
 
-from zef.core.VT.rae_types import get_token
+from zef.core.VT.rae_types import RAET_get_token
 
 class MyTestCase(unittest.TestCase):
 
     def test_something(self):
         g = Graph()
         with Transaction(g):
-            n1 = instantiate(get_token(ET.Person), g)
-            n2 = instantiate(get_token(ET.Pet), g)
-            r1 = instantiate(n1, get_token(RT.HasPet), n2, g)
+            n1 = instantiate(RAET_get_token(ET.Person), g)
+            n2 = instantiate(RAET_get_token(ET.Pet), g)
+            r1 = instantiate(n1, RAET_get_token(RT.HasPet), n2, g)
 
         self.assertEqual(n1 | Out[RT.HasPet] | collect, n2)
         self.assertEqual(n1 | Out[RT.HasPet] | In[RT.HasPet] | collect, n1)
 
         with Transaction(g):
-            n3 = instantiate(get_token(ET.Person), g)
-            r2 = instantiate(n1, get_token(RT.HasPet), n3, g)
+            n3 = instantiate(RAET_get_token(ET.Person), g)
+            r2 = instantiate(n1, RAET_get_token(RT.HasPet), n3, g)
 
         self.assertEqual(n1 | Out[RT.HasPet] | collect, n2)
 
     def test_something2(self):
         g = Graph()
         with Transaction(g):
-            c1 = instantiate(get_token(ET.Person), g)
-            p1 = instantiate(get_token(ET.Pet), g)
-            c2 = instantiate(get_token(ET.Person), g)
-            p2 = instantiate(get_token(ET.Pet), g)
-            r1 = instantiate(c1, get_token(RT.HasPet), p1, g)
-            r2 = instantiate(c2, get_token(RT.HasPet), p2, g)
+            c1 = instantiate(RAET_get_token(ET.Person), g)
+            p1 = instantiate(RAET_get_token(ET.Pet), g)
+            c2 = instantiate(RAET_get_token(ET.Person), g)
+            p2 = instantiate(RAET_get_token(ET.Pet), g)
+            r1 = instantiate(c1, RAET_get_token(RT.HasPet), p1, g)
+            r2 = instantiate(c2, RAET_get_token(RT.HasPet), p2, g)
 
         v = [c1, c2] | map[Out[RT.HasPet]] | collect
         self.assertEqual(len(v), 2)
@@ -59,23 +59,23 @@ class MyTestCase(unittest.TestCase):
     def test_find_source_tx(self):
         g = Graph()
         with Transaction(g):
-            c1 = instantiate(get_token(ET.Person), g)
-            p1 = instantiate(get_token(ET.Pet), g)
-            c2 = instantiate(get_token(ET.Person), g)
-            p2 = instantiate(get_token(ET.Pet), g)
-            r1 = instantiate(c1, get_token(RT.HasPet), p1, g)
-            r2 = instantiate(c2, get_token(RT.HasPet), p2, g)
+            c1 = instantiate(RAET_get_token(ET.Person), g)
+            p1 = instantiate(RAET_get_token(ET.Pet), g)
+            c2 = instantiate(RAET_get_token(ET.Person), g)
+            p2 = instantiate(RAET_get_token(ET.Pet), g)
+            r1 = instantiate(c1, RAET_get_token(RT.HasPet), p1, g)
+            r2 = instantiate(c2, RAET_get_token(RT.HasPet), p2, g)
 
         with Transaction(g):
-            c3 = instantiate(get_token(ET.Person), g)
+            c3 = instantiate(RAET_get_token(ET.Person), g)
         with Transaction(g):
             terminate(c2) | g | run
-            c4 = instantiate(get_token(ET.Person), g)
-            p2 = instantiate(get_token(ET.Pet), g)
+            c4 = instantiate(RAET_get_token(ET.Person), g)
+            p2 = instantiate(RAET_get_token(ET.Pet), g)
         with Transaction(g):
-            c5 = instantiate(get_token(ET.Person), g)
+            c5 = instantiate(RAET_get_token(ET.Person), g)
         with Transaction(g):
-            c6 = instantiate(get_token(ET.Person), g)
+            c6 = instantiate(RAET_get_token(ET.Person), g)
 
         zs = c1 | frame | all[ET.Person] | collect
         self.assertEqual(len(zs), 2)
@@ -85,12 +85,12 @@ class MyTestCase(unittest.TestCase):
     def test_assign(self):
         g = Graph()
         with Transaction(g):
-            name = instantiate(get_token(AET.String), g)
-            age =  instantiate(get_token(AET.Int), g)
+            name = instantiate(RAET_get_token(AET.String), g)
+            age =  instantiate(RAET_get_token(AET.Int), g)
 
         assign(name, 'Lu\0na\nis\nhungry') | g | run
         assign(age, 42) | g | run
-        num = instantiate(get_token(AET.Int), g)
+        num = instantiate(RAET_get_token(AET.Int), g)
         assign(name, 'Naomi') | g | run
         assign(age, 43) | g | run
 
@@ -108,16 +108,16 @@ class MyTestCase(unittest.TestCase):
     def test_terminate_selfloop(self):
         g = Graph()
         with Transaction(g):
-            z = instantiate(get_token(ET.Machine), g)
-            rel = instantiate(z, get_token(RT.TypeOf), z, g)
+            z = instantiate(RAET_get_token(ET.Machine), g)
+            rel = instantiate(z, RAET_get_token(RT.TypeOf), z, g)
 
         terminate(z) | g | run
 
         self.assertEqual(length(g | now | all), 0)
 
         with Transaction(g):
-            z = instantiate(get_token(ET.Machine), g)
-            rel = instantiate(z, get_token(RT.TypeOf), z, g)
+            z = instantiate(RAET_get_token(ET.Machine), g)
+            rel = instantiate(z, RAET_get_token(RT.TypeOf), z, g)
 
         [z,rel,z,z,z,rel,rel] | map[terminate] | g | run
 
@@ -126,15 +126,15 @@ class MyTestCase(unittest.TestCase):
     def test_no_external_graph_relations(self):
         g = Graph()
         g2 = Graph()
-        z = instantiate(get_token(ET.Machine), g)
+        z = instantiate(RAET_get_token(ET.Machine), g)
         # with self.assertRaisesRegex(RuntimeError, "Not allowing an edge to be created between UZRs on a different graph"):
         with self.assertRaises(Exception):
-            instantiate(z, get_token(RT.TypeOf), z, g2)
+            instantiate(z, RAET_get_token(RT.TypeOf), z, g2)
 
     def test_O_class(self):
         g = Graph()
         with Transaction(g):
-            z_zero = instantiate(get_token(ET.Machine), g)
+            z_zero = instantiate(RAET_get_token(ET.Machine), g)
             z_one,_,_ = (ET.Machine, RT.TypeOf, 1) | g | run
             z_two = ET.Machine | g | run
             (z_two, RT.TypeOf, 1) | g | run

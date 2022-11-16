@@ -16,7 +16,7 @@ import unittest  # pytest takes ages to run anything as soon as anything from ze
 from zef import *
 from zef.ops import *
 import zef
-from zef.core.VT.rae_types import get_token
+from zef.core.VT.rae_types import RAET_get_token
 
 class MyTestCase(unittest.TestCase):
 
@@ -76,7 +76,7 @@ class MyTestCase(unittest.TestCase):
 
         ae = AET[even_type] | g | run
 
-        self.assertEqual(get_token(AET(ae)).complex_value.deserialize(), even_type)
+        self.assertEqual(RAET_get_token(AET(ae)).complex_value.deserialize(), even_type)
 
         ae | assign[2] | g | run
         with self.assertRaises(Exception):

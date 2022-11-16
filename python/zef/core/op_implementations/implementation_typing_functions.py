@@ -1898,8 +1898,8 @@ def all_imp(*args):
         # The specific all[ET.x/AET.x] options (not all[RT.x] though)
         if isinstance(fil, ET) or isinstance(fil, AET):
             after_filter = None
-            from ..VT.rae_types import get_token
-            token = get_token(fil)
+            from ..VT.rae_types import RAET_get_token
+            token = RAET_get_token(fil)
             if token is None:
                 if isinstance(fil, ET):
                     c_fil = None
@@ -9817,8 +9817,8 @@ def unflatten_dict_imp(d: Dict) -> Dict:
 
 def token_name_imp(raet: RAET) -> String:
     if isinstance(raet, (ET, RT, AET, BT)):
-        from ..VT.rae_types import get_token
-        token = get_token(raet)
+        from ..VT.rae_types import RAET_get_token
+        token = RAET_get_token(raet)
         if token is None:
             raise Exception("No token inside of RAET")
         assert isinstance(token, (EntityTypeToken, RelationTypeToken, AttributeEntityTypeToken, BlobTypeToken))

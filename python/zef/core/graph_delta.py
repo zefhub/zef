@@ -1698,12 +1698,12 @@ def get_absorbed_id(obj):
     # if is_a(obj, RT) or is_a(obj, ZefOp):
     #     obj = LazyValue(obj)
     # if isinstance(obj, (ET, RT, AET)):
-    from .VT.helpers import names_of
+    from .VT.rae_types import RAET_get_names
     if isinstance(obj, DelegateRef):
         return None
     elif isinstance(obj, ValueType) and issubclass(obj, (ET, RT, AET)):
         # return obj | absorbed | single_or[None] | collect
-        return names_of(obj) | single_or[None] | collect
+        return RAET_get_names(obj) | single_or[None] | collect
     else:
         return LazyValue(obj) | absorbed | single_or[None] | collect
 

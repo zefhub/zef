@@ -14,7 +14,7 @@
 
 from . import make_VT, insert_VT, ValueType, SetOf, BlobPtr
 from .value_type import is_empty_, is_type_name_
-from .helpers import remove_names, absorbed, type_name, names_of
+from .helpers import absorbed, type_name
 from .. import internals
 
 # These pop up a lot as special cases
@@ -28,26 +28,28 @@ VRT_Enum = make_VT('VRT_Enum', pytype=internals.ValueRepTypeStruct_Enum)
 
 # Helpers
 
-def get_token(typ):
-    abs = remove_names(absorbed(typ))
-    if len(abs) >= 2:
-        raise Exception(f"Token type has more than one absorbed token: {abs}")
-    if len(abs) == 0:
-        return None
-    return abs[0]
-def has_token(typ):
-    return get_token(typ) is not None
-
-def get_token_tolerant(typ):
+def RAET_get_token(typ):
     # This allows anything in the absorbed and takes just the first likely item
-    opts = [x for x in absorbed(typ) if isinstance(x, (EntityTypeToken, RelationTypeToken, BlobTypeToken, AttributeEntityTypeToken))]
+    # This is far too lenient, it will likely break in the future
+    opts = [x for x in absorbed(typ) if isinstance(x, (EntityTypeToken, RelationTypeToken, BlobTypeToken, AttributeEntityTypeToken, ValueRepTypeToken,
+                                                       AET_QFloat, AET_QInt, AET_Enum,
+                                                       ValueType))]
     if len(opts) == 0:
         return None
     return opts[0]
 
+def RAET_get_names(typ):
+    token = RAET_get_token(typ)
+    if token is not None:
+        names = list(absorbed(typ))
+        names.remove(token)
+        return tuple(names)
+    else:
+        return absorbed(typ)
+
 def wrap_attr_readonly_token(orig):
     def this_get_attr(self, name):
-        token = get_token(self)
+        token = RAET_get_token(self)
         if token is None:
             out = getattr(orig, name)
         else:
@@ -60,11 +62,11 @@ def wrap_attr_readonly_token(orig):
                 out = getattr(orig.Enum, name)
             else:
                 raise AttributeError(name)
-        assert len(names_of(self)) == 0, "Going to lose names"
+        assert len(RAET_get_names(self)) == 0, "Going to lose names"
         base_token_type = self._replace(absorbed=())
         return base_token_type[out]
     def this_dir(self):
-        token = get_token(self)
+        token = RAET_get_token(self)
         if token is not None:
             # This is just for AETs
             if isinstance(token, AET_QFloat):
@@ -81,8 +83,8 @@ def wrap_attr_readonly_token(orig):
 def token_subtype(other, this):
     if type_name(other) != type_name(this):
         return False
-    other_token = get_token(other)
-    this_token = get_token(this)
+    other_token = RAET_get_token(other)
+    this_token = RAET_get_token(this)
     if other_token is None:
         return this_token is None
     if this_token is None:
@@ -94,22 +96,25 @@ def token_subtype(other, this):
     return other_token == this_token
 
 def token_validation(self, token_type):
-    my_name = type_name(self)
+    # my_name = type_name(self)
 
-    abs = remove_names(absorbed(self))
-    if len(abs) == 0:
-        return True
-    if len(abs) >= 2:
-        raise Exception(f"Should only have one token absorbed into a {my_name}")
-    thing = abs[0]
+    # abs = remove_names(absorbed(self))
+    # if len(abs) == 0:
+    #     return True
+    # if len(abs) >= 2:
+    #     raise Exception(f"Should only have one token absorbed into a {my_name}")
+    # thing = abs[0]
 
-    if not isinstance(thing, token_type):
-        raise Exception(f"A {my_name} doesn't contain a {token_type} but has a {thing} instead")
+    # if not isinstance(thing, token_type):
+    #     raise Exception(f"A {my_name} doesn't contain a {token_type} but has a {thing} instead")
+
+    # Anything is allowed now
+    return True
 
 def token_str(self):
     my_name = self._d["type_name"]
     s = my_name
-    token = get_token_tolerant(self)
+    token = RAET_get_token(self)
     if token is not None:
         if isinstance(token, (EntityTypeToken, RelationTypeToken, AttributeEntityTypeToken)):
             s += "." + token.name
@@ -118,17 +123,13 @@ def token_str(self):
         else:
             s += "[" + str(token) + "]"
 
-        other_abs = [x for x in absorbed(self) if x is not token]
-    else:
-        other_abs = absorbed(self)
-
-    for thing in other_abs:
+    for thing in RAET_get_names(self):
         s += f"[{thing!r}]"
     return s
 
 def ET_is_a(x, typ):
     from . import DelegateRef
-    token = get_token(typ)
+    token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, DelegateRef):
             return isinstance(x.item, EntityTypeToken)
@@ -148,7 +149,7 @@ def ET_is_a(x, typ):
             return False
 def AET_is_a(x, typ):
     from . import DelegateRef
-    token = get_token(typ)
+    token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, DelegateRef):
             return isinstance(x.item, AttributeEntityTypeToken)
@@ -163,7 +164,7 @@ def AET_is_a(x, typ):
                 return False
             x_aet = internals.AET(x)
         elif isinstance(x, ValueType) and type_name(x) == "AET":
-            x_aet = get_token(x)
+            x_aet = RAET_get_token(x)
             if x_aet is None:
                 return False
         elif isinstance(x, (AttributeEntityTypeToken, AET_QFloat, AET_QInt, AET_Enum)):
@@ -193,7 +194,7 @@ def AET_is_a(x, typ):
         return False
 def RT_is_a(x, typ):
     from . import DelegateRef
-    token = get_token(typ)
+    token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, DelegateRef):
             if type(x.item) == internals.DelegateRelationTriple:
@@ -219,7 +220,7 @@ def RT_is_a(x, typ):
         else:
             return False
 def BT_is_a(x, typ):
-    token = get_token(typ)
+    token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, BlobPtr):
             return True
@@ -242,7 +243,7 @@ def BT_is_a(x, typ):
         return False
 def VRT_is_a(x, typ):
     from . import DelegateRef
-    token = get_token(typ)
+    token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, DelegateRef):
             return isinstance(x.item, ValueRepTypeToken)
@@ -259,7 +260,7 @@ def VRT_is_a(x, typ):
                 return False
             x_vrt = internals.VRT(x)
         elif isinstance(x, ValueType) and type_name(x) == "VRT":
-            x_vrt = get_token(x)
+            x_vrt = RAET_get_token(x)
             if x_vrt is None:
                 return False
         elif isinstance(x, (ValueRepTypeToken, VRT_QFloat, VRT_QInt, VRT_Enum)):
@@ -285,7 +286,7 @@ def VRT_is_a(x, typ):
 
 
 def ET_ctor(self, *args, **kwargs):
-    if get_token(self) is None:
+    if RAET_get_token(self) is None:
         return ET[internals.ET(*args, **kwargs)]
     else:
         return EntityValueInstance(self, *args, **kwargs)
@@ -307,7 +308,7 @@ AttributeEntityTypeToken = make_VT('AttributeEntityTypeToken', pytype=internals.
 def AET_ctor(self, x):
     if type(x) == str:
         return getattr(self, x)
-    token = get_token(self)
+    token = RAET_get_token(self)
     if token is not None:
         return NotImplemented
     return AET[internals.AET(x)]
@@ -343,7 +344,7 @@ ValueRepTypeToken = make_VT('ValueRepTypeToken', pytype=internals.ValueRepType)
 def VRT_ctor(self, x):
     if type(x) == str:
         return getattr(self, x)
-    token = get_token(self)
+    token = RAET_get_token(self)
     if token is not None:
         return NotImplemented
     return VRT[internals.VRT(x)]
