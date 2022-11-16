@@ -309,6 +309,9 @@ def obtain_ids(x) -> dict:
         for item in x._kwargs.values():
             ids = merge_no_overwrite(ids, obtain_ids(item))
 
+    elif isinstance(x, PleaseAssign):
+        ids = merge_no_overwrite(ids, obtain_ids(x.target))
+
 
     # This is an extra step on top of the previous checks
     # if type(x) in [Entity, AttributeEntity, Relation, EntityType,
@@ -421,6 +424,10 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
         return
 
     elif isinstance(x, EntityValueInstance):
+        return
+
+    elif isinstance(x, PleaseAssign):
+        verify_input_el(x.target, id_definitions, False, True)
         return
 
     elif isinstance(x, PleaseCommand):
