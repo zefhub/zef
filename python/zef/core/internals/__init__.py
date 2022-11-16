@@ -228,6 +228,8 @@ def assign_value_imp(z, value):
 
     if not isinstance(value, scalar_types):
         value = SerializedValue.serialize(value)
+    elif get_c_token(aet).rep_type == VRT.Serialized:
+        value = SerializedValue.serialize(value)
     try:
         c_assign_value(z, value)
     except Exception as exc:
