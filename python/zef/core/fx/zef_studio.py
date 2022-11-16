@@ -16,6 +16,7 @@ from .fx_types import Effect, FX
 from .._ops import *
 from ..zef_functions import func
 from ..VT import *
+from ..logger import log
 
 
 #-------------------------------------------------------------
@@ -225,19 +226,34 @@ def studio_start_server_handler(eff: Dict):
     """Example
     {
         "type": FX.Studio.StartServer,
-        "port": 5001,     # Optional(default=5000) 
-        "path": "/gql",   # Optional (default="/gql")
     } | run
     """
-    http_r = {
-        "type": FX.GraphQL.StartServer,
-        "schema_dict" : schema_dict,
-        "g" :  Graph(),
-        "port" :  eff.get('port', 5000), 
-        "path" :  eff.get("path", "/gql"), 
-    } | run
+    def open_browser(port):
+         studio_url = f"https://studio.zefhub.io/?endpoint=http://localhost:{port}/graphql"
+         log.info(f"Started Zef Studio at {studio_url}")
+         import webbrowser
+         webbrowser.open(studio_url)
 
-    return http_r
+    import random
+    trials = 5
+    
+    while trials:
+      random_port = random.randint(10000, 30000)
+      try:
+         http_r = {
+            "type": FX.GraphQL.StartServer,
+            "schema_dict" : schema_dict,
+            "g" :  Graph(),
+            "port" :  random_port, 
+            "path" :  "/graphql", 
+         } | run
+         open_browser(random_port)
+         return http_r
+      except Exception as e:
+         trials -= 1
+         if trials: continue
+         raise e
+
 
 def studio_stop_server_handler(eff: Dict):
     return run({**eff, 'type': FX.HTTP.StopServer})
