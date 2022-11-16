@@ -1925,10 +1925,9 @@ def all_imp(*args):
                 return initial
         
         # TODO: Probably rewrite this to take advantage of the above c-level calls
-        if isinstance(fil, ValueType) and fil._d['type_name'] in {"Union", "Intersection"}:
-            representation_types = fil.d['absorbed'] | filter[lambda x: isinstance(x, (ET, AET))] | func[set] | collect
-            value_types = set(fil._d['absorbed']) - representation_types
-            
+        if  isinstance(fil, ValueType) and fil != RAE and fil._d['type_name'] in {"Union", "Intersection"}:
+            representation_types = absorbed(fil) | filter[lambda x: isinstance(x, (ET, AET))] | func[set] | collect
+            value_types = set(absorbed(fil)) - representation_types
             if len(value_types) > 0: 
                 # Wrap the remaining ValueTypes after removing representation_types in the original ValueType
                 value_types = {"Union": Union, "Intersection": Intersection}[fil._d['type_name']][tuple(value_types)]      
