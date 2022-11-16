@@ -100,14 +100,14 @@ class FlatRefs_:
     def __repr__(self):
         newline = '\n'
         return f"""<FlatRefs len={len(self.idxs)}> [
-{["    " + repr(FlatRef(self.fg, i)) for i in self.idxs] | join[newline] | collect}
+{["    " + repr(FlatRef_(self.fg, i)) for i in self.idxs] | join[newline] | collect}
 ]"""
     
     def __or__(self, other):
         return LazyValue(self) | other
 
     def __iter__(self):
-        return (FlatRef(self.fg, i) for i in self.idxs)
+        return (FlatRef_(self.fg, i) for i in self.idxs)
 
     def __gt__(self, other):
         return LazyValue(self) > other
