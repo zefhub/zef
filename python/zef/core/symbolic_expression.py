@@ -107,8 +107,8 @@ def merge_flatgraphs(g1, g2) -> FlatGraph:
         we may have to perform different types of shifts.
         """
         return el | match[
-         (Pattern[Any, AET], lambda el: (el[0]+d, el[1], [n+d if n>=0 else n-d for n in el[2]], el[3], el[4])),
-         (Pattern[Any, RT], lambda el: (el[0]+d, el[1], [n+d if n>=0 else n-d for n in el[2]], el[3], el[4]+d, el[5]+d)),
+         (Pattern[[Any, AET]], lambda el: (el[0]+d, el[1], [n+d if n>=0 else n-d for n in el[2]], el[3], el[4])),
+         (Pattern[[Any, RT]], lambda el: (el[0]+d, el[1], [n+d if n>=0 else n-d for n in el[2]], el[3], el[4]+d, el[5]+d)),
          (Any, lambda el: (el[0]+d, el[1], [n+d if n>=0 else n-d for n in el[2]], el[3],)),
         ] | collect
     
