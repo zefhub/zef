@@ -411,16 +411,16 @@ def flatgraph_to_commands(fg):
             if idx in idx_key:
                 key = idx_key[idx]
                 if is_a(key, UID):
-                    if b[-1] != None: return AttributeEntityRef({"type": b[1], "uid": key}) <= b[-1]
+                    if b[-1] != None: return AttributeEntityRef({"type": b[1], "uid": key})| assign[b[-1]]
                     else:     return AttributeEntityRef({"type": b[1], "uid": key})
                 else:
                     if for_rt: return Z[key]
-                    if b[-1] != None: return b[1][key] <= b[-1]
+                    if b[-1] != None: return b[1][key] | assign[b[-1]]
                     else:     return b[1][key]
             else:
                 if b[-1] != None: 
-                    if (b[1][idx] <= b[-1]) in return_elements: return Z[idx] <= b[-1]
-                    return b[1][idx] <= b[-1]
+                    if (b[1][idx] | assign[b[-1]]) in return_elements: return Z[idx] | assign[b[-1]]
+                    return b[1][idx] | assign[b[-1]]
                 else:     
                     if (b[1][idx]) in return_elements: return Z[idx]
                     return b[1][idx]
@@ -444,9 +444,9 @@ def flatgraph_to_commands(fg):
                 from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types
                 if isinstance(b[-1], shorthand_scalar_types):
                     aet = map_scalar_to_aet_type(b[-1])
-                    return aet[value_hash(b[-1])] <= (b[-1])
+                    return aet[value_hash(b[-1])] | assign[b[-1]] 
                 else:
-                    return AET.Serialized[value_hash(b[-1])] <= to_json(b[-1])
+                    return AET.Serialized[value_hash(b[-1])]| assign[to_json(b[-1])]
         elif isinstance(b[1], Delegate):
             return b[1]
 
@@ -457,7 +457,8 @@ def flatgraph_to_commands(fg):
         if isinstance(el, LazyValue) or el != None: return_elements.add(el)
 
     from ..graph_delta import construct_commands
-    return construct_commands(list(return_elements))
+    res =  construct_commands(list(return_elements))
+    return res
 
 
 # ------------------------------FlatRef----------------------------------
