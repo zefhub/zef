@@ -155,8 +155,8 @@ def graphviz_imp(zz, *flags):
             else: return str(v)
 
         if BT(z)==BT.ENTITY_NODE:
-            if compact_view: 
-                rts = z | out_rels | filter[lambda z: BT(target(z)) == BT.ATTRIBUTE_ENTITY_NODE] | collect
+            if compact_view and not internals.is_delegate(z): 
+                rts = z | out_rels | filter[lambda z: BT(target(z)) == BT.ATTRIBUTE_ENTITY_NODE and not internals.is_delegate(target(z))] | collect
                 title = f"{ET(z)!r}"
                 return f"""<<TABLE TITLE='{title}' CELLPADDING='0' CELLSPACING='0'>
                 <TR><TD>{title}</TD></TR>
