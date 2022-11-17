@@ -32,14 +32,23 @@ from typing import Generator, Iterable, Iterator
 def fg_insert_imp(fg, new_el):
     from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types, PleaseAssign
     from ...pyzef.internals import DelegateRelationTriple
-    from ...core.VT.helpers import names_of, remove_names, absorbed
 
     def without_names(raet):
-        abs = remove_names(absorbed(raet))
-        return raet._replace(absorbed=abs)
+        if isinstance(raet, ValueType):
+            from ...core.VT.helpers import remove_names, absorbed
+            abs = remove_names(absorbed(raet))
+            return raet._replace(absorbed=abs)
+        else:
+            return raet
 
     def internal_name(rae):
-        names = names_of(rae)
+        if isinstance(rae, RAERef):
+            names = absorbed(rae)
+        elif isinstance(rae, ValueType):
+            from ...core.VT.helpers import names_of
+            names = names_of(rae)
+        else:
+            raise Exception(f"Need to implement code for type {rae}")
         return names[0] if names else None
 
     assert is_a(fg, FlatGraph)

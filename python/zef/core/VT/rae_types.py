@@ -148,13 +148,15 @@ def ET_is_a(x, typ):
         else:
             return False
 def AET_is_a(x, typ):
-    from . import DelegateRef
+    from . import DelegateRef, AttributeEntityRef
     token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, DelegateRef):
             return isinstance(x.item, AttributeEntityTypeToken)
         elif isinstance(x, BlobPtr):
             return internals.BT(x) == internals.BT.ATTRIBUTE_ENTITY_NODE
+        elif isinstance(x, AttributeEntityRef):
+            return True
         return is_type_name_(x, "AET")
     else:
         if isinstance(x, DelegateRef):
@@ -169,6 +171,10 @@ def AET_is_a(x, typ):
                 return False
         elif isinstance(x, (AttributeEntityTypeToken, AET_QFloat, AET_QInt, AET_Enum)):
             x_aet = x
+        elif isinstance(x, AttributeEntityRef):
+            # TODO: Fix up
+            from .abstract_rae_types import rae_type
+            x_aet = rae_type(x)
         else:
             return False
 

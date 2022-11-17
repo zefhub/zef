@@ -5249,7 +5249,7 @@ def time_travel_tp(x, p):
 
 def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
-    if isinstance(z, (EntityRef, AttributeEntityRef, RelationRef, TXNode, Root)):
+    if isinstance(z, RAERef):
         return uid(z)
     assert BT(z) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
@@ -5279,7 +5279,7 @@ def origin_uid_tp(x):
 
 def origin_rae_imp(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
-    if isinstance(x, (EntityRef, AttributeEntityRef, RelationRef, TXNode, Root)):
+    if isinstance(x, RAERef):
         return x
     if isinstance(x, BlobPtr):
         if internals.is_delegate(x):
@@ -5291,9 +5291,9 @@ def origin_rae_imp(x):
         elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE:
             return AttributeEntityRef(x)
         elif BT(x) == BT.TX_EVENT_NODE:
-            return TXNode(x)
+            return TXNodeRef(x)
         elif BT(x) == BT.ROOT_NODE:
-            return Root(x)
+            return RootRef(x)
         raise Exception("Not a ZefRef that is a concrete RAE")
     if is_a_implementation(x, Delegate):
         return x
@@ -6357,7 +6357,7 @@ def termination_tx_implementation(z):
 def uid_implementation(arg):
     if isinstance(arg, String):
         return to_uid(arg)
-    if isinstance(arg, (EntityRef, AttributeEntityRef, TXNode, Root)):
+    if isinstance(arg, (EntityRef, AttributeEntityRef, TXNodeRef, RootRef)):
         return arg.d["uid"]
     if isinstance(arg, RelationRef):
         return arg.d["uids"][1]
@@ -6699,9 +6699,9 @@ def rae_type_implementation(z):
 
 def abstract_type_implementation(z):
     # This is basically rae_type, but also including TXNode and Root
-    if isinstance(z, TXNode):
+    if isinstance(z, TXNodeRef):
         return BT.TX_EVENT_NODE
-    if isinstance(z, Root):
+    if isinstance(z, RootRef):
         return BT.ROOT_NODE
     if isinstance(z, (ZefRef, EZefRef)) and BT(z) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
         return BT(z)

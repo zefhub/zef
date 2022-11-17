@@ -123,7 +123,8 @@ class Entity_:
         return Entity_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
     
 EntityRef = make_VT('EntityRef', pytype=Entity_)
-Entity = insert_VT("Entity", EntityRef | (BlobPtr & ET))
+EntityConcrete = insert_VT("EntityConcrete", BlobPtr & ET)
+Entity = insert_VT("Entity", EntityRef | EntityConcrete)
     
 
 class AttributeEntity_:
@@ -168,7 +169,8 @@ class AttributeEntity_:
         return AttributeEntity_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
     
 AttributeEntityRef = make_VT('AttributeEntityRef', pytype=AttributeEntity_)
-AttributeEntity = insert_VT("AttributeEntity", AttributeEntityRef | (BlobPtr & AET))
+AttributeEntityConcrete = insert_VT("AttributeEntityConcrete", BlobPtr & AET)
+AttributeEntity = insert_VT("AttributeEntity", AttributeEntityRef | AttributeEntityConcrete)
 
 class Relation_:
     """ 
@@ -211,7 +213,8 @@ class Relation_:
         return Relation_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
 
 RelationRef = make_VT('RelationRef', pytype=Relation_)
-Relation = insert_VT("Relation", RelationRef | (BlobPtr & RT))
+RelationConcrete = insert_VT("RelationConcrete", BlobPtr & RT)
+Relation = insert_VT("Relation", RelationRef | RelationConcrete)
 
 class TXNode_:
     """ 
@@ -253,7 +256,9 @@ class TXNode_:
         temp.d['absorbed'] = (*self.d['absorbed'], x)
         return temp
         
-TXNode = make_VT('TXNode', pytype=TXNode_)
+TXNodeRef = make_VT('TXNodeRef', pytype=TXNode_)
+TXNodeConcrete = insert_VT("TXNodeConcrete", BlobPtr & BT.TX_EVENT_NODE)
+TXNode = insert_VT("TXNode", TXNodeRef |  TXNodeConcrete)
 
 class Root_:
     """ 
@@ -295,7 +300,9 @@ class Root_:
         temp.d['absorbed'] = (*self.d['absorbed'], x)
         return temp
 
-Root = make_VT('Root', pytype=Root_)
+RootRef = make_VT('RootRef', pytype=Root_)
+RootConcrete = insert_VT('RootConcrete', BlobPtr & BT.ROOT_NODE)
+Root = insert_VT('Root', RootRef | RootConcrete)
 
 
 def abstract_rae_from_rae_type_and_uid(rae_type, uid):
@@ -308,7 +315,8 @@ def abstract_rae_from_rae_type_and_uid(rae_type, uid):
         raise Exception("Unable to create an abstract Relation without knowing its source and target")
         
 
-RAERef = insert_VT('RAERef', EntityRef | AttributeEntityRef | RelationRef | TXNode | Root)
+RAERef = insert_VT('RAERef', EntityRef | AttributeEntityRef | RelationRef | TXNodeRef | RootRef)
+RAEConcrete = insert_VT('RAEConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete | TXNodeConcrete | RootConcrete)
 RAE = insert_VT('RAE', Entity | AttributeEntity | Relation | TXNode | Root)
 
 
