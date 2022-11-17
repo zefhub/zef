@@ -30,10 +30,9 @@ from typing import Generator, Iterable, Iterator
 
 #-----------------------------FlatGraph Implementations-----------------------------------
 def fg_insert_imp(fg, new_el):
-    from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types
+    from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types, PleaseAssign
     from ...pyzef.internals import DelegateRelationTriple
     from ...core.VT.helpers import names_of, remove_names, absorbed
-
 
     def without_names(raet):
         abs = remove_names(absorbed(raet))
@@ -69,123 +68,17 @@ def fg_insert_imp(fg, new_el):
     def common_logic(new_el):
         nonlocal new_blobs, new_key_dict
 
-        if isinstance(new_el, ET):
-            idx = next_idx()
-            internal_id = internal_name(new_el)
-            new_el = without_names(new_el)
-            if internal_id: new_key_dict[internal_id] = idx
-            new_blobs.append((idx, new_el, [], None))
-
-        elif isinstance(new_el, AET):
-            idx = next_idx()
-            internal_id = internal_name(new_el)
-            new_el = without_names(new_el)
-            if internal_id: new_key_dict[internal_id] = idx
-            new_blobs.append((idx, new_el, [], None, None))
-
-        elif isinstance(new_el, EntityRef):
-            node_type, node_uid = new_el.d['type'], new_el.d['uid']
-            if node_uid not in new_key_dict:
-                idx = next_idx()
-                new_blobs.append((idx, node_type, [], node_uid))
-                new_key_dict[node_uid] = idx
-            idx = new_key_dict[node_uid]
-
-        elif isinstance(new_el, AttributeEntityRef):
-            node_type, node_uid = new_el.d['type'], new_el.d['uid']
-            if node_uid not in new_key_dict:
-                idx = next_idx()
-                new_blobs.append((idx, node_type, [], node_uid, None))
-                new_key_dict[node_uid] = idx
-            idx = new_key_dict[node_uid]
-
-        elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Instantiated):
-            raise ValueError("!!!!SHOULD NO LONGER ARRIVE HERE!!!!")
-        
-        elif isinstance(new_el, ZefOp[terminate]):
-            to_be_removed = LazyValue(new_el) | absorbed | attempt[first][None] | collect
-            idx = None
-            if to_be_removed:
-                try:
-                    new_fg = FlatGraph()
-                    new_fg.key_dict = new_key_dict
-                    new_fg.blobs = (*new_blobs,)
-                    new_fg = fg_remove_imp(new_fg, to_be_removed)
-                    new_blobs, new_key_dict = [*new_fg.blobs], {**new_fg.key_dict}
-                except KeyError:
-                    pass
-                except:
-                    raise Exception(f"An exception happened while trying to perform {new_el} on {fg}")
-
-        elif isinstance(new_el, ZefOp[assign]):
-            internals = LazyValue(new_el) | absorbed  | collect
-            assert len(internals) == 2, f"assign should have both the entity and the value to be assigned got {internals} instead"
-            ref, val = internals
-            idx = common_logic(ref <= val)
-
-
-        # elif isinstance(new_el, ZefOp) and inner_zefop_type(new_el, RT.Z):
-        elif isinstance(new_el, ZefOp[Z]):
-            key = peel(new_el)| first | second | first | collect
-            if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
-            idx = new_key_dict.get(key, key)
-
-        # i.e: z4 <= 42 ; AET.String <= "42" ; AET.String['z1'] <= 42 ; Z['n1'] <= 42
-        elif isinstance(new_el, LazyValue) and length(peel(new_el)) == 2:
-            first_op = peel(new_el)[0]
-            if isinstance(first_op, AET):
-                    internal_id = internal_name(new_el)
-                    aet_maybe = without_names(new_el)
-                    assert isinstance(aet_maybe, AET), f"{new_el} should be of type AET"
-                    aet_value = peel(peel(new_el)[1])[0][1][0]
-                    idx = next_idx()
-                    new_blobs.append((idx, aet_maybe, [], None, aet_value))
-                    if internal_id: new_key_dict[internal_id] = idx
-            elif isinstance(first_op, ZefOp):
-                if inner_zefop_type(first_op, RT.Z):
-                    key = peel(first_op)[0][1][0]
-                    aet_value = peel(peel(new_el)[1])[0][1][0]
-                    if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
-                    idx = new_key_dict.get(key, key)
-                    assert isinstance(new_blobs[idx][1], AET), f"This key must refer to an AET found {new_blobs[idx][1]}"
-                    new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
-                else:
-                    raise ValueError(f"Expected a Z['n1'] <= 42 got {new_el} instead!")
-            elif isinstance(first_op, ZefRef) or isinstance(first_op, EZefRef):
-                idx = common_logic(first_op)
-                assert isinstance(new_blobs[idx][1], AET), f"This key must refer to an AET found {new_blobs[idx][1]}"
-                aet_value = peel(peel(new_el)[1])[0][1][0]
-                new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
-            else:
-                raise ValueError(f"Expected a z <= 42 or AET.String <= 42 got {new_el} instead!")
-
-        elif isinstance(new_el, Val):
-            new_el = new_el.arg
-            hash_vn = value_hash(new_el)
-            if hash_vn not in new_key_dict:
-                idx = next_idx()
-                new_key_dict[hash_vn] = idx
-                new_blobs.append((idx, "BT.ValueNode", [], new_el))  # TODO Don't treat as str once added to Zef types
-            idx = new_key_dict[hash_vn]
-
-        elif isinstance(new_el, FlatRef):
-            if new_el.fg == fg:
-                idx = new_el.idx
-            else:
-                # If the flatgraphs are different then merge the FlatGraph in and return the
-                # new index of the blob originally in the other FlatGraph
-                idx = fr_merge_and_retrieve_idx(new_blobs, new_key_dict,next_idx, new_el)
-
-        elif isinstance(new_el, shorthand_scalar_types):
+        if isinstance(new_el, shorthand_scalar_types):
             aet = map_scalar_to_aet_type(new_el)
             idx = next_idx()
             new_blobs.append((idx, aet, [], None, new_el))
 
-        elif type(new_el) in {ZefRef, EZefRef}:
+        elif is_a(new_el, (ZefRef, EZefRef)):
             idx = common_logic(origin_rae(new_el))
             if isinstance(new_blobs[idx][1], AET) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))
-        elif isinstance(new_el, Delegate):
+
+        elif is_a(new_el, Delegate):
             if isinstance(new_el.item, DelegateRelationTriple):
                 if new_el in new_key_dict:
                     idx = new_key_dict[new_el]
@@ -209,6 +102,108 @@ def fg_insert_imp(fg, new_el):
                     if internal_id: new_key_dict[internal_id] = idx
                     new_key_dict[new_el] = idx
                     new_blobs.append((idx, new_el, [], None))
+
+        elif is_a(new_el, EntityRef):
+            node_type, node_uid = new_el.d['type'], new_el.d['uid']
+            if node_uid not in new_key_dict:
+                idx = next_idx()
+                new_blobs.append((idx, node_type, [], node_uid))
+                new_key_dict[node_uid] = idx
+            idx = new_key_dict[node_uid]
+
+        elif is_a(new_el, AttributeEntityRef):
+            node_type, node_uid = new_el.d['type'], new_el.d['uid']
+            if node_uid not in new_key_dict:
+                idx = next_idx()
+                new_blobs.append((idx, node_type, [], node_uid, None))
+                new_key_dict[node_uid] = idx
+            idx = new_key_dict[node_uid]
+
+        elif is_a(new_el, ET):
+            idx = next_idx()
+            internal_id = internal_name(new_el)
+            new_el = without_names(new_el)
+            if internal_id: new_key_dict[internal_id] = idx
+            new_blobs.append((idx, new_el, [], None))
+
+        elif is_a(new_el, AET):
+            idx = next_idx()
+            internal_id = internal_name(new_el)
+            new_el = without_names(new_el)
+            if internal_id: new_key_dict[internal_id] = idx
+            new_blobs.append((idx, new_el, [], None, None))
+
+        elif is_a(new_el, ZefOp) and inner_zefop_type(new_el, RT.Instantiated):
+            raise ValueError("!!!!SHOULD NO LONGER ARRIVE HERE!!!!")
+        
+        elif is_a(new_el, ZefOp[terminate]):
+            to_be_removed = LazyValue(new_el) | absorbed | attempt[first][None] | collect
+            idx = None
+            if to_be_removed:
+                try:
+                    new_fg = FlatGraph()
+                    new_fg.key_dict = new_key_dict
+                    new_fg.blobs = (*new_blobs,)
+                    new_fg = fg_remove_imp(new_fg, to_be_removed)
+                    new_blobs, new_key_dict = [*new_fg.blobs], {**new_fg.key_dict}
+                except KeyError:
+                    pass
+                except:
+                    raise Exception(f"An exception happened while trying to perform {new_el} on {fg}")
+
+        elif is_a(new_el, ZefOp[Z]):
+            key = peel(new_el)| first | second | first | collect
+            if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
+            idx = new_key_dict.get(key, key)
+
+        # i.e: z4 <= 42 ; AET.String <= "42" ; AET.String['z1'] <= 42 ; Z['n1'] <= 42
+        elif isinstance(new_el, LazyValue) and is_a(new_el, PleaseAssign):
+            new_el = collect(new_el)
+            first_op = new_el.target
+
+            if isinstance(first_op, ZefRef) or isinstance(first_op, EZefRef):
+                idx = common_logic(first_op)
+                assert isinstance(new_blobs[idx][1], AET), f"This key must refer to an AET found {new_blobs[idx][1]}"
+                aet_value = new_el.value
+                new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
+
+            elif is_a(first_op, AET):
+                    internal_id = internal_name(first_op)
+                    aet_maybe = without_names(first_op)
+                    assert isinstance(aet_maybe, AET), f"{new_el} should be of type AET"
+                    aet_value = new_el.value
+                    idx = next_idx()
+                    new_blobs.append((idx, aet_maybe, [], None, aet_value))
+                    if internal_id: new_key_dict[internal_id] = idx
+            elif isinstance(first_op, ZefOp):
+                if inner_zefop_type(first_op, RT.Z):
+                    key = peel(first_op)[0][1][0]
+                    aet_value = new_el.value
+                    if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
+                    idx = new_key_dict.get(key, key)
+                    assert isinstance(new_blobs[idx][1], AET), f"This key must refer to an AET found {new_blobs[idx][1]}"
+                    new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
+                else:
+                    raise ValueError(f"Expected a Z['n1'] <= 42 got {new_el} instead!")
+            else:
+                raise ValueError(f"Expected a z <= 42 or AET.String <= 42 got {new_el} instead!")
+
+        elif isinstance(new_el, Val):
+            new_el = new_el.arg
+            hash_vn = value_hash(new_el)
+            if hash_vn not in new_key_dict:
+                idx = next_idx()
+                new_key_dict[hash_vn] = idx
+                new_blobs.append((idx, "BT.ValueNode", [], new_el))  # TODO Don't treat as str once added to Zef types
+            idx = new_key_dict[hash_vn]
+
+        elif isinstance(new_el, FlatRef):
+            if new_el.fg == fg:
+                idx = new_el.idx
+            else:
+                # If the flatgraphs are different then merge the FlatGraph in and return the
+                # new index of the blob originally in the other FlatGraph
+                idx = fr_merge_and_retrieve_idx(new_blobs, new_key_dict,next_idx, new_el)
         else:
             idx = None
         return idx
@@ -524,3 +519,63 @@ def fg_all_imp(fg, selector=None):
     else:
         selected_blobs = fg.blobs 
     return FlatRefs(fg, [b[0] for b in selected_blobs])
+
+
+# ------------------------------Merging FlatGraphs----------------------------------
+def fg_merge_imp(fg1, fg2 = None):
+    if isinstance(fg1, list): return fg1[1:] | reduce[fg_merge_imp][fg1[0]] | collect
+
+    def idx_generator(n):
+        def next_idx():
+            nonlocal n
+            n = n + 1
+            return n
+        return next_idx
+
+    blobs, k_dict = [*fg1.blobs], {**fg1.key_dict}
+    next_idx = idx_generator(length(blobs) - 1)
+
+    idx_key_2 = {i:k for k,i in fg2.key_dict.items()}
+    old_to_new = {}
+
+    def retrieve_or_insert_blob(new_b):
+        old_idx = new_b[0]
+        key = idx_key_2.get(new_b[0], None)
+
+        if old_idx in old_to_new:
+            idx = old_to_new[old_idx]
+            new_b = blobs[idx]
+        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], UID)) and key in k_dict:
+            new_b = blobs[k_dict[key]]
+            idx = new_b[0]
+        else:
+            idx = next_idx()
+            if key: k_dict[key] = idx
+            new_b = (idx, new_b[1], [], *new_b[3:])
+            blobs.append(new_b)
+        old_to_new[old_idx] = idx
+        return new_b
+
+    for b in fg2.blobs | filter[lambda b: isinstance(b[1], RT)] | sort[lambda b: -len(b[2])]:
+        rt_key = idx_key_2.get(b[0], None)
+
+        src_b, trgt_b = fg2.blobs[b[4]], fg2.blobs[b[5]]
+        src_b  = retrieve_or_insert_blob(src_b)
+        trgt_b = retrieve_or_insert_blob(trgt_b)
+        
+        idx = next_idx()
+        rt_b = (idx, b[1], [], None, src_b[0], trgt_b[0])
+        src_b[2].append(idx)
+        trgt_b[2].append(-idx)
+        if rt_key: k_dict[rt_key] = idx
+        blobs.append(rt_b)
+        old_to_new[b[0]] = idx
+
+            
+    for b in fg2.blobs | filter[lambda b: not isinstance(b[1], RT)]:
+        if b[0] not in old_to_new: retrieve_or_insert_blob(b)
+
+    new_fg = FlatGraph()
+    new_fg.blobs = blobs
+    new_fg.key_dict = k_dict
+    return new_fg
