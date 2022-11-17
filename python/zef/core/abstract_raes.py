@@ -308,6 +308,7 @@ def abstract_rae_from_rae_type_and_uid(rae_type, uid):
         raise Exception("Unable to create an abstract Relation without knowing its source and target")
         
 
+RAERef = insert_VT('RAERef', EntityRef | AttributeEntityRef | RelationRef | TXNode | Root)
 RAE = insert_VT('RAE', Entity | AttributeEntity | Relation | TXNode | Root)
 
 

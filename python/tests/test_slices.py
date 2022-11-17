@@ -34,7 +34,7 @@ class MyTestCase(unittest.TestCase):
 
         self.assertEqual(ctx | events[Instantiated] | length | collect, 2)
         self.assertEqual(ctx | events[Assigned] | length | collect, 0)
-        self.assertEqual(ctx | events[events[Terminated]] | length | collect, 0)
+        self.assertEqual(ctx | events[Terminated] | length | collect, 0)
 
         txs = z | now[allow_tombstone] | preceding_events[Assigned] | map[absorbed | first | frame | to_tx] | collect
         self.assertEqual([ctx  | frame | graph_slice_index | collect for ctx in txs], [3, 4])

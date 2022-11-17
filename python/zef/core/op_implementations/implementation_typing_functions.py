@@ -7012,7 +7012,7 @@ def tag_imp(x, tag_s: str, *args):
             'force': force,
             'adding': True,
         }
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, ZefOp[Z]):
         assert len(args) == 0
         return LazyValue(x) | tag[tag_s]
 
@@ -7042,7 +7042,7 @@ def untag_imp(x, tag: str):
             'adding': False,
             'force': False,
         }
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, Z):
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, ZefOp[Z]):
         raise Exception("Untagging a RAE is not supported at the moment.")
 
     raise RuntimeError(f"Unknown type for tag: {type(x)}")
@@ -7784,7 +7784,7 @@ def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
         return result
 
     def get_item(x, id_lookup):
-        if type(x) == ZefOp and is_a(x, Z):
+        if is_a(x, ZefOp[Z]):
             return id_lookup[get_label(x)]
         if type(x) == Delegate:
             return x

@@ -192,7 +192,7 @@ class ProxyGraph:
             pass
         # elif isinstance(item, NodeRef):
         #     resolved = item.z
-        elif isinstance(item, (str,int)) or is_a(item, uid):
+        elif isinstance(item, (str,int)) or is_a(item, UID):
             resolved = self.gs[item]
         elif isinstance(item, ZefRef):
             resolved = in_frame(item, self.gs)

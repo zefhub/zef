@@ -395,7 +395,7 @@ def flatgraph_to_commands(fg):
         if isinstance(b[1], ET):
             if idx in idx_key:
                 key = idx_key[idx]
-                if is_a(key, uid): return EntityRef({"type": b[1], "uid": key})
+                if is_a(key, UID): return EntityRef({"type": b[1], "uid": key})
                 else:
                     if for_rt: return Z[key]
                     return b[1][key]
@@ -449,7 +449,9 @@ def flatgraph_to_commands(fg):
 
     for b in fg.blobs | filter[lambda b: b != None] | collect:
         el = dispatch_on_blob(b)
-        if isinstance(el, LazyValue) or el != None: return_elements.add(el)
+        if isinstance(el, LazyValue):
+            el = collect(el)
+        if el != None: return_elements.add(el)
 
     from ..graph_delta import construct_commands
     res =  construct_commands(list(return_elements))
