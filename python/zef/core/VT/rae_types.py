@@ -128,13 +128,15 @@ def token_str(self):
     return s
 
 def ET_is_a(x, typ):
-    from . import DelegateRef
+    from . import DelegateRef, EntityRef
     token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, DelegateRef):
             return isinstance(x.item, EntityTypeToken)
         elif isinstance(x, BlobPtr):
             return internals.BT(x) == internals.BT.ENTITY_NODE
+        elif isinstance(x, EntityRef):
+            return True
         return isinstance(x, ValueType) and type_name(x) == "ET"
     else:
         if isinstance(x, DelegateRef):
@@ -145,6 +147,9 @@ def ET_is_a(x, typ):
             if isinstance(token, ValueType):
                 return isinstance(internals.ET(x), token)
             return internals.ET(x) == token
+        elif isinstance(x, EntityRef):
+            from .._ops import rae_type
+            return RAET_get_token(rae_type(x)) == token
         else:
             return False
 def AET_is_a(x, typ):
@@ -172,8 +177,7 @@ def AET_is_a(x, typ):
         elif isinstance(x, (AttributeEntityTypeToken, AET_QFloat, AET_QInt, AET_Enum)):
             x_aet = x
         elif isinstance(x, AttributeEntityRef):
-            # TODO: Fix up
-            from .abstract_rae_types import rae_type
+            from .._ops import rae_type
             x_aet = rae_type(x)
         else:
             return False
@@ -199,7 +203,7 @@ def AET_is_a(x, typ):
                     return internals.is_vrt_a_enum(x_aet.rep_type)
         return False
 def RT_is_a(x, typ):
-    from . import DelegateRef
+    from . import DelegateRef, RelationRef
     token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, DelegateRef):
@@ -209,6 +213,8 @@ def RT_is_a(x, typ):
         elif isinstance(x, BlobPtr):
             # TODO: not was removed from the second part of this condition. In case something breaks check here!
             return internals.BT(x) == internals.BT.RELATION_EDGE
+        elif isinstance(x, RelationRef):
+            return True
         return isinstance(x, ValueType) and type_name(x) == "RT"
     else:
         if isinstance(x, DelegateRef):
@@ -223,6 +229,9 @@ def RT_is_a(x, typ):
             if isinstance(token, ValueType):
                 return isinstance(internals.RT(x), token)
             return internals.RT(x) == token
+        elif isinstance(x, RelationRef):
+            from .._ops import rae_type
+            return RAET_get_token(rae_type(x)) == token
         else:
             return False
 def BT_is_a(x, typ):
