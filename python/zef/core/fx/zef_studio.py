@@ -182,22 +182,22 @@ schema_dict = {
       'Row': {'cells': {'type': '[Cell]', 'resolver': get['cells']}},
       'CellInt': {
             'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': 'Int!', 'resolver': get['value']},
+            'value': {'type': 'Int', 'resolver': get['value']},
             '_interfaces': ['Cell']
         },
         'CellString': {
             'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': 'String!', 'resolver': get['value']},
+            'value': {'type': 'String', 'resolver': get['value']},
             '_interfaces': ['Cell']
         },
         'CellFloat': {
             'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': 'Float!', 'resolver': get['value']},
+            'value': {'type': 'Float', 'resolver': get['value']},
             '_interfaces': ['Cell']
         },
         'CellBoolean': {
             'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': 'Boolean!', 'resolver': get['value']},
+            'value': {'type': 'Boolean', 'resolver': get['value']},
             '_interfaces': ['Cell']
         },
         'CellET': {
@@ -208,12 +208,12 @@ schema_dict = {
         },
         'CellZef': {
             'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': 'String!', 'resolver': get['value']},
+            'value': {'type': 'String', 'resolver': get['value']},
             '_interfaces': ['Cell']
         },
         'CellList': {
             'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': '[Cell]!', 'resolver': get['value']},
+            'value': {'type': '[Cell]', 'resolver': get['value']},
             '_interfaces': ['Cell']
         }
    },
