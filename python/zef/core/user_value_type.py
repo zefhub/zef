@@ -181,6 +181,11 @@ class UserValueInstance_:
             return False
         return True
 
+    def __hash__(self):
+        from .VT.value_type import hash_frozen
+        return hash_frozen((self._user_type_id, self._value))
+    
+
     def __getattr__(self, other):
         if other.startswith("_"):
             return object.__getattribute__(self, other)

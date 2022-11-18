@@ -234,7 +234,7 @@ def is_supported_value(o):
     from .op_implementations.implementation_typing_functions import ZefGenerator
     from .VT import Entity, Relation, AttributeEntity
     if is_python_scalar_type(o): return True
-    if isinstance(o, (set, range, ZefGenerator, GeneratorType, list, tuple, dict, ValueType, GraphSlice, Time, Image, Bytes, Error, Keyword, ModuleType, UserValueInstance, Delegate, Val, EntityValueInstance)): return True
+    if isinstance(o, (set, range, ZefGenerator, GeneratorType, list, tuple, dict, ValueType, GraphSlice, Time, Image, Bytes, Error, Keyword, ModuleType, UserValueInstance, Delegate, Val, EntityValueInstance, RAE)): return True
     if isinstance(o, (BaseUID, EternalUID, ZefRefUID, Enum, ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice)): return True
     return False
 
@@ -498,26 +498,26 @@ class ZefOp_:
             raise Exception(f"ZefOp call didn't evaluate! {res}")
         return res
 
-    def __instancecheck__(self, other):
-        if not isinstance(other, ZefOp):
-            return False
+def ZefOp_subtype_check(other, self):
+    if not isinstance(other, ZefOp):
+        return False
 
-        if len(self.el_ops) != 1:
-            raise Exception("Not allowed to use ZefOp as a type directly, if it is a chain. Use a Pattern instead (implementation coming soon)")
-        if len(other.el_ops) != 1:
-            return False
-        if len(self.el_ops[0][1]) > 0:
-            raise Exception("Not allowed to use ZefOp as a type directly, if it has any curried arguments. Use a Pattern instead (implementation coming soon)")
-        if other.el_ops[0][0] != self.el_ops[0][0]: return False        
-        # This more complicated logic should fall under "Pattern" now. For example, what should:
-        # isinstance(some_op[3], some_op[Int])
-        # return? Is Int a type here, or a value?
-        # # compare the elements curried into the operator. Recursively use this subtyping function
-        # if len(self.el_ops[0][1]) > len(other.el_ops[0][1]): return False
-        # for el_other, el_self in zip(other.el_ops[0][1], self.el_ops[0][1]):
-        #     if not isinstance(el_other, el_self): return False        
-        # return True
-        return True
+    if len(self.el_ops) != 1:
+        raise Exception("Not allowed to use ZefOp as a type directly, if it is a chain. Use a Pattern instead (implementation coming soon)")
+    if len(other.el_ops) != 1:
+        return False
+    if len(self.el_ops[0][1]) > 0:
+        raise Exception("Not allowed to use ZefOp as a type directly, if it has any curried arguments. Use a Pattern instead (implementation coming soon)")
+    if other.el_ops[0][0] != self.el_ops[0][0]: return False        
+    # This more complicated logic should fall under "Pattern" now. For example, what should:
+    # isinstance(some_op[3], some_op[Int])
+    # return? Is Int a type here, or a value?
+    # # compare the elements curried into the operator. Recursively use this subtyping function
+    # if len(self.el_ops[0][1]) > len(other.el_ops[0][1]): return False
+    # for el_other, el_self in zip(other.el_ops[0][1], self.el_ops[0][1]):
+    #     if not isinstance(el_other, el_self): return False        
+    # return True
+    return True
         
 def zefop_is_a(x, typ):
     # Note: this is only hit for the Zefop value type, not for actual zefops or zefop chains
@@ -533,7 +533,7 @@ def zefop_is_a(x, typ):
         subtype = items[0]
     if subtype is None:
         return isinstance(x, ZefOp_)
-    return isinstance(x, subtype)
+    return ZefOp_subtype_check(x, subtype)
 ZefOp = make_VT("ZefOp",
                 pytype=ZefOp_,
                 is_a_func=zefop_is_a)

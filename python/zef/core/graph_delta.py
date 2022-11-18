@@ -324,7 +324,7 @@ def obtain_ids(x) -> dict:
     # This is an extra step on top of the previous checks
     # if isinstance(x, (Entity, AttributeEntity, Relation, ET[Any],
     #                 AttributeEntityType, RelationType, ZefRef, EZefRef)):
-    if isinstance(x, (Entity, AttributeEntity, Relation, ET, RT, AET,
+    if isinstance(x, (RAERef, ET, RT, AET,
                     ZefRef, EZefRef)):
         # Need the lazy value for the RT possibility
         a_id = get_absorbed_id(LazyValue(x))
@@ -348,16 +348,16 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
         #     return
         # elif is_a(x.el_ops, terminate):
         #     return
-        elif is_a(x.el_ops, tag):
+        elif is_a(x.el_ops, ZefOp[tag]):
             return
-        elif is_a(x.el_ops, fill_or_attach):
+        elif is_a(x.el_ops, ZefOp[fill_or_attach]):
             return
-        elif is_a(x.el_ops, set_field):
+        elif is_a(x.el_ops, ZefOp[set_field]):
             return
         raise Exception(f"A LazyValue must have come from (x | fill_or_attach) or (x | tag) only. Got {x}")
 
     # Note: just is_a(x, Z) will also mean ZefRefs will be hit
-    elif is_a(x, ZefOp) and is_a(x, Z):
+    elif is_a(x, ZefOp[Z]):
         some_id = get_curried_arg(x, 0)
 
         if some_id not in id_definitions:
@@ -396,6 +396,9 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif is_a(x, Delegate):
         return
 
+    elif isinstance(x, RAERef):
+        return
+
     elif isinstance(x, RT):
         if allow_rt:
             return
@@ -411,13 +414,13 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif isinstance(x, ZefOp):
         if len(x) > 1:
             # This could be something like Z["asdf"] | assign[5]
-            if LazyValue(x) | first | is_a[Z] | collect:
+            if LazyValue(x) | first | is_a[ZefOp[Z]] | collect:
                 return
         if length(LazyValue(x) | absorbed) != 1:
             raise Exception(f"ZefOp has more than one op inside of it. {x}")
         raise Exception(f"Not allowing ZefOps except for those starting with Z. Got {x}")
 
-    elif isinstance(x, (Entity, AttributeEntity, Relation)):
+    elif isinstance(x, RAERef):
         return
 
     elif isinstance(x, Val):
@@ -518,18 +521,18 @@ def dispatch_cmds_for(expr, gen_id):
         #     return cmds_for_lv_assign(expr, gen_id)
         # elif is_a(expr.el_ops, terminate):
         #     return cmds_for_lv_terminate(expr)
-        elif is_a(expr.el_ops, set_field):
+        elif is_a(expr.el_ops, ZefOp[set_field]):
             return cmds_for_lv_set_field(expr, gen_id)
-        elif is_a(expr.el_ops, fill_or_attach):
+        elif is_a(expr.el_ops, ZefOp[fill_or_attach]):
             return cmds_for_complex_expr(expr, gen_id)
-        elif is_a(expr.el_ops, tag):
+        elif is_a(expr.el_ops, ZefOp[tag]):
             return cmds_for_lv_tag(expr, gen_id)
         else:
             raise Exception("LazyValue obtained which is not known")
 
     elif isinstance(expr, ZefOp):
         # If we have a chain beginning with a Z, convert to LazyValue
-        if LazyValue(expr) | first | is_a[Z] | collect:
+        if LazyValue(expr) | first | is_a[ZefOp[Z]] | collect:
             return cmds_for_initial_Z(expr)
 
         raise RuntimeError(f'We should not have landed here, with expr={expr}')
@@ -567,6 +570,7 @@ def dispatch_cmds_for(expr, gen_id):
         (Tuple | List,           P(cmds_for_tuple, gen_id=gen_id)),
         (Dict,                   P(cmds_for_complex_expr, gen_id=gen_id)),
         (ZefRef | EZefRef,       cmds_for_mergable),
+        (RAERef,                 cmds_for_mergable),
         (Val,                    cmds_for_value_node),
         (EntityValueInstance,    P(cmds_for_complex_expr, gen_id=gen_id)),
         (PleaseAssign,           P(cmds_for_please_assign, gen_id=gen_id)),
@@ -585,7 +589,7 @@ def cmds_for_complex_expr(x, gen_id):
     return exprs, []
 
 def cmds_for_initial_Z(expr):
-    assert LazyValue(expr) | first | And[is_a[ZefOp]][is_a[Z]] | collect
+    assert LazyValue(expr) | first | is_a[ZefOp[Z]] | collect
 
     expr = LazyValue(LazyValue(expr) | first | collect) | (LazyValue(expr) | skip[1] | to_pipeline | collect)
     return (expr,), ()
@@ -649,9 +653,9 @@ def cmds_for_mergable(x):
             )
         else:
             raise NotImplementedError(f"Unknown ZefRef type for merging: {BT(x)}")
-    elif is_a(x, Entity) or is_a(x, AttributeEntity):
+    elif is_a(x, EntityRef) or is_a(x, AttributeEntityRef):
         return (), [cmd]
-    elif is_a(x, Relation):
+    elif is_a(x, RelationRef):
         maybe_src_trg = []
         if not is_a(x.d["type"][0], RT):
             maybe_src_trg.append(source(x))
@@ -671,7 +675,7 @@ def cmds_for_lv_tag(x, gen_id):
     assert len(x | peel | collect) == 2
     target,op = x | peel | collect
 
-    assert is_a(op, tag)
+    assert is_a(op, ZefOp[tag])
     tag_s = LazyValue(op) | absorbed | single | collect
     iid,exprs = realise_single_node(target, gen_id)
     cmd = {'cmd': 'tag',
@@ -722,7 +726,7 @@ def cmds_for_lv_set_field(x, gen_id):
     source,op = x | peel | collect
 
     # assert is_a(source, ZefOp) and is_a(source, Z), f"fill_or_attach reached cmd creation with an incorrect input type: {source}"
-    assert is_a(op, set_field)
+    assert is_a(op, ZefOp[set_field])
     rt,assignment,incoming = LazyValue(op) | absorbed | collect
     assert isinstance(rt, RT)
 
@@ -832,7 +836,7 @@ def is_valid_single_node(x):
         return True
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return True
-    if is_a(x, Z):
+    if is_a(x, ZefOp[Z]):
         return True
     if isinstance(x, ET):
         return True
@@ -907,13 +911,13 @@ def realise_single_node(x, gen_id):
     if isinstance(x, LazyValue):
         target,op = x | peel | collect
         # if is_a(op, terminate) or is_a(op, tag):
-        if is_a(op, tag):
+        if is_a(op, ZefOp[tag]):
             iid,exprs = realise_single_node(target, gen_id)
             exprs = [x]
         # elif is_a(op, assign):
         #     iid,exprs = realise_single_node(target, gen_id)
         #     exprs = exprs + [LazyValue(Z[iid]) | op]
-        elif is_a(op, fill_or_attach):
+        elif is_a(op, ZefOp[fill_or_attach]):
             # fill_or_attach behaviour is now basically set_field except when the target is not a value
             iid,exprs = realise_single_node(target, gen_id)
             rt,assignment = LazyValue(op) | absorbed | collect
@@ -921,7 +925,7 @@ def realise_single_node(x, gen_id):
                 exprs = exprs + [LazyValue(Z[iid]) | set_field[rt][assignment]]
             else:
                 exprs = exprs + [(Z[iid], rt, assignment)]
-        elif is_a(op, set_field):
+        elif is_a(op, ZefOp[set_field]):
             iid,exprs = realise_single_node(target, gen_id)
             exprs = exprs + [LazyValue(Z[iid]) | op]
         else:
@@ -956,7 +960,7 @@ def realise_single_node(x, gen_id):
         else:
             exprs = [x]
             iid = origin_uid(x)
-    elif type(x) in [Entity, AttributeEntity, Relation, TXNode, Root]:
+    elif isinstance(x, RAERef):
         exprs = [x]
         iid = origin_uid(x)
     elif isinstance(x, Val):
@@ -974,7 +978,7 @@ def realise_single_node(x, gen_id):
         raise Exception("A value of type {type(x)} is not allowed to be given in a GraphDelta in the shorthand syntax as it is ambiguous. You might want to explicitly create an AET and assign, or a value node, or a custom AET.")
     elif isinstance(x, ZefOp):
         if len(x) == 1:
-            if is_a(x, Z):
+            if is_a(x, ZefOp[Z]):
                 iid = LazyValue(x) | peel | first | second | first | collect
                 # No expr to perform
                 exprs = []
@@ -984,7 +988,7 @@ def realise_single_node(x, gen_id):
             ops = LazyValue(x) | peel | collect
             first_op = ops[0]
             rest = ops[1:]
-            if is_a(first_op, Z):
+            if is_a(first_op, ZefOp[Z]):
                 new_op = LazyValue(first_op) | to_pipeline(rest)
                 iid,exprs = realise_single_node(new_op, gen_id)
             else:
@@ -1174,9 +1178,9 @@ def command_ordering_by_type(d_raes: dict) -> int:
         return 4                                            # there may be {'cmd': 'instantiate', 'rae_type': AET.Bool}
     if d_raes['cmd'] == 'assign': return 5
     if d_raes['cmd'] == 'set_field': return 5.5
-    if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Relation): return 6
-    if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Entity): return 7
-    if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], AttributeEntity): return 8
+    if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], RelationRef): return 6
+    if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], EntityRef): return 7
+    if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], AttributeEntityRef): return 8
     if d_raes['cmd'] == 'terminate' and isinstance(d_raes['origin_rae'], Delegate): return 9
     if d_raes['cmd'] == 'tag': return 10
     else: raise NotImplementedError(f"In Sort fct for {d_raes}")
@@ -1483,21 +1487,21 @@ def perform_transaction_commands(commands: list, g: Graph):
                             zz = candidate
                         else:
                             origin_rae_uid = uid(cmd['origin_rae'])
-                            if isinstance(cmd['origin_rae'], Entity):
+                            if isinstance(cmd['origin_rae'], EntityRef):
                                 zz = internals.merge_entity_(
                                     g, 
                                     internals.get_c_token(rae_type(cmd['origin_rae'])),
                                     origin_rae_uid.blob_uid,
                                     origin_rae_uid.graph_uid,
                                 )
-                            elif isinstance(cmd['origin_rae'], AttributeEntity):
+                            elif isinstance(cmd['origin_rae'], AttributeEntityRef):
                                 zz = internals.merge_atomic_entity_(
                                     g, 
                                     internals.get_c_token(rae_type(cmd['origin_rae'])),
                                     origin_rae_uid.blob_uid,
                                     origin_rae_uid.graph_uid,
                                 )
-                            elif isinstance(cmd['origin_rae'], Relation):
+                            elif isinstance(cmd['origin_rae'], RelationRef):
                                 src_origin_uid,_,trg_origin_uid = cmd['origin_rae'].d["uids"]
                                 z_src = d_raes.get(src_origin_uid, most_recent_rae_on_graph(src_origin_uid, g))                                    
                                 z_trg = d_raes.get(trg_origin_uid, most_recent_rae_on_graph(trg_origin_uid, g))                                    

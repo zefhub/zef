@@ -16,11 +16,11 @@
 
 THISDIR=$(dirname $0)
 
-TARGET_FILE=$(mktemp --tmpdir pyicheck.XXX.pyi)
+TARGET_FILE="$(mktemp -d)/pyicheck.pyi"
 
 python3 $THISDIR/../python/zef/core/VT/generate_pyi.py $TARGET_FILE || exit 1
 
-if ! diff --ignore-all-space ${TARGET_FILE} $THISDIR/../python/zef/core/VT/__init__.pyi ; then
+if ! diff -w ${TARGET_FILE} $THISDIR/../python/zef/core/VT/__init__.pyi ; then
     echo "__init__.pyi file needs to be regenerated inside of the VT directory"
     exit 1
 fi
