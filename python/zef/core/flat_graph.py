@@ -22,10 +22,6 @@ from .VT import *
 from .VT import make_VT
 
 
-# @dataclass
-# class Val:
-#     arg: VT.Any
-
 class FlatGraph_:
     """
     Internal data representation:
@@ -49,6 +45,9 @@ class FlatGraph_:
             new_fg = new_fg | insert[args[0]] | collect
             self.key_dict = new_fg.key_dict
             self.blobs = new_fg.blobs
+        elif len(args) == 1 and isinstance(args[0], FlatRef_):
+            self.key_dict =  args[0].fg.key_dict
+            self.blobs = args[0].fg.blobs
         else:
             raise NotImplementedError("FlatGraph with args")
 
@@ -122,3 +121,4 @@ class FlatRefs_:
         return LazyValue(self) >> other
 
 make_VT("FlatRefs", pytype=FlatRefs_)
+
