@@ -23,7 +23,7 @@ def create_eff_to_process_graph_wish(eff: Dict) -> 'FX':
     fields_d = {
         "port" : eff.get('port', 5000),
         "bind_address" : eff.get('bind_address', "0.0.0.0"),                      
-        "fx_type" : Val(eff['type']),   
+        "type" : Val(eff['type']),   
         # TODO fix pipeinto being unserializeable if python objects are found
         # "pipe_into" : Val(eff.get('pipe_into', None)),       
         "pushable_stream": pushable_stream.stream_ezefref,

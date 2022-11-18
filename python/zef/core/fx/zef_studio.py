@@ -235,8 +235,10 @@ def studio_start_server_handler(eff: Dict):
          webbrowser.open(studio_url)
 
     import random
+    from .. import internals
+    g_process = internals.get_local_process_graph()
+
     trials = 5
-    
     while trials:
       random_port = random.randint(10000, 30000)
       try:
@@ -247,6 +249,14 @@ def studio_start_server_handler(eff: Dict):
             "port" :  random_port, 
             "path" :  "/graphql", 
          } | run
+
+         server_zr = now(g_process[http_r['server_uuid']])
+         
+         ET.ZefFXService(**{
+            "type": Val(eff['type']),
+            'owns': server_zr,
+         }) | g_process | run # TODO Perform that in a flat way by directly calling into the FX handler
+
          open_browser(random_port)
          return http_r
       except Exception as e:
