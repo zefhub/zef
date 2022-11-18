@@ -170,7 +170,7 @@ def fg_insert_imp(fg, new_el):
             new_el = collect(new_el)
             first_op = new_el.target
 
-            if isinstance(first_op, ZefRef) or isinstance(first_op, EZefRef):
+            if isinstance(first_op, ZefRef) or isinstance(first_op, EZefRef) or is_a(first_op, AttributeEntityRef):
                 idx = common_logic(first_op)
                 assert isinstance(new_blobs[idx][1], AET), f"This key must refer to an AET found {new_blobs[idx][1]}"
                 aet_value = new_el.value
