@@ -218,15 +218,19 @@ def fg_insert_imp(fg, new_el):
         return idx
     
     def _insert_dict(new_el):
-        ent, sub_d = list(new_el.items()) | single | collect
-        ent_idx = common_logic(ent)
-        for k,v in sub_d.items():
-            if isinstance(v, Dict):
-               target_idx =  _insert_dict(v)
-               _insert_single((Z[ent_idx], k, Z[target_idx]))
-            else:
-                _insert_single((Z[ent_idx], k, v))
-        return ent_idx
+        try: 
+            ent, sub_d = list(new_el.items()) | single | collect
+            ent_idx = common_logic(ent)
+            for k,v in sub_d.items():
+                if isinstance(v, Dict):
+                    target_idx =  _insert_dict(v)
+                    _insert_single((Z[ent_idx], k, Z[target_idx]))
+                else:
+                    _insert_single((Z[ent_idx], k, v))
+            return ent_idx
+        except KeyError as e:
+            raise ValueError(f"{e} \nMake sure that the dictionary {new_el} doesn't reference any internal elements that weren't inserted before i.e z[p1].\nIf you are using list syntax even if the dict comes later in the statements it will be inserted first.")
+   
 
     def _insert_single(new_el):
         if isinstance(new_el, (ET, AET, EntityRef, AttributeEntityRef, ZefOp, LazyValue,BlobPtr, *shorthand_scalar_types, Val, Delegate)):
@@ -280,7 +284,7 @@ def fg_insert_imp(fg, new_el):
             return 0
         new_el.sort(key=sorting_key)
         [_insert_single(el) for el in new_el]
-    elif isinstance(new_el, Dict): 
+    elif isinstance(new_el, Dict):
         _insert_dict(new_el)
     else: 
         _insert_single(new_el)
