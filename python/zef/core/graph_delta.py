@@ -396,6 +396,9 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif is_a(x, Delegate):
         return
 
+    elif isinstance(x, RAERef):
+        return
+
     elif isinstance(x, RT):
         if allow_rt:
             return
