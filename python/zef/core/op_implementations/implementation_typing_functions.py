@@ -5453,6 +5453,13 @@ def map_implementation(v, f):
         # Ugly hack for ZefOp
         f._allow_bool = True
         return observable_chain.pipe(rxops.map(f))
+    
+    if type(f) in (list, tuple):
+        n = len(f)
+        def wrapper_list():
+            for w in v:
+                yield tuple(ff(w) for ff in f)
+        return ZefGenerator(wrapper_list)
 
     def wrapper():
         for el in v:
