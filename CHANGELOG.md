@@ -1,3 +1,8 @@
+pyzef-0.16.3
+============
+
+Quick fix to escape special characters in `graphviz` compact view output.
+
 pyzef-0.16.2
 ============
 
