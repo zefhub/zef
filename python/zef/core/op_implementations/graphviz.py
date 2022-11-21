@@ -153,6 +153,16 @@ def graphviz_imp(zz, *flags):
             if v is None: return 'None'
             elif isinstance(v, str): return f'"{v}"' if len(v) < 20 else f'"{v[:18]}..."'
             else: return str(v)
+        def val_to_str_html(z):
+            v = value(z)
+            if v is None: return 'None'
+            elif isinstance(v, str):
+                v = f'"{v}"' if len(v) < 20 else f'"{v[:18]}..."'
+            else:
+                v = str(v)
+            import html
+            v = html.escape(str(v))
+            return v
 
         if BT(z)==BT.ENTITY_NODE:
             if compact_view and not internals.is_delegate(z): 
@@ -160,7 +170,7 @@ def graphviz_imp(zz, *flags):
                 title = f"{ET(z)!r}"
                 return f"""<<TABLE TITLE='{title}' CELLPADDING='0' CELLSPACING='0'>
                 <TR><TD>{title}</TD></TR>
-                {''.join([f"<TR><TD ALIGN='LEFT'><FONT POINT-SIZE='10'><B>{RT(rt)!r}</B>: {val_to_str(target(rt))}</FONT></TD></TR>" for rt in rts])}
+                {''.join([f"<TR><TD ALIGN='LEFT'><FONT POINT-SIZE='10'><B>{RT(rt)!r}</B>: {val_to_str_html(target(rt))}</FONT></TD></TR>" for rt in rts])}
                 </TABLE>
                 >""" 
             return f"{ET(z)!r}"    
@@ -179,7 +189,7 @@ def graphviz_imp(zz, *flags):
                 title = f"{RT(z)!r}"
                 return f"""<<TABLE TITLE='{title}' CELLPADDING='0' CELLSPACING='0' BORDER='0'>
                 <TR><TD>{title}</TD></TR>
-                {''.join([f"<TR><TD ALIGN='LEFT'><FONT POINT-SIZE='10'>{RT(rt)!r}: {val_to_str(target(rt))}</FONT></TD></TR>" for rt in rts])}
+                {''.join([f"<TR><TD ALIGN='LEFT'><FONT POINT-SIZE='10'>{RT(rt)!r}: {val_to_str_html(target(rt))}</FONT></TD></TR>" for rt in rts])}
                 </TABLE>
                 >""" 
             return f"{RT(z)!r}"        
