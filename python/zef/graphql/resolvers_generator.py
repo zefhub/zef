@@ -119,7 +119,7 @@ def generate_fct(field_dict,field_name, g, allow_none):
             To use default values for your resolver, explicitly call fill_types_default_resolvers on your schema dictionary!")
 
     def resolve_field(obj, info, **kwargs):
-        from ..core.error import ExceptionWrapper, zef_ui_err
+        from ..core._error import ExceptionWrapper, zef_ui_err
         try:
             context = {
                 "obj": obj,

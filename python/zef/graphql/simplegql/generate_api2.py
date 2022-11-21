@@ -943,7 +943,7 @@ def internal_resolve_field(z, info, z_field, auth_required=True):
         opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, context, z_field, context)
         # This is to mimic the behaviour that people probably expect from a
         # non-list resolver.
-        if not isinstance(opts, List):
+        if not is_a(opts, List):
             if opts is None:
                 opts = []
             else:
@@ -1222,7 +1222,9 @@ def pass_auth_generic(z, schema_node, info, rt_list):
         to_call | value | collect,
         z=z,
         type_node=schema_node,
+        # Too many things - these will change with dctx/sctx updates
         context=context,
+        info=info,
         auth=auth
     )
 
@@ -1270,7 +1272,7 @@ def temporary__call_string_as_func(s, **kwds):
 
     return out
 
-def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
+def auth_helper_auth_field(field_name, auth_type, *, z, type_node, info, **kwds):
     # A helper function for graphql schema, that requests an auth check of the
     # given kind on one of its fields.
 
@@ -1279,28 +1281,28 @@ def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
         z_field = get_field_rel_by_name(type_node, field_name)
         z_field_node = target(z_field)
         val = field_resolver_by_name(z, type_node, info, field_name)
-    except:
+    except Exception as exc:
         # Going to assume this is because traversal failed auth along the way somewhere.
         if info.context["debug_level"] >= 0:
-            log.error("auth_field helper got an exception, assuming failure of auth")
+            log.error("auth_field helper got an exception, assuming failure of auth", exc_info=exc)
         return False
 
     if val is None:
         # This is something we can't query on, so therefore the query has failed.
         return False
 
-    if auth == "query":
+    if auth_type == "query":
         func = pass_query_auth
-    elif auth == "add":
+    elif auth_type == "add":
         func = pass_add_auth
-    elif auth == "update":
+    elif auth_type == "update":
         func = pass_pre_update_auth
-    elif auth == "updatePost":
+    elif auth_type == "updatePost":
         func = pass_post_update_auth
-    elif auth == "delete":
+    elif auth_type == "delete":
         func = pass_delete_auth
     else:
-        raise Exception(f"Don't understand auth type '{auth}' in auth_helper_auth_field")
+        raise Exception(f"Don't understand auth type '{auth_type}' in auth_helper_auth_field")
 
     return func(val, z_field_node, info)
 
