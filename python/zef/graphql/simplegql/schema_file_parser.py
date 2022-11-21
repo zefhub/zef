@@ -288,19 +288,20 @@ def json_to_minimal_nodes(json, g):
             (Z["root"], RT.GQL_CoreScalarType, Z[gql_name])
         ]
 
-    def name_to_raet(name, given_rae):
+    def name_to_raet(name):
         if name in core_types:
             return getattr(internals.VRT, core_types[name])
         if name in json["enums"]:
             return getattr(internals.VRT.Enum, name)
-        return given_rae
+        rae = json["types"][name].get("_RAE", ET(name))
+        return rae
 
     for type_name,fields in json["types"].items():
 
         actions += [(ET.GQL_Type[type_name], RT.Name, type_name)]
         actions += [(Z["root"], RT.GQL_Type, Z[type_name])]
 
-        rae = fields.get("_RAE", ET(type_name))
+        rae = name_to_raet(type_name)
         actions += [(Z[type_name], RT.GQL_Delegate, delegate_of(rae))]
 
         for field_name,field in fields.items():
@@ -354,7 +355,7 @@ def json_to_minimal_nodes(json, g):
                     else:
                         this = rae
                         rt = RT(simple_capitalize(field_name))
-                        other = name_to_raet(field["type"], rae)
+                        other = name_to_raet(field["type"])
                         if field.get("incoming", False):
                             resolve_with = delegate_of((other, rt, this))
                         else:

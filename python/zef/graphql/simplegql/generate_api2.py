@@ -1140,7 +1140,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
             else:
                 found_zs = []
                 for ent_val in val:
-                    found_z,new_actions,new_post_checks = find_or_add_entity(ent_val, info, target(z_field), name_gen, context)
+                    found_z,new_actions,new_post_checks = find_or_add_entity(ent_val, info, target(z_field), name_gen)
                     actions += new_actions
                     post_checks += new_post_checks
                     found_zs += [found_z]
@@ -1168,7 +1168,7 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
             if z_field | target | op_is_scalar | collect:
                 actions += [z | set_field[rt][val][op_is_incoming(z_field)]]
             else:
-                found_z,new_actions,new_post_checks = find_or_add_entity(val, info, target(z_field), name_gen, context)
+                found_z,new_actions,new_post_checks = find_or_add_entity(val, info, target(z_field), name_gen)
                 actions += new_actions
                 post_checks += new_post_checks
 
