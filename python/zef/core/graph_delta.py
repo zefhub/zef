@@ -150,7 +150,11 @@ def dispatch_ror_graph(g, x):
         x = collect(x)
         # Note that this could produce a new LazyValue if the input was an
         # assign_value. This is fine.
-    if isinstance(x, (list, tuple, dict, ET, AET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, LazyValue, Entity, AttributeEntity, Relation, Val, PleaseCommand, EntityValueInstance)):
+
+    # Because LazyValue has some special behaviour for warning about incorrect
+    # type checking, but we have already handled that above, we must put
+    # LazyValue first.
+    if isinstance(x, (LazyValue, list, tuple, dict, ET, AET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, Entity, AttributeEntity, Relation, Val, PleaseCommand, EntityValueInstance)):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -324,7 +328,7 @@ def obtain_ids(x) -> dict:
     # This is an extra step on top of the previous checks
     # if isinstance(x, (Entity, AttributeEntity, Relation, ET[Any],
     #                 AttributeEntityType, RelationType, ZefRef, EZefRef)):
-    if isinstance(x, (RAERef, ET, RT, AET,
+    if isinstance_lv_safe(x, (RAERef, ET, RT, AET,
                     ZefRef, EZefRef)):
         # Need the lazy value for the RT possibility
         a_id = get_absorbed_id(LazyValue(x))
@@ -441,7 +445,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
 
 @func    
 def verify_relation_source_target(x, id_definitions):
-    if isinstance(x, RelationRef):
+    if isinstance_lv_safe(x, RelationRef):
         assert all(u in id_definitions for u in x.d["uids"]), "A Relation doesn't have its corresponding source or target included in the GraphDelta. This is likely because you have an abstract Relation with another Relation as its source/target. These must be included explicitly into the GraphDelta."
 
 
@@ -1335,7 +1339,7 @@ def encode(xx):
                 return tuple((step(el, False) for el in x))
         
         # These next few ifs are for checks on syntax only
-        if isinstance(x, shorthand_scalar_types):
+        if isinstance_lv_safe(x, shorthand_scalar_types):
             if not allow_scalar:
                 raise Exception("Scalars are not allowed on their own to avoid accidental typos such as (ET.X, ET.Y, 'z') when (ET.X, RT.Y, 'z') is meant. If you want this behaviour, then create an explicit AET, i.e. (AET.String <= 'z').")
         
@@ -1807,3 +1811,10 @@ def expand_object_to_instructions(x, id_generator=None):
             c += 1
     
     return expand_helper(x, make_gen_id())
+
+def isinstance_lv_safe(instance, types):
+    # This is required to get around the warning checks by ValueTypes for lazy
+    # values. This function should be used after considering whether the input
+    # argument could be a lazy value, that means it can't be used with tag or
+    # set_field at the moment.
+    return not isinstance(instance, LazyValue) and isinstance(instance, types)

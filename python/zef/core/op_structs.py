@@ -187,6 +187,7 @@ from .VT.helpers import generic_subtype_validate, generic_subtype_get
 from . import internals, VT
 from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
+from .generators import ZefGenerator_
 
 # this is used to circumvent the python '<' and '>' operator resolution rules
 _terrible_global_state = {}
@@ -1112,7 +1113,7 @@ class LazyValue:
                             got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
                         else:
                             pass
-                    elif isinstance(new_value, ZefGenerator):
+                    elif isinstance(new_value, ZefGenerator_):
                         new_value = new_value.add_context(cur_context)
                     
 
@@ -1166,7 +1167,7 @@ class LazyValue:
 
                         return_list.append(val)
                     return return_list
-                elif isinstance(curr_value, ZefGenerator):
+                elif isinstance(curr_value, ZefGenerator_):
                     # ZefGenerator handles its own context and error raising
                     # TODO: We could bring the error handling into here?
                     return [i for i in curr_value]
@@ -1201,6 +1202,17 @@ class LazyValue:
             )
             e = add_error_context(e, {"frames": e.frames,} )
             raise e 
+
+# Monkey patching for some handy warnings
+from .VT.value_type import ValueType_
+old_ValueType_instancecheck = ValueType_.__instancecheck__
+def warning_ValueType_instancecheck(self, instance):
+    if type(instance) == LazyValue and self._d["type_name"] != "LazyValue":
+        import traceback
+        traceback.print_stack()
+        raise Exception("Checking whether a LazyValue is a particular ValueType directly with isinstance will always fail. Use is_a instead, which will handle LazyValues.")
+    return old_ValueType_instancecheck(self, instance)
+ValueType_.__instancecheck__ = warning_ValueType_instancecheck
 
 # Perform type checking when an error occurs
 def type_checking_context(op, function, inp):
