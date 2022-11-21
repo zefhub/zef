@@ -5446,7 +5446,7 @@ def map_implementation(v, f):
     import builtins
     input_type = parse_input_type(type_spec(v))
 
-    if isinstance(v, Dict):
+    if is_a(v, Dict):
         return dict( (f(k,v) for k,v in v.items() ) )
 
     if input_type == "awaitable":

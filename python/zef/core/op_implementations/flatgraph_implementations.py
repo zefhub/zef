@@ -77,7 +77,7 @@ def fg_insert_imp(fg, new_el):
     def common_logic(new_el):
         nonlocal new_blobs, new_key_dict
 
-        if isinstance(new_el, shorthand_scalar_types):
+        if is_a(new_el, shorthand_scalar_types):
             aet = map_scalar_to_aet_type(new_el)
             idx = next_idx()
             new_blobs.append((idx, aet, [], None, new_el))
@@ -233,9 +233,9 @@ def fg_insert_imp(fg, new_el):
    
 
     def _insert_single(new_el):
-        if isinstance(new_el, (ET, AET, EntityRef, AttributeEntityRef, ZefOp, LazyValue,BlobPtr, *shorthand_scalar_types, Val, Delegate)):
+        if is_a(new_el, (ET, AET, EntityRef, AttributeEntityRef, ZefOp, PleaseAssign, BlobPtr, *shorthand_scalar_types, Val, Delegate)):
             common_logic(new_el)
-        elif isinstance(new_el, tuple) and len(new_el) == 3:
+        elif is_a(new_el, tuple) and len(new_el) == 3:
             src, rt, trgt = new_el
             src_idx = common_logic(src)
             trgt_idx = common_logic(trgt)
@@ -255,7 +255,7 @@ def fg_insert_imp(fg, new_el):
             new_blobs.append((idx, rt, [], None, src_idx, trgt_idx))
             if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
             if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
-        elif isinstance(new_el, RelationRef):
+        elif is_a(new_el, RelationRef):
             src, rt, trgt = new_el.d['type']
             src_uid, rt_uid, trgt_uid = new_el.d['uids']
 
@@ -268,23 +268,23 @@ def fg_insert_imp(fg, new_el):
             new_key_dict[rt_uid] = idx
             if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
             if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
-        elif isinstance(new_el, Dict): 
+        elif is_a(new_el, Dict): 
                 _insert_dict(new_el)
         else: 
             raise NotImplementedError(f"Insert not implemented for {type(new_el)}.\nnew_el={new_el}")
         
-    if isinstance(new_el, list): 
+    if is_a(new_el, list): 
         def sorting_key(el):
-            if isinstance(el, Dict): return 1
-            elif isinstance(el, RelationRef): return 2
-            elif isinstance(el, tuple) and len(el) == 3: 
-                is_z = lambda el: isinstance(el, ZefOp) and inner_zefop_type(el, RT.Z)
-                has_internal_id = lambda rt: isinstance(rt, RT) and (internal_name(rt)) != None
+            if is_a(el, Dict): return 1
+            elif is_a(el, RelationRef): return 2
+            elif is_a(el, tuple) and len(el) == 3: 
+                is_z = lambda el: is_a(el, ZefOp) and inner_zefop_type(el, RT.Z)
+                has_internal_id = lambda rt: is_a(rt, RT) and (internal_name(rt)) != None
                 return 3 + sum([is_z(el) for el in el]) - has_internal_id(el[1])
             return 0
         new_el.sort(key=sorting_key)
         [_insert_single(el) for el in new_el]
-    elif isinstance(new_el, Dict):
+    elif is_a(new_el, Dict):
         _insert_dict(new_el)
     else: 
         _insert_single(new_el)
