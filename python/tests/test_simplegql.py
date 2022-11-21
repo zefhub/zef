@@ -27,7 +27,7 @@ class MyTestCase(unittest.TestCase):
 type User
   @auth(
     add: "info.context | get_in[('auth', 'admin')][False]"
-    query: "F.Email | equals[info.context | get_in[('auth', 'email')][None] | collect]"
+    query: "z | F.Email | equals[info.context | get_in[('auth', 'email')][None] | collect]"
   )
   @upfetch(field: "email")
   @hook(onCreate: "userCreate")
@@ -81,7 +81,7 @@ def userCreate(z):
     z | set_field[RT.HookDidThis][True] | Graph(z) | run
 
 @func(g)
-def dynamicHook(z, info):
+def dynamicHook(z, auth, z_field, context):
     return "dynamic"
 
 @func(g)

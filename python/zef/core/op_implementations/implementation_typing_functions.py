@@ -418,7 +418,10 @@ def match_tp(op, curr_type):
 
 #---------------------------------------- peel -----------------------------------------------
 def peel_imp(el, *args):
-    if isinstance(el, ValueType):
+    # LazyValue must come first to handle that case and bypass warnings.
+    if isinstance(el, LazyValue):
+        return (el.initial_val, el.el_ops)
+    elif isinstance(el, ValueType):
         return el.nested()
     elif isinstance(el, dict):
         print('deprecation warning: `peel` called on a dictionary. This probably was an Effect before and is no longer needed.')
@@ -428,8 +431,6 @@ def peel_imp(el, *args):
         if len(el.el_ops) > 1:
             return [ZefOp((op,)) for op in el.el_ops]
         return el.el_ops
-    elif isinstance(el, LazyValue):
-        return (el.initial_val, el.el_ops)
     else:
         raise NotImplementedError(f"Tried to peel an unsupported type {type(el)}")
 
@@ -5445,7 +5446,7 @@ def map_implementation(v, f):
     import builtins
     input_type = parse_input_type(type_spec(v))
 
-    if isinstance(v, Dict):
+    if is_a(v, Dict):
         return dict( (f(k,v) for k,v in v.items() ) )
 
     if input_type == "awaitable":

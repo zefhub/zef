@@ -20,7 +20,7 @@
 from ... import *
 from ...ops import *
 
-from zef.core.logger import log
+from ...core.logger import log
 
 from .schema_file_parser import parse_partial_graphql, json_to_minimal_nodes
 
