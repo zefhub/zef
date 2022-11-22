@@ -144,102 +144,111 @@ def cell_interface_resolver(obj, *_):
 
 
 #-------------------------------------------------------------
-#-------------------Schema Dict-------------------------------
+#-------------------Schema String-------------------------------
 #-------------------------------------------------------------
-schema_dict = {
-   '_Types': {
-      'Query': {
-         'graphs': {'type': '[Graph]', 'resolver': graphs},
-         'entityTypes': {
-            'type': '[String]',
-            'resolver': entity_types,
-            'args': {'graphID': {'type': 'ID!'}}
-         },
-         'entityTable': {
-            'type': 'Table',
-            'resolver': entity_table,
-            'args': {
-               'graphID': {'type': 'ID!'}, 
-               'entityType': {'type': 'String!'},
-               'limit': {'type': 'Int'}
-               }
-         },
-        'entity': {
-            'type': 'Table',
-            'resolver': single_entity,
-            'args': {'graphID': {'type': 'ID!'}, 'entityID': {'type': 'ID!'}}
-        },
-      },
-      'Graph': {
-         'id': {'type': 'ID!', 'resolver': get['id']},
-         'labels': {'type': '[String]', 'resolver': get['labels']}
-      },
-      'Table': {
-         'columns': {'type': '[Column]', 'resolver': get['columns']},
-         'rows': {'type': '[Row]', 'resolver': get['rows']}
-      },
-      'Column': {'header': {'type': 'String', 'resolver': get['header']}},
-      'Row': {'cells': {'type': '[Cell]', 'resolver': get['cells']}},
-      'CellInt': {
-            'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': 'Int', 'resolver': get['value']},
-            '_interfaces': ['Cell']
-        },
-        'CellString': {
-            'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': 'String', 'resolver': get['value']},
-            '_interfaces': ['Cell']
-        },
-        'CellFloat': {
-            'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': 'Float', 'resolver': get['value']},
-            '_interfaces': ['Cell']
-        },
-        'CellBoolean': {
-            'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': 'Boolean', 'resolver': get['value']},
-            '_interfaces': ['Cell']
-        },
-        'CellET': {
-            'id': {'type': 'ID!', 'resolver': get['id']},
-            'label': {'type': 'String', 'resolver': get['label']},
-            'etType': {'type': 'String', 'resolver': get['etType']},
-            '_interfaces': ['Cell']
-        },
-        'CellZef': {
-            'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': 'String', 'resolver': get['value']},
-            '_interfaces': ['Cell']
-        },
-        'CellList': {
-            'id': {'type': 'ID!', 'resolver': get['id']},
-            'value': {'type': '[Cell]', 'resolver': get['value']},
-            '_interfaces': ['Cell']
-        }
-   },
-   '_Interfaces': {
-      'Cell': {'id': {'type': 'ID!', 'resolver': None}, '_interface_resolver': cell_interface_resolver}
-   }
+simple_schema = """
+type Query {
+graphs: [Graph]
+entityTypes(graphID: ID!): [String]
+entityTable(graphID: ID!, entityType: String!, limit: Int): Table
+entity(graphID: ID!, entityID: ID!): Table
 }
 
+type Graph {
+id: ID!
+labels: [String]
+}
+
+type Table {
+columns: [Column]
+rows: [Row]
+}
+
+type Column {
+header: String
+}
+
+type Row {
+cells: [Cell]
+}
+
+interface Cell {
+id: ID!
+}
+
+type CellInt implements Cell{
+id: ID!
+value: Int
+}
+
+type CellString implements Cell{
+id: ID!
+value: String
+}
+
+type CellFloat implements Cell{
+id: ID!
+value: Float
+}
+
+type CellBoolean implements Cell{
+id: ID!
+value: Boolean
+}
+
+type CellET implements Cell{
+id: ID!
+label: String
+etType: String
+}
+
+type CellZef implements Cell{
+id: ID!
+value: String
+}
+
+type CellList implements Cell{
+id: ID!
+value: [Cell]
+}
+"""
+
+def create_schema_dict(simple_schema):
+   from ...graphql import generate_schema_dict, fill_types_default_resolvers
+
+   schema_dict = generate_schema_dict(simple_schema)
+   schema_dict = fill_types_default_resolvers(schema_dict, lambda field_name: get[field_name])
+   schema_dict = (
+      schema_dict 
+      | insert_in[('_Types', 'Query', 'graphs', 'resolver')][graphs] 
+      | insert_in[('_Types', 'Query', 'entityTypes', 'resolver')][entity_types] 
+      | insert_in[('_Types', 'Query', 'entityTable', 'resolver')][entity_table] 
+      | insert_in[('_Types', 'Query', 'entity', 'resolver')][single_entity] 
+      | insert_in[('_Interfaces', 'Cell', '_interface_resolver')][cell_interface_resolver] 
+      | collect
+   )
+   return schema_dict
+
 def studio_start_server_handler(eff: Dict):
-    """Example
-    {
-        "type": FX.Studio.StartServer,
-    } | run
-    """
-    def open_browser(port):
-         studio_url = f"https://studio.zefhub.io/?endpoint=http://localhost:{port}/graphql"
-         log.info(f"Started Zef Studio at {studio_url}")
-         import webbrowser
-         webbrowser.open(studio_url)
+   """Example
+   {
+      "type": FX.Studio.StartServer,
+   } | run
+   """
+   def open_browser(port):
+      studio_url = f"https://studio.zefhub.io/?endpoint=http://localhost:{port}/graphql"
+      log.info(f"Started Zef Studio at {studio_url}")
+      import webbrowser
+      webbrowser.open(studio_url)
 
-    import random
-    from .. import internals
-    g_process = internals.get_local_process_graph()
+   import random
+   from .. import internals
+   g_process = internals.get_local_process_graph()
 
-    trials = 5
-    while trials:
+   schema_dict = create_schema_dict(simple_schema)
+
+   trials = 5
+   while trials:
       random_port = random.randint(10000, 30000)
       try:
          http_r = {
