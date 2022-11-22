@@ -142,21 +142,74 @@ def cell_interface_resolver(obj, *_):
    return obj.get('type', "CellString")
 
 
+@func
+def assign_value_general(query_args, aet_type):
+    graphID = query_args['ids']['graphID']
+    aetID = query_args['ids']['aetID']
+
+    g = Graph(graphID)
+    aet = g[aetID]
+
+    if not is_a(aet, AET): 
+      log.error(f"Cannot assign value to {aetID} as it is not an AET")
+      return False 
+
+    if not is_a(aet, aet_type): 
+      log.error(f"Cannot assign value to {aetID} as it is not an {aet_type}")
+      return False
+
+    try:
+      aet_value = query_args['value']
+      aet | assign[aet_value] | g | run
+      
+      return True
+    except Exception as e:
+      log.error(f"Failed to assign value to {aetID}. {e}")
+      return False
+
+@func
+def assign_value_string(query_args):
+    return assign_value_general(query_args, AET.String)
+
+@func
+def assign_value_float(query_args):
+    return assign_value_general(query_args, AET.Float)
+
+@func
+def assign_value_int(query_args):
+    return assign_value_general(query_args, AET.Int)
+
+@func
+def assign_value_bool(query_args):
+    return assign_value_general(query_args, AET.Bool)
+
 
 #-------------------------------------------------------------
 #-------------------Schema String-------------------------------
 #-------------------------------------------------------------
 simple_schema = """
 type Query {
-graphs: [Graph]
-entityTypes(graphID: ID!): [String]
-entityTable(graphID: ID!, entityType: String!, limit: Int): Table
-entity(graphID: ID!, entityID: ID!): Table
+    graphs: [Graph]
+    entityTypes(graphID: ID!): [String]
+    entityTable(graphID: ID!, entityType: String!, limit: Int): Table
+    entity(graphID: ID!, entityID: ID!): Table
+}
+
+type Mutation {
+    assignValueString(ids: AssignValueIDs!, value: String!): Boolean
+    assignValueFloat( ids: AssignValueIDs!, value: Float!): Boolean
+    assignValueInt(   ids: AssignValueIDs!, value: Int!): Boolean
+    assignValueBool(  ids: AssignValueIDs!, value: Boolean!): Boolean
+}
+
+input AssignValueIDs {
+    graphID: ID!
+    aetID: ID!
 }
 
 type Graph {
-id: ID!
-labels: [String]
+    id: ID!
+    labels: [String]
 }
 
 type Table {
@@ -224,6 +277,10 @@ def create_schema_dict(simple_schema):
       | insert_in[('_Types', 'Query', 'entityTypes', 'resolver')][entity_types] 
       | insert_in[('_Types', 'Query', 'entityTable', 'resolver')][entity_table] 
       | insert_in[('_Types', 'Query', 'entity', 'resolver')][single_entity] 
+      | insert_in[('_Types', 'Mutation', 'assignValueString', 'resolver')][assign_value_string]
+      | insert_in[('_Types', 'Mutation', 'assignValueFloat', 'resolver')][assign_value_float]
+      | insert_in[('_Types', 'Mutation', 'assignValueInt', 'resolver')][assign_value_int]
+      | insert_in[('_Types', 'Mutation', 'assignValueBool', 'resolver')][assign_value_bool]
       | insert_in[('_Interfaces', 'Cell', '_interface_resolver')][cell_interface_resolver] 
       | collect
    )
