@@ -291,7 +291,9 @@ namespace zefDB {
 //   |_____|_____|_____|_____|_____|_____|_____|_____|_____|    | |_| | | | (_| | |_) | | | |    |_____|_____|_____|_____|_____|_____|_____|_____|_____|
 //                                                               \____|_|  \__,_| .__/|_| |_|
 
-    GraphRef::GraphRef(Graph g) : uid(internals::get_graph_uid(g)) {}
+    GraphRef::GraphRef(Graph g)
+    : uid(internals::get_graph_uid(g)),
+      g_cache(g) {}
 
 	std::ostream& operator << (std::ostream& o, GraphRef& g) {
         o << "GraphRef(" << str(g.uid) << ")";
@@ -388,8 +390,14 @@ namespace zefDB {
             // std::cerr << "Move ctor, ref_count = " << my_graph_data().reference_count.load() << std::endl;
 		}
 
-		
-		// move assignment operator 
+    Graph::Graph(GraphRef& ref) {
+        if(ref.g_cache.mem_pool == 0)
+            ref.g_cache = Graph{ref.uid};
+        *this = ref.g_cache;
+    }
+
+        
+        // move assignment operator 
     Graph& Graph::operator=(Graph&& g) {
         mem_pool = g.mem_pool;
         g.mem_pool = 0;

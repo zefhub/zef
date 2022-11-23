@@ -62,6 +62,8 @@ namespace zefDB {
     // Need a forward declaration of ZefRef
     struct EZefRef;
     struct ZefRef;
+
+    struct GraphRef;
 }
 
 namespace zefDB {
@@ -288,15 +290,6 @@ namespace zefDB {
 //   |_____|_____|_____|_____|_____|_____|_____|_____|_____|    | |_| | | | (_| | |_) | | | |    |_____|_____|_____|_____|_____|_____|_____|_____|_____|
 //                                                               \____|_|  \__,_| .__/|_| |_|                                                           
 //                                                                              |_|                                                           
-    struct LIBZEF_DLL_EXPORTED GraphRef {
-        BaseUID uid;
-
-        GraphRef(BaseUID uid) : uid(uid) {}
-        GraphRef(Graph g);
-    };
-
-	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, GraphRef& g);
-
     struct _InternalEmptyGraph {};
 	struct LIBZEF_DLL_EXPORTED Graph {
 		// this is the parent object that owns and manages all the memory. The memory pool should be copyable with memcopy
@@ -329,7 +322,7 @@ namespace zefDB {
 		explicit Graph(const BaseUID& graph_uid, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(str(graph_uid), mem_style) {};
 
         static Graph create_from_bytes(Messages::UpdatePayload && payload, int mem_style=MMap::MMAP_STYLE_AUTO, bool internal_use_only = false);
-        Graph(const GraphRef& ref) : Graph(ref.uid) {};
+        Graph(GraphRef& ref);
 
         // copy ctor
         Graph(const Graph& g);
@@ -374,6 +367,18 @@ namespace zefDB {
 	};
 
 	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, Graph& g);
+
+    struct LIBZEF_DLL_EXPORTED GraphRef {
+        BaseUID uid;
+
+        Graph g_cache;
+
+        GraphRef(BaseUID uid) : uid(uid), g_cache(_InternalEmptyGraph()) {}
+        GraphRef(Graph g);
+    };
+
+	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, GraphRef& g);
+
 
     LIBZEF_DLL_EXPORTED GraphDataWrapper create_partial_graph(GraphData & cur_gd, blob_index index_hi);
     LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string working_layout);

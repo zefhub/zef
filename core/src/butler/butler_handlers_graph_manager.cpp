@@ -1286,6 +1286,7 @@ std::string Butler::GraphTrackingData::info_str() {
             {"last_action", debug_last_action},
             {"sync_joinable", sync_thread && sync_thread->joinable()},
             {"manager_joinable", managing_thread && managing_thread->joinable()},
+            {"reference_count", gd->reference_count.load()},
         });
     return j.dump();
 }
