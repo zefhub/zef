@@ -396,6 +396,8 @@ namespace zefDB {
 
             std::optional<Graph> local_process_graph;
             Graph get_local_process_graph();
+
+            std::optional<std::string> filegraph_exists(BaseUID uid);
         };
 
 

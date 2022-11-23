@@ -943,5 +943,12 @@ namespace zefDB {
 
             return conversions::version_layout(zefdb_protocol_version);
         }
+
+        std::optional<std::string> Butler::filegraph_exists(BaseUID uid) {
+            auto fg_prefix = file_graph_prefix(uid, upstream_name());
+            if(!MMap::filegraph_exists(fg_prefix))
+                return std::nullopt;
+            return fg_prefix;
+        }
     }
 }

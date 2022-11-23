@@ -129,6 +129,13 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
         .def_readonly("uid", &GraphRef::uid)
 		;
 
+    main_module.def("filegraph_exists", [](const BaseUID & uid) {
+        auto butler = Butler::get_butler();
+        return butler->filegraph_exists(uid);
+    }, py::arg("uid"), py::call_guard<py::gil_scoped_release>());
+
+    // TODO: ??Already exists?? Load graph from JSON for specific UID, then sync it
+
     main_module.def("load_graph",
                     // &effect_load_graph,
                     [](std::string tag_or_uid, int mem_style, std::optional<Messages::load_graph_callback_t> callback) {

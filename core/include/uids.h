@@ -56,7 +56,8 @@ namespace zefDB {
         }
         static BaseUID from_hex(const std::string& uid) {
             static_assert(BaseUID::size_in_bytes == 8);
-            assert(uid.size() == 16);
+            if(uid.size() != 16)
+                throw std::runtime_error("UID string is not of length 16");
             return from_hex((unsigned char *)uid.c_str());
         }
         static BaseUID from_ptr(const void * ptr) {
