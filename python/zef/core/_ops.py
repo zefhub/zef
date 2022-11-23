@@ -378,6 +378,9 @@ unflatten_dict  = make_zefop(internals.RT.UnflattenDict)
 
 
 token_name      = make_zefop(internals.RT.TokenName)
+
+
+zef_id      = make_zefop(internals.RT.ZefID)
           
 # match
 # split_before

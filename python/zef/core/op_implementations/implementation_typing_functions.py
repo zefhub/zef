@@ -6380,6 +6380,14 @@ def base_uid_implementation(first_arg):
         return first_arg
     return base_uid(uid(first_arg))
 
+def zef_id_imp(x):
+    if BT(x) == BT.VALUE_NODE:
+        from ...pyzef.zefops import SerializedValue
+        return f"hash: {internals.value_hash(SerializedValue.serialize(value(x)))})"
+    if internals.has_uid(to_ezefref(x)):
+        return uid(x)
+    raise Exception(f"Don't know how to represent UID of object ({x})")
+
 def exists_at_implementation(z, frame):
     assert isinstance(frame, GraphSlice)
     return (pyzefops.exists_at)(z, frame.tx)
