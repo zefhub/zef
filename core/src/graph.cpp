@@ -364,7 +364,8 @@ namespace zefDB {
 
         // copy ctor
     Graph::Graph(const Graph& g) : mem_pool(g.mem_pool), butler_weak(g.butler_weak) {
-			my_graph_data().reference_count++;
+            if(mem_pool != 0)
+                my_graph_data().reference_count++;
             // std::cerr << "Copy ctor, ref_count = " << my_graph_data().reference_count.load() << std::endl;
 		}
 
@@ -373,7 +374,8 @@ namespace zefDB {
     Graph& Graph::operator=(const Graph& g) {
         butler_weak = g.butler_weak;
 			mem_pool = g.mem_pool;
-			my_graph_data().reference_count++;
+            if(mem_pool != 0)
+                my_graph_data().reference_count++;
             // std::cerr << "Copy assign, ref_count = " << my_graph_data().reference_count.load() << std::endl;
 			return *this;
 		}
