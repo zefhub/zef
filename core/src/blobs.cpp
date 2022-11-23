@@ -754,7 +754,9 @@ namespace zefDB {
     }
 
     json blob_to_json_details(const blobs_ns::DEFERRED_EDGE_LIST_NODE & blob) {
-        throw std::runtime_error("Shouldn't not get here");
+        return json{
+            {"first_blob", blob.first_blob},
+        };
     };
 
     json blob_to_json_details(const blobs_ns::ASSIGN_TAG_NAME_EDGE & blob) {
@@ -806,8 +808,8 @@ namespace zefDB {
     }
 
 
-    json blob_to_json(EZefRef ezr) {
-        if(get<BlobType>(ezr) == BlobType::DEFERRED_EDGE_LIST_NODE) {
+    json blob_to_json(EZefRef ezr, bool collapsed_edge_lists) {
+        if(collapsed_edge_lists && get<BlobType>(ezr) == BlobType::DEFERRED_EDGE_LIST_NODE) {
             // throw std::runtime_error("We don't want to export deferred edge lists.");
             return json{};
         }
@@ -816,10 +818,23 @@ namespace zefDB {
         j["type"] = to_str(get<BlobType>(ezr));
         j["_old_index"] = index(ezr);
         if(internals::has_edges(ezr)) {
-            std::vector<blob_index> v;
-            for(auto & item : AllEdgeIndexes(ezr))
-                v.push_back(item);
-            j["edges"] = v;
+            if(collapsed_edge_lists) {
+                std::vector<blob_index> v;
+                for(auto & item : AllEdgeIndexes(ezr))
+                    v.push_back(item);
+                j["edges"] = v;
+            } else {
+                visit_blob_with_edges(overloaded {
+                        [&j,&ezr](blobs_ns::edge_info & edges) {
+                        j["edges"] = std::vector<blob_index>(edges.indices, edges.indices + edges.local_capacity);
+                        j["last_edge_holding_blob"] = edges.last_edge_holding_blob;
+                        },
+                            [&](blobs_ns::DEFERRED_EDGE_LIST_NODE::deferred_edge_info & edges) {
+                            j["edges"] = std::vector<blob_index>(edges.indices, edges.indices + edges.local_capacity);
+                            },
+                            }, ezr);
+                j["subsequent_deferred_edge_list_index"] = *internals::subsequent_deferred_edge_list_index(ezr);
+            }
         }
         if(internals::has_source_target_node(ezr)) {
             j["source_node_index"] = internals::source_node_index(ezr);

@@ -35,6 +35,17 @@ namespace zefDB {
                                   blob_index target_node_index,
                                   std::string data_buffer
         );
+        EZefRef blank_instantiate_fixed_layout(
+            BlobType bt,
+            GraphData * gd,
+            std::vector<blob_index> edges,
+            blob_index deferred_index,
+            blob_index last_edge_blob,
+            blob_index source_node_index,
+            blob_index target_node_index,
+            std::string data_buffer
+        );
+
         BlobType lookup_BlobType(std::string name);
 
         blob_index mapped_index(blob_index old, const std::unordered_map<blob_index,blob_index> & map) {
@@ -107,7 +118,7 @@ namespace zefDB {
         }
 
         void assign_blob_specific(blobs_ns::DEFERRED_EDGE_LIST_NODE & blob, const json & details) {
-            throw std::runtime_error("Shouldn't get here");
+            blob.first_blob = details["first_blob"];
         };
 
         void assign_blob_specific(blobs_ns::ASSIGN_TAG_NAME_EDGE & blob, const json & details) {}
@@ -206,8 +217,9 @@ namespace zefDB {
 
                 std::string data_buffer = "";
                 if(details.contains("data_buffer")) {
-                    std::vector<char> temp = details["data_buffer"];
-                    data_buffer = std::string(temp.begin(), temp.end());
+                    // std::vector<char> temp = details["data_buffer"];
+                    // data_buffer = std::string(temp.begin(), temp.end());
+                    data_buffer = details["data_buffer"];
                 }
 
                 auto ezr = blank_instantiate(type,
@@ -286,6 +298,7 @@ namespace zefDB {
             // apply blobs, create the caches and make it managed by the butler.
             gd->read_head = gd->write_head.load();
             return Graph::create_from_bytes(graph_as_UpdatePayload(*gd));
+            // TODO: We should be able to create this graph as a non-primary so that we can sync with updates.
         }
 
 
@@ -363,6 +376,203 @@ namespace zefDB {
                 // (not even in apply_actions_to_blobs)
                 blob_index * last_blob = (blob_index*)((uintptr_t)blob_edges - ((uintptr_t)blob_edges % constants::blob_indx_step_in_bytes));
                 *last_edge_holding_blob(this_new_blob) = blob_index_from_ptr(last_blob);
+            }
+
+
+            if(has_source_target_node(this_new_blob)) {
+                visit_blob_with_source_target([&](auto & blob) {
+                    blob.source_node_index = source_node_index;
+                    blob.target_node_index = target_node_index;
+                },
+                    this_new_blob);
+            }
+
+            if(has_data_buffer(this_new_blob)) {
+                visit_blob_with_data_buffer([&](auto & blob) {
+                    internals::copy_to_buffer(get_data_buffer(blob),
+                                              blob.buffer_size_in_bytes,
+                                              data_buffer);
+                },
+                    this_new_blob);
+            }
+			
+			move_head_forward(*gd);
+			return this_new_blob;
+		}
+
+
+
+
+        Graph create_from_json_fixed_layout(std::vector<json> blobs) {
+            // This version takes an effective binary-equivalent json
+            // representation and produces the binary-equivalent graph of the
+            // original graph. Assuming the same version of zef was used to
+            // output and import the data.
+            //
+            // However if data layouts change then this is not likely to be
+            // binary equivalent. But the JSON layout will allow for easier
+            // conversion and source control tracking.
+
+            // Lookup the UID first
+            auto root_item = blobs[0];
+            std::string uid_s = root_item["uid"];
+
+            BaseUID uid = BaseUID::from_hex(uid_s);
+    
+            // We are going to work with a GraphData that's not managed by the
+            // butler. This is a bit weird but should avoid any hassle.
+            GraphData * gd = create_GraphData(MMap::MMAP_STYLE_ANONYMOUS, nullptr, uid, false);
+            
+            // Do the root node immediately before anything else
+            auto root_uzr = blank_instantiate_fixed_layout(
+                BT.ROOT_NODE,
+                gd,
+                root_item["edges"].get<std::vector<blob_index>>(),
+                root_item["subsequent_deferred_edge_list_index"],
+                0,
+                0,
+                0,
+                ""
+            );
+            internals::assign_uid(root_uzr, uid);
+            internals::set_data_layout_version_info(data_layout_version, *gd);
+            internals::set_graph_revision_info("0", *gd);
+
+            // Insert everything in first and then we will go back and reassign the indices.
+            auto t_start = now();
+            auto print_interval = 5*seconds;
+            auto next_print_time = t_start + print_interval;
+
+            // for(auto item : std::next(std::begin(blobs))) {
+            for(auto it = std::next(std::begin(blobs)); it != std::end(blobs) ; it++) {
+                auto & item = *it;
+                blob_index cur_index = gd->write_head;
+                blob_index old_index = item["_old_index"];
+                if(cur_index != old_index)
+                    throw std::runtime_error("While importing fixed layout, got a difference in blob index. Should have been " + to_str(old_index) + " but we are up to " + to_str(cur_index));
+                std::string type_s = item["type"];
+
+                BlobType type = lookup_BlobType(type_s);
+                if(type == BlobType::ROOT_NODE)
+                    continue;
+
+                if(now() > next_print_time) {
+                    std::cerr << "Taking a long time to create blobs. Up to blob " << cur_index << std::endl;
+                    next_print_time = next_print_time + print_interval;
+                }
+
+                std::vector<blob_index> edges;
+                blob_index deferred_index = 0;
+                blob_index last_edge_blob = 0;
+                if(item.contains("edges")) {
+                    edges = item["edges"].get<std::vector<blob_index>>();
+                    deferred_index = item["subsequent_deferred_edge_list_index"];
+                }
+                if(item.contains("last_edge_holding_blob"))
+                    last_edge_blob = item["last_edge_holding_blob"];
+
+                blob_index source_node_index = 0;
+                blob_index target_node_index = 0;
+                if(item.contains("source_node_index")) {
+                    source_node_index = item["source_node_index"];
+                    target_node_index = item["target_node_index"];
+                }
+
+                std::string data_buffer = "";
+                if(item.contains("data_buffer")) {
+                    // std::vector<char> temp = item["data_buffer"];
+                    // data_buffer = std::string(temp.begin(), temp.end());
+                    data_buffer = item["data_buffer"];
+                }
+
+                auto ezr = blank_instantiate_fixed_layout(type,
+                                                          gd,
+                                                          edges,
+                                                          deferred_index,
+                                                          last_edge_blob,
+                                                          source_node_index,
+                                                          target_node_index,
+                                                          data_buffer);
+
+                if(has_uid(ezr)) {
+                    BaseUID & blob_uid = blob_uid_ref(ezr);
+                    blob_uid = BaseUID::from_hex(item["uid"].get<std::string>());
+                }
+
+                // Everything else that specific to a blob
+                visit_blob([&](auto & blob) {
+                    assign_blob_specific(blob, item);
+                }, ezr);
+            }
+
+            next_print_time = now() + print_interval;
+
+            // We do apply_blobs here ourselves as this is the one way to ensure
+            // double linking updates are done (although this might not be necessary).
+            // create_from_bytes does not do this.
+            {
+                // We have to cheat a little here by taking a reference without letting the butler know this graph exists...
+                Graph g(*gd);
+                LockGraphData lock{gd};
+                blob_index cur_index = constants::ROOT_NODE_blob_index;
+                while (cur_index < gd->write_head) {
+                    EZefRef uzr(cur_index, *gd);
+                    apply_action_blob(*gd, uzr, true);
+                    cur_index += blob_index_size(uzr);
+                }
+
+                if(!verification::verify_graph_double_linking(g)
+                   || !verification::verify_chronological_instantiation_order(g)) {
+                    throw std::runtime_error("Verificaiton failed after rebuilding graph");
+                }
+            }
+            // Now use this byte data to construct a new graph which will do
+            // apply blobs, create the caches and make it managed by the butler.
+            gd->read_head = gd->write_head.load();
+            return Graph::create_from_bytes(graph_as_UpdatePayload(*gd));
+            // TODO: We should be able to create this graph as a non-primary so that we can sync with updates.
+        }
+
+        EZefRef blank_instantiate_fixed_layout(
+            BlobType bt,
+            GraphData * gd,
+            std::vector<blob_index> edges,
+            blob_index deferred_index,
+            blob_index last_edge_blob,
+            blob_index source_node_index,
+            blob_index target_node_index,
+            std::string data_buffer
+        ) {
+            // This instantiates the blob as far as everything to do with size
+            // is concerned. It won't do the blob-specific details.
+			using namespace blobs_ns;
+            void * new_ptr = (void*)(std::uintptr_t(gd) + gd->write_head * constants::blob_indx_step_in_bytes);
+            // Note: edges might be empty
+            MMap::ensure_or_alloc_range(new_ptr,
+                                        blobs_ns::max_basic_blob_size + edges.size()*sizeof(blob_index));
+            *(BlobType*)new_ptr = bt;
+			auto this_new_blob = EZefRef(new_ptr);
+
+            if(has_edge_list(this_new_blob)) {
+                visit_blob_with_edges(overloaded {
+                        [&](edge_info & blob_edges) {
+                        new (&blob_edges) blobs_ns::edge_info(edges.size());
+                        blob_edges.last_edge_holding_blob = last_edge_blob;
+                        },
+                            [&](blobs_ns::DEFERRED_EDGE_LIST_NODE::deferred_edge_info & blob_edges) {
+                        blob_edges.local_capacity = edges.size();
+                        }
+                    },
+                    this_new_blob);
+
+                // Assign edges
+                blob_index * blob_edges = edge_indexes(this_new_blob);
+                for(auto edge : edges) {
+                    *blob_edges = edge;
+                    blob_edges++;
+                }
+                // Now blob_edges points at the subsequent deferrred list
+                *blob_edges = deferred_index;
             }
 
 

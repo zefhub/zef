@@ -129,8 +129,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
                      uzr);
     });
 
-	internals_submodule.def("blob_to_json", &blob_to_json);
+	internals_submodule.def("blob_to_json", &blob_to_json, py::arg("blob"), py::arg("collapse_edges")=true);
 	internals_submodule.def("create_from_json", &internals::create_from_json, py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("create_from_json_fixed_layout", &internals::create_from_json_fixed_layout, py::call_guard<py::gil_scoped_release>());
 
 	//declare_zef_tensor_1<bool>(internals_submodule, str("Bool"));   // Careful: uses vector<bool> which is quite flawed
 	declare_zef_tensor_1<double>(internals_submodule, str("Float"));
