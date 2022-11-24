@@ -94,7 +94,6 @@ Query[
 from .VT import FlatGraph, Pattern, Any, SetOf, Val, ET, RT, AET
 from ._ops import match, collect, insert, split, get, filter, map, Z
 from .zef_functions import func
-from .z_field import ZField_
 
 def merge_flatgraphs(g1, g2) -> FlatGraph:
     """
@@ -151,8 +150,8 @@ class SymbolicExpression_:
             raise RuntimeError("a composite SymbolicExpression cannot absorb a value")
         return SymbolicExpression_(name=self.name, absorbed=k)
 
-    def __getattr__(self, name):
-        return ZField_(name)
+    def __getattr__(self, other):
+        return compose_se(ET.Dot, self, other)
 
     def __add__(self, other):
         return compose_se(ET.Add, self, other)
