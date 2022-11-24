@@ -126,29 +126,26 @@ def merge_flatgraphs(g1, g2) -> FlatGraph:
 
 class SymbolicExpression_:
     """Symbolic Variable class"""
-    def __init__(self, name=None, root_node=None, absorbed=None):
+    def __init__(self, name=None, root_node=None):
         self.name = name
-        self.root_node = root_node
-        self.absorbed = absorbed
+        self.root_node = root_node    # if this is None, then it is a bare variable. This also qualifies as a symbolic expression.
+        self.absorbed = None     # TODO: why does removing this make `(V.x.p1.p2.p3.p4).root_node.fg | graphviz | collect` not work?
 
     def __repr__(self):
         if self.name is not None:
             # if the name is specified: it is a SV only
-            return f"V.{self.name}" if self.absorbed==None else f"V.{self.name}['{self.absorbed}']"
-            # return f"SV('{self.name}')" if self.absorbed==None else f"SV('{self.name}')['{self.absorbed}']"
-            # return f"{self.name}" if self.absorbed==None else f"{self.name}['{self.absorbed}']"
-            
+            return f"V.{self.name}"            
         else:
             return "Composed SymbolicExpression (todo: expression output)"
 
     def __hash__(self):
-        return (hash(self.name)+435677842)^hash(self.absorbed)^(hash(self.root_node)+3424242)
+        return (hash(self.name)+435677842)^(hash(self.root_node)+3424242)
 
 
     def __getitem__(self, k):
         if self.root_node is not None:
             raise RuntimeError("a composite SymbolicExpression cannot absorb a value")
-        return SymbolicExpression_(name=self.name, absorbed=k)
+        return SymbolicExpression_(name=self.name)
 
     def __getattr__(self, other):
         return compose_se(ET.Dot, self, other)
