@@ -28,8 +28,8 @@ up operators and instead become a ValueType.
 """
 
 
-class ZField_:
+class ZExpression_:
     pass
 
 
-ZZ = ZField_()
+ZZ = ZExpression_()
