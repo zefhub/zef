@@ -48,9 +48,9 @@ class Error_(Exception):
             # return "\n\nThis is a custom error output for a wrapped Zef error\n\n" + str_zef_error(self)
         except Exception as exc:
             import traceback
-            # return "Unable to format custom Zef error: "# + traceback.format_exception(exc)
             # traceback.print_exc(exc)
             traceback.print_tb(exc.__traceback__)
+            return "Unable to format custom Zef error"
         
 
     def __eq__(self, other):
@@ -70,6 +70,7 @@ def zef_ui_err_fallback(self):
 
 def zef_ui_err(err):
     print(str_zef_error(self))
+    return
     from ..ops import contains,last, get, collect, filter, ZefOp, LazyValue
     from ..ui import Text,VStack, Frame, show, Code
     from ..core.op_implementations.implementation_typing_functions import ZefGenerator
