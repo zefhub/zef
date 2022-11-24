@@ -40,4 +40,5 @@ def graph_ctor(*args, **kwargs):
     from ...core import internals
     return internals.Graph(*args, **kwargs)
 
-make_VT('Graph', constructor_func=graph_ctor, pytype=pyzef.main.Graph)
+Graph = make_VT('Graph', constructor_func=graph_ctor, pytype=pyzef.main.Graph)
+insert_VT('DB', Graph)
