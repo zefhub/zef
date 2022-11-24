@@ -109,13 +109,13 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev ninja-build jq
+        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev ninja-build jq graphviz
 
     - name: Grab homebrew packages
       if: ${{ startsWith(inputs.os, 'macos') }}
       shell: bash
       run: |
-        brew install ninja openssl@1.1 zstd jq coreutils
+        brew install ninja openssl@1.1 zstd jq coreutils graphviz
         echo
         brew --prefix
         echo
