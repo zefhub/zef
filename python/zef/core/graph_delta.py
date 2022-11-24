@@ -424,9 +424,6 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
             raise Exception(f"ZefOp has more than one op inside of it. {x}")
         raise Exception(f"Not allowing ZefOps except for those starting with Z. Got {x}")
 
-    elif isinstance(x, RAERef):
-        return
-
     elif isinstance(x, Val):
         return
 
