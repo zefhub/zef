@@ -331,24 +331,7 @@ def compose_se(op_type, arg1, arg2):
 
 
 
-@func
-def unwrap_vars_hack(fg):
-    """
-    unwrap variables from a flatgraph.
-    """
-    def unwrap(x):
-        try:
-            return (*x[:3], x[3].name)
-        except:
-            return x
-    fg2 = FlatGraph()
-    fg2.key_dict = fg.key_dict
-    fg2.blobs = tuple((unwrap(x) for x in fg.blobs))
-    return fg2
-
-
-
-class ZefVariable_():
+class VExpression_():
     """
     A helper class for a shorthand way to 
     construct a variable called "x2": v.x2
@@ -356,7 +339,8 @@ class ZefVariable_():
     def __getattr__(self, name):
         return SV(name)
 
-
-V = ZefVariable_()
+# Helper type that we can write
+# V.x2 instead of SV('x2')
+V = VExpression_()
 
 
