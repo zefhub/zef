@@ -1904,10 +1904,10 @@ def all_imp(*args):
             if token is None:
                 if isinstance(fil, ET):
                     c_fil = None
-                    after_filter = ET
+                    after_filter = Entity
                 else:
                     c_fil = None
-                    after_filter = AET
+                    after_filter = AttributeEntity
             else:
                 if isinstance(token, (EntityTypeToken, AttributeEntityTypeToken)):
                     c_fil = token
@@ -6170,7 +6170,7 @@ def out_rels_imp(z, rt_or_bt=None, target_filter=None):
     assert is_a(z, ZefRef) or is_a(z, EZefRef) or is_a(z, FlatRef)
     if is_a(z, FlatRef): return traverse_flatref_imp(z, rt_or_bt, "out", "multi")
 
-    if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.outs(z) | filter[is_a[RT]] | collect
+    if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt_or_bt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
     else:
         if isinstance(rt_or_bt, RT) and isinstance(internals.get_c_token(rt_or_bt), RelationTypeToken):
@@ -6294,6 +6294,8 @@ def in_rels_imp(z, rt_or_bt=None, source_filter=None):
 
 
 def source_implementation(zr, *curried_args):
+    if is_a(zr, Entity):
+        raise Exception(f"Can't take the source of an entity (have {zr}), only relations have sources/targets")
     if isinstance(zr, FlatRef):
         return fr_source_imp(zr)
     if isinstance(zr, RelationRef):
@@ -6303,11 +6305,11 @@ def source_implementation(zr, *curried_args):
         if not isinstance(zr.item, DelegateRelationTriple):
             raise Exception(f"Can't take the source of a non-relation-triple Delegate ({zr})")
         return internals.Delegate(zr.order + zr.item.source.order, zr.item.source.item)
-    if is_a(zr, ET):
-        raise Exception(f"Can't take the source of an entity (have {zr}), only relations have sources/targets")
     return (pyzefops.source)(zr, *curried_args)
 
 def target_implementation(zr):
+    if is_a(zr, Entity):
+        raise Exception(f"Can't take the target of an entity (have {zr}), only relations have sources/targets")
     if isinstance(zr, FlatRef):
         return fr_target_imp(zr)
     if isinstance(zr, RelationRef):
@@ -6317,8 +6319,6 @@ def target_implementation(zr):
         if not isinstance(zr.item, DelegateRelationTriple):
             raise Exception(f"Can't take the target of a non-relation-triple Delegate ({zr})")
         return instance.Delegate(zr.order + zr.item.target.order, zr.item.target.item)
-    if is_a(zr, ET):
-        raise Exception(f"Can't take the target of an entity (have {zr}), only relations have sources/targets")
     return pyzefops.target(zr)
 
 def value_implementation(zr, maybe_tx=None):
@@ -9017,7 +9017,7 @@ def field_imp(z, rt):
     - used for: graph traversal
     """
     def val_maybe(x):
-        if is_a(x, AET): return value(x)
+        if is_a(x, AttributeEntity): return value(x)
         else: return x
 
     if isinstance(z, ZefRef):

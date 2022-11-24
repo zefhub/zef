@@ -123,7 +123,7 @@ class Entity_:
         return Entity_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
     
 EntityRef = make_VT('EntityRef', pytype=Entity_)
-EntityConcrete = insert_VT("EntityConcrete", BlobPtr & ET)
+EntityConcrete = insert_VT("EntityConcrete", BlobPtr & BT.ENTITY_NODE)
 Entity = insert_VT("Entity", EntityRef | EntityConcrete)
     
 
@@ -169,7 +169,7 @@ class AttributeEntity_:
         return AttributeEntity_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
     
 AttributeEntityRef = make_VT('AttributeEntityRef', pytype=AttributeEntity_)
-AttributeEntityConcrete = insert_VT("AttributeEntityConcrete", BlobPtr & AET)
+AttributeEntityConcrete = insert_VT("AttributeEntityConcrete", BlobPtr & BT.ATTRIBUTE_ENTITY_NODE)
 AttributeEntity = insert_VT("AttributeEntity", AttributeEntityRef | AttributeEntityConcrete)
 
 class Relation_:
@@ -213,7 +213,7 @@ class Relation_:
         return Relation_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
 
 RelationRef = make_VT('RelationRef', pytype=Relation_)
-RelationConcrete = insert_VT("RelationConcrete", BlobPtr & RT)
+RelationConcrete = insert_VT("RelationConcrete", BlobPtr & BT.RELATION_EDGE)
 Relation = insert_VT("Relation", RelationRef | RelationConcrete)
 
 class TXNode_:

@@ -233,7 +233,7 @@ def fg_insert_imp(fg, new_el):
    
 
     def _insert_single(new_el):
-        if is_a(new_el, (ET, AET, EntityRef, AttributeEntityRef, ZefOp, PleaseAssign, BlobPtr, *shorthand_scalar_types, Val, Delegate)):
+        if is_a(new_el, (EntityRef, AttributeEntityRef, ZefOp, PleaseAssign, BlobPtr, *shorthand_scalar_types, Val, Delegate, ET, AET)):
             common_logic(new_el)
         elif is_a(new_el, tuple) and len(new_el) == 3:
             src, rt, trgt = new_el

@@ -154,7 +154,7 @@ def dispatch_ror_graph(g, x):
     # Because LazyValue has some special behaviour for warning about incorrect
     # type checking, but we have already handled that above, we must put
     # LazyValue first.
-    if isinstance(x, (LazyValue, list, tuple, dict, ET, AET, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, Entity, AttributeEntity, Relation, Val, PleaseCommand, EntityValueInstance)):
+    if isinstance(x, (LazyValue, list, tuple, dict, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, Entity, AttributeEntity, Relation, Val, PleaseCommand, EntityValueInstance, ET, AET)):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -328,7 +328,7 @@ def obtain_ids(x) -> dict:
     # This is an extra step on top of the previous checks
     # if isinstance(x, (Entity, AttributeEntity, Relation, ET[Any],
     #                 AttributeEntityType, RelationType, ZefRef, EZefRef)):
-    if isinstance_lv_safe(x, (RAERef, ET, RT, AET,
+    if isinstance_lv_safe(x, (RAERef, (ValueType & (ET | RT | AET)),
                     ZefRef, EZefRef)):
         # Need the lazy value for the RT possibility
         a_id = get_absorbed_id(LazyValue(x))

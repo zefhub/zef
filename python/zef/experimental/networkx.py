@@ -416,7 +416,7 @@ class ProxyEdgeView:
 
 def get_props_on(z, include_type):
     props = {}
-    for rel in z | out_rels[RT] | filter[target | is_a[AET]]:
+    for rel in z | out_rels[RT] | filter[target | is_a[AttributeEntity]]:
         props[token_name(RT(rel))] = rel|target|value|collect
     if include_type:
         props["type"] = rae_type(z)

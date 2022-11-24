@@ -34,7 +34,7 @@ def is_core_scalar(z):
         is_a(z, AET.Bool)
     )
     
-assert_type = Assert[is_a[ET.GQL_Type | ET.GQL_Enum | AET]][lambda z: f"{z} is not a GQL type"]
+assert_type = Assert[is_a[ET.GQL_Type | ET.GQL_Enum | AttributeEntity]][lambda z: f"{z} is not a GQL type"]
 assert_field = Assert[is_a[RT.GQL_Field]][lambda z: f"{z} is not a GQL field"]
 
 optional = single_or[None]
@@ -54,7 +54,7 @@ def fvalue(z, rt, *args):
         return z | OutO[rt] | value_or[default] | collect
 
         
-op_is_scalar = assert_type | is_a[AET | ET.GQL_Enum]
+op_is_scalar = assert_type | is_a[AttributeEntity | ET.GQL_Enum]
 op_is_orderable = assert_type | is_a[AET.Float | AET.Int | AET.Time]
 op_is_summable = assert_type | is_a[AET.Float | AET.Int]
 op_is_stringlike = assert_type | is_a[AET.String]
@@ -64,7 +64,7 @@ op_is_unique = assert_field | fvalue[RT.Unique][False] | collect
 op_is_searchable = assert_field | fvalue[RT.Search][False] | collect
 op_is_aggregable = assert_field | And[Not[op_is_list]][target | Or[op_is_orderable][op_is_summable]]
 op_is_incoming = assert_field | fvalue[RT.Incoming][False] | collect
-op_is_relation = assert_type | Out[RT.GQL_Delegate] | is_a[RT] | collect
+op_is_relation = assert_type | Out[RT.GQL_Delegate] | is_a[Relation] | collect
 
 op_is_upfetch = assert_field | fvalue[RT.Upfetch][False] | collect
 op_upfetch_field = (assert_type | out_rels[RT.GQL_Field]
