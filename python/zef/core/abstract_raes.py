@@ -315,9 +315,13 @@ def abstract_rae_from_rae_type_and_uid(rae_type, uid):
         raise Exception("Unable to create an abstract Relation without knowing its source and target")
         
 
-RAERef = insert_VT('RAERef', EntityRef | AttributeEntityRef | RelationRef | TXNodeRef | RootRef)
-RAEConcrete = insert_VT('RAEConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete | TXNodeConcrete | RootConcrete)
-RAE = insert_VT('RAE', Entity | AttributeEntity | Relation | TXNode | Root)
+RAERef = insert_VT('RAERef', EntityRef | AttributeEntityRef | RelationRef)
+RAEConcrete = insert_VT('RAEConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete)
+RAE = insert_VT('RAE', Entity | AttributeEntity | Relation)
+
+AtomRef = insert_VT('AtomRef', EntityRef | AttributeEntityRef | RelationRef | TXNodeRef | RootRef)
+AtomConcrete = insert_VT('AtomConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete | TXNodeConcrete | RootConcrete)
+Atom = insert_VT('Atom', Entity | AttributeEntity | Relation | TXNode | Root)
 
 
 
