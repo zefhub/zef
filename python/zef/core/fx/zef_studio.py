@@ -184,6 +184,72 @@ def assign_value_bool(query_args):
     return assign_value_general(query_args, AET.Bool)
 
 
+def value_of_aet_at_tx(aet, tx) -> str:
+    try:
+        if tx is now:
+            tx = Graph(aet) | now | collect
+        if BT(aet) == BT.ATTRIBUTE_ENTITY_NODE:
+            val = aet | value[tx] | collect 
+            return '' if val is None else str(val)
+        else:
+            return ''
+    except:
+        return ''
+
+@func
+def entity_events(query_args):
+    graph_id = query_args.get('graphID', None)
+    g = Graph(graph_id)
+
+    rae_id  = query_args.get('raeID', None)
+    zr      = g[rae_id]
+
+    @func
+    def events_for_rt(rt):
+        zr_or_uzr = target(rt)
+        uzr = to_ezefref(zr_or_uzr)
+
+        low_lvl_mapping = {
+            BT.ATOMIC_VALUE_ASSIGNMENT_EDGE: "ValueAssignedEvent",
+            BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE: "ValueAssignedEvent",
+            BT.INSTANTIATION_EDGE: "InstantiatedEvent",
+            BT.TERMINATION_EDGE: "TerminatedEvent",
+        }
+
+        def construct_event(edge):
+            value_maybe = ""
+            if BT(edge) in {BT.ATOMIC_VALUE_ASSIGNMENT_EDGE, BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE}: 
+                value_maybe = value_of_aet_at_tx(uzr, edge | source | collect)
+            
+            uzr_tx = source(edge)
+            transaction = create_tx(uzr_tx)
+            return create_event(low_lvl_mapping[BT(edge)], str(rae_type(rt)), transaction, value_maybe)
+
+        rel_ent_inst_edge = uzr | in_rel[BT.RAE_INSTANCE_EDGE]
+        return rel_ent_inst_edge | in_rels[BT] | map[construct_event] | collect
+    
+    return zr | out_rels | map[events_for_rt] | concat | sort[lambda d: d['transaction']['txTimestamp']] | collect
+
+
+def create_tx(tx):
+    return {
+        "id": str(uid(tx)),
+        "txTimestamp": time(tx).seconds_since_1970,
+        "txIndex": graph_slice_index(to_graph_slice(tx)),
+    }
+
+def create_event(event_type, field_name, transaction, assignedValue=""):
+    return { 
+        "type": event_type,
+        "transaction": transaction,
+        "fieldName": field_name,
+        "value": assignedValue,
+    }
+
+@func
+def event_interface_resolver(obj, *_):
+   return obj.get('type', "InstantiatedEvent")
+
 #-------------------------------------------------------------
 #-------------------Schema String-------------------------------
 #-------------------------------------------------------------
@@ -193,6 +259,7 @@ type Query {
     entityTypes(graphID: ID!): [String]
     entityTable(graphID: ID!, entityType: String!, limit: Int): Table
     entity(graphID: ID!, entityID: ID!): Table
+    events(graphID: ID!, raeID: ID!): [Event]
 }
 
 type Mutation {
@@ -264,6 +331,33 @@ type CellList implements Cell{
 id: ID!
 value: [Cell]
 }
+
+type Transaction {
+    id: ID!
+    txTimestamp: Float!
+    txIndex: Int!
+}
+
+interface Event {
+    transaction: Transaction!
+    fieldName: String!
+}
+
+type InstantiatedEvent implements Event {
+    transaction: Transaction!
+    fieldName: String!
+}
+
+type TerminatedEvent implements Event {
+    transaction: Transaction!
+    fieldName: String!
+}
+
+type ValueAssignedEvent implements Event {
+    transaction: Transaction!
+    fieldName: String!
+    value: String
+}
 """
 
 def create_schema_dict(simple_schema):
@@ -277,13 +371,16 @@ def create_schema_dict(simple_schema):
       | insert_in[('_Types', 'Query', 'entityTypes', 'resolver')][entity_types] 
       | insert_in[('_Types', 'Query', 'entityTable', 'resolver')][entity_table] 
       | insert_in[('_Types', 'Query', 'entity', 'resolver')][single_entity] 
+      | insert_in[('_Types', 'Query', 'events', 'resolver')][entity_events]
       | insert_in[('_Types', 'Mutation', 'assignValueString', 'resolver')][assign_value_string]
       | insert_in[('_Types', 'Mutation', 'assignValueFloat', 'resolver')][assign_value_float]
       | insert_in[('_Types', 'Mutation', 'assignValueInt', 'resolver')][assign_value_int]
       | insert_in[('_Types', 'Mutation', 'assignValueBool', 'resolver')][assign_value_bool]
       | insert_in[('_Interfaces', 'Cell', '_interface_resolver')][cell_interface_resolver] 
+      | insert_in[('_Interfaces', 'Event', '_interface_resolver')][event_interface_resolver] 
       | collect
    )
+
    return schema_dict
 
 def studio_start_server_handler(eff: Dict):
