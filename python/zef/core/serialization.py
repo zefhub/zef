@@ -291,7 +291,6 @@ def serialize_symbolicexpression(se):
         "_zeftype": "SymbolicExpression",
         "name": se.name,
         "root_node": serialize_internal(se.root_node),
-        "absorbed": serialize_internal(se.absorbed)
     }
 
 def serialize_user_value_instance(uvi):
@@ -469,7 +468,6 @@ def deserialize_symbolicexpression(d):
     return SymbolicExpression_(
         name = d["name"],
         root_node= deserialize_internal(d["root_node"]),
-        absorbed = deserialize_internal(d["absorbed"]),
     )
 
 def deserialize_user_value_instance(d):

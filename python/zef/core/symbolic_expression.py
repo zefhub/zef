@@ -129,7 +129,6 @@ class SymbolicExpression_:
     def __init__(self, name=None, root_node=None):
         self.name = name
         self.root_node = root_node    # if this is None, then it is a bare variable. This also qualifies as a symbolic expression.
-        self.absorbed = None     # TODO: why does removing this make `(V.x.p1.p2.p3.p4).root_node.fg | graphviz | collect` not work?
 
     def __repr__(self):
         if self.name is not None:
