@@ -39,14 +39,18 @@ def graphql_start_server_handler(eff: Effect):
     } | run
     """
 
-
+    
     from ...gql.generate_gql_api import make_api
     from ...graphql import make_graphql_api
 
     if "schema_root" in eff:
         schema = make_api(eff['schema_root'])
     elif "schema_dict" in eff and "g" in eff:
-        schema = make_graphql_api(eff['schema_dict'], eff['g'])
+        try:
+            schema = make_graphql_api(eff['schema_dict'], eff['g'])
+        except Exception as e:
+            log.error(f"Error creating GraphQL API: {e}")
+            raise e
     else:
         raise Exception("Either schema_root or schema_dict and g must be provided to run a GraphQL server")
     port = eff.get("port", 5000)
