@@ -341,6 +341,7 @@ transact        = make_zefop(internals.RT.Transact)
 
 peel            = make_zefop(internals.RT.Peel)                
 match           = make_zefop(internals.RT.Match)                
+match_on        = make_zefop(internals.RT.MatchOn)                
 Range           = make_zefop(internals.RT.Range)      
 zstandard_compress = make_zefop(internals.RT.ZstandardCompress)
 zstandard_decompress = make_zefop(internals.RT.ZstandardDecompress)

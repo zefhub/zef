@@ -413,6 +413,63 @@ def match_tp(op, curr_type):
     return VT.Any
 
 
+#---------------------------------------- match_on -----------------------------------------------
+def match_on_imp(item, f_preprocess, patterns: List):
+    """
+    Given an item, a preprocessing function and a list of Tuples[predicate, output]. 
+    The pre_func(item) is checked sequentially on each input type until one matches. 
+    If non-matches an exception is raised.
+
+    ---- Examples ----
+    >>> 10 | match_on[mod3, mod5][
+    ...    ({0}, {0}):  lambda _: 'FizzBuzz',
+    ...    ({0}, Any):  lambda _: 'Fizz',
+    ...    (Any, {0}):  lambda _: 'Buzz',
+    ...    (Any, Any):  lambda x: str(x)
+    ... ] | collect
+    'Buzz'
+
+    ---- Arguments ----
+    item: the incoming value
+    patterns: (T, T) -> Bool
+
+    ---- Signature ----
+    (T, (T->Any)) -> T
+
+    ---- Tags ----
+    - used for: control flow
+    - related ZefOp: match
+    """
+    if type(f_preprocess) in {list, tuple}:
+        ff = tuple([f(item) for f in f_preprocess])
+        
+        for tp, f_to_apply in patterns:
+            try:
+                if( (ff in tp) 
+                    if isinstance(tp, set)    # if a set is passed in: check membership directly
+                    else is_a(ff, Pattern[list(tp)])
+                    ): return call_wrap_errors_as_unexpected(f_to_apply, item)
+            except Error_ as e:
+                e = add_error_context(e, {"metadata": {"match_case": tp, "func": f_to_apply, "input": item}})
+                raise e from None
+        raise Error.MatchError("No case matched", item)
+
+    
+    else:
+        ff = f_preprocess(item)
+    
+        for tp, f_to_apply in patterns:
+            try:
+                if( (ff in tp) 
+                    if isinstance(tp, set)    # if a set is passed in: check membership directly
+                    else is_a(ff, tp)
+                    ): return call_wrap_errors_as_unexpected(f_to_apply, item)
+            except Error_ as e:
+                e = add_error_context(e, {"metadata": {"match_case": tp, "func": f_to_apply, "input": item}})
+                raise e from None
+        raise Error.MatchError("No case matched", item)
+
+
 
 
 

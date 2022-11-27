@@ -227,6 +227,7 @@ _op_to_functions = {
         internals.RT.Xor:                 (xor_imp, xor_tp),
         internals.RT.Peel:                (peel_imp, peel_tp),
         internals.RT.Match:               (match_imp, match_tp),
+        internals.RT.MatchOn:             (match_on_imp, None),
 
         internals.RT.Sync:                (sync_imp, sync_tp),
         internals.RT.Tag:                 (tag_imp, tag_tp),
