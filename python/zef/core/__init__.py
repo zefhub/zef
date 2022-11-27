@@ -95,6 +95,7 @@ from .zef_functions import func
 from .serialization import serialize, deserialize
 
 from .symbolic_expression import SV, SVs, V
+from .z_expression import ZZ    # TODO: rename this to "Z" and replace the ZefOp "Z"
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
