@@ -54,6 +54,25 @@ def has_uid_is_a(x, typ):
 def early_uid(x):
     return x.d["uid"]
 HasUID = make_VT("HasUID", is_a_func=has_uid_is_a)
-insert_VT("Instantiated", CustomEntity & HasUID[early_uid(instantiated)])
-insert_VT("Terminated", CustomEntity & HasUID[early_uid(terminated)])
-insert_VT("Assigned", CustomEntity & HasUID[early_uid(assigned)])
+# insert_VT("Instantiated", CustomEntity & HasUID[early_uid(instantiated)])
+# insert_VT("Terminated", CustomEntity & HasUID[early_uid(terminated)])
+# insert_VT("Assigned", CustomEntity & HasUID[early_uid(assigned)])
+
+# We need to make a separated type, as the absorbed arguments are relevant to tests
+
+def make_custom_VT(name, custom_ent):
+    custom_ent_uid = early_uid(custom_ent)
+
+    def is_a_func(x, typ):
+        if not isinstance(x, CustomEntity & HasUID[custom_ent_uid]):
+            return False
+        # TODO: We need to test the absorbed arguments covariantly
+        if len(absorbed(typ)) > 0:
+            print("WARNING: Not testing the absorbed arguments of isinstance with {name}.")
+        return True
+
+    return make_VT(name, is_a_func=is_a_func)
+
+Instantiated = make_custom_VT("Instantiated", instantiated)
+Terminated = make_custom_VT("Terminated", terminated)
+Assigned = make_custom_VT("Assigned", assigned)

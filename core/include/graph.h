@@ -375,6 +375,7 @@ namespace zefDB {
 
         GraphRef(BaseUID uid) : uid(uid), g_cache(_InternalEmptyGraph()) {}
         GraphRef(Graph g);
+        GraphRef() : g_cache(_InternalEmptyGraph()) {}
     };
 
 	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, GraphRef& g);

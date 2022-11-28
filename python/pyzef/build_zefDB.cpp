@@ -37,7 +37,8 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		// .def(py::init<py::bytes, py::bytes, bool, int, bool>(), py::arg("blob_bytes"), py::arg("uid_bytes"), py::arg("is_master_graph") = 0, py::arg("index_of_latest_complete_tx_node_hint") = 0, py::arg("sync") = true, "Graph constructor from blob and uid bytes")
 		.def(py::init<std::string,int>(), py::arg("tag_or_uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid or tag")
 		.def(py::init<BaseUID,int>(), py::arg("uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid")   // TODO: move this into the fct? Is the gil put back on if the constructor throws?
-		.def(py::init<GraphData&>(), "Graph constructor from graph uid")
+		.def(py::init<Graph&>())
+		.def(py::init<GraphData&>())
 		.def(py::init<EZefRef>(), "Graph constructor from EZefRef")
 		.def(py::init<ZefRef>(), "Graph constructor from ZefRef: returns the graph that owns the zefref data, not the reference frame graph")
 		.def(py::init<GraphRef&>(), py::arg("graph_ref"), py::call_guard<py::gil_scoped_release>())
@@ -703,6 +704,9 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
     main_module.def("list_config", &list_config, py::call_guard<py::gil_scoped_release>(), "List the config including all default/environment set variables.", py::arg("filter")="");
     main_module.def("validate_config_file", &validate_config_file, py::call_guard<py::gil_scoped_release>(), "Ensure the config file and environment overrides have sensible values.");
 
+    main_module.def("zefdb_config_path", []() {
+        return zefdb_config_path().string();
+    }, py::call_guard<py::gil_scoped_release>());
 
 
 	fill_internals_module(internals_submodule);

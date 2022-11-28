@@ -307,9 +307,9 @@ EZefRef.__le__ = convert_to_assign
 
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):
-    from .abstract_raes import Entity_, AttributeEntity_, Relation_
+    from .abstract_raes import EntityRef_, AttributeEntityRef_, RelationRef_
     from ._ops import origin_uid
-    if type(x) in [Entity_, AttributeEntity_, Relation_]:
+    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_]:
         return origin_uid(x) in self
 
     if type(x) in [ZefRef, EZefRef]:
@@ -322,10 +322,10 @@ main.Graph.__contains__ = Graph__contains__
     
 original_Graph__getitem__ = main.Graph.__getitem__
 def Graph__getitem__(self, x):
-    from .abstract_raes import Entity_, AttributeEntity_, Relation_
+    from .abstract_raes import EntityRef_, AttributeEntityRef_, RelationRef_
     from ._ops import uid, target
     from .internals import BT
-    if type(x) in [Entity_, AttributeEntity_, Relation_]:
+    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_]:
         return self[uid(x)]
 
     res = original_Graph__getitem__(self, x)

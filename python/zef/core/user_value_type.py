@@ -116,7 +116,7 @@ def UVT_ctor(self, *args, **kwargs):
 
         # check whether the constraints are satisfied
         if not isinstance(cast_val, self._d["constraints"]):
-            raise Exception(f"UserValueType(name={self._d['name']}) constraint does not match")
+            raise Exception(f"UserValueType(name={self._d['name']}) constraint ({self._d['constraints']}) does not match")
         
         return UserValueInstance(self._d["user_type_id"], cast_val)
     else:
@@ -166,10 +166,13 @@ class UserValueInstance_:
         # only store the id here, not the name?
         self._user_type_id = user_type_id
         self._value = value
+
+    def _get_type(self):
+        return _user_value_type_registry[self._user_type_id]
         
     def __repr__(self):
         # look up the name in the _user_value_type_registry from the id
-        type_name = _user_value_type_registry[self._user_type_id]._d["name"]
+        type_name = self._get_type()._d["name"]
         return f"{type_name}({repr(self._value)})"
 
     def __eq__(self, other):
@@ -189,6 +192,10 @@ class UserValueInstance_:
     def __getattr__(self, other):
         if other.startswith("_"):
             return object.__getattribute__(self, other)
+        typ = self._get_type()
+        getattr_func = typ._d["object_methods"].get("getattr", None)
+        if getattr_func is not None:
+            return getattr_func(self, other)
         if isinstance(self._value, PyDict):
             return self._value[other]
         else:
@@ -203,13 +210,18 @@ class UserValueInstance_:
     # fingers crossed that nobody has a field 'keys' 
     # and tries to do my_user_value_type_instance.keys
     def _keys(self):
-        if not isinstance(self.value, PyDict):
+        if not isinstance(self._value, PyDict):
             raise AttributeError("UserValueInstance 'keys' only works on dicts")
         return self._value.keys()
 
     def __getitem__(self, key):
-        if not isinstance(self.value, PyDict):
+        if not isinstance(self._value, PyDict):
             raise AttributeError("UserValueInstance 'getitem' only works on dicts")
         return self._value[key]
+
+    def __contains__(self, key):
+        if not isinstance(self._value, PyDict):
+            raise AttributeError("UserValueInstance 'contains' only works on dicts")
+        return key in self._value
 
 UserValueInstance = make_VT('UserValueInstance', pytype=UserValueInstance_)

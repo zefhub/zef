@@ -61,7 +61,7 @@ def get_custom_entity_name_dict():
 #                                                                                                                                                                                     
 
 
-class Entity_:
+class EntityRef_:
     """ 
     A value representation of an "abstract entity" (in the 
     sense of an abstract vs concrete object 
@@ -87,7 +87,7 @@ class Entity_:
                 'absorbed': (),
             }
         
-        elif isinstance(x, Entity_):
+        elif isinstance(x, EntityRef):
             return x
 
         elif isinstance(x, dict):
@@ -112,7 +112,7 @@ class Entity_:
             return base_name + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
-        if not isinstance(other, Entity_): return False
+        if not isinstance(other, EntityRef): return False
         return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid'] and self.d['absorbed'] == other.d['absorbed']
 
     def __hash__(self):
@@ -120,14 +120,14 @@ class Entity_:
 
     def __getitem__(self, x):
         # append x to absorbed (a tuple). Return a new object
-        return Entity_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
+        return EntityRef_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
     
-EntityRef = make_VT('EntityRef', pytype=Entity_)
+EntityRef = make_VT('EntityRef', pytype=EntityRef_)
 EntityConcrete = insert_VT("EntityConcrete", BlobPtr & BT.ENTITY_NODE)
 Entity = insert_VT("Entity", EntityRef | EntityConcrete)
     
 
-class AttributeEntity_:
+class AttributeEntityRef_:
     """ 
     A value representation of an "abstract atomic entity".
     This will become a zef value in future.
@@ -141,7 +141,7 @@ class AttributeEntity_:
                 'uid': origin_uid(x),
                 'absorbed': (),
             }        
-        elif isinstance(x, AttributeEntity_):
+        elif isinstance(x, AttributeEntityRef):
             return x
         elif isinstance(x, dict):
             assert 'type' in x and 'uid' in x
@@ -155,7 +155,7 @@ class AttributeEntity_:
         return f'AttributeEntity({repr(self.d["type"])}, {repr(self.d["uid"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
-        if not isinstance(other, AttributeEntity_): return False
+        if not isinstance(other, AttributeEntityRef): return False
         return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid']
 
     def __le__(self, value):
@@ -166,13 +166,13 @@ class AttributeEntity_:
         return hash(self.d['uid'])
 
     def __getitem__(self, x):
-        return AttributeEntity_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
+        return AttributeEntityRef_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
     
-AttributeEntityRef = make_VT('AttributeEntityRef', pytype=AttributeEntity_)
+AttributeEntityRef = make_VT('AttributeEntityRef', pytype=AttributeEntityRef_)
 AttributeEntityConcrete = insert_VT("AttributeEntityConcrete", BlobPtr & BT.ATTRIBUTE_ENTITY_NODE)
 AttributeEntity = insert_VT("AttributeEntity", AttributeEntityRef | AttributeEntityConcrete)
 
-class Relation_:
+class RelationRef_:
     """ 
     A value representation of an "abstract relation".
     This is a thin wrapper around the type (triple)
@@ -188,7 +188,7 @@ class Relation_:
                 'uids': (origin_uid(source(x)), origin_uid(x), origin_uid(target(x))),
                 'absorbed': (),
             }        
-        elif isinstance(x, Relation_):
+        elif isinstance(x, RelationRef):
             return x
         elif isinstance(x, dict):
             assert 'type' in x and 'uids' in x
@@ -203,20 +203,20 @@ class Relation_:
         return f'Relation({repr(self.d["type"])}, {repr(self.d["uids"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
-        if not isinstance(other, Relation_): return False
+        if not isinstance(other, RelationRef): return False
         return self.d['type'] == other.d['type'] and self.d['uids'] == other.d['uids']
 
     def __hash__(self):
             return hash(''.join([str(x) for x in self.d['uids']]))
             
     def __getitem__(self, x):
-        return Relation_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
+        return RelationRef_({**self.d, 'absorbed': (*self.d['absorbed'], x)})
 
-RelationRef = make_VT('RelationRef', pytype=Relation_)
+RelationRef = make_VT('RelationRef', pytype=RelationRef_)
 RelationConcrete = insert_VT("RelationConcrete", BlobPtr & BT.RELATION_EDGE)
 Relation = insert_VT("Relation", RelationRef | RelationConcrete)
 
-class TXNode_:
+class TXNodeRef_:
     """ 
     A value representation of an "abstract transaction".
     """
@@ -256,11 +256,11 @@ class TXNode_:
         temp.d['absorbed'] = (*self.d['absorbed'], x)
         return temp
         
-TXNodeRef = make_VT('TXNodeRef', pytype=TXNode_)
+TXNodeRef = make_VT('TXNodeRef', pytype=TXNodeRef_)
 TXNodeConcrete = insert_VT("TXNodeConcrete", BlobPtr & BT.TX_EVENT_NODE)
-TXNode = insert_VT("TXNode", TXNodeRef |  TXNodeConcrete)
+TXNode = insert_VT("TXNode", TXNodeConcrete | TXNodeRef)
 
-class Root_:
+class RootRef_:
     """ 
     A value representation of an "abstract root node".
     """
@@ -300,16 +300,16 @@ class Root_:
         temp.d['absorbed'] = (*self.d['absorbed'], x)
         return temp
 
-RootRef = make_VT('RootRef', pytype=Root_)
-RootConcrete = insert_VT('RootConcrete', BlobPtr & BT.ROOT_NODE)
-Root = insert_VT('Root', RootRef | RootConcrete)
+RootRef = make_VT('RootRef', pytype=RootRef_)
+RootConcrete = insert_VT("RootConcrete", BlobPtr & BT.ROOT_NODE)
+Root = insert_VT("Root", RootConcrete | RootRef)
 
 
 def abstract_rae_from_rae_type_and_uid(rae_type, uid):
     if isinstance(rae_type, ET):
-        return Entity_({"type": rae_type, "uid": uid})
+        return EntityRef_({"type": rae_type, "uid": uid})
     elif isinstance(rae_type, AET):
-        return AttributeEntity_({"type": rae_type, "uid": uid})
+        return AttributeEntityRef_({"type": rae_type, "uid": uid})
     else:
         assert isinstance(rae_type, RT)
         raise Exception("Unable to create an abstract Relation without knowing its source and target")
@@ -354,7 +354,7 @@ def make_custom_entity(name_to_display: str, predetermined_uid=None):
             raise KeyError(f"Error in make_custom_entity: the key {this_uid} was already registered in custom_entity_display_names.")
         custom_entity_display_names[this_uid] = name_to_display
 
-    return Entity_({
+    return EntityRef_({
         'type': ET.ZEF_CustomEntity,
         'uid': internals.EternalUID(this_uid, src_g_uid),
     })

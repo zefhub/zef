@@ -316,7 +316,7 @@ def on_implementation(g, op):
             assert len(op_args) == 1
             aet_or_zr = op_args[0]
             # Type 1: a specific zefref to an AET i.e on[assigned[zr_to_aet]]
-            if isinstance(aet_or_zr, ZefRef): 
+            if isinstance(aet_or_zr, BlobPtr): 
                 def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(aet_or_zr)] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl

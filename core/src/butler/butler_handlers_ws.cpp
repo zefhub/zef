@@ -234,7 +234,6 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                 if(msg_type == "merge_request_response") {
                     auto msg = parse_ws_response<MergeRequestResponse>(j);
                     task_promise->promise.set_value(msg);
-                    wake(task_promise->task->locker);
                 } else if(msg_type == "token_response") {
                     handle_token_response(*this, j, task_promise);
                 } else {
@@ -244,8 +243,8 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                     msg.j = j;
                     msg.rest = rest;
                     task_promise->promise.set_value(msg);
-                    wake(task_promise->task->locker);
                 }
+                wake(task_promise->task->locker);
                 return;
             } catch(...) {
                 task_promise->promise.set_exception(std::current_exception());

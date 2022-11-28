@@ -26,7 +26,7 @@ from .VT import *
 from .VT import ValueType_
 from ._ops import *
 from .op_structs import ZefOp_, CollectingOp, SubscribingOp, ForEachingOp, LazyValue, Awaitable, is_python_scalar_type
-from .abstract_raes import Entity_, Relation_, AttributeEntity_
+from .abstract_raes import EntityRef_, RelationRef_, AttributeEntityRef_
 from ._error import Error_
 from ._image import Image_
 from .fx.fx_types import FXElement, Effect
@@ -193,6 +193,8 @@ def serialize_zeftypes(z) -> dict:
 
     elif isinstance(z, Graph):
         return {"_zeftype": "Graph", "guid": str(uid(z))}
+    elif isinstance(z, GraphRef):
+        return {"_zeftype": "GraphRef", "guid": str(z.uid)}
 
     elif isinstance(z, Enum):
         return {"_zeftype": "Enum", "enum_type": z.enum_type, "enum_val": z.enum_value}
@@ -231,7 +233,7 @@ def serialize_zeftypes(z) -> dict:
         return {"_zeftype": "Image", "format": z.format, "compression": z.compression, "buffer" : encoded_buffer}
 
     elif isinstance(z, (EntityRef, RelationRef, AttributeEntityRef)):
-        abstract_type = {Entity_: "Entity", Relation_: "Relation", AttributeEntity_: "AttributeEntity"}[type(z)]
+        abstract_type = {EntityRef_: "Entity", RelationRef_: "Relation", AttributeEntityRef_: "AttributeEntity"}[type(z)]
         uid_or_uids = "uids" if abstract_type == "Relation" else "uid"
         type_or_types = [serialize_internal(rae) for rae in z.d['type']] if abstract_type == "Relation" else serialize_internal(z.d['type'])
         absorbed_args = z.d['absorbed']
@@ -353,6 +355,8 @@ def deserialize_zeftypes(z) -> dict:
 
     elif z['_zeftype'] == "Graph":
         return Graph(z['guid'])
+    elif z['_zeftype'] == "GraphRef":
+        return GraphRef(base_uid(z['guid']))
 
     elif z['_zeftype'] == "Enum":
         return EN(z['enum_type'], z['enum_val'])
@@ -484,6 +488,7 @@ serialization_mapping[internals.RelationType] = serialize_zeftypes
 serialization_mapping[internals.EntityType] = serialize_zeftypes
 serialization_mapping[internals.AttributeEntityType] = serialize_zeftypes
 serialization_mapping[internals.Graph] = serialize_zeftypes
+serialization_mapping[internals.GraphRef] = serialize_zeftypes
 serialization_mapping[internals.ZefEnumValue] = serialize_zeftypes
 serialization_mapping[QuantityFloat] = serialize_zeftypes
 serialization_mapping[QuantityInt] = serialize_zeftypes
@@ -497,9 +502,9 @@ serialization_mapping[Awaitable] = serialize_zeftypes
 serialization_mapping[internals.BaseUID] = serialize_zeftypes
 serialization_mapping[internals.EternalUID] = serialize_zeftypes
 serialization_mapping[internals.ZefRefUID] = serialize_zeftypes
-serialization_mapping[Entity_] = serialize_zeftypes
-serialization_mapping[Relation_] = serialize_zeftypes
-serialization_mapping[AttributeEntity_] = serialize_zeftypes
+serialization_mapping[EntityRef_] = serialize_zeftypes
+serialization_mapping[RelationRef_] = serialize_zeftypes
+serialization_mapping[AttributeEntityRef_] = serialize_zeftypes
 serialization_mapping[Error_] = serialize_zeftypes
 serialization_mapping[Image_] = serialize_zeftypes
 serialization_mapping[FXElement] = serialize_zeftypes
@@ -531,6 +536,7 @@ deserialization_mapping["RTToken"] = deserialize_zeftypes
 deserialization_mapping["ETToken"] = deserialize_zeftypes
 deserialization_mapping["AETToken"] = deserialize_zeftypes
 deserialization_mapping["Graph"] = deserialize_zeftypes
+deserialization_mapping["GraphRef"] = deserialize_zeftypes
 deserialization_mapping["Enum"] = deserialize_zeftypes
 deserialization_mapping["QuantityFloat"] = deserialize_zeftypes
 deserialization_mapping["QuantityInt"] = deserialize_zeftypes

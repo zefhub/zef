@@ -155,6 +155,7 @@ def ET_is_a(x, typ):
             return RAET_get_token(rae_type(x)) == token
         else:
             return False
+
 def AET_is_a(x, typ):
     from . import DelegateRef, AttributeEntityRef
     token = RAET_get_token(typ)
