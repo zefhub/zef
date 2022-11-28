@@ -282,9 +282,18 @@ def serialize_zefops(k_type, ops):
 
 def serialize_valuetype(vt):
     # Super dodgy version just to get something off the ground for now
+    # TODO: DODGY TEMPORARY THING FOR NAMESPACES
+    items = list(vt._d.items())
+    if vt._d["type_name"] == "UserValueType" and vt._d["name"] == "Namespace":
+        print("IN DODGY NAMESPACE SERIALIZE")
+        print("IN DODGY NAMESPACE SERIALIZE")
+        print("IN DODGY NAMESPACE SERIALIZE")
+        print("IN DODGY NAMESPACE SERIALIZE")
+        print("IN DODGY NAMESPACE SERIALIZE")
+        items = [x for x in items if x[0] != "object_methods"]
     return {
         "_zeftype": "ValueType",
-        **{key: serialize_internal(val) for (key,val) in vt._d.items()},
+        **{key: serialize_internal(val) for (key,val) in items},
     }
 
 

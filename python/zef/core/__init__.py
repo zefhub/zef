@@ -83,6 +83,7 @@ from . import fx
 from . import serialization
 from . import graph_events
 from . import streams
+from . import namespaces
 
 from .VT import *
 
@@ -98,6 +99,8 @@ from .symbolic_expression import SV, SVs, V
 from .z_expression import ZZ    # TODO: rename this to "Z" and replace the ZefOp "Z"
 
 from .graph_events import assigned, terminated, instantiated
+
+from .namespaces import Namespace
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
