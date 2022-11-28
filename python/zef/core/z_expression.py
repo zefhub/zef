@@ -165,18 +165,6 @@ def compose_zexpr(op_type: ET, arg1, arg2):
    
 
 
-def describe(f, name=None):
-    def new_f(*args, **kwargs):
-        if name is None:
-            print(f'Calling {f.__name__} with args {args} and kwargs {kwargs}')
-        else:
-            print(f'Calling {name} with args {args} and kwargs {kwargs}')
-        res = f(*args, **kwargs)
-        print(f'Result: {res}')
-        return res
-
-    return new_f
-
 import operator as o
 _op_translation = {
     ET.Add: o.add,
@@ -205,11 +193,11 @@ def compose_fct(op_type: ET, g1, g2):
     import zef
     res = _op_translation[op_type](g1, g2)
     if isinstance(res, zef.core.op_structs.LazyValue):
-        res2 = res()
-        print(f'Compose {op_type} with {g1} and {g2} -> {res} -> {res2}')
+        # res2 = res()
+        # print(f'Compose {op_type} with {g1} and {g2} -> {res} -> {res2}')
         return res()
     else:
-        print(f'Compose {op_type} with {g1} and {g2} -> {res}')
+        # print(f'Compose {op_type} with {g1} and {g2} -> {res}')
         return res
 
 
@@ -234,7 +222,6 @@ def z_expression_to_vt(op_type: ET, arg1, arg2) -> VT:
         # exit early if this is the main variable (ET.Z  => identity function)
         # or a constant expression, i.e. not another nested expression in the form of an EntityValueInstance_
         if expr == ET.Z:
-
             return lambda x: x
 
         if not isinstance(expr, zef.core.patching.EntityValueInstance_):
@@ -244,7 +231,7 @@ def z_expression_to_vt(op_type: ET, arg1, arg2) -> VT:
         f1 = step(eval_if_lazy(expr.arg1))
         f2 = step(eval_if_lazy(expr.arg2))
 
-        print(f"step will dispatch on: {op_type} {f1}    {f2}  {callable(f1)} {callable(f2)}")
+        # print(f"step will dispatch on: {op_type} {f1}    {f2}  {callable(f1)} {callable(f2)}")
         # one extra lambda layer to prevent evaluation of the first term
         return {
             (False, False): lambda:           compose_fct(expr._entity_type, f1, f2),
@@ -254,7 +241,7 @@ def z_expression_to_vt(op_type: ET, arg1, arg2) -> VT:
         }[is_lambda(f1), is_lambda(f2)]()
 
     a = op_type(arg1=unwrap_zexpr(arg1), arg2=unwrap_zexpr(arg2))
-    print(f"\n\n----\n{a=}")
+    # print(f"\n\n----\n{a=}")
     return Is[step(a)]
  
 
