@@ -121,13 +121,19 @@ def UVT_ctor(self, *args, **kwargs):
         return UserValueInstance(self._d["user_type_id"], cast_val)
     else:
         name, representation_type, constraints = args
-        assert len(kwargs) == 0
-        from random import randint
+        allowed_keys = {"forced_uid", "object_methods"}
+        assert all(x in allowed_keys for x in kwargs)
+        the_uid = kwargs.get("forced_uid", None)
+        if the_uid is None:
+            from random import randint
+            the_uid = str(randint(0, 100000000000))
+        object_methods = kwargs.get("object_methods", {})
         new_uvt = self._replace(
             name=name,
             representation_type=representation_type,
             constraints=constraints,
-            user_type_id=str(randint(0, 100000000000))     # TODO: use a Ref: the type is originally created on the respective process graph
+            user_type_id=the_uid,     # TODO: use a Ref: the type is originally created on the respective process graph
+            object_methods=object_methods,
         )
 
         # add to registry
