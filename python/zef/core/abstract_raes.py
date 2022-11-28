@@ -244,15 +244,15 @@ class TXNodeRef_:
         return base_name + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
-        if not isinstance(other, TXNode_): return False
+        if not isinstance(other, TXNodeRef_): return False
         return self.d['uid'] == other.d['uid'] and self.d['absorbed'] == other.d['absorbed']
 
     def __hash__(self):
-        return hash((TXNode_, self.d['uid']))
+        return hash((TXNodeRef_, self.d['uid']))
 
     def __getitem__(self, x):
         # append x to absorbed (a tuple). Return a new object
-        temp = TXNode_(self)
+        temp = TXNodeRef_(self)
         temp.d['absorbed'] = (*self.d['absorbed'], x)
         return temp
         
@@ -273,7 +273,7 @@ class RootRef_:
                 'absorbed': (),
             }
         
-        elif isinstance(x, Root_):
+        elif isinstance(x, RootRef_):
             self.d = {
                 'uid': x.d['uid'],
                 'absorbed': x.d['absorbed']
@@ -288,11 +288,11 @@ class RootRef_:
         return base_name + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
-        if not isinstance(other, Root_): return False
+        if not isinstance(other, RootRef_): return False
         return self.d['uid'] == other.d['uid'] and self.d['absorbed'] == other.d['absorbed']
 
     def __hash__(self):
-        return hash((Root_, self.d['uid']))
+        return hash((RootRef_, self.d['uid']))
 
     def __getitem__(self, x):
         # append x to absorbed (a tuple). Return a new object
