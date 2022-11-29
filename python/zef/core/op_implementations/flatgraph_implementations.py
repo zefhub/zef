@@ -30,7 +30,7 @@ from typing import Generator, Iterable, Iterator
 
 #-----------------------------FlatGraph Implementations-----------------------------------
 def fg_insert_imp(fg, new_el):
-    from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types, PleaseAssign
+    from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types, PleaseAssign, IsAny
     from ...pyzef.internals import DelegateRelationTriple
 
     def without_names(raet):
@@ -160,12 +160,18 @@ def fg_insert_imp(fg, new_el):
                 except:
                     raise Exception(f"An exception happened while trying to perform {new_el} on {fg}")
 
+        # TODO remove this once Z is fully deprecated
         elif is_a(new_el, ZefOp[Z]):
             key = peel(new_el)| first | second | first | collect
             if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
             idx = new_key_dict.get(key, key)
 
-        # i.e: z4 <= 42 ; AET.String <= "42" ; AET.String['z1'] <= 42 ; Z['n1'] <= 42
+        elif is_a(new_el, IsAny):
+            key = absorbed(new_el) | first | collect
+            if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
+            idx = new_key_dict.get(key, key)
+
+        # i.e: z4 | assign[42] ; AET.String | assign[42] ; AET.String['z1'] | assign[42] ; Any['n1'] | assign[42]
         elif isinstance(new_el, LazyValue) and is_a(new_el, PleaseAssign):
             new_el = collect(new_el)
             first_op = new_el.target
@@ -184,6 +190,16 @@ def fg_insert_imp(fg, new_el):
                     idx = next_idx()
                     new_blobs.append((idx, aet_maybe, [], None, aet_value))
                     if internal_id: new_key_dict[internal_id] = idx
+            
+            elif is_a(first_op, IsAny):
+                key = absorbed(first_op) | first | collect
+                aet_value = new_el.value
+                if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
+                idx = new_key_dict.get(key, key)
+                assert isinstance(new_blobs[idx][1], AET), f"This key must refer to an AET found {new_blobs[idx][1]}"
+                new_blobs[idx] = (*new_blobs[idx][:4], aet_value)
+                
+            # TODO remove this once Z is fully deprecated
             elif isinstance(first_op, ZefOp):
                 if inner_zefop_type(first_op, RT.Z):
                     key = peel(first_op)[0][1][0]
@@ -195,7 +211,7 @@ def fg_insert_imp(fg, new_el):
                 else:
                     raise ValueError(f"Expected a Z['n1'] <= 42 got {new_el} instead!")
             else:
-                raise ValueError(f"Expected a z <= 42 or AET.String <= 42 got {new_el} instead!")
+                raise ValueError(f"Expected a Any['x'] | assign[42] or AET.String | assign[42] got {new_el} instead!")
 
         elif isinstance(new_el, Val):
             new_el = new_el.arg
@@ -224,9 +240,9 @@ def fg_insert_imp(fg, new_el):
             for k,v in sub_d.items():
                 if isinstance(v, Dict):
                     target_idx =  _insert_dict(v)
-                    _insert_single((Z[ent_idx], k, Z[target_idx]))
+                    _insert_single((Any[ent_idx], k, Any[target_idx]))
                 else:
-                    _insert_single((Z[ent_idx], k, v))
+                    _insert_single((Any[ent_idx], k, v))
             return ent_idx
         except KeyError as e:
             raise ValueError(f"{e} \nMake sure that the dictionary {new_el} doesn't reference any internal elements that weren't inserted before i.e z[p1].\nIf you are using list syntax even if the dict comes later in the statements it will be inserted first.")
@@ -248,8 +264,9 @@ def fg_insert_imp(fg, new_el):
                 internal_id = internal_name(rt)
                 rt = without_names(rt)
                 if internal_id: new_key_dict[internal_id] = idx
-            # Case of Z['a']
-            elif isinstance(rt, ZefOp) and inner_zefop_type(rt, RT.Z): 
+
+            # Case of Any['a']
+            elif is_a(rt, IsAny): 
                 raise ValueError(f"Cannot reference an internal element to be used as a Relation. {rt}")
 
             new_blobs.append((idx, rt, [], None, src_idx, trgt_idx))
