@@ -41,11 +41,12 @@ PleaseTerminate = UserValueType("PleaseInstantiate", Dict, Pattern[{
     "target": RAE | ZefOp[Z],
     "internal_id": String | Nil,
 }])
+IsAny = Is[without_absorbed | equals[Any]]
 PleaseAssign = UserValueType("PleaseAssign",
                               Dict,
                               # Pattern[{"target": AttributeEntity,
                               # Pattern[{"target": Any,
-                              Pattern[{"target": AttributeEntity | ZefOp[Z] | AET,
+                              Pattern[{"target": AttributeEntity | ZefOp[Z] | AET | IsAny,
                                        "value": Any}])
 PleaseCommand = PleaseInstantiate | PleaseAssign | PleaseTerminate
 
