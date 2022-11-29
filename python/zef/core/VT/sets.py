@@ -112,7 +112,7 @@ def union_simplify(x):
 Union = make_VT('Union',
                 is_a_func=union_is_a,
                 is_subtype_func=union_is_subtype,
-                simplify_type_func=union_simplify,
+                # simplify_type_func=union_simplify,
                 override_subtype_func=union_override_subtype)
 
 def intersection_validation(typ):
@@ -191,7 +191,7 @@ def intersection_simplify(x):
 
 Intersection = make_VT('Intersection',
                        is_a_func=intersection_is_a,
-                       simplify_type_func=intersection_simplify,
+                       # simplify_type_func=intersection_simplify,
                        override_subtype_func=intersection_override_subtype)
 
 def complement_validation(typ):
