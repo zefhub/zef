@@ -904,6 +904,10 @@ def realise_single_node(x, gen_id):
     # 1) e.g. if ET.Dog is specified as the source: definitely create it
     # 2) e.g. if ET.Dog['Rufus'] was specified, that will be there as a dict. It is the command to create it and register the temp id
 
+    from .VT import ZExpression
+    from .VT.value_type import type_name
+    NamedZ = ZExpression & Is[get_field["root_node"] | And[is_a[EntityValueInstance]][get_field["arg1"] | equals[ET.Z]]]
+
     # First case of removing lazy values
     if isinstance(x, LazyValue):
         x = collect(x)
@@ -994,6 +998,17 @@ def realise_single_node(x, gen_id):
                 iid,exprs = realise_single_node(new_op, gen_id)
             else:
                 raise NotImplementedError(f"Can't pass zefops to GraphDelta: for {x}")
+    elif isinstance(x, NamedZ):
+        iid = x.root_node.arg2
+        # No expr to perform
+        exprs = []
+    elif isinstance(x, ValueType) and type_name(x) == "Any":
+        from .VT.helpers import names_of
+        names = names_of(x)
+        assert len(names) == 1
+        iid = names[0]
+        # No expr to perform
+        exprs = []
     elif is_a(x, Delegate):
         iid = x
         exprs = [x]
