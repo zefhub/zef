@@ -26,7 +26,7 @@ def create_eff_to_process_graph_wish(eff: Dict) -> 'FX':
         "type" : Val(eff['type']),   
         # TODO fix pipeinto being unserializeable if python objects are found
         # "pipe_into" : Val(eff.get('pipe_into', None)),       
-        "pushable_stream": pushable_stream.stream_ezefref,
+        "PushableStream": pushable_stream.stream_ezefref,
         # "url" : 'ulfsproject.zefhub.io',    
     }
 
