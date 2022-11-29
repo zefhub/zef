@@ -1772,18 +1772,18 @@ def expand_helper(x, gen_id):
         for k, v in x._kwargs.items():
             if isinstance(v, EntityValueInstance):
                 sub_obj_instrs = expand_helper(v, gen_id)
-                res.append( (me, RT(to_pascal_case(k)), sub_obj_instrs[0]) )
+                res.append( (me, RT(k), sub_obj_instrs[0]) )
                 res.extend(sub_obj_instrs[1:])
             
             elif isinstance(v, set):
                 for el in v:
                     sub_obj_instrs = expand_helper(el, gen_id)
-                    res.append( (me, RT(to_pascal_case(k)), sub_obj_instrs[0]) )
+                    res.append( (me, RT(k), sub_obj_instrs[0]) )
                     res.extend(sub_obj_instrs[1:])
             
             elif type(v) in {list, tuple}:
                 list_id = gen_id()
-                res.append( (me, RT(to_pascal_case(k)), ET.ZEF_List[list_id]) )
+                res.append( (me, RT(k), ET.ZEF_List[list_id]) )
 
                 # generate ids for each relation, that we can inter-connect them
                 list_ids = [gen_id() for _ in range(len(v))]
@@ -1797,7 +1797,7 @@ def expand_helper(x, gen_id):
                     res.append( (ET.ZEF_List[list_id], RT.ZEF_ListElement[edge_id], sub_obj_instrs[0]) )
                     res.extend(sub_obj_instrs[1:])
             else:
-                res.append( (me, RT(to_pascal_case(k)), v) )
+                res.append( (me, RT(k), v) )
         return res
     
 def expand_object_to_instructions(x, id_generator=None):
