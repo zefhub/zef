@@ -656,7 +656,7 @@ def prepend_imp(v, item, *additional_items):
                 | collect
                 )
 
-        new_rels = rels1 | map[second | peel | first | second | second | inject[Z] ] | collect
+        new_rels = rels1 | map[second | peel | first | second | second | inject[Any] ] | collect
         next_rels = new_rels | sliding[2] | attempt[map[lambda p: (p[0], RT.ZEF_NextElement, p[1])]][[]] | collect
 
         # Do we need a single connecting RT.ZEF_NextElement between the last element of the existing list and the first new element?
@@ -745,7 +745,7 @@ def append_imp(v, item, *additional_items):
                 | collect
                 )
 
-        new_rels = rels1 | map[second | peel | first | second | second | inject[Z] ] | collect
+        new_rels = rels1 | map[second | peel | first | second | second | inject[Any] ] | collect
         next_rels = new_rels | sliding[2] | attempt[map[lambda p: (p[0], RT.ZEF_NextElement, p[1])]][[]] | collect
 
         # Do we need a single connecting RT.ZEF_NextElement between the last element of the existing list and the first new element?
@@ -756,7 +756,7 @@ def append_imp(v, item, *additional_items):
             | filter[lambda r: r | out_rels[RT.ZEF_NextElement] | length | equals[0] | collect] 
             | attempt[
                 single
-                | func[lambda x: [(x, RT.ZEF_NextElement, Z['0'])]]
+                | func[lambda x: [(x, RT.ZEF_NextElement, Any['0'])]]
                 ][[]] 
             | collect)
 
@@ -7541,7 +7541,7 @@ def pandas_to_gd_imp(df: VT.DataFrame, mapping: VT.Dict) -> VT.List:
     actions = (
             df.values.tolist()
             | enumerate
-            | map[lambda idx_row: idx_row[1] | enumerate | map[lambda i_v: (Z[f'_{idx_row[0]}'], RT(cols[i_v[0]]), i_v[1])] | collect]
+            | map[lambda idx_row: idx_row[1] | enumerate | map[lambda i_v: (Any[f'_{idx_row[0]}'], RT(cols[i_v[0]]), i_v[1])] | collect]
             | prepend[range(len(df.values.tolist())) | map[lambda i: ET(entity)[f'_{i}']] | collect]
             | concat
             | collect
@@ -7734,7 +7734,7 @@ def zascii_to_flatgraph_imp(zascii_str: VT.String) -> VT.FlatGraph:
     rels = (elements 
     | filter[lambda p: p[1]['type'] == 'Edge']
     | filter_with_temp_id
-    | map[lambda p: (Z[p[1]['source']], RT(asg[p[1]['labeled_by']]['value'])[p[0]], Z[p[1]['target']])]
+    | map[lambda p: (Any[p[1]['source']], RT(asg[p[1]['labeled_by']]['value'])[p[0]], Any[p[1]['target']])]
     | collect
     )    
     sorted_rels = []
@@ -7822,7 +7822,7 @@ def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
     rels = (elements 
     | filter[lambda p: p[1]['type'] == 'Edge']
     | filter_with_temp_id
-    | map[lambda p: (Z[p[1]['source']], RT(asg[p[1]['labeled_by']]['value'])[p[0]], Z[p[1]['target']])]
+    | map[lambda p: (Any[p[1]['source']], RT(asg[p[1]['labeled_by']]['value'])[p[0]], Any[p[1]['target']])]
     | collect
     )    
 
@@ -8520,11 +8520,11 @@ def to_zef_list_imp(elements: list):
     if is_any_terminated: return Error("Cannot create a Zef List Element from a terminated ZefRef")
     rels_to_els = (elements 
             | enumerate 
-            | map[lambda p: (Z['zef_list'], RT.ZEF_ListElement[str(p[0])], p[1])] 
+            | map[lambda p: (Any['zef_list'], RT.ZEF_ListElement[str(p[0])], p[1])] 
             | collect
             )
 
-    new_rels = rels_to_els | map[second | absorbed | first | inject[Z] ] | collect
+    new_rels = rels_to_els | map[second | absorbed | first | inject[Any] ] | collect
     next_rels = new_rels | sliding[2] | attempt[map[lambda p: (p[0], RT.ZEF_NextElement, p[1])]][[]] | collect
 
 
