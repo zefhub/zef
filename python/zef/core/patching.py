@@ -431,6 +431,10 @@ class EntityValueInstance_:
     def __getattr__(self, name):
         return self._kwargs[name]
 
+    def __eq__(self, other):
+        if not isinstance(other, EntityValueInstance_): return False
+        return self._entity_type == other._entity_type and self._kwargs == other._kwargs
+
 
 
 
