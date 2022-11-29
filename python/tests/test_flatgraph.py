@@ -44,15 +44,15 @@ class MyTestCase(unittest.TestCase):
             ET.Foo['x1'],
             AET.Int | assign[41],
             AET.Int['k2'] | assign[41],
-            (Z['x1'], RT.A['r2'], ET.Baz),
-            (Z['r2'], RT.B, AET.String| assign["Fred"]),
-            (Z['r2'], RT.C, AET.String['aet1'] | assign["Some"]),
-            (Z['r2'], RT.G, "Egypt"),
+            (Any['x1'], RT.A['r2'], ET.Baz),
+            (Any['r2'], RT.B, AET.String| assign["Fred"]),
+            (Any['r2'], RT.C, AET.String['aet1'] | assign["Some"]),
+            (Any['r2'], RT.G, "Egypt"),
             {ET.Person['p1']:{                             
             RT.Name: "Die Antwoord",
             RT.Style: "Rap-Rave",
             RT.Member['r1']: 5,}},
-            (Z['p1'], RT.Name, "Ninja"),
+            (Any['p1'], RT.Name, "Ninja"),
         ]]
         | collect)
 
@@ -76,26 +76,26 @@ class MyTestCase(unittest.TestCase):
         | insert[ET.Foo['x1']] 
         | insert[(AET.Int | assign[41])] 
         | insert[AET.Int['k2'] | assign[42] ] 
-        | insert[(Z['x1'], RT.A['r2'], ET.Baz)]
-        | insert[(Z['r2'], RT.B, AET.String| assign["Fred"])]    # assign value in one go
-        | insert[(Z['r2'], RT.C, AET.String['aet1'] | assign["Some"])]    # internal id
-        | insert[(Z['r2'], RT.G, "Egypt")]                  # value node
+        | insert[(Any['x1'], RT.A['r2'], ET.Baz)]
+        | insert[(Any['r2'], RT.B, AET.String| assign["Fred"])]    # assign value in one go
+        | insert[(Any['r2'], RT.C, AET.String['aet1'] | assign["Some"])]    # internal id
+        | insert[(Any['r2'], RT.G, "Egypt")]                  # value node
         | insert[AET.String] 
         | insert[AET.String['n1'] | assign["zeyad"]]
         | insert[AET.String | assign["wow"]]
         | insert[AET.Int['n2'] | assign[45]]
-        | insert[Z['n2']| assign[8]]
+        | insert[Any['n2'] | assign[8]]
         | insert[ET.Person['p1']] 
         | insert[Val("r2")]
         | insert[Val(ET.Foo)]
         | insert[Val("English")]
-        | insert[(ET.Cat['c1'], RT.D['r1'], Z['n1'])]
-        | insert[(Z['r1'], RT.E, Val("English"))]
-        | insert[(Z['r1'], RT.F, Z['r2'])]
+        | insert[(ET.Cat['c1'], RT.D['r1'], Any['n1'])]
+        | insert[(Any['r1'], RT.E, Val("English"))]
+        | insert[(Any['r1'], RT.F, Any['r2'])]
         | insert[z4 | assign['500000'] ]
         | insert[z5]
         | insert[z1] 
-        | insert[(z1, RT.H['t1'], Z['n1'])]
+        | insert[(z1, RT.H['t1'], Any['n1'])]
         | insert[RelationRef(rt)]
         | insert[z3]
         | insert[z2]
@@ -159,7 +159,7 @@ class MyTestCase(unittest.TestCase):
         fg2 = (fg2 
             | insert[(ET.Foo['x1'], RT.X, z0)]       
             | insert[(ET.Cat, RT.Y['r1'],AET.String['n1'] |assign["42"])]    
-            | insert[(Z['r1'], RT.Z, Val("English"))]   
+            | insert[(Any['r1'], RT.Z, Val("English"))]   
             | insert[Val("Zeyad")]
             | insert[AET.Float['f1']] 
             | collect
