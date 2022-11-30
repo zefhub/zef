@@ -103,10 +103,6 @@ from .graph_events import assigned, terminated, instantiated
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
 
-# Temporary deprecated naming
-NamedZ = VT.insert_VT("NamedZ", ZExpression & Is[_ops.get_field["root_node"] | _ops.And[_ops.is_a[EntityValueInstance]][_ops.get_field["arg1"] | _ops.equals[ET.Z]]])
-
-
 
 def visual_exception_view(error_value):
     from zef.core._error import zef_ui_err

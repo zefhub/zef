@@ -36,21 +36,32 @@ from .internals import instantiate_value_node_imp
 
 from .VT import make_VT
 
+NamedAny = VT.insert_VT("NamedAny", ValueType & Is[without_absorbed | equals[Any]] & Is[absorbed | length | greater_than[0]])
+# Temporary deprecated naming
+def delayed_check_namedz(x):
+    if not isinstance(x, ZExpression):
+        return False
+    if x.root_node._entity_type != ET.GetItem:
+        return False
+    if not x.root_node._kwargs['arg1']== ET.Z:
+        return False
+    return True
+NamedZ = VT.insert_VT("NamedZ", Is[delayed_check_namedz])
+# NamedZ = VT.insert_VT("NamedZ", ZExpression & Is[_ops.get_field["root_node"] | _ops.And[_ops.is_a[EntityValueInstance]][_ops.get_field["arg1"] | _ops.equals[ET.Z]]])
+
 PleaseInstantiate = UserValueType("PleaseInstantiate", Dict, Pattern[{"raet": RAET}])
 PleaseTerminate = UserValueType("PleaseInstantiate", Dict, Pattern[{
     "target": RAE | ZefOp[Z],
     "internal_id": String | Nil,
 }])
-IsAny = Is[without_absorbed | equals[Any]]
 PleaseAssign = UserValueType("PleaseAssign",
                               Dict,
                               # Pattern[{"target": AttributeEntity,
                               # Pattern[{"target": Any,
-                              Pattern[{"target": AttributeEntity | ZefOp[Z] | AET | IsAny,
+                              Pattern[{"target": AttributeEntity | ZefOp[Z] | NamedAny | NamedZ | AET,
                                        "value": Any}])
 PleaseCommand = PleaseInstantiate | PleaseAssign | PleaseTerminate
 
-NamedAny = VT.insert_VT("NamedAny", ValueType & Is[without_absorbed | equals[Any]] & Is[absorbed | length | greater_than[0]])
 
 from abc import ABC
 class ListOrTuple(ABC):
@@ -441,7 +452,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif isinstance(x, PleaseCommand):
         return
 
-    elif isinstance(x, VT.NamedZ):
+    elif isinstance(x, NamedZ):
         return
 
     elif isinstance(x, NamedAny):
@@ -1008,7 +1019,7 @@ def realise_single_node(x, gen_id):
                 iid,exprs = realise_single_node(new_op, gen_id)
             else:
                 raise NotImplementedError(f"Can't pass zefops to GraphDelta: for {x}")
-    elif isinstance(x, VT.NamedZ):
+    elif isinstance(x, NamedZ):
         iid = x.root_node.arg2
         # No expr to perform
         exprs = []

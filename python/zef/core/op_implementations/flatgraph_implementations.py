@@ -30,7 +30,7 @@ from typing import Generator, Iterable, Iterator
 
 #-----------------------------FlatGraph Implementations-----------------------------------
 def fg_insert_imp(fg, new_el):
-    from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types, PleaseAssign, IsAny
+    from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types, PleaseAssign
     from ...pyzef.internals import DelegateRelationTriple
 
     def without_names(raet):
@@ -166,7 +166,7 @@ def fg_insert_imp(fg, new_el):
             if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
             idx = new_key_dict.get(key, key)
 
-        elif is_a(new_el, IsAny):
+        elif is_a(new_el, NamedAny):
             key = absorbed(new_el) | first | collect
             if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
             idx = new_key_dict.get(key, key)
@@ -191,7 +191,7 @@ def fg_insert_imp(fg, new_el):
                     new_blobs.append((idx, aet_maybe, [], None, aet_value))
                     if internal_id: new_key_dict[internal_id] = idx
             
-            elif is_a(first_op, IsAny):
+            elif is_a(first_op, NamedAny):
                 key = absorbed(first_op) | first | collect
                 aet_value = new_el.value
                 if key not in new_key_dict and not isinstance(key, Int): raise KeyError(f"{key} doesn't exist in internally known ids!")
@@ -266,7 +266,7 @@ def fg_insert_imp(fg, new_el):
                 if internal_id: new_key_dict[internal_id] = idx
 
             # Case of Any['a']
-            elif is_a(rt, IsAny): 
+            elif is_a(rt, NamedAny): 
                 raise ValueError(f"Cannot reference an internal element to be used as a Relation. {rt}")
 
             new_blobs.append((idx, rt, [], None, src_idx, trgt_idx))
