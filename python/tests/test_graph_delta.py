@@ -241,6 +241,28 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(target(r), s)
         # TODO: Redo this when we know how it should look.
         # self.assertEqual(isinstance(delegate_of(z), delegate_of(ET.Person)))
+
+    def test_full_graph_merge(self):
+        g = Graph()
+
+        z = ET.Machine | g | run
+        a,b,c = (ET.Machine, RT.Something, 5) | g | run
+        d,e,f = (delegate_of(ET.Machine), RT.Metadata, "asdf") | g | run
+        _,h,i = (b, RT.Something, EN.Enum.Test) | g | run
+        _,j,_ = (a, RT.Cycle, a) | g | run
+        v = Val({"dict": "test"}) | g | run
+
+        g2 = Graph()
+        g | now | all | g2 | run
+
+        for obj in [a,b,c,  e,f,h,i,j]:
+            self.assertIn(origin_uid(obj), g2)
+            z2 = g2[discard_frame(obj)]
+            self.assertEqual(discard_frame(obj), discard_frame(z2))
+
+        self.assertIn(internals.value_hash(SerializedValue.serialize(value(v))), g2)
+            
+        
             
 
 if __name__ == '__main__':
