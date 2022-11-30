@@ -162,7 +162,7 @@ def dispatch_ror_graph(g, x):
             if 'internal_id' in cmd or 'internal_ids' in cmd:
                 return cmd
             if 'origin_rae' in cmd:
-                if is_a(cmd['origin_rae'], Delegate):
+                if is_a(cmd['origin_rae'], Delegate | Val):
                     internal_id = cmd['origin_rae']
                 else:
                     internal_id = uid(cmd['origin_rae'])
@@ -303,8 +303,10 @@ def obtain_ids(x) -> dict:
         ids = {origin_uid(x): x}
 
     elif isinstance(x, Val):
+        no_iid = Val(x.arg)
+        ids = {no_iid: x.arg}
         if x.iid is not None:
-            ids = {x.iid: x.arg}
+            ids[x.iid] = x.arg
 
     elif isinstance(x, EntityValueInstance):
         id = get_absorbed_id(x._entity_type)
@@ -597,13 +599,12 @@ def cmds_for_initial_Z(expr):
     return (expr,), ()
 
 def cmds_for_value_node(x):
-    cmd = {'cmd': 'instantiate_value_node'}
+    cmd = {'cmd': 'merge',
+           'origin_rae': x,
+           'internal_ids': []}
     
     if x.iid is not None:
-        cmd['internal_id'] = x.iid
-
-    val = x.arg
-    cmd['value'] = val
+        cmd['internal_ids'] += [x.iid]
         
     return (), [cmd]
 
@@ -631,7 +632,7 @@ def cmds_for_mergable(x):
         cmd['internal_ids'] += [a_id]
 
     if is_a(x, ZefRef) or is_a(x, EZefRef):
-        if isinstance(x, (BT.ENTITY_NODE, BT.TX_EVENT_NODE, BT.ROOT_NODE)):
+        if isinstance(x, (BT.ENTITY_NODE, BT.TX_EVENT_NODE, BT.ROOT_NODE, BT.VALUE_NODE)):
             return (), [cmd]
 
         elif isinstance(x, BT.ATTRIBUTE_ENTITY_NODE):
@@ -963,6 +964,8 @@ def realise_single_node(x, gen_id):
             d = to_delegate(x)
             exprs = [d]
             iid = d
+        elif isinstance(x, BT.VALUE_NODE):
+            iid,exprs = realise_single_node(Val(value(x)), gen_id)
         else:
             exprs = [x]
             iid = origin_uid(x)
@@ -971,11 +974,10 @@ def realise_single_node(x, gen_id):
         iid = origin_uid(x)
     elif isinstance(x, Val):
         if x.iid is None:
-            iid = gen_id()
-            exprs = [x[iid]]
+            iid = x
         else:
             iid = x.iid
-            exprs = [x]
+        exprs = [x]
     elif isinstance(x, shorthand_scalar_types):
         iid = gen_id()
         aet = map_scalar_to_aet_type(x)
@@ -1185,9 +1187,6 @@ def command_ordering_by_type(d_raes: dict) -> int:
     if d_raes['cmd'] == 'merge':
         if isinstance(d_raes['origin_rae'], Relation): return 0.5
         else: return 0
-    if d_raes['cmd'] == 'instantiate_value_node':
-        # Comes before AET in case there is an assignment there
-        return 1.5
     if d_raes['cmd'] == 'instantiate':
         if isinstance(d_raes['rae_type'], ET): return 1
         if isinstance(d_raes['rae_type'], AET): return 2
@@ -1218,15 +1217,27 @@ def get_ids(cmd):
     ids = []
     if cmd['cmd'] in ['merge', "terminate"]:
         ids += cmd.get("internal_ids", [])
-        if isinstance(cmd['origin_rae'], Delegate):
-            ids += [cmd['origin_rae']]
-        else:
-            ids += [uid(cmd['origin_rae'])]
+        ids += [id_from_ref(cmd['origin_rae'])]
+        # if isinstance(cmd['origin_rae'], Delegate):
+        #     ids += [cmd['origin_rae']]
+        # else:
+        #     ids += [uid(cmd['origin_rae'])]
     else:
         this_id = get_id(cmd)
         if this_id is not None:
             ids += [this_id]
     return ids
+
+def id_from_ref(obj):
+    if isinstance(obj, DelegateRef):
+        return obj
+    elif isinstance(obj, Val):
+        # Get rid of an iid if it has one
+        return Val(obj.arg)
+    elif isinstance(obj, RAERef):
+        return origin_uid(obj)
+
+    raise Exception(f"Shouldn't get here: {obj}")
 
 def resolve_dag_ordering_step(arg: dict)->dict:
     # arg is "state" + "num_changed"
@@ -1238,11 +1249,9 @@ def resolve_dag_ordering_step(arg: dict)->dict:
         if cmd['cmd'] == 'instantiate':
             # If we are creating an RT, wait until both source/target exist
             return not isinstance(cmd['rae_type'], RT) or (cmd['source'] in ids and cmd['target'] in ids)
-        if cmd['cmd'] == 'instantiate_value_node':
-            return True
         if cmd['cmd'] == 'merge':
             # If the merge is of a relation, we need both source and target to exist already
-            return not isinstance(cmd['origin_rae'], Relation) or (cmd['origin_rae'].d["uids"][0] in ids and cmd['origin_rae'].d["uids"][2] in ids)
+            return not isinstance(cmd['origin_rae'], Relation) or (id_from_ref(cmd['origin_rae'].d["source"]) in ids and id_from_ref(cmd['origin_rae'].d["target"]) in ids)
         if cmd['cmd'] == 'terminate':
             # Don't terminate if there an upcoming operation that will create this item
             return all(my_id not in get_ids(other) for other in input for my_id in get_ids(cmd) if other['cmd'] != 'terminate')
@@ -1372,7 +1381,7 @@ def unpack_receipt(unpacking_template, receipt: dict):
             return [step(el) for el in x]
         if isinstance(x, dict):
             return {k: step(v) for k,v in x.items()}
-        return receipt[x] if isinstance(x, str) or is_a(x, UID) or is_a(x, Delegate) else x
+        return receipt[x] if isinstance(x, (str, UID, Delegate, Val)) else x
     return step(unpacking_template)
 
 
@@ -1408,10 +1417,6 @@ def perform_transaction_commands(commands: list, g: Graph):
                 
                 elif cmd['cmd'] == 'instantiate' and is_a(cmd['rae_type'], RT):
                     zz = instantiate(to_ezefref(d_raes[cmd['source']]), internals.get_c_token(cmd['rae_type']), to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
-                
-                elif cmd['cmd'] == 'instantiate_value_node':
-                    val = cmd['value']
-                    zz = instantiate_value_node_imp(val, g)
                 
                 elif cmd['cmd'] == 'assign':
                     this_id = cmd['internal_id']
@@ -1496,14 +1501,17 @@ def perform_transaction_commands(commands: list, g: Graph):
                         d = cmd['origin_rae']
                         zz = internals.delegate_to_ezr(d, g, True, 0)
                         zz = now(zz)
+                    elif is_a(cmd['origin_rae'], Val):
+                        zz = instantiate_value_node_imp(cmd['origin_rae'].arg, g)
+                        zz = now(zz)
                     else:
-                        candidate = most_recent_rae_on_graph(uid(cmd['origin_rae']), g)
+                        candidate = most_recent_rae_on_graph(id_from_ref(cmd['origin_rae']), g)
                         if candidate is not None:
                             # this is already on the graph. Just assert and move on
                             assert abstract_type(cmd['origin_rae']) == abstract_type(candidate), f"Abstract types don't match: {abstract_type(cmd['origin_rae'])!r} != {abstract_type(candidate)!r}"
                             zz = candidate
                         else:
-                            origin_rae_uid = uid(cmd['origin_rae'])
+                            origin_rae_uid = origin_uid(cmd['origin_rae'])
                             if isinstance(cmd['origin_rae'], EntityRef):
                                 zz = internals.merge_entity_(
                                     g, 
@@ -1519,7 +1527,8 @@ def perform_transaction_commands(commands: list, g: Graph):
                                     origin_rae_uid.graph_uid,
                                 )
                             elif isinstance(cmd['origin_rae'], RelationRef):
-                                src_origin_uid,_,trg_origin_uid = cmd['origin_rae'].d["uids"]
+                                src_origin_uid = id_from_ref(cmd['origin_rae'].d["source"])
+                                trg_origin_uid = id_from_ref(cmd['origin_rae'].d["target"])
                                 z_src = d_raes.get(src_origin_uid, most_recent_rae_on_graph(src_origin_uid, g))                                    
                                 z_trg = d_raes.get(trg_origin_uid, most_recent_rae_on_graph(trg_origin_uid, g))                                    
 
@@ -1659,9 +1668,21 @@ def get_curried_arg(op, n):
     # return op.el_ops[arg_indx][1][n]
     return LazyValue(op) | absorbed | nth[n] | collect
 
+def most_recent_rae_on_graph(id, g: Graph)->ZefRef|Nil:
+    if isinstance(id, EternalUID):
+        return most_recent_rae_on_graph_uidonly(id, g)
+    elif isinstance(id, DelegateRef):
+        return to_delegate(id, g)
+    elif isinstance(id, Val):
+        val = id.arg
+        if not isinstance(val, scalar_types):
+            val = SerializedValue.serialize(val)
+        return internals.search_value_node(val, g)
 
-
-def most_recent_rae_on_graph(origin_uid: str, g: Graph)->ZefRef:
+    raise Exception(f"Shouldn't get here: {id}, {type(id)}")
+            
+        
+def most_recent_rae_on_graph_uidonly(origin_uid: str, g: Graph)->ZefRef|Nil:
     """
     Will definitely not return a BT.ForeignInstance, always an instance.
     It could be that the node asked for has its origin on this graph 

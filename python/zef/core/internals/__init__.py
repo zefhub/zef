@@ -116,6 +116,7 @@ from ...pyzef.internals import (
     parse_payload_update_heads,
     partial_hash,
     root_node_blob_index,
+    search_value_node,
     set_data_layout_version_info,
     set_graph_revision_info,
     show_blob_details,

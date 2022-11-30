@@ -21,7 +21,7 @@ __all__ = [
 ]
 
 from ._core import *
-from .internals import BaseUID, EternalUID, ZefRefUID
+from .internals import BaseUID, EternalUID, ZefRefUID, Val_
 from .VT import *
 from .VT import ValueType_
 from ._ops import *
@@ -234,10 +234,7 @@ def serialize_zeftypes(z) -> dict:
 
     elif isinstance(z, (EntityRef, RelationRef, AttributeEntityRef)):
         abstract_type = {EntityRef_: "Entity", RelationRef_: "Relation", AttributeEntityRef_: "AttributeEntity"}[type(z)]
-        uid_or_uids = "uids" if abstract_type == "Relation" else "uid"
-        type_or_types = [serialize_internal(rae) for rae in z.d['type']] if abstract_type == "Relation" else serialize_internal(z.d['type'])
-        absorbed_args = z.d['absorbed']
-        return {"_zeftype": abstract_type, "type": type_or_types, uid_or_uids: serialize_internal(z.d[uid_or_uids]), 'absorbed': serialize_internal(absorbed_args)}
+        return {"_zeftype": abstract_type, "d": serialize_internal(z.d)}
 
     elif isinstance(z, Error):
         return {"_zeftype": "Error", "type": z.name, "args": serialize_list(z.args)}
@@ -300,6 +297,13 @@ def serialize_user_value_instance(uvi):
         "_zeftype": "UserValueInstance",
         "user_type_id": uvi._user_type_id,
         "value": serialize_internal(uvi._value),
+    }
+
+def serialize_val(val):
+    return {
+        "_zeftype": "Val",
+        "arg": serialize_internal(val.arg),
+        "iid": serialize_internal(val.iid),
     }
 
 
@@ -396,11 +400,8 @@ def deserialize_zeftypes(z) -> dict:
 
     elif z['_zeftype']  in {"Entity", "Relation", "AttributeEntity"}:
         abstract_type = {"Entity": EntityRef, "Relation": RelationRef, "AttributeEntity": AttributeEntityRef}[z['_zeftype']]
-        uid_or_uids = "uids" if z['_zeftype'] == "Relation" else "uid"
-        uid_or_uids_value = deserialize_internal(z[uid_or_uids])
-        type_or_types = tuple([deserialize_internal(rae) for rae in z['type']]) if z['_zeftype'] == "Relation" else deserialize_internal(z['type'])
-        absorbed_args = deserialize_internal(z['absorbed'])
-        return abstract_type({'type': type_or_types, uid_or_uids: uid_or_uids_value, 'absorbed': absorbed_args})
+        d = deserialize_internal(z["d"])
+        return abstract_type(d)
 
     elif z['_zeftype'] == "Error":
         return getattr(Error, z['type'])(*deserialize_list(z['args']))
@@ -480,6 +481,12 @@ def deserialize_user_value_instance(d):
         deserialize_internal(d["value"]),
     )
 
+def deserialize_val(d):
+    return Val(
+        deserialize_internal(d["arg"]),
+        deserialize_internal(d["iid"]),
+    )
+
 serialization_mapping[internals.ZefRef] = serialize_zeftypes
 # serialization_mapping[ZefRefs] = serialize_zeftypes
 serialization_mapping[internals.EZefRef] = serialize_zeftypes
@@ -521,6 +528,7 @@ serialization_mapping[tuple] = serialize_tuple
 serialization_mapping[dict] = serialize_dict
 serialization_mapping[SymbolicExpression_] = serialize_symbolicexpression
 serialization_mapping[UserValueInstance_] = serialize_user_value_instance
+serialization_mapping[Val_] = serialize_val
 
 deserialization_mapping["dict"] = deserialize_dict
 deserialization_mapping["tuple"] = deserialize_tuple
@@ -565,3 +573,4 @@ deserialization_mapping["pyinternals.DelegateRelationTriple"] = deserialize_dele
 deserialization_mapping["ValueType"] = deserialize_valuetype
 deserialization_mapping["SymbolicExpression"] = deserialize_symbolicexpression
 deserialization_mapping["UserValueInstance"] = deserialize_user_value_instance
+deserialization_mapping["Val"] = deserialize_val

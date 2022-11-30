@@ -180,34 +180,36 @@ class RelationRef_:
     It will become a zef value in future.
     """
     def __init__(self, x):
-        from ._ops import origin_uid, rae_type, source, target
+        from ._ops import origin_uid, rae_type, source, target, origin_rae
         if isinstance(x, ZefRef) or isinstance(x, EZefRef):
             assert BT(x)==BT.RELATION_EDGE
             self.d = {
-                'type': (rae_type(source(x)), RT(x), rae_type(target(x))),
-                'uids': (origin_uid(source(x)), origin_uid(x), origin_uid(target(x))),
+                'type': RT(x),
+                'uid': origin_uid(x),
+                'source': origin_rae(source(x)),
+                'target': origin_rae(target(x)),
                 'absorbed': (),
-            }        
+            }
         elif isinstance(x, RelationRef):
             return x
         elif isinstance(x, dict):
-            assert 'type' in x and 'uids' in x
-            assert type(x['type']) == tuple and len(x['type']) == 3 and issubclass(x['type'][1], RT)
-            assert type(x['uids']) == tuple and len(x['uids']) == 3 
+            assert set(x.keys()) == {'type', 'uid', 'source', 'target', 'absorbed'}
+            assert issubclass(x['type'], RT)
+            x = dict(**x)
             x['absorbed'] = x.get('absorbed', ())
             self.d = x
         else:
             raise TypeError(f"can't construct an abstract relation from a type(x)={type(x)}.  Value passed in: x={x}")
 
     def __repr__(self):
-        return f'Relation({repr(self.d["type"])}, {repr(self.d["uids"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
+        return f'Relation({repr(self.d["type"])}, {repr(self.d["uid"])})' + ''.join(('[' + repr(el) + ']' for el in self.d['absorbed']))
 
     def __eq__(self, other):
         if not isinstance(other, RelationRef): return False
-        return self.d['type'] == other.d['type'] and self.d['uids'] == other.d['uids']
+        return all(self.d[x] == other.d[x] for x in ['type', 'uid', 'source', 'target'])
 
     def __hash__(self):
-            return hash(''.join([str(x) for x in self.d['uids']]))
+            return hash(self.d['uid'])
             
     def __getitem__(self, x):
         return RelationRef_({**self.d, 'absorbed': (*self.d['absorbed'], x)})

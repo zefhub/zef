@@ -120,7 +120,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("has_uid", &internals::has_uid);
 
     internals_submodule.def("value_hash", [](const value_variant_t& val) { return internals::value_hash(val); });
-    internals_submodule.def("value_hash", [](const SerializedValue& val) { return internals::value_hash(val); });
+    internals_submodule.def("search_value_node", [](const value_variant_t& val, Graph& g) { return internals::search_value_node(val, g.my_graph_data()); });
 
 	internals_submodule.def("size_of_blob", &size_of_blob);
 

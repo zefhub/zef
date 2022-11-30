@@ -5341,7 +5341,7 @@ def origin_rae_imp(x):
         return x
     if isinstance(x, BlobPtr):
         if internals.is_delegate(x):
-            raise Exception("TODO: Implement origin_rae(ZefRef) when ZefRef is a delegate")
+            return to_delegate(x)
         if BT(x) == BT.ENTITY_NODE:
             return EntityRef(x)
         elif BT(x) == BT.RELATION_EDGE:
@@ -5352,6 +5352,8 @@ def origin_rae_imp(x):
             return TXNodeRef(x)
         elif BT(x) == BT.ROOT_NODE:
             return RootRef(x)
+        elif BT(x) == BT.VALUE_NODE:
+            return Val(value(x))
         raise Exception("Not a ZefRef that is a concrete RAE")
     if is_a_implementation(x, Delegate):
         return x
@@ -6356,7 +6358,7 @@ def source_implementation(zr, *curried_args):
     if isinstance(zr, FlatRef):
         return fr_source_imp(zr)
     if isinstance(zr, RelationRef):
-        return abstract_rae_from_rae_type_and_uid(zr.d["type"][0], zr.d["uids"][0])
+        return zr.d["source"]
     if isinstance(zr, DelegateRef):
         from ...pyzef.internals import DelegateRelationTriple
         if not isinstance(zr.item, DelegateRelationTriple):
@@ -6370,7 +6372,7 @@ def target_implementation(zr):
     if isinstance(zr, FlatRef):
         return fr_target_imp(zr)
     if isinstance(zr, RelationRef):
-        return abstract_rae_from_rae_type_and_uid(zr.d["type"][2], zr.d["uids"][2])
+        return zr.d["target"]
     if isinstance(zr, DelegateRef):
         from ...pyzef.internals import DelegateRelationTriple
         if not isinstance(zr.item, DelegateRelationTriple):
@@ -6422,10 +6424,8 @@ def termination_tx_implementation(z):
 def uid_implementation(arg):
     if isinstance(arg, String):
         return to_uid(arg)
-    if isinstance(arg, (EntityRef, AttributeEntityRef, TXNodeRef, RootRef)):
+    if isinstance(arg, RAERef):
         return arg.d["uid"]
-    if isinstance(arg, RelationRef):
-        return arg.d["uids"][1]
     if is_a(arg, UID):
         return arg
     return pyzefops.uid(arg)
@@ -6438,11 +6438,19 @@ def base_uid_implementation(first_arg):
     return base_uid(uid(first_arg))
 
 def zef_id_imp(x):
-    if BT(x) == BT.VALUE_NODE:
-        from ...pyzef.zefops import SerializedValue
-        return f"hash: {internals.value_hash(SerializedValue.serialize(value(x)))})"
-    if internals.has_uid(to_ezefref(x)):
-        return uid(x)
+    if isinstance(x, BlobPtr):
+        if BT(x) == BT.VALUE_NODE:
+            from ...pyzef.zefops import SerializedValue
+            return f"hash: {internals.value_hash(SerializedValue.serialize(value(x)))})"
+        elif internals.is_delegate(x):
+            return zef_id_imp(to_delegate(x))
+        elif internals.has_uid(to_ezefref(x)):
+            return uid(x)
+    elif isinstance(x, RAERef):
+        return origin_uid(x)
+    elif isinstance(x, DelegateRef):
+        return str(x)
+            
     raise Exception(f"Don't know how to represent UID of object ({x})")
 
 def exists_at_implementation(z, frame):
