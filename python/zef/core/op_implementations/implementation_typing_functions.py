@@ -5307,7 +5307,7 @@ def time_travel_tp(x, p):
 
 def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
-    if isinstance(z, RAERef):
+    if isinstance(z, AtomRef):
         return uid(z)
     assert BT(z) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
@@ -5337,7 +5337,7 @@ def origin_uid_tp(x):
 
 def origin_rae_imp(x):
     """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
-    if isinstance(x, RAERef):
+    if isinstance(x, AtomRef):
         return x
     if isinstance(x, BlobPtr):
         if internals.is_delegate(x):
@@ -6424,7 +6424,7 @@ def termination_tx_implementation(z):
 def uid_implementation(arg):
     if isinstance(arg, String):
         return to_uid(arg)
-    if isinstance(arg, RAERef):
+    if isinstance(arg, AtomRef):
         return arg.d["uid"]
     if is_a(arg, UID):
         return arg
@@ -6446,7 +6446,7 @@ def zef_id_imp(x):
             return zef_id_imp(to_delegate(x))
         elif internals.has_uid(to_ezefref(x)):
             return uid(x)
-    elif isinstance(x, RAERef):
+    elif isinstance(x, AtomRef):
         return origin_uid(x)
     elif isinstance(x, DelegateRef):
         return str(x)

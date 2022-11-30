@@ -1235,7 +1235,7 @@ def id_from_ref(obj):
     elif isinstance(obj, Val):
         # Get rid of an iid if it has one
         return Val(obj.arg)
-    elif isinstance(obj, RAERef):
+    elif isinstance(obj, AtomRef):
         return origin_uid(obj)
 
     raise Exception(f"Shouldn't get here: {obj}")
