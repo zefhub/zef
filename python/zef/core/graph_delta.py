@@ -23,7 +23,7 @@ from functools import partial as P
 
 from .. import pyzef
 from ._core import *
-from . import internals
+from . import internals, VT
 from .zef_functions import func
 from .VT import *
 from ._ops import *
@@ -49,6 +49,8 @@ PleaseAssign = UserValueType("PleaseAssign",
                               Pattern[{"target": AttributeEntity | ZefOp[Z] | AET | IsAny,
                                        "value": Any}])
 PleaseCommand = PleaseInstantiate | PleaseAssign | PleaseTerminate
+
+NamedAny = VT.insert_VT("NamedAny", ValueType & Is[without_absorbed | equals[Any]] & Is[absorbed | length | greater_than[0]])
 
 from abc import ABC
 class ListOrTuple(ABC):
@@ -319,7 +321,6 @@ def obtain_ids(x) -> dict:
     elif isinstance(x, PleaseAssign):
         ids = merge_no_overwrite(ids, obtain_ids(x.target))
 
-
     # This is an extra step on top of the previous checks
     # if type(x) in [Entity, AttributeEntity, Relation, EntityType,
     #                 AttributeEntityType, RelationType, ZefRef, EZefRef]:
@@ -438,6 +439,12 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
         return
 
     elif isinstance(x, PleaseCommand):
+        return
+
+    elif isinstance(x, VT.NamedZ):
+        return
+
+    elif isinstance(x, NamedAny):
         return
 
     else:
@@ -909,7 +916,6 @@ def realise_single_node(x, gen_id):
 
     from .VT import ZExpression
     from .VT.value_type import type_name
-    NamedZ = ZExpression & Is[get_field["root_node"] | And[is_a[EntityValueInstance]][get_field["arg1"] | equals[ET.Z]]]
 
     # First case of removing lazy values
     if isinstance(x, LazyValue):
@@ -1002,14 +1008,13 @@ def realise_single_node(x, gen_id):
                 iid,exprs = realise_single_node(new_op, gen_id)
             else:
                 raise NotImplementedError(f"Can't pass zefops to GraphDelta: for {x}")
-    elif isinstance(x, NamedZ):
+    elif isinstance(x, VT.NamedZ):
         iid = x.root_node.arg2
         # No expr to perform
         exprs = []
-    elif isinstance(x, ValueType) and type_name(x) == "Any":
-        from .VT.helpers import names_of
-        names = names_of(x)
-        assert len(names) == 1
+    elif isinstance(x, NamedAny):
+        names = names_of_any(x)
+        assert len(names) == 1, f"Too many names: {names} in {x}"
         iid = names[0]
         # No expr to perform
         exprs = []
@@ -1853,3 +1858,8 @@ def isinstance_lv_safe(instance, types):
     # argument could be a lazy value, that means it can't be used with tag or
     # set_field at the moment.
     return not isinstance(instance, LazyValue) and isinstance(instance, types)
+
+def names_of_any(a):
+    assert isinstance(a, NamedAny)
+
+    return absorbed(a)
