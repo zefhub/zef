@@ -6763,7 +6763,7 @@ def rae_type_implementation(z):
     if isinstance(z, EntityRef):
         return z.d["type"]
     if isinstance(z, RelationRef):
-        return z.d["type"][1]
+        return z.d["type"]
     if isinstance(z, AttributeEntityRef):
         return z.d["type"]
     # return pymain.rae_type(z)

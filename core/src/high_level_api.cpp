@@ -595,6 +595,8 @@ namespace zefDB {
 			*/
 			// assert BT(z_instance) in { BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE }
 
+            if(is_delegate(z_instance))
+                return z_instance;
 			auto z_rae_inst = (z_instance < BT.RAE_INSTANCE_EDGE);
 			auto origin_candidates = z_rae_inst >> L[BT.ORIGIN_RAE_EDGE];
 			return length(origin_candidates) == 1 ? (origin_candidates | only) : z_rae_inst;

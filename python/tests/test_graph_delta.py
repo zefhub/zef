@@ -175,7 +175,8 @@ class MyTestCase(unittest.TestCase):
             first_name="Joe",
             last_name="Bloggs",
             height=99,
-            friend=ET.Person(
+            # friend=ET.Person(
+            friend_temp=ET.Person(
                 first_name="Jane",
                 last_name="Doe",
                 height=142,
@@ -184,14 +185,15 @@ class MyTestCase(unittest.TestCase):
 
         z_joe = x | g | run
         self.assertEqual(rae_type(z_joe), ET.Person)
-        self.assertEqual(z_joe | F.FirstName | collect, "Joe")
-        self.assertEqual(z_joe | F.LastName | collect, "Bloggs")
-        self.assertEqual(z_joe | F.Height | collect, 99)
-        z_jane = z_joe | F.Friend | collect
+        self.assertEqual(z_joe | F.first_name | collect, "Joe")
+        self.assertEqual(z_joe | F.last_name | collect, "Bloggs")
+        self.assertEqual(z_joe | F.height | collect, 99)
+        # z_jane = z_joe | F.Friend | collect
+        z_jane = z_joe | F.friend_temp | collect
         self.assertEqual(rae_type(z_jane), ET.Person)
-        self.assertEqual(z_jane | F.FirstName | collect, "Jane")
-        self.assertEqual(z_jane | F.LastName | collect, "Doe")
-        self.assertEqual(z_jane | F.Height | collect, 142)
+        self.assertEqual(z_jane | F.first_name | collect, "Jane")
+        self.assertEqual(z_jane | F.last_name | collect, "Doe")
+        self.assertEqual(z_jane | F.height | collect, 142)
 
         g = Graph()
 
@@ -199,7 +201,8 @@ class MyTestCase(unittest.TestCase):
             first_name="Joe",
             last_name="Bloggs",
             height=99,
-            friend=ET.Person["jane"](
+            # friend=ET.Person["jane"](
+            friend_temp=ET.Person["jane"](
                 first_name="Jane",
                 last_name="Doe",
                 height=142,
@@ -213,16 +216,17 @@ class MyTestCase(unittest.TestCase):
 
         z_joe = r["joe"]
         self.assertEqual(rae_type(z_joe), ET.Person)
-        self.assertEqual(z_joe | F.FirstName | collect, "Joe")
-        self.assertEqual(z_joe | F.LastName | collect, "Bloggs")
-        self.assertEqual(z_joe | F.Height | collect, 99)
+        self.assertEqual(z_joe | F.first_name | collect, "Joe")
+        self.assertEqual(z_joe | F.last_name | collect, "Bloggs")
+        self.assertEqual(z_joe | F.height | collect, 99)
 
         z_jane = r["jane"]
-        self.assertEqual(z_joe | F.Friend | collect, z_jane)
+        # self.assertEqual(z_joe | F.friend | collect, z_jane)
+        self.assertEqual(z_joe | F.friend_temp | collect, z_jane)
         self.assertEqual(rae_type(z_jane), ET.Person)
-        self.assertEqual(z_jane | F.FirstName | collect, "Jane")
-        self.assertEqual(z_jane | F.LastName | collect, "Doe")
-        self.assertEqual(z_jane | F.Height | collect, 142)
+        self.assertEqual(z_jane | F.first_name | collect, "Jane")
+        self.assertEqual(z_jane | F.last_name | collect, "Doe")
+        self.assertEqual(z_jane | F.height | collect, 142)
 
         self.assertEqual(z_jane | Out[RT.Something] | collect, z_joe)
 
@@ -247,7 +251,7 @@ class MyTestCase(unittest.TestCase):
 
         z = ET.Machine | g | run
         a,b,c = (ET.Machine, RT.Something, 5) | g | run
-        d,e,f = (delegate_of(ET.Machine), RT.Metadata, "asdf") | g | run
+        d,e,f = (delegate_of(ET.Machine), RT.Metadata, Val("asdf")) | g | run
         _,h,i = (b, RT.Something, EN.Enum.Test) | g | run
         _,j,_ = (a, RT.Cycle, a) | g | run
         v = Val({"dict": "test"}) | g | run
@@ -255,12 +259,14 @@ class MyTestCase(unittest.TestCase):
         g2 = Graph()
         g | now | all | g2 | run
 
-        for obj in [a,b,c,  e,f,h,i,j]:
+        for obj in [a,b,c,  e,  h,i,j]:
             self.assertIn(origin_uid(obj), g2)
-            z2 = g2[discard_frame(obj)]
+            self.assertIn(origin_rae(obj), g2)
+            z2 = g2 | now | get[discard_frame(obj)] | collect
             self.assertEqual(discard_frame(obj), discard_frame(z2))
 
-        self.assertIn(internals.value_hash(SerializedValue.serialize(value(v))), g2)
+        self.assertIsNot(internals.search_value_node(value(f), g2), None)
+        self.assertIsNot(internals.search_value_node(internals.SerializedValue.serialize(value(v)), g2), None)
             
         
             

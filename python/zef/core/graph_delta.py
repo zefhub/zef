@@ -446,7 +446,8 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
 @func    
 def verify_relation_source_target(x, id_definitions):
     if isinstance_lv_safe(x, RelationRef):
-        assert all(u in id_definitions for u in x.d["uids"]), "A Relation doesn't have its corresponding source or target included in the GraphDelta. This is likely because you have an abstract Relation with another Relation as its source/target. These must be included explicitly into the GraphDelta."
+        assert id_from_ref(x.d["source"]) in id_definitions, "A Relation doesn't have its corresponding source included in the GraphDelta."
+        assert id_from_ref(x.d["target"]) in id_definitions, "A Relation doesn't have its corresponding source included in the GraphDelta."
 
 
 

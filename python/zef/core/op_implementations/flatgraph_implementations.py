@@ -273,13 +273,19 @@ def fg_insert_imp(fg, new_el):
             if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
             if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
         elif is_a(new_el, RelationRef):
-            src, rt, trgt = new_el.d['type']
-            src_uid, rt_uid, trgt_uid = new_el.d['uids']
+            rt = new_el.d['type']
+            rt_uid = new_el.d["uid"]
+            src = new_el.d["source"]
+            trgt = new_el.d["target"]
+            if not isinstance(src, RAERef) or not isinstance(trgt, RAERef):
+                raise Exception("Source and target must themselves be RAERefs")
+            src_uid = origin_uid(src)
+            trgt_uid = origin_uid(trgt)
 
-            if isinstance(src, RT) and src_uid not in new_key_dict: raise ValueError("Source of an abstract Relation can't be a Relation that wasn't inserted before!")
-            if isinstance(trgt, RT) and trgt_uid not in new_key_dict: raise ValueError("Target of an abstract Relation can't be a Relation that wasn't inserted before!")
-            src_idx = construct_abstract_rae_and_return_idx(src, src_uid)
-            trgt_idx = construct_abstract_rae_and_return_idx(trgt, trgt_uid)
+            if isinstance(src, Relation) and src_uid not in new_key_dict: raise ValueError("Source of an abstract Relation can't be a Relation that wasn't inserted before!")
+            if isinstance(trgt, Relation) and trgt_uid not in new_key_dict: raise ValueError("Target of an abstract Relation can't be a Relation that wasn't inserted before!")
+            src_idx = construct_abstract_rae_and_return_idx(rae_type(src), src_uid)
+            trgt_idx = construct_abstract_rae_and_return_idx(rae_type(trgt), trgt_uid)
             idx = next_idx()
             new_blobs.append((idx, rt, [], rt_uid, src_idx, trgt_idx))
             new_key_dict[rt_uid] = idx
@@ -454,7 +460,7 @@ def flatgraph_to_commands(fg):
                 key = idx_key[idx]
                 if for_rt: return Z[key]
                 if is_a(key, UID):
-                    return RelationRef({"type": (fg.blobs[b[4]][1],b[1], fg.blobs[b[5]][1]), "uids": (idx_key[b[4]], key, idx_key[b[5]])})
+                    return RelationRef({"type": b[1], "uid": key, "source": dispatch_on_blob(fg.blobs[b[4]]), "target": dispatch_on_blob(fg.blobs[b[5]]), "absorbed": ()})
             if for_rt: return Z[idx]
             src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)
             trgt_blb = dispatch_on_blob(fg.blobs[b[5]], True)

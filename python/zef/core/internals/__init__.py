@@ -133,6 +133,9 @@ from ...pyzef.internals import (
 from ...pyzef.verification import (
     verify_graph
 )
+from ...pyzef.zefops import (
+    SerializedValue
+)
 
 from ...pyzef.main import ZefRef, zwitch
 
@@ -278,3 +281,7 @@ class Val_:
         if self.iid is not None:
             raise Exception("Can't overwrite iid")
         return Val_(self.arg, x)
+
+    def __hash__(self):
+        from ..VT.value_type import hash_frozen
+        return hash_frozen(("Val_", self.arg, self.iid))
