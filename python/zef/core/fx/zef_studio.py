@@ -64,7 +64,7 @@ def make_cellet_value(obj):
         }
 
 def make_individual_value(obj):
-   if is_a(obj, ET): return make_cellet_value(obj)
+   if is_a(obj, Entity): return make_cellet_value(obj)
 
    types = {AET.String: "CellString", AET.Float: "CellFloat", AET.Bool: "CellBoolean", AET.Int: "CellInt"}
       
@@ -132,7 +132,7 @@ def single_entity(query_args):
 
    g = Graph(graph_id)
    entity = g[et_id]
-   if not is_a(entity, ET): return None
+   if not is_a(entity, Entity): return None
    et_type = rae_type(entity)
 
    return make_table_return(g, et_type, [entity])
@@ -150,7 +150,7 @@ def assign_value_general(query_args, aet_type):
     g = Graph(graphID)
     aet = g[aetID]
 
-    if not is_a(aet, AET): 
+    if not is_a(aet, AttributeEntity): 
       log.error(f"Cannot assign value to {aetID} as it is not an AET")
       return False 
 
