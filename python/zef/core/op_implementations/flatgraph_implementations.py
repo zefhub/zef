@@ -83,7 +83,7 @@ def fg_insert_imp(fg, new_el):
             new_blobs.append((idx, aet, [], None, new_el))
 
         elif is_a(new_el, (ZefRef, EZefRef)):
-            idx = common_logic(origin_rae(new_el))
+            idx = common_logic(discard_frame(new_el))
             if isinstance(new_blobs[idx][1], AET) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))
 

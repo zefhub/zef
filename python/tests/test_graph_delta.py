@@ -164,8 +164,8 @@ class MyTestCase(unittest.TestCase):
             RT.Supervisor: y
         }} | g | run
 
-        self.assertEqual(z | Out[RT.Supervisor] | origin_rae | collect,
-                         y | origin_rae | collect)
+        self.assertEqual(z | Out[RT.Supervisor] | discard_frame | collect,
+                         y | discard_frame | collect)
         self.assertEqual(z | F.Name | collect, "Joe")
 
     def test_object_notation(self):
@@ -261,7 +261,7 @@ class MyTestCase(unittest.TestCase):
 
         for obj in [a,b,c,  e,  h,i,j]:
             self.assertIn(origin_uid(obj), g2)
-            self.assertIn(origin_rae(obj), g2)
+            self.assertIn(discard_frame(obj), g2)
             z2 = g2 | now | get[discard_frame(obj)] | collect
             self.assertEqual(discard_frame(obj), discard_frame(z2))
 

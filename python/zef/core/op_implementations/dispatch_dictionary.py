@@ -94,7 +94,6 @@ _op_to_functions = {
         internals.RT.DiscardFrame:    (discard_frame_imp, None),
         internals.RT.BaseUid:         (base_uid_implementation, base_uid_type_info),
         internals.RT.OriginUid:       (origin_uid_imp, origin_uid_tp),
-        internals.RT.OriginRAE:       (origin_rae_imp, origin_rae_tp),
         internals.RT.ExistsAt:        (exists_at_implementation, exists_at_type_info),
         internals.RT.AwareOf:         (aware_of_implementation, None),
         internals.RT.IsZefRefPromotable:(is_zefref_promotable_implementation, is_zefref_promotable_type_info),

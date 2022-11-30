@@ -180,14 +180,14 @@ class RelationRef_:
     It will become a zef value in future.
     """
     def __init__(self, x):
-        from ._ops import origin_uid, rae_type, source, target, origin_rae
+        from ._ops import origin_uid, rae_type, source, target, discard_frame
         if isinstance(x, ZefRef) or isinstance(x, EZefRef):
             assert BT(x)==BT.RELATION_EDGE
             self.d = {
                 'type': RT(x),
                 'uid': origin_uid(x),
-                'source': origin_rae(source(x)),
-                'target': origin_rae(target(x)),
+                'source': discard_frame(source(x)),
+                'target': discard_frame(target(x)),
                 'absorbed': (),
             }
         elif isinstance(x, RelationRef):

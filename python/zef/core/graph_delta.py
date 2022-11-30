@@ -640,7 +640,7 @@ def cmds_for_instantiable(x):
     return (), [cmd]
 
 def cmds_for_mergable(x):
-    origin = origin_rae(x)
+    origin = discard_frame(x)
 
     cmd = {"cmd": "merge",
            "origin_rae": origin,
@@ -734,7 +734,7 @@ def cmds_for_please_terminate(x):
 
     cmd = {
         'cmd': 'terminate', 
-        'origin_rae': origin_rae(target)
+        'origin_rae': discard_frame(target)
         }
     if a_id is not None:
         cmd['internal_ids'] = [a_id]

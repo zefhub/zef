@@ -5098,27 +5098,49 @@ def discard_frame_imp(x):
     ZefRef[ET[T1]] -> Entity[T1]
     ZefRef[AET[T1]] -> AttributeEntity[T1]
     ZefRef[RT[T1]] -> Relation[T1]
-    ZefRef[BT.TX] -> TX           # TODO
+    ZefRef[BT.VALUE_NODE] -> Val
+    ZefRef[BT.TX] -> TXNode
     ZefRef[BT.Root] -> Graph      # TODO
 
     EZefRef[ET[T1]] -> Entity[T1]
     EZefRef[AET[T1]] -> AttributeEntity[T1]
     EZefRef[RT[T1]] -> Relation[T1]
-    EZefRef[BT.TX] -> TX          # TODO
+    EZefRef[BT.VALUE_NODE] -> Val
+    EZefRef[BT.TX] -> TXNode
     EZefRef[BT.Root] -> Graph     # TODO
 
-    Entity[T1] -> Entity[T1]
-    AttributeEntity[T1] -> AttributeEntity[T1]
-    Relation[T1] -> Relation[T1]
+    Entity -> Entity
+    AttributeEntity -> AttributeEntity
+    Relation -> Relation
+    TXNode -> TXNode
+    Root -> Root
+
+    BlobPtr & Delegate -> DelegateRef
+    DelegateRef -> DelegateRef
+
 
     ---- Tags ----
     
     """
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        if   BT(x) == BT.ENTITY_NODE: return EntityRef(x)
-        elif BT(x) == BT.RELATION_EDGE: return RelationRef(x)
-        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE: return AttributeEntityRef(x)
-    if isinstance(x, EntityRef) or isinstance(x, RelationRef) or isinstance(x, AttributeEntityRef):
+    if isinstance(x, AtomRef):
+        return x
+    if isinstance(x, BlobPtr):
+        if internals.is_delegate(x):
+            return to_delegate(x)
+        if BT(x) == BT.ENTITY_NODE:
+            return EntityRef(x)
+        elif BT(x) == BT.RELATION_EDGE:
+            return RelationRef(x)
+        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE:
+            return AttributeEntityRef(x)
+        elif BT(x) == BT.TX_EVENT_NODE:
+            return TXNodeRef(x)
+        elif BT(x) == BT.ROOT_NODE:
+            return RootRef(x)
+        elif BT(x) == BT.VALUE_NODE:
+            return Val(value(x))
+        raise Exception("Not a ZefRef that is a concrete RAE")
+    if is_a_implementation(x, Delegate):
         return x
     raise TypeError(f"'discard_frame' not implemented for type {type(x)}: it was passed {x}")
 
@@ -5333,40 +5355,6 @@ def origin_uid_imp(z) -> EternalUID:
 def origin_uid_tp(x):
     return VT.String
     
-# ------------------------------------------ origin_rae ---------------------------------------------
-
-def origin_rae_imp(x):
-    """For RAEs, return an abstract entity, relation or atomic entity. For delegates, acts as the identity.""" 
-    if isinstance(x, AtomRef):
-        return x
-    if isinstance(x, BlobPtr):
-        if internals.is_delegate(x):
-            return to_delegate(x)
-        if BT(x) == BT.ENTITY_NODE:
-            return EntityRef(x)
-        elif BT(x) == BT.RELATION_EDGE:
-            return RelationRef(x)
-        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE:
-            return AttributeEntityRef(x)
-        elif BT(x) == BT.TX_EVENT_NODE:
-            return TXNodeRef(x)
-        elif BT(x) == BT.ROOT_NODE:
-            return RootRef(x)
-        elif BT(x) == BT.VALUE_NODE:
-            return Val(value(x))
-        raise Exception("Not a ZefRef that is a concrete RAE")
-    if is_a_implementation(x, Delegate):
-        return x
-    raise Exception(f"Not a valid type for origin_rae: {type(x)}")
-    
-
-def origin_rae_tp(x):
-    return VT.Any
-    
-
-# ---------------------------------------------------------------------------------------
-
-# ---------------------------------------------------------------------------------------
 # ---------------------------------------------------------------------------------------
 
 
