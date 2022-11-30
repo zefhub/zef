@@ -433,10 +433,10 @@ def flatgraph_to_commands(fg):
                 key = idx_key[idx]
                 if is_a(key, UID): return EntityRef({"type": b[1], "uid": key})
                 else:
-                    if for_rt: return Z[key]
+                    if for_rt: return Any[key]
                     return b[1][key]
             else:
-                if b[1][idx] in return_elements: return Z[idx]
+                if b[1][idx] in return_elements: return Any[idx]
                 return  b[1][idx] 
         elif isinstance(b[1], AET):
             if idx in idx_key:
@@ -445,23 +445,23 @@ def flatgraph_to_commands(fg):
                     if b[-1] != None: return AttributeEntityRef({"type": b[1], "uid": key})| assign[b[-1]]
                     else:     return AttributeEntityRef({"type": b[1], "uid": key})
                 else:
-                    if for_rt: return Z[key]
+                    if for_rt: return Any[key]
                     if b[-1] != None: return b[1][key] | assign[b[-1]]
                     else:     return b[1][key]
             else:
                 if b[-1] != None: 
-                    if (b[1][idx] | assign[b[-1]]) in return_elements: return Z[idx] | assign[b[-1]]
+                    if (b[1][idx] | assign[b[-1]]) in return_elements: return Any[idx] | assign[b[-1]]
                     return b[1][idx] | assign[b[-1]]
                 else:     
-                    if (b[1][idx]) in return_elements: return Z[idx]
+                    if (b[1][idx]) in return_elements: return Any[idx]
                     return b[1][idx]
         elif isinstance(b[1], RT):
             if idx in idx_key: 
                 key = idx_key[idx]
-                if for_rt: return Z[key]
+                if for_rt: return Any[key]
                 if is_a(key, UID):
                     return RelationRef({"type": b[1], "uid": key, "source": dispatch_on_blob(fg.blobs[b[4]]), "target": dispatch_on_blob(fg.blobs[b[5]]), "absorbed": ()})
-            if for_rt: return Z[idx]
+            if for_rt: return Any[idx]
             src_blb  = dispatch_on_blob(fg.blobs[b[4]], True)
             trgt_blb = dispatch_on_blob(fg.blobs[b[5]], True)
             if b[0] in idx_key: base = b[1][idx_key[b[0]]]
@@ -470,7 +470,7 @@ def flatgraph_to_commands(fg):
 
         elif isinstance(b[1], str) and b[1][:2] == "BT":
             if for_rt:
-                return Z[value_hash(b[-1])]
+                return Any[value_hash(b[-1])]
             else:
                 from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types
                 if isinstance(b[-1], shorthand_scalar_types):
