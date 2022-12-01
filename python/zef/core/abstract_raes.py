@@ -113,7 +113,7 @@ class EntityRef_:
 
     def __eq__(self, other):
         if not isinstance(other, EntityRef): return False
-        return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid'] and self.d['absorbed'] == other.d['absorbed']
+        return self.d == other.d
 
     def __hash__(self):
         return hash(self.d['uid'])
@@ -156,7 +156,7 @@ class AttributeEntityRef_:
 
     def __eq__(self, other):
         if not isinstance(other, AttributeEntityRef): return False
-        return self.d['type'] == other.d['type'] and self.d['uid'] == other.d['uid']
+        return self.d == other.d
 
     def __le__(self, value):
         from ._ops import assign
@@ -206,7 +206,7 @@ class RelationRef_:
 
     def __eq__(self, other):
         if not isinstance(other, RelationRef): return False
-        return all(self.d[x] == other.d[x] for x in ['type', 'uid', 'source', 'target'])
+        return self.d == other.d
 
     def __hash__(self):
             return hash(self.d['uid'])
@@ -247,7 +247,7 @@ class TXNodeRef_:
 
     def __eq__(self, other):
         if not isinstance(other, TXNodeRef_): return False
-        return self.d['uid'] == other.d['uid'] and self.d['absorbed'] == other.d['absorbed']
+        return self.d == other.d
 
     def __hash__(self):
         return hash((TXNodeRef_, self.d['uid']))
@@ -291,7 +291,7 @@ class RootRef_:
 
     def __eq__(self, other):
         if not isinstance(other, RootRef_): return False
-        return self.d['uid'] == other.d['uid'] and self.d['absorbed'] == other.d['absorbed']
+        return self.d == other.d
 
     def __hash__(self):
         return hash((RootRef_, self.d['uid']))
