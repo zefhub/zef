@@ -227,7 +227,6 @@ exists_at       = make_zefop(internals.RT.ExistsAt)
 aware_of        = make_zefop(internals.RT.AwareOf)
 base_uid        = make_zefop(internals.RT.BaseUid)
 origin_uid      = make_zefop(internals.RT.OriginUid)
-origin_rae      = make_zefop(internals.RT.OriginRAE)
 
 has_out         = make_zefop(internals.RT.HasOut)                # z1 | has_out[RT.Foo] use  (z1, RT.Foo, Z) | exists  /   (z, RT.Foo, RAE) | exists[g]  /   (z, RT.Foo, RAE) | exists[now(g)][single]
 has_in          = make_zefop(internals.RT.HasIn)                 # z1 | has_in[RT.Foo]  use  (Z, RT.Foo, z1) | exists
