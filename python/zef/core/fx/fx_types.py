@@ -15,6 +15,8 @@
 
 #---------------------------------------------------------------------------------------
 
+from ..VT import make_VT
+
 # allow value based comparisons
 class FXElement():
     def __init__(self, args):
@@ -48,6 +50,7 @@ class FXElement():
             'type': self,
         }
 
+EffectType = make_VT("EffectType", pytype=FXElement)
 
 
 class _HTTP_Class():
@@ -87,7 +90,6 @@ class _GraphQL_Class():
     StopPlayground = FXElement(('GraphQL', 'StopPlayground'))
     GenerateSchemaString = FXElement(('GraphQL', 'GenerateSchemaString'))
 
-
 class _LocalFile_Class():
     _name = "LocalFile"
     Read = FXElement(('LocalFile', 'Read'))
@@ -118,6 +120,12 @@ class _Graph_Class():
     Transact = FXElement(('Graph', 'Transact'))
     Load = FXElement(('Graph', 'Load'))
     # Or does it make more sense to write FX.Tag.Graph? Tagging of RAEs definitely belongs into a GraphDelta / graph tx though
+
+class _Studio_Class():
+    _name = "Studio"
+    StartServer = FXElement(('Studio', 'StartServer'))
+    StopServer = FXElement(('Studio', 'StopServer'))
+
 
 class _Stream_Class():
     _name = "Stream"
@@ -172,6 +180,7 @@ class _FX_Class:
     LocalFile = _LocalFile_Class()
     S3 = _S3_Class()
     Graph = _Graph_Class()
+    Studio = _Studio_Class()
     FX = _FX_Class()
     Stream = _Stream_Class()
     Privileges = _Privileges_Class()
@@ -182,14 +191,14 @@ class _FX_Class:
 
 FX = _FX_Class()
 
-_group_types = [ _Clipboard_Class,_FX_Class,_GraphQL_Class,_Graph_Class,_HTTP_Class,_LocalFile_Class,_Privileges_Class,_S3_Class,_Stream_Class,_Websocket_Class,_ZefHub_Class,_ZefUI_Class]
+_group_types = [ _Clipboard_Class,_FX_Class,_GraphQL_Class,_Studio_Class, _Graph_Class,_HTTP_Class,_LocalFile_Class,_Privileges_Class,_S3_Class,_Stream_Class,_Websocket_Class,_ZefHub_Class,_ZefUI_Class]
 #---------------------------------------------------------------------------------------
     
 
 # just a function, since Effect will just become a value.
 # same syntax as a regular constructor and equivalent to to_effect.
 # The latter is the more usual option to use in the context of piping
-def Effect(*args, **kwargs) -> dict:
+def effect_ctor(*args, **kwargs) -> dict:
     """
     Effects can be constructed via keyword arguments
     or by passing in a dictionary.
@@ -206,3 +215,9 @@ def Effect(*args, **kwargs) -> dict:
     else:
         return kwargs
 
+def effect_is_a(x, typ):
+    return isinstance(x, Pattern[{"type": EffectType}])
+
+Effect = make_VT("Effect",
+                 constructor_func=effect_ctor,
+                 is_a_func=effect_is_a)

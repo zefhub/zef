@@ -351,7 +351,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
                     } else {
                         send_ZH_message({
                                 {"msg_type", "merge_request"},
-                                {"msg_version", 2},
+                                {"msg_version", 3},
                                 {"task_uid", task->task_uid},
                                 {"target_guid", str(content.target_guid)},
                                 {"payload", {
@@ -370,7 +370,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
             // This is a remote request, so we should let upstream know of the problem.
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 2},
+                    {"msg_version", 3},
                     {"task_uid", task->task_uid},
                     {"target_guid", str(content.target_guid)},
                     {"success", false},

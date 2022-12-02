@@ -112,34 +112,35 @@ Graph deep_copy(Graph g) {
 Graph revision_graph(Graph g) {
 
 	throw std::runtime_error("not implemented");
+
 	// create new graph with deferred edge lists absorbed into local lists
-	auto g_new = Graph();
-	auto& gd_new = g.my_graph_data();
-	auto old_blbs = blobs(g);
-	std::vector<blob_index> new_index_given_old(0, length(old_blbs));   // for each old blob: take its index as position in this vector and save equivalent blob in the new graph
+	// auto g_new = Graph();
+	// auto& gd_new = g.my_graph_data();
+	// auto old_blbs = blobs(g);
+	// std::vector<blob_index> new_index_given_old(0, length(old_blbs));   // for each old blob: take its index as position in this vector and save equivalent blob in the new graph
 	
-	// in the first iteration go through and copy all blobs that are not deferred edge lists. Immediately after allocating each blob, assign the right
-	// size for the edge list: the total number of edge list indexes. Don't set the edge indexes yet, since we don't know the new index of each blob in the new layout yet
-	for (auto bl : old_blbs) {
-		AllEdgeIndexes(bl).begin();
+	// // in the first iteration go through and copy all blobs that are not deferred edge lists. Immediately after allocating each blob, assign the right
+	// // size for the edge list: the total number of edge list indexes. Don't set the edge indexes yet, since we don't know the new index of each blob in the new layout yet
+	// for (auto bl : old_blbs) {
+	// 	AllEdgeIndexes(bl).begin();
 
 
-		//new_index_given_old[index(bl)] = index(new_blob);
-		internals::move_head_forward(gd_new);
-	}
+	// 	//new_index_given_old[index(bl)] = index(new_blob);
+	// 	internals::move_head_forward(gd_new);
+	// }
 
-	for (auto& old_uzr : old_blbs) {
-		auto new_uzr = EZefRef(new_index_given_old[index(old_uzr)], gd_new);
+	// for (auto& old_uzr : old_blbs) {
+	// 	auto new_uzr = EZefRef(new_index_given_old[index(old_uzr)], gd_new);
 
-		blob_index* first_ind_ptr = &(*AllEdgeIndexes(new_uzr).begin());
-		int count = 0;
-		for (auto ind : AllEdgeIndexes(old_uzr))
-			*(first_ind_ptr+(count++)) = ind > 0 ? new_index_given_old[ind] : -new_index_given_old[-ind];
-	}
+	// 	blob_index* first_ind_ptr = &(*AllEdgeIndexes(new_uzr).begin());
+	// 	int count = 0;
+	// 	for (auto ind : AllEdgeIndexes(old_uzr))
+	// 		*(first_ind_ptr+(count++)) = ind > 0 ? new_index_given_old[ind] : -new_index_given_old[-ind];
+	// }
 	
 
 
-	return g_new;
+	// return g_new;
 }
 
 

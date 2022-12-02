@@ -14,11 +14,29 @@
 
 # Note: This should never depend on core at the top level!
 
+from ... import report_import
+report_import("zef.core.internals")
+
+from ...pyzef.main import (
+    EntityType,
+    RelationType,
+    Graph,
+    GraphRef,
+    ZefRef,
+    EZefRef,
+    ZefEnumValue,
+)
+
 from ...pyzef.internals import (
-    AttributeEntityTypeStruct,
+    AttributeEntityType,
+    AttributeEntityTypeStruct_QuantityFloat,
+    AttributeEntityTypeStruct_QuantityInt,
+    AttributeEntityTypeStruct_Enum,
     BaseUID,
     BlobType,
     BlobTypeStruct,
+    Delegate,
+    DelegateRelationTriple,
     EntityTypeStruct,
     EternalUID,
     FinishTransaction,
@@ -35,6 +53,11 @@ from ...pyzef.internals import (
     Subscription,
     UpdateHeads,
     UpdatePayload,
+    ValueRepType,
+    ValueRepTypeStruct_QuantityFloat,
+    ValueRepTypeStruct_QuantityInt,
+    ValueRepTypeStruct_Enum,
+    VRT,
     ZefEnumStruct,
     ZefEnumStructPartial,
     ZefRefUID,
@@ -64,6 +87,7 @@ from ...pyzef.internals import (
     graph_as_UpdatePayload,
     gtd_info_str,
     has_delegate,
+    has_uid,
     heads_apply,
     initialise_butler,
     initialise_butler_as_master,
@@ -92,6 +116,7 @@ from ...pyzef.internals import (
     parse_payload_update_heads,
     partial_hash,
     root_node_blob_index,
+    search_value_node,
     set_data_layout_version_info,
     set_graph_revision_info,
     show_blob_details,
@@ -101,12 +126,15 @@ from ...pyzef.internals import (
     stop_connection,
     to_uid,
     validate_message_version,
-    VRT,
+    value_hash,
     wait_for_auth,
 )
 
 from ...pyzef.verification import (
     verify_graph
+)
+from ...pyzef.zefops import (
+    SerializedValue
 )
 
 from ...pyzef.main import ZefRef, zwitch
@@ -184,19 +212,28 @@ def Transaction(g, wait=None, rollback_empty=None, check_schema=None):
 def assign_value_imp(z, value):
     from .._ops import is_a
     from ...pyzef.zefops import SerializedValue, assign_value as c_assign_value
-    from ..VT import ValueType_
+    from ..VT import ValueType_, AET
+    from .. import VT
+    from .rel_ent_classes import AET as internal_AET
+    from ..graph_delta import scalar_types
 
     assert isinstance(z, ZefRef) or isinstance(z, EZefRef)
 
     # We can't be sure what kind of zefref we have, and if it is complex things
     # break at the moment, so do this thoroughly here.
-    if not is_a(z, AET):
+    if not is_a(z, VT.AET[VT.Any]):
+        print(z)
         raise Exception("E/ZefRef is not an AET!")
-    aet = AET(z)
-    if (not aet.complex_value) and is_a(z, AET.Serialized):
-        value = SerializedValue.serialize(value)
+    aet = VT.AET(z)
+    if isinstance(value, VT.AET):
+        value = get_c_token(value)
     if isinstance(value, ValueType_):
-        value = AET[value]
+        value = internal_AET[value]
+
+    if not isinstance(value, scalar_types):
+        value = SerializedValue.serialize(value)
+    elif get_c_token(aet).rep_type == VRT.Serialized:
+        value = SerializedValue.serialize(value)
     try:
         c_assign_value(z, value)
     except Exception as exc:
@@ -209,10 +246,42 @@ def instantiate_value_node_imp(value, g):
     from ...pyzef.main import instantiate_value_node as c_instantiate_value_node
     from .._ops import is_a
     from ..VT import ValueType_
+    from .. import VT
     from ..graph_delta import scalar_types
 
-    if isinstance(value, ValueType_):
-        value = AET[value]
-    elif type(value) not in scalar_types:
+    from .rel_ent_classes import AET as internal_AET
+    if isinstance(value, VT.AET):
+        value = get_c_token(value)
+    elif isinstance(value, ValueType_):
+        value = internal_AET[value]
+
+    if not isinstance(value, scalar_types):
         value = SerializedValue.serialize(value)
     return c_instantiate_value_node(value, g)
+
+
+def get_c_token(x):
+    from ..VT.rae_types import RAET_get_token
+    token = RAET_get_token(x)
+    from ..VT import ValueType
+    if isinstance(token, ValueType):
+        from .rel_ent_classes import AET as internal_AET
+        return internal_AET[token]
+    return token
+
+
+from dataclasses import dataclass
+@dataclass(frozen=True)
+class Val_:
+    # arg: VT.Any
+    arg: int
+    iid: str = None
+
+    def __getitem__(self, x):
+        if self.iid is not None:
+            raise Exception("Can't overwrite iid")
+        return Val_(self.arg, x)
+
+    def __hash__(self):
+        from ..VT.value_type import hash_frozen
+        return hash_frozen(("Val_", self.arg, self.iid))

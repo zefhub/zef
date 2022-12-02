@@ -844,7 +844,7 @@ namespace zefDB {
 		return EZefRef((void*)(std::uintptr_t(b.blob_ptr) + blob_index_size(b) * constants::blob_indx_step_in_bytes));
 	}
 
-    LIBZEF_DLL_EXPORTED json blob_to_json(EZefRef ezr);
+    LIBZEF_DLL_EXPORTED json blob_to_json(EZefRef ezr, bool collapsed_edge_lists=true);
 
 
 

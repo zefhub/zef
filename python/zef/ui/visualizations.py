@@ -21,11 +21,13 @@ def generate_mapping_for_et(et, g):
     z = delegate_of(et, g)
     connected_rels = z | out_rels[RT] | collect
     mapping =  connected_rels | map[rae_type] | collect
+    # TODO, should this be removed and handled with returning empty table?
+    if len(mapping) < 1: raise Exception(f"Couldn't find any out RTs from {et}'s delegate.")
     return mapping
 
 @func
 def value_or_type(node):
-    if is_a(node, AET):
+    if is_a(node, AttributeEntity):
         val =  node | value | collect
         if isinstance(val, bool):
             return ["❌","✅"][val]
@@ -125,7 +127,7 @@ def generate_table_for_zrs(groups, expand, limit):
 
 @func
 def generate_table_from_query(query, expand = False, limit=20):
-    groups = query | filter[is_a[ET]] | group_by[rae_type] |  collect
+    groups = query | filter[is_a[Entity]] | group_by[rae_type] |  collect
     table = generate_table_for_zrs(groups, expand, limit)
     return VStack([table])
 

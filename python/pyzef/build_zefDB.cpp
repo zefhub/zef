@@ -37,9 +37,11 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		// .def(py::init<py::bytes, py::bytes, bool, int, bool>(), py::arg("blob_bytes"), py::arg("uid_bytes"), py::arg("is_master_graph") = 0, py::arg("index_of_latest_complete_tx_node_hint") = 0, py::arg("sync") = true, "Graph constructor from blob and uid bytes")
 		.def(py::init<std::string,int>(), py::arg("tag_or_uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid or tag")
 		.def(py::init<BaseUID,int>(), py::arg("uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid")   // TODO: move this into the fct? Is the gil put back on if the constructor throws?
-		.def(py::init<GraphData&>(), "Graph constructor from graph uid")
+		.def(py::init<Graph&>())
+		.def(py::init<GraphData&>())
 		.def(py::init<EZefRef>(), "Graph constructor from EZefRef")
 		.def(py::init<ZefRef>(), "Graph constructor from ZefRef: returns the graph that owns the zefref data, not the reference frame graph")
+		.def(py::init<GraphRef&>(), py::arg("graph_ref"), py::call_guard<py::gil_scoped_release>())
 		.def_property_readonly("graph_data", [](Graph& g)->GraphData& { return g.my_graph_data(); }, py::return_value_policy::reference)  // the mem policy return_value_policy::reference_internal is used here by default: ties lifetime of property returned to lifetime of parent (also stops parent from being destroyed while this is alive)
 		.def_property_readonly("uid", [](Graph& g)->BaseUID { return uid(g); })
 		.def("hash", &Graph::hash, py::arg("blob_index_lo"), py::arg("blob_index_hi"), py::arg("seed")=0, py::arg("working_layout")="", "calculate the xxhash of the data within the specified blob range. This is non-cryptographic hash fct.")
@@ -121,6 +123,20 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		})
 		;
 
+    py::class_<zefDB::GraphRef>(main_module, "GraphRef", py::buffer_protocol())
+		.def(py::init<BaseUID>(), py::arg("uid"), py::call_guard<py::gil_scoped_release>())
+		.def(py::init<Graph>(), py::arg("graph"), py::call_guard<py::gil_scoped_release>())
+        .def("__repr__", [](GraphRef& self) { return to_str(self); })
+        .def_readonly("uid", &GraphRef::uid)
+		;
+
+    main_module.def("filegraph_exists", [](const BaseUID & uid) {
+        auto butler = Butler::get_butler();
+        return butler->filegraph_exists(uid);
+    }, py::arg("uid"), py::call_guard<py::gil_scoped_release>());
+
+    // TODO: ??Already exists?? Load graph from JSON for specific UID, then sync it
+
     main_module.def("load_graph",
                     // &effect_load_graph,
                     [](std::string tag_or_uid, int mem_style, std::optional<Messages::load_graph_callback_t> callback) {
@@ -193,8 +209,9 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	py::class_<zefDB::EntityType>(main_module, "EntityType", py::buffer_protocol(), py::dynamic_attr())		
         .def(py::init<token_value_t>())
         .def_readonly("value", &EntityType::entity_type_indx)
-		.def("__repr__", [](const EntityType& self)->std::string { return to_str(self); })
-		.def("__str__", [](const EntityType& self)->std::string { return str(self); })
+        .def_property_readonly("name", [](EntityType& self)->std::string { return str(self); })
+		.def("__repr__", [](const EntityType& self)->std::string { return "libzefToken" + to_str(self); })
+		// .def("__str__", [](const EntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const EntityType& self, const EntityType& other)->bool {return self==other; }, py::is_operator())
 		.def("__hash__", [](const EntityType& self) {return get_hash(self); })  // similar to the python hash for a python int: just use the int itself as the hash
 		.def("__int__", [](const EntityType& self)->int {return self.entity_type_indx; })  // similar to the python hash for a python int: just use the int itself as the hash
@@ -204,8 +221,9 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	py::class_<zefDB::RelationType>(main_module, "RelationType", py::buffer_protocol(), py::dynamic_attr())
         .def(py::init<token_value_t>())
         .def_readonly("value", &RelationType::relation_type_indx)
-		.def("__repr__", [](const RelationType& self)->std::string { return to_str(self); })
-		.def("__str__", [](const RelationType& self)->std::string {return str(self); })
+        .def_property_readonly("name", [](RelationType& self)->std::string { return str(self); })
+		.def("__repr__", [](const RelationType& self)->std::string { return "libzefToken" + to_str(self); })
+		// .def("__str__", [](const RelationType& self)->std::string {return str(self); })
 		.def("__eq__", [](const RelationType& self, const RelationType& other)->bool {return self.relation_type_indx == other.relation_type_indx; }, py::is_operator())
 		.def("__hash__", [](const RelationType& self) {return get_hash(self); })
 		.def("__copy__", [](const RelationType& self)->RelationType {return self; })
@@ -686,6 +704,9 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
     main_module.def("list_config", &list_config, py::call_guard<py::gil_scoped_release>(), "List the config including all default/environment set variables.", py::arg("filter")="");
     main_module.def("validate_config_file", &validate_config_file, py::call_guard<py::gil_scoped_release>(), "Ensure the config file and environment overrides have sensible values.");
 
+    main_module.def("zefdb_config_path", []() {
+        return zefdb_config_path().string();
+    }, py::call_guard<py::gil_scoped_release>());
 
 
 	fill_internals_module(internals_submodule);

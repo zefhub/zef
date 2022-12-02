@@ -247,7 +247,8 @@ void Butler::handle_successful_auth() {
     send_ZH_message({
             {"msg_type", "register_metadata"},
             {"hostname", hostname},
-            {"client_version", zefdb_protocol_version.load()}
+            {"client_version", zefdb_protocol_version.load()},
+            {"libzef_version", LIBZEF_PACKAGE_VERSION}
         });
 
     // Request our tokens
@@ -326,6 +327,11 @@ void Butler::msg_push(Request && content, bool wait, bool ignore_closed) {
     auto future = msg_push_internal(std::move(content), ignore_closed);
     if(wait)
         future.get();
+}
+
+void Butler::msg_push_internal_move_whole_msg(std::shared_ptr<RequestWrapper> && msg, bool ignore_closed) {
+    // This is an internal-use only to do the "trivial" move of the entire message onto the queue. Just a way to stop writing hard-coded message pushing
+    msgqueue.push(std::move(msg), ignore_closed);
 }
 
 std::string Butler::upstream_name() {

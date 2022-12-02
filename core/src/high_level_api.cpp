@@ -17,6 +17,7 @@
 #include "ops_imperative.h"
 #include "synchronization.h"
 #include "external_handlers.h"
+#include "transaction.h"
 #include <iterator>
 #include <unordered_set>
 #include <doctest/doctest.h>
@@ -121,7 +122,7 @@ namespace zefDB {
         return false;
     }
 
-    std::variant<EntityType, RelationType, AttributeEntityType> rae_type(EZefRef uzr) {
+    std::variant<EntityType, RelationType, AttributeEntityType, ValueRepType> rae_type(EZefRef uzr) {
         // Given any ZefRef or EZefRef, return the ET, RT or AET. Throw an error if it is a different blob type.
         if (BT(uzr)==BT.ENTITY_NODE)
             return ET(uzr);
@@ -132,6 +133,8 @@ namespace zefDB {
                 return VRT(uzr);
             else
                 return AET(uzr);
+        } else if (BT(uzr)==BT.VALUE_NODE) {
+            return VRT(uzr);
         } else
             throw std::runtime_error("Item is not a RAE blob type: " + to_str(BT(uzr)));
     }
@@ -203,15 +206,15 @@ namespace zefDB {
         return response.j["matches"].get<std::vector<std::string>>();
 	}
 
-    std::optional<std::string> lookup_uid(const std::string& tag) {
+    std::optional<GraphRef> lookup_uid(const std::string& tag) {
         auto butler = Butler::get_butler();
         auto response = butler->msg_push_timeout<Messages::GenericZefHubResponse>(Messages::UIDQuery{tag});
         if(!response.generic.success)
             throw std::runtime_error("Failed with uid lookup: " + response.generic.reason);
         if(response.j.contains("graph_uid"))
-            return response.j["graph_uid"].get<std::string>();
+            return GraphRef(BaseUID::from_hex(response.j["graph_uid"].get<std::string>()));
         else
-            return std::optional<std::string>();
+            return std::optional<GraphRef>();
     }
 
 
@@ -592,6 +595,8 @@ namespace zefDB {
 			*/
 			// assert BT(z_instance) in { BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE }
 
+            if(is_delegate(z_instance))
+                return z_instance;
 			auto z_rae_inst = (z_instance < BT.RAE_INSTANCE_EDGE);
 			auto origin_candidates = z_rae_inst >> L[BT.ORIGIN_RAE_EDGE];
 			return length(origin_candidates) == 1 ? (origin_candidates | only) : z_rae_inst;

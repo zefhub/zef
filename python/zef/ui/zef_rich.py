@@ -164,16 +164,17 @@ def dispatch_rich_panel(component):
     import rich.panel as rp
 
     def resolve_attributes(d):
-        allowed_keys = ["title", "subtitle", "box"]
+        allowed_keys = ["title", "subtitle", "box", "expand", "padding"]
         attributes = select_keys(d, *allowed_keys)
         if "title" in attributes and is_a_component(attributes["title"], Text): 
             attributes["title"] = dispatch_rich_text(attributes["title"])
         
         if "subtitle" in attributes and is_a_component(attributes["subtitle"], Text): 
             attributes["subtitle"] = dispatch_rich_text(attributes["subtitle"])
-
+        
         if "box" in attributes:
             attributes["box"] = box_constants_mapping(attributes["box"])
+
 
         return attributes
     
@@ -343,10 +344,44 @@ def match_and_dispatch(component):
     ] | collect
 
 def print_rich(displayable):
-    import rich
-    console = rich.console.Console()
+    try:
+        import rich
+    except:
+        raise ImportError("Please install rich: pip install rich")
+    console = rich.console.Console(width = width_or_default())
     displayable = match_and_dispatch(displayable)
     console.print(displayable)
 
+def to_rich_str_imp(displayable):
+    try:
+        import rich
+    except:
+        raise ImportError("Please install rich: pip install rich")
+
+    # Create a console first to cheat the colour-detection
+    # console_for_color = rich.console.Console(width = 160)
+    # color_system = console_for_color.color_system
+    # console = rich.console.Console(width = width_or_default(), color_system=color_system, force_jupyter=False, force_terminal=True, force_interactive=False, no_color=False)
+    console = rich.console.Console(width = 160)
+    displayable = match_and_dispatch(displayable)
+    with console.capture() as capture:
+        console.print(displayable)
+    return capture.get()
+    console.print(displayable)
+    return output.getvalue()
+
+def width_or_default():
+    # Returns None when columns are present, to allow rich to autodetect
+    #
+    # Note: not that useful for everything I've tried. Really need to query dynamically instead. See:
+    # - https://stackoverflow.com/questions/1780483/lines-and-columns-environmental-variables-lost-in-a-script
+    # - https://stackoverflow.com/questions/1286461/can-i-find-the-console-width-with-java
+    import os
+    if "COLUMNS" in os.environ:
+        return None
+    else:
+        return 160
+
 show = run[print_rich]
 displayable = run[match_and_dispatch]
+to_rich_str = run[to_rich_str_imp]

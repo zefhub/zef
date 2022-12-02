@@ -97,7 +97,7 @@ def schema_str_to_flatgraph(schema_str):
     from zef import  BT
     g = Graph()
     generate_graph_from_file(schema_str, g)
-    all_raes = g | now | all | map[lambda zr: origin_rae(zr) if is_a(zr, BT.RELATION_EDGE) else zr] | collect
+    all_raes = g | now | all | map[lambda zr: discard_frame(zr) if is_a(zr, BT.RELATION_EDGE) else zr] | collect
     return FlatGraph(all_raes)
 
 

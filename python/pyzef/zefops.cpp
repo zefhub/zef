@@ -1232,16 +1232,8 @@ void create_zefops_module(py::module_ & m, py::module_ & internals_submodule) {
     //                              \__\_|                          
     //                                                             
 
-    py::class_<Q_Class>(zefops_submodule, "Q_Class", py::buffer_protocol())
-        .def("__getitem__", py::overload_cast<Batch>(&Q_Class::operator[], py::const_))
-        .def("__getitem__", py::overload_cast<double>(&Q_Class::operator[], py::const_))
-        .def("__getitem__", [](const Q_Class& self, std::function<void(Graph)> fct) { return self[fct]; })  // overload_cast does not work for std::function
                         
-        .def("__ror__", [](const Q_Class& self, Graph g) { return g | self; })		// this adds it to the Q on g and returns g
             
-        .def("__call__", [](const Q_Class& self, Graph g) { return g | self; })		
-        ;
-    zefops_submodule.attr("Q") = Q;  // expose this singleton
 
 
 

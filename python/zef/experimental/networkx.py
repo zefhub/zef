@@ -192,7 +192,7 @@ class ProxyGraph:
             pass
         # elif isinstance(item, NodeRef):
         #     resolved = item.z
-        elif isinstance(item, (str,int)) or is_a(item, uid):
+        elif isinstance(item, (str,int)) or is_a(item, UID):
             resolved = self.gs[item]
         elif isinstance(item, ZefRef):
             resolved = in_frame(item, self.gs)
@@ -416,8 +416,8 @@ class ProxyEdgeView:
 
 def get_props_on(z, include_type):
     props = {}
-    for rel in z | out_rels[RT] | filter[target | is_a[AET]]:
-        props[str(RT(rel))] = rel|target|value|collect
+    for rel in z | out_rels[RT] | filter[target | is_a[AttributeEntity]]:
+        props[token_name(RT(rel))] = rel|target|value|collect
     if include_type:
         props["type"] = rae_type(z)
     return props

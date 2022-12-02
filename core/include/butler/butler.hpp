@@ -57,7 +57,7 @@ namespace zefDB {
         T Butler::msg_push_timeout(Request && content, double timeout, bool ignore_closed) {
             std::string msg_type = std::visit([](auto & content) {return msgqueue_to_str(content);}, content);
             auto future = msg_push_internal(std::move(content), ignore_closed);
-            std::future_status status;
+            // std::future_status status;
             // This needs to be changed to timeout on the butler side instead of here.
             // if(timeout.value == 0)
             //     status = std::future_status::ready;

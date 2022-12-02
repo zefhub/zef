@@ -117,6 +117,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
     });
     internals_submodule.def("make_random_uid", []() { return make_random_uid(); } );
 
+    internals_submodule.def("has_uid", &internals::has_uid);
+
+    internals_submodule.def("value_hash", [](const value_variant_t& val) { return internals::value_hash(val); });
+    internals_submodule.def("search_value_node", [](const value_variant_t& val, Graph& g) { return internals::search_value_node(val, g.my_graph_data()); });
+
 	internals_submodule.def("size_of_blob", &size_of_blob);
 
 	internals_submodule.def("show_blob_details", [](const EZefRef & uzr) {
@@ -124,8 +129,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
                      uzr);
     });
 
-	internals_submodule.def("blob_to_json", &blob_to_json);
+	internals_submodule.def("blob_to_json", &blob_to_json, py::arg("blob"), py::arg("collapse_edges")=true);
 	internals_submodule.def("create_from_json", &internals::create_from_json, py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("create_from_json_fixed_layout", &internals::create_from_json_fixed_layout, py::call_guard<py::gil_scoped_release>());
 
 	//declare_zef_tensor_1<bool>(internals_submodule, str("Bool"));   // Careful: uses vector<bool> which is quite flawed
 	declare_zef_tensor_1<double>(internals_submodule, str("Float"));
@@ -292,8 +298,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def(py::init<SerializedValue>())	
 		.def_readonly("rep_type", &AttributeEntityType::rep_type)
 		.def_readonly("complex_value", &AttributeEntityType::complex_value)
-		.def("__repr__", [](const AttributeEntityType& self)->std::string { return to_str(self); })
-		.def("__str__", [](const AttributeEntityType& self)->std::string { return str(self); })
+        .def_property_readonly("name", [](AttributeEntityType& self)->std::string { return str(self); })
+		.def("__repr__", [](const AttributeEntityType& self)->std::string { return "libzefToken" + to_str(self); })
+		// .def("__str__", [](const AttributeEntityType& self)->std::string { return str(self); })
 		.def("__eq__", [](const AttributeEntityType& self, const AttributeEntityType& other)->bool { return self == other; }, py::is_operator())
 		.def("__hash__", [](const AttributeEntityType& self) {
             if(self.complex_value)
@@ -581,17 +588,17 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("heads_apply", &Butler::heads_apply, "Low-level function to see an update can be applied onto a graph.", py::call_guard<py::gil_scoped_release>());
     internals_submodule.def("parse_payload_update_heads", &Butler::parse_payload_update_heads, py::call_guard<py::gil_scoped_release>());
 
-    internals_submodule.def("create_update_heads", [](GraphData & gd, blob_index blob_head, py::dict cache_heads) {
+    internals_submodule.def("create_update_heads", [](GraphData & gd, blob_index blob_head, json cache_heads) {
         LockGraphData lock{&gd};
 
         Butler::UpdateHeads update_heads{ {blob_head, gd.read_head} };
 
-        for(auto & it : cache_heads) {
-            std::string name = py::cast<std::string>(it.first);
+        for(auto & it : cache_heads.items()) {
+            std::string name = it.key();
             if(false) {}
 #define GEN_CACHE(x,y) else if(name == x) { \
                 auto ptr = gd.y->get(); \
-                update_heads.caches.push_back({x, py::cast<size_t>(it.second["head"]), ptr->size(), py::cast<size_t>(it.second["revision"])}); \
+                update_heads.caches.push_back({x, it.value()["head"].get<size_t>(), ptr->size(), it.value()["revision"].get<size_t>()}); \
             }
 
             GEN_CACHE("_ETs_used", ETs_used)
@@ -608,7 +615,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
         return update_heads;
     },
-        // DO NOT RELEASE THE GIL FOR THIS FUNCTION
+        py::call_guard<py::gil_scoped_release>(),
         "Low-level function to see if an update needs to be sent out.");
 
     internals_submodule.def("create_update_heads", [](GraphData & gd) {

@@ -223,6 +223,10 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const QuantityInt & value, GraphData& g);
         LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const SerializedValue & value, GraphData& g);
         LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const AttributeEntityType & value, GraphData& g);
+        template<>
+        inline std::optional<EZefRef> search_value_node(const value_variant_t & value, GraphData& gd) {
+            return std::visit([&gd](auto & x) { return search_value_node(x, gd); }, value);
+        }
 
 
 

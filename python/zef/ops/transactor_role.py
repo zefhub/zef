@@ -40,10 +40,10 @@ def have_transactor_role_implementation(g):
 def have_transactor_role_tp(x):
     return VT.Bool
 
-_op_to_functions[RT.TakeTransactorRole] = (take_transactor_role_implementation, take_transactor_role_tp)
-_op_to_functions[RT.ReleaseTransactorRole] = (release_transactor_role_implementation, release_transactor_role_tp)
-_op_to_functions[RT.HaveTransactorRole] = (have_transactor_role_implementation, have_transactor_role_tp)
+_op_to_functions[internals.RT.TakeTransactorRole] = (take_transactor_role_implementation, take_transactor_role_tp)
+_op_to_functions[internals.RT.ReleaseTransactorRole] = (release_transactor_role_implementation, release_transactor_role_tp)
+_op_to_functions[internals.RT.HaveTransactorRole] = (have_transactor_role_implementation, have_transactor_role_tp)
 
-take_transactor_role = make_zefop(RT.TakeTransactorRole)
-release_transactor_role = make_zefop(RT.ReleaseTransactorRole)
-have_transactor_role = make_zefop(RT.HaveTransactorRole)
+take_transactor_role = make_zefop(internals.RT.TakeTransactorRole)
+release_transactor_role = make_zefop(internals.RT.ReleaseTransactorRole)
+have_transactor_role = make_zefop(internals.RT.HaveTransactorRole)

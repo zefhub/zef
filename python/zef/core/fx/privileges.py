@@ -15,6 +15,8 @@
 from .._core import *
 from .._ops import *
 from ...pyzef.admins import add_right, remove_right
+from ..VT import *
+
 
 def main_implementation(privilege, target, action, user):
     assert privilege in [KW.view, KW.append, KW.host, KW.discover, KW.modify_rights]

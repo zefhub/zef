@@ -234,7 +234,6 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                 if(msg_type == "merge_request_response") {
                     auto msg = parse_ws_response<MergeRequestResponse>(j);
                     task_promise->promise.set_value(msg);
-                    wake(task_promise->task->locker);
                 } else if(msg_type == "token_response") {
                     handle_token_response(*this, j, task_promise);
                 } else {
@@ -244,8 +243,8 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                     msg.j = j;
                     msg.rest = rest;
                     task_promise->promise.set_value(msg);
-                    wake(task_promise->task->locker);
                 }
+                wake(task_promise->task->locker);
                 return;
             } catch(...) {
                 task_promise->promise.set_exception(std::current_exception());
@@ -427,12 +426,12 @@ void Butler::handle_incoming_merge_request(json & j) {
     int msg_version = 0;
     if(j.contains("msg_version"))
         msg_version = j["msg_version"].get<int>();
-    int preferred_msg_version = 2;
+    int preferred_msg_version = 3;
 
     if(msg_version <= 0) {
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 2},
+                    {"msg_version", 3},
                     {"task_uid", task_uid},
                     {"success", false},
                     {"reason", "Version too old"},
@@ -452,7 +451,7 @@ void Butler::handle_incoming_merge_request(json & j) {
         } else {
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 2},
+                    {"msg_version", preferred_msg_version},
                     {"task_uid", task_uid},
                     {"success", false},
                     {"reason", "Don't understand payload type: '" + payload_type + "'"},
@@ -486,7 +485,7 @@ void Butler::handle_incoming_merge_request(json & j) {
         } else {
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 1},
+                    {"msg_version", preferred_msg_version},
                     {"task_uid", task_uid},
                     {"success", false},
                     {"reason", "Don't have target graph loaded"},

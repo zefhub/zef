@@ -22,6 +22,7 @@
 #include "ops_imperative.h"
 #include <iterator>
 #include <unordered_set>
+#include "transaction.h"
 
 namespace zefDB {
 	AttributeEntityType operator| (EZefRef uzr, const AttributeEntityTypeStruct& AET_) {return AET_(uzr);}

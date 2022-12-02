@@ -15,10 +15,10 @@
 
 #=============================================================================== HTTP Server handlers =========================================================================================================
 from .fx_types import Effect, FX
-from ..VT import Pattern, SetOf
+from ..VT import Pattern, SetOf, Error
 from uuid import uuid4
 from .._ops import *
-from ..error import Error
+# from .._error import Error
 
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import threading
@@ -246,15 +246,22 @@ from ..zef_functions import func
 # TODO: Improve this! But maybe redesign the style of the app anyway.
 @func
 def route(req, path, handler):
-    if req["path"] == path:
-        try:
-            return handler(req)
-        except Exception as exc:
-            log.error(f"There was an exception in the handler for path {path}", exc_info=exc)
-            return {
-                **req,
-                "response_status": 500,
-            }
+    # We do a simple glob matching on individual components
+    # TODO: Add support for **
+    in_comps = req["path"].split("/")
+    pat_comps = path.split("/")
+
+    if len(in_comps) == len(pat_comps):
+        import fnmatch
+        if all(fnmatch.fnmatchcase(comp,pat) for comp,pat in zip(in_comps, pat_comps)):
+            try:
+                return handler(req)
+            except Exception as exc:
+                log.error(f"There was an exception in the handler for path {path}", exc_info=exc)
+                return {
+                    **req,
+                    "response_status": 500,
+                }
             
     return req
 

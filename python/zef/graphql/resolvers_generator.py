@@ -18,22 +18,24 @@ from ariadne import ObjectType, MutationType, SubscriptionType, EnumType, Scalar
 
 
 #--------------------------Resolvers Generator-------------------------
-def fill_types_default_resolvers(schema_d):
+def fill_types_default_resolvers(schema_d, replace_policy=lambda field_name: field[RT(to_pascal_case(field_name))]):
     if "_Types" not in schema_d: return schema_d
 
     def generate_default_if_unset(type_name, field_name, field_dict):
         # If resolver is either unset or set None
         resolver = field_dict.get("resolver", None)
         if resolver: return None
-        return (('_Types', type_name, field_name, 'resolver'), get[field_name])
+        return (('_Types', type_name, field_name, 'resolver'), replace_policy(field_name))
 
 
     # Generate a list of Tuples[path, default_resolver] for fields where resolver is either unset or set to None
     paths_and_defaults = (
         schema_d['_Types']
         | items
+        | filter[lambda x: x[0] not in {"Query", "Mutation"}]
         | map[lambda type_t: (type_t[1] 
                             | items 
+                            | filter[lambda kv: not kv[0].startswith("_")]
                             | map[lambda field_t: generate_default_if_unset(type_t[0], *field_t)] 
                             | collect)
             ] 
@@ -94,10 +96,11 @@ def resolve_args(args):
 def get_zef_function_args(z_fct, g):
     from ..core.zef_functions import zef_function_args
     zefref_or_func = peel(z_fct)[0][1][0][1]
-    if type(zefref_or_func) == Entity:
+    if is_a(zefref_or_func, Entity):
         full_arg_spec = zef_function_args(g[zefref_or_func] | now  | collect)
         args, defaults =  full_arg_spec.args, full_arg_spec.defaults
-        return args[:len(args) - len(defaults)]
+        if defaults: args = args[:len(args) - len(defaults)]
+        return args
     else:
         import types
         assert type(zefref_or_func) == types.FunctionType
@@ -109,37 +112,44 @@ def get_zef_function_args(z_fct, g):
         args = args[0:1] + args[1+len(curried):]
         return args
 
-def generate_fct(field_dict, g, allow_none):
+def generate_fct(field_dict,field_name, g, allow_none):
     resolver = field_dict["resolver"]
     if resolver is None and not allow_none:
-        raise ValueError("A type's field resolver shouldn't be set to None! \
+        raise ValueError("A type's field resolver shouldn't be set to None! \n\
             To use default values for your resolver, explicitly call fill_types_default_resolvers on your schema dictionary!")
 
     def resolve_field(obj, info, **kwargs):
-        context = {
-            "obj": obj,
-            "query_args": kwargs,
-            "graphql_info": info,
-            # To be extended
-        }
-        if is_a(resolver, ZefOp):
-            if peel(resolver)[0][0] == RT.Function:
+        from ..core._error import ExceptionWrapper, zef_ui_err
+        try:
+            context = {
+                "obj": obj,
+                "query_args": kwargs,
+                "graphql_info": info,
+                "g": g,
+                # To be extended
+            }
+            if isinstance(resolver, ZefFunction):
                 args = get_zef_function_args(resolver, g)
                 arg_values = select_keys(context, *args).values()
                 # Check if some args that are present in the Zef Function aren't present in context dict
                 if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
                 arg_values = [context[x] for x in args]
                 return resolver(*arg_values)
-            else:
+            elif isinstance(resolver, ZefOp):
                 return resolver(obj)
-        elif isinstance(resolver, LazyValue):
-            return resolver()
-        else:
-            raise NotImplementedError(f"Cannot generate resolver using the passed object {resolver} of type {type(resolver)}")
+            elif isinstance(resolver, LazyValue):
+                return resolver()
+            else:
+                raise NotImplementedError(f"Cannot generate resolver using the passed object {resolver} of type {type(resolver)}")
+        except ExceptionWrapper as exc:
+            zef_ui_err(exc.wrapped)
+            raise Exception("Internal error")
+        except Exception as e:
+            raise Exception(f"Error while resolving {field_name} with following arguments {obj}, {kwargs}") from e
     return resolve_field
 
 def assign_field_resolver(object_type, field_name, field_dict, g, allow_none=False):
-    fct = generate_fct(field_dict, g, allow_none)
+    fct = generate_fct(field_dict, field_name, g, allow_none)
     if fct is not None:
         object_type.field(field_name)(fct)
 

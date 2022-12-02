@@ -35,6 +35,8 @@ parser.add_argument("--no-host-role", action="store_false", dest="host_role", de
                     help="Whether the server should acquire host role on the data graph.")
 parser.add_argument("--create", action="store_true", default=(True if "SIMPLEGQL_CREATE" in os.environ else None),
                     help="If the data graph does not exist, then create a new blank graph.")
+parser.add_argument("--read-only", action="store_true", default=(True if "SIMPLEGQL_READ_ONLY" in os.environ else None),
+                    help="Whether to allow writes to the graph. If False then the transactor role will NOT be taken.")
 parser.add_argument("--hooks", type=str, dest="hooks_file", default=os.environ.get("SIMPLEGQL_HOOKS_FILE", None),
                     help="If present, a python file containing the hooks to make available for the schema file")
 parser.add_argument("--init-hook", type=str, dest="init_hook", default=os.environ.get("SIMPLEGQL_INIT_HOOK", None),
@@ -42,14 +44,6 @@ parser.add_argument("--init-hook", type=str, dest="init_hook", default=os.enviro
 parser.add_argument("--debug-level", type=int, dest="debug_level", default=os.environ.get("SIMPLEGQL_DEBUG_LEVEL", "0"),
                     help="The amount of debug messages to output")
 args = parser.parse_args()
-
-if args.data_tag is not None and args.scratch:
-    print("Can't specify both a data tag and scratch")
-    raise SystemExit(4)
-if args.data_tag is None and not args.scratch:
-    print("Need one of data-tag or scratch specified.")
-    raise SystemExit(4)
-
 
 schema_gql = args.schema_file | read_file | run | get["content"] | collect
 if args.hooks_file is not None:
@@ -61,28 +55,44 @@ else:
 root = create_schema_graph(schema_gql, hooks_string)
 log.info(f"Created schema graph from '{args.schema_file}'")
 
-if args.data_tag is not None:
-    guid = lookup_uid(args.data_tag)
+graph_data_tag = root | Outs[RT.DataTag] | single_or[None] | value_or[None] | collect
+if graph_data_tag is not None:
+    if(args.data_tag):
+        print("Can't provide a data tag on the commandline and in the schema file.")
+        raise SystemExit(4)
+else:
+    graph_data_tag = args.data_tag
+
+if graph_data_tag is not None and args.scratch:
+    print("Can't specify both a data tag and scratch")
+    raise SystemExit(4)
+if graph_data_tag is None and not args.scratch:
+    print("Need one of data-tag or scratch specified.")
+    raise SystemExit(4)
+
+
+if graph_data_tag is not None:
+    guid = lookup_uid(graph_data_tag)
     if guid is None:
         if not args.create:
             print("Graph is not known to us, and create is False. Exiting.")
             raise SystemExit(2)
         g_data = Graph(True)
         try:
-            g_data | tag[args.data_tag] | run
+            g_data | tag[graph_data_tag] | run
         except:
-            print("Unable to create and tag graph with '{args.data_tag}'. Maybe this tag is already taken by another user?")
+            print("Unable to create and tag graph with '{graph_data_tag}'. Maybe this tag is already taken by another user?")
             raise SystemExit(2)
-        log.info("Created data graph with tag", tag=args.data_tag)
+        log.info("Created data graph with tag", tag=graph_data_tag)
     else:
-        g_data = Graph(args.data_tag)
-        log.info("Loaded existing data graph")
+        g_data = Graph(graph_data_tag)
+        log.info("Loaded existing data graph", tag=graph_data_tag)
 else:
     assert args.scratch
     g_data = Graph()
     log.info("Created blank scratch data graph")
 
-if args.host_role and not args.scratch:
+if not args.scratch and args.host_role and not args.read_only:
     try:
         g_data | take_transactor_role | run
     except:
@@ -90,7 +100,11 @@ if args.host_role and not args.scratch:
 Unable to obtain host role for data graph. Either stop other processes from having host role on this graph (`g | release_transactor_role | run` in that process) or run this server with `--no-host-role`).
         
 Note that running without the host role is currently dangerous as mutations do not currently verify pre-conditions.
+
+        Sleeping for 60 seconds to avoid spamming this to hosted services.
 """) 
+        import time
+        time.sleep(60)
         raise SystemExit(3)
     log.info("Obtained host role on data graph")
 
@@ -107,7 +121,8 @@ if args.init_hook is not None:
 server_uuid = start_server(root, g_data,
                            port=args.port,
                            bind_address=args.bind,
-                           debug_level=args.debug_level)
+                           debug_level=args.debug_level,
+                           read_only=args.read_only)
 
 import time
 try:

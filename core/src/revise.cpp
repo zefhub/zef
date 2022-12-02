@@ -14,7 +14,7 @@
 
 #include "revise.h"
 #include "ops_imperative.h"
-#include "graph.h"
+#include "transaction.h"
 
 namespace zefDB {
     Graph copy_graph_slice(EZefRef ctx) {

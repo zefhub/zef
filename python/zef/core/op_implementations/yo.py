@@ -19,13 +19,12 @@ from functional import seq
 from ..internals import is_delegate, root_node_blob_index, BlobType
 from .._core import *
 from .. import internals
-from ..VT import TX,String, Instantiated, Terminated, Assigned, Is
+from ..VT import *
 
 def yo_implementation(x, display=True):
     import inspect
     from ..fx.fx_types import FXElement, _group_types
     from ..fx import _effect_handlers
-    from ..graph_slice import GraphSlice
     
     if display:
         import sys
@@ -34,28 +33,28 @@ def yo_implementation(x, display=True):
         import io
         file = io.StringIO()
 
-    if (type(x) == EZefRef or type(x) == ZefRef) and BT(x) == BT.TX_EVENT_NODE:
+    if is_a(x, (EZefRef | ZefRef) & BT.TX_EVENT_NODE):
         print(tx_view(x), file=file)
-    elif type(x) == EZefRef:
+    elif is_a(x, EZefRef):
         if is_delegate(x):
             print("\n\n\n**************  delegate EZefRef ********************\n\n", file=file)
         else:
             print(eternalist_view(x), file=file)
-    elif type(x) == ZefRef:
+    elif is_a(x, ZefRef):
         if is_delegate(x):
             print("\n\n\n**************  delegate ZefRef ********************\n\n", file=file)
         else:
             print(eternalist_view(x), file=file)
-    elif type(x) == Graph:
+    elif is_a(x, Graph):
         print(graph_info(x), file=file)
     elif "pyzef.Graph" in str(type(x)):
         # This is because of monkeypatching
         print(graph_info(x), file=file)
 
-    elif isinstance(x, GraphSlice):
+    elif is_a(x, GraphSlice):
         return yo_implementation(x | to_tx | collect, display)
 
-    elif type(x) == ZefOp:
+    elif is_a(x, ZefOp):
         if len(x.el_ops) == 1:
             from .dispatch_dictionary import _op_to_functions
             if len(x.el_ops) == 1:
@@ -108,7 +107,7 @@ def tx_view(zr_or_uzr) -> str:
 
     def instantiated_or_terminated_string_view(lst):
         return (f"{len(lst)}x:     ({zr_type(lst[0])})\n"
-                + "\n".join(seq(lst).map(lambda x: f"    ({uid(x)})"))
+                + "\n".join(seq(lst).map(lambda x: f"    ({uid_or_value_hash(x)})"))
                 + "\n\n")
 
     def tx_block_view(uzrs, fn):
@@ -139,6 +138,13 @@ total terminations:     {length(uzr | events[Terminated])}
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Terminations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 {tx_block_view(uzr | events[Terminated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
 """
+
+def uid_or_value_hash(x):
+    if BT(x) == BT.VALUE_NODE:
+        return f"hash: {internals.value_hash(value(x))})"
+    if internals.has_uid(to_ezefref(x)):
+        return uid(x)
+    raise Exception(f"Don't know how to represent UID of object ({x})")
 
 
 def indent_lines(s: str, indent_amount=4):
@@ -304,9 +310,11 @@ def timeline_view(zr_or_uzr) -> str:
         #     return f'<<<<<<<<<  <---- Cloned: ....'
         if BT(low_level_edge_uzr) == BT.ATOMIC_VALUE_ASSIGNMENT_EDGE:
             return f'    x      <---- Value assignment: {value_of_aet_at_tx(uzr,low_level_edge_uzr | source | collect)}'  # get the value: pass the respective tx
+        if BT(low_level_edge_uzr) == BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
+            return f'    x      <---- Value assignment: {value_of_aet_at_tx(uzr,low_level_edge_uzr | source | collect)}'  # get the value: pass the respective tx
         if BT(low_level_edge_uzr) == BT.TERMINATION_EDGE:
             return f'=========  <---- Termination'
-        raise Exception("To be fixed with new lineage system")
+        raise Exception(f"To be fixed with new lineage system ({BT(low_level_edge_uzr)})")
 
     # Function: visually list all details about a single relation.
     # Output is affected by the "in" or "out" direction and also the state of the rt_uzr.
@@ -322,7 +330,7 @@ def timeline_view(zr_or_uzr) -> str:
     def add_directed_rt_to_list(edges, direction: str) -> None:
         for e in edges:
             all_edges.append((e, direction, "Instantiated"))
-            if e | termination_tx | BT | collect == BT.TX_EVENT_NODE:
+            if e | termination_tx | is_a[BT.TX_EVENT_NODE] | collect:
                 all_edges.append((e, direction, "Terminated"))
 
     # Returns the time of the a transaction depending on the BT type and the edge_state.
@@ -376,6 +384,7 @@ def graph_info(g) -> str:
     bl = blobs(g)
     grouped_by_bts =  dict(
         bl 
+        | filter[Not[is_delegate]]
         | group_by[BT] 
         | filter[lambda x: x[0] in {BT.TX_EVENT_NODE, BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}] 
         | collect
@@ -462,7 +471,11 @@ def type_summary_view(bl, g: Graph, bt_filter: BlobType) -> str:
     return (
         [z for z in filtered_blobs]
         | group_by[zr_type]
-        | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect))]
+        # | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | now | all | collect))]
+        | map[lambda x: (x[0], len(x[1]), len(x[1][0] | delegate_of | match[
+            (Nil, always[[]]),
+            (Any, now | all | filter[bt_filter])
+        ] | collect))]
         | map[lambda x: rt_block_view(x[0][3:], x[1]) if bt_filter == BT.RELATION_EDGE else aet_et_rt_string_view(x)]
         | join[""]
         | collect

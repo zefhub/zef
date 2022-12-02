@@ -91,12 +91,9 @@ Query[
 """
 
 
-from .VT import FlatGraph, Pattern, Any, SetOf
+from .VT import FlatGraph, Pattern, Any, SetOf, Val, ET, RT, AET
 from ._ops import match, collect, insert, split, get, filter, map, Z
 from .zef_functions import func
-from .internals import ET, RT, AET
-from .flat_graph import Val
-from .z_field import ZField_
 
 def merge_flatgraphs(g1, g2) -> FlatGraph:
     """
@@ -109,8 +106,8 @@ def merge_flatgraphs(g1, g2) -> FlatGraph:
         we may have to perform different types of shifts.
         """
         return el | match[
-         (Pattern[Any, AET], lambda el: (el[0]+d, el[1], [n+d if n>=0 else n-d for n in el[2]], el[3], el[4])),
-         (Pattern[Any, RT], lambda el: (el[0]+d, el[1], [n+d if n>=0 else n-d for n in el[2]], el[3], el[4]+d, el[5]+d)),
+         (Pattern[[Any, AET]], lambda el: (el[0]+d, el[1], [n+d if n>=0 else n-d for n in el[2]], el[3], el[4])),
+         (Pattern[[Any, RT]], lambda el: (el[0]+d, el[1], [n+d if n>=0 else n-d for n in el[2]], el[3], el[4]+d, el[5]+d)),
          (Any, lambda el: (el[0]+d, el[1], [n+d if n>=0 else n-d for n in el[2]], el[3],)),
         ] | collect
     
@@ -129,32 +126,28 @@ def merge_flatgraphs(g1, g2) -> FlatGraph:
 
 class SymbolicExpression_:
     """Symbolic Variable class"""
-    def __init__(self, name=None, root_node=None, absorbed=None):
+    def __init__(self, name=None, root_node=None):
         self.name = name
-        self.root_node = root_node
-        self.absorbed = absorbed
+        self.root_node = root_node    # if this is None, then it is a bare variable. This also qualifies as a symbolic expression.
 
     def __repr__(self):
         if self.name is not None:
             # if the name is specified: it is a SV only
-            return f"v.{self.name}" if self.absorbed==None else f"v.{self.name}['{self.absorbed}']"
-            # return f"SV('{self.name}')" if self.absorbed==None else f"SV('{self.name}')['{self.absorbed}']"
-            # return f"{self.name}" if self.absorbed==None else f"{self.name}['{self.absorbed}']"
-            
+            return f"V.{self.name}"            
         else:
             return "Composed SymbolicExpression (todo: expression output)"
 
     def __hash__(self):
-        return (hash(self.name)+435677842)^hash(self.absorbed)^(hash(self.root_node)+3424242)
+        return (hash(self.name)+435677842)^(hash(self.root_node)+3424242)
 
 
     def __getitem__(self, k):
         if self.root_node is not None:
             raise RuntimeError("a composite SymbolicExpression cannot absorb a value")
-        return SymbolicExpression_(name=self.name, absorbed=k)
+        return SymbolicExpression_(name=self.name)
 
-    def __getattr__(self, name):
-        return ZField_(name)
+    def __getattr__(self, other):
+        return compose_se(ET.Dot, self, other)
 
     def __add__(self, other):
         return compose_se(ET.Add, self, other)
@@ -285,7 +278,6 @@ def compose_se(op_type, arg1, arg2):
     is_composite_se = lambda x: isinstance(x, SymbolicExpression_) and x.name == None
     arg1_composite_se = is_composite_se(arg1)
     arg2_composite_se = is_composite_se(arg2)
-
     # neither side is a composite SE: start with fresh graph
     if (not arg1_composite_se) and (not arg2_composite_se):
         res = (fg 
@@ -335,24 +327,7 @@ def compose_se(op_type, arg1, arg2):
 
 
 
-@func
-def unwrap_vars_hack(fg):
-    """
-    unwrap variables from a flatgraph.
-    """
-    def unwrap(x):
-        try:
-            return (*x[:3], x[3].name)
-        except:
-            return x
-    fg2 = FlatGraph()
-    fg2.key_dict = fg.key_dict
-    fg2.blobs = tuple((unwrap(x) for x in fg.blobs))
-    return fg2
-
-
-
-class ZefVariable_():
+class VExpression_():
     """
     A helper class for a shorthand way to 
     construct a variable called "x2": v.x2
@@ -360,7 +335,8 @@ class ZefVariable_():
     def __getattr__(self, name):
         return SV(name)
 
-
-v = ZefVariable_()
+# Helper type that we can write
+# V.x2 instead of SV('x2')
+V = VExpression_()
 
 

@@ -19,13 +19,20 @@ def c_schema_validator(ctx):
     # We can move this to another section later on
     from .. import Graph
     from .. import _ops as zo
-    from ...pyzef.internals import AbortTransaction, RT
+    from ...pyzef.internals import AbortTransaction
+    from .. import RT
 
-    gs = ctx | zo.to_graph_slice | zo.collect
-    for schema in gs | zo.root | zo.Outs[RT.ZEF_Schema]:
-        lt = schema | zo.value | zo.collect
-        if {"graph_slice": gs} | zo.Not[zo.is_a[lt]] | zo.collect:
-            raise Exception(f"{schema} failed to validate graph slice.")
+    try:
+        gs = ctx | zo.to_graph_slice | zo.collect
+        for schema in gs | zo.root | zo.Outs[RT.ZEF_Schema]:
+            lt = schema | zo.value | zo.collect
+            if {"graph_slice": gs} | zo.Not[zo.is_a[lt]] | zo.collect:
+                raise Exception(f"{schema} failed to validate graph slice.")
+    except Exception as exc:
+        from ..logger import log
+        log.error("There was an error in c_schema_validator", exc_info=exc)
+        print(str(exc))
+        raise
 
 def register_schema_validator():
     from ...pyzef import internals

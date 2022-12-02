@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.bytes")
+
 class Bytes_:
     """
     The default repr uses hexadecimal encoding.
@@ -38,3 +41,6 @@ class Bytes_:
         """
         return self.data
 
+
+from .VT import make_VT
+make_VT('Bytes', pytype=Bytes_)

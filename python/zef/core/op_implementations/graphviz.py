@@ -14,7 +14,7 @@
 
 from .. import *
 from .._ops import *
-from ..VT import Is, Any
+from ..VT import Is, Any, Val
 from ..internals import VRT
 
 def graphviz_imp(zz, *flags):
@@ -165,8 +165,8 @@ def graphviz_imp(zz, *flags):
             return v
 
         if BT(z)==BT.ENTITY_NODE:
-            if compact_view: 
-                rts = z | out_rels | filter[lambda z: BT(target(z)) == BT.ATTRIBUTE_ENTITY_NODE] | collect
+            if compact_view and not internals.is_delegate(z): 
+                rts = z | out_rels | filter[lambda z: BT(target(z)) == BT.ATTRIBUTE_ENTITY_NODE and not internals.is_delegate(target(z))] | collect
                 title = f"{ET(z)!r}"
                 return f"""<<TABLE TITLE='{title}' CELLPADDING='0' CELLSPACING='0'>
                 <TR><TD>{title}</TD></TR>
@@ -195,7 +195,7 @@ def graphviz_imp(zz, *flags):
             return f"{RT(z)!r}"        
         if BT(z)==BT.VALUE_NODE:
             return f"Val({val_to_str(z)})"
-        return f"BT.{BT(z)}"[:-5]
+        return f"{BT(z)}"[:-5]
     
     def nice_color(z: EZefRef)->str:
         if BT(z) == BT.ENTITY_NODE:
@@ -231,7 +231,7 @@ def graphviz_imp(zz, *flags):
             return ''
     
     def is_node(z):
-        return str(z | BT | collect)[-5:] == '_NODE'
+        return str(z | func[BT] | collect)[-5:] == '_NODE'
     
     @func
     def add_node(z, compact_view=False):

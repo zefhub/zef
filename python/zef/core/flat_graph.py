@@ -12,15 +12,15 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.flat_graph")
+
 from operator import ne
 from ._ops import *
 from dataclasses import dataclass
-from . import VT
+from .VT import *
+from .VT import make_VT
 
-
-@dataclass
-class Val:
-    arg: VT.Any
 
 class FlatGraph_:
     """
@@ -45,6 +45,9 @@ class FlatGraph_:
             new_fg = new_fg | insert[args[0]] | collect
             self.key_dict = new_fg.key_dict
             self.blobs = new_fg.blobs
+        elif len(args) == 1 and isinstance(args[0], FlatRef_):
+            self.key_dict =  args[0].fg.key_dict
+            self.blobs = args[0].fg.blobs
         else:
             raise NotImplementedError("FlatGraph with args")
 
@@ -62,8 +65,10 @@ class FlatGraph_:
     def __getitem__(self, key):
         return get(self, key)
 
+make_VT("FlatGraph", pytype=FlatGraph_)
 
-class FlatRef:
+
+class FlatRef_:
     def __init__(self, fg, idx):
         self.fg = fg
         self.idx = idx
@@ -85,21 +90,23 @@ class FlatRef:
     def __rshift__(self, other):
         return LazyValue(self) >> other
 
-class FlatRefs:
+make_VT("FlatRef", pytype=FlatRef_)
+
+class FlatRefs_:
     def __init__(self, fg, idxs):
         self.fg = fg
         self.idxs = idxs
     def __repr__(self):
         newline = '\n'
         return f"""<FlatRefs len={len(self.idxs)}> [
-{["    " + repr(FlatRef(self.fg, i)) for i in self.idxs] | join[newline] | collect}
+{["    " + repr(FlatRef_(self.fg, i)) for i in self.idxs] | join[newline] | collect}
 ]"""
     
     def __or__(self, other):
         return LazyValue(self) | other
 
     def __iter__(self):
-        return (FlatRef(self.fg, i) for i in self.idxs)
+        return (FlatRef_(self.fg, i) for i in self.idxs)
 
     def __gt__(self, other):
         return LazyValue(self) > other
@@ -112,3 +119,6 @@ class FlatRefs:
     
     def __rshift__(self, other):
         return LazyValue(self) >> other
+
+make_VT("FlatRefs", pytype=FlatRefs_)
+

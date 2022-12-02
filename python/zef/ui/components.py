@@ -29,10 +29,10 @@ def zef_ui_ctor(type_name, self, *args, **kwargs):
         else: kwargs = {**kwargs, "data": data}
     
     ctor_dict = {"type_name":type_name, "constructor_func": partial(zef_ui_ctor, type_name), "pass_self": True}
-    if len(self.d['absorbed']) == 1:
-        return ValueType_( absorbed = ({**self.d['absorbed'][0], **kwargs},), **ctor_dict)
+    if len(self._d['absorbed']) == 1:
+        return self._replace(absorbed = ({**self._d['absorbed'][0], **kwargs},))
 
-    return ValueType_(absorbed = (kwargs,), **ctor_dict)
+    return self._replace(absorbed = (kwargs,))
 
 
 

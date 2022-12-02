@@ -34,6 +34,8 @@ cmake_dependent_option(LIBZEF_BUNDLED_ZSTD "Bundle libzstd statically in the lib
 cmake_dependent_option(LIBZEF_BUNDLED_CURL "Bundle libcurl statically in the library" FALSE "NOT LIBZEF_PYZEF_BUNDLED" TRUE)
 cmake_dependent_option(LIBZEF_BUNDLED_LIBARCHIVE "Bundle libarchive statically in the library" FALSE "NOT LIBZEF_PYZEF_BUNDLED" TRUE)
 
+set(LIBZEF_PACKAGE_VERSION "no-version-given" CACHE STRING "Version included into libzef to announce.")
+
 if(ZEFDB_ALLOW_NO_TLS)
   message(STATUS "Insecure connections are permitted")
 else()
@@ -81,6 +83,7 @@ set(SOURCES
     src/external_handlers.cpp
     src/conversions.cpp
     src/tar_file.cpp
+    src/transaction.cpp
     src/revise.cpp
 
     src/butler/butler.cpp

@@ -14,7 +14,9 @@
 
 from ..pyzef.main import *
 from ..pyzef import main, zefops, internals
-from ._core import ET, AttributeEntityType, EntityType
+# from ._core import ET, AttributeEntityType, EntityType
+from ..pyzef.main import EntityType
+from ..pyzef.internals import ET, AttributeEntityType
 
 main.ZefRef.__hash__ = lambda self: hash(((index(self)), index(self | zefops.tx)))
 main.EZefRef.__hash__ = lambda self: index(self)
@@ -27,6 +29,12 @@ internals.Delegate.__hash__ = lambda self: hash((self.order, self.item))
 internals.DelegateRelationTriple.__hash__ = lambda self: hash((self.rt, self.source, self.target))
 internals.DelegateTX.__hash__ = lambda self: hash(internals.DelegateTX)
 internals.DelegateRoot.__hash__ = lambda self: hash(internals.DelegateRoot)
+
+# TODO: Fix this up
+def delayed_instancecheck_Delegate(self, other):
+    from .delegates import instancecheck_Delegate
+    return instancecheck_Delegate(self, other)
+internals.Delegate.__instancecheck__ = delayed_instancecheck_Delegate
 
 
 from ..pyzef.main import EntityType, RelationType
@@ -299,9 +307,9 @@ EZefRef.__le__ = convert_to_assign
 
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):
-    from .abstract_raes import Entity, AttributeEntity, Relation
+    from .abstract_raes import EntityRef_, AttributeEntityRef_, RelationRef_
     from ._ops import origin_uid
-    if type(x) in [Entity, AttributeEntity, Relation]:
+    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_]:
         return origin_uid(x) in self
 
     if type(x) in [ZefRef, EZefRef]:
@@ -314,10 +322,10 @@ main.Graph.__contains__ = Graph__contains__
     
 original_Graph__getitem__ = main.Graph.__getitem__
 def Graph__getitem__(self, x):
-    from .abstract_raes import Entity, AttributeEntity, Relation
+    from .abstract_raes import EntityRef_, AttributeEntityRef_, RelationRef_
     from ._ops import uid, target
     from .internals import BT
-    if type(x) in [Entity, AttributeEntity, Relation]:
+    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_]:
         return self[uid(x)]
 
     res = original_Graph__getitem__(self, x)
@@ -341,8 +349,8 @@ main.Graph.__getitem__ = Graph__getitem__
 
 original_Graph__init__ = main.Graph.__init__
 def Graph__init__(self, *args, **kwds):
-    from .graph_slice import GraphSlice
-    if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], GraphSlice):
+    from .graph_slice import GraphSlice_
+    if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], GraphSlice_):
         return original_Graph__init__(self, args[0].tx)
 
     return original_Graph__init__(self, *args, **kwds)
@@ -393,10 +401,13 @@ def AttributeEntityType_repr(self):
     return s
 AttributeEntityType.__repr__ = AttributeEntityType_repr
 
-
-
-
-
+original_AttributeEntityType__str__ = internals.AttributeEntityType.__str__
+def AttributeEntityType_str(self):
+    if self.complex_value:
+        return "COMPLEX(" + str(self.complex_value.deserialize()) + ")"
+    else:
+        return str(self.rep_type)
+AttributeEntityType.__str__ = AttributeEntityType_str
 
 
 
@@ -415,10 +426,14 @@ class EntityValueInstance_:
         
     def __repr__(self):
         nl = '\n'
-        return f'ET.{str(self._entity_type)}({f", ".join([f"{k}={repr(v)}" for k, v in self._kwargs.items()])})'
+        return f'{self._entity_type}({f", ".join([f"{k}={repr(v)}" for k, v in self._kwargs.items()])})'
     
     def __getattr__(self, name):
         return self._kwargs[name]
+
+    def __eq__(self, other):
+        if not isinstance(other, EntityValueInstance_): return False
+        return self._entity_type == other._entity_type and self._kwargs == other._kwargs
 
 
 
@@ -427,5 +442,4 @@ def entity_type_call_func(self, *args, **kwargs):
     return EntityValueInstance_(EntityType(self.value), **kwargs)
 
 EntityType.__call__ = entity_type_call_func
-
 

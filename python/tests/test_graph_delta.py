@@ -164,9 +164,112 @@ class MyTestCase(unittest.TestCase):
             RT.Supervisor: y
         }} | g | run
 
-        self.assertEqual(z | Out[RT.Supervisor] | origin_rae | collect,
-                         y | origin_rae | collect)
+        self.assertEqual(z | Out[RT.Supervisor] | discard_frame | collect,
+                         y | discard_frame | collect)
         self.assertEqual(z | F.Name | collect, "Joe")
+
+    def test_object_notation(self):
+        g = Graph()
+
+        x = ET.Person(
+            first_name="Joe",
+            last_name="Bloggs",
+            height=99,
+            # friend=ET.Person(
+            friend_temp=ET.Person(
+                first_name="Jane",
+                last_name="Doe",
+                height=142,
+            )
+        )
+
+        z_joe = x | g | run
+        self.assertEqual(rae_type(z_joe), ET.Person)
+        self.assertEqual(z_joe | F.first_name | collect, "Joe")
+        self.assertEqual(z_joe | F.last_name | collect, "Bloggs")
+        self.assertEqual(z_joe | F.height | collect, 99)
+        # z_jane = z_joe | F.Friend | collect
+        z_jane = z_joe | F.friend_temp | collect
+        self.assertEqual(rae_type(z_jane), ET.Person)
+        self.assertEqual(z_jane | F.first_name | collect, "Jane")
+        self.assertEqual(z_jane | F.last_name | collect, "Doe")
+        self.assertEqual(z_jane | F.height | collect, 142)
+
+        g = Graph()
+
+        y = ET.Person["joe"](
+            first_name="Joe",
+            last_name="Bloggs",
+            height=99,
+            # friend=ET.Person["jane"](
+            friend_temp=ET.Person["jane"](
+                first_name="Jane",
+                last_name="Doe",
+                height=142,
+            )
+        )
+
+        r = [
+            y,
+            (Z["jane"], RT.Something, Z["joe"]),
+        ] | transact[g] | run
+
+        z_joe = r["joe"]
+        self.assertEqual(rae_type(z_joe), ET.Person)
+        self.assertEqual(z_joe | F.first_name | collect, "Joe")
+        self.assertEqual(z_joe | F.last_name | collect, "Bloggs")
+        self.assertEqual(z_joe | F.height | collect, 99)
+
+        z_jane = r["jane"]
+        # self.assertEqual(z_joe | F.friend | collect, z_jane)
+        self.assertEqual(z_joe | F.friend_temp | collect, z_jane)
+        self.assertEqual(rae_type(z_jane), ET.Person)
+        self.assertEqual(z_jane | F.first_name | collect, "Jane")
+        self.assertEqual(z_jane | F.last_name | collect, "Doe")
+        self.assertEqual(z_jane | F.height | collect, 142)
+
+        self.assertEqual(z_jane | Out[RT.Something] | collect, z_joe)
+
+    def test_delegate_creation(self):
+        g = Graph()
+
+        d,r,s = (delegate_of(ET.Person), RT.Alias, "PersonEntity") | g | run
+
+        z = ET.Person | g | run
+
+        self.assertEqual(delegate_of(z) | to_delegate | collect, delegate_of(ET.Person))
+        self.assertEqual(value(s), "PersonEntity")
+        self.assertEqual(to_ezefref(delegate_of(z)), to_ezefref(d))
+        self.assertEqual(rae_type(r), RT.Alias)
+        self.assertEqual(source(r), d)
+        self.assertEqual(target(r), s)
+        # TODO: Redo this when we know how it should look.
+        # self.assertEqual(isinstance(delegate_of(z), delegate_of(ET.Person)))
+
+    def test_full_graph_merge(self):
+        g = Graph()
+
+        z = ET.Machine | g | run
+        a,b,c = (ET.Machine, RT.Something, 5) | g | run
+        d,e,f = (delegate_of(ET.Machine), RT.Metadata, Val("asdf")) | g | run
+        _,h,i = (b, RT.Something, EN.Enum.Test) | g | run
+        _,j,_ = (a, RT.Cycle, a) | g | run
+        v = Val({"dict": "test"}) | g | run
+
+        g2 = Graph()
+        g | now | all | g2 | run
+
+        for obj in [a,b,c,  e,  h,i,j]:
+            self.assertIn(origin_uid(obj), g2)
+            self.assertIn(discard_frame(obj), g2)
+            z2 = g2 | now | get[discard_frame(obj)] | collect
+            self.assertEqual(discard_frame(obj), discard_frame(z2))
+
+        self.assertIsNot(internals.search_value_node(value(f), g2), None)
+        self.assertIsNot(internals.search_value_node(internals.SerializedValue.serialize(value(v)), g2), None)
+            
+        
+            
 
 if __name__ == '__main__':
     unittest.main()

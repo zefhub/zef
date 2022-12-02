@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core")
+
 ####################################
 # * Locating libzef
 #----------------------------------
@@ -59,97 +62,85 @@ from .overrides import *
 # actually provide useful exports.
 from . import internals
 from . import pure_utils
-from . import error
-from . import image
+from . import VT
+from . import _error
+from . import generators
+from .VT import extended_containers
+from . import user_value_type
+from . import _image
+from . import _decimal
+from . import _bytes
+# Up to here, DEFINITELY no zefops can be called
+from . import abstract_raes
+from . import graph_slice
+from . import delegates
 from . import op_structs
 from . import _ops
-from . import VT
 from . import zef_functions
-from . import abstract_raes
 from . import graph_delta
-from . import graph_slice
 from . import flat_graph
 from . import fx
 from . import serialization
+from . import graph_events
+from . import streams
+from . import z_expression
 
-from .error import Error
+from .VT import *
 
-from .image import Image
-
-from .fx.fx_types import Effect, FX
+from .fx import FX
 
 from .units import unit
 
-from .graph_slice import GraphSlice
-
-
-from .flat_graph import FlatGraph_, FlatRef, FlatRefs, Val
-
-# TODO: import the other ValueTypes here and implement constructor by forwarding args
-from .VT import (
-    TX,
-    Nil,
-    Any,
-    Bool,
-    Int,
-    Float,
-    String,
-    Bytes,
-    Decimal,
-    List,
-    Dict,
-    Set,
-    Stream,
-    ValueType,
-    Instantiated, 
-    Terminated, 
-    Assigned,
-    FlatGraph,
-
-    Union,
-    Intersection,
-    Complement,
-    Is,
-    SetOf,
-    RP,
-    HasValue,
-    Pattern,
-    SameAs,
-
-    RelatedOps,
-    UsedFor,
-    OperatesOn
-    )
-from .VT.value_type import ValueType_
-
-from .abstract_raes import Entity, AttributeEntity, Relation, TXNode, Root, make_custom_entity
-
 from .zef_functions import func
-
-from .op_structs import ZefOp, LazyValue
 
 from .serialization import serialize, deserialize
 
-from .user_value_type import UserValueType
+from .symbolic_expression import SV, SVs, V
+from .z_expression import ZZ    # TODO: rename this to "Z" and replace the ZefOp "Z"
 
-# instantiating these here, since not all of the core has been
-# initialized when Python imports the abstract_raes module
-# and a circular import error occurs.
-please_instantiate = make_custom_entity(name_to_display='please_instantiate', predetermined_uid='783320c1c3de2610')
-please_terminate   = make_custom_entity(name_to_display='please_terminate', predetermined_uid='67cb88b71523f6d9')
-please_assign      = make_custom_entity(name_to_display='please_assign',    predetermined_uid='4d4a93522f75ed21')
-
-instantiated     = make_custom_entity(name_to_display='instantiated', predetermined_uid='60252a53a03086b7')
-terminated       = make_custom_entity(name_to_display='terminated', predetermined_uid='4f676154ffeb9dc8')
-assigned         = make_custom_entity(name_to_display='assigned', predetermined_uid='c31287dab677f38c')
-
-infinity           = make_custom_entity(name_to_display='infinity',    predetermined_uid='4906648460291096')
-nil                = make_custom_entity(name_to_display='nil',         predetermined_uid='1654670075329719') #| register_call_handler[f1] | run[execute] | get['entity'] | collect  # TODO
-
+from .graph_events import assigned, terminated, instantiated
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
-from .symbolic_expression import SV, SVs, v, unwrap_vars_hack
+
+
+# Because I can't figure out why vscode displaying rich console output removes
+# colours, even after forcing them in the string output, we have to hook into
+# the ipython excepthook to print directly to the console.
+#
+# This is not needed for an ipython shell, hence the _is_jupyter check.
+def visual_exception_view(error_value):
+    from zef.core._error import zef_ui_err
+    try:
+        # zef_ui_err(error_value.wrapped)
+        print(error_value.wrapped)
+    except Exception as e:
+        try:
+            e_s = str(e)
+        except:
+            e_s = "Can't take str of failure exception"
+        print("Failed in displaying zef error: {e_s}")
+        pass
+try:
+    from IPython import get_ipython
+    ip = get_ipython()
+    # Use the same check as what rich does
+    import rich.console
+    if rich.console._is_jupyter():
+        def ip_exception_handler(self, etype, evalue, tb, tb_offset=None):
+            from ._error import ExceptionWrapper
+            if etype == ExceptionWrapper:
+                # Replace the wrapper object so that we don't output twice
+                self.showtraceback((etype, "see visual below", tb), tb_offset=tb_offset)  # standard IPython's printout
+                # Show our fancy view
+                visual_exception_view(evalue)
+            else:
+                return self.showtraceback((etype, evalue, tb), tb_offset=tb_offset)  # standard IPython's printout
+
+        # Overloading ipython exception handler
+        ip.set_custom_exc((Exception,), ip_exception_handler) 
+except:
+    pass
 
 pyzef.internals.finished_loading_python_core()
 

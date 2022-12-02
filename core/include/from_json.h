@@ -24,5 +24,6 @@ using json = nlohmann::json;
 namespace zefDB {
     namespace internals {
         LIBZEF_DLL_EXPORTED Graph create_from_json(std::unordered_map<blob_index,json> blobs);
+        LIBZEF_DLL_EXPORTED Graph create_from_json_fixed_layout(std::vector<json> blobs);
     }
 }

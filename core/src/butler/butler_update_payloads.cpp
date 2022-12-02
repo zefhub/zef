@@ -55,6 +55,7 @@ UpdatePayload create_update_payload_current(GraphData & gd, const UpdateHeads & 
         {"graph_uid", str(internals::get_graph_uid(gd))},
         {"index_of_latest_complete_tx_node", last_tx},
         {"hash_full_graph", partial_hash(Graph(gd), update_heads.blobs.to, 0, "")},
+        {"hash_type", "blobs_full"},
         {"data_layout_version", internals::get_data_layout_version_info(gd)}
     };
     p.rest = {blobs};

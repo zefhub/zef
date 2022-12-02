@@ -109,13 +109,13 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev ninja-build jq
+        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev ninja-build jq graphviz
 
     - name: Grab homebrew packages
       if: ${{ startsWith(inputs.os, 'macos') }}
       shell: bash
       run: |
-        brew install ninja openssl@1.1 zstd jq coreutils
+        brew install ninja openssl@1.1 zstd jq coreutils graphviz
         echo
         brew --prefix
         echo
@@ -176,6 +176,15 @@ runs:
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         bash scripts/assert_no_created_tokens.sh
+
+    - name: Check pyi file up to date
+      if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
+      shell: bash
+      env:
+        ZEFDB_OFFLINE_MODE: TRUE
+      run: |
+        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        bash scripts/assert_pyi_file_up_to_date.sh
 
     - name: Run python tests linux/macos
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}

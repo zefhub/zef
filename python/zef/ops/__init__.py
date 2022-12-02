@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ..core._ops import *
-from ..core._ops import _any
+# from ..core._ops import _any
 from ..core import _ops, func
 
 import types
@@ -31,7 +31,7 @@ from ..ui import show
 __all__ = [
     # "_",
     "func",
-    "_any",
+    # "_any",
     "value_or",
     "maybe_value",
     "config",

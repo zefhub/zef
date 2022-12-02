@@ -56,9 +56,9 @@ def privileges_implementation(user, action, privilege, target):
 def privileges_type_info(op, curr_type):
     return VT.Effect
 from ..core.op_implementations.dispatch_dictionary import _op_to_functions
-_op_to_functions[RT.Privileges] = (privileges_implementation, privileges_type_info)
+_op_to_functions[internals.RT.Privileges] = (privileges_implementation, privileges_type_info)
 
-privileges = make_zefop(RT.Privileges)
+privileges = make_zefop(internals.RT.Privileges)
 
 grant = privileges[KW.grant]
 revoke = privileges[KW.revoke]
