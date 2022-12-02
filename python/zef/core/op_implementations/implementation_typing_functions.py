@@ -27,7 +27,7 @@ from ..abstract_raes import abstract_rae_from_rae_type_and_uid
 from .flatgraph_implementations import *
 from ..logger import log
 from .._error import Error_, Error
-from .._error import EvalEngineCoreError, ExceptionWrapper, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb
+from .._error import EvalEngineCoreError, ExceptionWrapper, add_error_context, prepend_error_contexts, convert_python_exception, process_python_tb, custom_error_handling_activated
 
 from ...pyzef import zefops as pyzefops, main as pymain
 from ..internals import BaseUID, EternalUID, ZefRefUID, to_uid, ZefEnumStruct, ZefEnumStructPartial
@@ -89,6 +89,9 @@ def wrap_error_raising(e, maybe_context=None):
         raise e from None
 
 def call_wrap_errors_as_unexpected(func, *args, maybe_context=None, **kwargs):
+    if not custom_error_handling_activated():
+        return func(*args, **kwargs)
+        
     from ..op_structs import EvalEngineCoreError
     try:
         return func(*args, **kwargs)

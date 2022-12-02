@@ -62,14 +62,17 @@ class ZefGenerator_:
                     return
                 except GeneratorExit:
                     raise
-                except EvalEngineCoreError as e:
-                    wrap_error_raising(e, cur_context)
-                except ExceptionWrapper as e:
-                    wrap_error_raising(e, cur_context)
-                except Error_ as e:
-                    wrap_error_raising(e, cur_context)
                 except Exception as e:
-                    wrap_error_raising(e, cur_context)
+                    if not custom_error_handling_activated():
+                        raise
+                    elif isinstance(e, EvalEngineCoreError):
+                        wrap_error_raising(e, cur_context)
+                    elif isinstance(e, ExceptionWrapper):
+                        wrap_error_raising(e, cur_context)
+                    elif isinstance(e, Error_):
+                        wrap_error_raising(e, cur_context)
+                    else:
+                        wrap_error_raising(e, cur_context)
         return wrap_errors()
 
     def __str__(self):

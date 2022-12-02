@@ -16,6 +16,12 @@
 from .. import report_import
 report_import("zef.core.error")
 
+custom_error_handling = True
+import os
+if os.environ.get("ZEF_ERROR_HANDLING", "").lower() in ["0", "false", "no", "off"]:
+    custom_error_handling = False
+def custom_error_handling_activated():
+    return custom_error_handling
 
 # This is an exception only for our internal evaluation engine logic. This error
 # should never propagate outside of the evaluation engine, and instead be

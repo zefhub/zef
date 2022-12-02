@@ -180,7 +180,7 @@ from inspect import isfunction, getfullargspec
 from types import LambdaType
 from typing import Generator, Iterable, Iterator
 from ._core import *
-from ._error import  ExceptionWrapper, EvalEngineCoreError, add_error_context, convert_python_exception, make_custom_error
+from ._error import  ExceptionWrapper, EvalEngineCoreError, add_error_context, convert_python_exception, make_custom_error, custom_error_handling_activated
 from .VT import *
 from .VT import make_VT
 from .VT.helpers import generic_subtype_validate, generic_subtype_get
@@ -486,14 +486,17 @@ class ZefOp_:
         from ._error import EvalEngineCoreError
         try:
             res = lzy_val | collect_op
-        except ExceptionWrapper as e:
-            tb = e.__traceback__
-            from ._error import process_python_tb
-            frames = process_python_tb(tb)
-            err = add_error_context(e.wrapped, {"frames": frames})
-            raise ExceptionWrapper(err) from None
         except Exception as e:
-            raise e
+            if not custom_error_handling_activated():
+                raise
+            if isinstance(e, ExceptionWrapper):
+                tb = e.__traceback__
+                from ._error import process_python_tb
+                frames = process_python_tb(tb)
+                err = add_error_context(e.wrapped, {"frames": frames})
+                raise ExceptionWrapper(err) from None
+            else:
+                raise e
         # Raise if this didn't evaluate!
         if isinstance(res, CollectingOp):
             raise Exception(f"ZefOp call didn't evaluate! {res}")
@@ -909,16 +912,19 @@ class LazyValue:
         from ._error import EvalEngineCoreError
         try:
             if should_trigger_eval(res_lazyval): return evaluate_lazy_value(res_lazyval)
-        except ExceptionWrapper as e:
-            tb = e.__traceback__
-            from ._error import process_python_tb
-            frames = process_python_tb(tb)
-            err = add_error_context(e.wrapped, {"frames": frames})
-            if getattr(e, "keep_traceback", None):
-                raise ExceptionWrapper(err) from e
-            raise ExceptionWrapper(err) from None
         except Exception as e:
-            raise e
+            if not custom_error_handling_activated():
+                raise
+            if isinstance(e, ExceptionWrapper):
+                tb = e.__traceback__
+                from ._error import process_python_tb
+                frames = process_python_tb(tb)
+                err = add_error_context(e.wrapped, {"frames": frames})
+                if getattr(e, "keep_traceback", None):
+                    raise ExceptionWrapper(err) from e
+                raise ExceptionWrapper(err) from None
+            else:
+                raise e
         return res_lazyval
 
     def lt_gt_lshift_rshift_behavior(self, other, rt):
@@ -1069,35 +1075,36 @@ class LazyValue:
                 got_error = None
                 try:
                     new_value = to_call_func(curr_value,  *op[1])
-
-                except EvalEngineCoreError as e:
-                    # This is definitely a panic - but we want to attach the
-                    # current evaluation information along with this.
-                    # Probably want to add in python traceback here
-                    e = EvalEngineCoreError(e)
-                    got_error = add_error_context(e, cur_context)
-
-                except ExceptionWrapper as e:
-                    # Continue the panic, attaching more tb info
-                    tb = e.__traceback__
-                    from ._error import process_python_tb
-                    frames = process_python_tb(tb)
-                    got_error = add_error_context(e.wrapped, {"frames": frames})
-                    got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
-                
-                except Error_ as e:
-                    got_error = e
-                    got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
-                    # print("2")
-                
                 except Exception as e:
-                    # print("3")
-                    py_e,frames = convert_python_exception(e)
-                    got_error = Error.Panic()
-                    got_error.nested = py_e
-                    got_error = add_error_context(got_error, {"frames": frames})
-                    got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
+                    if not custom_error_handling_activated():
+                        raise
+
+                    if isinstance(e, EvalEngineCoreError):
+                        # This is definitely a panic - but we want to attach the
+                        # current evaluation information along with this.
+                        # Probably want to add in python traceback here
+                        e = EvalEngineCoreError(e)
+                        got_error = add_error_context(e, cur_context)
+                    elif isinstance(e, ExceptionWrapper):
+                        # Continue the panic, attaching more tb info
+                        tb = e.__traceback__
+                        from ._error import process_python_tb
+                        frames = process_python_tb(tb)
+                        got_error = add_error_context(e.wrapped, {"frames": frames})
+                        got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
                 
+                    elif isinstance(e, Error_):
+                        got_error = e
+                        got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
+                        # print("2")
+                
+                    else:
+                        # print("3")
+                        py_e,frames = convert_python_exception(e)
+                        got_error = Error.Panic()
+                        got_error.nested = py_e
+                        got_error = add_error_context(got_error, {"frames": frames})
+                        got_error = add_error_context(got_error, type_checking_context(op, to_call_func, curr_value))
                 else:
                     if isinstance(new_value, Error_):
                         # Here we have a choice - depends on what the caller expects, an Error or an exception
@@ -1118,7 +1125,10 @@ class LazyValue:
                     
 
                 if got_error is not None:
-                    raise add_error_context(got_error, cur_context) from None
+                    if not custom_error_handling_activated():
+                        raise got_error
+                    else:
+                        raise add_error_context(got_error, cur_context) from None
 
                 if isinstance(new_value, (Generator, Iterator)):
                     print("Operator produced a raw generator or iterator")
@@ -1148,22 +1158,29 @@ class LazyValue:
                             val = next(it)
                         except StopIteration:
                             break
-                        except EvalEngineCoreError as e:
-                            raise add_error_context(e, cur_context)
-                        except ExceptionWrapper as e:
-                            raise add_error_context(e.wrapped, cur_context) from None
-                        except Error_ as e:
-                            raise add_error_context(e, cur_context) from None
                         except Exception as e:
-                            py_e,frames = convert_python_exception(e)
-                            e = Error.Panic()
-                            e.nested = py_e
-                            e = add_error_context(e, {"frames": frames})
-                            e = add_error_context(e, cur_context)
-                            raise e from None
+                            if not custom_error_handling_activated():
+                                raise
+                                
+                            if isinstance(e, EvalEngineCoreError):
+                                raise add_error_context(e, cur_context)
+                            elif isinstance(e, ExceptionWrapper):
+                                raise add_error_context(e.wrapped, cur_context) from None
+                            elif isinstance(e, Error_):
+                                raise add_error_context(e, cur_context) from None
+                            else:
+                                py_e,frames = convert_python_exception(e)
+                                e = Error.Panic()
+                                e.nested = py_e
+                                e = add_error_context(e, {"frames": frames})
+                                e = add_error_context(e, cur_context)
+                                raise e from None
 
                         if isinstance(val, Error_):
-                            raise add_error_context(val, cur_context) from None
+                            if not custom_error_handling_activated():
+                                raise val
+                            else:
+                                raise add_error_context(val, cur_context) from None
 
                         return_list.append(val)
                     return return_list
@@ -1174,34 +1191,37 @@ class LazyValue:
 
             return curr_value
 
-        except EvalEngineCoreError:
-            # print("7")
-            raise
-        
-        except ExceptionWrapper as exc:
-            # print("8")
-            raise exc from None
-        
-        except Error_ as exc:
-            # print("9")
-            if getattr(exc, "keep_traceback", None):
-                wrapper = ExceptionWrapper(exc)
-                wrapper.keep_traceback = True
-                wrapper.__traceback__ = exc.__traceback__
-                raise wrapper
-            raise ExceptionWrapper(exc) from None
-
         except Exception as exc:
-            # print("10")
-            e = EvalEngineCoreError(exc)
-            e = add_error_context(e, {
-                "chain": self,
-                "op_i": 0,
-                "input": curr_value,
-                "op": curr_op,}
-            )
-            e = add_error_context(e, {"frames": e.frames,} )
-            raise e 
+            if not custom_error_handling_activated():
+                raise
+            if isinstance(exc, EvalEngineCoreError):
+                # print("7")
+                raise
+        
+            elif isinstance(exc, ExceptionWrapper):
+                # print("8")
+                raise exc from None
+
+            elif isinstance(exc, Error_):
+                # print("9")
+                if getattr(exc, "keep_traceback", None):
+                    wrapper = ExceptionWrapper(exc)
+                    wrapper.keep_traceback = True
+                    wrapper.__traceback__ = exc.__traceback__
+                    raise wrapper
+                raise ExceptionWrapper(exc) from None
+
+            else:
+                # print("10")
+                e = EvalEngineCoreError(exc)
+                e = add_error_context(e, {
+                    "chain": self,
+                    "op_i": 0,
+                    "input": curr_value,
+                    "op": curr_op,}
+                )
+                e = add_error_context(e, {"frames": e.frames,} )
+                raise e 
 
 # Monkey patching for some handy warnings
 from .VT.value_type import ValueType_
