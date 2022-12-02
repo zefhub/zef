@@ -14,11 +14,12 @@
 
 
 from .components import *
-from .zef_rich import show
+from .zef_rich import show, to_rich_str
 from .visualizations import to_table, to_card
 
 __all__ = [
     "show",
+    "to_rich_str",
     "Text",
     "Code",
     "Style",

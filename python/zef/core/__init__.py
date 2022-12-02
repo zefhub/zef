@@ -104,31 +104,44 @@ from .graph_events import assigned, terminated, instantiated
 from . import op_implementations
 
 
+# Because I can't figure out why vscode displaying rich console output removes
+# colours, even after forcing them in the string output, we have to hook into
+# the ipython excepthook to print directly to the console.
+#
+# This is not needed for an ipython shell, hence the _is_jupyter check.
 def visual_exception_view(error_value):
     from zef.core._error import zef_ui_err
-    from ._error import ExceptionWrapper
-    if isinstance(error_value, ExceptionWrapper): 
+    try:
+        # zef_ui_err(error_value.wrapped)
+        print(error_value.wrapped)
+    except Exception as e:
         try:
-            print(zef_ui_err(error_value.wrapped))
-        except Exception as e:
-            pass
+            e_s = str(e)
+        except:
+            e_s = "Can't take str of failure exception"
+        print("Failed in displaying zef error: {e_s}")
+        pass
 try:
     from IPython import get_ipython
     ip = get_ipython()
-    def ip_exception_handler(self, etype, evalue, tb, tb_offset=None):
-        self.showtraceback((etype, evalue, tb), tb_offset=tb_offset)  # standard IPython's printout
-        visual_exception_view(evalue)
-    
-    # Overloading ipython exception handler
-    ip.set_custom_exc((Exception,), ip_exception_handler) 
+    # Use the same check as what rich does
+    import rich.console
+    if rich.console._is_jupyter():
+        def ip_exception_handler(self, etype, evalue, tb, tb_offset=None):
+            from ._error import ExceptionWrapper
+            if etype == ExceptionWrapper:
+                # Replace the wrapper object so that we don't output twice
+                self.showtraceback((etype, "see visual below", tb), tb_offset=tb_offset)  # standard IPython's printout
+                # Show our fancy view
+                visual_exception_view(evalue)
+            else:
+                return self.showtraceback((etype, evalue, tb), tb_offset=tb_offset)  # standard IPython's printout
+
+        # Overloading ipython exception handler
+        ip.set_custom_exc((Exception,), ip_exception_handler) 
 except:
-    import sys
-    def sys_except_hook(exctype, value, traceback):
-        sys.__excepthook__(exctype, value, traceback)
-        visual_exception_view(value)
-    
-    # Overloading python exception handler
-    sys.excepthook = sys_except_hook
+    pass
+
 pyzef.internals.finished_loading_python_core()
 
 # ############################################

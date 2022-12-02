@@ -46,17 +46,16 @@ class Error_(Exception):
         else: args = self.args
         return f'{self.name}{args}'
 
-    # def __str__(self):
-    #     from ..ui import show
-    #     try:
-    #         # zef_ui_err(self) 
-    #         # return ""
-    #         return "\n\nThis is a custom error output for a wrapped Zef error\n\n" + str_zef_error(self)
-    #     except Exception as exc:
-    #         import traceback
-    #         # return "Unable to format custom Zef error: "# + traceback.format_exception(exc)
-    #         # traceback.print_exc(exc)
-    #         traceback.print_tb(exc.__traceback__)
+    def __str__(self):
+        try:
+            # We add an extra newline at the start to better handle the output
+            return "\n" + zef_ui_err(self, as_str=True)
+        except Exception as e:
+            try:
+                e_s = str(e)
+            except:
+                e_s = "Can't take str of failure exception"
+            return f"Failed in displaying zef error: {e_s}"
         
 
     def __eq__(self, other):
@@ -74,9 +73,9 @@ def zef_ui_err_fallback(self):
         traceback.print_tb(exc.__traceback__)
 
 
-def zef_ui_err(err):
+def zef_ui_err(err, as_str=False):
     from ..ops import contains,last, get, collect, filter, ZefOp, LazyValue
-    from ..ui import Text,VStack, Frame, show, Code
+    from ..ui import Text,VStack, Frame, show, Code, to_rich_str
     from ..core.op_implementations.implementation_typing_functions import ZefGenerator
 
     def truncate_obj_str(obj, max_len=20):
@@ -218,14 +217,27 @@ def zef_ui_err(err):
             stack_lst += [err_msg_header, err_msg]
 
         stack = VStack(stack_lst, expand=True)
-        Frame(stack, title= title, expand=True) | show
-        return ""
+        frame = Frame(stack, title= title, expand=True)
+        if as_str:
+            temp = frame | to_rich_str
+            return temp
+        else:
+            frame | show
+            return ""
     
     except Exception as exc:
         import traceback
-        print("!Visual Error output failed!")
-        print(traceback.format_exc())
-        return zef_ui_err_fallback(err)
+        print(f"!Visual Error output failed!")
+        try:
+            print(type(exc))
+            print(exc)
+            print(traceback.format_exc())
+        except:
+            pass
+        try:
+            return zef_ui_err_fallback(err)
+        except:
+            pass
 
 
 # This class exists solely to enable printing of the _ErrorType class above in
