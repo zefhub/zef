@@ -5,10 +5,10 @@ before-test = "python -mpip install -r {project}/python/tests/requirements_tests
 test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST ZEFDB_QUIET=YES python -mpytest {project}/python/tests && python {project}/python/tests/quick_start.py"
 
 [tool.cibuildwheel.linux]
-before-all = "yum install -y openssl-devel"
+before-all = "yum install -y openssl-devel graphviz"
 
 [tool.cibuildwheel.macos]
-before-all = "brew install openssl"
+before-all = "brew install openssl graphviz"
 
 [tool.cibuildwheel.windows]
 test-command = "set \"ZEFHUB_AUTH_KEY=GUEST\" && set \"ZEFDB_QUIET=YES\" && python -mpytest {project}/python/tests && python {project}/python/tests/quick_start.py"
