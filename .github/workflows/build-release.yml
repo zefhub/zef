@@ -38,13 +38,13 @@ jobs:
     env:
       ZEF_TAG: ${{ needs.extract-tag-name.outputs.tag }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           path: zef-latest
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup python
-        uses: actions/setup-python@v2
+        uses: actions/setup-python@v4
         with:
           python-version: 3.8
 
@@ -59,7 +59,7 @@ jobs:
           VERSION_STRING: ${{ env.ZEF_TAG }}
         run: |
           python zef-latest/scripts/extract-docstrings.py
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           repository: zefhub/zef-docs
           path: zef-docs
@@ -88,7 +88,7 @@ jobs:
     env:
       ZEF_TAG: ${{ needs.extract-tag-name.outputs.tag }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
