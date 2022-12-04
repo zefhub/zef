@@ -16,7 +16,7 @@ jobs:
       matrix:
         # os: [ubuntu-20.04, macos-latest, windows-latest]
         os: [ubuntu-20.04, macos-latest]
-        python-version: [3.7, "3.10"]
+        python-version: [3.7, "3.10", "3.11"]
         exclude:
           - os: macos-latest
             python-version: 3.8
@@ -29,7 +29,7 @@ jobs:
     steps:
       ########
       # Git things
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 

@@ -34,7 +34,7 @@ runs:
 
     - name: Setup python on linux and windows
       if: ${{ !startsWith(inputs.os, 'macos') }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ inputs.python-version }}
 
@@ -57,10 +57,10 @@ runs:
       shell: bash
       run: |
         python3 -m pip install --upgrade pip
-        echo ::set-output name=pipdir::$(pip3 cache dir)
+        echo "pipdir=$(pip3 cache dir)" >> $GITHUB_OUTPUT
 
     - name: pip cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ${{ steps.pipdir.outputs.pipdir }}
         key: pip-${{ inputs.os }}-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
@@ -71,7 +71,7 @@ runs:
     # Julia
 
     # - name: Julia cache
-    #   uses: actions/cache@v2
+    #   uses: actions/cache@v3
     #   with:
     #     path: ~/.julia
     #     key: ${{ runner.os }}-julia_depot-${{ steps.pipdir.outputs.pyver }}-${{ hashFiles('**/Manifest.toml', '**/Project.toml') }}

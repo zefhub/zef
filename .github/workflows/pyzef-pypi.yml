@@ -21,7 +21,7 @@ jobs:
         os: [ubuntu-20.04, macos-latest]
         # os: [ubuntu-20.04]
         # Note: need "3.10" as yaml will truncate floating point number
-        python-version: ["cp37", "cp38", "cp39", "cp310"]
+        python-version: ["cp37", "cp38", "cp39", "cp310", "cp311"]
         # python-version: ["cp310"]
         exclude:
           - os: macos-latest
@@ -34,7 +34,7 @@ jobs:
     steps:
       ########
       # Git things
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -77,7 +77,7 @@ jobs:
     # are handling it manually here.
     if: ${{ always() && needs.build-wheels.status != 'failure' }}
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
