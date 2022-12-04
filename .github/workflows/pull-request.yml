@@ -13,10 +13,8 @@ jobs:
       matrix:
         # os: [ubuntu-20.04, macos-latest, windows-latest]
         os: [ubuntu-20.04, macos-latest]
-        python-version: [3.7, "3.10"]
+        python-version: [3.7, "3.10", "3.11"]
         exclude:
-          - os: macos-latest
-            python-version: "3.8"
           - os: macos-latest
             python-version: "3.7"
     env:
