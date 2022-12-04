@@ -57,7 +57,7 @@ runs:
       shell: bash
       run: |
         python3 -m pip install --upgrade pip
-        echo ::set-output name=pipdir::$(pip3 cache dir)
+        echo "pipdir=$(pip3 cache dir)" >> $GITHUB_OUTPUT
 
     - name: pip cache
       uses: actions/cache@v2

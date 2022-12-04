@@ -24,9 +24,9 @@ jobs:
           MAYBE_RELEASE: ${{ github.event.release.tag_name }}
         run: |
           if [ -n "$MAYBE_DISPATCH" ] ; then
-              echo ::set-output name=tag::${MAYBE_DISPATCH}
+              echo "tag=${MAYBE_DISPATCH}" >> $GITHUB_OUTPUT
           else
-              echo ::set-output name=tag::${MAYBE_RELEASE##pyzef-}
+              echo "tag=${MAYBE_RELEASE##pyzef-}" >> $GITHUB_OUTPUT
           fi
               
       
@@ -98,7 +98,7 @@ jobs:
           curl -H "Accept: application/vnd.github.v3+json" https://api.github.com/repos/zefhub/zef/releases/tags/pyzef-${ZEF_TAG} -o curl.out || exit 1
           cat curl.out | jq -re .body > release.body || exit 1
           title=$(cat curl.out | jq -re .name)
-          echo ::set-output name=title::${title}
+          echo "title=${title}" >> $GITHUB_OUTPUT
 
       - name: Release announcement
         env:
