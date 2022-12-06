@@ -272,20 +272,23 @@ def on_implementation(g, op):
     if isinstance(g, Graph):
         op_kind = without_absorbed(op)
         op_args = absorbed(op)      
-        if op_kind in {VT.Instantiated, VT.Terminated}:
-            # selected_types = {VT.Terminated: (internal.on_termination, terminated), VT.Instantiated: (internal.on_instantiation, instantiated)}[op_kind]
+        if op_kind in {Instantiated, Terminated}:
             
             if not isinstance(op_args[0], tuple):
                 rae_or_zr = op_args[0]
                 # Type 1: a specific entity i.e on[terminated[zr]]  !! Cannot be on[instantiated[zr]] because doesnt logically make sense !!
                 if isinstance(rae_or_zr, ZefRef): 
-                    assert op_kind == VT.Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
-                    def filter_func(root_node): root_node | frame | to_tx | events[VT.Terminated] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
+                    assert op_kind == Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
+                    def filter_func(root_node): 
+                        # TODO in the filter step change it once UVT shape is consistent
+                        root_node | frame | to_tx | events[op_kind] | filter[lambda event: to_ezefref(event.target) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl                
                 # Type 2: any RAE  i.e on[terminated[ET.Dog]] or on[instantiated[RT.owns]] 
                 elif is_a(rae_or_zr, RAET):
-                    def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: rae_type(absorbed(x)[0]) == rae_or_zr] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
+                    def filter_func(root_node): 
+                        # TODO in the filter step change it once UVT shape is consistent
+                        root_node | frame | to_tx | events[op_kind] | filter[lambda event: rae_type(event.target) == rae_or_zr] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl
                 else:
@@ -305,12 +308,13 @@ def on_implementation(g, op):
                         else:
                             raise ValueError(f"Expected source or target filters to be ZefRef, RaeType, or ValueType but got {type(rae_filter)} instead.")
 
-                    # First check on the RT itself
                     if rae_type(z) != rt: return False
                     # Checks on both source and target
                     return src_or_trgt_filter(source(z), src) and src_or_trgt_filter(target(z), trgt)
 
-                def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: triple_filter(absorbed(x)[0])] | for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): 
+                    # TODO in the filter step change it once UVT shape is consistent
+                    root_node | frame | to_tx | events[op_kind] | filter[lambda event: triple_filter(event.target)] | for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl              
             else:
@@ -319,13 +323,14 @@ def on_implementation(g, op):
             assert len(op_args) == 1
             aet_or_zr = op_args[0]
             # Type 1: a specific zefref to an AET i.e on[assigned[zr_to_aet]]
+            # TODO in the filter step change it once UVT shape is consistent
             if isinstance(aet_or_zr, BlobPtr): 
-                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(aet_or_zr)] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda event: to_ezefref(event.target) == to_ezefref(aet_or_zr)] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl
             # Type 2: any AET.* i.e on[assigned[AET.String]]
             elif isinstance(aet_or_zr, AET): 
-                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: rae_type(absorbed(x)[0]) == aet_or_zr] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda event: rae_type(event.target) == aet_or_zr] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl        
         else:
