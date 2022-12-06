@@ -273,7 +273,7 @@ def on_implementation(g, op):
         op_kind = without_absorbed(op)
         op_args = absorbed(op)      
         if op_kind in {VT.Instantiated, VT.Terminated}:
-            selected_types = {VT.Terminated: (internal.on_termination, terminated), VT.Instantiated: (internal.on_instantiation, instantiated)}[op_kind]
+            # selected_types = {VT.Terminated: (internal.on_termination, terminated), VT.Instantiated: (internal.on_instantiation, instantiated)}[op_kind]
             
             if not isinstance(op_args[0], tuple):
                 rae_or_zr = op_args[0]
@@ -284,7 +284,7 @@ def on_implementation(g, op):
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl                
                 # Type 2: any RAE  i.e on[terminated[ET.Dog]] or on[instantiated[RT.owns]] 
-                elif type(rae_or_zr) in {AttributeEntityType, EntityType, RelationType}: 
+                elif is_a(rae_or_zr, RAET):
                     def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: rae_type(absorbed(x)[0]) == rae_or_zr] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl
@@ -314,7 +314,7 @@ def on_implementation(g, op):
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl              
             else:
-                raise Exception(f"Unhandled type in on[{selected_types[1]}] where the curried args were {op_args}")
+                raise Exception(f"Unhandled type in on[{op_kind}] where the curried args were {op_args}")
         elif op_kind == Assigned:
             assert len(op_args) == 1
             aet_or_zr = op_args[0]
@@ -4873,13 +4873,14 @@ def preceding_events_imp(x, filter_on=None):
             insts = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
             retirements = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
 
-        insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
-        retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
+
+        insts = insts | map[lambda tx: Instantiated(target =pyzefops.to_frame(ezr, tx, True))] | collect
+        retirements = retirements | map[lambda tx: Terminated(target = pyzefops.to_frame(ezr, tx, True))] | collect
         full_list = insts+retirements
     else:
         zr = x
 
-        from ..graph_events import instantiated, terminated, assigned
+        from ..graph_events import Instantiated, Terminated, Assigned
 
         def make_val_as_from_tx(tx):
             aet_at_frame = pyzefops.to_frame(zr, tx)
@@ -4888,12 +4889,12 @@ def preceding_events_imp(x, filter_on=None):
                 prev_val = pyzefops.to_frame(zr, prev_tx) | value | collect     # Will fail if aet didn't exist at prev_tx
             except:
                 prev_val = None
-            return assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+            return Assigned(target = aet_at_frame, prev = prev_val, current = value(aet_at_frame))
 
-        inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: instantiated[pyzefops.to_frame(zr, tx) ]] | collect
+        inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: Instantiated(target =  pyzefops.to_frame(zr, tx)) ] | collect
         val_assigns =  pyzefops.value_assignment_txs(zr) | map[make_val_as_from_tx] | collect
         # TODO termination_tx returns even if zr is a zefref with a timeslice where it wasn't terminated yet
-        termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[pyzefops.to_frame(zr, tx, True)]] | collect
+        termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: Terminated(target = pyzefops.to_frame(zr, tx, True))] | collect
         full_list = inst + val_assigns + termination 
 
     if filter_on: return full_list | filter[lambda z: is_a_implementation(z, filter_on)] | collect
@@ -4928,8 +4929,6 @@ def events_imp(z_tx_or_rae, filter_on=None):
     """
     from zef.pyzef import zefops as pyzefops
     # TODO: can remove this once imports are sorted out
-    from ..graph_events import instantiated, terminated, assigned
-    # Note: we can't use the python to_frame here as that calls into us.
     
 
     if internals.is_delegate(z_tx_or_rae):
@@ -4942,8 +4941,8 @@ def events_imp(z_tx_or_rae, filter_on=None):
             insts = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
             retirements = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
 
-        insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
-        retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        insts = insts | map[lambda tx: Instantiated(target = pyzefops.to_frame(ezr, tx, True))] | collect
+        retirements = retirements | map[lambda tx: Terminated(target = pyzefops.to_frame(ezr, tx, True))] | collect
         full_list = insts+retirements
 
     elif BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
@@ -4957,11 +4956,11 @@ def events_imp(z_tx_or_rae, filter_on=None):
                 prev_val = pyzefops.to_frame(aet, prev_tx) | value | collect   # Will fail if aet didn't exist at prev_tx
             except:
                 prev_val = None
-            return assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+            return Assigned(target = aet_at_frame, prev = prev_val, current = value(aet_at_frame))
 
-        insts        = zr | pyzefops.instantiated   | map[lambda zz: instantiated[pyzefops.to_frame(zz, gs.tx) ]] | collect
+        insts        = zr | pyzefops.instantiated   | map[lambda zz: Instantiated(target =pyzefops.to_frame(zz, gs.tx))] | collect
         val_assigns  = zr | pyzefops.value_assigned | map[make_val_as_for_aet] | collect
-        terminations = zr | pyzefops.terminated     | map[lambda zz: terminated[pyzefops.to_frame(zz, gs.tx, True) ]] | collect
+        terminations = zr | pyzefops.terminated     | map[lambda zz: Terminated(target = pyzefops.to_frame(zz, gs.tx, True) )] | collect
         full_list = insts+val_assigns+terminations
     else:
         print(f"🥱🥱🥱🥱🥱🥱 Change: The `events` ZefOp can only be used on (E)ZefRef to TXs. To look at the past of any RAE from a given frame, use `preceding_events`. ")
