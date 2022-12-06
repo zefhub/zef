@@ -6408,11 +6408,13 @@ def time_implementation(x, *curried_args):
 
 
 def instantiation_tx_implementation(z):
-    return z | preceding_events[VT.Instantiated] | single | absorbed | single | frame | to_tx | collect
+    # TODO change event.target once UVT for Instantiated is stable
+    return z | preceding_events[Instantiated] | map[lambda event: event.target] | single | frame | to_tx | collect
 
 def termination_tx_implementation(z):
+    # TODO change event.target once UVT for Terminated is stable
     root_node = Graph(z)[42] 
-    return z | preceding_events[VT.Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
+    return z | preceding_events[Terminated] | attempt[map[lambda event: event.target]| single | frame | to_tx][root_node] | collect
 
 
     
