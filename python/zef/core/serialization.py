@@ -21,6 +21,7 @@ __all__ = [
 ]
 
 from ._core import *
+from . import internals
 from .internals import BaseUID, EternalUID, ZefRefUID, Val_
 from .VT import *
 from .VT import ValueType_
@@ -227,9 +228,9 @@ def serialize_zeftypes(z) -> dict:
         return {"_zeftype": "UID", "value": str(z)}
 
     elif isinstance(z, Image):
-        import zstd, base64
+        import base64
         encoded_buffer = z.buffer
-        encoded_buffer = base64.b64encode(zstd.decompress(encoded_buffer)).decode('utf8')
+        encoded_buffer = base64.b64encode(internals.decompress_zstd(encoded_buffer))
         return {"_zeftype": "Image", "format": z.format, "compression": z.compression, "buffer" : encoded_buffer}
 
     elif isinstance(z, (EntityRef, RelationRef, AttributeEntityRef)):

@@ -871,5 +871,14 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("register_determine_primitive_type", &internals::register_determine_primitive_type);
     internals_submodule.add_object("_cleanup_determine_primitive_type", py::capsule(&internals::remove_determine_primitive_type));
 
-    internals_submodule.def("copy_graph_slice", &copy_graph_slice,  py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("copy_graph_slice", &copy_graph_slice, py::call_guard<py::gil_scoped_release>());
+
+    // internals_submodule.def("decompress_zstd", &decompress_zstd, py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("decompress_zstd", [](const std::string & input) {
+        return decompress_zstd(input);
+    }, py::call_guard<py::gil_scoped_release>());
+    // internals_submodule.def("compress_zstd", &compress_zstd, py::arg("input"), py::arg("compression_level")=10, py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("compress_zstd", [](const std::string & input, int compression_level) {
+        return py::bytes(compress_zstd(input, compression_level));
+    }, py::arg("input"), py::arg("compression_level")=10, py::call_guard<py::gil_scoped_release>());
 }

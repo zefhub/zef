@@ -24,44 +24,6 @@ namespace zefDB {
 
         using json = nlohmann::json;
 
-        std::string decompress_zstd(std::string input) {
-            size_t r_size = ZSTD_getFrameContentSize(input.c_str(), input.length());
-            if(r_size == ZSTD_CONTENTSIZE_ERROR)
-                throw std::runtime_error("Not a zstd compressed string.");
-            if(r_size == ZSTD_CONTENTSIZE_UNKNOWN)
-                throw std::runtime_error("Unable to determine length of zstd content.");
-
-            std::string output;
-            output.resize(r_size);
-            // TODO: Setup and reuse the context from ZSTD_decompressDCtx.
-
-            size_t d_size = ZSTD_decompress(output.data(), r_size, input.c_str(), input.length());
-            if (d_size != r_size) {
-                std::string zstd_err = ZSTD_getErrorName(d_size);
-                throw std::runtime_error("Problem decompressing zstd string. zstd error: " + zstd_err);
-            }
-
-            return output;
-        }
-
-        std::string compress_zstd(std::string input, int compression_level) {
-            size_t const max_size = ZSTD_compressBound(input.length());
-
-            std::string output;
-            output.resize(max_size);
-
-            // TODO: Setup and reuse the context from ZSTD_compressCCtx.
-            size_t const c_size = ZSTD_compress(output.data(), max_size, input.c_str(), input.length(), compression_level);
-            if (ZSTD_isError(c_size)) {
-                std::string zstd_err = ZSTD_getErrorName(c_size);
-                throw std::runtime_error("Problem compressing zstd string. zstd error: " + zstd_err);
-            }
-
-            output.resize(c_size);
-
-            return output;
-        }
-
         std::tuple<json, std::vector<std::string>> parse_ZH_message(std::string input) {
             auto raw_message = decompress_zstd(input);
             auto prefix_length = raw_message.find('|');

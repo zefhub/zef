@@ -85,6 +85,7 @@ set(SOURCES
     src/tar_file.cpp
     src/transaction.cpp
     src/revise.cpp
+    src/zef_zstd_interface.cpp
 
     src/butler/butler.cpp
     src/butler/communication.cpp

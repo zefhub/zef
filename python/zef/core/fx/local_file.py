@@ -14,6 +14,7 @@
 
 from .fx_types import Effect
 from ..VT import Error, Image
+from .. import internals
 import yaml 
 import json 
 import toml
@@ -140,8 +141,7 @@ def save_localfile_handler(eff: Effect):
             format = f'.{content.format}'
             if format not in {".svg", ".png", ".jpg", ".jpeg"}: return Error.ValueError(f'Image format needs to be one of these types {{".svg", ".png", ".jpg", ".jpeg"}} got {format} instead.')        
             filename = filename if format == (filename[-4:] or filename[-5:])  else filename + format
-            import zstd
-            with open(filename, 'wb') as f: f.write(zstd.decompress(content.buffer))
+            with open(filename, 'wb') as f: f.write(internals.decompress_zstd(content.buffer))
             
         elif "." in filename:
             format = filename[filename.rindex(".") + 1:]

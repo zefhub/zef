@@ -18,6 +18,7 @@
 
 #include "export_statement.h"
 #include "butler/locking.h"
+#include "zef_zstd_interface.h"
 
 #define ASIO_STANDALONE
 #define _WEBSOCKETPP_CPP11_STL_
@@ -50,11 +51,6 @@ namespace zefDB {
         };
 
         using json = nlohmann::json;
-
-        LIBZEF_DLL_EXPORTED std::string decompress_zstd(std::string input);
-
-        // Arbitrarily chosen compression level (apparently range is 1-22)
-        LIBZEF_DLL_EXPORTED std::string compress_zstd(std::string input, int compression_level = 10);
 
         // Convert a compressed string into the json + extras part.
         // example: [27,5]|{...}xzxzx
