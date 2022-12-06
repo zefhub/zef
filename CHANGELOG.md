@@ -1,3 +1,13 @@
+pyzef-0.16.3
+============
+
+Quick fix to escape special characters in `graphviz` compact view output.
+
+pyzef-0.16.2
+============
+
+Minor update to fix issues with partial graph creation and hashing.
+
 pyzef-0.16.1
 ============
 
