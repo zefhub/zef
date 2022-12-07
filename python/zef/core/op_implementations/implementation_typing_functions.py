@@ -8649,9 +8649,20 @@ def value_hash_tp(op, curr_type):
 
 #-------------------------------ZEF LIST------------------------------------------
 def to_zef_list_imp(elements: list):
+    @func
+    def internal_name(rae):
+        if isinstance(rae, RAERef):
+            names = absorbed(rae)
+        elif isinstance(rae, ValueType):
+            from ...core.VT.helpers import names_of
+            names = names_of(rae)
+        else:
+            raise Exception(f"Need to implement code for type {rae}")
+        return names[0] if names else None
+
     all_zef = elements | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
     if not all_zef: return Error("to_zef_list only takes ZefRef or EZefRef.")
-    is_any_terminated = elements | map[preceding_events[Terminated]] | filter[None] | length | greater_than[0] | collect 
+    is_any_terminated = elements | map[preceding_events[Terminated]] | filter[SetOf[None]] | length | greater_than[0] | collect 
     if is_any_terminated: return Error("Cannot create a Zef List Element from a terminated ZefRef")
     rels_to_els = (elements 
             | enumerate 
@@ -8659,7 +8670,7 @@ def to_zef_list_imp(elements: list):
             | collect
             )
 
-    new_rels = rels_to_els | map[second | absorbed | first | inject[Any] ] | collect
+    new_rels = rels_to_els | map[second | internal_name | first | inject[Any] ] | collect
     next_rels = new_rels | sliding[2] | attempt[map[lambda p: (p[0], RT.ZEF_NextElement, p[1])]][[]] | collect
 
 
