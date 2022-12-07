@@ -2058,6 +2058,136 @@ def all_tp(v_tp):
     return VT.Any
 
 
+
+# ---------------------------------------- all 2 -----------------------------------------------
+@func
+def all_2_imp(*args):
+    subject = args[0]
+
+    return match[
+        (FlatGraph, lambda _: fg_all_imp(*args)),
+        (ZefRef & ET.ZEF_List, lambda _: zef_list_all_imp(*args)),
+        (GraphSlice, lambda _: graphslice_all_imp(*args)),
+        (Graph, lambda _: all_imp(*args)),
+        (ZefRef, lambda _: delegate_zefref_all_imp(subject)),
+        (Any, lambda _: other_all_imp(*args)),
+    ](subject)
+
+
+def other_all_imp(*args):
+    import builtins
+    import types
+    from typing import Generator, Iterator   
+
+    if isinstance(args[0], types.ModuleType):
+        assert len(args) == 2
+        assert isinstance(args[1], ValueType)
+        list_of_module_values = [args[0].__dict__[x] for x in dir(args[0]) if not x.startswith("_") and not isinstance(getattr(args[0], x), types.ModuleType)]
+        return list_of_module_values | filter[args[1]] | collect
+    
+    # once we're here, we interpret it like the Python "all"
+    v = args[0]
+    assert len(args) == 1
+    assert isinstance(v, list) or isinstance(v, tuple) or isinstance(v, (Generator, ZefGenerator)) or isinstance(v, Iterator)
+    # TODO: extend to awaitables
+    return builtins.all(v)
+
+def zef_list_all_imp(*args):
+    z_list = args[0]
+    rels = z_list | out_rels[RT.ZEF_ListElement] | collect
+    first_el = rels | attempt[filter[lambda r: r | in_rels[RT.ZEF_NextElement] | length | equals[0] | collect] | single | collect][None] | collect
+    return (x for x in first_el | iterate[attempt[lambda r: r | Out[RT.ZEF_NextElement] | collect][None]] | take_while[Not[equals[None]]] | map[target])
+
+
+def graphslice_all_imp(*args):
+    # TODO: We should probalby make slice | all return the delegates too to
+    # be in line with g | all. Then the current behaviour would become slice
+    # | all[RAE]
+    gs = args[0]
+    if len(args) == 1:
+        return gs.tx | pyzefops.instances
+    if len(args) >= 3:
+        raise Exception(f"all can only take a maximum of 2 arguments, got {len(args)} instead")
+
+    fil = args[1]
+    # These options have C++ backing so try them first
+    # The specific all[ET.x/AET.x] options (not all[RT.x] though)
+    if isinstance(fil, ET) or isinstance(fil, AET):
+        after_filter = None
+        from ..VT.rae_types import RAET_get_token
+        token = RAET_get_token(fil)
+        if token is None:
+            if isinstance(fil, ET):
+                c_fil = None
+                after_filter = Entity
+            else:
+                c_fil = None
+                after_filter = AttributeEntity
+        else:
+            if isinstance(token, (EntityTypeToken, AttributeEntityTypeToken)):
+                c_fil = token
+            else:
+                # This must be a more general filter, so we should apply it afterwards
+                after_filter = token
+                c_fil = None
+        
+        if c_fil is None:
+            initial = gs.tx | pyzefops.instances
+        else:
+            initial = gs.tx | pyzefops.instances[c_fil]
+        if after_filter is not None:
+            return ZefGenerator(lambda: iter(initial | filter[after_filter]))
+        else:
+            return initial
+    
+    # TODO: Probably rewrite this to take advantage of the above c-level calls
+    if  isinstance(fil, ValueType) and fil != RAE and fil._d['type_name'] in {"Union", "Intersection"}:
+        representation_types = absorbed(fil) | filter[lambda x: isinstance(x, (ET, AET))] | func[set] | collect
+        value_types = set(absorbed(fil)) - representation_types
+        if len(value_types) > 0: 
+            # Wrap the remaining ValueTypes after removing representation_types in the original ValueType
+            value_types = {"Union": Union, "Intersection": Intersection}[fil._d['type_name']][tuple(value_types)]      
+
+        if fil._d['type_name'] == "Union":
+            sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in representation_types]))
+            if not value_types: return sets_union
+            return list(set.union(set(filter(gs.tx | pyzefops.instances, lambda x: is_a(x, value_types))), sets_union))
+        elif fil._d['type_name'] == "Intersection":
+            if len(representation_types) > 1: return []
+            if len(representation_types) == 1: initial = gs.tx | pyzefops.instances[representation_types.pop()]
+            else:  initial = gs.tx | pyzefops.instances
+            if not value_types: return initial
+            return filter(initial, lambda x: is_a(x, value_types))
+
+    # The remaining options will just use the generic filter and is_a
+    return filter(gs.tx | pyzefops.instances, lambda x: is_a(x, fil))
+
+def graph_all_imp(*args):
+    g = args[0]
+    if len(args) == 1:
+        # return g | pyzefops.instances_eternal
+        return blobs(g)           # show all low level nodes and edges, not only RAEs. We can still add ability  g | all[RAE] later
+
+    if len(args) >= 3:
+        raise Exception(f"all can only take a maximum of 2 arguments, got {len(args)} instead")
+
+    fil = args[1]
+    if fil == TX:
+        return pyzefops.tx(g)
+
+    # These options have C++ backing so try them first
+    # The specific all[ET.x/AET.x] options (not all[RT.x] though)
+    # Not using as this is not correct in filtering out the delegates
+    # if isinstance(fil, EntityType) or isinstance(fil, AttributeEntityType):
+    #     return g | pyzefops.instances_eternal[fil]
+
+    # The remaining options will just use the generic filter and is_a
+    return filter(blobs(g), lambda x: is_a(x, fil))
+
+
+def delegate_zefref_all_imp(z):
+    assert internals.is_delegate(z)
+    return z | pyzefops.instances
          
 #---------------------------------------- any -----------------------------------------------
 def any_imp(v):
