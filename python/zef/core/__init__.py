@@ -112,8 +112,8 @@ from . import op_implementations
 def visual_exception_view(error_value):
     from zef.core._error import zef_ui_err
     try:
-        # zef_ui_err(error_value.wrapped)
-        print(error_value.wrapped)
+        zef_ui_err(error_value.wrapped)
+        # print(error_value.wrapped)
     except Exception as e:
         try:
             e_s = str(e)
