@@ -166,6 +166,7 @@ _op_to_functions = {
         internals.RT.ContainedIn:     (contained_in_imp, contained_in_tp),
         # internals.RT.Skip:            (skip_imp, skip_tp),
         internals.RT.All:             (all_imp, all_tp),
+        internals.RT.All2:            (all_2_imp, all_tp),
         internals.RT.Any:             (any_imp, any_tp),
         internals.RT.Join:            (join_imp, join_tp),
         internals.RT.Trim:            (trim_imp, trim_tp),
