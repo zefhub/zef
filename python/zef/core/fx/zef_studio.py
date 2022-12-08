@@ -124,18 +124,6 @@ def entity_table(query_args):
    g = Graph(graph_id)
    return make_table_return(g, et_type, list(g | now |  all[et_type] | take[limit] | collect))
 
-@func
-def single_entity(query_args):
-   graph_id = query_args.get('graphID', None)
-   et_id  = query_args.get('entityID', None)
-   if not graph_id or not et_id: return None
-
-   g = Graph(graph_id)
-   entity = g[et_id]
-   if not is_a(entity, Entity): return None
-   et_type = rae_type(entity)
-
-   return make_table_return(g, et_type, [entity])
 
 @func
 def cell_interface_resolver(obj, *_):
@@ -197,12 +185,11 @@ def value_of_aet_at_tx(aet, tx) -> str:
         return ''
 
 @func
-def entity_events(query_args):
-    graph_id = query_args.get('graphID', None)
-    g = Graph(graph_id)
-
-    rae_id  = query_args.get('raeID', None)
-    zr      = g[rae_id]
+def atom_events(zr):
+    # graph_id = query_args.get('graphID', None)
+    # g = Graph(graph_id)
+    # rae_id  = query_args.get('raeID', None)
+    # zr      = g[rae_id]
 
     @func
     def events_for_rt(rt):
@@ -245,10 +232,49 @@ def create_event(event_type, field_name, transaction, assignedValue=""):
         "fieldName": field_name,
         "value": assignedValue,
     }
-
 @func
 def event_interface_resolver(obj, *_):
    return obj.get('type', "InstantiatedEvent")
+
+
+def create_field(atom, field_rt):
+    return {
+        # "id": str(uid(field_rt)),
+        "name": str(field_rt),
+        "value": make_cell(atom, field_rt),
+        "isEditable": True,
+    }
+
+@func
+def atom_fields(zr):
+    unique_out_fields =  zr | out_rels[RT] | map[rae_type]  | func[set] | collect
+    return unique_out_fields | map[lambda rt: create_field(zr, rt)] | collect
+
+
+@func
+def get_atom(query_args):
+    atom_id  = query_args.get('atomID', None)
+    if not atom_id: return None
+
+    try:
+        g_id = BaseUID(atom_id[-16:])
+        g = Graph(g_id)
+        atom = g[atom_id]
+        atom_type = rae_type(atom)
+    except Exception as e:
+        log.error(f"Failed to get atom {atom_id}. {e}")
+        return None
+
+    return {
+        "id": atom_id,
+        "atomType": str(atom_type),
+        "fields": atom_fields(atom),
+        "events": atom_events(atom),
+    }
+
+    
+
+
 
 #-------------------------------------------------------------
 #-------------------Schema String-------------------------------
@@ -258,8 +284,7 @@ type Query {
     graphs: [Graph]
     entityTypes(graphID: ID!): [String]
     entityTable(graphID: ID!, entityType: String!, limit: Int): Table
-    entity(graphID: ID!, entityID: ID!): Table
-    events(graphID: ID!, raeID: ID!): [Event]
+    atom(atomID: ID!): Atom
 }
 
 type Mutation {
@@ -272,6 +297,19 @@ type Mutation {
 input AssignValueIDs {
     graphID: ID!
     aetID: ID!
+}
+
+type Atom {
+	id: ID!
+	atomType: String    
+	fields:  [Field]
+	events: [Event]
+}
+
+type Field {
+	name: String
+	value: Cell
+	isEditable: Boolean
 }
 
 type Graph {
@@ -370,8 +408,7 @@ def create_schema_dict(simple_schema):
       | insert_in[('_Types', 'Query', 'graphs', 'resolver')][graphs] 
       | insert_in[('_Types', 'Query', 'entityTypes', 'resolver')][entity_types] 
       | insert_in[('_Types', 'Query', 'entityTable', 'resolver')][entity_table] 
-      | insert_in[('_Types', 'Query', 'entity', 'resolver')][single_entity] 
-      | insert_in[('_Types', 'Query', 'events', 'resolver')][entity_events]
+      | insert_in[('_Types', 'Query', 'atom', 'resolver')][get_atom]
       | insert_in[('_Types', 'Mutation', 'assignValueString', 'resolver')][assign_value_string]
       | insert_in[('_Types', 'Mutation', 'assignValueFloat', 'resolver')][assign_value_float]
       | insert_in[('_Types', 'Mutation', 'assignValueInt', 'resolver')][assign_value_int]
@@ -380,7 +417,6 @@ def create_schema_dict(simple_schema):
       | insert_in[('_Interfaces', 'Event', '_interface_resolver')][event_interface_resolver] 
       | collect
    )
-
    return schema_dict
 
 def studio_start_server_handler(eff: Dict):
