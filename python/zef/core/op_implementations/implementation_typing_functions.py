@@ -2114,7 +2114,7 @@ def graphslice_all_imp(*args):
     # The specific all[ET.x/AET.x] options (not all[RT.x] though)
     if isinstance(fil, ET) or isinstance(fil, AET):
         after_filter = None
-        from ..VT.rae_types import RAET_get_token
+        from zef.core.VT.rae_types import RAET_get_token
         token = RAET_get_token(fil)
         if token is None:
             if isinstance(fil, ET):
@@ -2140,27 +2140,40 @@ def graphslice_all_imp(*args):
         else:
             return initial
     
-    # TODO: Probably rewrite this to take advantage of the above c-level calls
+
     if  isinstance(fil, ValueType) and fil != RAE and fil._d['type_name'] in {"Union", "Intersection"}:
-        representation_types = absorbed(fil) | filter[lambda x: isinstance(x, (ET, AET))] | func[set] | collect
-        value_types = set(absorbed(fil)) - representation_types
+        # extract the rae types i.e ET and AET VTs
+        rae_types = absorbed(fil) | first | filter[lambda x: is_a(x, (ET, AET))] | func[set] | collect
+
+        # only keep here not RAE value types
+        value_types = set(absorbed(fil)[0]) - rae_types
+
+        # Extract the underlying 'libzef' low level token
+        rae_types = rae_types | map[absorbed | first] | collect
+        
+
         if len(value_types) > 0: 
             # Wrap the remaining ValueTypes after removing representation_types in the original ValueType
             value_types = {"Union": Union, "Intersection": Intersection}[fil._d['type_name']][tuple(value_types)]      
 
         if fil._d['type_name'] == "Union":
-            sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in representation_types]))
+
+            sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in rae_types]))
             if not value_types: return sets_union
             return list(set.union(set(filter(gs.tx | pyzefops.instances, lambda x: is_a(x, value_types))), sets_union))
+
         elif fil._d['type_name'] == "Intersection":
-            if len(representation_types) > 1: return []
-            if len(representation_types) == 1: initial = gs.tx | pyzefops.instances[representation_types.pop()]
+            if len(rae_types) > 1: return []
+            if len(rae_types) == 1: initial = gs.tx | pyzefops.instances[rae_types.pop()]
             else:  initial = gs.tx | pyzefops.instances
             if not value_types: return initial
+
             return filter(initial, lambda x: is_a(x, value_types))
 
     # The remaining options will just use the generic filter and is_a
     return filter(gs.tx | pyzefops.instances, lambda x: is_a(x, fil))
+
+
 
 def graph_all_imp(*args):
     g = args[0]
