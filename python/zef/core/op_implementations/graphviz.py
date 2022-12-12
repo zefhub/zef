@@ -255,7 +255,7 @@ def graphviz_imp(zz, *flags):
             pass
 
     nodes, edges = zz | group_by[is_node][(True,False)] | map[second] |  collect
-    if 'expand' in flags or plotting_eternal_graph:
+    if True in flags or plotting_eternal_graph:
         nodes | for_each[add_node]
         edges | for_each[add_edge_as_gv_node]
     else:
