@@ -16,6 +16,9 @@ from ..core import *
 from ..ops import *
 from ariadne import ObjectType, MutationType, SubscriptionType, EnumType, ScalarType, InterfaceType
 
+class ExternalError(Exception):
+    pass
+
 
 #--------------------------Resolvers Generator-------------------------
 def fill_types_default_resolvers(schema_d, replace_policy=lambda field_name: field[RT(to_pascal_case(field_name))]):
@@ -144,6 +147,8 @@ def generate_fct(field_dict,field_name, g, allow_none):
         except ExceptionWrapper as exc:
             zef_ui_err(exc.wrapped)
             raise Exception("Internal error")
+        except ExternalError as e:
+            raise
         except Exception as e:
             raise Exception(f"Error while resolving {field_name} with following arguments {obj}, {kwargs}") from e
     return resolve_field
