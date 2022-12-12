@@ -4023,12 +4023,7 @@ def frequencies_tp(v_tp):
 
 
 #---------------------------------------- Z -----------------------------------------------
-def Z_imp(z):
-    return z
 
-def Z_tp(op, curr_type):
-    assert curr_type in ref_types
-    return curr_type
 
 
 #---------------------------------------- Root -----------------------------------------------
@@ -7233,7 +7228,8 @@ def tag_imp(x, tag_s: str, *args):
             'force': force,
             'adding': True,
         }
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, ZefOp[Z]):
+    from ..graph_delta import NamedZ
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or isinstance(x, NamedZ) or (isinstance(x, ValueType) and without_absorbed(x) == Any):
         assert len(args) == 0
         return LazyValue(x) | tag[tag_s]
 

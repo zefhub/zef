@@ -1057,6 +1057,8 @@ class LazyValue:
                         try:
                             curr_value = _op_to_functions[op[0]][0](curr_value)
                         except Exception as e:
+                            if not custom_error_handling_activated():
+                                raise
                             message = f"Failed while trying to run the following FX: {str(curr_value)[:50]}...\n{e}"
                             raise make_custom_error(e, Error.Panic(), message, cur_context) from None
                     else:
@@ -1066,10 +1068,13 @@ class LazyValue:
 
                 try:
                     to_call_func = _op_to_functions[op[0]][0]
-                except KeyError as e:
-                    raise make_custom_error(e, Error.KeyError(), f"Cannot find {e} inside dispatch dictionary",cur_context) from None
                 except Exception as e:
-                    raise make_custom_error(e, Error.Panic(), f"Error happened trying to access dispatch function for {op[0]}",cur_context) from None
+                    if not custom_error_handling_activated():
+                        raise
+                    if isinstance(e, KeyError):
+                        raise make_custom_error(e, Error.KeyError(), f"Cannot find {e} inside dispatch dictionary",cur_context) from None
+                    else:
+                        raise make_custom_error(e, Error.Panic(), f"Error happened trying to access dispatch function for {op[0]}",cur_context) from None
 
 
                 got_error = None

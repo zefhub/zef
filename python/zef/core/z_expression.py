@@ -42,7 +42,7 @@ class ZExpression_:
         # print(f'repr called for {self.root_node}')
         # raise NotImplementedError
         if self.root_node is None:            
-            return f"ZZ"
+            return f"Z"
         else:
             # return "Z Expression output: todo"#self.root_node.fg | graphviz | collect
             return str(f"ZExpression({self.root_node})")
@@ -246,7 +246,7 @@ def z_expression_to_vt(op_type: ET, arg1, arg2) -> VT:
  
 
 
-ZZ = ZExpression_() # TODO: rename this to "Z" once the "Z" zefop can be fully replaced with this
+Z = ZExpression_() # TODO: rename this to "Z" once the "Z" zefop can be fully replaced with this
 
 from .VT import make_VT
 ZExpression = make_VT("ZExpression", pytype=ZExpression_)

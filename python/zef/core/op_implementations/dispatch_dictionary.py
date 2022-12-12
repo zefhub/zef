@@ -142,7 +142,6 @@ _op_to_functions = {
         internals.RT.AbstractType:    (abstract_type_implementation, abstract_type_type_info),
         internals.RT.Root:            (root_imp, root_tp),
         internals.RT.Blueprint:       (blueprint_imp, None),
-        internals.RT.Z:               (Z_imp, Z_tp),
         internals.RT.Docstring:       (docstring_imp, None),
         internals.RT.SourceCode:      (source_code_imp, None),
         
