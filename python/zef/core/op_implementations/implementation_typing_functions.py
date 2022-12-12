@@ -10059,3 +10059,22 @@ def token_name_imp(raet: RAET) -> String:
         return str(token)
     else:
         return token.name
+
+
+
+def to_dict_imp(zr: ZefRef) -> UserValueType:
+    
+    def extract_value(zr: ZefRef) -> Any:
+        if is_a(zr, AttributeEntity):
+            return value(zr)
+        elif is_a(zr, Entity):
+            return rae_type(zr)[str(uid(zr))]
+        else:
+            return str(rae_type(zr))
+    
+    def extract_field_name(rt: ZefRef) -> str:
+        return str(rae_type(rt))[3:].lower()
+
+    out_rts = zr | out_rels[RT] | collect
+    targets_d = dict(out_rts | map[lambda rt:(extract_field_name(rt), extract_value(target(rt)))] | collect)
+    return rae_type(zr)[str(uid(zr))](**targets_d)
