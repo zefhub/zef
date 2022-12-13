@@ -5547,9 +5547,10 @@ def map_implementation(v, f):
 # -------------------------------- reduce -------------------------------------------------
  
 
-def reduce_implementation(iterable, fct, init):
-    import functools
-    return functools.reduce(fct, iterable, init)
+def reduce_implementation(iterable, fct, init=None):
+    # import functools
+    # return functools.reduce(fct, iterable, init)
+    return last(scan_implementation(iterable, fct, init))
 
 
 
