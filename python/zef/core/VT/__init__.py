@@ -36,7 +36,16 @@ def make_VT(name, **kwargs):
     return insert_VT(name, vt)
 
 
-make_VT("ValueType", pytype=ValueType_)
+def ValueType_is_a(x, vt):
+    if type(x) != ValueType_:
+        return False
+    from .value_type import absorbed, type_name
+    assert len(absorbed(vt)) <= 1
+    if len(absorbed(vt)) == 0:
+        return True
+    subtype = absorbed(vt)[0]
+    return type_name(x) == type_name(subtype)
+make_VT("ValueType", pytype=ValueType_, is_a_func=ValueType_is_a)
 
 # I think these should become ValueTypeParmeters instead
 # T          = ValueType_(type_name='T',  constructor_func=None)
