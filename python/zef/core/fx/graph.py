@@ -13,6 +13,7 @@
 # limitations under the License.
 
 from .._ops import *
+from ..VT import *
 
 def graph_take_transactor_role_handler(eff: dict):
     from ...pyzef.main import make_primary
@@ -35,20 +36,45 @@ def graph_transaction_handler(eff: dict):
         }
     """
 
-    from ..graph_delta import perform_transaction_commands, filter_temporary_ids, unpack_receipt
 
-    if eff["target_graph"].graph_data.is_primary_instance:
-        receipt = perform_transaction_commands(eff['commands'], eff['target_graph'])
+    if internals.is_transactor(eff["target_graph"]):
+        # For backwards compatibility we dispatch on whether this is a new or old transact effect
+
+        if "level2_commands" in eff:
+            # This is the new path
+            from ..graph_additions.wish_translation2 import generate_level1_commands
+            if eff["translation_rules"] == "default":
+                pass
+            else:
+                raise Exception("There are no options for translation rules at the moment. TODO: Need to replace with distinguish/recombine/relabel/cull rules later.")
+            lvl1_cmds = generate_level1_commands(eff["level2_commands"]["cmds"], now(Graph(eff["target_graph"])))
+
+            from ..graph_additions.low_level import perform_level1_commands
+            receipt = perform_level1_commands(lvl1_cmds)
+
+            # TODO: Postprocess using custom info stored in the level2 commands info
+            post_transact_rule = eff.get("post_transact_rule", None)
+            if post_transact_rule is not None:
+                receipt = post_transact_rule(receipt, lvl2_custom=eff["level2_commands"].get("custom", None))
+        else:
+            from ..graph_delta import perform_transaction_commands
+            receipt = perform_transaction_commands(eff['commands'], eff['target_graph'])
     else:
         from ..overrides import merge
         receipt = merge(eff["commands"], eff["target_graph"])
     
-    # we need to forward this if it is in the effect
-    if 'unpacking_template' in eff:
-        return unpack_receipt(eff['unpacking_template'], receipt)
-
-    receipt = filter_temporary_ids(receipt)
-    return receipt
+    # Handling receipt response needs a similar dispatch between old and new
+    if "level2_commands" in eff:
+        # New path
+        # TODO: unpack template - copy paste over from graph delta
+        return receipt
+    else:
+        from ..graph_delta import perform_transaction_commands, filter_temporary_ids, unpack_receipt
+        # we need to forward this if it is in the effect
+        if 'unpacking_template' in eff:
+            return unpack_receipt(eff['unpacking_template'], receipt)
+        receipt = filter_temporary_ids(receipt)
+        return receipt
     
 
 def graph_load_handler(eff: dict):

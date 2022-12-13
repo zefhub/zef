@@ -8581,32 +8581,35 @@ def to_zef_list_tp(op, curr_type):
 
 
 # -------------------------------- transact -------------------------------------------------
-def transact_imp(data, g, **kwargs):
-    from typing import Generator
-    from ..graph_delta import construct_commands
-    if is_a(data, FlatGraph):
-        if isinstance(g, Graph):
-            commands = flatgraph_to_commands(data)
-        else:
-            fg = data
-            commands = g
-            return fg_insert_imp(fg, commands)
-    elif is_a(g, FlatGraph):
-        fg = g
-        commands = data
-        return fg_insert_imp(fg, commands)
-    elif type(data) in {list, tuple}:
-        commands = construct_commands(data)
-    elif isinstance(data, (Generator, ZefGenerator)):
-        commands = construct_commands(tuple(data))
-    else:
-        raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
+def transact_imp(data, g, *args):
+    from ..graph_additions.transact import transact_dispatch
+    return transact_dispatch(data, g, *args)
 
-    return {
-            "type": FX.Graph.Transact,
-            "target_graph": g,
-            "commands":commands
-    }
+    # from typing import Generator
+    # from ..graph_delta import construct_commands
+    # if is_a(data, FlatGraph):
+    #     if isinstance(g, Graph):
+    #         commands = flatgraph_to_commands(data)
+    #     else:
+    #         fg = data
+    #         commands = g
+    #         return fg_insert_imp(fg, commands)
+    # elif is_a(g, FlatGraph):
+    #     fg = g
+    #     commands = data
+    #     return fg_insert_imp(fg, commands)
+    # elif type(data) in {list, tuple}:
+    #     commands = construct_commands(data)
+    # elif isinstance(data, (Generator, ZefGenerator)):
+    #     commands = construct_commands(tuple(data))
+    # else:
+    #     raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
+
+    # return {
+    #         "type": FX.Graph.Transact,
+    #         "target_graph": g,
+    #         "commands":commands
+    # }
 
 def transact_tp(op, curr_type):
     return VT.Effect

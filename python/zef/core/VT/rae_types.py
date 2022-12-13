@@ -404,3 +404,60 @@ def tx_is_a(x, typ):
 TX = make_VT("TX", is_a_func=tx_is_a)
 
 RAET = insert_VT("RAET", ET | RT | AET)
+
+
+
+
+
+
+
+
+class ObjectInstance_:
+    def __init__(self, arg, *args, **kwargs):
+        from .VT import ET, Entity
+        if isinstance(arg, ET):
+            self._type = arg
+        elif isinstance(arg, Entity):
+            self._type = ET(arg)
+            args = (origin_uid(arg),) + args
+        else:
+            self._type = None
+            args = (arg,) + args
+        self._args = args
+        self._kwargs = kwargs
+        
+    def __repr__(self):
+        nl = '\n'
+        if self._type is not None:
+            prefix = self._type
+            args = self._args
+        else:
+            prefix = self._args[0]
+            args = self._args[1:]
+        items = [str(arg) for arg in args]
+        items += [f"{k}={v!r}" for k,v in self._kwargs.items()]
+        return f'{prefix}({f", ".join(items)})'
+    
+    def __getattr__(self, name):
+        # return self._kwargs[name]
+        from ._ops import F
+        return self | getattr(F, name)
+
+    def __eq__(self, other):
+        if not isinstance(other, ObjectInstance_): return False
+        return self._type == other._type and self._args == other._args and self._kwargs == other._kwargs
+
+    def __getitem__(self, name):
+        new_args = self._args + (name,)
+        return ObjectInstance_(self._type, *new_args, **self._kwargs)
+
+    def __call__(self, *args, **kwargs):
+        new_kwargs = dict(self._kwargs)
+        new_kwargs.update(kwargs)
+        return EntityValueInstance_(self._type, *(self._args + args), **new_kwargs)
+
+    def __hash__(self):
+        from .VT.value_type import hash_frozen
+        return hash_frozen(("ObjectInstance", self._type, self._args, self._kwargs))
+
+ObjectInstance = make_VT('ObjectInstance', pytype=ObjectInstance_)
