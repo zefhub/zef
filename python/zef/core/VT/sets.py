@@ -260,7 +260,7 @@ def setof_validation(typ):
     return True
 
 def setof_get_items(typ):
-    setof_validation(typ)
+    assert setof_validation(typ)
     items = remove_names(absorbed(typ))
     if len(items) == 0:
         return ()
@@ -281,6 +281,44 @@ make_VT('SetOf',
 
 
 
+# TODO: Turn Optional into a UVT
+
+def optional_is_a(x, typ):
+    return False
+def optional_validation(optional):
+    assert type_name(optional) == "Optional"
+    items = remove_names(absorbed(optional))
+    if len(items) >= 2:
+        raise Exception("Too many items in an Optional")
+    if len(items) == 1:
+        item = items[0]
+        if not isinstance(item, ValueType):
+            raise Exception("Optional item is not a ValueType")
+    return True
+def optional_get_type(optional):
+    assert optional_validation(optional)
+    items = remove_names(absorbed(optional))
+    if len(items) == 0:
+        return None
+    return items[0]
+def optional_is_subtype(x, optional):
+    assert optional_validation(optional)
+    if type_name(x) != "Optional":
+        return False
+    assert optional_validation(x)
+    sub_item = optional_get_type(x)
+    super_item = optional_get_type(optional)
+    if super_item is None:
+        return True
+    if sub_item is None:
+        return False
+    return issubclass(sub_item, super_item)
+Optional = make_VT("Optional",
+                   is_a_func=optional_is_a,
+                   is_subtype_func=optional_is_subtype)
+                   
+    
+
 def pattern_validation(self):
     abs = remove_names(absorbed(self))
     if len(abs) != 1:
@@ -289,6 +327,18 @@ def pattern_validation(self):
     pattern = abs[0]
     if not isinstance(pattern, PyDict | PyList):
         raise Exception(f"Pattern takes either a dictionary or a list not {pattern}")
+
+    if isinstance(pattern, PyDict):
+        for k,v in pattern.items():
+            if not isinstance(v, ValueType): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
+            if issubclass(v, Optional):
+                subtyp = optional_get_type(v)
+                if subtyp is None:
+                    raise Exception("Optionals in a Pattern need to have a subtype, even if Optional[Any] is used.")
+    elif isinstance(pattern, PyList):
+        for p_e in pattern:
+            if not isinstance(p_e, ValueType):
+                raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")
 
     return True
 
@@ -304,16 +354,17 @@ def pattern_vt_matching(x, typ):
             (isinstance(x, PyList) and isinstance(p, PyList))):
         return False
     if isinstance(x, PyDict):
-        for k, v in p.items():            
+        for k, v in p.items():
+            if isinstance(k, ValueType) and issubclass(k, Optional):
+                if k not in x:
+                    continue
+                k = optional_get_type(k)
             r = x.get(k, sentinel)
             if r is sentinel: return False
-            if not isinstance(v, ValueType): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
             if not isinstance(r, v): return False  
         return True
     elif isinstance(x, PyList):
         for p_e, x_e in zip(p, x): # Creates tuples of pairwise elements from both lists
-            if not isinstance(p_e, ValueType):
-                raise ValueError(f"The pattern passed didn't have a ValueType but rather {p_e}")
             if not isinstance(x_e, p_e): return False  
         return True
 
