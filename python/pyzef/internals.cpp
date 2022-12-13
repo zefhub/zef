@@ -665,6 +665,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def("__str__", [](const BaseUID& self) { return str(self); })
 		.def("__eq__", [](const BaseUID& self, const BaseUID& other) { return self == other; }, py::is_operator(), py::is_operator())
 		.def("__hash__", [](const BaseUID& self) { return get_hash(self); })
+		.def("to_base64", [](const BaseUID& self) { return self.to_base64(); })
+        .def_static("from_base64", [](const std::string & uid) { return BaseUID::from_base64(uid); })
 		;
 	py::class_<EternalUID>(internals_submodule, "EternalUID", py::buffer_protocol())
 		.def(py::init([](const BaseUID & blob_uid, const BaseUID & graph_uid) { return EternalUID{blob_uid, graph_uid}; } ))
@@ -674,6 +676,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def("__hash__", [](const EternalUID& self) { return get_hash(self); })
 		.def_readonly("blob_uid", &EternalUID::blob_uid)
 		.def_readonly("graph_uid", &EternalUID::graph_uid)
+		.def("to_base64", [](const EternalUID& self) { return self.to_base64(); })
+        .def_static("from_base64", [](const std::string & uid) { return EternalUID::from_base64(uid); })
 		;
 	py::class_<ZefRefUID>(internals_submodule, "ZefRefUID", py::buffer_protocol())
 		.def("__repr__", [](const ZefRefUID& self) { return to_str(self); })
@@ -683,6 +687,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		.def_readonly("blob_uid", &ZefRefUID::blob_uid)
 		.def_readonly("tx_uid", &ZefRefUID::tx_uid)
 		.def_readonly("graph_uid", &ZefRefUID::graph_uid)
+		.def("to_base64", [](const ZefRefUID& self) { return self.to_base64(); })
 		;
 	
 	py::class_<zefDB::ZefObservables::DictElement>(internals_submodule, "ObservablesDictElement", py::buffer_protocol())
