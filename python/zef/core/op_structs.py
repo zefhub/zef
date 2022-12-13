@@ -1250,15 +1250,15 @@ LazyValue = make_VT("LazyValue",
                 is_a_func=lazyvalue_is_a)
 
 # Monkey patching for some handy warnings
-from .VT.value_type import ValueType_
-old_ValueType_instancecheck = ValueType_.__instancecheck__
-def warning_ValueType_instancecheck(self, instance):
-    if type(instance) == LazyValue and self._d["type_name"] != "LazyValue":
-        import traceback
-        traceback.print_stack()
-        raise Exception("Checking whether a LazyValue is a particular ValueType directly with isinstance will always fail. Use is_a instead, which will handle LazyValues.")
-    return old_ValueType_instancecheck(self, instance)
-ValueType_.__instancecheck__ = warning_ValueType_instancecheck
+# from .VT.value_type import ValueType_
+# old_ValueType_instancecheck = ValueType_.__instancecheck__
+# def warning_ValueType_instancecheck(self, instance):
+#     if type(instance) == LazyValue_ and self._d["type_name"] != "LazyValue":
+#         import traceback
+#         traceback.print_stack()
+#         raise Exception("Checking whether a LazyValue is a particular ValueType directly with isinstance will always fail. Use is_a instead, which will handle LazyValues.")
+#     return old_ValueType_instancecheck(self, instance)
+# ValueType_.__instancecheck__ = warning_ValueType_instancecheck
 
 # Perform type checking when an error occurs
 def type_checking_context(op, function, inp):
