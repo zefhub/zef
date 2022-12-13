@@ -383,6 +383,10 @@ token_name      = make_zefop(internals.RT.TokenName)
 zef_id      = make_zefop(internals.RT.ZefID)
 
 to_object    = make_zefop(internals.RT.ToObject)
+
+infer_types  = make_zefop(internals.RT.InferTypes)
+deduplicate  = make_zefop(internals.RT.Deduplicate)
+identify_entities = make_zefop(internals.RT.IdentifyEntities)
 # match
 # split_before
 # split_after

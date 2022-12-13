@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .. import *
-from ...ops import *
+from .._ops import *
 from ..VT import *
 
 
