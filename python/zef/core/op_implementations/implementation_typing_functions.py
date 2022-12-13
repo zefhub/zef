@@ -6773,23 +6773,26 @@ def relations_implementation(z, *args):
         return pyzefops.relations(z1, internals.get_c_token(rt), z2)
 
 def rae_type_implementation(z):
-    if isinstance(z, EntityRef):
+    if isinstance(z, RAERef):
         return z.d["type"]
-    if isinstance(z, RelationRef):
-        return z.d["type"]
-    if isinstance(z, AttributeEntityRef):
-        return z.d["type"]
-    # return pymain.rae_type(z)
-    c_rae = pymain.rae_type(z)
-    if isinstance(c_rae, internals.EntityType):
-        return ET[c_rae]
-    if isinstance(c_rae, internals.RelationType):
-        return RT[c_rae]
-    if isinstance(c_rae, internals.AttributeEntityType):
-        return AET[c_rae]
-    if isinstance(c_rae, internals.ValueRepType):
-        return VRT[c_rae]
-    raise Exception(f"Don't know how to recast {c_rae}")
+
+    elif isinstance(z, FlatRef):
+        from ..flat_graph import FlatRef_rae_type
+        return FlatRef_rae_type(z)
+
+    elif isinstance(z, BlobPtr):
+        c_rae = pymain.rae_type(z)
+        if isinstance(c_rae, internals.EntityType):
+            return ET[c_rae]
+        if isinstance(c_rae, internals.RelationType):
+            return RT[c_rae]
+        if isinstance(c_rae, internals.AttributeEntityType):
+            return AET[c_rae]
+        if isinstance(c_rae, internals.ValueRepType):
+            return VRT[c_rae]
+        raise Exception(f"Don't know how to recast {c_rae}")
+
+    raise Exception(f"Don't know how to get rae_type from {z}")
 
 def abstract_type_implementation(z):
     # This is basically rae_type, but also including TXNode and Root

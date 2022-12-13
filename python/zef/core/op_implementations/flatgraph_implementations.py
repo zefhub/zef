@@ -219,7 +219,7 @@ def fg_insert_imp(fg, new_el):
             if hash_vn not in new_key_dict:
                 idx = next_idx()
                 new_key_dict[hash_vn] = idx
-                new_blobs.append((idx, "BT.ValueNode", [], new_el))  # TODO Don't treat as str once added to Zef types
+                new_blobs.append((idx, BT.VALUE_NODE, [], new_el))  # TODO Don't treat as str once added to Zef types
             idx = new_key_dict[hash_vn]
 
         elif isinstance(new_el, FlatRef):
@@ -330,7 +330,7 @@ def fr_merge_and_retrieve_idx(blobs, k_dict, next_idx, fr):
         if old_idx in old_to_new:
             idx = old_to_new[old_idx]
             new_b = blobs[idx]
-        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], UID)) and key in k_dict:
+        elif (new_b[1] == BT.VALUE_NODE or is_a(new_b[3], UID)) and key in k_dict:
             new_b = blobs[k_dict[key]]
             idx = new_b[0]
         else:
@@ -510,7 +510,7 @@ def fr_target_imp(fr):
 def fr_value_imp(fr):
     assert isinstance(fr, FlatRef)
     blob = fr.fg.blobs[fr.idx]
-    assert isinstance(blob[1], AET), "Can only ask for the value of an AET"
+    assert isinstance(blob[1], AET | SetOf(BT.VALUE_NODE)), "Can only ask for the value of an AET"
     return blob[-1]
 
 def traverse_flatref_imp(fr, rt, direction, traverse_type):
@@ -583,7 +583,7 @@ def fg_merge_imp(fg1, fg2 = None):
         if old_idx in old_to_new:
             idx = old_to_new[old_idx]
             new_b = blobs[idx]
-        elif (new_b[1] == 'BT.ValueNode' or is_a(new_b[3], UID)) and key in k_dict:
+        elif (new_b[1] == BT.VALUE_NODE or is_a(new_b[3], UID)) and key in k_dict:
             new_b = blobs[k_dict[key]]
             idx = new_b[0]
         else:
