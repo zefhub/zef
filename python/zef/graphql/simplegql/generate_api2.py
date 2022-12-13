@@ -418,8 +418,7 @@ def schema_generate_scalar_filter(z_node, full_dict):
 # * Query resolvers
 #----------------------------------
 
-class ExternalError(Exception):
-    pass
+from ..resolvers_generator import ExternalError
 
 def resolve_get(_, info, *, type_node, **params):
     # Look for something that fits exactly what has been given in the params, assuming
@@ -863,7 +862,7 @@ def scalar_comparison_op(sub):
                 
 def get_field_rel_by_name(z_type, name):
     return (z_type | out_rels[RT.GQL_Field]
-            | filter[Z | F.Name | equals[name]]
+            | filter[F.Name | equals[name]]
             | first
             | collect)
 
@@ -1071,9 +1070,9 @@ def add_new_entity(info, type_node, params, name_gen):
                 # always be considered to be a set, ordered only when the
                 # client requests it?
                 if z_field | op_is_incoming | collect:
-                    actions += [item, rt, (Z[this])]
+                    actions += [item, rt, (Any[this])]
                 else:
-                    actions += [(Z[this], rt, item)]
+                    actions += [(Any[this], rt, item)]
         else:
             if z_field | op_is_list | collect:
                 l = val
@@ -1085,9 +1084,9 @@ def add_new_entity(info, type_node, params, name_gen):
                 actions += obj_actions
                 post_checks += obj_post_checks
                 if z_field | op_is_incoming | collect:
-                    actions += [(obj, rt, Z[this])]
+                    actions += [(obj, rt, Any[this])]
                 else:
-                    actions += [(Z[this], rt, obj)]
+                    actions += [(Any[this], rt, obj)]
 
     return this, actions, post_checks
 
@@ -1102,7 +1101,7 @@ def find_or_add_entity(val, info, target_node, name_gen):
         return obj,[],[]
     else:
         obj_name,actions,post_checks = add_new_entity(info, target_node, val, name_gen)
-        return Z[obj_name], actions, post_checks
+        return Any[obj_name], actions, post_checks
     
 
 def update_entity(z, info, type_node, set_d, remove_d, name_gen):

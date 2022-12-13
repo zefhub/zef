@@ -173,7 +173,6 @@ target          = make_zefop(internals.RT.Target)
 source          = make_zefop(internals.RT.Source) 
 L               = make_zefop(internals.RT.L)
 O               = make_zefop(internals.RT.O)
-Z               = make_zefop(internals.RT.Z)
 # RAE             = make_zefop(internals.RT.RAE)
 time            = make_zefop(internals.RT.Time) 
 value           = make_zefop(internals.RT.Value)
@@ -382,7 +381,12 @@ token_name      = make_zefop(internals.RT.TokenName)
 
 
 zef_id      = make_zefop(internals.RT.ZefID)
-          
+
+to_object    = make_zefop(internals.RT.ToObject)
+
+infer_types  = make_zefop(internals.RT.InferTypes)
+deduplicate  = make_zefop(internals.RT.Deduplicate)
+identify_entities = make_zefop(internals.RT.IdentifyEntities)
 # match
 # split_before
 # split_after

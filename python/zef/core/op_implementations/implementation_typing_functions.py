@@ -4023,12 +4023,7 @@ def frequencies_tp(v_tp):
 
 
 #---------------------------------------- Z -----------------------------------------------
-def Z_imp(z):
-    return z
 
-def Z_tp(op, curr_type):
-    assert curr_type in ref_types
-    return curr_type
 
 
 #---------------------------------------- Root -----------------------------------------------
@@ -7233,7 +7228,8 @@ def tag_imp(x, tag_s: str, *args):
             'force': force,
             'adding': True,
         }
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, ZefOp[Z]):
+    from ..graph_delta import NamedZ
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or isinstance(x, NamedZ) or (isinstance(x, ValueType) and without_absorbed(x) == Any):
         assert len(args) == 0
         return LazyValue(x) | tag[tag_s]
 
@@ -10059,3 +10055,22 @@ def token_name_imp(raet: RAET) -> String:
         return str(token)
     else:
         return token.name
+
+
+
+def to_object_imp(zr: ZefRef) -> UserValueType:
+    
+    def extract_value(zr: ZefRef) -> Any:
+        if is_a(zr, AttributeEntity):
+            return value(zr)
+        elif is_a(zr, Entity):
+            return rae_type(zr)[str(uid(zr))]
+        else:
+            return str(rae_type(zr))
+    
+    def extract_field_name(rt: ZefRef) -> str:
+        return str(rae_type(rt))[3:].lower()
+
+    out_rts = zr | out_rels[RT] | collect
+    targets_d = dict(out_rts | map[lambda rt:(extract_field_name(rt), extract_value(target(rt)))] | collect)
+    return rae_type(zr)[str(uid(zr))](**targets_d)

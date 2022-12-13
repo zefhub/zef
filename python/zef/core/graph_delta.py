@@ -35,15 +35,16 @@ from .logger import log
 from .internals import instantiate_value_node_imp
 
 from .VT import make_VT
+from .VT.rae_types import RAET_get_names, RAET_get_token
 
 NamedAny = VT.insert_VT("NamedAny", ValueType & Is[without_absorbed | equals[Any]] & Is[absorbed | length | greater_than[0]])
 # Temporary deprecated naming
 def delayed_check_namedz(x):
-    if not isinstance(x, ZExpression):
+    if not isinstance(x, VT.ZExpression):
         return False
     if x.root_node._entity_type != ET.GetItem:
         return False
-    if not x.root_node._kwargs['arg1']== ET.Z:
+    if not x.root_node._kwargs['arg1'] == ET.Z:
         return False
     return True
 NamedZ = VT.insert_VT("NamedZ", Is[delayed_check_namedz])
@@ -51,14 +52,14 @@ NamedZ = VT.insert_VT("NamedZ", Is[delayed_check_namedz])
 
 PleaseInstantiate = UserValueType("PleaseInstantiate", Dict, Pattern[{"raet": RAET}])
 PleaseTerminate = UserValueType("PleaseInstantiate", Dict, Pattern[{
-    "target": RAE | ZefOp[Z],
+    "target": RAE | NamedZ,
     "internal_id": String | Nil,
 }])
 PleaseAssign = UserValueType("PleaseAssign",
                               Dict,
                               # Pattern[{"target": AttributeEntity,
                               # Pattern[{"target": Any,
-                              Pattern[{"target": AttributeEntity | ZefOp[Z] | NamedAny | NamedZ | AET,
+                              Pattern[{"target": AttributeEntity | NamedAny | NamedZ | AET,
                                        "value": Any}])
 PleaseCommand = PleaseInstantiate | PleaseAssign | PleaseTerminate
 
@@ -375,14 +376,6 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
             return
         raise Exception(f"A LazyValue must have come from (x | fill_or_attach) or (x | tag) only. Got {x}")
 
-    # Note: just is_a(x, Z) will also mean ZefRefs will be hit
-    elif is_a(x, ZefOp[Z]):
-        some_id = get_curried_arg(x, 0)
-
-        if some_id not in id_definitions:
-            raise KeyError(f"The id '{some_id}' used in Z is not an internal id defined in the GraphDelta init list")
-        return
-
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
         return
 
@@ -430,14 +423,6 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif is_valid_single_node(x):
         return
 
-    elif isinstance(x, ZefOp):
-        if len(x) > 1:
-            # This could be something like Z["asdf"] | assign[5]
-            if LazyValue(x) | first | is_a[ZefOp[Z]] | collect:
-                return
-        if length(LazyValue(x) | absorbed) != 1:
-            raise Exception(f"ZefOp has more than one op inside of it. {x}")
-        raise Exception(f"Not allowing ZefOps except for those starting with Z. Got {x}")
 
     elif isinstance(x, Val):
         return
@@ -455,11 +440,33 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif isinstance(x, NamedZ):
         return
 
+    elif isinstance(x, VT.ZExpression):
+        # Convert Z expression into LazyValue.
+        lv = convert_z_to_lv(x)
+        return verify_input_el(lv, id_definitions, allow_rt, allow_scalar)
+
     elif isinstance(x, NamedAny):
         return
 
     else:
         raise ValueError(f"Unexpected type passed to init list of GraphDelta: {x} of type {type(x)}")
+
+def convert_z_to_lv(expr):
+    items = convert_evi_to_lv(expr.root_node)
+    return items[0] | to_pipeline(items[1:])
+
+def convert_evi_to_lv(evi):
+    from . import Z
+    if not isinstance(evi, VT.EntityValueInstance):
+        return [evi]
+    if evi._entity_type == ET.GetItem:
+        assert ET(evi._kwargs["arg1"]) == ET.Z
+        return [LazyValue(Any[evi._kwargs["arg2"]])]
+    if evi._entity_type == ET.Or:
+        return convert_evi_to_lv(evi._kwargs["arg1"]) + convert_evi_to_lv(evi._kwargs["arg2"])
+
+    raise Exception(f"Z expression can't be converted to lazy value, it has an unexpected ET: {evi._entity_type}")
+
 
 @func    
 def verify_relation_source_target(x, id_definitions):
@@ -536,6 +543,9 @@ def dispatch_cmds_for(expr, gen_id):
     if isinstance(expr, LazyValue):
         expr = collect(expr)
 
+    if not isinstance(expr, LazyValue) and is_a(expr, VT.ZExpression):
+        expr = convert_z_to_lv(expr)
+
     # If we have a lazy value the second time around, then this must be an actual action to perform.
     if isinstance(expr, LazyValue):
         if False:
@@ -553,12 +563,7 @@ def dispatch_cmds_for(expr, gen_id):
         else:
             raise Exception("LazyValue obtained which is not known")
 
-    elif isinstance(expr, ZefOp):
-        # If we have a chain beginning with a Z, convert to LazyValue
-        if LazyValue(expr) | first | is_a[ZefOp[Z]] | collect:
-            return cmds_for_initial_Z(expr)
 
-        raise RuntimeError(f'We should not have landed here, with expr={expr}')
 
 
     # d_dispatch = {
@@ -611,11 +616,7 @@ def cmds_for_complex_expr(x, gen_id):
     iid,exprs = realise_single_node(x, gen_id)
     return exprs, []
 
-def cmds_for_initial_Z(expr):
-    assert LazyValue(expr) | first | is_a[ZefOp[Z]] | collect
 
-    expr = LazyValue(LazyValue(expr) | first | collect) | (LazyValue(expr) | skip[1] | to_pipeline | collect)
-    return (expr,), ()
 
 def cmds_for_value_node(x):
     cmd = {'cmd': 'merge',
@@ -768,8 +769,9 @@ def cmds_for_lv_set_field(x, gen_id):
         cmd['target_id'] = target_iid
         exprs.extend(target_exprs)
 
-    if len(absorbed(rt)) > 0:
-        cmd['internal_id'] = single(absorbed(rt))
+    rt_names = RAET_get_names(rt)
+    if len(rt_names) > 0:
+        cmd['internal_id'] = single(rt_names)
 
     return exprs, [cmd]
 
@@ -803,12 +805,12 @@ def cmds_for_tuple(x: tuple, gen_id: Callable):
             # Case 3 of is_valid_relation_template
             iid,exprs = realise_single_node(x[2], gen_id)
             new_exprs += exprs
-            new_exprs += [(source, x[1], Z[iid]) for source in x[0]]
+            new_exprs += [(source, x[1], Any[iid]) for source in x[0]]
         elif isinstance(x[2], list):
             # Case 2 of is_valid_relation_template
             iid,exprs = realise_single_node(x[0], gen_id)
             new_exprs += exprs
-            new_exprs += [(Z[iid], x[1], target) for target in x[2]]
+            new_exprs += [(Any[iid], x[1], target) for target in x[2]]
         else:
             # Case 1 of is_valid_relation_template
             # it's a plain relation triple
@@ -839,7 +841,7 @@ def cmds_for_tuple(x: tuple, gen_id: Callable):
         # Case 5 of is_valid_relation_template
         iid,exprs = realise_single_node(x[0], gen_id)
         new_exprs += exprs
-        new_exprs += [(Z[iid], item[0], item[1]) for item in x[1]]
+        new_exprs += [(Any[iid], item[0], item[1]) for item in x[1]]
     else:
         raise Exception("Shouldn't get here")
 
@@ -857,8 +859,6 @@ def is_valid_single_node(x):
     if isinstance(x, scalar_types):
         return True
     if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        return True
-    if is_a(x, ZefOp[Z]):
         return True
     if isinstance(x, ET):
         return True
@@ -947,19 +947,19 @@ def realise_single_node(x, gen_id):
             iid,exprs = realise_single_node(target, gen_id)
             rt,assignment = LazyValue(op) | absorbed | collect
             if isinstance(assignment, scalar_types):
-                exprs = exprs + [LazyValue(Z[iid]) | set_field[rt][assignment]]
+                exprs = exprs + [LazyValue(Any[iid]) | set_field[rt][assignment]]
             else:
-                exprs = exprs + [(Z[iid], rt, assignment)]
+                exprs = exprs + [(Any[iid], rt, assignment)]
         elif is_a(op, ZefOp[set_field]):
             iid,exprs = realise_single_node(target, gen_id)
-            exprs = exprs + [LazyValue(Z[iid]) | op]
+            exprs = exprs + [LazyValue(Any[iid]) | op]
         else:
             raise Exception(f"Don't understand LazyValue type: {op}")
     elif isinstance(x, PleaseAssign):
         target = x.target
         val = x.value
         iid,exprs = realise_single_node(target, gen_id)
-        exprs = exprs + [PleaseAssign(target=Z[iid], value=val)]
+        exprs = exprs + [PleaseAssign(target=Any[iid], value=val)]
     elif isinstance(x, PleaseTerminate):
         target = x.target
         iid = x.internal_id
@@ -999,26 +999,9 @@ def realise_single_node(x, gen_id):
     elif isinstance(x, shorthand_scalar_types):
         iid = gen_id()
         aet = map_scalar_to_aet_type(x)
-        exprs = [aet[iid], LazyValue(Z[iid]) | assign[x]]
+        exprs = [aet[iid], LazyValue(Any[iid]) | assign[x]]
     elif isinstance(x, scalar_types):
         raise Exception("A value of type {type(x)} is not allowed to be given in a GraphDelta in the shorthand syntax as it is ambiguous. You might want to explicitly create an AET and assign, or a value node, or a custom AET.")
-    elif isinstance(x, ZefOp):
-        if len(x) == 1:
-            if is_a(x, ZefOp[Z]):
-                iid = LazyValue(x) | peel | first | second | first | collect
-                # No expr to perform
-                exprs = []
-            else:
-                raise NotImplementedError(f"Can't pass zefops to GraphDelta: for {x}")
-        else:
-            ops = LazyValue(x) | peel | collect
-            first_op = ops[0]
-            rest = ops[1:]
-            if is_a(first_op, ZefOp[Z]):
-                new_op = LazyValue(first_op) | to_pipeline(rest)
-                iid,exprs = realise_single_node(new_op, gen_id)
-            else:
-                raise NotImplementedError(f"Can't pass zefops to GraphDelta: for {x}")
     elif isinstance(x, NamedZ):
         iid = x.root_node.arg2
         # No expr to perform
@@ -1044,7 +1027,7 @@ def realise_single_node(x, gen_id):
                 #     exprs.append((Z[iid], k, e))
                 raise Exception("Not allowed to use lists inside of a dictionary syntax anymore")
             else:
-                exprs.append(Z[iid] | set_field[k][v])
+                exprs.append(Any[iid] | set_field[k][v])
     elif isinstance(x, EntityValueInstance):
         exprs = expand_helper(x, gen_id)
         # TODO: Make the iid be returned explicitly.
@@ -1341,7 +1324,7 @@ def encode(xx):
             if is_valid_relation_template(x):
                 if len(x) == 2:
                     ent = step(x[0], True)
-                    triples = [step((Z[ent], *tup), False) for tup in x[1]]
+                    triples = [step((Any[ent], *tup), False) for tup in x[1]]
                     doubles = [x[1:] for x in triples]
 
                     return (ent, doubles)
@@ -1350,7 +1333,7 @@ def encode(xx):
                     if isinstance(x[0], ListOrTuple):
                         assert is_valid_single_node(x[2])
                         item = step(x[2], True)
-                        triples = [step((source, x[1], Z[item]), False) for source in x[0]]
+                        triples = [step((source, x[1], Any[item]), False) for source in x[0]]
                         sources = [x[0] for x in triples]
                         # Note: have to return None for the relation, as there are actually multiple relations
                         return (sources, None, item)
@@ -1358,7 +1341,7 @@ def encode(xx):
                     if isinstance(x[2], ListOrTuple):
                         assert is_valid_single_node(x[0])
                         item = step(x[0], True)
-                        triples = [step((Z[item], x[1], target), False) for target in x[2]]
+                        triples = [step((Any[item], x[1], target), False) for target in x[2]]
                         targets = [x[2] for x in triples]
                         # Note: have to return None for the relation, as there are actually multiple relations
                         return (item, None, targets)
@@ -1369,7 +1352,7 @@ def encode(xx):
                         raise Exception("Not allowing ids in a shorthand syntax transaction.")
                     rel_id = gen_id()
                     trg_id = step(x[2], True)
-                    gd_exprs.append( (Z[src_id], x[1][rel_id], Z[trg_id]) )
+                    gd_exprs.append( (Any[src_id], x[1][rel_id], Any[trg_id]) )
 
                     return (src_id, rel_id, trg_id)
                 raise Exception("Shouldn't get here")
@@ -1764,7 +1747,6 @@ def get_absorbed_id(obj):
     # if is_a(obj, RT) or is_a(obj, ZefOp):
     #     obj = LazyValue(obj)
     # if isinstance(obj, (ET, RT, AET)):
-    from .VT.rae_types import RAET_get_names
     if isinstance(obj, DelegateRef):
         return None
     elif isinstance(obj, ValueType) and issubclass(obj, (ET, RT, AET)):
@@ -1820,7 +1802,7 @@ def expand_helper(x, gen_id):
         if ent_id is None:
             ent_id = gen_id()
             et = et[ent_id]
-        me = Z[ent_id]
+        me = Any[ent_id]
         res.append(et)
 
         for k, v in x._kwargs.items():
@@ -1843,7 +1825,7 @@ def expand_helper(x, gen_id):
                 list_ids = [gen_id() for _ in range(len(v))]
                 res.extend(list_ids 
                       | sliding[2] 
-                      | map[lambda p: (Z[p[0]], RT.ZEF_NextElement, Z[p[1]])]
+                      | map[lambda p: (Any[p[0]], RT.ZEF_NextElement, Any[p[1]])]
                       | collect
                     )
                 for el, edge_id in zip(v, list_ids):

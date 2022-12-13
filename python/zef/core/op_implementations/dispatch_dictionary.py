@@ -20,6 +20,7 @@ from . to_flatgraph import to_flatgraph_imp
 from .func import unpack_implementation, unpack_type_info
 from .. import internals
 from ..fx.fx_runtime import fx_runtime
+from .data_wrangling import infer_types, deduplicate, identify_entities
 
 _op_to_functions = {
         internals.RT.ApplyFunctions: (apply_functions_imp, None),
@@ -142,7 +143,6 @@ _op_to_functions = {
         internals.RT.AbstractType:    (abstract_type_implementation, abstract_type_type_info),
         internals.RT.Root:            (root_imp, root_tp),
         internals.RT.Blueprint:       (blueprint_imp, None),
-        internals.RT.Z:               (Z_imp, Z_tp),
         internals.RT.Docstring:       (docstring_imp, None),
         internals.RT.SourceCode:      (source_code_imp, None),
         
@@ -326,4 +326,10 @@ _op_to_functions = {
         internals.RT.TokenName:          (token_name_imp, None),
 
         internals.RT.ZefID:              (zef_id_imp, None),
+
+        internals.RT.ToObject:             (to_object_imp, None),
+
+        internals.RT.InferTypes :          (infer_types, None),
+        internals.RT.Deduplicate:          (deduplicate, None),
+        internals.RT.IdentifyEntities:     (identify_entities, None),
 }
