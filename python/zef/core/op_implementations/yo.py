@@ -98,6 +98,7 @@ def yo_type_info(op, curr_type):
 # * Implementation details below
 #------------------------------------------------------------
 def tx_view(zr_or_uzr) -> str:
+    from ..graph_events import Instantiated, Terminated, Assigned
     uzr = to_ezefref(zr_or_uzr)
 
     def value_assigned_string_view(lst):
@@ -132,11 +133,11 @@ total instantiations:   {length(uzr | events[Instantiated])}
 total assignments:      {length(uzr | events[Assigned])}
 total terminations:     {length(uzr | events[Terminated])}
 \n^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Instantiations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | events[Instantiated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
+{tx_block_view(uzr | events[Instantiated] | map[lambda event: event.target] | collect, instantiated_or_terminated_string_view)} 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Value Assignments ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | events[Assigned]  | map[absorbed | first] | collect, value_assigned_string_view)} 
+{tx_block_view(uzr | events[Assigned]  | map[lambda event: event.target] | collect, value_assigned_string_view)} 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ Terminations ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-{tx_block_view(uzr | events[Terminated] | map[absorbed | first] | collect, instantiated_or_terminated_string_view)} 
+{tx_block_view(uzr | events[Terminated] | map[lambda event: event.target] | collect, instantiated_or_terminated_string_view)} 
 """
 
 def uid_or_value_hash(x):
