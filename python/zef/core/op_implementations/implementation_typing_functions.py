@@ -10058,7 +10058,7 @@ def token_name_imp(raet: RAET) -> String:
 
 
 
-def to_dict_imp(zr: ZefRef) -> UserValueType:
+def to_object_imp(zr: ZefRef) -> UserValueType:
     
     def extract_value(zr: ZefRef) -> Any:
         if is_a(zr, AttributeEntity):

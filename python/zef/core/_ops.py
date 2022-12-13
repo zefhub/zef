@@ -382,7 +382,7 @@ token_name      = make_zefop(internals.RT.TokenName)
 
 zef_id      = make_zefop(internals.RT.ZefID)
 
-to_dict    = make_zefop(internals.RT.ToDict)
+to_object    = make_zefop(internals.RT.ToObject)
 # match
 # split_before
 # split_after

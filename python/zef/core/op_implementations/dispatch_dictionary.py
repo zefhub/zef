@@ -326,5 +326,5 @@ _op_to_functions = {
 
         internals.RT.ZefID:              (zef_id_imp, None),
 
-        internals.RT.ToDict:             (to_dict_imp, None),
+        internals.RT.ToObject:             (to_object_imp, None),
 }
