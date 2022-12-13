@@ -63,7 +63,15 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def("__contains__", [](const Graph& self, BaseUID key)->bool { return self.contains(key); }, "check whether a key is contained in the graph's key_dict")
 		.def("__contains__", [](const Graph& self, EternalUID key)->bool { return self.contains(key); }, "check whether a key is contained in the graph's key_dict")
 		.def("__contains__", [](const Graph& self, ZefRefUID key)->bool { return self.contains(key); }, "check whether a key is contained in the graph's key_dict")
-		.def("__hash__", [](const Graph& self)->int { return int(self.mem_pool); }, "if graph is used as a key in a python dict or set: consider two graphs equal if they refer to the same graph data object")
+        .def("contains_value", [](const Graph& self, const value_variant_t & value)->bool {
+                GraphData & gd = self.my_graph_data();
+                return std::visit([&gd](auto & x) { return (bool)internals::search_value_node(x, gd); }, value);
+        }, "check whether a value node for the given value is present in the graph")
+        .def("get_value_node", [](const Graph& self, const value_variant_t & value)->std::optional<EZefRef> {
+                GraphData & gd = self.my_graph_data();
+                return std::visit([&gd](auto & x) { return internals::search_value_node(x, gd); }, value);
+        }, "check whether a value node for the given value is present in the graph")
+        .def("__hash__", [](const Graph& self)->int { return int(self.mem_pool); }, "if graph is used as a key in a python dict or set: consider two graphs equal if they refer to the same graph data object")
 		.def("__eq__", [](const Graph& self, const Graph& other)->bool { return self.mem_pool==other.mem_pool; }, "if graph is used as a key in a python dict or set: consider two graphs equal if they refer to the same graph data object", py::is_operator())
 		.def_property_readonly("key_dict", [](const Graph& self)->std::unordered_map<std::string, blob_index> {
                 // Make a copy of the unordered map under a lock
