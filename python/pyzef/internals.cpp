@@ -544,6 +544,13 @@ void fill_internals_module(py::module_ & internals_submodule) {
             return "\"NOT FOUND\"";
         return gtd->info_str();
     }, "This is a low-level function. Do not use if you don't know what you are doing.");
+    internals_submodule.def("get_loaded_graph", [](GraphRef gref)->std::optional<Graph> {
+        auto butler = Butler::get_butler();
+        auto gtd = butler->find_graph_manager(gref.uid);
+        if(!gtd)
+            return std::nullopt;
+        return Graph(gref);
+        }, "Return a Graph object referencing (and keeping alive) the given GraphRef, only if it has already been loaded. Otherwise return nullopt.");
 
     py::class_<Butler::UpdateHeads>(internals_submodule, "UpdateHeads", py::buffer_protocol())
         .def("__str__", [](const Butler::UpdateHeads & heads) {
