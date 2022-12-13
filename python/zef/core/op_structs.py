@@ -1131,7 +1131,7 @@ class LazyValue:
 
                 if got_error is not None:
                     if not custom_error_handling_activated():
-                        raise got_error
+                        raise Exception(got_error)
                     else:
                         raise add_error_context(got_error, cur_context) from None
 

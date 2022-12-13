@@ -47,6 +47,8 @@ class Error_(Exception):
         return f'{self.name}{args}'
 
     def __str__(self):
+        if not custom_error_handling:
+            return str(self.args)
         try:
             # We add an extra newline at the start to better handle the output
             return "\n" + zef_ui_err(self, as_str=True)
