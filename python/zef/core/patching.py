@@ -420,21 +420,46 @@ AttributeEntityType.__str__ = AttributeEntityType_str
 
 
 class EntityValueInstance_:
-    def __init__(self, entity_type, **kwargs):
-        self._entity_type: EntityType = entity_type
+    def __init__(self, arg, *args, **kwargs):
+        from .VT import ET, Entity
+        if isinstance(arg, ET):
+            self._entity_type = arg
+        elif isinstance(arg, Entity):
+            self._entity_type = ET(arg)
+            args = (origin_uid(arg),) + args
+        else:
+            raise Exception(f"Don't understand arg type: {arg}")
+        self._args = args
         self._kwargs = kwargs
         
     def __repr__(self):
         nl = '\n'
-        return f'{self._entity_type}({f", ".join([f"{k}={repr(v)}" for k, v in self._kwargs.items()])})'
+        items = [str(arg) for arg in self._args]
+        items += [f"{k}={v!r}" for k,v in self._kwargs.items()]
+        return f'{self._entity_type}({f", ".join(items)})'
     
     def __getattr__(self, name):
-        return self._kwargs[name]
+        # return self._kwargs[name]
+        from ._ops import F
+        return self | getattr(F, name)
 
     def __eq__(self, other):
         if not isinstance(other, EntityValueInstance_): return False
         return self._entity_type == other._entity_type and self._kwargs == other._kwargs
 
+    def __getitem__(self, name):
+        new_et = self._entity_type[name]
+        return EntityValueInstance_(new_et, *self._args, **self._kwargs)
+
+    def __call__(self, *args, **kwargs):
+        new_kwargs = dict(self._kwargs)
+        new_kwargs.update(kwargs)
+        return EntityValueInstance_(self._entity_type, *(self._args + args), **new_kwargs)
+
+    def __hash__(self):
+        from .VT.value_type import hash_frozen
+        return hash_frozen(("EntityValueInstance", self._entity_type, self._args, self._kwargs))
+    
 
 
 
@@ -442,4 +467,3 @@ def entity_type_call_func(self, *args, **kwargs):
     return EntityValueInstance_(EntityType(self.value), **kwargs)
 
 EntityType.__call__ = entity_type_call_func
-

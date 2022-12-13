@@ -346,14 +346,8 @@ class ZefOp_:
         
 
     def __lshift__(self, other):
-        # if isinstance(other, TraversableABC):
-        #     return ZefOp( (*self.el_ops, (internals.RT.InInOld, (other, ))) )
-        if is_valid_LorO_op(other):
-            return ZefOp( (*self.el_ops, *unpack_ops(internals.RT.InInOld, other.el_ops)))
-        if is_tmpzefop(other):
-            return ZefOp( (*self.el_ops, *unpack_tmpzefop(internals.RT.InInOld, other.el_ops))) 
-        raise TypeError(f'Unexpected type in "ZefOp << ..." expression. Only an RT or L[RT] makes sense here. It was called with {other} of type {type(other)}' )
-        
+        from ._ops import assign
+        return self | assign[other]
 
     def __rshift__(self, other):
         # if isinstance(other, TraversableABC):
@@ -457,6 +451,9 @@ class ZefOp_:
             if len(args) > 1: extra = args[1:]
             else: extra = []
             return _op_to_functions[self.el_ops[0][0]][0](args[0], *self.el_ops[0][1], *extra, **kwargs)
+
+        if len(kwargs) > 0:
+            raise NotImplementedError("A ZefOp was called with kwargs.")
 
         # now()
         if len(self.el_ops) == 1 and len(args) == 0:
