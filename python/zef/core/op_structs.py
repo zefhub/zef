@@ -881,7 +881,7 @@ class SubscribingOp:
         return new_op
 
 
-class LazyValue:
+class LazyValue_:
     def __init__(self, arg):
         # if type(arg) == LazyValue:
         #     # Create a copy
@@ -1227,6 +1227,27 @@ class LazyValue:
                 )
                 e = add_error_context(e, {"frames": e.frames,} )
                 raise e 
+
+def lazyvalue_is_a(x, typ):
+    # TODO: Proper version
+    from .VT.helpers import remove_names, absorbed
+    items = remove_names(absorbed(typ))
+    if len(items) >= 3:
+        raise Exception(f"LazyValue type cannot have more than 2 items absorbed, found {items}")
+    init_value_type = items[0] if (len(items) >= 1) else None
+    zefop_type = items[1] if (len(items) >= 2) else None
+    if not isinstance(x, LazyValue_):
+        return False
+    if init_value_type is not None:
+        if not isinstance(x.initial_val, init_value_type):
+            return False
+    if zefop_type is not None:
+        if not isinstance(x.el_ops, zefop_type):
+            return False
+    return True
+LazyValue = make_VT("LazyValue",
+                pytype=LazyValue_,
+                is_a_func=lazyvalue_is_a)
 
 # Monkey patching for some handy warnings
 from .VT.value_type import ValueType_
