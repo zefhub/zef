@@ -333,7 +333,9 @@ def type_name(typ):
 def hash_frozen(obj):
     if type(obj) == dict:
         h = hash("dict")
-        for key in sorted(obj):
+        # The sort key is weird, but ideally everything is done through the
+        # hash. The str is just a fallback for collisions.
+        for key in sorted(obj, key=lambda x: (hash_frozen(x), str(x))):
             h ^= hash(key)
             h ^= hash_frozen(obj[key])
         return h
