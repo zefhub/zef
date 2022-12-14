@@ -304,11 +304,15 @@ def is_relation_triple(x):
         return False
     if not len(x) == 3:
         return False
-    if not isinstance(x[0], GraphWishInput | UserWishID):
+    # I'm uncomfortable with EternalUID appearing in here - it is not enough
+    # information on its own, and must be accompanied by an instantiate
+    # elsewhere. But it does appear a lot as part of the iteration
+    Item = GraphWishInput | UserWishID | EternalUID
+    if not isinstance(x[0], Item):
         return False
     if not isinstance(x[1], PureRT):
         return False
-    if not isinstance(x[2], GraphWishInput | UserWishID):
+    if not isinstance(x[2], Item):
         return False
     return True
 RelationTriple = _alias(Is[is_relation_triple], "RelationTriple")

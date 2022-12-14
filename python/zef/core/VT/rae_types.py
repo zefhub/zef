@@ -432,7 +432,6 @@ class ObjectInstance_:
         elif isinstance(arg, EntityValueInstance):
             # Do the same as we would get from an ET
             template = ObjectInstance_(arg._entity_type)
-            print("OI EVI ctor got", template, "from", arg)
             self._type = template._type
             args = template._args + arg._args + args
             new_kwargs = dict(arg._kwargs)
@@ -469,7 +468,6 @@ class ObjectInstance_:
         return ObjectInstance_(self._type, *new_args, **self._kwargs)
 
     def __call__(self, *args, **kwargs):
-        print(f"In Obj __call__ with ({args}) and ({kwargs})")
         new_kwargs = dict(self._kwargs)
         new_kwargs.update(kwargs)
         return ObjectInstance_(self._type, *(self._args + args), **new_kwargs)

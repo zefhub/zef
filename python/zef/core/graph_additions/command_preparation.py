@@ -135,12 +135,6 @@ def prepare_obj_notation(cmd, gs, context):
                 to_terminate = list(existing_free)
                         
 
-            print("In prepare obj notation")
-            print(to_keep)
-            print(to_terminate)
-            print(to_assign)
-            print(to_create)
-
             exact_ids = []
 
             for rel in to_keep:
