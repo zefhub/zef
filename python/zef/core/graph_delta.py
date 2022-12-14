@@ -193,8 +193,8 @@ def dispatch_ror_graph(g, x):
     raise NotImplementedError(f"'x | g' for x of type {type(x)}")
 
 
-from ..pyzef import main
-main.Graph.__ror__ = dispatch_ror_graph
+# from ..pyzef import main
+# main.Graph.__ror__ = dispatch_ror_graph
 
 
 

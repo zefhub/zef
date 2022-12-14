@@ -235,7 +235,7 @@ def is_supported_value(o):
     from .op_implementations.implementation_typing_functions import ZefGenerator
     from .VT import Entity, Relation, AttributeEntity
     if is_python_scalar_type(o): return True
-    if isinstance(o, (set, range, ZefGenerator, GeneratorType, list, tuple, dict, ValueType, GraphSlice, Time, Image, Bytes, Error, Keyword, ModuleType, UserValueInstance, Delegate, Val, EntityValueInstance, RAE)): return True
+    if isinstance(o, (set, range, ZefGenerator, GeneratorType, list, tuple, dict, ValueType, GraphSlice, Time, Image, Bytes, Error, Keyword, ModuleType, UserValueInstance, Delegate, Val, EntityValueInstance, ObjectInstance, RAE)): return True
     if isinstance(o, (BaseUID, EternalUID, ZefRefUID, Enum, ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice)): return True
     return False
 

@@ -48,15 +48,12 @@ def generate_level2_commands(inputs: List[GraphWishInput], rules: List[Tuple[Val
         "gen_id_state": generate_initial_state("lvl2")
     }
 
-    def not_allowed_error(obj, *others):
-        raise TypeError(f"Object not allowed as input to a graph wish: {obj}")
-
-    todo = inputs
+    todo = list(inputs)
     while len(todo) > 0:
         input = todo.pop(0)
         cmds,new_inputs,context = (input,context) | match_rules[[
             *rules,
-            (Any, not_allowed_error),
+            (Any, not_implemented_error["Unknown type of object as input to graph wish"]),
         ]] | collect
         output_cmds += cmds
         todo = new_inputs + todo
@@ -80,8 +77,18 @@ def lvl2cmds_for_ETorAET(input: ET | AET, context: Lvl2Context):
     this_bare_raet = bare_raet(input)
 
     d = {"atom": this_bare_raet}
-    if len(names) > 0:
-        d["internal_ids"] = names
+
+    ouids = set(names | filter[EternalUID] | collect)
+    iids = set(names | filter[Not[EternalUID]] | collect)
+
+    if len(ouids) >= 2:
+        raise Exception(f"Can't have multiple origin uids for the one object: {ouids}")
+    if len(ouids) == 1:
+        d["origin_uid"] = single(ouids)
+
+    if len(iids) > 0:
+        d["internal_ids"] = tuple(iids)
+
     return [PleaseInstantiate(d)], [], context
 
 @func
@@ -99,18 +106,35 @@ def lvl2cmds_for_relation_triple(input: RelationTriple, context: Lvl2Context):
             "rt": bare_rt,
             "source": src,
             "target": trg,
-            "combine_source": False,
-            "combine_target": False,
         }
     }
     if len(names) > 0:
         d["internal_ids"] = names
 
     cmd = PleaseInstantiate(d)
-    out_cmds = [cmd]
 
     context = context | insert["gen_id_state"][gen_id_state] | collect
     return [cmd], [src_obj, trg_obj], context
+
+@func
+def OS_lvl2cmds_for_relation_triple(input: OldStyleRelationTriple, context: Lvl2Context):
+    if len(input) == 2:
+        raise NotImplementedError("TODO: Length 2 relations")
+
+    if isinstance(input[0], List):
+        sources = input[0]
+    else:
+        sources = [input[0]]
+        
+    if isinstance(input[2], List):
+        targets = input[2]
+    else:
+        targets = [input[2]]
+
+    rt = input[1]
+    out_todo = [(s,rt,t) for s in sources for t in targets]
+
+    return [], out_todo, context
 
 @func
 def lvl2cmds_for_aet_with_value(input: AETWithValue, context: Lvl2Context):
@@ -145,7 +169,7 @@ def lvl2cmds_for_lazyvalue(input: LazyValue, context: Lvl2Context):
         obj = input.initial_val
         new_lv = obj() | input.el_ops
         further_cmds += [new_lv]
-    elif isinstance(input.initial_val, EntityValueInstance | Variable):
+    elif isinstance(input.initial_val, EntityValueInstance | ObjectInstance | Variable):
         obj = input.initial_val
         final_state = evaluate_chain(obj, input.el_ops)
         print("After evaluating chain:", final_state)
@@ -232,6 +256,7 @@ default_interpretation_rules = [
     (RAE, lvl2cmds_for_rae),
     # Things not in base version
     (OldStyleDict, OS_lvl2cmds_for_dict),
+    (OldStyleRelationTriple, OS_lvl2cmds_for_relation_triple),
 ]
 
 ##############################
@@ -248,28 +273,29 @@ def ensure_tag(obj: Taggable, gen_id_state: GenIDState) -> Tuple[Taggable, WishI
     ]] | collect
 
 
-
 def ensure_tag_EVI(obj, gen_id_state):
-    maybe_origin_uid = None if len(obj._args) == 0 else obj._args[0] 
-    if maybe_origin_uid is not None:
-        if isinstance(maybe_origin_uid, Entity):
-            maybe_origin_uid = origin_uid(maybe_origin_uid)
-        elif isinstance(maybe_origin_uid, str):
-            ouid = maybe_parse_uid(maybe_origin_uid)
-            if ouid is None:
-                raise Exception("EVI tag is a string but not a db uid");
-            maybe_origin_uid = ouid
+    obj = ObjectInstance(obj)
+    return ensure_tag_OI(obj, gen_id_state)
 
-        me = EntityRef({"type": obj._entity_type, "uid": maybe_origin_uid})
+def ensure_tag_OI(obj, gen_id_state):
+    if len(obj._args) >= 2:
+        raise Exception("ObjectInstance with more than two labels can't be handled at the moment")
+    maybe_id = None if len(obj._args) == 0 else obj._args[0] 
+
+    if maybe_id is not None:
+        me = force_as_id(maybe_id)
     else:
-        names = names_of_raet(obj._entity_type)
-        if len(names) == 0:
-            # Add a generated ID on
-            me,gen_id_state = gen_internal_id(gen_id_state)
-            obj = obj[me]
-            # obj = EntityValueInstance(obj._entity_type[me], **obj._kwargs)
-        else:
-            me = names[0]
+        # Add a generated ID on
+        me,gen_id_state = gen_internal_id(gen_id_state)
+
+    print("In ensure_tag_OI", me, maybe_id, "from", obj)
+
+    if me != maybe_id:
+        args = obj._args
+        if maybe_id is not None:
+            # Drop the old id
+            args = args[1:]
+        obj = ObjectInstance(obj._type, me, *args, **obj._kwargs)
 
     return obj,me,gen_id_state
 
@@ -298,12 +324,18 @@ def ensure_tag_pure_et_aet(obj, gen_id_state):
         me = names[0]
     return obj,me,gen_id_state
 
+def ensure_tag_OS_dict(obj: OldStyleDict, gen_id_state):
+    main_obj = single(obj.keys())
+    main_obj,obj_id,gen_id_state = ensure_tag(main_obj, gen_id_state)
+    obj = {main_obj: single(obj.values())}
+    return obj,obj_id,gen_id_state
+
 def ensure_tag_rae_ref(obj: RAERef, gen_id_state):
-    return obj,obj,gen_id_state
+    return obj,origin_uid(obj),gen_id_state
 
 def ensure_tag_blob_ptr(obj: BlobPtr, gen_id_state):
     obj = discard_frame(obj)
-    return obj,obj,gen_id_state
+    return obj,origin_uid(obj),gen_id_state
 
 def ensure_tag_wish_id(obj: WishID, gen_id_state):
     return obj,obj,gen_id_state
@@ -322,11 +354,13 @@ def ensure_tag_extra_user_id(obj: ExtraUserAllowedIDs, gen_id_state):
 
 tagging_rules = [
     (EntityValueInstance, ensure_tag_EVI),
+    (ObjectInstance, ensure_tag_OI),
     (PrimitiveValue, ensure_tag_primitive),
     (AETWithValue, ensure_tag_aet),
     (PureET | PureAET, ensure_tag_pure_et_aet),
     (RAERef, ensure_tag_rae_ref),
     (BlobPtr, ensure_tag_blob_ptr),
+    (OldStyleDict, ensure_tag_OS_dict),
     (WishID, ensure_tag_wish_id),
     (ExtraUserAllowedIDs, ensure_tag_extra_user_id),
 ]

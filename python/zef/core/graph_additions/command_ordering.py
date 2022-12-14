@@ -81,6 +81,21 @@ def order_level1_commands(commands: List[PleaseCommandLevel1], gs: GraphSlice):
         # We only went through all "ready" commands. There might have been some
         # that never became ready in an invalid wish case.
         if len(new_commands) != len(commands):
+            reverse_mapping = {b:a for a,b in cmd_mapping.items()}
+            print()
+            print("======")
+            for cmd in commands:
+                if cmd in new_commands:
+                    continue
+                name = reverse_mapping[cmd]
+                print("----")
+                print(name)
+                print(cmd)
+                print("--")
+                for dep in dependencies[name]:
+                    print(dep)
+                
+            print()
             raise Exception("Unable to order all commands")
 
         commands = new_commands
@@ -176,9 +191,9 @@ def are_commands_ordered(commands: List[PleaseCommandLevel1], gs: GraphSlice):
 def deps_instantiate(cmd, gs):
     if isinstance(cmd.atom, PleaseInstantiateRelation):
         deps = []
-        if not isinstance(cmd.atom["source"], Atom) or cmd.atom["source"] not in gs:
+        if not isinstance(cmd.atom["source"], EternalUID) or cmd.atom["source"] not in gs:
             deps += [("Instantiate", cmd.atom['source'])]
-        if not isinstance(cmd.atom["target"], Atom) or cmd.atom["target"] not in gs:
+        if not isinstance(cmd.atom["target"], EternalUID) or cmd.atom["target"] not in gs:
             deps += [("Instantiate", cmd.atom['target'])]
     else:
         deps = []
@@ -199,7 +214,7 @@ def deps_terminate(cmd, gs):
 def deps_assign(cmd, gs):
     name = ("Assign", cmd.target)
     deps = []
-    if not isinstance(cmd.target, Atom) or cmd.target not in gs:
+    if not isinstance(cmd.target, EternalUID) or cmd.target not in gs:
         deps += [("Instantiate", cmd.target)]
     return name,deps
 

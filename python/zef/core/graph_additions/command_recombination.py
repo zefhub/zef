@@ -101,16 +101,41 @@ def recombination_checks(cmds):
 def recombination_be_source_target(cmds):
     cmd1,cmd2 = cmds
 
-    if not cmd1.combine and not cmd2.combine:
+    if not cmd1.exact and not cmd2.exact:
         return True, [], []
 
+    # Since either of these are exact, we must be able to combine these together
+    # to be the same. Ideally we would be able to account for multiple BeSource
+    # or BeTargets at once, but since we're doing this one at a time, we just
+    # have to make sure:
+    # a) Any non-exact is a subset of any exact
+    # b) Two exacts are exactly the same
+    #
+    # However, note that a subset is tricky - which of the rels is matched up to
+    # other rels? So will fail in that case.
+    #
+    # We'll try and match with sets but this is going to be impossible locally,
+    # it requires global information. For now, we'll put them in as if they are
+    # ordered lists which will work if the user passes in identical sets twice.
     if cmd1.rt == cmd2.rt:
-        if cmd1.rel_id == cmd2.rel_id:
-            # This is basically the same thing, so just simplify
+        if len(set(cmd1.rel_ids) - set(cmd2.rel_ids)) == 0:
+            # cmd2 is a subset
             return False, [cmd1], []
+        if len(set(cmd2.rel_ids) - set(cmd1.rel_ids)) == 0:
+            # cmd1 is a subset
+            return False, [cmd2], []
 
-        cmd_alias = PleaseAlias(ids=[cmd1.rel_id, cmd2.rel_id])
-        return False, [cmd1], [cmd_alias]
+        if len(cmd1.rel_ids) != len(cmd2.rel_ids):
+            raise Exception("Can't match up ids blindly")
+
+        # Going to match up ids blindy and hope for the best
+        # Note: using lists to preserve order
+        alias_cmds = []
+        cmd1_diff = [id for id in cmd1.rel_ids if id not in cmd2.rel_ids]
+        cmd2_diff = [id for id in cmd2.rel_ids if id not in cmd1.rel_ids]
+        for id1,id2 in zip(cmd1_diff, cmd2_diff):
+            other_cmds += [PleaseAlias(ids=[cmd1.rel_id, cmd2.rel_id])]
+        return False, [cmd1], alias_cmds
 
     return True, [], []
 

@@ -84,6 +84,7 @@ from . import serialization
 from . import graph_events
 from . import streams
 from . import z_expression
+from . import graph_additions
 
 from .VT import *
 

@@ -98,14 +98,18 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
     def add_must_live_cmds(src_or_trg):
         if isinstance(src_or_trg, WishID):
             id = src_or_trg
-            pass
         elif isinstance(src_or_trg, RelationRef):
             add_must_live_cmds(source(src_or_trg))
             add_must_live_cmds(target(src_or_trg))
             id = origin_uid(src_or_trg)
         elif isinstance(src_or_trg, AtomRef):
             id = origin_uid(src_or_trg)
-            pass
+        elif isinstance(src_or_trg, EternalUID):
+            id = src_or_trg
+            z = most_recent_rae_on_graph(id, Graph(gs))
+            if isinstance(z, Relation):
+                add_must_live_cmds(source(z))
+                add_must_live_cmds(target(z))
         else:
             raise Exception("Shouldn't get here")
         nonlocal out_cmds
@@ -207,6 +211,8 @@ def validate_and_simplify_lvl1_cmds(cmds_in):
 
     for cmd in cmds_in:
         cmd_distinguish,names = distinguish_cmd(cmd)
+        if cmd != cmd_distinguish:
+            did_something = True
         for name in names:
             name_mapping[name].add(cmd_distinguish)
         cmd_mapping[cmd_distinguish].update(names)

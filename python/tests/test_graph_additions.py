@@ -35,7 +35,7 @@ class MyTestCase(unittest.TestCase):
         concrete_cmd_list = Level1CommandInfo({"cmds": cmds,
                                                "gs": now(g),
                                                "resolved_variables": {}})
-        receipt = perform_level1_commands(concrete_cmd_list)
+        receipt = perform_level1_commands(concrete_cmd_list, False)
 
         self.assertSetEqual(set(receipt.keys()), {V.asdf})
         self.assertIsInstance(receipt[V.asdf], ET.Machine)
@@ -47,7 +47,7 @@ class MyTestCase(unittest.TestCase):
         concrete_cmd_list = Level1CommandInfo({"cmds": cmds,
                                                "gs": now(g2),
                                                "resolved_variables": {}})
-        receipt2 = perform_level1_commands(concrete_cmd_list)
+        receipt2 = perform_level1_commands(concrete_cmd_list, False)
         self.assertEqual(origin_uid(receipt[V.asdf]), origin_uid(receipt2[V.two]))
 
     def test_generate_level1(self):
@@ -84,7 +84,7 @@ class MyTestCase(unittest.TestCase):
                           PleaseInstantiate({"atom": ET.Machine,
                                              "origin_uid": origin_uid(z)})})
 
-        receipt = perform_level1_commands(output_cmds2)
+        receipt = perform_level1_commands(output_cmds2, False)
         self.assertEqual(set(receipt.keys()), {V.one, V.two, V.three, V.four})
         self.assertEqual(receipt[V.three], receipt[V.four])
         self.assertNotEqual(receipt[V.one], receipt[V.two])
@@ -96,7 +96,7 @@ class MyTestCase(unittest.TestCase):
                                    "internal_ids": [V.thisframe]}),
                 PleaseTerminate({"target": V.thisframe})]
         output_cmds3 = generate_level1_commands(cmds, now(g))#, lvl1_rules)
-        receipt = perform_level1_commands(output_cmds3)
+        receipt = perform_level1_commands(output_cmds3, False)
 
     def test_generate_level2(self):
         # lvl1_rules = default_translation_rules
@@ -111,7 +111,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(info["cmds"], [PleaseInstantiate({"atom": ET.Machine,
                                                    "internal_ids": [V.one]})])
         output_cmds = generate_level1_commands(info["cmds"], now(g))#, lvl1_rules)
-        receipt = perform_level1_commands(output_cmds)
+        receipt = perform_level1_commands(output_cmds, False)
 
 
         info = generate_level2_commands([
@@ -163,7 +163,7 @@ class MyTestCase(unittest.TestCase):
         # self.assertEqual(len(cmds), 5)
 
         lvl1_cmds = generate_level1_commands(cmds, now(g))#, lvl1_rules)
-        receipt = perform_level1_commands(lvl1_cmds)
+        receipt = perform_level1_commands(lvl1_cmds, False)
 
     def test_obj_notation(self):
         g = Graph()
@@ -179,8 +179,7 @@ class MyTestCase(unittest.TestCase):
             (V.bob, RT.MarriedTo[V.married], V.jane),
 
             V.married | set_field[RT.Date][Time("1999-01-01")],
-            # (V.married, RT.Location, loc),
-            (V.married, RT.Location, z),
+            (V.married, RT.Location, [z, loc]),
 
             loc.name << "seafront",
             loc.country << "antartica",

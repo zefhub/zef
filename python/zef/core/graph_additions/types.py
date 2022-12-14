@@ -51,6 +51,7 @@ __all__ = [
     "WrappedValue",
     "AETWithValue",
     "OldStyleDict",
+    "OldStyleRelationTriple",
 
     "GraphWishValue",
     "GraphWishInputSimple",
@@ -85,25 +86,24 @@ from ..VT import *
 from ..VT import make_VT
 from .. import _ops
 
+def non_zefop_alias(vt, name):
+    from ..VT import ValueType_
+    vt2 = ValueType_(type_name=vt._d['type_name'], absorbed=vt._d['absorbed'])
+    vt2._d['alias'] = name
+    return vt2
+_alias = non_zefop_alias
+
 # IDs are allowed for many aspects of linking between parts of a wish. We want
 # to allow variables, but need to include strings for backwards compoatibility
 # for a version or two.
 # WishID = String | Variable
-Variable = _ops.alias(SymbolicExpression & Is[_ops.get_field["root_node"] | _ops.equals[None]],
+Variable = _alias(SymbolicExpression & Is[_ops.get_field["root_node"] | _ops.equals[None]],
                  "Variable")
-# Variable = UserValueType("Variable", String, String)
-# class TVMeta(type):
-#     def __getattr__(cls, x):
-#         return Variable(x)
-# class TV(metaclass=TVMeta):
-#     pass
-from .. import V
-TV = V
     
 # Internal wish ids as used to reference items, but are themselves not returned in the receipt.
 WishIDInternal = UserValueType("WishIDInternal", String)
 
-WishID = _ops.alias(Variable | WishIDInternal,
+WishID = _alias(Variable | WishIDInternal,
                "WishID")
 
 AllIDs = WishID | EternalUID
@@ -123,7 +123,7 @@ ExtraUserAllowedIDs = NamedZ | NamedAny
 
 UserWishID = WishID | ExtraUserAllowedIDs
 
-PrimitiveValue = _ops.alias(Int | String | Float | Bool | Time | Enum | QuantityInt | QuantityFloat,
+PrimitiveValue = _alias(Int | String | Float | Bool | Time | Enum | QuantityInt | QuantityFloat,
                        "PrimitiveValue")
 #ScalarValue = | SerializedValue
 # This is to allow us potentially switching up the intention of Val in the main
@@ -145,13 +145,13 @@ PureAET = ValueType & AET
 
 PleaseInstantiateEntity = PureET
 PleaseInstantiateRelation = Pattern[{"rt": PureRT,
-                                     "source": AllIDs | AtomRef,
-                                     "target": AllIDs | AtomRef}]
+                                     "source": AllIDs,
+                                     "target": AllIDs}]
 PleaseInstantiateAttributeEntity = PureAET
 PleaseInstantiateValueNode = WrappedValue
 PleaseInstantiateDelegate = DelegateRef
 
-PleaseInstantiateAtom = _ops.alias(PleaseInstantiateEntity
+PleaseInstantiateAtom = _alias(PleaseInstantiateEntity
                                            | PleaseInstantiateRelation
                                            | PleaseInstantiateAttributeEntity
                                            | PleaseInstantiateValueNode
@@ -211,7 +211,7 @@ PleaseAlias = UserValueType("PleaseAlias",
                             Dict,
                             Pattern[{"ids": List[AllIDs]}])
 
-PleaseCommandLevel1 = _ops.alias(PleaseInstantiate | PleaseAssign | PleaseTerminate | PleaseTag | PleaseMustLive | PleaseBeSource | PleaseBeTarget | PleaseAlias,
+PleaseCommandLevel1 = _alias(PleaseInstantiate | PleaseAssign | PleaseTerminate | PleaseTag | PleaseMustLive | PleaseBeSource | PleaseBeTarget | PleaseAlias,
                                  "PleaseCommandLevel1")
 
 
@@ -230,7 +230,7 @@ PleaseCommandLevel1 = _ops.alias(PleaseInstantiate | PleaseAssign | PleaseTermin
 # # same thing. We still have to consolidate these later on in a separate step.
 # # Basically we can say "without any other context, the target of these two
 # # commands could be different"
-# PleaseCommandLevel1Distinguishable = _ops.alias(PleaseInstantiateDistinguishable | PleaseTerminateDistinguishable | PleaseAssignDistinguishable,
+# PleaseCommandLevel1Distinguishable = _alias(PleaseInstantiateDistinguishable | PleaseTerminateDistinguishable | PleaseAssignDistinguishable,
 #                                                 "PleaseCommandLevel1Distinguishable")
 
 # An import delay
@@ -275,7 +275,7 @@ PleaseRun = UserValueType("PleaseRun",
 # TODO: More specific allowed actions... but this should probably come under the
 # different runtime interpretation of zefops.
 
-PleaseCommandLevel2 = _ops.alias(PleaseCommandLevel1 | PleaseRun,
+PleaseCommandLevel2 = _alias(PleaseCommandLevel1 | PleaseRun,
                                  "PleaseCommandLevel2")
 Level2CommandInfo = UserValueType("Level2CommandInfo",
                                   Dict,
@@ -293,13 +293,40 @@ Level2CommandInfo = UserValueType("Level2CommandInfo",
 
 # These will be translated directly to 1+ Please* commands
 # TODO:
-ObjectNotation = EntityValueInstance # | ZefRef version
-RelationTriple = _ops.alias(Tuple[UserWishID | Atom | PrimitiveValue,
-                                  PureRT,
-                                  UserWishID | Atom | PrimitiveValue],
-                            "RelationTriple")
-GraphWishValue = _ops.alias(PrimitiveValue | WrappedValue,
-                            "GraphWishValue")
+ObjectNotation = EntityValueInstance | ObjectInstance
+# RelationTriple = _alias(Tuple[UserWishID | Atom | PrimitiveValue,
+#                                   PureRT,
+#                                   UserWishID | Atom | PrimitiveValue],
+#                             "RelationTriple")
+# TODO: A RelationTriple should recursively allow anything that is a GraphWishInput for its source and target
+def is_relation_triple(x):
+    if not isinstance(x, List):
+        return False
+    if not len(x) == 3:
+        return False
+    if not isinstance(x[0], GraphWishInput | UserWishID):
+        return False
+    if not isinstance(x[1], PureRT):
+        return False
+    if not isinstance(x[2], GraphWishInput | UserWishID):
+        return False
+    return True
+RelationTriple = _alias(Is[is_relation_triple], "RelationTriple")
+def is_relation_triple_OS(x):
+    if not isinstance(x, List):
+        return False
+    Item = GraphWishInput | UserWishID
+    if len(x) == 3:
+        return (isinstance(x[0], Item | List[Item])
+                and isinstance(x[1], PureRT)
+                and isinstance(x[2], Item | List[Item]))
+    elif len(x) == 2:
+        # TODO
+        return False
+    else:
+        return False
+OldStyleRelationTriple = _alias(Is[is_relation_triple_OS], "OldStyleRelationTriple")
+GraphWishValue = _alias(PrimitiveValue | WrappedValue, "GraphWishValue")
 
 # This is a declaration of *always* instantiating a new AE with the given AET
 # and initializing it with a value. It primarily exists for internal use at the
@@ -317,11 +344,12 @@ AETWithValue = UserValueType("AETWithValue",
 OldStyleDict = Dict[UserWishID | PureET | RAE][Dict[PureRT][Any]] & Is[_ops.length | _ops.equals[1]]
 
 # "Simple" inputs are those that can be interpreted almost (excepting EUID references) directly into lvl1 commands
-GraphWishInputSimple = _ops.alias(
+GraphWishInputSimple = _alias(
     LazyValue
     | SymbolicExpression
     | ObjectNotation
     | RelationTriple
+    | OldStyleRelationTriple
     | GraphWishValue
     | AETWithValue
     | FlatGraph
@@ -332,7 +360,7 @@ GraphWishInputSimple = _ops.alias(
     "GraphWishInputSimple"
 )
 
-GraphWishInput = _ops.alias(PleaseCommandLevel2 | GraphWishInputSimple
+GraphWishInput = _alias(PleaseCommandLevel2 | GraphWishInputSimple
                             # UGLY! This is needed here but do we really want it? Should actually be DictSyntax anyway...
                             | Dict
                             ,

@@ -257,28 +257,6 @@ distinguish_rules = [
 #----------------------------
 
 
-
-def id_preference_pair(x: AllIDs, y: AllIDs) -> AllIDs:
-    # Take the dominant id from two given ids: EternalUID >> Variable >> WishIDInternal
-
-    assert isinstance(x, AllIDs) and isinstance(y, AllIDs)
-    if isinstance(x, EternalUID) or isinstance(y, EternalUID):
-        if isinstance(x, EternalUID) and isinstance(y, EternalUID) and x != y:
-            raise Exception("Two different EUIDs are trying to be merged!")
-        if isinstance(x, EternalUID):
-            return x
-        return y
-    elif isinstance(x, Variable) or isinstance(y, Variable):
-        if isinstance(x, Variable):
-            return x
-        return y
-    else:
-        return x
-
-def id_preference(l: List[AllIDs]) -> AllIDs:
-    out = l | reduce[id_preference_pair] | collect
-    return out
-        
 def lookup_alias(name: AllIDs, aliases: AliasDict) -> AllIDs:
     # We have to do this recursively, in case there's an alias chain
     while name in aliases:

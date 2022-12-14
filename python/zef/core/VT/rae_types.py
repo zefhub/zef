@@ -47,6 +47,9 @@ def RAET_get_names(typ):
     else:
         return absorbed(typ)
 
+def RAET_without_names(typ):
+    return typ._replace(absorbed=(RAET_get_token(typ),))
+
 def wrap_attr_readonly_token(orig):
     def this_get_attr(self, name):
         token = RAET_get_token(self)
@@ -414,12 +417,27 @@ RAET = insert_VT("RAET", ET | RT | AET)
 
 class ObjectInstance_:
     def __init__(self, arg, *args, **kwargs):
-        from .VT import ET, Entity
-        if isinstance(arg, ET):
-            self._type = arg
+        from .._ops import origin_uid
+        from . import ET, Entity, Nil
+        if isinstance(arg, ValueType) and isinstance(arg, ET):
+            names = RAET_get_names(arg)
+            self._type = RAET_without_names(arg)
+            args = tuple(names) + args
         elif isinstance(arg, Entity):
             self._type = ET(arg)
             args = (origin_uid(arg),) + args
+        elif isinstance(arg, Nil):
+            self._type = None
+            args = args
+        elif isinstance(arg, EntityValueInstance):
+            # Do the same as we would get from an ET
+            template = ObjectInstance_(arg._entity_type)
+            print("OI EVI ctor got", template, "from", arg)
+            self._type = template._type
+            args = template._args + arg._args + args
+            new_kwargs = dict(arg._kwargs)
+            new_kwargs.update(kwargs)
+            kwargs = new_kwargs
         else:
             self._type = None
             args = (arg,) + args
@@ -430,17 +448,16 @@ class ObjectInstance_:
         nl = '\n'
         if self._type is not None:
             prefix = self._type
-            args = self._args
         else:
-            prefix = self._args[0]
-            args = self._args[1:]
+            prefix = "Obj"
+        args = self._args
         items = [str(arg) for arg in args]
         items += [f"{k}={v!r}" for k,v in self._kwargs.items()]
         return f'{prefix}({f", ".join(items)})'
     
     def __getattr__(self, name):
         # return self._kwargs[name]
-        from ._ops import F
+        from .._ops import F
         return self | getattr(F, name)
 
     def __eq__(self, other):
@@ -452,12 +469,13 @@ class ObjectInstance_:
         return ObjectInstance_(self._type, *new_args, **self._kwargs)
 
     def __call__(self, *args, **kwargs):
+        print(f"In Obj __call__ with ({args}) and ({kwargs})")
         new_kwargs = dict(self._kwargs)
         new_kwargs.update(kwargs)
-        return EntityValueInstance_(self._type, *(self._args + args), **new_kwargs)
+        return ObjectInstance_(self._type, *(self._args + args), **new_kwargs)
 
     def __hash__(self):
-        from .VT.value_type import hash_frozen
+        from .value_type import hash_frozen
         return hash_frozen(("ObjectInstance", self._type, self._args, self._kwargs))
 
 ObjectInstance = make_VT('ObjectInstance', pytype=ObjectInstance_)

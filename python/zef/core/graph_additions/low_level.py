@@ -23,7 +23,7 @@ from ..VT.rae_types import RAET_get_token
 
 from .common import *
 
-def perform_level1_commands(command_struct: Level1CommandInfo) -> GraphWishReceipt:
+def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids: Bool) -> GraphWishReceipt:
     assert isinstance(command_struct, Level1CommandInfo)
     # Run through each command
 
@@ -132,4 +132,6 @@ def perform_level1_commands(command_struct: Level1CommandInfo) -> GraphWishRecei
         assert isinstance(k, Variable)
         record_id(k, find_id(alias))
 
+    if keep_internal_ids:
+        receipt.update(internal_mapping)
     return receipt

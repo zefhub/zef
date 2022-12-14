@@ -37,6 +37,7 @@ def graph_transaction_handler(eff: dict):
     """
 
 
+    gs = now(Graph(eff["target_graph"]))
     if internals.is_transactor(eff["target_graph"]):
         # For backwards compatibility we dispatch on whether this is a new or old transact effect
 
@@ -50,7 +51,7 @@ def graph_transaction_handler(eff: dict):
             lvl1_cmds = generate_level1_commands(eff["level2_commands"]["cmds"], now(Graph(eff["target_graph"])))
 
             from ..graph_additions.low_level import perform_level1_commands
-            receipt = perform_level1_commands(lvl1_cmds)
+            receipt = perform_level1_commands(lvl1_cmds, eff.get("keep_internal_ids", False))
 
             # TODO: Postprocess using custom info stored in the level2 commands info
             post_transact_rule = eff.get("post_transact_rule", None)
@@ -63,10 +64,13 @@ def graph_transaction_handler(eff: dict):
         from ..overrides import merge
         receipt = merge(eff["commands"], eff["target_graph"])
     
+    after_gs = now(Graph(eff["target_graph"]))
     # Handling receipt response needs a similar dispatch between old and new
     if "level2_commands" in eff:
         # New path
-        # TODO: unpack template - copy paste over from graph delta
+        from ..graph_additions.transact import unpack_receipt
+        if 'unpacking_template' in eff:
+            return unpack_receipt(eff['unpacking_template'], receipt, after_gs)
         return receipt
     else:
         from ..graph_delta import perform_transaction_commands, filter_temporary_ids, unpack_receipt

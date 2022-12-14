@@ -39,19 +39,32 @@ def prepare_obj_notation(cmd, gs, context):
     cmds = []
 
     cmd, me, gen_id_state = ensure_tag(cmd, gen_id_state)
-    et = cmd._entity_type
+
     z_on_graph = None
+    need_to_create = False
     if isinstance(me, EntityRef):
-        cmds += [me]
-        names = RAET_get_names(et)
-        if len(names) > 0:
-            cmds += [PleaseAlias(ids=(force_as_id(me),) + names)]
-        if me in gs:
-            z_on_graph = gs | get[me] | collect
+        raise Exception("Shouldn't get here anymore")
+        # cmds += [me]
+        # names = RAET_get_names(et)
+        # if len(names) > 0:
+        #     cmds += [PleaseAlias(ids=(force_as_id(me),) + names)]
+        # if me in gs:
+        #     z_on_graph = gs | get[me] | collect
     elif isinstance(me, WishID):
-        cmds += [et]
+        if cmd._type is not None:
+            need_to_create = True
+    elif isinstance(me, EternalUID):
+        z_on_graph = most_recent_rae_on_graph(me, Graph(gs))
+        if z_on_graph is None:
+            need_to_create = True
     else:
         raise Exception(f"Object notation got a weird value for its own ID: {me}")
+
+    if need_to_create:
+        if isinstance(cmd._type, PureET):
+            cmds += [cmd._type[me]]
+        else:
+            raise NotImplementedError(f"TODO can't create something without a known type: {cmd}")
 
 
     for k, v in cmd._kwargs.items():

@@ -48,7 +48,7 @@ def names_of_raet(raet):
     from .types import WishID
     names = (RAET_get_names(raet)
              | map[match[
-                 (WishID, identity),
+                 (AllIDs, identity),
                  (Any, wrap_user_id)
                  ]]
              | collect)
@@ -208,5 +208,33 @@ def maybe_parse_uid(s) -> Nil|EternalUID:
 def force_as_id(x):
     if isinstance(x, AtomRef):
         return origin_uid(x)
-    assert isinstance(x, AllIDs)
-    return x
+    if isinstance(x, str):
+        ouid = maybe_parse_uid(x)
+        if ouid is not None:
+            return ouid
+    if isinstance(x, AllIDs):
+        return x
+    return wrap_user_id(x)
+
+
+def id_preference_pair(x: AllIDs, y: AllIDs) -> AllIDs:
+    # Take the dominant id from two given ids: EternalUID >> Variable >> WishIDInternal
+
+    assert isinstance(x, AllIDs) and isinstance(y, AllIDs)
+    if isinstance(x, EternalUID) or isinstance(y, EternalUID):
+        if isinstance(x, EternalUID) and isinstance(y, EternalUID) and x != y:
+            raise Exception("Two different EUIDs are trying to be merged!")
+        if isinstance(x, EternalUID):
+            return x
+        return y
+    elif isinstance(x, Variable) or isinstance(y, Variable):
+        if isinstance(x, Variable):
+            return x
+        return y
+    else:
+        return x
+
+def id_preference(l: List[AllIDs]) -> AllIDs:
+    out = l | reduce[id_preference_pair] | collect
+    return out
+        
