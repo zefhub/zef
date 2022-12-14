@@ -48,7 +48,6 @@ contains        = make_zefop(internals.RT.Contains)
 contained_in    = make_zefop(internals.RT.ContainedIn)
 skip            = make_zefop(internals.RT.Skip)
 all             = make_zefop(internals.RT.All)
-all2            = make_zefop(internals.RT.All2)
 any             = make_zefop(internals.RT.Any)
 slice           = make_zefop(internals.RT.Slice)                 # lowercase slice is used in core Python
 join            = make_zefop(internals.RT.Join)
