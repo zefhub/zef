@@ -1945,7 +1945,7 @@ def all_imp(*args):
         (FlatGraph, lambda _: fg_all_imp(*args)),
         (ZefRef & ET.ZEF_List, lambda _: zef_list_all_imp(*args)),
         (GraphSlice, lambda _: graphslice_all_imp(*args)),
-        (Graph, lambda _: all_imp(*args)),
+        (Graph, lambda _: graph_all_imp(*args)),
         (ZefRef, lambda _: delegate_zefref_all_imp(subject)),
         (Any, lambda _: other_all_imp(*args)),
     ](subject)
@@ -9612,11 +9612,11 @@ def gather_imp(initial: List[ZefRef | EZefRef] | ZefRef, rules, max_step = float
     # --------------------------------- verify the rules data structure-------------------------------
     # TODO: once type checking is in place, hoist this out of the body into the function signature
     ValidTriple    = Tuple & Is[length | equals[3]]
-    ValidRuleList  = List & Is[ map[is_a[ValidTriple]] | all  ] 
-    ValidRulesDict = Dict & (
-        (Is[contains['from_source']] & Is[get['from_source'] | is_a[ValidRuleList]]) | 
-        (Is[contains['from_target']] & Is[get['from_target'] | is_a[ValidRuleList]])
-    )
+    ValidRuleList  = List[ValidTriple]
+    ValidRulesDict = Pattern[{
+        Optional["from_source"]: ValidRuleList,
+        Optional["from_target"]: ValidRuleList,
+    }]
 
     if not rules | is_a[ValidRulesDict] | collect:
         return Error(f'`gather` called with an invalid set of rules: {rules}')

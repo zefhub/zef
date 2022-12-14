@@ -468,7 +468,7 @@ def flatgraph_to_commands(fg):
             else: base = b[1][idx]
             return (src_blb, base, trgt_blb)
 
-        elif isinstance(b[1], str) and b[1][:2] == "BT":
+        elif b[1] == BT.VALUE_NODE:
             if for_rt:
                 return Any[value_hash(b[-1])]
             else:
