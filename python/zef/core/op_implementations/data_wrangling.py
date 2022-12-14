@@ -13,8 +13,21 @@
 # limitations under the License.
 
 from .. import *
-from ...ops import *
+from .._ops import *
 from ..VT import *
+
+def without_names(raet):
+    if isinstance(raet, ValueType):
+        from ...core.VT.helpers import remove_names, absorbed
+        abs = remove_names(absorbed(raet))
+        return raet._replace(absorbed=abs)
+    else:
+        return raet
+
+
+def is_a_z(Z) -> bool:
+    from zef.core.z_expression import ZExpression_
+    return is_a(Z, ZExpression_)
 
 
 def make_idx_generator(n=0):
@@ -26,15 +39,14 @@ def make_idx_generator(n=0):
 
 
 def is_same_et(et1, et2):
-    return without_absorbed(et1) == without_absorbed(et2)
+    return without_names(et1) == without_names(et2)
 
 def get_et_id(et):
-    assert len(absorbed(et)) == 1, f"{et} didn't have excatly a single absorbed arg!"
-    return absorbed(et)[0]
+    names = absorbed(et)
+    return names[1]
 
 @func
 def create_object(d: Dict, generator, idx_to_obj) -> Entity:
-
     def mapping(v):
         if isinstance(v, dict):
             return create_object(v, generator, idx_to_obj)
@@ -44,6 +56,7 @@ def create_object(d: Dict, generator, idx_to_obj) -> Entity:
             return {mapping(x) for x in v}
         else:
             return v
+
     idx = str(generator())
     if "type" in d:
         obj = ET(d['type'])[idx]
@@ -62,7 +75,7 @@ def match_rule(rule, pattern):
     assert (isinstance(rule, list) or isinstance(rule, tuple)) and (isinstance(pattern, list) or isinstance(pattern, tuple))
     z_pos = - 1
     for i, (p_e,x_e) in enumerate(zip(rule, pattern)): 
-        if p_e == Z:
+        if is_a_z(p_e):
             z_pos = i
 
         elif is_a(p_e, ET) and is_a(x_e, ET):
@@ -75,7 +88,7 @@ def match_rule(rule, pattern):
 
 
 
-def flatten_object(obj: Entity) -> list[list[tuple, tuple]]:
+def flatten_object(obj: Entity) -> List[List[tuple, tuple]]:
     """
     Takes an object of type EntityValueInstance_ and flattens it out to pairs of tuples ((source, rt, target), (src_id?, None, trgt_id?)).
     It recursively calls itself if at any level a non-terminal object is found.
@@ -119,13 +132,12 @@ def resolve_unknown(obj: Entity, rules: List, mapping: Dict) -> Entity:
             if Z_pos != -1 and mapping.get(ids[Z_pos], None) and is_same_et(mapping[ids[Z_pos]]._entity_type, ET.ZEF_Unknown):
                 mapping[ids[Z_pos]]._entity_type = replacement[ids[Z_pos]]
                 return obj
-
     return None
 
 
 def validate_rules(rules: List) -> Bool:
     for rule,_ in rules:
-        assert (rule | filter[lambda x: x == Z]  | length | equals[1] | collect), f"{rule} must contain exactly one Z!"
+        assert (rule | filter[is_a_z]  | length | equals[1] | collect), f"{rule} must contain exactly one Z!"
     return True
 
 
@@ -227,7 +239,7 @@ def generate_id_to_objs(obj, idx_to_objs):
 
     if not isinstance(obj, EntityValueInstance_): return
     
-    idx_to_objs[get_et_id(obj._entity_type)].add(obj)
+    idx_to_objs[get_et_id(obj._entity_type)].append(obj)
     obj._kwargs | items | map[lambda t: traverse_nested(t[1])] | collect
    
     return idx_to_objs
@@ -235,7 +247,7 @@ def generate_id_to_objs(obj, idx_to_objs):
 
 def match_with_entity_and_replace_step(obj_list, idx_to_objs, identification_rules, gs):
     def try_retrieve_entity(obj):
-        et = without_absorbed(obj._entity_type)
+        et = without_names(obj._entity_type)
         try:
             return identification_rules[et](obj, gs)
         except:
@@ -244,9 +256,8 @@ def match_with_entity_and_replace_step(obj_list, idx_to_objs, identification_rul
     def replace_all_in_d(obj, ent):
         @func
         def over_write_obj(o, new_id): 
-            o._entity_type = without_absorbed(o._entity_type)[new_id]
+            o._entity_type = without_names(o._entity_type)[new_id]
             o._kwargs = {}
-            
         obj_id = get_et_id(obj._entity_type)
         entity_id = str(uid(ent))
         idx_to_objs[obj_id] | for_each[over_write_obj[entity_id]]
@@ -259,7 +270,7 @@ def match_with_entity_and_replace_step(obj_list, idx_to_objs, identification_rul
 
 def identify_entities(obj_list: List[object], entity_identification_rules: Dict, gs: GraphSlice) -> List[object]:
     from collections import defaultdict
-    idx_to_objs = defaultdict(set)
+    idx_to_objs = defaultdict(list)
     obj_list | for_each[generate_id_to_objs[idx_to_objs]]
     match_with_entity_and_replace_step(obj_list, idx_to_objs, entity_identification_rules, gs)
     return obj_list

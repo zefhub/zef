@@ -16,9 +16,9 @@ from .. import report_import
 report_import("zef.core.serialization")
 
 __all__ = [
-    "instantiated",
-    "terminated",
-    "assigned",
+    "Instantiated",
+    "Terminated",
+    "Assigned",
 ]
 
 from .VT import *
@@ -33,9 +33,6 @@ def is_a_custom_entity(x, typ):
 CustomEntity = make_VT("CustomEntity", is_a_func=is_a_custom_entity)
 
 
-instantiated     = make_custom_entity(name_to_display='instantiated', predetermined_uid='60252a53a03086b7')
-terminated       = make_custom_entity(name_to_display='terminated', predetermined_uid='4f676154ffeb9dc8')
-assigned         = make_custom_entity(name_to_display='assigned', predetermined_uid='c31287dab677f38c')
 
 infinity           = make_custom_entity(name_to_display='infinity',    predetermined_uid='4906648460291096')
 nil                = make_custom_entity(name_to_display='nil',         predetermined_uid='1654670075329719') #| register_call_handler[f1] | run[execute] | get['entity'] | collect  # TODO
@@ -73,6 +70,20 @@ def make_custom_VT(name, custom_ent):
 
     return make_VT(name, is_a_func=is_a_func)
 
-Instantiated = make_custom_VT("Instantiated", instantiated)
-Terminated = make_custom_VT("Terminated", terminated)
-Assigned = make_custom_VT("Assigned", assigned)
+
+def make_custom_VT(name, custom_ent):
+    custom_ent_uid = early_uid(custom_ent)
+
+    def is_a_func(x, typ):
+        if not isinstance(x, CustomEntity & HasUID[custom_ent_uid]):
+            return False
+        # TODO: We need to test the absorbed arguments covariantly
+        if len(absorbed(typ)) > 0:
+            print("WARNING: Not testing the absorbed arguments of isinstance with {name}.")
+        return True
+
+    return make_VT(name, is_a_func=is_a_func)
+
+Instantiated     = UserValueType("Instantiated", Dict, Any, forced_uid="60252a53a03086b7")
+Terminated     = UserValueType("Terminated", Dict, Any, forced_uid="4f676154ffeb9dc8")
+Assigned     = UserValueType("Assigned", Dict, Any, forced_uid="c31287dab677f38c")

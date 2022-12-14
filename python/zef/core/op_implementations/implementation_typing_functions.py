@@ -272,20 +272,23 @@ def on_implementation(g, op):
     if isinstance(g, Graph):
         op_kind = without_absorbed(op)
         op_args = absorbed(op)      
-        if op_kind in {VT.Instantiated, VT.Terminated}:
-            selected_types = {VT.Terminated: (internal.on_termination, terminated), VT.Instantiated: (internal.on_instantiation, instantiated)}[op_kind]
+        if op_kind in {Instantiated, Terminated}:
             
             if not isinstance(op_args[0], tuple):
                 rae_or_zr = op_args[0]
                 # Type 1: a specific entity i.e on[terminated[zr]]  !! Cannot be on[instantiated[zr]] because doesnt logically make sense !!
                 if isinstance(rae_or_zr, ZefRef): 
-                    assert op_kind == VT.Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
-                    def filter_func(root_node): root_node | frame | to_tx | events[VT.Terminated] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
+                    assert op_kind == Terminated, "Cannot listen for a specfic ZefRef to be instantiated! Doesn't make sense."
+                    def filter_func(root_node): 
+                        # TODO in the filter step change it once UVT shape is consistent
+                        root_node | frame | to_tx | events[op_kind] | filter[lambda event: to_ezefref(event.target) == to_ezefref(rae_or_zr)] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl                
                 # Type 2: any RAE  i.e on[terminated[ET.Dog]] or on[instantiated[RT.owns]] 
-                elif type(rae_or_zr) in {AttributeEntityType, EntityType, RelationType}: 
-                    def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: rae_type(absorbed(x)[0]) == rae_or_zr] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
+                elif is_a(rae_or_zr, RAET):
+                    def filter_func(root_node): 
+                        # TODO in the filter step change it once UVT shape is consistent
+                        root_node | frame | to_tx | events[op_kind] | filter[lambda event: rae_type(event.target) == rae_or_zr] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl
                 else:
@@ -305,27 +308,29 @@ def on_implementation(g, op):
                         else:
                             raise ValueError(f"Expected source or target filters to be ZefRef, RaeType, or ValueType but got {type(rae_filter)} instead.")
 
-                    # First check on the RT itself
                     if rae_type(z) != rt: return False
                     # Checks on both source and target
                     return src_or_trgt_filter(source(z), src) and src_or_trgt_filter(target(z), trgt)
 
-                def filter_func(root_node): root_node | frame | to_tx | events[op_kind] | filter[lambda x: triple_filter(absorbed(x)[0])] | for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): 
+                    # TODO in the filter step change it once UVT shape is consistent
+                    root_node | frame | to_tx | events[op_kind] | filter[lambda event: triple_filter(event.target)] | for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl              
             else:
-                raise Exception(f"Unhandled type in on[{selected_types[1]}] where the curried args were {op_args}")
+                raise Exception(f"Unhandled type in on[{op_kind}] where the curried args were {op_args}")
         elif op_kind == Assigned:
             assert len(op_args) == 1
             aet_or_zr = op_args[0]
             # Type 1: a specific zefref to an AET i.e on[assigned[zr_to_aet]]
+            # TODO in the filter step change it once UVT shape is consistent
             if isinstance(aet_or_zr, BlobPtr): 
-                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: to_ezefref(absorbed(x)[0]) == to_ezefref(aet_or_zr)] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda event: to_ezefref(event.target) == to_ezefref(aet_or_zr)] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl
             # Type 2: any AET.* i.e on[assigned[AET.String]]
             elif isinstance(aet_or_zr, AET): 
-                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda x: rae_type(absorbed(x)[0]) == aet_or_zr] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda event: rae_type(event.target) == aet_or_zr] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl        
         else:
@@ -647,7 +652,7 @@ def prepend_imp(v, item, *additional_items):
         elements_to_prepend = [item, *additional_items]
         all_zef = elements_to_prepend | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
         if not all_zef: return Error("Append only takes ZefRef or EZefRef for Zef List")
-        is_any_terminated = elements_to_prepend | map[events[VT.Terminated]] | filter[None] | length | greater_than[0] | collect 
+        is_any_terminated = elements_to_prepend | map[preceding_events[Terminated]] | filter[None] | length | greater_than[0] | collect 
         if is_any_terminated: return Error("Cannot append a terminated ZefRef")
 
         
@@ -736,7 +741,7 @@ def append_imp(v, item, *additional_items):
         elements_to_append = [item, *additional_items]
         all_zef = elements_to_append | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
         if not all_zef: return Error("Append only takes ZefRef or EZefRef for Zef List")
-        is_any_terminated = elements_to_append | map[events[VT.Terminated]] | filter[None] | length | greater_than[0] | collect 
+        is_any_terminated = elements_to_append |map[preceding_events[Terminated]] | filter[None] | length | greater_than[0] | collect 
         if is_any_terminated: return Error("Cannot append a terminated ZefRef")
 
         
@@ -2053,6 +2058,149 @@ def all_tp(v_tp):
     return VT.Any
 
 
+
+# ---------------------------------------- all 2 -----------------------------------------------
+@func
+def all_2_imp(*args):
+    subject = args[0]
+
+    return match[
+        (FlatGraph, lambda _: fg_all_imp(*args)),
+        (ZefRef & ET.ZEF_List, lambda _: zef_list_all_imp(*args)),
+        (GraphSlice, lambda _: graphslice_all_imp(*args)),
+        (Graph, lambda _: all_imp(*args)),
+        (ZefRef, lambda _: delegate_zefref_all_imp(subject)),
+        (Any, lambda _: other_all_imp(*args)),
+    ](subject)
+
+
+def other_all_imp(*args):
+    import builtins
+    import types
+    from typing import Generator, Iterator   
+
+    if isinstance(args[0], types.ModuleType):
+        assert len(args) == 2
+        assert isinstance(args[1], ValueType)
+        list_of_module_values = [args[0].__dict__[x] for x in dir(args[0]) if not x.startswith("_") and not isinstance(getattr(args[0], x), types.ModuleType)]
+        return list_of_module_values | filter[args[1]] | collect
+    
+    # once we're here, we interpret it like the Python "all"
+    v = args[0]
+    assert len(args) == 1
+    assert isinstance(v, list) or isinstance(v, tuple) or isinstance(v, (Generator, ZefGenerator)) or isinstance(v, Iterator)
+    # TODO: extend to awaitables
+    return builtins.all(v)
+
+def zef_list_all_imp(*args):
+    z_list = args[0]
+    rels = z_list | out_rels[RT.ZEF_ListElement] | collect
+    first_el = rels | attempt[filter[lambda r: r | in_rels[RT.ZEF_NextElement] | length | equals[0] | collect] | single | collect][None] | collect
+    return (x for x in first_el | iterate[attempt[lambda r: r | Out[RT.ZEF_NextElement] | collect][None]] | take_while[Not[equals[None]]] | map[target])
+
+
+def graphslice_all_imp(*args):
+    # TODO: We should probalby make slice | all return the delegates too to
+    # be in line with g | all. Then the current behaviour would become slice
+    # | all[RAE]
+    gs = args[0]
+    if len(args) == 1:
+        return gs.tx | pyzefops.instances
+    if len(args) >= 3:
+        raise Exception(f"all can only take a maximum of 2 arguments, got {len(args)} instead")
+
+    fil = args[1]
+    # These options have C++ backing so try them first
+    # The specific all[ET.x/AET.x] options (not all[RT.x] though)
+    if isinstance(fil, ET) or isinstance(fil, AET):
+        after_filter = None
+        from zef.core.VT.rae_types import RAET_get_token
+        token = RAET_get_token(fil)
+        if token is None:
+            if isinstance(fil, ET):
+                c_fil = None
+                after_filter = Entity
+            else:
+                c_fil = None
+                after_filter = AttributeEntity
+        else:
+            if isinstance(token, (EntityTypeToken, AttributeEntityTypeToken)):
+                c_fil = token
+            else:
+                # This must be a more general filter, so we should apply it afterwards
+                after_filter = token
+                c_fil = None
+        
+        if c_fil is None:
+            initial = gs.tx | pyzefops.instances
+        else:
+            initial = gs.tx | pyzefops.instances[c_fil]
+        if after_filter is not None:
+            return ZefGenerator(lambda: iter(initial | filter[after_filter]))
+        else:
+            return initial
+    
+
+    if  isinstance(fil, ValueType) and fil != RAE and fil._d['type_name'] in {"Union", "Intersection"}:
+        # extract the rae types i.e ET and AET VTs
+        rae_types = absorbed(fil) | first | filter[lambda x: is_a(x, (ET, AET))] | func[set] | collect
+
+        # only keep here not RAE value types
+        value_types = set(absorbed(fil)[0]) - rae_types
+
+        # Extract the underlying 'libzef' low level token
+        rae_types = rae_types | map[absorbed | first] | collect
+        
+
+        if len(value_types) > 0: 
+            # Wrap the remaining ValueTypes after removing representation_types in the original ValueType
+            value_types = {"Union": Union, "Intersection": Intersection}[fil._d['type_name']][tuple(value_types)]      
+
+        if fil._d['type_name'] == "Union":
+
+            sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in rae_types]))
+            if not value_types: return sets_union
+            return list(set.union(set(filter(gs.tx | pyzefops.instances, lambda x: is_a(x, value_types))), sets_union))
+
+        elif fil._d['type_name'] == "Intersection":
+            if len(rae_types) > 1: return []
+            if len(rae_types) == 1: initial = gs.tx | pyzefops.instances[rae_types.pop()]
+            else:  initial = gs.tx | pyzefops.instances
+            if not value_types: return initial
+
+            return filter(initial, lambda x: is_a(x, value_types))
+
+    # The remaining options will just use the generic filter and is_a
+    return filter(gs.tx | pyzefops.instances, lambda x: is_a(x, fil))
+
+
+
+def graph_all_imp(*args):
+    g = args[0]
+    if len(args) == 1:
+        # return g | pyzefops.instances_eternal
+        return blobs(g)           # show all low level nodes and edges, not only RAEs. We can still add ability  g | all[RAE] later
+
+    if len(args) >= 3:
+        raise Exception(f"all can only take a maximum of 2 arguments, got {len(args)} instead")
+
+    fil = args[1]
+    if fil == TX:
+        return pyzefops.tx(g)
+
+    # These options have C++ backing so try them first
+    # The specific all[ET.x/AET.x] options (not all[RT.x] though)
+    # Not using as this is not correct in filtering out the delegates
+    # if isinstance(fil, EntityType) or isinstance(fil, AttributeEntityType):
+    #     return g | pyzefops.instances_eternal[fil]
+
+    # The remaining options will just use the generic filter and is_a
+    return filter(blobs(g), lambda x: is_a(x, fil))
+
+
+def delegate_zefref_all_imp(z):
+    assert internals.is_delegate(z)
+    return z | pyzefops.instances
          
 #---------------------------------------- any -----------------------------------------------
 def any_imp(v):
@@ -3875,12 +4023,7 @@ def frequencies_tp(v_tp):
 
 
 #---------------------------------------- Z -----------------------------------------------
-def Z_imp(z):
-    return z
 
-def Z_tp(op, curr_type):
-    assert curr_type in ref_types
-    return curr_type
 
 
 #---------------------------------------- Root -----------------------------------------------
@@ -4873,13 +5016,14 @@ def preceding_events_imp(x, filter_on=None):
             insts = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
             retirements = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
 
-        insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
-        retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
+
+        insts = insts | map[lambda tx: Instantiated(target =pyzefops.to_frame(ezr, tx, True))] | collect
+        retirements = retirements | map[lambda tx: Terminated(target = pyzefops.to_frame(ezr, tx, True))] | collect
         full_list = insts+retirements
     else:
         zr = x
 
-        from ..graph_events import instantiated, terminated, assigned
+        from ..graph_events import Instantiated, Terminated, Assigned
 
         def make_val_as_from_tx(tx):
             aet_at_frame = pyzefops.to_frame(zr, tx)
@@ -4888,12 +5032,12 @@ def preceding_events_imp(x, filter_on=None):
                 prev_val = pyzefops.to_frame(zr, prev_tx) | value | collect     # Will fail if aet didn't exist at prev_tx
             except:
                 prev_val = None
-            return assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+            return Assigned(target = aet_at_frame, prev = prev_val, current = value(aet_at_frame))
 
-        inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: instantiated[pyzefops.to_frame(zr, tx) ]] | collect
+        inst        =  [pyzefops.instantiation_tx(zr)]   | map[lambda tx: Instantiated(target =  pyzefops.to_frame(zr, tx)) ] | collect
         val_assigns =  pyzefops.value_assignment_txs(zr) | map[make_val_as_from_tx] | collect
         # TODO termination_tx returns even if zr is a zefref with a timeslice where it wasn't terminated yet
-        termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: terminated[pyzefops.to_frame(zr, tx, True)]] | collect
+        termination =  [pyzefops.termination_tx(zr)]     | filter[lambda b: BT(b) != BT.ROOT_NODE] | map[lambda tx: Terminated(target = pyzefops.to_frame(zr, tx, True))] | collect
         full_list = inst + val_assigns + termination 
 
     if filter_on: return full_list | filter[lambda z: is_a_implementation(z, filter_on)] | collect
@@ -4928,8 +5072,6 @@ def events_imp(z_tx_or_rae, filter_on=None):
     """
     from zef.pyzef import zefops as pyzefops
     # TODO: can remove this once imports are sorted out
-    from ..graph_events import instantiated, terminated, assigned
-    # Note: we can't use the python to_frame here as that calls into us.
     
 
     if internals.is_delegate(z_tx_or_rae):
@@ -4942,8 +5084,8 @@ def events_imp(z_tx_or_rae, filter_on=None):
             insts = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
             retirements = insts | filter[graph_slice_index | less_than_or_equal[graph_slice_index(gs)]]
 
-        insts = insts | map[lambda tx: instantiated[pyzefops.to_frame(ezr, tx, True)]] | collect
-        retirements = retirements | map[lambda tx: terminated[pyzefops.to_frame(ezr, tx, True)]] | collect
+        insts = insts | map[lambda tx: Instantiated(target = pyzefops.to_frame(ezr, tx, True))] | collect
+        retirements = retirements | map[lambda tx: Terminated(target = pyzefops.to_frame(ezr, tx, True))] | collect
         full_list = insts+retirements
 
     elif BT(z_tx_or_rae) == BT.TX_EVENT_NODE:
@@ -4957,11 +5099,11 @@ def events_imp(z_tx_or_rae, filter_on=None):
                 prev_val = pyzefops.to_frame(aet, prev_tx) | value | collect   # Will fail if aet didn't exist at prev_tx
             except:
                 prev_val = None
-            return assigned[aet_at_frame][prev_val][value(aet_at_frame)]
+            return Assigned(target = aet_at_frame, prev = prev_val, current = value(aet_at_frame))
 
-        insts        = zr | pyzefops.instantiated   | map[lambda zz: instantiated[pyzefops.to_frame(zz, gs.tx) ]] | collect
+        insts        = zr | pyzefops.instantiated   | map[lambda zz: Instantiated(target =pyzefops.to_frame(zz, gs.tx))] | collect
         val_assigns  = zr | pyzefops.value_assigned | map[make_val_as_for_aet] | collect
-        terminations = zr | pyzefops.terminated     | map[lambda zz: terminated[pyzefops.to_frame(zz, gs.tx, True) ]] | collect
+        terminations = zr | pyzefops.terminated     | map[lambda zz: Terminated(target = pyzefops.to_frame(zz, gs.tx, True) )] | collect
         full_list = insts+val_assigns+terminations
     else:
         print(f"🥱🥱🥱🥱🥱🥱 Change: The `events` ZefOp can only be used on (E)ZefRef to TXs. To look at the past of any RAE from a given frame, use `preceding_events`. ")
@@ -6404,11 +6546,13 @@ def time_implementation(x, *curried_args):
 
 
 def instantiation_tx_implementation(z):
-    return z | preceding_events[VT.Instantiated] | single | absorbed | single | frame | to_tx | collect
+    # TODO change event.target once UVT for Instantiated is stable
+    return z | preceding_events[Instantiated] | map[lambda event: event.target] | single | frame | to_tx | collect
 
 def termination_tx_implementation(z):
+    # TODO change event.target once UVT for Terminated is stable
     root_node = Graph(z)[42] 
-    return z | preceding_events[VT.Terminated] | attempt[single | absorbed | single | frame | to_tx][root_node] | collect
+    return z | preceding_events[Terminated] | attempt[map[lambda event: event.target]| single | frame | to_tx][root_node] | collect
 
 
     
@@ -7084,7 +7228,8 @@ def tag_imp(x, tag_s: str, *args):
             'force': force,
             'adding': True,
         }
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or is_a(x, ZefOp[Z]):
+    from ..graph_delta import NamedZ
+    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or isinstance(x, NamedZ) or (isinstance(x, ValueType) and without_absorbed(x) == Any):
         assert len(args) == 0
         return LazyValue(x) | tag[tag_s]
 
@@ -8513,9 +8658,20 @@ def value_hash_tp(op, curr_type):
 
 #-------------------------------ZEF LIST------------------------------------------
 def to_zef_list_imp(elements: list):
+    @func
+    def internal_name(rae):
+        if isinstance(rae, RAERef):
+            names = absorbed(rae)
+        elif isinstance(rae, ValueType):
+            from ...core.VT.helpers import names_of
+            names = names_of(rae)
+        else:
+            raise Exception(f"Need to implement code for type {rae}")
+        return names[0] if names else None
+
     all_zef = elements | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
     if not all_zef: return Error("to_zef_list only takes ZefRef or EZefRef.")
-    is_any_terminated = elements | map[events[VT.Terminated]] | filter[None] | length | greater_than[0] | collect 
+    is_any_terminated = elements | map[preceding_events[Terminated]] | filter[SetOf[None]] | length | greater_than[0] | collect 
     if is_any_terminated: return Error("Cannot create a Zef List Element from a terminated ZefRef")
     rels_to_els = (elements 
             | enumerate 
@@ -8523,7 +8679,7 @@ def to_zef_list_imp(elements: list):
             | collect
             )
 
-    new_rels = rels_to_els | map[second | absorbed | first | inject[Any] ] | collect
+    new_rels = rels_to_els | map[second | internal_name | first | inject[Any] ] | collect
     next_rels = new_rels | sliding[2] | attempt[map[lambda p: (p[0], RT.ZEF_NextElement, p[1])]][[]] | collect
 
 
@@ -8750,10 +8906,9 @@ def zstandard_compress_imp(x: bytes, compression_level=0.1) -> Bytes:
     operates on: Bytes
     related zefop: zstandard_compress
     """
-    import zstd
     level = 1 + round(max(min(compression_level, 1), 0)*21)
     if isinstance(x, String): raise TypeError('zstandard_compress can`t be called with a string. Must be bytes')
-    return Bytes(zstd.compress(bytes(x), level))
+    return Bytes(internals.compress_zstd(bytes(x), level))
 
 
 
@@ -8776,9 +8931,8 @@ def zstandard_decompress_imp(x: Bytes) -> Bytes:
     operates on: Bytes
     related zefop: zstandard_decompress
     """
-    import zstd
     if isinstance(x, String): raise TypeError('zstandard_decompress can`t be called with a string. Must be bytes')
-    return Bytes(zstd.decompress(bytes(x)))
+    return Bytes(internals.decompress_zstd(bytes(x)))
     
 
 
@@ -9901,3 +10055,22 @@ def token_name_imp(raet: RAET) -> String:
         return str(token)
     else:
         return token.name
+
+
+
+def to_object_imp(zr: ZefRef) -> UserValueType:
+    
+    def extract_value(zr: ZefRef) -> Any:
+        if is_a(zr, AttributeEntity):
+            return value(zr)
+        elif is_a(zr, Entity):
+            return rae_type(zr)[str(uid(zr))]
+        else:
+            return str(rae_type(zr))
+    
+    def extract_field_name(rt: ZefRef) -> str:
+        return str(rae_type(rt))[3:].lower()
+
+    out_rts = zr | out_rels[RT] | collect
+    targets_d = dict(out_rts | map[lambda rt:(extract_field_name(rt), extract_value(target(rt)))] | collect)
+    return rae_type(zr)[str(uid(zr))](**targets_d)

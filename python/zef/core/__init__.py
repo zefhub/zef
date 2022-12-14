@@ -96,9 +96,9 @@ from .zef_functions import func
 from .serialization import serialize, deserialize
 
 from .symbolic_expression import SV, SVs, V
-from .z_expression import ZZ    # TODO: rename this to "Z" and replace the ZefOp "Z"
+from .z_expression import Z
 
-from .graph_events import assigned, terminated, instantiated
+from .graph_events import Instantiated, Assigned, Terminated
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
@@ -112,8 +112,8 @@ from . import op_implementations
 def visual_exception_view(error_value):
     from zef.core._error import zef_ui_err
     try:
-        # zef_ui_err(error_value.wrapped)
-        print(error_value.wrapped)
+        zef_ui_err(error_value.wrapped)
+        # print(error_value.wrapped)
     except Exception as e:
         try:
             e_s = str(e)

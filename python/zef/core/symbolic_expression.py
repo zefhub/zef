@@ -92,7 +92,7 @@ Query[
 
 
 from .VT import FlatGraph, Pattern, Any, SetOf, Val, ET, RT, AET
-from ._ops import match, collect, insert, split, get, filter, map, Z
+from ._ops import match, collect, insert, split, get, filter, map
 from .zef_functions import func
 
 def merge_flatgraphs(g1, g2) -> FlatGraph:
@@ -282,7 +282,7 @@ def compose_se(op_type, arg1, arg2):
     if (not arg1_composite_se) and (not arg2_composite_se):
         res = (fg 
             | insert[op_type['root'], RT.Arg1, Val(arg1)]
-            | insert[Z['root'], RT.Arg2, Val(arg2)]
+            | insert[Any['root'], RT.Arg2, Val(arg2)]
             | get['root']
             | collect
         )
@@ -297,8 +297,8 @@ def compose_se(op_type, arg1, arg2):
         g_merged.key_dict['_arg1'] = arg1.root_node.fg.key_dict['root']
         g_merged.key_dict['_arg2'] = arg2.root_node.fg.key_dict['root'] + len(arg1.root_node.fg.blobs)
         res = (g_merged
-            | insert[op_type['root'], RT.Arg1, Z['_arg1']]
-            | insert[Z['root'], RT.Arg2, Z['_arg2']]
+            | insert[op_type['root'], RT.Arg1, Any['_arg1']]
+            | insert[Any['root'], RT.Arg2, Any['_arg2']]
             | get['root']
             | collect
         )
@@ -308,7 +308,7 @@ def compose_se(op_type, arg1, arg2):
     elif arg1_composite_se:
         res = (arg1.root_node.fg
             | insert[op_type['root'], RT.Arg1, arg1.root_node]
-            | insert[Z['root'], RT.Arg2, Val(arg2)]
+            | insert[Any['root'], RT.Arg2, Val(arg2)]
             | get['root']
             | collect
         )
@@ -317,7 +317,7 @@ def compose_se(op_type, arg1, arg2):
     elif arg2_composite_se:
         res = (arg2.root_node.fg
             | insert[op_type['root'], RT.Arg2, arg2.root_node]
-            | insert[Z['root'], RT.Arg1, Val(arg1)]
+            | insert[Any['root'], RT.Arg1, Val(arg1)]
             | get['root']
             | collect
         )

@@ -15,6 +15,7 @@
 import unittest  # pytest takes ages to run anything as soon as anything from zef is imported
 from zef import *
 from zef.ops import *
+import zef
 
 class MyTestCase(unittest.TestCase):
     def setUp(self):
@@ -100,11 +101,16 @@ def customRoute(req, context):
                                         logging=False,
                                         debug_level=-1)
 
+        # Inside this test we use default python error handling
+        self.old_error_value = zef.core._error.custom_error_handling
+        zef.core._error.custom_error_handling = False
+
     def tearDown(self):
         {
             "type": FX.HTTP.StopServer,
             "server_uuid": self.server_uuid,
         } | run
+        zef.core._error.custom_error_handling = self.old_error_value
 
     def test_simplegql(self):
         import jwt
@@ -126,8 +132,8 @@ def customRoute(req, context):
         def assert_error_with(r, msg):
             self.assertEqual(r.status_code, 200)
             self.assertIn("errors", r.json())
-            print("NEED TO FIX UP SIMPLEGQL ERROR CHECK")
-            # self.assertIn(msg, r.json()["errors"][0]["message"])
+            # print("NEED TO FIX UP SIMPLEGQL ERROR CHECK")
+            self.assertIn(msg, r.json()["errors"][0]["message"])
         def assert_no_error(r):
             self.assertEqual(r.status_code, 200)
             self.assertNotIn("errors", r.json())

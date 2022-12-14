@@ -48,6 +48,7 @@ contains        = make_zefop(internals.RT.Contains)
 contained_in    = make_zefop(internals.RT.ContainedIn)
 skip            = make_zefop(internals.RT.Skip)
 all             = make_zefop(internals.RT.All)
+all2            = make_zefop(internals.RT.All2)
 any             = make_zefop(internals.RT.Any)
 slice           = make_zefop(internals.RT.Slice)                 # lowercase slice is used in core Python
 join            = make_zefop(internals.RT.Join)
@@ -172,7 +173,6 @@ target          = make_zefop(internals.RT.Target)
 source          = make_zefop(internals.RT.Source) 
 L               = make_zefop(internals.RT.L)
 O               = make_zefop(internals.RT.O)
-Z               = make_zefop(internals.RT.Z)
 # RAE             = make_zefop(internals.RT.RAE)
 time            = make_zefop(internals.RT.Time) 
 value           = make_zefop(internals.RT.Value)
@@ -381,7 +381,12 @@ token_name      = make_zefop(internals.RT.TokenName)
 
 
 zef_id      = make_zefop(internals.RT.ZefID)
-          
+
+to_object    = make_zefop(internals.RT.ToObject)
+
+infer_types  = make_zefop(internals.RT.InferTypes)
+deduplicate  = make_zefop(internals.RT.Deduplicate)
+identify_entities = make_zefop(internals.RT.IdentifyEntities)
 # match
 # split_before
 # split_after

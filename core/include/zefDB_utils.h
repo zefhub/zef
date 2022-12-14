@@ -412,7 +412,7 @@ namespace zefDB {
         if(flush)
             fsync(fd);
         if (-1 == flock(fd, LOCK_UN))
-            throw std::runtime_error("Problem unlocking file: " + errno);
+            throw std::runtime_error("Problem unlocking file: " + to_str(errno));
     }
 #endif
 

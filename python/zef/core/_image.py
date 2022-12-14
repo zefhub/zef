@@ -15,22 +15,22 @@
 from .. import report_import
 report_import("zef.core.image")
 
-import zstd
+from . import internals
 
 class Image_:
     def __init__(self, data, format='svg'):
         self.format = format
         self.compression = 'zstd'
-        self.buffer = zstd.compress(data)
+        self.buffer = internals.compress_zstd(data)
     def _repr_svg_(self):
         # this function must return a str
-        return zstd.decompress(self.buffer).decode("utf-8") if self.format=='svg' else None
+        return internals.decompress_zstd(self.buffer) if self.format=='svg' else None
     def _repr_png_(self):
         # this function must return bytes
-        return zstd.decompress(self.buffer) if self.format in {'gif','png'} else None
+        return internals.decompress_zstd(self.buffer) if self.format in {'gif','png'} else None
     def _repr_jpeg_(self):
         # this function must return bytes
-        return zstd.decompress(self.buffer) if self.format in {'jpeg','jpg'} else None
+        return internals.decompress_zstd(self.buffer) if self.format in {'jpeg','jpg'} else None
 
     def _view(self, format=None):
         if format is None:
