@@ -88,7 +88,7 @@ def match_rule(rule, pattern):
 
 
 
-def flatten_object(obj: Entity) -> list[list[tuple, tuple]]:
+def flatten_object(obj: Entity) -> List[List[tuple, tuple]]:
     """
     Takes an object of type EntityValueInstance_ and flattens it out to pairs of tuples ((source, rt, target), (src_id?, None, trgt_id?)).
     It recursively calls itself if at any level a non-terminal object is found.
