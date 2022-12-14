@@ -16,3 +16,4 @@ from ... import report_import
 report_import("zef.core.graph_additions")
 
 from . import transact
+from . import shorthand
