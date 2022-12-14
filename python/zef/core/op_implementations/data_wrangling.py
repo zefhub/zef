@@ -267,10 +267,16 @@ def match_with_entity_and_replace_step(obj_list, idx_to_objs, identification_rul
         if ent: replace_all_in_d(obj, ent)
 
 
+def flatten_all_types(objs_list):
+    idx_to_obj = {}
+    objs_list | for_each[create_idx_to_obj_d[idx_to_obj]]
+    return list(idx_to_obj.values())
+
 
 def identify_entities(obj_list: List[object], entity_identification_rules: Dict, gs: GraphSlice) -> List[object]:
     from collections import defaultdict
     idx_to_objs = defaultdict(list)
+    obj_list = flatten_all_types(obj_list) # Doing this step here incase deduplicate wasn't run
     obj_list | for_each[generate_id_to_objs[idx_to_objs]]
     match_with_entity_and_replace_step(obj_list, idx_to_objs, entity_identification_rules, gs)
     return obj_list
