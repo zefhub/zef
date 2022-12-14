@@ -203,9 +203,9 @@ def identify_and_merge_step(obj, idx_to_obj, identification_rules):
         except:
             return False
     if isinstance(obj, list):
-        groups = obj | map[flatten_object] | concat | map[first | first] | func[set] | group_by[without_absorbed] | collect
+        groups = obj | map[flatten_object] | concat | map[first | first] | func[set] | group_by[without_names] | collect
     else:
-        groups = flatten_object(obj) | map[first | first] | func[set] | group_by[without_absorbed] | collect
+        groups = flatten_object(obj) | map[first | first] | func[set] | group_by[without_names] | collect
     for et, group in groups:
         if len(group) < 2: continue
         for o1, o2 in zip(group, group[1:]):
