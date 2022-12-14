@@ -288,8 +288,6 @@ def ensure_tag_OI(obj, gen_id_state):
         # Add a generated ID on
         me,gen_id_state = gen_internal_id(gen_id_state)
 
-    print("In ensure_tag_OI", me, maybe_id, "from", obj)
-
     if me != maybe_id:
         args = obj._args
         if maybe_id is not None:
@@ -337,7 +335,7 @@ def ensure_tag_blob_ptr(obj: BlobPtr, gen_id_state):
     obj = discard_frame(obj)
     return obj,origin_uid(obj),gen_id_state
 
-def ensure_tag_wish_id(obj: WishID, gen_id_state):
+def ensure_tag_pass_through(obj, gen_id_state):
     return obj,obj,gen_id_state
 
 def ensure_tag_extra_user_id(obj: ExtraUserAllowedIDs, gen_id_state):
@@ -361,7 +359,7 @@ tagging_rules = [
     (RAERef, ensure_tag_rae_ref),
     (BlobPtr, ensure_tag_blob_ptr),
     (OldStyleDict, ensure_tag_OS_dict),
-    (WishID, ensure_tag_wish_id),
+    (AllIDs, ensure_tag_pass_through),
     (ExtraUserAllowedIDs, ensure_tag_extra_user_id),
 ]
     
