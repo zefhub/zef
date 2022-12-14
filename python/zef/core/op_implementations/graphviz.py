@@ -154,6 +154,7 @@ def graphviz_imp(zz, *flags):
             elif isinstance(v, str): return f'"{v}"' if len(v) < 20 else f'"{v[:18]}..."'
             else: return str(v)
         def val_to_str_html(z):
+            if internals.is_delegate(z): return "NA"
             v = value(z)
             if v is None: return 'None'
             elif isinstance(v, str):
@@ -165,8 +166,8 @@ def graphviz_imp(zz, *flags):
             return v
 
         if BT(z)==BT.ENTITY_NODE:
-            if compact_view and not internals.is_delegate(z): 
-                rts = z | out_rels | filter[lambda z: BT(target(z)) == BT.ATTRIBUTE_ENTITY_NODE and not internals.is_delegate(target(z))] | collect
+            if compact_view : 
+                rts = z | out_rels | filter[lambda z: BT(target(z)) == BT.ATTRIBUTE_ENTITY_NODE ] | collect
                 title = f"{ET(z)!r}"
                 return f"""<<TABLE TITLE='{title}' CELLPADDING='0' CELLSPACING='0'>
                 <TR><TD>{title}</TD></TR>
@@ -184,8 +185,8 @@ def graphviz_imp(zz, *flags):
                 val_maybe = (f"\n▷{val_to_str(z)}") if isinstance(z, ZefRef) else ''
                 return f"{AET(z)!r}{val_maybe}"        
         if BT(z)==BT.RELATION_EDGE:
-            if compact_view: 
-                rts = z | out_rels | filter[lambda z: BT(target(z)) == BT.ATTRIBUTE_ENTITY_NODE] | collect
+            if compact_view : 
+                rts = z | out_rels | filter[lambda z: BT(target(z)) == BT.ATTRIBUTE_ENTITY_NODE ] | collect
                 title = f"{RT(z)!r}"
                 return f"""<<TABLE TITLE='{title}' CELLPADDING='0' CELLSPACING='0' BORDER='0'>
                 <TR><TD>{title}</TD></TR>
