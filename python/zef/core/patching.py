@@ -443,12 +443,6 @@ class EntityValueInstance_:
         from ._ops import F
         return self | getattr(F, name)
     
-    def __setattr__(self, name, value):
-        if name in ('_entity_type', '_kwargs'):
-            super().__setattr__(name, value)
-        else:
-            self._kwargs[name] = value
-
     def __eq__(self, other):
         if not isinstance(other, EntityValueInstance_): return False
         return self._entity_type == other._entity_type and self._kwargs == other._kwargs
