@@ -6992,12 +6992,13 @@ def InIn_type_info(op, curr_type):
     return curr_type
 
 def terminate_implementation(z, *args):
-    from ..graph_delta import PleaseTerminate
-    # We need to keep terminate as something that works in the GraphDelta code.
-    # So we simply wrap everything up as a LazyValue and return that.
-    assert len(args) <= 1
-    internal_id = args[0] if len(args) == 1 else None
-    return PleaseTerminate(target=z, internal_id=internal_id)
+    from ..graph_additions.types import PleaseTerminate
+    # assert len(args) <= 1
+    # internal_id = args[0] if len(args) == 1 else None
+    assert len(args) == 0
+    if isinstance(z, BlobPtr):
+        z = discard_frame(z)
+    return PleaseTerminate(target=z)
 
 def terminate_type_info(op, curr_type):
     return curr_type

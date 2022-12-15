@@ -15,8 +15,10 @@
 from ... import report_import
 report_import("zef.core.graph_additions.transact")
 
+from .common import *
+
 @func
-def encode_test(input: GraphWishInput | List[GraphWishInput], g):
+def encode(input: GraphWishInput | List[GraphWishInput], g):
     gen_id_state = generate_initial_state("encode")
     cmds, template, gen_id_state = encode_cmd(input, gen_id_state)
 
@@ -30,7 +32,7 @@ def encode_test(input: GraphWishInput | List[GraphWishInput], g):
             | collect)
 
 def dispatch_ror_graph(g, x):
-    return x | encode_test[g]
+    return x | encode[g]
 
 from ...pyzef import main
 main.Graph.__ror__ = dispatch_ror_graph
@@ -45,6 +47,7 @@ def encode_cmd(obj, gen_id_state: GenIDState):
         (RelationTriple, encode_relation_triple),
         (List, encode_list),
         # TODO: other relation forms
+        (PleaseTerminate, encode_terminate),
 
         # Fallback to ensure tag
         (all_ensure_tag_types, encode_ensure_tag_fallback[default_rules]),
@@ -81,6 +84,9 @@ def encode_list(obj, gen_id_state):
         out_tags += [this_tag]
     return out_cmds, out_tags, gen_id_state
 
+def encode_terminate(obj, gen_id_state):
+    return [obj], force_as_id(obj.target), gen_id_state
+
 @func
 def encode_ensure_tag_fallback(obj, tagging_rules, gen_id_state):
     obj,id,gen_id_state = (obj, gen_id_state) | match_rules[[
@@ -94,10 +100,10 @@ def encode_ensure_tag_fallback(obj, tagging_rules, gen_id_state):
 
 def unpack_receipt(template, receipt, gs):
     if isinstance(template, List):
-        return tuple((unpack_receipt(el, receipt) for el in template))
+        return tuple((unpack_receipt(el, receipt, gs) for el in template))
     if isinstance(template, WishID):
         return receipt[template]
     if isinstance(template, EternalUID):
         from ..graph_slice import get_instance_rae
-        return get_instance_rae(template, gs)
+        return get_instance_rae(template, gs, allow_tombstone=True)
     raise Exception(f"Should not get here - unknown type in unpacking template: {template}")

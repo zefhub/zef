@@ -164,7 +164,10 @@ def scanmany(itr_in, reducers, maybe_init=None):
     def scanmany_inner():
         itr = iter(itr_in)
         if maybe_init is None:
-            cur_item = next(itr)
+            try:
+                cur_item = next(itr)
+            except StopIteration:
+                raise Exception("scanmany: no init item")
         else:
             cur_item = maybe_init
 
@@ -173,7 +176,7 @@ def scanmany(itr_in, reducers, maybe_init=None):
             comb_item = ()
             for cur,new,func in zip(cur_item, new_item, reducers):
                 comb = func(cur, new)
-                comb_item = (*comb_item, comb)
+                comb_item = comb_item + (comb,)
             cur_item = comb_item
             yield cur_item
             

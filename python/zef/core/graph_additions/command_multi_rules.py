@@ -35,9 +35,6 @@ def cull_unnecessary_cmds(cmds: List[PleaseCommandLevel1], gs: GraphSlice):
     # delegates. So instead, the culling is allowed to produce new aliasing,
     # from IDs to ZefRefs.
 
-    out_cmds = []
-    aliases = {}
-
     out_cmds,aliases = (
         cmds
         | map[lambda cmd: (cmd,gs) | match_rules[[
@@ -46,7 +43,7 @@ def cull_unnecessary_cmds(cmds: List[PleaseCommandLevel1], gs: GraphSlice):
         ]] | collect]
         # Checking that each cmd produces only 0-1 cmds
         | map[Assert[first | length | less_than_or_equal[1]]]
-        | reducemany[concat, merge_nodups]
+        | reducemany[concat, merge_nodups][[],{}]
         | collect)
 
     return out_cmds,aliases
@@ -210,10 +207,7 @@ def distinguish_assign(cmd: PleaseAssign) -> Tuple[PleaseAssign, List[AllIDs]]:
         name = cmd.target
     return cmd, [name]
 
-def distinguish_has_no_id(cmd):
-    return cmd, []
-
-def distinguish_be_source_target(cmd):
+def distinguish_has_target(cmd):
     return cmd, [cmd.target]
 
 
@@ -245,10 +239,10 @@ relabel_rules = [
 distinguish_rules = [
     (PleaseInstantiate, distinguish_instantiate),
     (PleaseAssign, distinguish_assign),
-    (PleaseBeSource | PleaseBeTarget, distinguish_be_source_target),
+    (PleaseBeSource | PleaseBeTarget, distinguish_has_target),
     (PleaseAlias, distinguish_alias),
     (PleaseMustLive, distinguish_must_live),
-    (PleaseTerminate, distinguish_has_no_id),
+    (PleaseTerminate, distinguish_has_target),
 ]
 
 

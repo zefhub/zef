@@ -68,7 +68,7 @@ def graph_transaction_handler(eff: dict):
     # Handling receipt response needs a similar dispatch between old and new
     if "level2_commands" in eff:
         # New path
-        from ..graph_additions.transact import unpack_receipt
+        from ..graph_additions.shorthand import unpack_receipt
         if 'unpacking_template' in eff:
             return unpack_receipt(eff['unpacking_template'], receipt, after_gs)
         return receipt

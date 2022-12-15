@@ -217,22 +217,6 @@ PleaseCommandLevel1 = _alias(PleaseInstantiate | PleaseAssign | PleaseTerminate 
 
 
 
-# ** Distinguisability
-
-# # Distinguishable commands are those with uids attached, e.g. a ZefRef merged in.
-# # Indistinguishable commands are others like ET.Machine, which will be assign different uids later.
-# # PleaseInstantiateDistinguishable = PleaseInstantiate & Pattern[{"origin_uid": Any}]
-# PleaseInstantiateDistinguishable = PleaseInstantiate & (Is[_ops.contains["origin_uid"]] | Is[_ops.get["internal_ids"][[]] | _ops.map[_ops.is_a[WishIDInternal]] | _ops.any])
-# PleaseTerminateDistinguishable = PleaseTerminate # Always true
-# PleaseAssignDistinguishable = PleaseAssign # Always true
-# # Note: the above two are tricky - even though they are distinguishable, two
-# # different assigns might use 1) EUID and 2) WishID but end up pointing at the
-# # same thing. We still have to consolidate these later on in a separate step.
-# # Basically we can say "without any other context, the target of these two
-# # commands could be different"
-# PleaseCommandLevel1Distinguishable = _alias(PleaseInstantiateDistinguishable | PleaseTerminateDistinguishable | PleaseAssignDistinguishable,
-#                                                 "PleaseCommandLevel1Distinguishable")
-
 # An import delay
 def are_commands_ordered(info):
     from .command_ordering import are_commands_ordered
