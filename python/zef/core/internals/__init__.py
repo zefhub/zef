@@ -289,7 +289,7 @@ class Val_:
         from ..VT.value_type import hash_frozen
         return hash_frozen(("Val_", self.arg, self.iid))
 
-def is_transactor(glike: Graph | GraphRef):
+def is_transactor(glike): #: Graph | GraphRef):
     if isinstance(glike, Graph):
         return glike.graph_data.is_primary_instance
     elif isinstance(glike, GraphRef):
