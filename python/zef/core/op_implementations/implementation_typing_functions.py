@@ -9122,6 +9122,9 @@ def field_imp(z, rt):
     if isinstance(z, list) or isinstance(z, tuple):
         return [field(zz, rt) for zz in z]
 
+    if isinstance(z, EntityValueInstance):
+        return z._kwargs[token_name(rt)]
+
     raise TypeError(f"Field operator not implemented for type(z)={type(z)}    z={z}")
 
 
