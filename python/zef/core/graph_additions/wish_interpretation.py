@@ -322,6 +322,9 @@ def ensure_tag_pure_et_aet(obj, gen_id_state):
         me = names[0]
     return obj,me,gen_id_state
 
+def ensure_tag_assign(obj: PleaseAssign, gen_id_state):
+    return obj, force_as_id(obj.target), gen_id_state
+
 def ensure_tag_OS_dict(obj: OldStyleDict, gen_id_state):
     main_obj = single(obj.keys())
     main_obj,obj_id,gen_id_state = ensure_tag(main_obj, gen_id_state)
@@ -356,6 +359,7 @@ tagging_rules = [
     (PrimitiveValue, ensure_tag_primitive),
     (AETWithValue, ensure_tag_aet),
     (PureET | PureAET, ensure_tag_pure_et_aet),
+    (PleaseAssign, ensure_tag_assign),
     (RAERef, ensure_tag_rae_ref),
     (BlobPtr, ensure_tag_blob_ptr),
     (OldStyleDict, ensure_tag_OS_dict),

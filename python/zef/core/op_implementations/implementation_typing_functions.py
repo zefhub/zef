@@ -6996,20 +6996,22 @@ def terminate_implementation(z, *args):
     # assert len(args) <= 1
     # internal_id = args[0] if len(args) == 1 else None
     assert len(args) == 0
-    if isinstance(z, BlobPtr):
-        z = discard_frame(z)
+    if isinstance(z, Atom):
+        z = origin_uid(z)
     return PleaseTerminate(target=z)
 
 def terminate_type_info(op, curr_type):
     return curr_type
 
-def assign_imp(z, val):
+def assign_imp(x, val):
     # We need to keep the assign value as something that works in the GraphDelta
     # code. So we simply wrap everything up as a LazyValue and return that.
     # return LazyValue(z) | assign[val]
-    from ..graph_delta import PleaseAssign
-    return PleaseAssign({"target": z,
-                          "value": val})
+    from ..graph_additions.types import PleaseAssign
+    if isinstance(x, AttributeEntity):
+        x = origin_uid(x)
+    return PleaseAssign({"target": x,
+                          "value": Val(val)})
 
 def assign_tp(op, curr_type):
     return VT.Any
@@ -7115,7 +7117,7 @@ def tag_imp(x, tag_s: str, *args):
             'force': force,
             'adding': True,
         }
-    from ..graph_delta import NamedZ
+    from ..graph_additions.types import NamedZ
     if isinstance(x, ZefRef) or isinstance(x, EZefRef) or isinstance(x, NamedZ) or (isinstance(x, ValueType) and without_absorbed(x) == Any):
         assert len(args) == 0
         return LazyValue(x) | tag[tag_s]

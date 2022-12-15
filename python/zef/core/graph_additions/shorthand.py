@@ -45,8 +45,8 @@ def encode_cmd(obj, gen_id_state: GenIDState):
 
     encode_rules = [
         (RelationTriple, encode_relation_triple),
+        (OldStyleRelationTriple, encode_OS_relation_triple),
         (List, encode_list),
-        # TODO: other relation forms
         (PleaseTerminate, encode_terminate),
 
         # Fallback to ensure tag
@@ -58,12 +58,7 @@ def encode_cmd(obj, gen_id_state: GenIDState):
         (Any, not_implemented_error["Don't know how to encode object for shorthand syntax"]),
     ]] | collect
 
-def encode_relation_triple(obj, gen_id_state):
-    s,rt,t = obj
-
-    s_cmds, s_tag, gen_id_state = encode_cmd(s, gen_id_state)
-    t_cmds, t_tag, gen_id_state = encode_cmd(t, gen_id_state)
-
+def make_name_for_rt(rt, gen_id_state):
     names = names_of_raet(rt)
     if len(names) == 0:
         me,gen_id_state = gen_internal_id(gen_id_state)
@@ -71,9 +66,43 @@ def encode_relation_triple(obj, gen_id_state):
     else:
         me = names[0]
 
+    return rt,me,gen_id_state
+
+def encode_relation_triple(obj, gen_id_state):
+    s,rt,t = obj
+
+    s_cmds, s_tag, gen_id_state = encode_cmd(s, gen_id_state)
+    t_cmds, t_tag, gen_id_state = encode_cmd(t, gen_id_state)
+
+    rt,me,gen_id_state = make_name_for_rt(rt, gen_id_state)
+
     cmds = s_cmds + t_cmds + [(s_tag, rt, t_tag)]
     tags = [s_tag, me, t_tag]
     return cmds, tags, gen_id_state
+
+def encode_OS_relation_triple(obj, gen_id_state):
+    if len(obj) == 3:
+        raise Exception("TODO: OS relation triple")
+        return cmds, tags, gen_id_state
+    elif len(obj) == 2:
+        s,rels = obj
+        s_cmds, s_tag, gen_id_state = encode_cmd(s, gen_id_state)
+
+        cmds = s_cmds
+
+        rel_names = []
+        for rt,t in rels:
+            rt,rt_name,gen_id_state = make_name_for_rt(rt, gen_id_state)
+            t_cmds, t_tag, gen_id_state = encode_cmd(s, gen_id_state)
+            rel_names += [(rt_name, t_tag)]
+            cmds += t_cmds
+            cmds += [(s_tag, rt, t_tag)]
+
+        tags = (s_tag, rel_names)
+            
+        return cmds, tags, gen_id_state
+    else:
+        raise Exception("Shouldn't get here")
 
 def encode_list(obj, gen_id_state):
     out_cmds = []

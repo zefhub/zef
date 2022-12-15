@@ -140,12 +140,12 @@ def distinguish_instantiate(cmd: PleaseInstantiate) -> Tuple[PleaseInstantiate, 
 # ** PleaseAssign
 
 def cull_assign(cmd: PleaseAssign, gs):
-    if isinstance(cmd.target, AttributeEntityRef):
+    if isinstance(cmd.target, EternalUID):
         if cmd.target in gs:
             z = gs | get[cmd.target] | collect
-            if value(z) == cmd.value:
+            if Val(value(z)) == cmd.value:
                 # Only here are we sure we can skip this!
-                return [], {origin_uid(cmd.target): z}
+                return [], {cmd.target: z}
 
     return [cmd], {}
 

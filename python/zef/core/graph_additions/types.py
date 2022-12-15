@@ -170,7 +170,7 @@ PleaseInstantiate = UserValueType("PleaseInstantiate",
 PleaseTerminate = UserValueType("PleaseTerminate",
                                 Dict,
                                 Pattern[{
-                                    "target": RAERef | AllIDs,
+                                    "target": AllIDs,
                                     # Note: including internal_ids here makes
                                     # some of the logic trickier. Going to
                                     # exclude this possibility for the moment,
@@ -180,7 +180,7 @@ PleaseTerminate = UserValueType("PleaseTerminate",
 
 PleaseAssign = UserValueType("PleaseAssign",
                               Dict,
-                              Pattern[{"target": AttributeEntityRef | AllIDs,
+                              Pattern[{"target": AllIDs,
                                        "value": WrappedValue}])
 
 PleaseTag = UserValueType("PleaseTag",
@@ -309,7 +309,8 @@ def is_relation_triple_OS(x):
                 and isinstance(x[1], PureRT)
                 and isinstance(x[2], Item | List[Item]))
     elif len(x) == 2:
-        # TODO
+        if isinstance(x[0], Item) and isinstance(x[1], List[Tuple[PureRT, Item]]):
+            return True
         return False
     else:
         return False
