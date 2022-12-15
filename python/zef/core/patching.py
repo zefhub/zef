@@ -308,9 +308,23 @@ EZefRef.__le__ = convert_to_assign
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):
     from .abstract_raes import EntityRef_, AttributeEntityRef_, RelationRef_
-    from ._ops import origin_uid
+    from ._ops import origin_uid, to_delegate
+    from .internals import val_as_serialized_if_necessary
     if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_]:
         return origin_uid(x) in self
+
+    from .VT import Delegate
+    if isinstance(x, Delegate):
+        # In case x is a BlobPtr, convert it to DelegateRef first
+        d = to_delegate(x)
+        maybe_z = to_delegate(d, self)
+        return maybe_z is not None
+
+    from .VT import Val
+    if isinstance(x, Val):
+        val = val_as_serialized_if_necessary(x)
+        maybe_z = self.get_value_node(val)
+        return maybe_z is not None
 
     if type(x) in [ZefRef, EZefRef]:
         if Graph(x) == self:
@@ -323,10 +337,28 @@ main.Graph.__contains__ = Graph__contains__
 original_Graph__getitem__ = main.Graph.__getitem__
 def Graph__getitem__(self, x):
     from .abstract_raes import EntityRef_, AttributeEntityRef_, RelationRef_
-    from ._ops import uid, target
-    from .internals import BT
+    from ._ops import uid, target, to_delegate
+    from .internals import BT, val_as_serialized_if_necessary
     if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_]:
         return self[uid(x)]
+
+    from .VT import Delegate
+    if isinstance(x, Delegate):
+        # In case x is a BlobPtr, convert it to DelegateRef first
+        d = to_delegate(x)
+        maybe_z = to_delegate(d, self)
+        if maybe_z is None:
+            raise KeyError(f"Delegate {x} not present in graph")
+        return maybe_z
+
+    from .VT import Val
+    if isinstance(x, Val):
+        val = val_as_serialized_if_necessary(x)
+        maybe_z = self.get_value_node(val)
+        if maybe_z is None:
+            raise KeyError(f"ValueNode {x} doesn't exist on graph") 
+        return maybe_z
+        
 
     res = original_Graph__getitem__(self, x)
     # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.

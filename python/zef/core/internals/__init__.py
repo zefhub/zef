@@ -243,6 +243,13 @@ def assign_value_imp(z, value):
         print(f"There was an exception in the c call for assign value. z={z} and value={value} and aet={aet}")
         raise
 
+def val_as_serialized_if_necessary(val):
+    from .. import VT
+    PrimitiveValue = VT.Int | VT.String | VT.Float | VT.Bool | VT.Time | VT.Enum | VT.QuantityInt | VT.QuantityFloat
+
+    if not isinstance(val.arg, PrimitiveValue):
+        return SerializedValue.serialize(val.arg)
+    return val.arg
 
 def instantiate_value_node_imp(value, g):
     from ...pyzef.zefops import SerializedValue
