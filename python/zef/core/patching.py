@@ -430,10 +430,22 @@ class EntityValueInstance_:
     
     def __getattr__(self, name):
         return self._kwargs[name]
+    
+    def __setattr__(self, name, value):
+        if name in ('_entity_type', '_kwargs'):
+            super().__setattr__(name, value)
+        else:
+            self._kwargs[name] = value
 
     def __eq__(self, other):
         if not isinstance(other, EntityValueInstance_): return False
         return self._entity_type == other._entity_type and self._kwargs == other._kwargs
+
+    def __hash__(self):
+        return hash((self._entity_type, frozenset(self._kwargs.items())))
+    
+    def clone(self):
+        return EntityValueInstance_(self._entity_type, **{k: v.clone() if isinstance(v, EntityValueInstance_) else v for k,v in self._kwargs.items()})
 
 
 
