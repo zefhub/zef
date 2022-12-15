@@ -53,8 +53,21 @@ def tuple_is_subtype(x, tup):
 
     return all(issubclass(a,b) is True for a,b in zip(x_params, tup_params))
 
-make_VT('Tuple', pytype=tuple, override_subtype_func=tuple_override_subtype,
-        is_subtype_func=tuple_is_subtype)
+def tuple_is_a(x, tup):
+    assert tuple_validation(tup)
+    params = tuple_get_params(tup)
+    import typing
+    if not isinstance(x, typing.Iterable):
+        return False
+    if len(x) != len(params):
+        return False
+    return all(isinstance(a,b) for a,b in zip(x, params))
+
+make_VT('Tuple', pytype=tuple,
+        override_subtype_func=tuple_override_subtype,
+        is_subtype_func=tuple_is_subtype,
+        is_a_func=tuple_is_a,
+        )
 
 def list_is_a(x, typ):
     assert generic_subtype_validate(typ)

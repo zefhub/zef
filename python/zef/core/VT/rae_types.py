@@ -128,7 +128,7 @@ def token_str(self):
     return s
 
 def ET_is_a(x, typ):
-    from . import DelegateRef, EntityRef
+    from . import DelegateRef, EntityRef, FlatRef
     token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, DelegateRef):
@@ -144,6 +144,9 @@ def ET_is_a(x, typ):
     else:
         if isinstance(x, DelegateRef):
             return x.item == token
+        elif isinstance(x, FlatRef):
+            from .._ops import rae_type
+            return RAET_get_token(rae_type(x)) == token
         elif isinstance(x, BlobPtr):
             if internals.BT(x) != internals.BT.ENTITY_NODE:
                 return False
@@ -157,7 +160,7 @@ def ET_is_a(x, typ):
             return False
 
 def AET_is_a(x, typ):
-    from . import DelegateRef, AttributeEntityRef
+    from . import DelegateRef, AttributeEntityRef, FlatRef
     token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, DelegateRef):
@@ -173,6 +176,9 @@ def AET_is_a(x, typ):
     else:
         if isinstance(x, DelegateRef):
             x_aet = x.item
+        elif isinstance(x, FlatRef):
+            from .._ops import rae_type
+            return RAET_get_token(rae_type(x)) == token
         elif isinstance(x, BlobPtr):
             if internals.BT(x) != internals.BT.ATTRIBUTE_ENTITY_NODE:
                 return False
@@ -210,7 +216,7 @@ def AET_is_a(x, typ):
                     return internals.is_vrt_a_enum(x_aet.rep_type)
         return False
 def RT_is_a(x, typ):
-    from . import DelegateRef, RelationRef
+    from . import DelegateRef, RelationRef, FlatRef
     token = RAET_get_token(typ)
     if token is None:
         if isinstance(x, DelegateRef):
@@ -231,6 +237,9 @@ def RT_is_a(x, typ):
                 return x.item.rt == token
             else:
                 return x.item == token
+        elif isinstance(x, FlatRef):
+            from .._ops import rae_type
+            return RAET_get_token(rae_type(x)) == token
         elif isinstance(x, BlobPtr):
             if internals.BT(x) != internals.BT.RELATION_EDGE:
                 return False

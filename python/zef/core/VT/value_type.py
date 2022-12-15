@@ -281,8 +281,8 @@ def is_a_(obj, typ):
         raise Exception(f"ValueType '{typ._d['type_name']}' has no is_a implementation")
 
 def is_subtype_(typ1, typ2):
-    assert is_type_(typ1), f"is_subtype got a non-type: {typ1}"
-    assert is_type_(typ2), f"is_subtype got a non-type: {typ2}"
+    assert is_type_(typ1), f"is_subtype got a non-type: {typ1!r}"
+    assert is_type_(typ2), f"is_subtype got a non-type: {typ2!r}"
 
     if typ1._d["type_name"] in _value_type_override_subtype_funcs:
         result = _value_type_override_subtype_funcs[typ1._d["type_name"]](typ1, typ2)
@@ -333,7 +333,9 @@ def type_name(typ):
 def hash_frozen(obj):
     if type(obj) == dict:
         h = hash("dict")
-        for key in sorted(obj):
+        # The sort key is weird, but ideally everything is done through the
+        # hash. The str is just a fallback for collisions.
+        for key in sorted(obj, key=lambda x: (hash_frozen(x), str(x))):
             h ^= hash(key)
             h ^= hash_frozen(obj[key])
         return h

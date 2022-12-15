@@ -1003,7 +1003,7 @@ def realise_single_node(x, gen_id):
     elif isinstance(x, scalar_types):
         raise Exception("A value of type {type(x)} is not allowed to be given in a GraphDelta in the shorthand syntax as it is ambiguous. You might want to explicitly create an AET and assign, or a value node, or a custom AET.")
     elif isinstance(x, NamedZ):
-        iid = x.root_node.arg2
+        iid = x.root_node._kwargs["arg2"]
         # No expr to perform
         exprs = []
     elif isinstance(x, NamedAny):
@@ -1445,7 +1445,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                         # Entity path
                         z_target = d_raes.get(cmd['target_id'], None)
                         if z_target is None:
-                            raise KeyError("set_field called with entity that is not known {cmd['target_id']}")
+                            raise KeyError(f"set_field called with entity that is not known {cmd['target_id']}")
 
                     rt = cmd['rt']
                     rt_token = internals.get_c_token(cmd['rt'])

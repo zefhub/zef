@@ -31,7 +31,7 @@ class FlatGraph_:
     Each element of self.blobs is a tuple of the form 
     (
         index: Int, 
-        blob_type: e.g. ET.Foo / 'BT.ValueNode' / RT.Bar / AET.Int,
+        blob_type: e.g. ET.Foo / BT.VALUE_NODE / RT.Bar / AET.Int,
         edge_list: a list of blob indexes (integers). Positive for outgoing, negative for incoming
         origin_uid (optional)
     )
@@ -91,6 +91,13 @@ class FlatRef_:
         return LazyValue(self) >> other
 
 make_VT("FlatRef", pytype=FlatRef_)
+
+def FlatRef_rae_type(fr):
+    return fr.fg.blobs[fr.idx][1]
+def FlatRef_value(fr):
+    if FlatRef_rae_type(fr) != "BT.ValueNode":
+        raise Exception("Not a value node")
+    return fr.fg.blobs[fr.idx][1]
 
 class FlatRefs_:
     def __init__(self, fg, idxs):
