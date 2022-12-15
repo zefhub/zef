@@ -3375,10 +3375,15 @@ def scan_implementation(iterable, fct, initial_val=None):
     ---- Signature ----    
     (List[T1], ((T2, T1)->T2), T2)  ->  List[T2]
     """
-    return ZefGenerator(lambda: itertools.accumulate(iterable, fct, initial=initial_val))
+    import sys
+    if sys.version_info.minor >= 3.8:
+        return ZefGenerator(lambda: itertools.accumulate(iterable, fct, initial=initial_val))
+    else:
+        if initial_val is None:
+            return ZefGenerator(lambda: itertools.accumulate(iterable, fct))
 
-
-
+        combined = prepend_imp(iterable, initial_val)
+        return scan_implementation(combined, fct)
 
 def scan_type_info(op, curr_type):
     func = op[1][0]
