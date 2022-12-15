@@ -99,57 +99,7 @@ def order_level1_commands(commands: List[PleaseCommandLevel1], gs: GraphSlice):
             raise Exception("Unable to order all commands")
 
         commands = new_commands
-
             
-
-
-    # # TODO: This is a quick hack, make this better later
-    # if False:
-    #     rels = commands | filter[PleaseInstantiate & Is[get_field["atom"] | is_a[PleaseInstantiateRelation]]] | collect
-    #     not_rels = commands | without[rels] | collect
-
-    #     ents = not_rels | filter[PleaseInstantiate] | collect
-
-    #     todo = list(rels)
-    #     def name_from_ent(x):
-    #         if "origin_uid" in x:
-    #             return x["origin_uid"]
-    #         return single(x["internal_ids"])
-    #     discovered_ids = {name_from_ent(ent) for ent in ents}
-
-    #     new_rels = []
-    #     i = 0
-    #     while len(todo) > 0:
-    #         rel = todo.pop(0)
-    #         can_do = True
-    #         for to_find in [rel.atom["source"], rel.atom["target"]]:
-    #             if to_find in discovered_ids:
-    #                 pass
-    #             elif isinstance(to_find, AtomRef):
-    #                 pass
-    #             else:
-    #                 can_do = False
-
-    #         if can_do:
-    #             new_rels += [rel]
-    #             discovered_ids.add(single(rel["internal_ids"]))
-    #         else:
-    #             todo += [rel]
-
-    #         i += 1
-    #         if i > 100000:
-    #             print(new_rels)
-    #             print("====")
-    #             for cmd in todo:
-    #                 print(cmd)
-    #             print("****")
-    #             for id in discovered_ids:
-    #                 print(id)
-
-    #             raise Exception("Probably a problem")
-
-    #     commands = not_rels + new_rels
-
     assert are_commands_ordered(commands, gs)
     # TODO: Temporary for testing
     return commands
@@ -191,14 +141,16 @@ def are_commands_ordered(commands: List[PleaseCommandLevel1], gs: GraphSlice):
 def deps_instantiate(cmd, gs):
     if isinstance(cmd.atom, PleaseInstantiateRelation):
         deps = []
-        if not isinstance(cmd.atom["source"], EternalUID) or cmd.atom["source"] not in gs:
+        if not isinstance(cmd.atom["source"], EternalUID | DelegateRef | WrappedValue) or cmd.atom["source"] not in gs:
             deps += [("Instantiate", cmd.atom['source'])]
-        if not isinstance(cmd.atom["target"], EternalUID) or cmd.atom["target"] not in gs:
+        if not isinstance(cmd.atom["target"], EternalUID | DelegateRef | WrappedValue) or cmd.atom["target"] not in gs:
             deps += [("Instantiate", cmd.atom['target'])]
     else:
         deps = []
         
-    if "origin_uid" in cmd:
+    if isinstance(cmd.atom, PleaseInstantiateDelegate | PleaseInstantiateValueNode):
+        name = ("Instantiate", cmd.atom)
+    elif "origin_uid" in cmd:
         name = ("Instantiate", cmd.origin_uid)
     elif "internal_ids" in cmd:
         name = ("Instantiate", single(cmd.internal_ids))

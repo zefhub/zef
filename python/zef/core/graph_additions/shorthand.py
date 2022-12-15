@@ -157,7 +157,7 @@ def unpack_receipt(template, receipt, gs):
         assert out is not None
         return out
     if isinstance(template, WrappedValue):
-        val = val_as_serialized_if_necessary(template)
+        val = internals.val_as_serialized_if_necessary(template)
         out = Graph(gs).get_value_node(val)
         assert out is not None
         return out | in_frame[gs] | collect

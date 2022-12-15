@@ -228,15 +228,19 @@ def lvl2cmds_for_rae(input: RAE, context: Lvl2Context):
     if isinstance(input, Entity|AttributeEntity):
         cmd = PleaseInstantiate(atom=rae_type(input),
                                 origin_uid=origin_uid(input))
+        return [cmd], [], context
     elif isinstance(input, Relation):
+        gen_id_state = context["gen_id_state"]
+        s_obj,s_name,gen_id_state = ensure_tag(source(input), gen_id_state)
+        t_obj,t_name,gen_id_state = ensure_tag(target(input), gen_id_state)
         cmd = PleaseInstantiate(atom=dict(rt=rae_type(input),
-                                          source=input | source | origin_uid | collect,
-                                          target=input | target | origin_uid | collect),
+                                          source=s_name,
+                                          target=t_name),
                                 origin_uid=origin_uid(input))
+        context = context | insert["gen_id_state"][gen_id_state] | collect
+        return [cmd], [s_obj,t_obj], context
     else:
         raise Exception("Shouldn't get here")
-
-    return [cmd], [], context
 
 @func
 def lvl2cmds_for_se(input, context):
@@ -383,7 +387,10 @@ def ensure_tag_rae_ref(obj: RAERef, gen_id_state):
 
 def ensure_tag_blob_ptr(obj: BlobPtr, gen_id_state):
     obj = discard_frame(obj)
-    return obj,origin_uid(obj),gen_id_state
+    # BlobPtrs could be RAEs or other things like value nodes/delegates/txs, so
+    # pass this back through to ensure_tag to dispatch on the right thing.
+    return ensure_tag(obj, gen_id_state)
+    # return obj,origin_uid(obj),gen_id_state
 
 def ensure_tag_pass_through(obj, gen_id_state):
     return obj,obj,gen_id_state

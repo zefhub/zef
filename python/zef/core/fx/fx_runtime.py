@@ -30,7 +30,7 @@ def create_eff_to_process_graph_wish(eff: Dict) -> 'FX':
         # "url" : 'ulfsproject.zefhub.io',    
     }
 
-    transact_wish = ET.ZefFXService(**fields_d) | g_process 
+    transact_wish = ET.ZefFXService(**fields_d) | g_process | collect
     return transact_wish
 
 

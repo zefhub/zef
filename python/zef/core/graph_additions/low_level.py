@@ -38,7 +38,7 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
     # The receipt is for items that are returned to the wisher
     receipt: GraphWishReceipt = {}
     # The mapping is a way for us to keep track of items created internally
-    internal_mapping: Dict[WishIDInternal][ZefRef] = {}
+    internal_mapping: Dict[WishIDInternal | WrappedValue | DelegateRef][ZefRef] = {}
 
     # Optimised euid lookup, instead of looking up using full lineage system all the time
     euid_mapping: Dict[EternalUID][ZefRef] = {}
@@ -50,7 +50,7 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
         euid_mapping[euid] = zr
         return zr
 
-    def find_id(id: AtomRef | EternalUID | WishID) -> ZefRef:
+    def find_id(id: AtomRef | AllIDs) -> ZefRef:
         # print("find_id", id)
         if isinstance(id, EternalUID):
             return find_euid(id)
@@ -58,13 +58,18 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
             return find_euid(origin_uid(id))
         elif isinstance(id, WishIDInternal):
             return internal_mapping[id]
+        elif isinstance(id, WrappedValue | DelegateRef):
+            if id in internal_mapping:
+                return internal_mapping[id]
+            # It must already be on the graph
+            return now(g) | get[id] | collect
         else:
             assert isinstance(id, Variable)
             return find_euid(origin_uid(receipt[id]))
 
-    def record_id(id: WishID, z: ZefRef):
+    def record_id(id: AllIDs, z: ZefRef):
         # print("record_id", id, z)
-        if isinstance(id, WishIDInternal):
+        if isinstance(id, WishIDInternal | WrappedValue | DelegateRef):
             internal_mapping[id] = z
         elif isinstance(id, Variable):
             receipt[id] = z | discard_frame | collect
@@ -98,22 +103,37 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
                         if isinstance(cmd["atom"], PleaseInstantiateEntity):
                             z = internals.merge_entity_(g, RAET_get_token(cmd.atom), cmd.origin_uid.blob_uid, cmd.origin_uid.graph_uid)
                             z = now(z)
+                        elif isinstance(cmd["atom"], PleaseInstantiateAttributeEntity):
+                            z = internals.merge_atomic_entity_(g, RAET_get_token(cmd.atom), cmd.origin_uid.blob_uid, cmd.origin_uid.graph_uid)
+                            z = now(z)
+                        elif isinstance(cmd["atom"], PleaseInstantiateRelation):
+                            z_src = find_id(cmd["atom"]["source"])
+                            z_trg = find_id(cmd["atom"]["target"])
+                            z = internals.merge_relation_(g, RAET_get_token(cmd.atom["rt"]),
+                                                          to_ezefref(z_src), to_ezefref(z_trg),
+                                                          cmd.origin_uid.blob_uid, cmd.origin_uid.graph_uid)
+                            z = now(z)
                         else:
-                            raise NotImplementedError("TODO cmd.atom for merge")
+                            raise NotImplementedError(f"TODO cmd.atom for merge: {cmd['atom']}")
 
                     euid_mapping[cmd.origin_uid] = z
                 else:
                     if isinstance(cmd.atom, PleaseInstantiateEntity | PleaseInstantiateAttributeEntity):
+                        raet = RAET_get_token(cmd.atom)
                         z = pyzef.main.instantiate(RAET_get_token(cmd.atom), g)
                     elif isinstance(cmd.atom, PleaseInstantiateRelation):
                         z_source = find_id(cmd.atom["source"])
                         z_target = find_id(cmd.atom["target"])
                         z = pyzef.main.instantiate(z_source, RAET_get_token(cmd.atom["rt"]), z_target, g)
                     elif isinstance(cmd.atom, PleaseInstantiateDelegate):
-                        z = to_delegate(cmd.atom, g, True)
+                        z = to_delegate(cmd.atom, now(g), True)
+                        # Special case for recording an id
+                        record_id(cmd.atom, z)
                     elif isinstance(cmd.atom, PleaseInstantiateValueNode):
-                        val = val_as_serialized_if_necessary(cmd.atom)
+                        val = internals.val_as_serialized_if_necessary(cmd.atom)
                         z = pyzef.main.instantiate_value_node(val, Graph(gs))
+                        # Special case for recording an id
+                        record_id(cmd.atom, z)
                     else:
                         raise NotImplementedError("TODO cmd.atom")
 

@@ -224,7 +224,7 @@ def assign_value_imp(z, value):
 
     # We can't be sure what kind of zefref we have, and if it is complex things
     # break at the moment, so do this thoroughly here.
-    if not is_a(z, VT.AET[VT.Any]):
+    if not is_a(z, VT.AttributeEntity):
         print(z)
         raise Exception("E/ZefRef is not an AET!")
     aet = VT.AET(z)

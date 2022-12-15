@@ -28,7 +28,7 @@ VRT_Enum = make_VT('VRT_Enum', pytype=internals.ValueRepTypeStruct_Enum)
 
 # Helpers
 
-def RAET_get_token(typ):
+def RAET_get_token(typ, convert_complex=True):
     # This allows anything in the absorbed and takes just the first likely item
     # This is far too lenient, it will likely break in the future
     opts = [x for x in absorbed(typ) if isinstance(x, (EntityTypeToken, RelationTypeToken, BlobTypeToken, AttributeEntityTypeToken, ValueRepTypeToken,
@@ -36,10 +36,14 @@ def RAET_get_token(typ):
                                                        ValueType))]
     if len(opts) == 0:
         return None
+    if isinstance(opts[0], ValueType) and convert_complex:
+        # Need to do something a bit more special with this. This should only make sense for AET[<complex type>].
+        assert isinstance(typ, ValueType[AET])
+        return internals.AttributeEntityType(internals.SerializedValue.serialize(opts[0]))
     return opts[0]
 
 def RAET_get_names(typ):
-    token = RAET_get_token(typ)
+    token = RAET_get_token(typ, convert_complex=False)
     if token is not None:
         names = list(absorbed(typ))
         names.remove(token)
@@ -48,7 +52,7 @@ def RAET_get_names(typ):
         return absorbed(typ)
 
 def RAET_without_names(typ):
-    return typ._replace(absorbed=(RAET_get_token(typ),))
+    return typ._replace(absorbed=(RAET_get_token(typ, convert_complex=False),))
 
 def wrap_attr_readonly_token(orig):
     def this_get_attr(self, name):
@@ -198,16 +202,13 @@ def AET_is_a(x, typ):
         else:
             return False
 
-        if isinstance(token, ValueType):
-            return isinstance(x_aet, token)
-
         if token == x_aet:
             return True
 
-        if isinstance(token, AttributeEntityTypeToken) and token.complex_value is not None:
-            raise Exception(f"Checking isinstance on complex AETs (got {typ}) is not yet implemented. Coming soon!")
-        if isinstance(x_aet, AttributeEntityTypeToken) and x_aet.complex_value is not None:
-            raise Exception(f"Checking isinstance on complex AETs (got {x_aet}) is not yet implemented. Coming soon!")
+        # if isinstance(token, AttributeEntityTypeToken) and token.complex_value is not None:
+        #     raise Exception(f"Checking isinstance on complex AETs (got {typ}) is not yet implemented. Coming soon!")
+        # if isinstance(x_aet, AttributeEntityTypeToken) and x_aet.complex_value is not None:
+        #     raise Exception(f"Checking isinstance on complex AETs (got {x_aet}) is not yet implemented. Coming soon!")
 
         if isinstance(token, (AET_QFloat, AET_QInt, AET_Enum)):
             if isinstance(x_aet, AttributeEntityTypeToken):
