@@ -93,7 +93,7 @@ def encode_OS_relation_triple(obj, gen_id_state):
         rel_names = []
         for rt,t in rels:
             rt,rt_name,gen_id_state = make_name_for_rt(rt, gen_id_state)
-            t_cmds, t_tag, gen_id_state = encode_cmd(s, gen_id_state)
+            t_cmds, t_tag, gen_id_state = encode_cmd(t, gen_id_state)
             rel_names += [(rt_name, t_tag)]
             cmds += t_cmds
             cmds += [(s_tag, rt, t_tag)]
