@@ -1094,7 +1094,7 @@ def verify_and_compact_commands(cmds: tuple):
     state_final = (
         {"state": state_initial, "num_changed": -1}
         | iterate[resolve_dag_ordering_step] 
-        | (tap[make_debug_output()] if gd_timing else identity)
+        | (map[tap[make_debug_output()]] if gd_timing else identity)
         | take_until[lambda s: s["num_changed"] == 0]
         # | map[tap[print]]
         | last
@@ -1279,7 +1279,7 @@ def resolve_dag_ordering_step(arg: dict)->dict:
             'output': (*state['output'], *can),
             'known_ids': {*state['known_ids'], *(can | map[get_ids] | concat)},
         },
-        "num_changed": len(can) > 0
+        "num_changed": len(can)
     }
     
         
