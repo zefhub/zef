@@ -154,9 +154,9 @@ def cull_assign(cmd: PleaseAssign, gs):
 
 def cull_terminate(cmd: PleaseTerminate, gs):
     # If not on the graph, don't need to terminate
-    if isinstance(cmd.target, RAERef):
+    if isinstance(cmd.target, EternalUID):
         if cmd.target not in gs:
-            return [], {}
+            return [], {cmd.target: None}
     return [cmd], {}
 
 def relabel_terminate(cmd: PleaseTerminate, aliases: AliasDict) -> PleaseTerminate:

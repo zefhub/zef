@@ -158,11 +158,11 @@ def lvl2cmds_for_lazyvalue(input: LazyValue, context: Lvl2Context):
     further_cmds = []
     if isinstance(input.initial_val, BlobPtr):
         # TODO: Probably just convert to ref and go with that
-        obj = ref_as_obj_notation(discard_frame(input.initial_val))
+        obj = ObjectInstance(discard_frame(input.initial_val))
         new_lv = obj | input.el_ops
         further_cmds += [new_lv]
     elif isinstance(input.initial_val, RAERef):
-        obj = ref_as_obj_notation(input.initial_val)
+        obj = OjbectInstance(input.initial_val)
         new_lv = obj | input.el_ops
         further_cmds += [new_lv]
     elif isinstance(input.initial_val, ET):
@@ -172,12 +172,15 @@ def lvl2cmds_for_lazyvalue(input: LazyValue, context: Lvl2Context):
     elif isinstance(input.initial_val, EntityValueInstance | ObjectInstance | Variable):
         obj = input.initial_val
         final_state = evaluate_chain(obj, input.el_ops)
-        print("After evaluating chain:", final_state)
         further_cmds += final_state["emitted_cmds"]
         if isinstance(final_state["obj"], Nil | Variable):
             pass
         else:
             further_cmds += [final_state["obj"]]
+    elif isinstance(input.initial_val, ExtraUserAllowedIDs):
+        obj = convert_extra_allowed_id(input.initial_val)
+        new_lv = obj | input.el_ops
+        further_cmds += [new_lv]
     else:
         raise Exception(f"Don't know what to do with an initial value of {input.initial_val}")
 
@@ -342,14 +345,7 @@ def ensure_tag_pass_through(obj, gen_id_state):
     return obj,obj,gen_id_state
 
 def ensure_tag_extra_user_id(obj: ExtraUserAllowedIDs, gen_id_state):
-    if isinstance(obj, NamedZ):
-        id = obj.root_node._kwargs["arg2"]
-    elif isinstance(obj, NamedAny):
-        id = single(absorbed(obj))
-    else:
-        raise Exception("Shouldn't get here")
-    # obj = WishID(id)
-    obj = SymbolicExpression(id)
+    obj = convert_extra_allowed_id(obj)
     return obj,obj,gen_id_state
 
 

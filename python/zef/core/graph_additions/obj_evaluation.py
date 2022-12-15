@@ -34,6 +34,7 @@ def apply_op(state, op):
         (RT.Field, apply_field),
         (RT.Assign, apply_assign),
         (RT.SetField, apply_set_field),
+        (RT.Terminate, apply_terminate),
     ] | collect
 
 @func
@@ -79,6 +80,20 @@ def apply_set_field(op, state):
 
     return state | insert["obj"][new_obj] | collect
 
+def apply_terminate(op, state):
+    if len(absorbed(op)) > 0:
+        raise Exception(f"Terminate should take no additional arguments: {absorbed(op)}.")
+    obj = state["obj"]
+    if not isinstance(obj, ObjectInstance):
+        raise Exception("Terminate can't understand anything other than an ObjectInstance")
+    if len(obj._args) >= 2:
+        raise Exception("In handling terminate: object has more than one absorbed value")
+    id = force_as_id(obj._args[0])
+        
+    new_obj = PleaseTerminate(target=id)
+    return (state
+            | insert["obj"][new_obj]
+            | collect)
 
 
 

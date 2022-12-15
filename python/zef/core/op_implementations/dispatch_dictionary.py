@@ -111,7 +111,6 @@ _op_to_functions = {
         internals.RT.RT:              (RT_implementation, RT_type_info),
         internals.RT.AET:             (AET_implementation, AET_type_info),
         internals.RT.BT:              (BT_implementation, BT_type_info),
-        internals.RT.FillOrAttach:    (fill_or_attach_implementation, fill_or_attach_type_info),
         internals.RT.SetField:        (set_field_implementation, set_field_type_info),
         internals.RT.Assert:          (assert_implementation, assert_type_info),
         internals.RT.HasOut:          (hasout_implementation, hasout_type_info),

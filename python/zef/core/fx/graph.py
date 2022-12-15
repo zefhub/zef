@@ -37,7 +37,6 @@ def graph_transaction_handler(eff: dict):
     """
 
 
-    gs = now(Graph(eff["target_graph"]))
     if internals.is_transactor(eff["target_graph"]):
         # For backwards compatibility we dispatch on whether this is a new or old transact effect
 
@@ -64,13 +63,27 @@ def graph_transaction_handler(eff: dict):
         from ..overrides import merge
         receipt = merge(eff["commands"], eff["target_graph"])
     
-    after_gs = now(Graph(eff["target_graph"]))
     # Handling receipt response needs a similar dispatch between old and new
     if "level2_commands" in eff:
         # New path
         from ..graph_additions.shorthand import unpack_receipt
         if 'unpacking_template' in eff:
+            after_gs = now(Graph(eff["target_graph"]))
             return unpack_receipt(eff['unpacking_template'], receipt, after_gs)
+        else:
+            g = internals.get_loaded_graph(eff["target_graph"])
+            if g is not None:
+                # Since g is loaded, we can return ZefRefs instead of AtomRefs.
+                gs = now(g)
+                from .. import func
+                receipt = (receipt
+                           | items
+                           | map[match[
+                               (Is[second | is_a[AtomRef]], apply[first, lambda x: gs | get[second(x)] | collect]),
+                               (Any, identity)
+                               ]]
+                           | func[dict]
+                           | collect)
         return receipt
     else:
         from ..graph_delta import perform_transaction_commands, filter_temporary_ids, unpack_receipt

@@ -32,9 +32,28 @@ def get_uvt_type(uvi: UserValueInstance):
     from ..user_value_type import _user_value_type_registry
     return _user_value_type_registry[uvi._user_type_id]
 
+from dataclasses import dataclass
+@dataclass(frozen=True)
+class OriginallyUserID:
+    obj: None
+
+    def __repr__(self):
+        return f"was:{self.obj}"
 
 def wrap_user_id(thing):
-    return SymbolicExpression(thing)
+    if isinstance(thing, ExtraUserAllowedIDs):
+        return convert_extra_allowed_id(thing)
+    return SymbolicExpression(OriginallyUserID(thing))
+
+def convert_extra_allowed_id(thing: ExtraUserAllowedIDs):
+    if isinstance(thing, NamedZ):
+        id = thing.root_node._kwargs["arg2"]
+    elif isinstance(thing, NamedAny):
+        id = single(absorbed(thing))
+    else:
+        raise Exception("Shouldn't get here")
+    # Tag this with OriginallyUserID so that we can unwrap it later on
+    return SymbolicExpression(OriginallyUserID(id))
 
 # def names_of_raet(raet):
 #     from .types import WishID
@@ -113,6 +132,26 @@ def make_qf_aet(x):
 
 def make_qi_aet(x):
     return getattr(AET.QuantityInt, x.unit.enum_value)
+
+def can_assign_to(val, z: Atom):
+    if not isinstance(z, AttributeEntity):
+        return False
+    # Special cases
+    if isinstance(val, Int):
+        if isinstance(z, AET.Float):
+            return True
+
+    if isinstance(val, PrimitiveValue):
+        return map_scalar_to_aet(val) == rae_type(z)
+
+    aet = rae_type(z)
+    # TODO: Need to get the type as a ValueType from aet (for simple and/or
+    # complex types) and then do the isinstance check on val for that.
+    from ..VT.rae_types import RAET_get_token
+    if RAET_get_token(aet).complex_value is not None:
+        return isinstance(val, RAET_get_token(aet).complex_value)
+    else:
+        raise NotImplementedError("TODO: Need to map AET to value type to compare with value")
     
 def most_recent_rae_on_graph(origin_uid: EternalUID, g: Graph) -> Nil|ZefRef:
     """
@@ -191,11 +230,6 @@ def merge_nodups(x, y):
     shared_keys = set(keys(x)) & set(keys(y))
     assert len(shared_keys) == 0, f"Duplicates found in keys of dictionaries passed into merge_nodups: {shared_keys}"
     return merge(x,y)
-
-def ref_as_obj_notation(ref):
-    raet = rae_type(ref)
-    assert isinstance(raet, ET)
-    return EntityValueInstance(raet, origin_uid(ref))
 
 def maybe_parse_uid(s) -> Nil|EternalUID:
     if isinstance(s, str) and s.startswith("㏈_"):

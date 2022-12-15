@@ -70,7 +70,7 @@ def prepare_obj_notation(cmd, gs, context):
     for k, v in cmd._kwargs.items():
         rels_exact = False
         rt = RT(k)
-        if isinstance(v, PrimitiveValue | Taggable):
+        if isinstance(v, PrimitiveValue | Taggable | UserWishID):
             v = {v}
 
         if isinstance(v, set):
@@ -103,11 +103,14 @@ def prepare_obj_notation(cmd, gs, context):
                 assign_candidates = {}
                 existing_free = set(existing_rels)
                 for item in v:
+                    if isinstance(item, UserWishID):
+                        to_create += [item]
+                        continue
                     this_assign_candidates = []
                     for existing_rel in existing_free:
-                        existing_ref,existing_val = existing_items[existing_rel]
+                        existing_target,existing_val = existing_items[existing_rel]
                         if isinstance(item, Atom):
-                            if discard_frame(item) == discard_frame(existing_ref):
+                            if discard_frame(item) == discard_frame(existing_target):
                                 to_keep += [existing_rel]
                                 existing_free -= existing_rel
                                 break
@@ -116,7 +119,7 @@ def prepare_obj_notation(cmd, gs, context):
                                 to_keep += [existing_rel]
                                 existing_free -= existing_rel
                                 break
-                            if can_assign_to(item, existing_ref):
+                            if can_assign_to(item, existing_target):
                                 this_assign_candidates += [existing_rel]
                     else:
                         if isinstance(item, Atom):

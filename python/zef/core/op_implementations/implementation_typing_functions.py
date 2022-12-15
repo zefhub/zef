@@ -5392,14 +5392,12 @@ def origin_uid_tp(x):
 
 
 
-def fill_or_attach_implementation(z, rt, val):
-    return LazyValue(z) | fill_or_attach[rt][val]
-
-def fill_or_attach_type_info(op, curr_type):
-    return curr_type
-
 def set_field_implementation(z, rt, val, incoming=False):
-    return LazyValue(z) | set_field[rt][val][incoming]
+    # return LazyValue(z) | set_field[rt][val][incoming]
+    if incoming:
+        raise Exception("TODO: Need to handle incoming for set_field again")
+    name = token_name(rt)
+    return ObjectInstance(z, **{name: val})
 
 def set_field_type_info(op, curr_type):
     return curr_type
@@ -6641,83 +6639,6 @@ def is_a_implementation(x, typ):
         return is_a(x, py_type_to_vt[typ])
 
     return isinstance(x, typ)
-
-    def rp_matching(x, rp):
-        triple = rp._d['absorbed'][0]
-        v = tuple(el == Z for el in triple)
-        try:
-            if v == (True, False, False):
-                return x | Out[triple[1]] | is_a[triple[2]] | collect
-
-            if v == (False, False, True):
-                return x | In[triple[1]] | is_a[triple[0]] | collect
-
-            if v == (False, True, False):
-                return is_a(source(x), triple[0]) and is_a(target(x), triple[2])
-                
-            if  v == (False, False, False):
-                return is_a(x, triple[1]) and is_a(source(x), triple[0]) and is_a(target(x), triple[2])
-        except:
-            return False
-        raise TypeError(f"invalid pattern to match on in RP: {triple}")
-
-
-    def has_value_matching(x, vt):
-        my_set = vt._d['absorbed'][0]
-        try:
-            val = value(x)
-        except:
-            raise TypeError(f"HasValue can only be applied to AETs")
-            # TODO: or return false here
-
-        if isinstance(my_set, Set):
-            return val in my_set            
-        # If we're here, it should be a VT    
-        return is_a(val, my_set)
-
-    if isinstance(typ, ValueType):
-        if typ._d['type_name'] == "RP":
-            return rp_matching(x, typ)
-
-        if typ._d['type_name'] == "HasValue":
-            return has_value_matching(x, typ)
-        
-        if typ._d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
-            map_ = {"Instantiated": instantiated, "Assigned": assigned, "Terminated": terminated}
-            def compare_absorbed(x, typ):
-                val_absorbed = absorbed(x)
-                typ_absorbed = absorbed(typ)
-                for i,typ in enumerate(typ_absorbed):
-                    if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
-                    if not is_a(val_absorbed[i],typ): return False
-                return True
-            return without_absorbed(x) == map_[typ._d['type_name']] and compare_absorbed(x, typ)
-
-
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        if isinstance(typ, BlobType):
-            return BT(x) == typ
-
-        if typ == Delegate:
-            return internals.is_delegate(x)
-
-        if is_a(typ, Delegate):
-            return delegate_of(x) == typ
-
-        if not internals.is_delegate(x):
-            # The old route is just for instances only
-            if _is_a_instance_delegate_generic(x, typ):
-                return True
-
-    if isinstance(x, ZefEnumValue):
-        if isinstance(typ, ZefEnumStruct):
-            return True
-        if isinstance(typ, ZefEnumStructPartial):
-            return x.enum_type == typ.__enum_type
-        if isinstance(typ, ZefEnumValue):
-            return x == typ
-
-
 
 
 

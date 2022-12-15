@@ -134,4 +134,20 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
 
     if keep_internal_ids:
         receipt.update(internal_mapping)
+
+    # We undo any non-variable user ids based upon their included value
+    receipt = (receipt
+               | items
+               | map[match[
+                   (Is[first | is_a[Variable]] & Is[first
+                                                    | get_field["name"]
+                                                    | is_a[OriginallyUserID]],
+                    apply[first
+                          | get_field["name"]
+                          | get_field["obj"], second]),
+                   (Any, identity)
+               ]]
+               | func[dict]
+               | collect)
+     
     return receipt

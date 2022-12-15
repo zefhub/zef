@@ -82,7 +82,22 @@ def encode_relation_triple(obj, gen_id_state):
 
 def encode_OS_relation_triple(obj, gen_id_state):
     if len(obj) == 3:
-        raise Exception("TODO: OS relation triple")
+        s,rt,t = obj
+
+        s_cmds, s_tags, gen_id_state = encode_cmd(s, gen_id_state)
+        t_cmds, t_tags, gen_id_state = encode_cmd(t, gen_id_state)
+
+        cmds = s_cmds + t_cmds
+        tags = (s_tags, None, t_tags)
+
+        if not isinstance(s_tags, List):
+            s_tags = [s_tags]
+        if not isinstance(t_tags, List):
+            t_tags = [t_tags]
+        for s_tag in s_tags:
+            for t_tag in t_tags:
+                cmds += [(s_tag, rt, t_tag)]
+
         return cmds, tags, gen_id_state
     elif len(obj) == 2:
         s,rels = obj
@@ -135,4 +150,6 @@ def unpack_receipt(template, receipt, gs):
     if isinstance(template, EternalUID):
         from ..graph_slice import get_instance_rae
         return get_instance_rae(template, gs, allow_tombstone=True)
+    if isinstance(template, Nil):
+        return None
     raise Exception(f"Should not get here - unknown type in unpacking template: {template}")
