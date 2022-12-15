@@ -3376,7 +3376,7 @@ def scan_implementation(iterable, fct, initial_val=None):
     (List[T1], ((T2, T1)->T2), T2)  ->  List[T2]
     """
     import sys
-    if sys.version_info.minor >= 3.8:
+    if sys.version_info.minor >= 8:
         return ZefGenerator(lambda: itertools.accumulate(iterable, fct, initial=initial_val))
     else:
         if initial_val is None:
