@@ -325,12 +325,15 @@ def VRT_is_a(x, typ):
 
 
 def ET_ctor(self, *args, **kwargs):
+    from . import EntityRef
     if RAET_get_token(self) is None:
         assert len(args) == 1
         assert len(kwargs) == 0
         input = args[0]
         if isinstance(input, ValueType) and isinstance(input, ET):
             return input
+        if isinstance(input, EntityRef):
+            return input.d["type"]
         return ET[internals.ET(input)]
     else:
         return EntityValueInstance(self, *args, **kwargs)
