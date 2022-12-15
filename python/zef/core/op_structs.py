@@ -994,7 +994,8 @@ class LazyValue_:
     # For avoiding common mistakes
     def __eq__(self, other):
         if isinstance(other, LazyValue):
-            return self.initial_val == other.initial_val and self.el_ops == other.el_ops
+            from .symbolic_expression import SymbolicExpression, compose_se
+            return compose_se(ET.Equals, self, other)
 
         import logging
         logging.warning("A LazyValue has been compared with == or !=. This is likely a mistake, and requires an additional '| collect'")

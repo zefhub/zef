@@ -275,6 +275,11 @@ class SymbolicExpression_:
 
 
 def is_equal_no_SE_compose(a, b):
+    from .VT import LazyValue
+    if isinstance(a, LazyValue):
+        a = collect(a)
+    if isinstance(b, LazyValue):
+        b = collect(b)
     if isinstance(a, SymbolicExpression_) or isinstance(b, SymbolicExpression_):
         if type(a) != type(b):
             return False
