@@ -9950,12 +9950,12 @@ def to_object_imp(zr: ZefRef) -> UserValueType:
         if is_a(zr, AttributeEntity):
             return value(zr)
         elif is_a(zr, Entity):
-            return rae_type(zr)[str(uid(zr))]
+            return rae_type(zr)["㏈_" + str(uid(discard_frame(zr)))]
         else:
             return str(rae_type(zr))
     
     def extract_field_name(rt: ZefRef) -> str:
-        return str(rae_type(rt))[3:].lower()
+        return str(rae_type(rt))[3:]
 
     out_rts = zr | out_rels[RT] | collect
     targets_d = dict(out_rts | map[lambda rt:(extract_field_name(rt), extract_value(target(rt)))] | collect)
