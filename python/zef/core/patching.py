@@ -467,7 +467,7 @@ class EntityValueInstance_:
         return hash_frozen(("EntityValueInstance", self._entity_type, self._args, self._kwargs))
     
     def clone(self):
-        return EntityValueInstance_(self._entity_type, **{k: v.clone() if isinstance(v, EntityValueInstance_) else v for k,v in self._kwargs.items()})
+        return EntityValueInstance_(self._entity_type, *self._args, **{k: v.clone() if isinstance(v, EntityValueInstance_) else v for k,v in self._kwargs.items()})
 
 
 
