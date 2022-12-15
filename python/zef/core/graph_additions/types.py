@@ -106,7 +106,7 @@ WishIDInternal = UserValueType("WishIDInternal", String)
 WishID = _alias(Variable | WishIDInternal,
                "WishID")
 
-AllIDs = WishID | EternalUID
+AllIDs = WishID | EternalUID | DelegateRef
 
 NamedAny = ValueType[Any] & Is[_ops.absorbed | _ops.length | _ops.greater_than[0]]
 def delayed_check_namedz(x):
@@ -345,6 +345,7 @@ GraphWishInputSimple = _alias(
     | PureET
     | PureAET
     | RAE
+    | Delegate
     | OldStyleDict,
     "GraphWishInputSimple"
 )

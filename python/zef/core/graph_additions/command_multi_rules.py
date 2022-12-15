@@ -86,7 +86,7 @@ def cull_instantiate(cmd: PleaseInstantiate, gs):
     elif isinstance(cmd.atom, PleaseInstantiateValueNode):
         maybe_ezr = Graph(gs).get_value_node(cmd.atom)
     elif isinstance(cmd.atom, PleaseInstantiateDelegate):
-        maybe_ezr = delegate_of(cmd.atom, g, False)
+        maybe_ezr = to_delegate(cmd.atom, gs, False)
 
     if maybe_ezr is not None:
         # We have an existing item, don't need to action this but do store the
@@ -122,7 +122,12 @@ def relabel_instantiate(cmd: PleaseInstantiate, aliases: AliasDict) -> PleaseIns
 
 
 def distinguish_instantiate(cmd: PleaseInstantiate) -> Tuple[PleaseInstantiate, List[AllIDs]]:
-    if "origin_uid" in cmd:
+    if isinstance(cmd.atom, PleaseInstantiateDelegate):
+        # Delegate is special - its own type is its id
+        names = [cmd.atom] + cmd._value.get("internal_ids", [])
+        new_cmd = cmd._get_type()(cmd._value | without[["internal_ids"]] | collect)
+        return new_cmd,names
+    elif "origin_uid" in cmd:
         names = [cmd.origin_uid] + cmd._value.get("internal_ids", [])
         new_cmd = cmd._get_type()(cmd._value | without[["internal_ids"]] | collect)
         return new_cmd,names

@@ -73,7 +73,9 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
 
 
     with Transaction(g) as ctx:
-        if now(g) | time_travel[-1] | collect != gs:
+        # Note: we might have a transaction open around us so check both now and
+        # the previous graph slices.
+        if gs != now(g) and gs != now(g) | time_travel[-1] | collect:
             raise Exception("Can't perform level 1 commands onto a different graph slice from which they were constructed: {now(g)=}, {gs=}")
 
         for cmd in command_struct.cmds:
@@ -107,6 +109,8 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
                         z_source = find_id(cmd.atom["source"])
                         z_target = find_id(cmd.atom["target"])
                         z = pyzef.main.instantiate(z_source, RAET_get_token(cmd.atom["rt"]), z_target, g)
+                    elif isinstance(cmd.atom, PleaseInstantiateDelegate):
+                        z = to_delegate(cmd.atom, g, True)
                     else:
                         raise NotImplementedError("TODO cmd.atom")
 

@@ -152,4 +152,8 @@ def unpack_receipt(template, receipt, gs):
         return get_instance_rae(template, gs, allow_tombstone=True)
     if isinstance(template, Nil):
         return None
+    if isinstance(template, DelegateRef):
+        out = to_delegate(template, gs)
+        assert out is not None
+        return out
     raise Exception(f"Should not get here - unknown type in unpacking template: {template}")

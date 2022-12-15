@@ -92,6 +92,13 @@ def lvl2cmds_for_ETorAET(input: ET | AET, context: Lvl2Context):
     return [PleaseInstantiate(d)], [], context
 
 @func
+def lvl2cmds_for_delegate(input: Delegate, context: Lvl2Context):
+    d = to_delegate(input)
+    cmd = PleaseInstantiate({"atom": d})
+
+    return [cmd], [], context
+
+@func
 def lvl2cmds_for_relation_triple(input: RelationTriple, context: Lvl2Context):
     names = names_of_raet(input[1])
     bare_rt = bare_raet(input[1])
@@ -118,23 +125,47 @@ def lvl2cmds_for_relation_triple(input: RelationTriple, context: Lvl2Context):
 
 @func
 def OS_lvl2cmds_for_relation_triple(input: OldStyleRelationTriple, context: Lvl2Context):
+    gen_id_state = context["gen_id_state"]
+
+    more_inputs = []
+
     if len(input) == 2:
-        raise NotImplementedError("TODO: Length 2 relations")
+        s, rels = input
+        src_obj, src, gen_id_state = ensure_tag(s, gen_id_state)
+        more_inputs += [src_obj]
 
-    if isinstance(input[0], List):
-        sources = input[0]
-    else:
-        sources = [input[0]]
-        
-    if isinstance(input[2], List):
-        targets = input[2]
-    else:
-        targets = [input[2]]
+        for rt,t in rels:
+            trg_obj, trg, gen_id_state = ensure_tag(t, gen_id_state)
+            more_inputs += [trg_obj]
+            more_inputs += [(src, rt, trg)]
 
-    rt = input[1]
-    out_todo = [(s,rt,t) for s in sources for t in targets]
+    elif len(input) == 3:
+        if isinstance(input[0], List):
+            sources = input[0]
+        else:
+            sources = [input[0]]
 
-    return [], out_todo, context
+        if isinstance(input[2], List):
+            targets = input[2]
+        else:
+            targets = [input[2]]
+        rt = input[1]
+
+        src_names = []
+        for src in sources:
+            src_obj, src, gen_id_state = ensure_tag(src, gen_id_state)
+            more_inputs += [src_obj]
+            src_names += [src]
+        trg_names = []
+        for trg in targets:
+            trg_obj, trg, gen_id_state = ensure_tag(trg, gen_id_state)
+            more_inputs += [trg_obj]
+            trg_names += [trg]
+
+        more_inputs += [(s,rt,t) for s in src_names for t in trg_names]
+
+    context = context | insert["gen_id_state"][gen_id_state] | collect
+    return [], more_inputs, context
 
 @func
 def lvl2cmds_for_aet_with_value(input: AETWithValue, context: Lvl2Context):
@@ -193,8 +224,8 @@ def lvl2cmds_for_rae(input: RAE, context: Lvl2Context):
                                 origin_uid=origin_uid(input))
     elif isinstance(input, Relation):
         cmd = PleaseInstantiate(atom=dict(rt=rae_type(input),
-                                          source=input | source | discard_frame | collect,
-                                          target=input | target | discard_frame | collect),
+                                          source=input | source | origin_uid | collect,
+                                          target=input | target | origin_uid | collect),
                                 origin_uid=origin_uid(input))
     else:
         raise Exception("Shouldn't get here")
@@ -244,6 +275,8 @@ def lvl2cmds_ignore(input, context):
     return [], [], context
 
 default_interpretation_rules = [
+    # Note that delegates are included in IDs so we have to put this first.
+    (Delegate, lvl2cmds_for_delegate),
     # Ignore IDs as many commands are likely to create these
     (AllIDs, lvl2cmds_ignore),
     #
@@ -325,6 +358,10 @@ def ensure_tag_pure_et_aet(obj, gen_id_state):
         me = names[0]
     return obj,me,gen_id_state
 
+def ensure_tag_delegate(obj, gen_id_state):
+    obj = to_delegate(obj)
+    return obj,obj,gen_id_state
+
 def ensure_tag_assign(obj: PleaseAssign, gen_id_state):
     return obj, force_as_id(obj.target), gen_id_state
 
@@ -355,6 +392,7 @@ tagging_rules = [
     (PrimitiveValue, ensure_tag_primitive),
     (AETWithValue, ensure_tag_aet),
     (PureET | PureAET, ensure_tag_pure_et_aet),
+    (Delegate, ensure_tag_delegate),
     (PleaseAssign, ensure_tag_assign),
     (RAERef, ensure_tag_rae_ref),
     (BlobPtr, ensure_tag_blob_ptr),
