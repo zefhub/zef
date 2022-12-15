@@ -99,6 +99,12 @@ def lvl2cmds_for_delegate(input: Delegate, context: Lvl2Context):
     return [cmd], [], context
 
 @func
+def lvl2cmds_for_valuenode(input: WrappedValue, context: Lvl2Context):
+    cmd = PleaseInstantiate({"atom": input})
+
+    return [cmd], [], context
+
+@func
 def lvl2cmds_for_relation_triple(input: RelationTriple, context: Lvl2Context):
     names = names_of_raet(input[1])
     bare_rt = bare_raet(input[1])
@@ -275,8 +281,9 @@ def lvl2cmds_ignore(input, context):
     return [], [], context
 
 default_interpretation_rules = [
-    # Note that delegates are included in IDs so we have to put this first.
+    # Note that delegates and WrappedValues are included in IDs so we have to put this first.
     (Delegate, lvl2cmds_for_delegate),
+    (WrappedValue, lvl2cmds_for_valuenode),
     # Ignore IDs as many commands are likely to create these
     (AllIDs, lvl2cmds_ignore),
     #
@@ -397,6 +404,7 @@ tagging_rules = [
     (RAERef, ensure_tag_rae_ref),
     (BlobPtr, ensure_tag_blob_ptr),
     (OldStyleDict, ensure_tag_OS_dict),
+    (WrappedValue, ensure_tag_pass_through),
     (AllIDs, ensure_tag_pass_through),
     (ExtraUserAllowedIDs, ensure_tag_extra_user_id),
 ]

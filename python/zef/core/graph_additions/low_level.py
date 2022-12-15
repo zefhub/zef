@@ -111,6 +111,9 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
                         z = pyzef.main.instantiate(z_source, RAET_get_token(cmd.atom["rt"]), z_target, g)
                     elif isinstance(cmd.atom, PleaseInstantiateDelegate):
                         z = to_delegate(cmd.atom, g, True)
+                    elif isinstance(cmd.atom, PleaseInstantiateValueNode):
+                        val = val_as_serialized_if_necessary(cmd.atom)
+                        z = pyzef.main.instantiate_value_node(val, Graph(gs))
                     else:
                         raise NotImplementedError("TODO cmd.atom")
 

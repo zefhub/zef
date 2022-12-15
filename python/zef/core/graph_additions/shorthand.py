@@ -156,4 +156,9 @@ def unpack_receipt(template, receipt, gs):
         out = to_delegate(template, gs)
         assert out is not None
         return out
+    if isinstance(template, WrappedValue):
+        val = val_as_serialized_if_necessary(template)
+        out = Graph(gs).get_value_node(val)
+        assert out is not None
+        return out | in_frame[gs] | collect
     raise Exception(f"Should not get here - unknown type in unpacking template: {template}")

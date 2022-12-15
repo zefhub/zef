@@ -98,6 +98,10 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
     def add_must_live_cmds(src_or_trg):
         if isinstance(src_or_trg, WishID):
             id = src_or_trg
+        elif isinstance(src_or_trg, Delegate):
+            return
+        elif isinstance(src_or_trg, WrappedValue):
+            return
         elif isinstance(src_or_trg, Relation):
             add_must_live_cmds(source(src_or_trg))
             add_must_live_cmds(target(src_or_trg))

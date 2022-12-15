@@ -84,7 +84,8 @@ def cull_instantiate(cmd: PleaseInstantiate, gs):
         from ..graph_slice import get_instance_rae
         maybe_ezr = get_instance_rae(cmd.origin_uid, gs)
     elif isinstance(cmd.atom, PleaseInstantiateValueNode):
-        maybe_ezr = Graph(gs).get_value_node(cmd.atom)
+        val = val_as_serialized_if_necessary(cmd.atom)
+        maybe_ezr = Graph(gs).get_value_node(val)
     elif isinstance(cmd.atom, PleaseInstantiateDelegate):
         maybe_ezr = to_delegate(cmd.atom, gs, False)
 
@@ -122,7 +123,7 @@ def relabel_instantiate(cmd: PleaseInstantiate, aliases: AliasDict) -> PleaseIns
 
 
 def distinguish_instantiate(cmd: PleaseInstantiate) -> Tuple[PleaseInstantiate, List[AllIDs]]:
-    if isinstance(cmd.atom, PleaseInstantiateDelegate):
+    if isinstance(cmd.atom, PleaseInstantiateDelegate | PleaseInstantiateValueNode):
         # Delegate is special - its own type is its id
         names = [cmd.atom] + cmd._value.get("internal_ids", [])
         new_cmd = cmd._get_type()(cmd._value | without[["internal_ids"]] | collect)

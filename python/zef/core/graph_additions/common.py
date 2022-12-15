@@ -275,3 +275,7 @@ def id_preference(l: List[AllIDs]) -> AllIDs:
     out = l | reduce[id_preference_pair] | collect
     return out
         
+def val_as_serialized_if_necessary(val):
+    if not isinstance(val.arg, PrimitiveValue):
+        return internals.SerializedValue.serialize(val.arg)
+    return val.arg

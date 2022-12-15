@@ -106,7 +106,11 @@ WishIDInternal = UserValueType("WishIDInternal", String)
 WishID = _alias(Variable | WishIDInternal,
                "WishID")
 
-AllIDs = WishID | EternalUID | DelegateRef
+# This is to allow us potentially switching up the intention of Val in the main
+# user namespace
+WrappedValue = Val
+
+AllIDs = WishID | EternalUID | DelegateRef | WrappedValue
 
 NamedAny = ValueType[Any] & Is[_ops.absorbed | _ops.length | _ops.greater_than[0]]
 def delayed_check_namedz(x):
@@ -126,9 +130,6 @@ UserWishID = WishID | ExtraUserAllowedIDs
 PrimitiveValue = _alias(Int | String | Float | Bool | Time | Enum | QuantityInt | QuantityFloat,
                        "PrimitiveValue")
 #ScalarValue = | SerializedValue
-# This is to allow us potentially switching up the intention of Val in the main
-# user namespace
-WrappedValue = Val
 
 # This is to work around deprecation issues
 PureET = ValueType & ET
