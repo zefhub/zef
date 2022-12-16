@@ -127,7 +127,7 @@ ExtraUserAllowedIDs = NamedZ | NamedAny
 
 UserWishID = WishID | ExtraUserAllowedIDs
 
-PrimitiveValue = _alias(Int | String | Float | Bool | Time | Enum | QuantityInt | QuantityFloat,
+PrimitiveValue = _alias(PyInt | String | PyFloat | PyBool | Time | Enum | QuantityInt | QuantityFloat,
                        "PrimitiveValue")
 #ScalarValue = | SerializedValue
 

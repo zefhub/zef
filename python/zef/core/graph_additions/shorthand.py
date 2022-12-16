@@ -146,6 +146,8 @@ def unpack_receipt(template, receipt, gs):
     if isinstance(template, List):
         return tuple((unpack_receipt(el, receipt, gs) for el in template))
     if isinstance(template, WishID):
+        if isinstance(template, Variable) and isinstance(template.name, OriginallyUserID):
+            template = template.name.obj
         return receipt[template]
     if isinstance(template, EternalUID):
         from ..graph_slice import get_instance_rae
