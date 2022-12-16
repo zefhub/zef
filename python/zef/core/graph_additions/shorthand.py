@@ -39,7 +39,7 @@ main.Graph.__ror__ = dispatch_ror_graph
 
 
 def encode_cmd(obj, gen_id_state: GenIDState):
-    from .wish_interpretation import tagging_rules as default_rules
+    from .wish_tagging import tagging_rules as default_rules
 
     all_ensure_tag_types = Union[tuple(default_rules | map[first] | collect)]
 

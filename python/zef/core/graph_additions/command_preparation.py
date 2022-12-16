@@ -34,7 +34,7 @@ def dispatch_preparation(cmd, gs, context):
 # existing object. They can use the same code for final application.
 def prepare_obj_notation(cmd, gs, context):
     gen_id_state = context["gen_id_state"]
-    from .wish_interpretation import ensure_tag, Taggable
+    from .wish_tagging import ensure_tag, Taggable
 
     cmds = []
 

@@ -15,11 +15,8 @@
 from ... import report_import
 report_import("zef.core.graph_additions.wish_translation")
 
-from .types import *
 from .common import *
-
-from ..zef_functions import func
-
+from .wish_tagging import Taggable, ensure_tag
 
 ##########################################
 # * Level 2 generation
@@ -305,114 +302,3 @@ default_interpretation_rules = [
     (OldStyleDict, OS_lvl2cmds_for_dict),
     (OldStyleRelationTriple, OS_lvl2cmds_for_relation_triple),
 ]
-
-##############################
-# * Utils
-#----------------------------
-
-Taggable = Dict | EntityValueInstance | PureET | RelationTriple | PrimitiveValue | WrappedValue | Atom | WishID
-
-def ensure_tag(obj: Taggable, gen_id_state: GenIDState) -> Tuple[Taggable, WishID, GenIDState]:
-
-    return (obj, gen_id_state) | match_rules[[
-        *tagging_rules,
-        (Any, not_implemented_error["Don't know how to ensure a tag for object"]),
-    ]] | collect
-
-
-def ensure_tag_EVI(obj, gen_id_state):
-    obj = ObjectInstance(obj)
-    return ensure_tag_OI(obj, gen_id_state)
-
-def ensure_tag_OI(obj, gen_id_state):
-    if len(obj._args) >= 2:
-        raise Exception("ObjectInstance with more than two labels can't be handled at the moment")
-    maybe_id = None if len(obj._args) == 0 else obj._args[0] 
-
-    if maybe_id is not None:
-        me = force_as_id(maybe_id)
-    else:
-        # Add a generated ID on
-        me,gen_id_state = gen_internal_id(gen_id_state)
-
-    if me != maybe_id:
-        args = obj._args
-        if maybe_id is not None:
-            # Drop the old id
-            args = args[1:]
-        obj = ObjectInstance(obj._type, me, *args, **obj._kwargs)
-
-    return obj,me,gen_id_state
-
-def ensure_tag_primitive(obj, gen_id_state):
-    obj = convert_scalar(obj)
-    me,gen_id_state = gen_internal_id(gen_id_state)
-    # Create new AETWithValue with the id included.
-    obj = obj._get_type()(obj._value | insert["internal_ids"][[me]] | collect)
-    return obj,me,gen_id_state
-
-def ensure_tag_aet(obj: AETWithValue, gen_id_state):
-    if "internal_ids" in obj and len(obj.internal_ids) > 0:
-        me = obj.internal_ids[0]
-    else:
-        me,gen_id_state = gen_internal_id(gen_id_state)
-        # Create new AETWithValue with the id included.
-        obj = obj._get_type()(obj._value | insert["internal_ids"][[me]] | collect)
-    return obj,me,gen_id_state
-
-def ensure_tag_pure_et_aet(obj, gen_id_state):
-    names = names_of_raet(obj)
-    if len(names) == 0:
-        me,gen_id_state = gen_internal_id(gen_id_state)
-        obj = obj[me]
-    else:
-        me = names[0]
-    return obj,me,gen_id_state
-
-def ensure_tag_delegate(obj, gen_id_state):
-    obj = to_delegate(obj)
-    return obj,obj,gen_id_state
-
-def ensure_tag_assign(obj: PleaseAssign, gen_id_state):
-    return obj, force_as_id(obj.target), gen_id_state
-
-def ensure_tag_OS_dict(obj: OldStyleDict, gen_id_state):
-    main_obj = single(obj.keys())
-    main_obj,obj_id,gen_id_state = ensure_tag(main_obj, gen_id_state)
-    obj = {main_obj: single(obj.values())}
-    return obj,obj_id,gen_id_state
-
-def ensure_tag_rae_ref(obj: RAERef, gen_id_state):
-    return obj,origin_uid(obj),gen_id_state
-
-def ensure_tag_blob_ptr(obj: BlobPtr, gen_id_state):
-    obj = discard_frame(obj)
-    # BlobPtrs could be RAEs or other things like value nodes/delegates/txs, so
-    # pass this back through to ensure_tag to dispatch on the right thing.
-    return ensure_tag(obj, gen_id_state)
-    # return obj,origin_uid(obj),gen_id_state
-
-def ensure_tag_pass_through(obj, gen_id_state):
-    return obj,obj,gen_id_state
-
-def ensure_tag_extra_user_id(obj: ExtraUserAllowedIDs, gen_id_state):
-    obj = convert_extra_allowed_id(obj)
-    return obj,obj,gen_id_state
-
-
-tagging_rules = [
-    (EntityValueInstance, ensure_tag_EVI),
-    (ObjectInstance, ensure_tag_OI),
-    (PrimitiveValue, ensure_tag_primitive),
-    (AETWithValue, ensure_tag_aet),
-    (PureET | PureAET, ensure_tag_pure_et_aet),
-    (Delegate, ensure_tag_delegate),
-    (PleaseAssign, ensure_tag_assign),
-    (RAERef, ensure_tag_rae_ref),
-    (BlobPtr, ensure_tag_blob_ptr),
-    (OldStyleDict, ensure_tag_OS_dict),
-    (WrappedValue, ensure_tag_pass_through),
-    (AllIDs, ensure_tag_pass_through),
-    (ExtraUserAllowedIDs, ensure_tag_extra_user_id),
-]
-    
