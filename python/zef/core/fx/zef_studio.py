@@ -61,6 +61,7 @@ def make_cellet_value(obj):
             "id": uid(obj),
             "label": label,
             "etType": str(rae_type(obj)),
+            "color": et_color(rae_type(obj)) #TODOOOO
         }
 
 def make_individual_value(obj):
@@ -267,14 +268,17 @@ def get_atom(query_args):
 
     return {
         "id": atom_id,
+        "color": et_color(atom_type),
         "atomType": str(atom_type),
         "fields": atom_fields(atom),
         "events": atom_events(atom),
     }
 
-    
 
-
+def et_color(et):
+    from zef.core.colors import colors
+    idx =  hash(et) % len(colors)
+    return list(colors.values())[idx].upper()
 
 #-------------------------------------------------------------
 #-------------------Schema String-------------------------------
@@ -301,6 +305,7 @@ input AssignValueIDs {
 
 type Atom {
 	id: ID!
+    color: String
 	atomType: String    
 	fields:  [Field]
 	events: [Event]
@@ -358,6 +363,7 @@ type CellET implements Cell{
 id: ID!
 label: String
 etType: String
+color: String
 }
 
 type CellZef implements Cell{
@@ -445,8 +451,10 @@ def studio_start_server_handler(eff: Dict):
             "type": FX.GraphQL.StartServer,
             "schema_dict" : schema_dict,
             "g" :  Graph(),
-            "port" :  random_port, 
-            "path" :  "/graphql", 
+            "port" :  5002, 
+            "path" :  "/gql", 
+            "playground_path": "/",
+            "open_browser": True 
          } | run
 
          server_zr = now(g_process[http_r['server_uuid']])
