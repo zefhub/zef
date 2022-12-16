@@ -155,6 +155,14 @@ def cull_assign(cmd: PleaseAssign, gs):
 
     return [cmd], {}
 
+def distinguish_assign(cmd: PleaseAssign) -> Tuple[PleaseAssign, List[AllIDs]]:
+    if isinstance(cmd.target, AttributeEntityRef):
+        name = origin_uid(cmd.target)
+    else:
+        name = cmd.target
+    return cmd, [name]
+
+
 #########
 # ** PleaseTerminate
 
@@ -204,14 +212,6 @@ def relabel_just_target(cmd, aliases: AliasDict):
     d = d | insert["target"][lookup_alias(d["target"], aliases)] | collect
 
     return cmd._get_type()(d)
-
-
-def distinguish_assign(cmd: PleaseAssign) -> Tuple[PleaseAssign, List[AllIDs]]:
-    if isinstance(cmd.target, AttributeEntityRef):
-        name = origin_uid(cmd.target)
-    else:
-        name = cmd.target
-    return cmd, [name]
 
 def distinguish_has_target(cmd):
     return cmd, [cmd.target]

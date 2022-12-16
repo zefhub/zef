@@ -33,9 +33,7 @@ __all__ = [
     "PleaseBeTarget",
     "PleaseAlias",
 
-    # "PleaseInstantiateDistinguishable",
     "ResolvedVariableDict",
-    # "PleaseCommandLevel1Distinguishable",
 
     "PleaseRun",
     "PleaseCommandLevel2",
@@ -81,7 +79,6 @@ __all__ = [
 #   with factory code to generate ValueTypes.
 # - See the opposites of the Pros.
 
-# from .common import *
 from ..VT import *
 from ..VT import make_VT
 from .. import _ops
@@ -129,7 +126,6 @@ UserWishID = WishID | ExtraUserAllowedIDs
 
 PrimitiveValue = _alias(PyInt | String | PyFloat | PyBool | Time | Enum | QuantityInt | QuantityFloat,
                        "PrimitiveValue")
-#ScalarValue = | SerializedValue
 
 # This is to work around deprecation issues
 PureET = ValueType & ET
@@ -212,8 +208,15 @@ PleaseAlias = UserValueType("PleaseAlias",
                             Dict,
                             Pattern[{"ids": List[AllIDs]}])
 
-PleaseCommandLevel1 = _alias(PleaseInstantiate | PleaseAssign | PleaseTerminate | PleaseTag | PleaseMustLive | PleaseBeSource | PleaseBeTarget | PleaseAlias,
-                                 "PleaseCommandLevel1")
+PleaseCommandLevel1 = _alias(PleaseInstantiate
+                             | PleaseAssign
+                             | PleaseTerminate
+                             | PleaseTag
+                             | PleaseMustLive
+                             | PleaseBeSource
+                             | PleaseBeTarget
+                             | PleaseAlias,
+                             "PleaseCommandLevel1")
 
 
 
@@ -248,19 +251,9 @@ PleaseRun = UserValueType("PleaseRun",
                           Dict,
                           Pattern[{"action": LazyValue | ZefOp | ZExpression}])
 
-# # Note: PleaseMerge can be replaced by a PleaseInstantiate in all cases in which
-# # it is valid. However, this allows us to write down cases which are not valid
-# # (e.g. a relation which has a source and there's not enough information to
-# # include that in the merge)
-# PleaseMerge = UserValueType("PleaseMerge",
-#                             Dict,
-#                             Pattern[{"target": AtomRef,
-#                                      "internal_ids": List[WishID]}])
+ObjectNotation = EntityValueInstance | ObjectInstance
 
-# TODO: More specific allowed actions... but this should probably come under the
-# different runtime interpretation of zefops.
-
-PleaseCommandLevel2 = _alias(PleaseCommandLevel1 | PleaseRun,
+PleaseCommandLevel2 = _alias(PleaseCommandLevel1 | PleaseRun | ObjectNotation,
                                  "PleaseCommandLevel2")
 Level2CommandInfo = UserValueType("Level2CommandInfo",
                                   Dict,
@@ -276,9 +269,6 @@ Level2CommandInfo = UserValueType("Level2CommandInfo",
 # flexible, which is converted to level 2 commands in order to transmit to the
 # transactor.
 
-# These will be translated directly to 1+ Please* commands
-# TODO:
-ObjectNotation = EntityValueInstance | ObjectInstance
 # RelationTriple = _alias(Tuple[UserWishID | Atom | PrimitiveValue,
 #                                   PureRT,
 #                                   UserWishID | Atom | PrimitiveValue],
@@ -320,7 +310,7 @@ GraphWishValue = _alias(PrimitiveValue | WrappedValue, "GraphWishValue")
 
 # This is a declaration of *always* instantiating a new AE with the given AET
 # and initializing it with a value. It primarily exists for internal use at the
-# lvl2 phase, although there's no reason a user could write this.
+# lvl2 phase, although there's no reason a user couldn't also write this.
 AETWithValue = UserValueType("AETWithValue",
                              Dict,
                              Pattern[{"aet": PureAET,
@@ -337,7 +327,6 @@ OldStyleDict = Dict[UserWishID | PureET | RAE][Dict[PureRT][Any]] & Is[_ops.leng
 GraphWishInputSimple = _alias(
     LazyValue
     | SymbolicExpression
-    | ObjectNotation
     | RelationTriple
     | OldStyleRelationTriple
     | GraphWishValue
@@ -351,11 +340,7 @@ GraphWishInputSimple = _alias(
     "GraphWishInputSimple"
 )
 
-GraphWishInput = _alias(PleaseCommandLevel2 | GraphWishInputSimple
-                            # UGLY! This is needed here but do we really want it? Should actually be DictSyntax anyway...
-                            | Dict
-                            ,
-                            "GraphWishInput")
-# GraphWishInput = List[GraphWishInputSingle] | GraphWishInputSingle
+GraphWishInput = _alias(PleaseCommandLevel2 | GraphWishInputSimple,
+                        "GraphWishInput")
 
-GraphWishReceipt = Dict[WishID|EternalUID][AtomRef]
+GraphWishReceipt = Dict[AllIDs][AtomRef]

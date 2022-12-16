@@ -32,6 +32,7 @@ def get_uvt_type(uvi: UserValueInstance):
     from ..user_value_type import _user_value_type_registry
     return _user_value_type_registry[uvi._user_type_id]
 
+# TODO: This needs to be turned into a UVT.
 from dataclasses import dataclass
 @dataclass(frozen=True)
 class OriginallyUserID:
