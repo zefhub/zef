@@ -1899,7 +1899,7 @@ def contained_in_tp(x_tp, el_tp):
 
 
 #---------------------------------------- all -----------------------------------------------
-@func
+# @func
 def all_imp(*args):
     """
     The all op has two different behaviours:
