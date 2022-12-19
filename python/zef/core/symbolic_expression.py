@@ -91,7 +91,7 @@ Query[
 """
 
 
-from .VT import FlatGraph, Pattern, Any, SetOf, Val, ET, RT, AET
+from .VT import FlatGraph, Pattern, Any, SetOf, Val, ET, RT, AET, make_VT
 from ._ops import match, collect, insert, split, get, filter, map
 from .zef_functions import func
 
@@ -145,9 +145,6 @@ class SymbolicExpression_:
         if self.root_node is not None:
             raise RuntimeError("a composite SymbolicExpression cannot absorb a value")
         return SymbolicExpression_(name=self.name)
-
-    def __getattr__(self, other):
-        return compose_se(ET.Dot, self, other)
 
     def __add__(self, other):
         return compose_se(ET.Add, self, other)
@@ -239,6 +236,60 @@ class SymbolicExpression_:
     def __rpow__(self, other):
         return compose_se(ET.Power, other, self)
 
+    # These ops have some special logic in them to decide whether to do SE
+    # things or mimic regular python behaviour.
+    def __getattr__(self, other):
+        if other.startswith("_"):
+            return object.__getattribute__(self, other)
+        return compose_se(ET.Dot, self, other)
+
+    def __dir__(self):
+        return []
+
+    def __bool__(self):
+        # This should only be called in tests for equality inside of containers,
+        # such as [V.A] == [V.B]. In which case we do a comparison based on names of objects.
+
+        # We fallback to the traditional python response of "True" for any "existing" object
+        if isinstance(self.root_node, ET.Equals | ET.NotEquals):
+            from ._ops import Out, value, rae_type
+            from .VT import BT
+            arg1 = self.root_node | Out[RT.Arg1] | collect
+            arg2 = self.root_node | Out[RT.Arg2] | collect
+            # TODO: Fix this up when type changes from a string
+            if rae_type(arg1) != BT.VALUE_NODE:
+                raise Exception("Don't know how to understand LHS of ==")
+            if rae_type(arg2) != BT.VALUE_NODE:
+                raise Exception("Don't know how to understand RHS of ==")
+
+            op = self.root_node
+            if isinstance(op, ET.Equals):
+                return is_equal_no_SE_compose(value(arg1), value(arg2))
+            elif isinstance(op, ET.NotEquals):
+                return not is_equal_no_SE_compose(value(arg1), value(arg2))
+            else:
+                raise Exception(f"Don't know what to do with op: {op}")
+
+        raise Exception("Disallowing arbitrary implicit bool conversion of SymbolicExpression to avoid hidden bugs. Only V.x == V.y allowed.")
+        return True
+
+
+def is_equal_no_SE_compose(a, b):
+    from .VT import LazyValue
+    if isinstance(a, LazyValue):
+        a = collect(a)
+    if isinstance(b, LazyValue):
+        b = collect(b)
+    if isinstance(a, SymbolicExpression_) or isinstance(b, SymbolicExpression_):
+        if type(a) != type(b):
+            return False
+        # a and b must both be SEs at this point
+
+        # TODO: Need to see if the flatgraphs are isomorphic really. For now,
+        # just see if they are identical. This will work for simple variables
+        # only (they have root_node = None) or the same object, i.e. x == x.
+        return a.name == b.name and a.root_node == b.root_node
+    return a == b
 
 
 def SV(name: str):
@@ -339,4 +390,4 @@ class VExpression_():
 # V.x2 instead of SV('x2')
 V = VExpression_()
 
-
+SymbolicExpression = make_VT("SymbolicExpression", pytype=SymbolicExpression_)

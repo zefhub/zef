@@ -346,14 +346,8 @@ class ZefOp_:
         
 
     def __lshift__(self, other):
-        # if isinstance(other, TraversableABC):
-        #     return ZefOp( (*self.el_ops, (internals.RT.InInOld, (other, ))) )
-        if is_valid_LorO_op(other):
-            return ZefOp( (*self.el_ops, *unpack_ops(internals.RT.InInOld, other.el_ops)))
-        if is_tmpzefop(other):
-            return ZefOp( (*self.el_ops, *unpack_tmpzefop(internals.RT.InInOld, other.el_ops))) 
-        raise TypeError(f'Unexpected type in "ZefOp << ..." expression. Only an RT or L[RT] makes sense here. It was called with {other} of type {type(other)}' )
-        
+        from ._ops import assign
+        return self | assign[other]
 
     def __rshift__(self, other):
         # if isinstance(other, TraversableABC):
@@ -457,6 +451,9 @@ class ZefOp_:
             if len(args) > 1: extra = args[1:]
             else: extra = []
             return _op_to_functions[self.el_ops[0][0]][0](args[0], *self.el_ops[0][1], *extra, **kwargs)
+
+        if len(kwargs) > 0:
+            raise NotImplementedError("A ZefOp was called with kwargs.")
 
         # now()
         if len(self.el_ops) == 1 and len(args) == 0:
@@ -881,7 +878,7 @@ class SubscribingOp:
         return new_op
 
 
-class LazyValue:
+class LazyValue_:
     def __init__(self, arg):
         # if type(arg) == LazyValue:
         #     # Create a copy
@@ -997,7 +994,8 @@ class LazyValue:
     # For avoiding common mistakes
     def __eq__(self, other):
         if isinstance(other, LazyValue):
-            return self.initial_val == other.initial_val and self.el_ops == other.el_ops
+            from .symbolic_expression import SymbolicExpression, compose_se
+            return compose_se(ET.Equals, self, other)
 
         import logging
         logging.warning("A LazyValue has been compared with == or !=. This is likely a mistake, and requires an additional '| collect'")
@@ -1228,16 +1226,37 @@ class LazyValue:
                 e = add_error_context(e, {"frames": e.frames,} )
                 raise e 
 
+def lazyvalue_is_a(x, typ):
+    # TODO: Proper version
+    from .VT.helpers import remove_names, absorbed
+    items = remove_names(absorbed(typ))
+    if len(items) >= 3:
+        raise Exception(f"LazyValue type cannot have more than 2 items absorbed, found {items}")
+    init_value_type = items[0] if (len(items) >= 1) else None
+    zefop_type = items[1] if (len(items) >= 2) else None
+    if not isinstance(x, LazyValue_):
+        return False
+    if init_value_type is not None:
+        if not isinstance(x.initial_val, init_value_type):
+            return False
+    if zefop_type is not None:
+        if not isinstance(x.el_ops, zefop_type):
+            return False
+    return True
+LazyValue = make_VT("LazyValue",
+                pytype=LazyValue_,
+                is_a_func=lazyvalue_is_a)
+
 # Monkey patching for some handy warnings
-from .VT.value_type import ValueType_
-old_ValueType_instancecheck = ValueType_.__instancecheck__
-def warning_ValueType_instancecheck(self, instance):
-    if type(instance) == LazyValue and self._d["type_name"] != "LazyValue":
-        import traceback
-        traceback.print_stack()
-        raise Exception("Checking whether a LazyValue is a particular ValueType directly with isinstance will always fail. Use is_a instead, which will handle LazyValues.")
-    return old_ValueType_instancecheck(self, instance)
-ValueType_.__instancecheck__ = warning_ValueType_instancecheck
+# from .VT.value_type import ValueType_
+# old_ValueType_instancecheck = ValueType_.__instancecheck__
+# def warning_ValueType_instancecheck(self, instance):
+#     if type(instance) == LazyValue_ and self._d["type_name"] != "LazyValue":
+#         import traceback
+#         traceback.print_stack()
+#         raise Exception("Checking whether a LazyValue is a particular ValueType directly with isinstance will always fail. Use is_a instead, which will handle LazyValues.")
+#     return old_ValueType_instancecheck(self, instance)
+# ValueType_.__instancecheck__ = warning_ValueType_instancecheck
 
 # Perform type checking when an error occurs
 def type_checking_context(op, function, inp):

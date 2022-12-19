@@ -116,11 +116,15 @@ def UVT_ctor(self, *args, **kwargs):
 
         # check whether the constraints are satisfied
         if not isinstance(cast_val, self._d["constraints"]):
-            raise Exception(f"UserValueType(name={self._d['name']}) constraint ({self._d['constraints']}) does not match")
+            raise Exception(f"UserValueType(name={self._d['name']}) constraint ({self._d['constraints']}) does not match for value ({cast_val})")
         
         return UserValueInstance(self._d["user_type_id"], cast_val)
     else:
-        name, representation_type, constraints = args
+        name, representation_type, = args[:2]
+        if len(args) >= 3:
+            constraints = args[2]
+        else:
+            constraints = representation_type
         allowed_keys = {"forced_uid", "object_methods"}
         assert all(x in allowed_keys for x in kwargs)
         the_uid = kwargs.get("forced_uid", None)
@@ -143,7 +147,8 @@ def UVT_ctor(self, *args, **kwargs):
 
 def UVT_str(self):
     if "name" in self._d:
-        return f"UserValueType(name={self._d['name']}, representation_type={self._d['representation_type']}, constraints={self._d['constraints']})"
+        # return f"UserValueType(name={self._d['name']}, representation_type={self._d['representation_type']}, constraints={self._d['constraints']})"
+        return self._d['name']
     else:
         return "UserValueType"
 

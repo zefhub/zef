@@ -220,8 +220,12 @@ def identify_and_merge_step(obj, idx_to_obj, identification_rules):
 def deduplicate(obj_or_list, identification_rules: Dict) -> List[object]:
     idx_to_obj = {}
     if isinstance(obj_or_list, list):
+        # clone the objects
+        obj_or_list = [obj.clone() for obj in obj_or_list]
         obj_or_list | for_each[create_idx_to_obj_d[idx_to_obj]]
     else:
+        # clone the object
+        obj_or_list = obj_or_list.clone()
         create_idx_to_obj_d(obj_or_list, idx_to_obj)
     LazyValue(obj_or_list) | iterate[identify_and_merge_step[idx_to_obj][identification_rules]]  | take_while[lambda x: x]  | collect
     return list(idx_to_obj.values())
@@ -239,7 +243,7 @@ def generate_id_to_objs(obj, idx_to_objs):
 
     if not isinstance(obj, EntityValueInstance_): return
     
-    idx_to_objs[get_et_id(obj._entity_type)].append(obj)
+    idx_to_objs[get_et_id(obj._entity_type)].add(obj)
     obj._kwargs | items | map[lambda t: traverse_nested(t[1])] | collect
    
     return idx_to_objs
@@ -274,9 +278,18 @@ def flatten_all_types(objs_list):
 
 
 def identify_entities(obj_list: List[object], entity_identification_rules: Dict, gs: GraphSlice) -> List[object]:
+    assert isinstance(obj_list, list), f"identify_entities expects a list of objects but got: {obj_list}"
     from collections import defaultdict
-    idx_to_objs = defaultdict(list)
-    obj_list = flatten_all_types(obj_list) # Doing this step here incase deduplicate wasn't run
+    idx_to_objs = defaultdict(set)
+    
+    # Clone all objects
+    obj_list = [obj.clone() for obj in obj_list]
+
+    # Generate id to objects mapping
     obj_list | for_each[generate_id_to_objs[idx_to_objs]]
+
+    # Flatten all objects
+    obj_list = concat([v for v in idx_to_objs.values()])
+
     match_with_entity_and_replace_step(obj_list, idx_to_objs, entity_identification_rules, gs)
-    return obj_list
+    return list(set(obj_list))

@@ -89,7 +89,27 @@ class GraphSlice_:
         return hash(self.tx)
 
     def __getitem__(self, thing):
-        from ._ops import in_frame, uid, collect
+        from ._ops import in_frame, uid, collect, to_delegate, exists_at
+        from . import internals
+
+        from .VT import Delegate
+        if isinstance(thing, Delegate):
+            # In case thing is a BlobPtr, convert it to DelegateRef first
+            d = to_delegate(thing)
+            maybe_z = to_delegate(d, self)
+            if maybe_z is None:
+                raise KeyError(f"Delegate {thing} not present in this timeslice")
+            return maybe_z
+
+        from .VT import Val
+        if isinstance(thing, Val):
+            val = internals.val_as_serialized_if_necessary(thing)
+            maybe_z = Graph(self.tx).get_value_node(val)
+            if maybe_z is None:
+                raise KeyError(f"ValueNode {thing} doesn't exist on graph") 
+            if not maybe_z | exists_at[self] | collect:
+                raise KeyError(f"ValueNode {thing} isn't alive in this timeslice") 
+            return maybe_z | in_frame[self] | collect
         
         g = Graph(self.tx)
         ezr = g[thing]
@@ -105,10 +125,27 @@ class GraphSlice_:
             return ezr | in_frame[GraphSlice(self.tx)] | collect
 
     def __contains__(self, thing):
-        from ._ops import exists_at, uid, collect
+        from ._ops import exists_at, uid, collect, to_delegate
+        from . import internals
 
         if isinstance(thing, (EntityRef, AttributeEntityRef, RelationRef)):
             return get_instance_rae(uid(thing), self) is not None
+
+        from .VT import Delegate
+        if isinstance(thing, Delegate):
+            # In case thing is a BlobPtr, convert it to DelegateRef first
+            d = to_delegate(thing)
+            maybe_z = to_delegate(d, self)
+            return maybe_z is not None
+
+        from .VT import Val
+        if isinstance(thing, Val):
+            val = internals.val_as_serialized_if_necessary(thing)
+            maybe_z = Graph(self.tx).get_value_node(val)
+            if maybe_z is None:
+                return False
+            return maybe_z | exists_at[self] | collect
+            
 
         g = Graph(self.tx)
         if thing not in g:

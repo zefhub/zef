@@ -85,6 +85,7 @@ from ...pyzef.internals import (
     get_enum_value_from_string,
     get_graph_revision_info,
     get_latest_complete_tx_node,
+    get_loaded_graph,
     get_local_process_graph,
     graph_as_UpdatePayload,
     gtd_info_str,
@@ -242,6 +243,13 @@ def assign_value_imp(z, value):
         print(f"There was an exception in the c call for assign value. z={z} and value={value} and aet={aet}")
         raise
 
+def val_as_serialized_if_necessary(val):
+    from .. import VT
+    PrimitiveValue = VT.Int | VT.String | VT.Float | VT.Bool | VT.Time | VT.Enum | VT.QuantityInt | VT.QuantityFloat
+
+    if not isinstance(val.arg, PrimitiveValue):
+        return SerializedValue.serialize(val.arg)
+    return val.arg
 
 def instantiate_value_node_imp(value, g):
     from ...pyzef.zefops import SerializedValue
@@ -287,3 +295,14 @@ class Val_:
     def __hash__(self):
         from ..VT.value_type import hash_frozen
         return hash_frozen(("Val_", self.arg, self.iid))
+
+def is_transactor(glike): #: Graph | GraphRef):
+    if isinstance(glike, Graph):
+        return glike.graph_data.is_primary_instance
+    elif isinstance(glike, GraphRef):
+        g = get_loaded_graph(glike)
+        if g is None:
+            return False
+        return is_transactor(g)
+    else:
+        raise Exception("Shoudln't get here")

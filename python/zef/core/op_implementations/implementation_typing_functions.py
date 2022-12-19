@@ -1945,7 +1945,7 @@ def all_imp(*args):
         (FlatGraph, lambda _: fg_all_imp(*args)),
         (ZefRef & ET.ZEF_List, lambda _: zef_list_all_imp(*args)),
         (GraphSlice, lambda _: graphslice_all_imp(*args)),
-        (Graph, lambda _: all_imp(*args)),
+        (Graph, lambda _: graph_all_imp(*args)),
         (ZefRef, lambda _: delegate_zefref_all_imp(subject)),
         (Any, lambda _: other_all_imp(*args)),
     ](subject)
@@ -3375,10 +3375,15 @@ def scan_implementation(iterable, fct, initial_val=None):
     ---- Signature ----    
     (List[T1], ((T2, T1)->T2), T2)  ->  List[T2]
     """
-    return ZefGenerator(lambda: itertools.accumulate(iterable, fct, initial=initial_val))
+    import sys
+    if sys.version_info.minor >= 8:
+        return ZefGenerator(lambda: itertools.accumulate(iterable, fct, initial=initial_val))
+    else:
+        if initial_val is None:
+            return ZefGenerator(lambda: itertools.accumulate(iterable, fct))
 
-
-
+        combined = prepend_imp(iterable, initial_val)
+        return scan_implementation(combined, fct)
 
 def scan_type_info(op, curr_type):
     func = op[1][0]
@@ -5547,9 +5552,10 @@ def map_implementation(v, f):
 # -------------------------------- reduce -------------------------------------------------
  
 
-def reduce_implementation(iterable, fct, init):
-    import functools
-    return functools.reduce(fct, iterable, init)
+def reduce_implementation(iterable, fct, init=None):
+    # import functools
+    # return functools.reduce(fct, iterable, init)
+    return last(scan_implementation(iterable, fct, init))
 
 
 
@@ -6772,23 +6778,26 @@ def relations_implementation(z, *args):
         return pyzefops.relations(z1, internals.get_c_token(rt), z2)
 
 def rae_type_implementation(z):
-    if isinstance(z, EntityRef):
+    if isinstance(z, RAERef):
         return z.d["type"]
-    if isinstance(z, RelationRef):
-        return z.d["type"]
-    if isinstance(z, AttributeEntityRef):
-        return z.d["type"]
-    # return pymain.rae_type(z)
-    c_rae = pymain.rae_type(z)
-    if isinstance(c_rae, internals.EntityType):
-        return ET[c_rae]
-    if isinstance(c_rae, internals.RelationType):
-        return RT[c_rae]
-    if isinstance(c_rae, internals.AttributeEntityType):
-        return AET[c_rae]
-    if isinstance(c_rae, internals.ValueRepType):
-        return VRT[c_rae]
-    raise Exception(f"Don't know how to recast {c_rae}")
+
+    elif isinstance(z, FlatRef):
+        from ..flat_graph import FlatRef_rae_type
+        return FlatRef_rae_type(z)
+
+    elif isinstance(z, BlobPtr):
+        c_rae = pymain.rae_type(z)
+        if isinstance(c_rae, internals.EntityType):
+            return ET[c_rae]
+        if isinstance(c_rae, internals.RelationType):
+            return RT[c_rae]
+        if isinstance(c_rae, internals.AttributeEntityType):
+            return AET[c_rae]
+        if isinstance(c_rae, internals.ValueRepType):
+            return VRT[c_rae]
+        raise Exception(f"Don't know how to recast {c_rae}")
+
+    raise Exception(f"Don't know how to get rae_type from {z}")
 
 def abstract_type_implementation(z):
     # This is basically rae_type, but also including TXNode and Root
@@ -9113,6 +9122,9 @@ def field_imp(z, rt):
     if isinstance(z, list) or isinstance(z, tuple):
         return [field(zz, rt) for zz in z]
 
+    if isinstance(z, EntityValueInstance):
+        return z._kwargs[token_name(rt)]
+
     raise TypeError(f"Field operator not implemented for type(z)={type(z)}    z={z}")
 
 
@@ -9608,11 +9620,11 @@ def gather_imp(initial: List[ZefRef | EZefRef] | ZefRef, rules, max_step = float
     # --------------------------------- verify the rules data structure-------------------------------
     # TODO: once type checking is in place, hoist this out of the body into the function signature
     ValidTriple    = Tuple & Is[length | equals[3]]
-    ValidRuleList  = List & Is[ map[is_a[ValidTriple]] | all  ] 
-    ValidRulesDict = Dict & (
-        (Is[contains['from_source']] & Is[get['from_source'] | is_a[ValidRuleList]]) | 
-        (Is[contains['from_target']] & Is[get['from_target'] | is_a[ValidRuleList]])
-    )
+    ValidRuleList  = List[ValidTriple]
+    ValidRulesDict = Pattern[{
+        Optional["from_source"]: ValidRuleList,
+        Optional["from_target"]: ValidRuleList,
+    }]
 
     if not rules | is_a[ValidRulesDict] | collect:
         return Error(f'`gather` called with an invalid set of rules: {rules}')
@@ -9941,12 +9953,12 @@ def to_object_imp(zr: ZefRef) -> UserValueType:
         if is_a(zr, AttributeEntity):
             return value(zr)
         elif is_a(zr, Entity):
-            return rae_type(zr)[str(uid(zr))]
+            return rae_type(zr)["㏈_" + str(uid(discard_frame(zr)))]
         else:
             return str(rae_type(zr))
     
     def extract_field_name(rt: ZefRef) -> str:
-        return str(rae_type(rt))[3:].lower()
+        return str(rae_type(rt))[3:]
 
     out_rts = zr | out_rels[RT] | collect
     targets_d = dict(out_rts | map[lambda rt:(extract_field_name(rt), extract_value(target(rt)))] | collect)

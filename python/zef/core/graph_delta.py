@@ -1003,7 +1003,7 @@ def realise_single_node(x, gen_id):
     elif isinstance(x, scalar_types):
         raise Exception("A value of type {type(x)} is not allowed to be given in a GraphDelta in the shorthand syntax as it is ambiguous. You might want to explicitly create an AET and assign, or a value node, or a custom AET.")
     elif isinstance(x, NamedZ):
-        iid = x.root_node.arg2
+        iid = x.root_node._kwargs["arg2"]
         # No expr to perform
         exprs = []
     elif isinstance(x, NamedAny):
@@ -1094,7 +1094,7 @@ def verify_and_compact_commands(cmds: tuple):
     state_final = (
         {"state": state_initial, "num_changed": -1}
         | iterate[resolve_dag_ordering_step] 
-        | (tap[make_debug_output()] if gd_timing else identity)
+        | (map[tap[make_debug_output()]] if gd_timing else identity)
         | take_until[lambda s: s["num_changed"] == 0]
         # | map[tap[print]]
         | last
@@ -1279,7 +1279,7 @@ def resolve_dag_ordering_step(arg: dict)->dict:
             'output': (*state['output'], *can),
             'known_ids': {*state['known_ids'], *(can | map[get_ids] | concat)},
         },
-        "num_changed": len(can) > 0
+        "num_changed": len(can)
     }
     
         
@@ -1445,7 +1445,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                         # Entity path
                         z_target = d_raes.get(cmd['target_id'], None)
                         if z_target is None:
-                            raise KeyError("set_field called with entity that is not known {cmd['target_id']}")
+                            raise KeyError(f"set_field called with entity that is not known {cmd['target_id']}")
 
                     rt = cmd['rt']
                     rt_token = internals.get_c_token(cmd['rt'])
