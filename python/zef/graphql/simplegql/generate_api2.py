@@ -1322,7 +1322,7 @@ def commit_with_post_checks(actions, post_checks, info):
                     if isinstance(obj, String):
                         obj = r[obj]
                     assert isinstance(obj, ZefRef)
-                    obj = obj | in_frame[g | now | collect][allow_tombstone] | collect
+                    obj = obj | to_frame[g | now | collect][allow_tombstone] | collect
 
                 if kind == "add":
                     for z_func in type_node | Outs[RT.OnCreate]:

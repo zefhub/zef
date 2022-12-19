@@ -1416,7 +1416,7 @@ def perform_transaction_commands(commands: list, g: Graph):
                         zz = instantiate(maybe_token, g)
                 
                 elif cmd['cmd'] == 'instantiate' and is_a(cmd['rae_type'], RT):
-                    zz = instantiate(to_ezefref(d_raes[cmd['source']]), internals.get_c_token(cmd['rae_type']), to_ezefref(d_raes[cmd['target']]), g) | in_frame[frame_now] | collect
+                    zz = instantiate(to_ezefref(d_raes[cmd['source']]), internals.get_c_token(cmd['rae_type']), to_ezefref(d_raes[cmd['target']]), g) | to_frame[frame_now] | collect
                 
                 elif cmd['cmd'] == 'assign':
                     this_id = cmd['internal_id']
@@ -1590,7 +1590,7 @@ def perform_transaction_commands(commands: list, g: Graph):
             d_raes['tx'] = None
 
             # Update all ZefRefs to be in the latest frame instead of the previously created tx.
-            reset_frame = in_frame[now(g)][allow_tombstone]
+            reset_frame = to_frame[now(g)][allow_tombstone]
             for key,val in d_raes.items():
                 if key == 'tx': continue
 
@@ -1706,11 +1706,11 @@ def most_recent_rae_on_graph_uidonly(origin_uid: str, g: Graph)->ZefRef|Nil:
         
     elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}:
         if zz | exists_at[now(g)] | collect:
-            return zz | in_frame[now(g)] | collect
+            return zz | to_frame[now(g)] | collect
         else:
             return None
     elif BT(zz) in {BT.ROOT_NODE, BT.TX_EVENT_NODE}:
-        return zz | in_frame[now(g)] | collect
+        return zz | to_frame[now(g)] | collect
     else:
         raise RuntimeError("Unexpected option in most_recent_rae_on_graph")
         

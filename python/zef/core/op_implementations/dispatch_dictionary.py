@@ -65,6 +65,7 @@ _op_to_functions = {
         internals.RT.PrecedingEvents: (preceding_events_imp, None),
         internals.RT.ToDelegate:      (to_delegate_implementation, to_delegate_type_info),
         internals.RT.DelegateOf:      (delegate_of_implementation, delegate_of_type_info),
+        internals.RT.IsBlueprintAtom: (is_blueprint_atom_imp, None),
         
         internals.RT.In:              (In_imp, None),
         internals.RT.Ins:             (Ins_imp, None),
@@ -98,7 +99,7 @@ _op_to_functions = {
         internals.RT.ExistsAt:        (exists_at_implementation, exists_at_type_info),
         internals.RT.AwareOf:         (aware_of_implementation, None),
         internals.RT.IsZefRefPromotable:(is_zefref_promotable_implementation, is_zefref_promotable_type_info),
-        internals.RT.InFrame:         (in_frame_imp, in_frame_tp),
+        internals.RT.ToFrame:         (to_frame_imp, to_frame_tp),
         internals.RT.ToGraphSlice:    (to_graph_slice_imp, to_graph_slice_tp),
         internals.RT.ToTx:            (to_tx_imp, to_tx_tp),
         internals.RT.TimeTravel:      (time_travel_imp, time_travel_tp),

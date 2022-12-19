@@ -322,7 +322,7 @@ def deserialize_dict(json_d):
 def deserialize_zeftypes(z) -> dict:
     if z['_zeftype'] == "ZefRef":
         g = Graph(z['guid'])
-        # Note: can't use in_frame here, because if the z itself is a TX, this will not behave correctly.
+        # Note: can't use to_frame here, because if the z itself is a TX, this will not behave correctly.
         return ZefRef(g[z['uid']], g[z['tx_uid']])
 
     elif z['_zeftype'] == "EZefRef":

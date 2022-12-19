@@ -40,10 +40,10 @@ def to_delegate_imp(first_arg, *curried_args):
         elif isinstance(curried_args[0], Graph):
             return d_ezr
         else:
-            from ._ops import in_frame, exists_at
+            from ._ops import to_frame, exists_at
             if not exists_at(d_ezr, curried_args[0]):
                 raise Exception("Delegate does not exist at given graph slice.")
-            return in_frame(d_ezr, curried_args[0])
+            return to_frame(d_ezr, curried_args[0])
 
     if isinstance(first_arg, ZefRef) or isinstance(first_arg, EZefRef):
         assert len(curried_args) == 0
@@ -64,7 +64,7 @@ def attempt_to_delegate(args):
 
 def delegate_of_imp(x, arg1=None, arg2=None):
     # TODO: Move implementation
-    from ._ops import in_frame, frame, collect
+    from ._ops import to_frame, frame, collect
 
     # TODO: Break this up and document
     if isinstance(x, EZefRef) or isinstance(x, ZefRef):
@@ -80,7 +80,7 @@ def delegate_of_imp(x, arg1=None, arg2=None):
         if z is None:
             return None
         if isinstance(x, ZefRef):
-            z = z | in_frame[frame(x)] | collect
+            z = z | to_frame[frame(x)] | collect
         return z
 
     if isinstance(x, DelegateRef):

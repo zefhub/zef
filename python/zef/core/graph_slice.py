@@ -89,7 +89,7 @@ class GraphSlice_:
         return hash(self.tx)
 
     def __getitem__(self, thing):
-        from ._ops import in_frame, uid, collect, to_delegate, exists_at
+        from ._ops import to_frame, uid, collect, to_delegate, exists_at
         from . import internals
 
         from .VT import Delegate
@@ -109,7 +109,7 @@ class GraphSlice_:
                 raise KeyError(f"ValueNode {thing} doesn't exist on graph") 
             if not maybe_z | exists_at[self] | collect:
                 raise KeyError(f"ValueNode {thing} isn't alive in this timeslice") 
-            return maybe_z | in_frame[self] | collect
+            return maybe_z | to_frame[self] | collect
         
         g = Graph(self.tx)
         ezr = g[thing]
@@ -122,7 +122,7 @@ class GraphSlice_:
             return res
 
         else:
-            return ezr | in_frame[GraphSlice(self.tx)] | collect
+            return ezr | to_frame[GraphSlice(self.tx)] | collect
 
     def __contains__(self, thing):
         from ._ops import exists_at, uid, collect, to_delegate
@@ -173,7 +173,7 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
         None: this graph knows nothing about this RAE
     """
     # TODO: Temporary imports while ops are moving around
-    from ._ops import map, target, exists_at, filter, collect, only, in_frame, Ins
+    from ._ops import map, target, exists_at, filter, collect, only, to_frame, Ins
     g = Graph(gs.tx)
     if origin_uid not in g:
         return None
@@ -184,7 +184,7 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
         if len(z_candidates) > 1:
             raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {origin_uid}")
         elif len(z_candidates) == 1:
-            return z_candidates | only | in_frame[gs] | collect
+            return z_candidates | only | to_frame[gs] | collect
         else:
             return None     # no instance alive at the moment
         

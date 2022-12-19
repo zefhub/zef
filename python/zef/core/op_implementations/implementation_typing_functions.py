@@ -4687,11 +4687,11 @@ def now_implementation(*args):
 
         if isinstance(args[0], ZefRef):
             z=args[0]
-            return z | in_frame[allow_tombstone][now(Graph(z))] | collect
+            return z | to_frame[allow_tombstone][now(Graph(z))] | collect
 
         if isinstance(args[0], EZefRef):
             z=args[0]
-            return z | in_frame[allow_tombstone][now(Graph(z))] | collect
+            return z | to_frame[allow_tombstone][now(Graph(z))] | collect
 
     raise TypeError(f'now called with unsuitable types: args={args}')
 
@@ -5039,16 +5039,16 @@ def frame_tp(x):
 
 
 # ----------------------------------------- to_frame --------------------------------------------
-def in_frame_imp(z, *args):
+def to_frame_imp(z, *args):
     """ 
     Represent a RAE in a specified reference frame.
     No changes are made to the graph and an error is returned if the operation is not possible,
 
-     - optional arguments: in_frame[allow_tombstone]
+     - optional arguments: to_frame[allow_tombstone]
 
     ---- Examples ----
-    >>> z | in_frame[my_graph_slice]                    # z: ZefRef changes the reference frame, also if z itself points to a tx
-    >>> z | in_frame[allow_tombstone][my_graph_slice]   # allow can opt in to represent RAEs that were terminated in a future state
+    >>> z | to_frame[my_graph_slice]                    # z: ZefRef changes the reference frame, also if z itself points to a tx
+    >>> z | to_frame[allow_tombstone][my_graph_slice]   # allow can opt in to represent RAEs that were terminated in a future state
 
     ---- Signature ----
     (ZefRef, GraphSlice)        -> Union[ZefRef, Error]
@@ -5056,7 +5056,8 @@ def in_frame_imp(z, *args):
     """
     # if one additional arg is passed in, it must be a frame
     if len(args)==1:
-        target_frame = args[0]
+        # if the reference frame is a lazy value, trigger evaluation
+        target_frame = args[0]() if isinstance(args[0], LazyValue) else args[0]
         tombstone_allowed = False
         assert isinstance(target_frame, GraphSlice)
 
@@ -5071,11 +5072,11 @@ def in_frame_imp(z, *args):
             target_frame = args[1]
             tombstone_allowed = True
         else:
-            raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone][my_gs] ")
+            raise RuntimeError("'to_frame' can only be called with ...| to_frame[my_gs]  or ... | to_frame[allow_tombstone][my_gs] ")
     else:
-        raise RuntimeError("'in_frame' can only be called with ...| in_frame[my_gs]  or ... | in_frame[allow_tombstone][my_gs] ")    
+        raise RuntimeError("'to_frame' can only be called with ...| to_frame[my_gs]  or ... | to_frame[allow_tombstone][my_gs] ")    
     if not (isinstance(z, ZefRef) or isinstance(z, EZefRef)):
-        raise NotImplementedError(f"No in_frame yet for type {type(z)}")
+        raise NotImplementedError(f"No to_frame yet for type {type(z)}")
     zz = to_ezefref(z)
     g_frame = Graph(target_frame)
     # z's origin lives in the frame graph
@@ -5111,7 +5112,7 @@ def in_frame_imp(z, *args):
 
 
 
-def in_frame_tp(op, curr_type):
+def to_frame_tp(op, curr_type):
     return VT.Any
 
 
@@ -5310,13 +5311,13 @@ def time_travel_imp(x, *args):
                 new_frame = Graph(x) | to_tx[p] | to_graph_slice | c
                 if new_frame is None:
                     raise RuntimeError(f"could not determine suitable reference frame / graph slice in x | time_travel[p] for x={x}  p={p}")
-                return (x | in_frame[allow_tombstone][new_frame] | c) if tombstone_allowed else (x | in_frame[new_frame] | c)
+                return (x | to_frame[allow_tombstone][new_frame] | c) if tombstone_allowed else (x | to_frame[new_frame] | c)
             elif is_duration(p):
                 t = (x | frame | time | c) + p
                 new_frame = Graph(x) | to_tx[t] | to_graph_slice | c
                 if new_frame is None:
                     raise RuntimeError(f"could not determine suitable reference frame / graph slice in x | time_travel[p] for x={x}  p={p}")
-                return (x | in_frame[allow_tombstone][new_frame] | c) if tombstone_allowed else (x | in_frame[new_frame] | c)
+                return (x | to_frame[allow_tombstone][new_frame] | c) if tombstone_allowed else (x | to_frame[new_frame] | c)
 
         if isinstance(x, GraphSlice):
             if isinstance(p, Int):
@@ -5334,7 +5335,7 @@ def time_travel_imp(x, *args):
                 new_frame = Graph(x) | to_tx[p] | to_graph_slice | c
                 if new_frame is None:
                     raise RuntimeError(f"could not determine suitable reference frame / graph slice in x | time_travel[p] for x={x}  p={p}")
-                return (x | in_frame[allow_tombstone][new_frame] | c) if tombstone_allowed else (x | in_frame[new_frame] | c)
+                return (x | to_frame[allow_tombstone][new_frame] | c) if tombstone_allowed else (x | to_frame[new_frame] | c)
         
         elif isinstance(x, Graph):        
             if isinstance(p, Time):
@@ -9065,7 +9066,7 @@ def blueprint_imp(x, include_edges=False):
                 # We need to be careful of the filtering here. Only RAEs (including delegates) can be used with exists_at.
                  | filter[satisfies]
                 # allow_tombstone is set here to bypass exists_at checking
-                 | map[in_frame[x][allow_tombstone]]
+                 | map[to_frame[x][allow_tombstone]]
                 | collect)
 
     return Error(f"Don't know how to handle type of {type(x)} in blueprint zefop")
@@ -9963,3 +9964,10 @@ def to_object_imp(zr: ZefRef) -> UserValueType:
     out_rts = zr | out_rels[RT] | collect
     targets_d = dict(out_rts | map[lambda rt:(extract_field_name(rt), extract_value(target(rt)))] | collect)
     return rae_type(zr)[str(uid(zr))](**targets_d)
+
+
+
+def is_blueprint_atom_imp(z: ZefRef | EZefRef) -> Bool:
+# def is_blueprint_atom_imp(z):
+    from ..internals import is_delegate
+    return is_delegate(z)

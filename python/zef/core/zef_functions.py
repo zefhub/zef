@@ -215,7 +215,7 @@ def compile_zef_function(z_fct: ZefRef):
         z_fct
         | out_rels[RT.Binding]
         | map[lambda z_rel: (z_rel | Out[RT.Name] | value | collect,
-                             z_rel | target | in_frame[
+                             z_rel | target | to_frame[
                                  g[z_rel | Out[RT.UseTimeSlice] | value | collect]
                                  | to_graph_slice | collect
                              ] | collect)]
