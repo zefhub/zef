@@ -330,7 +330,9 @@ def ET_ctor(self, *args, **kwargs):
             return input
         return ET[internals.ET(input)]
     else:
-        return EntityValueInstance(self, *args, **kwargs)
+        from ..atom import Atom
+        return Atom(self, *args, **kwargs)
+        # return EntityValueInstance(self, *args, **kwargs)
     
 # TODO: Move this somewhere
 from ..patching import EntityValueInstance_
