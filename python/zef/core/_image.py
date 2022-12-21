@@ -23,14 +23,20 @@ class Image_:
         self.compression = 'zstd'
         self.buffer = internals.compress_zstd(data)
     def _repr_svg_(self):
+        import zstd
         # this function must return a str
-        return internals.decompress_zstd(self.buffer) if self.format=='svg' else None
+        # return internals.decompress_zstd(self.buffer) if self.format=='svg' else None
+        return zstd.decompress(self.buffer) if self.format=='svg' else None    # This broke with Danny's change. internals.decompress does not seem to handle all bytes, only valid utf8?
     def _repr_png_(self):
+        import zstd
         # this function must return bytes
-        return internals.decompress_zstd(self.buffer) if self.format in {'gif','png'} else None
+        res= zstd.decompress(self.buffer) if self.format in {'gif','png'} else None
+        print(type(res))
+        return res
     def _repr_jpeg_(self):
+        import zstd
         # this function must return bytes
-        return internals.decompress_zstd(self.buffer) if self.format in {'jpeg','jpg'} else None
+        return zstd.decompress(self.buffer) if self.format in {'jpeg','jpg'} else None
 
     def _view(self, format=None):
         if format is None:
