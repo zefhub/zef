@@ -243,7 +243,7 @@ def create_field(atom, field_rt):
         # "id": str(uid(field_rt)),
         "name": str(field_rt),
         "value": make_cell(atom, field_rt),
-        "isEditable": True,
+        "isEditable": False,
     }
 
 @func
