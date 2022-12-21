@@ -451,10 +451,8 @@ def studio_start_server_handler(eff: Dict):
             "type": FX.GraphQL.StartServer,
             "schema_dict" : schema_dict,
             "g" :  Graph(),
-            "port" :  5002, 
-            "path" :  "/gql", 
-            "playground_path": "/",
-            "open_browser": True 
+            "port" :  random_port, 
+            "path" :  "/graphql", 
          } | run
 
          server_zr = now(g_process[http_r['server_uuid']])
