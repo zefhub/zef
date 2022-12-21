@@ -8794,7 +8794,6 @@ def zstandard_compress_imp(x: bytes, compression_level=0.1) -> Bytes:
     related zefop: zstandard_compress
     """
     import zstd
-    print(f"zstd encoding!!!!!!", compression_level)
     level = 1 + round(max(min(compression_level, 1), 0)*21)
     if isinstance(x, String): raise TypeError('zstandard_compress can`t be called with a string. Must be bytes')
     return Bytes(zstd.compress(bytes(x), level))
