@@ -330,7 +330,6 @@ def ET_ctor(self, *args, **kwargs):
             return input
         return ET[internals.ET(input)]
     else:
-        from ..atom import Atom
         return Atom(self, *args, **kwargs)
     
 # TODO: Move this somewhere
@@ -405,3 +404,7 @@ def tx_is_a(x, typ):
 TX = make_VT("TX", is_a_func=tx_is_a)
 
 RAET = insert_VT("RAET", ET | RT | AET)
+
+
+from ..atom import Atom_
+Atom = make_VT('Atom', pytype=Atom_)
