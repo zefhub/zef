@@ -323,7 +323,7 @@ RAE = insert_VT('RAE', Entity | AttributeEntity | Relation)
 
 AtomRef = insert_VT('AtomRef', EntityRef | AttributeEntityRef | RelationRef | TXNodeRef | RootRef)
 AtomConcrete = insert_VT('AtomConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete | TXNodeConcrete | RootConcrete)
-Atom = insert_VT('Atom', Entity | AttributeEntity | Relation | TXNode | Root)
+# Atom = insert_VT('Atom', Entity | AttributeEntity | Relation | TXNode | Root)
 
 
 
