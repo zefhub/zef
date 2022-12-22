@@ -42,9 +42,9 @@ NamedAny = VT.insert_VT("NamedAny", ValueType & Is[without_absorbed | equals[Any
 def delayed_check_namedz(x):
     if not isinstance(x, VT.ZExpression):
         return False
-    if x.root_node._entity_type != ET.GetItem:
+    if x.root_node.atom_type != ET.GetItem:
         return False
-    if not x.root_node._kwargs['arg1'] == ET.Z:
+    if not x.root_node.fields['arg1'] == ET.Z:
         return False
     return True
 NamedZ = VT.insert_VT("NamedZ", Is[delayed_check_namedz])
@@ -169,7 +169,7 @@ def dispatch_ror_graph(g, x):
     # Because LazyValue has some special behaviour for warning about incorrect
     # type checking, but we have already handled that above, we must put
     # LazyValue first.
-    if isinstance(x, (LazyValue, list, tuple, dict, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, Entity, AttributeEntity, Relation, Val, PleaseCommand, EntityValueInstance, ET, AET)):
+    if isinstance(x, (LazyValue, list, tuple, dict, ZefRef, EZefRef, ZefOp, QuantityFloat, QuantityInt, Entity, AttributeEntity, Relation, Val, PleaseCommand, Atom, ET, AET)):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
@@ -322,12 +322,12 @@ def obtain_ids(x) -> dict:
         if x.iid is not None:
             ids[x.iid] = x.arg
 
-    elif isinstance(x, EntityValueInstance):
-        id = get_absorbed_id(x._entity_type)
+    elif isinstance(x, Atom):
+        id = x.name_or_uid
         if id is not None:
             ids = {id: x}
 
-        for item in x._kwargs.values():
+        for item in x.fields.values():
             ids = merge_no_overwrite(ids, obtain_ids(item))
 
     elif isinstance(x, PleaseAssign):
@@ -427,7 +427,7 @@ def verify_input_el(x, id_definitions, allow_rt=False, allow_scalar=False):
     elif isinstance(x, Val):
         return
 
-    elif isinstance(x, EntityValueInstance):
+    elif isinstance(x, Atom):
         return
 
     elif isinstance(x, PleaseAssign):
@@ -457,15 +457,15 @@ def convert_z_to_lv(expr):
 
 def convert_evi_to_lv(evi):
     from . import Z
-    if not isinstance(evi, VT.EntityValueInstance):
+    if not isinstance(evi, VT.Atom):
         return [evi]
-    if evi._entity_type == ET.GetItem:
-        assert ET(evi._kwargs["arg1"]) == ET.Z
-        return [LazyValue(Any[evi._kwargs["arg2"]])]
-    if evi._entity_type == ET.Or:
-        return convert_evi_to_lv(evi._kwargs["arg1"]) + convert_evi_to_lv(evi._kwargs["arg2"])
+    if evi.atom_type == ET.GetItem:
+        assert ET(evi.fields["arg1"]) == ET.Z
+        return [LazyValue(Any[evi.fields["arg2"]])]
+    if evi.atom_type == ET.Or:
+        return convert_evi_to_lv(evi.fields["arg1"]) + convert_evi_to_lv(evi.fields["arg2"])
 
-    raise Exception(f"Z expression can't be converted to lazy value, it has an unexpected ET: {evi._entity_type}")
+    raise Exception(f"Z expression can't be converted to lazy value, it has an unexpected ET: {evi.atom_type}")
 
 
 @func    
@@ -600,7 +600,7 @@ def dispatch_cmds_for(expr, gen_id):
         (ZefRef | EZefRef,       cmds_for_mergable),
         (RAERef,                 cmds_for_mergable),
         (Val,                    cmds_for_value_node),
-        (EntityValueInstance,    P(cmds_for_complex_expr, gen_id=gen_id)),
+        (Atom,                   P(cmds_for_complex_expr, gen_id=gen_id)),
         (PleaseAssign,           P(cmds_for_please_assign, gen_id=gen_id)),
         (PleaseTerminate,        cmds_for_please_terminate),
         (Any,                    error_handler),
@@ -1003,7 +1003,7 @@ def realise_single_node(x, gen_id):
     elif isinstance(x, scalar_types):
         raise Exception("A value of type {type(x)} is not allowed to be given in a GraphDelta in the shorthand syntax as it is ambiguous. You might want to explicitly create an AET and assign, or a value node, or a custom AET.")
     elif isinstance(x, NamedZ):
-        iid = x.root_node._kwargs["arg2"]
+        iid = x.root_node.fields["arg2"]
         # No expr to perform
         exprs = []
     elif isinstance(x, NamedAny):
@@ -1028,10 +1028,12 @@ def realise_single_node(x, gen_id):
                 raise Exception("Not allowed to use lists inside of a dictionary syntax anymore")
             else:
                 exprs.append(Any[iid] | set_field[k][v])
-    elif isinstance(x, EntityValueInstance):
+    elif isinstance(x, Atom):
         exprs = expand_helper(x, gen_id)
         # TODO: Make the iid be returned explicitly.
-        iid = get_absorbed_id(exprs[0])
+        # iid = get_absorbed_id(exprs[0])
+        print(exprs[0])
+        iid = exprs[0].name_or_uid
     else:
         raise TypeError(f'in GraphDelta encode step: for type(x)={type(x)}')
 
@@ -1794,19 +1796,19 @@ def expand_helper(x, gen_id):
     if type(x) in {str, int, float, bool}:
         return (x, )
 
-    elif isinstance(x, EntityValueInstance):
+    elif isinstance(x, Atom):
         res = []
-        assert isinstance(x, EntityValueInstance)
-        et = x._entity_type
-        ent_id = get_absorbed_id(et)
+        assert isinstance(x, Atom)
+        et = x.atom_type
+        ent_id = x.name_or_uid
         if ent_id is None:
             ent_id = gen_id()
             et = et[ent_id]
         me = Any[ent_id]
         res.append(et)
 
-        for k, v in x._kwargs.items():
-            if isinstance(v, EntityValueInstance):
+        for k, v in x.fields.items():
+            if isinstance(v, Atom):
                 sub_obj_instrs = expand_helper(v, gen_id)
                 res.append( (me, RT(k), sub_obj_instrs[0]) )
                 res.extend(sub_obj_instrs[1:])
