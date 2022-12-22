@@ -240,7 +240,7 @@ def is_supported_value(o):
     return False
 
 def is_supported_zef_value(o):
-    if isinstance(o, (BaseUID, EternalUID, ZefRefUID, Enum, ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice)): return True
+    if isinstance(o, (Atom, BaseUID, EternalUID, ZefRefUID, Enum, ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice)): return True
     return False
 
 def is_supported_on_subscription(o, op):
