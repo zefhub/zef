@@ -170,6 +170,12 @@ class ValueType_:
 
 
     def __getitem__(self, x):
+        # TODO overload the [] for ET.X
+        # def atom_get_item(self, name_or_uid):
+        #     from . import Atom
+        #     assert isinstance(name_or_uid, str), "EntityType.__getitem__ only accepts strings to promote it to an Atom"
+        #     return Atom(self, name_or_uid)
+
         new_absorbed = self._d["absorbed"] + (x,)
         return self._replace(absorbed=new_absorbed)
 
