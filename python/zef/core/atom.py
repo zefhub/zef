@@ -12,13 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .. import report_import
-report_import("zef.core.atom")
-from .VT import *
-
-
-
-class Atom:
+class Atom_:
     """
     AtomType: e.g. ET.Person, RT.Foo, AET[String]
     name_or_uid: e.g. '㏈-49836587346-57863478568734-876342856236478' / 'Fred' / None
@@ -37,12 +31,12 @@ class Atom:
     def __call__(self, *args, **fields):
         new_fields = dict(self.fields)
         new_fields.update(fields)
-        return Atom(self.atom_type, self.name_or_uid, **new_fields)
+        return Atom_(self.atom_type, self.name_or_uid, **new_fields)
 
 
     def __repr__(self):
-        items = [f"{k}={v!r}" for k,v in self.fields.items()]
-        items = [(self.name_or_uid if self.name_or_uid else ""), f'"{self.reference_type}"', *items]
+        items = [f'"{self.reference_type}"'] + [f"{k}={v!r}" for k,v in self.fields.items()]
+        if self.name_or_uid: items.insert(0, self.name_or_uid)
         return f'{self.atom_type}({f", ".join(items)})'
         
 
