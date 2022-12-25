@@ -90,7 +90,8 @@ def make_cell(obj, rt):
 
 def make_row(obj, connected_rels):
    return {
-      "cells": [make_cell(obj, rt) for rt in connected_rels]
+        "id": str(uid(obj)),
+        "cells": [make_cell(obj, rt) for rt in connected_rels]
    }
 
 
@@ -116,14 +117,18 @@ def make_table_return(g, entity_type, entities):
 
 @func
 def entity_table(query_args):
-   graph_id = query_args.get('graphID', None)
-   et_type  = query_args.get('entityType', None)
-   if not graph_id or not et_type: return None
+    graph_id = query_args.get('graphID', None)
+    et_type  = query_args.get('entityType', None)
+    if not graph_id or not et_type: return None
 
-   et_type = ET(et_type)
-   limit  = query_args.get('limit', 10)
-   g = Graph(graph_id)
-   return make_table_return(g, et_type, list(g | now |  all[et_type] | take[limit] | collect))
+    limit  = query_args.get('limit', 10)
+    try:
+        et_type = ET(et_type)
+        g = Graph(graph_id)
+        return make_table_return(g, et_type, list(g | now |  all[et_type] | take[limit] | collect))
+    except Exception as e:
+        log.error(f"Error in entityTable: {e}")
+        return None
 
 
 @func
@@ -332,6 +337,7 @@ header: String
 }
 
 type Row {
+id: ID!
 cells: [Cell]
 }
 
