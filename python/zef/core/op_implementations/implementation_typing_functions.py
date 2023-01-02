@@ -8126,7 +8126,7 @@ def pad_center_imp(s, target_length: int, pad_element=' '):
     if len(pad_element) != 1: raise ValueError("pad_element must be of length 1 in 'pad_center'")
     l = len(s)
     diff2 = (target_length-l)/2
-    return s if l>= target_length else f"{pad_element*(ceil(diff2))}{s}{pad_element*(floor(diff2))}"
+    return s if l>= target_length else f"{pad_element*(floor(diff2))}{s}{pad_element*(ceil(diff2))}"
 
 
 
