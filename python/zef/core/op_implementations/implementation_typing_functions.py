@@ -8793,10 +8793,9 @@ def zstandard_compress_imp(x: bytes, compression_level=0.1) -> Bytes:
     operates on: Bytes
     related zefop: zstandard_compress
     """
-    import zstd
     level = 1 + round(max(min(compression_level, 1), 0)*21)
     if isinstance(x, String): raise TypeError('zstandard_compress can`t be called with a string. Must be bytes')
-    return Bytes(zstd.compress(bytes(x), level))
+    return Bytes(internals.compress_zstd(bytes(x), level))
 
 
 
@@ -8819,9 +8818,8 @@ def zstandard_decompress_imp(x: Bytes) -> Bytes:
     operates on: Bytes
     related zefop: zstandard_decompress
     """
-    import zstd
     if isinstance(x, String): raise TypeError('zstandard_decompress can`t be called with a string. Must be bytes')
-    return Bytes(zstd.decompress(bytes(x)))
+    return Bytes(internals.decompress_zstd(bytes(x)))
     
 
 

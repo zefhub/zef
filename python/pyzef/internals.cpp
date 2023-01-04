@@ -887,7 +887,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     // internals_submodule.def("decompress_zstd", &decompress_zstd, py::call_guard<py::gil_scoped_release>());
     internals_submodule.def("decompress_zstd", [](const std::string & input) {
-        return decompress_zstd(input);
+        std::string temp = decompress_zstd(input);
+        {
+            py::gil_scoped_acquire acquire;
+            return py::bytes(temp);
+        }
     }, py::call_guard<py::gil_scoped_release>());
     // internals_submodule.def("compress_zstd", &compress_zstd, py::arg("input"), py::arg("compression_level")=10, py::call_guard<py::gil_scoped_release>());
     internals_submodule.def("compress_zstd", [](const std::string & input, int compression_level) {
