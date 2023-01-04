@@ -47,6 +47,14 @@ def RAET_get_names(typ):
     else:
         return absorbed(typ)
 
+def RAET_without_names(typ):
+    token = RAET_get_token(typ)
+    if token is None:
+        return typ._replace(absorbed=())
+    else:
+        return typ._replace(absorbed=(token,))
+    
+
 def wrap_attr_readonly_token(orig):
     def this_get_attr(self, name):
         token = RAET_get_token(self)
@@ -330,7 +338,20 @@ def ET_ctor(self, *args, **kwargs):
             return input
         return ET[internals.ET(input)]
     else:
-        return Atom(self, *args, **kwargs)
+        names = RAET_get_names(self)
+        if len(names) >= 2:
+            raise Exception("Can't give an Atom more than one id")
+        elif len(names) == 1:
+            if len(args) != 0:
+                raise Exception("Can't give an Atom an id when it has an origin uid passed in")
+            name = names[0]
+        elif len(args) >= 2:
+            raise Exception("Can't pass more than one name into Atom construction")
+        elif len(args) == 1:
+            name = args[0]
+        else:
+            name = None
+        return Atom(RAET_without_names(self), name, **kwargs)
     
 # TODO: Move this somewhere
 from ..patching import EntityValueInstance_

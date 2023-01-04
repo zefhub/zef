@@ -1031,9 +1031,7 @@ def realise_single_node(x, gen_id):
     elif isinstance(x, Atom):
         exprs = expand_helper(x, gen_id)
         # TODO: Make the iid be returned explicitly.
-        # iid = get_absorbed_id(exprs[0])
-        print(exprs[0])
-        iid = exprs[0].name_or_uid
+        iid = get_absorbed_id(exprs[0])
     else:
         raise TypeError(f'in GraphDelta encode step: for type(x)={type(x)}')
 
@@ -1803,7 +1801,7 @@ def expand_helper(x, gen_id):
         ent_id = x.name_or_uid
         if ent_id is None:
             ent_id = gen_id()
-            et = et[ent_id]
+        et = et[ent_id]
         me = Any[ent_id]
         res.append(et)
 
