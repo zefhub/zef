@@ -1319,6 +1319,7 @@ def chunk_imp(iterable, chunk_size: int):
     related zefop: sliding
     related zefop: slice
     """
+    if isinstance(chunk_size, LazyValue):  chunk_size = collect(chunk_size)
     if isinstance(iterable, String):
         def wrapper():
             c = 0        
