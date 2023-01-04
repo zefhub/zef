@@ -358,17 +358,11 @@ def to_rich_str_imp(displayable):
     except:
         raise ImportError("Please install rich: pip install rich")
 
-    # Create a console first to cheat the colour-detection
-    # console_for_color = rich.console.Console(width = 160)
-    # color_system = console_for_color.color_system
-    # console = rich.console.Console(width = width_or_default(), color_system=color_system, force_jupyter=False, force_terminal=True, force_interactive=False, no_color=False)
-    console = rich.console.Console(width = 160)
+    console = rich.console.Console(width = width_or_default())
     displayable = match_and_dispatch(displayable)
     with console.capture() as capture:
         console.print(displayable)
     return capture.get()
-    console.print(displayable)
-    return output.getvalue()
 
 def width_or_default():
     # Returns None when columns are present, to allow rich to autodetect
@@ -380,6 +374,12 @@ def width_or_default():
     if "COLUMNS" in os.environ:
         return None
     else:
+        try:
+            import os
+            # This will error when not going to a terminal
+            return os.get_terminal_size().columns
+        except Exception:
+            pass
         return 160
 
 show = run[print_rich]
