@@ -575,7 +575,7 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
     - used for: stream manipulation
     - used for: string manipulation
     """
-    if (isinstance(v, list) or isinstance(v, tuple)) and len(v)>0 and isinstance(v[0], str):
+    if (isinstance(v, list) or isinstance(v, tuple)) and len(v)>0 and isinstance(v[0], str) and first_curried_list_maybe is None:
         if not all((isinstance(el, str) for el in v)):
             raise TypeError(f'A list starting with a string was passed to concat, but not all other elements were strings. {v}')
         return v | join[''] | collect
