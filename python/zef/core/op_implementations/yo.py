@@ -200,7 +200,7 @@ def value_previous_of_aet(aet, tx) -> str:
             return f" [previous val: {'/' if not val else str(val)}]"
         else:
             return ''
-    except:
+    except Exception:
         return str(f" [previous val: NA]")
 
 
@@ -214,7 +214,7 @@ def value_of_aet_at_tx(aet, tx) -> str:
             return f" [{latest_or_current} val: {'/' if val is None else str(val)}]"
         else:
             return ''
-    except:
+    except Exception:
         return str(f" [{latest_or_current} val: NA]")
 
 

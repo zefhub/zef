@@ -111,7 +111,7 @@ def UVT_ctor(self, *args, **kwargs):
 
         try:
             cast_val = self._d["representation_type"](*args, **kwargs)
-        except:
+        except Exception:
             raise ValueError("Couldn't construct type")
 
         # check whether the constraints are satisfied

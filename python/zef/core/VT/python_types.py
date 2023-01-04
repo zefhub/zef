@@ -26,7 +26,7 @@ def numeric_is_a(x, typ):
     python_type = _value_type_pytypes[typ._d['type_name']]
     try:
         return isinstance(x, python_type) or python_type(x) == x
-    except:
+    except Exception:
         return False
 
 PyBool = make_VT("PyBool", pytype=bool)

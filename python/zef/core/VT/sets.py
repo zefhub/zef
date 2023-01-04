@@ -230,7 +230,7 @@ def is_is_a(el, typ):
     predicate = remove_names(absorbed(typ))[0]
     try:
         if not predicate(el): return False
-    except:
+    except Exception:
         return False
     return True
 

@@ -1390,7 +1390,7 @@ def type_spec_iterable(obj, vt_type):
             return vt_type[next(iter(tps))]
         else:
             return vt_type[VT.Any]
-    except:
+    except Exception:
         return vt_type[VT.Any]
         
 def type_spec_dict(obj):

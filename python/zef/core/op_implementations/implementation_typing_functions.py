@@ -4028,7 +4028,7 @@ def attempt_imp(x, op, alternative_value):
     try:
         res = op(x)
         return res
-    except:                
+    except Exception:                
         return alternative_value
 
 
@@ -4913,7 +4913,7 @@ def preceding_events_imp(x, filter_on=None):
             try:
                 prev_tx  = tx | previous_tx | collect                                   # Will fail if tx is already first TX
                 prev_val = pyzefops.to_frame(zr, prev_tx) | value | collect     # Will fail if aet didn't exist at prev_tx
-            except:
+            except Exception:
                 prev_val = None
             return Assigned(target = aet_at_frame, prev = prev_val, current = value(aet_at_frame))
 
@@ -4980,7 +4980,7 @@ def events_imp(z_tx_or_rae, filter_on=None):
             try:
                 prev_tx  = zr | previous_tx | collect                                  # Will fail if tx is already first TX
                 prev_val = pyzefops.to_frame(aet, prev_tx) | value | collect   # Will fail if aet didn't exist at prev_tx
-            except:
+            except Exception:
                 prev_val = None
             return Assigned(target = aet_at_frame, prev = prev_val, current = value(aet_at_frame))
 
@@ -4999,7 +4999,7 @@ def events_imp(z_tx_or_rae, filter_on=None):
             try:
                 prev_tx  = tx | previous_tx | collect                                   # Will fail if tx is already first TX
                 prev_val = pyzefops.to_frame(zr, prev_tx) | value | collect     # Will fail if aet didn't exist at prev_tx
-            except:
+            except Exception:
                 prev_val = None
             return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
 
@@ -5422,7 +5422,7 @@ def assert_implementation(z, predicate=None, message=None):
         else:
             try:
                 message = message(z)
-            except:
+            except Exception:
                 message = "exception when generating this message"
         raise Exception(f"Assertion failed: {message}")
 
@@ -6659,7 +6659,7 @@ def is_a_implementation(x, typ):
                 
             if  v == (False, False, False):
                 return is_a(x, triple[1]) and is_a(source(x), triple[0]) and is_a(target(x), triple[2])
-        except:
+        except Exception:
             return False
         raise TypeError(f"invalid pattern to match on in RP: {triple}")
 
@@ -6668,7 +6668,7 @@ def is_a_implementation(x, typ):
         my_set = vt._d['absorbed'][0]
         try:
             val = value(x)
-        except:
+        except Exception:
             raise TypeError(f"HasValue can only be applied to AETs")
             # TODO: or return false here
 
@@ -8536,7 +8536,7 @@ def value_hash_imp(obj) -> VT.String:
     try:
         from ..op_structs import type_spec
         type_str = str(type_spec(obj))
-    except:
+    except Exception:
         type_str = str(type(obj))
     return blake3_imp(type_str + str(obj))
 
@@ -8995,7 +8995,7 @@ def without_imp(x, y):
     # work... TODO: make this more general and test for 'contains' support.
     try:
         y_itr = iter(y)
-    except:
+    except Exception:
         return Error("The given argument to `without` is not iterable. If you have passed a single value, then you must wrap it in a list first, e.g. `| without[[1]]` instead of `| without[1]`.")
         
     if isinstance(x, Dict):
@@ -9406,7 +9406,7 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.String]:
     s = LazyValue(op) | docstring | split["\n"] | collect
     try:
         signature_idx = s.index("---- Signature ----")
-    except:
+    except Exception:
         raise ValueError(f"The docstring for {op} is either malformed or missing a Signature section!")  from None
     signature = (
         s 
@@ -9453,7 +9453,7 @@ def tags_imp(op: VT.ZefOp) -> VT.List:
         | map[split[':'] | map[trim[' ']]]
         | collect
     )
-    except:
+    except Exception:
         return []
 
 

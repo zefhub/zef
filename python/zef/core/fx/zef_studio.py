@@ -187,7 +187,7 @@ def value_of_aet_at_tx(aet, tx) -> str:
             return '' if val is None else str(val)
         else:
             return ''
-    except:
+    except Exception:
         return ''
 
 @func
