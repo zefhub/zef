@@ -71,6 +71,7 @@ from . import _image
 from . import _decimal
 from . import _bytes
 # Up to here, DEFINITELY no zefops can be called
+from . import atom
 from . import abstract_raes
 from . import graph_slice
 from . import delegates

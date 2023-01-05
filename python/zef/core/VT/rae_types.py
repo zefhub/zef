@@ -339,19 +339,9 @@ def ET_ctor(self, *args, **kwargs):
         return ET[internals.ET(input)]
     else:
         names = RAET_get_names(self)
-        if len(names) >= 2:
-            raise Exception("Can't give an Atom more than one id")
-        elif len(names) == 1:
-            if len(args) != 0:
-                raise Exception("Can't give an Atom an id when it has an origin uid passed in")
-            name = names[0]
-        elif len(args) >= 2:
-            raise Exception("Can't pass more than one name into Atom construction")
-        elif len(args) == 1:
-            name = args[0]
-        else:
-            name = None
-        return Atom(RAET_without_names(self), name, **kwargs)
+        names = names + args
+        from . import Atom
+        return Atom(RAET_without_names(self), *names, **kwargs)
     
 # TODO: Move this somewhere
 from ..patching import EntityValueInstance_
@@ -425,7 +415,3 @@ def tx_is_a(x, typ):
 TX = make_VT("TX", is_a_func=tx_is_a)
 
 RAET = insert_VT("RAET", ET | RT | AET)
-
-
-from ..atom import Atom_
-Atom = make_VT('Atom', pytype=Atom_)
