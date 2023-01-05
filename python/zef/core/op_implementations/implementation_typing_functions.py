@@ -9972,3 +9972,141 @@ def is_blueprint_atom_imp(z: ZefRef | EZefRef) -> Bool:
 # def is_blueprint_atom_imp(z):
     from ..internals import is_delegate
     return is_delegate(z)
+
+
+
+
+def recursive_flatten_imp(v):
+    """
+    A function which recusrively flattens a list of lists or other iterables.
+    --- Example ----
+    >>> [['a', 'b', 'c'],  7, [8, 9, {True, 5}]] | recursive_flatten | collect
+    ['a', 'b', 'c', 7, 8, 9, True, 5]
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: concat
+    - related zefop: interleave
+    """
+    if type(v) in {list, tuple, set}:
+        return v | map[recursive_flatten] | concat | collect
+    else:
+        return [v]
+
+
+
+
+
+def split_at_imp(v: List, index: int):
+    """
+    Splits `v` into two parts at `pos`.
+
+    Note: this does not deal with laziness as well as it could.
+    Specifically, it does currently not work with infinite lists.
+
+    ---- Examples ----
+    >>> [1, 2, 3, 4] | split_at[2] | collect   # [[1, 2], [3, 4]]
+    >>> 'hello' | split_at[4] | collect        # ['hell', 'o']
+
+    ---- Tags ----
+    - operates on: Iterable
+    - used for: list manipulation
+    - related zefop: split_left
+    - related zefop: split_right
+    """
+    return v[:index], v[index:]
+
+
+
+def split_lines_imp(s: str, keepends: bool = False):
+    """
+    In constrast to `split['\\n]`, this operator also splits on
+    a variety of other "universal newlines" characters, such as
+    Line Feed (LF), Carriage Return (CR), and Carriage Return and more.
+
+    For a full list, see https://docs.python.org/3/library/stdtypes.html#str.splitlines.
+
+    ---- Examples ----
+    >>> "hello\nworld" | split_lines | collect
+    >>> "hello\rworld" | split_lines | collect
+    >>> "hello\r\nworld" | split_lines | collect
+
+    ---- Tags ----
+    - operates on: String
+    - used for: string manipulation
+    - related zefop: split
+    - related zefop: split_left
+    - related zefop: split_right
+    """
+    if not isinstance(s, str):
+        raise TypeError(f'A string was expected, but {s} was passed instead.')
+    return s.splitlines(keepends=keepends)
+
+
+
+
+def filter_map_imp(v: List, f):
+    """
+    Applies `f` to each element of `v` and returns a list of the results.
+    If `f` returns 'nil', an Error or raises an exception, the element 
+    is not included in the result.
+
+    ---- Examples ----
+    >>> [1, 2, 3, 4] | filter_map[lambda x: x * 2 if x % 2 == 0 else None] | collect
+    >>> '7 moved from 4 to 9' | filter_map[int] | collect
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: map
+    - related zefop: filter
+    """
+    def wrapper():
+        for el in v:
+            try:
+                result = f(el)
+            except Exception:
+                continue
+            if result is not None:
+                yield result
+    return ZefGenerator(wrapper)
+
+
+
+
+def ends_with_imp(s: str, suffix: str):
+    """
+    Returns True if `s` ends with `suffix`, False otherwise.
+
+    ---- Examples ----
+    >>> 'hello' | ends_with['lo']   # True
+    >>> 'hello' | ends_with['he']   # False
+
+    ---- Tags ----
+    - operates on: String
+    - used for: string manipulation
+    - related zefop: starts_with
+    - related zefop: contains
+    """
+    return s.endswith(suffix)
+
+
+def starts_with_imp(s: str, prefix: str):
+    """
+    Returns True if `s` starts with `prefix`, False otherwise.
+
+    ---- Examples ----
+    >>> 'hello' | starts_with['he']   # True
+    >>> 'hello' | starts_with['lo']   # False
+
+    ---- Tags ----
+    - operates on: String
+    - used for: string manipulation
+    - related zefop: ends_with
+    - related zefop: contains
+    """
+    return s.startswith(prefix)
+
+
+

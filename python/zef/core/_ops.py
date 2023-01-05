@@ -319,6 +319,12 @@ zascii_to_blueprint_fg = make_zefop(internals.RT.ZasciiToBlueprintFg)
 
 
 
+recursive_flatten = make_zefop(internals.RT.RecursiveFlatten)
+split_at          = make_zefop(internals.RT.SplitAt)
+split_lines       = make_zefop(internals.RT.SplitLines)
+filter_map        = make_zefop(internals.RT.FilterMap)
+ends_with         = make_zefop(internals.RT.EndsWith)
+starts_with       = make_zefop(internals.RT.StartsWith)
 
 
 merge           = make_zefop(internals.RT.Merge)                 # We need this for observables. Only there?

@@ -332,4 +332,15 @@ _op_to_functions = {
         internals.RT.InferTypes :          (infer_types, None),
         internals.RT.Deduplicate:          (deduplicate, None),
         internals.RT.IdentifyEntities:     (identify_entities, None),
+
+
+ 
+        internals.RT.RecursiveFlatten:     (recursive_flatten_imp, None),
+        internals.RT.SplitAt:              (split_at_imp, None),
+        internals.RT.SplitLines:           (split_lines_imp, None),
+        internals.RT.FilterMap:            (filter_map_imp, None),
+        internals.RT.EndsWith:             (ends_with_imp, None),
+        internals.RT.StartsWith:           (starts_with_imp, None),
 }
+
+
