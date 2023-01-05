@@ -2366,8 +2366,13 @@ def cartesian_product_imp(x, second=None, *args):
     """    
     from itertools import product
     if second is None:
-        return product(*x)
-    return product( *(x, second, *args) )
+        def wrapper1():
+            yield from itertools.product(*x)
+        return ZefGenerator(wrapper1)
+    else:
+        def wrapper2():
+            yield from itertools.product( *(x, second, *args) )
+        return ZefGenerator(wrapper2)
 
 
 def cartesian_product_tp(a, second, *args):
