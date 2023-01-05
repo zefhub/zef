@@ -2,7 +2,8 @@
 import cog
 for names_vec in en:
     t,v = names_vec[1].split('.')
-    cog.outl(f'names_map.insert({names_vec[0]}, {{"{t}", "{v}"}});')
+    if not is_c_keyword(t) and not is_c_keyword(v):
+        cog.outl(f'names_map.insert({names_vec[0]}, {{"{t}", "{v}"}});')
 
 ]]]*/
 //[[[end]]]

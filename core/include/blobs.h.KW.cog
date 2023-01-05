@@ -2,6 +2,7 @@
 /*[[[cog
 import cog
 for indx,name in kw:
-    cog.outl(f'const Keyword {name} = Keyword({indx});')
+    if not is_c_keyword(name):
+        cog.outl(f'const Keyword {name} = Keyword({indx});')
 ]]]*/
 //[[[end]]]		

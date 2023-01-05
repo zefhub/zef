@@ -1,5 +1,6 @@
 /*[[[cog
 for n in [x for x in en if enum_type(x[1])=='Unit' and enum_val(x[1])!='']:
-    cog.outl(f'static constexpr ValueRepType {enum_val(n[1])}{{ {n[0]+2} }};')
+    if not is_c_keyword(enum_val(n[1])):
+        cog.outl(f'static constexpr ValueRepType {enum_val(n[1])}{{ {n[0]+2} }};')
 ]]]*/
 //[[[end]]]	
