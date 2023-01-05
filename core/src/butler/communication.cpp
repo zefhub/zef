@@ -363,9 +363,15 @@ namespace zefDB {
 #endif
                 update(locker, [&]() {
                     if(should_stop) {
-                        con->close(websocketpp::close::status::going_away, "", ec);
-                        if(ec) 
-                            std::cout << "> Closing connection error (in start_connection): " << ec.message() << std::endl;
+                        // The connection may not have even be started by the ws
+                        // thread loop so check that first. If the thread does
+                        // kick in and start the connection afterwards, we will
+                        // have to catch that in the cleanup of the manager instead.
+                        if(con->get_state() == websocketpp::session::state::open) {
+                            con->close(websocketpp::close::status::going_away, "", ec);
+                            if(ec) 
+                                std::cout << "> Closing connection error (in start_connection): " << ec.message() << std::endl;
+                        }
                     } else {
                         atomic_store(&ptr_con, con);
                     }
@@ -378,10 +384,14 @@ namespace zefDB {
                 should_stop = true;
                 std::visit([&](auto & con) {
                     if(con) {
-                        std::error_code ec;
-                        con->close(websocketpp::close::status::going_away, "", ec);
-                        if(ec)
-                            std::cout << "> Closing connection error: " << ec.message() << std::endl;
+                        if(con->get_state() == websocketpp::session::state::open) {
+                            std::error_code ec;
+                            con->close(websocketpp::close::status::going_away, "", ec);
+                            // We ignore invalid state messages as these seem to pop
+                            // up even though we have done "the right thing"
+                            if(ec) 
+                                std::cout << "> Closing connection error: " << ec.message() << std::endl;
+                        }
                         con.reset();
                     }
                 }, _con);
@@ -399,10 +409,12 @@ namespace zefDB {
                 if(!con)
                     return;
 
-                std::error_code ec;
-                con->close(websocketpp::close::status::going_away, "", ec);
-                if(ec)
-                    std::cout << "> Closing connection error (in restart): " << ec.message() << std::endl;
+                if(con->get_state() == websocketpp::session::state::open) {
+                    std::error_code ec;
+                    con->close(websocketpp::close::status::going_away, "", ec);
+                    if(ec)
+                        std::cout << "> Closing connection error (in restart): " << ec.message() << std::endl;
+                }
                 con.reset();
                 update(locker, [&]() {
                     connected = false;
