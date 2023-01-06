@@ -164,7 +164,8 @@ runs:
       with:
         name: test-compile
         path: |
-          python/pyzef/build/*
+          python/pyzef/build/Debug/*
+          python/pyzef/build/Release/*
 
     #########
     # Testing
