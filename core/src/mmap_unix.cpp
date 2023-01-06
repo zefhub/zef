@@ -300,9 +300,5 @@ namespace zefDB {
                 munmap(info.location, MAX_MMAP_SIZE);
             }
         }
-
-        bool is_graph_mem_alive(void * ptr) {
-            return !info_from_blob(ptr).released;
-        }
     }
 }
