@@ -948,7 +948,7 @@ namespace zefDB {
             auto fg_prefix = file_graph_prefix(uid, upstream_name());
             if(!MMap::filegraph_exists(fg_prefix))
                 return std::nullopt;
-            return fg_prefix;
+            return fg_prefix.string();
         }
     }
 }

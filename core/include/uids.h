@@ -86,10 +86,12 @@ namespace zefDB {
             if(prepared)
                 return s;
             std::mbstate_t state {};
-            char mb[MB_CUR_MAX];
+            // For some reason MB_CUR_MAX is not a constant on windows.
+            char * mb = new char[MB_CUR_MAX];
             std::size_t ret = std::wcrtomb(mb, DB_symbol, &state);
             s = std::string(mb, ret) + "_";
             prepared = true;
+            delete[] mb;
             return s;
         }
         static BaseUID random();
