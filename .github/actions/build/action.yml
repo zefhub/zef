@@ -159,6 +159,13 @@ runs:
         export PATH=$(python3 -m site --user-base)/bin:$PATH
         bash compile_for_local_dev.sh
 
+    - name: save temp compile into an artifact for testing
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-compile
+        path: |
+          python/pyzef/build/*
+
     #########
     # Testing
     - name: Prep for python tests
