@@ -533,6 +533,13 @@ if(LIBZEF_BUNDLED_LIBARCHIVE)
     GIT_SHALLOW ON
     UPDATE_COMMAND "")
 
+  if(WIN32)
+	# This seems necessary because libarchive is checking in a bad way for these functions.
+	set(HAVE_WCSCPY TRUE)
+	set(HAVE_WCSCMP TRUE)
+	set(HAVE_WCSLEN TRUE)
+  endif()
+  
   ManualFetchContent_MakeAvailable(archive)
   set_target_properties(archive_static PROPERTIES
     POSITION_INDEPENDENT_CODE ON)
@@ -540,6 +547,8 @@ if(LIBZEF_BUNDLED_LIBARCHIVE)
   target_include_directories(archive_static PUBLIC ${LIBARCHIVE_INCLUDES})
 
   message(STATUS "Libarchive includes at: ${LIBARCHIVE_INCLUDES}")
+  
+
 
   create_license_file("libarchive" ${LAST_SOURCE_DIR}/COPYING NO "This library bundles the libarchive library (https://github.com/libarchive/libarchive)\n\nThe full text of the libarchive license follows below.\n\n")
 
@@ -569,6 +578,7 @@ else()
   else()
     message(FATAL_ERROR "Couldn't find archive via cmake, pkg-config or find_library")
   endif()
+
 
   add_library (external::archive ALIAS archive)
 endif()
