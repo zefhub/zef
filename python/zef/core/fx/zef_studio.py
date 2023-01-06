@@ -221,7 +221,7 @@ def atom_events(zr):
         rel_ent_inst_edge = uzr | in_rel[BT.RAE_INSTANCE_EDGE]
         return rel_ent_inst_edge | in_rels[BT] | map[construct_event] | collect
     
-    return zr | out_rels | map[events_for_rt] | concat | sort[lambda d: d['transaction']['txTimestamp']] | collect
+    return zr | out_rels | map[events_for_rt] | concat | sort[lambda d: d['transaction']['txTimestamp']] | reverse | collect
 
 
 def create_tx(tx):
