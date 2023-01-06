@@ -424,3 +424,16 @@ class FsClass:
         return fields[RT(s)]    # just returns a normal zefop called 'field'
 
 Fs = FsClass()
+
+
+
+
+
+# ----------- Some Types declared in terms of ZefOps -------------
+
+from .VT import insert_VT, Where
+
+insert_VT("StartsWith", Where[starts_with])
+insert_VT("EndsWith", Where[ends_with])
+insert_VT("Contains", Where[contains])
+
