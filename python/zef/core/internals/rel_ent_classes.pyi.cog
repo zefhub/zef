@@ -2,6 +2,8 @@
 # import cog
 # import json
 # from functional import seq
+# import keyword
+# invalid_tokens = keyword.kwlist
 # ]]]
 # [[[end]]]
 
@@ -13,6 +15,7 @@ class EntityTypeStruct():
 
     # [[[cog
     #    for indx,name in et:
+    #       if name in invalid_tokens: continue
     #       cog.outl(f"{name} = None")
     # ]]]
     _unspecified = get_entity_type_from_string('_unspecified')
@@ -44,6 +47,7 @@ class RelationTypeStruct():
 
     # [[[cog
     #    for indx,name in rt:
+    #       if name in invalid_tokens: continue
     #       cog.outl(f"{name} = None")
     # ]]]
     # [[[end]]]
@@ -70,6 +74,7 @@ RT = RelationTypeStruct()
 class AttributeEntityTypeStruct_Enum():
     # [[[cog
     # for n in [x for x in en if enum_val(x[1]) == '']:
+    #     if enum_type(n[1]) in invalid_tokens: continue
     #     cog.outl(f'{enum_type(n[1])} = AttributeEntityType(0)')
     # ]]]
     # [[[end]]]
@@ -85,6 +90,7 @@ class AttributeEntityTypeStruct_Enum():
 class AttributeEntityTypeStruct_QuantityFloat():
     # [[[cog
     # for n in [x for x in en if enum_type(x[1]) == 'Unit' and enum_val(x[1]) != '']:
+    #     if enum_val(n[1]) in invalid_tokens: continue
     #     cog.outl(f'{enum_val(n[1])} = AttributeEntityType(0)')
     # ]]]
     # [[[end]]]
@@ -99,6 +105,7 @@ class AttributeEntityTypeStruct_QuantityFloat():
 class AttributeEntityTypeStruct_QuantityInt():
     # [[[cog
     # for n in [x for x in en if enum_type(x[1]) == 'Unit' and enum_val(x[1]) != '']:
+    #     if enum_val(n[1]) in invalid_tokens: continue
     #     cog.outl(f'{enum_val(n[1])} = AttributeEntityType(0)')
     # ]]]
     # [[[end]]]
@@ -170,7 +177,7 @@ class _KnownZefEnumTypes():
     # """
     #
     # (seq(en)
-    #  #.filter(lambda x: x[2]!='')
+    #  .filter(lambda x: enum_type(x[1]) not in invalid_tokens and enum_val(x[1]) not in invalid_tokens)
     #  .group_by(lambda el: enum_type(el[1]))
     #  .map(map_enum_type_to_struct_defs)
     #  .for_each(cog.outl)
@@ -203,6 +210,7 @@ class ZefEnumsClass():
     #     return f"{el[0]} = _KnownZefEnumTypes.{el[0]}Class()"
     #
     # (seq(en)
+    #  .filter(lambda x: enum_type(x[1]) not in invalid_tokens and enum_val(x[1]) not in invalid_tokens)
     #  .group_by(lambda el: enum_type(el[1]))
     #  .map(map_enum_type_to_struct_defs)
     #  .for_each(cog.outl)
