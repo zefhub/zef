@@ -151,13 +151,21 @@ runs:
     # cmake then rebuild.
 
     - name: Make
-      if: steps.build-cache.outputs.cache-hit != 'true'
+      if: ${{ steps.build-cache.outputs.cache-hit != 'true' && !startsWith(inputs.os, 'windows') }}
       env:
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
       shell: bash
       run: |
         export PATH=$(python3 -m site --user-base)/bin:$PATH
         bash compile_for_local_dev.sh
+
+    - name: Make
+      if: ${{ steps.build-cache.outputs.cache-hit != 'true' && startsWith(inputs.os, 'windows') }}
+      env:
+        WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
+      shell: powershell
+      run: |
+        powershell compile_for_local_dev.ps1
 
     - name: save temp compile into an artifact for testing
       uses: actions/upload-artifact@v3
