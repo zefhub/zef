@@ -165,7 +165,7 @@ runs:
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
       shell: powershell
       run: |
-        powershell compile_for_local_dev.ps1
+        powershell .\compile_for_local_dev.ps1
 
     - name: save temp compile into an artifact for testing
       uses: actions/upload-artifact@v3
