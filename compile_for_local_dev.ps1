@@ -15,6 +15,9 @@
 
 $ErrorActionPreference="Stop"
 
+python -mpip install setuptools pybind11 cogapp pyfunctional
+python -mpip -r python/requirements.txt
+
 cd python\pyzef
 
 mkdir -Force build
