@@ -23,7 +23,12 @@ cd python\pyzef
 mkdir -Force build
 cd build
 
-cmake .. -DCMAKE_BUILD_TYPE=Release "-DZef_DIR=$((Resolve-Path ../../../core).ToString())" -DLIBZEF_PYZEF_BUNDLED=TRUE -DLIBZEF_STATIC=TRUE -DLIBZEF_FORCE_ASSERTS=TRUE
+# We need to detect the version that is given with `python` so that cmake
+# doesn't automatically go for a more recent version. This seems to be necessary
+# when using the github CI action setup-python but should also help with user
+# installs. There might be a more portable way to do this however...
+cmake .. -DPython3_EXECUTABLE="$((Get-Command python).Path)" -DCMAKE_BUILD_TYPE=Release "-DZef_DIR=$((Resolve-Path ../../../core).ToString())" -DLIBZEF_PYZEF_BUNDLED=TRUE -DLIBZEF_STATIC=TRUE -DLIBZEF_FORCE_ASSERTS=TRUE
+
 
 cmake --build . --config Release -j
 
