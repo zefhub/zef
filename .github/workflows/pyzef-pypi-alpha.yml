@@ -41,7 +41,7 @@ jobs:
           package-dir: python
         env:
           CIBW_BUILD: "${{ matrix.python-version}}*"
-          CIBW_BUILD_VERBOSITY: 3
+          # CIBW_BUILD_VERBOSITY: 3
 
       - name: save wheels in artifacts
         uses: actions/upload-artifact@v3
