@@ -34,6 +34,7 @@ from ..internals import BaseUID, EternalUID, ZefRefUID, to_uid, ZefEnumStruct, Z
 from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
+from ..atom import get_ref_pointer
 
 zef_types = [VT.Graph, VT.ZefRef, VT.EZefRef]
 ref_types = [VT.ZefRef, VT.EZefRef]
@@ -5997,6 +5998,8 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
     - related zefop: target
     - related zefop: source
     """
+    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
+
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "single")
     # if isinstance(rt, RelationType):
@@ -6023,7 +6026,8 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
     #     return Error(f'Invalid type "{rt}" specified in Out[...]')
     # res = target(out_rel_imp(z, rt))
     # if target_filter and not is_a_implementation(res, target_filter):
-    return target_implementation(out_rel_imp(z, rt, target_filter))
+    res = out_rel_imp(z, rt, target_filter)
+    return Atom(target_implementation(get_ref_pointer(res)))
 
 
 
@@ -6054,10 +6058,13 @@ def Outs_imp(z, rt=None, target_filter = None):
     - related zefop: In
     - related zefop: ins_and_outs
     """
+    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
+
+
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
 
-    return out_rels_imp(z, rt, target_filter) | map[target] | collect
+    return out_rels_imp(z, rt, target_filter) | map[lambda atom: Atom(target(get_ref_pointer(atom)))] | collect
 
 
 #---------------------------------------- In -----------------------------------------------
@@ -6090,10 +6097,13 @@ def In_imp(z, rt=None, source_filter = None):
     - related zefop: target
     - related zefop: source
     """
+    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
+
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
 
-    return source_implementation(in_rel_imp(z, rt, source_filter))
+    res = in_rel_imp(z, rt, source_filter)
+    return Atom(source_implementation(get_ref_pointer(res)))
 
 
 #---------------------------------------- Ins -----------------------------------------------
@@ -6122,10 +6132,13 @@ def Ins_imp(z, rt=None, source_filter = None):
     - related zefop: Out
     - related zefop: ins_and_outs
     """
+    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
+
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
 
-    return in_rels_imp(z, rt, source_filter) | map[source] | collect
+    return in_rels_imp(z, rt, source_filter) | map[lambda atom: Atom(source(get_ref_pointer(atom)))] | collect
+
 
 #---------------------------------------- isn_and_outs -----------------------------------------------
 def ins_and_outs_imp(z, rel_type=RT):
@@ -6183,6 +6196,8 @@ def out_rel_imp(z, rt=None, target_filter = None):
     - related zefop: Out
     - related zefop: Outs
     """
+    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
+
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "single")
 
@@ -6213,6 +6228,7 @@ def out_rel_imp(z, rt=None, target_filter = None):
                 return hint
 
         raise Exception(help_hint())
+
     return single(opts)
 
 
@@ -6243,6 +6259,8 @@ def out_rels_imp(z, rt_or_bt=None, target_filter=None):
     - related zefop: Out
     - related zefop: Outs
     """
+    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
+
     assert is_a(z, ZefRef) or is_a(z, EZefRef) or is_a(z, FlatRef)
     if is_a(z, FlatRef): return traverse_flatref_imp(z, rt_or_bt, "out", "multi")
 
@@ -6257,8 +6275,9 @@ def out_rels_imp(z, rt_or_bt=None, target_filter=None):
             raise Exception("TODO: Need to implement non-specific relation types for out_rels")
     if target_filter: 
         if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
-        return res | filter[target | is_a[target_filter]] | collect 
-    return res
+        return res | filter[target | is_a[target_filter]] | map[func[Atom]] | collect 
+
+    return res | map[func[Atom]] | collect
 
 
 
@@ -6290,6 +6309,8 @@ def in_rel_imp(z, rt=None, source_filter = None):
     - related zefop: In
     - related zefop: Ins
     """
+    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
+
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "single")
 
@@ -6350,6 +6371,9 @@ def in_rels_imp(z, rt_or_bt=None, source_filter=None):
     - related zefop: In
     - related zefop: Ins
     """
+    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
+
+
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt_or_bt, "in", "multi")
     if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.ins(z) | filter[is_a[BT.RELATION_EDGE]] | collect
@@ -6363,8 +6387,9 @@ def in_rels_imp(z, rt_or_bt=None, source_filter=None):
             raise Exception("TODO: Need to implement non-specific relation types for out_rels")
     if source_filter: 
         if isinstance(source_filter, ZefOp): source_filter = Is[source_filter]
-        return res | filter[source | is_a[source_filter]] | collect 
-    return res  
+        return res | filter[source | is_a[source_filter]] | map[func[Atom]] | collect 
+
+    return res | map[func[Atom]] | collect
 
 
 
