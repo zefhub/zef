@@ -24,15 +24,17 @@ class Atom_:
 
     def __init__(self, atom_type, *names, **fields):
         from ._ops import is_a, rae_type, uid
-        from .VT import ZefRef, EZefRef, Entity
+        from .VT import ZefRef, EZefRef, RAET
 
         ref_pointer = None
         if is_a(atom_type, ZefRef) or is_a(atom_type, EZefRef):
-            assert is_a(atom_type, Entity), "Atom was called with a ZefRef not of EntityType"
             # This means we can extract the atom_type and uid from the Ref
             ref_pointer = atom_type
             atom_type = rae_type(ref_pointer)
             names =  (str(uid(ref_pointer)), *names)
+
+        elif not is_a(atom_type, RAET):
+            raise TypeError(f"Atom was called with an invalid atom_type: {atom_type}")
 
         object.__setattr__(self, "atom_type", atom_type)
         object.__setattr__(self, "names", names)
