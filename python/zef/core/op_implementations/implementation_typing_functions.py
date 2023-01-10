@@ -9512,7 +9512,9 @@ def operates_on_imp(op: VT.ZefOp) -> VT.List[VT.ValueType]:
     return (
         tags_lines 
         | filter[first |equals["operates on"]]
-        | map[second | func[lambda s: VT.__dict__.get(s, None)]]
+        | map[second | split[','] | map[trim[' ']] | collect]
+        | concat
+        | map[func[lambda s: VT.__dict__.get(s, None)]] 
         | filter[lambda el: el != None]
         | collect
     )
