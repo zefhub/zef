@@ -61,6 +61,8 @@ namespace zefDB {
         DEFINE_FLAG(default_wait_for_tx_finish, true);
         DEFINE_FLAG(default_rollback_empty_tx, true);
 
+        DEFINE_FLAG(no_timeout_errors, false);
+
         Zwitch allow_dynamic_type_definitions(bool new_value) {
             allow_dynamic_entity_type_definitions(new_value);
             allow_dynamic_relation_type_definitions(new_value);
@@ -108,6 +110,9 @@ namespace zefDB {
             }
             if(check_env_bool("ZEFDB_DEVELOPER_ZEFHUB_JSON")) {
                 debug_zefhub_json_output(true);
+            }
+            if(check_env_bool("ZEFDB_NO_TIMEOUT_ERRORS")) {
+                no_timeout_errors(true);
             }
         }
     };

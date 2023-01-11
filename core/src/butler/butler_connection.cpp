@@ -52,7 +52,8 @@ bool Butler::wait_for_auth(std::chrono::duration<double> timeout) {
         start_connection();
     }
     auto done_auth = [this]() { return should_stop || connection_authed || fatal_connection_error; };
-    if(timeout < std::chrono::duration<double>(0)) {
+    std::chrono::duration<double> chosen_timeout = zwitch.no_timeout_errors() ? std::chrono::duration<double>(-1) : timeout;
+    if(chosen_timeout < std::chrono::duration<double>(0)) {
         // wait_pred(auth_locker, done_auth);
         // We have a special spam message in here to let users know what's going on. 
         wait_pred(auth_locker, done_auth, std::chrono::seconds(3));
@@ -62,7 +63,7 @@ bool Butler::wait_for_auth(std::chrono::duration<double> timeout) {
         }
     }
     else {
-        if(!wait_pred(auth_locker, done_auth, timeout))
+        if(!wait_pred(auth_locker, done_auth, chosen_timeout))
             return false;
     }
 
