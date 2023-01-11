@@ -747,10 +747,11 @@ namespace zefDB {
        auto r = std::get<Messages::MergeRequestResponse::ReceiptGraphDelta>(response.receipt);
        // Wait for graph to be up to date before deserializing
        auto & gd = target_graph.my_graph_data();
+       double chosen_timeout = zwitch.no_timeout_errors() ? 3600 : 60.0;
        bool reached_sync = wait_pred(gd.heads_locker,
                                      [&]() { return gd.read_head >= r.read_head; },
                                      // std::chrono::duration<double>(Butler::butler_generic_timeout.value));
-                                     std::chrono::duration<double>(60.0));
+                                     std::chrono::duration<double>(chosen_timeout));
        if(!reached_sync)
            throw std::runtime_error("Did not sync in time to handle merge receipt.");
        

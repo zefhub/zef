@@ -72,6 +72,7 @@ void Butler::cancel_online_tasks() {
 
 Response wait_future(Butler::task_ptr task, std::optional<activity_callback_t> activity_callback={}) {
     if(task->timeout > 0) {
+        bool msged_about_timeout = false;
         while(true) {
             auto wait_time = Time(task->last_activity.load()) + task->timeout*seconds - now();
             wait_pred(task->locker,
@@ -101,6 +102,14 @@ Response wait_future(Butler::task_ptr task, std::optional<activity_callback_t> a
             }
 
             if(now() > Time(task->last_activity.load()) + task->timeout*seconds) {
+                if(zwitch.no_timeout_errors()) {
+                    if(!msged_about_timeout) {
+                        std::cerr << "Reached timeout for task because last_activity was " << std::fixed << task->last_activity << " and now is " << now() << std::endl;
+                        std::cerr << "Going to continue without error because zwitch.no_timeout_errors() is true" << std::endl;
+                        msged_about_timeout = true;
+                        continue;
+                    }
+                }
                 std::cerr << "Throwing timeout exception because last_activity was " << std::fixed << task->last_activity << " and now is " << now() << std::endl;
                 throw Butler::timeout_exception();
             }

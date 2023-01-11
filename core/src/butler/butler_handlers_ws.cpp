@@ -644,7 +644,11 @@ void Butler::check_overdue_receiving_transfers() {
     for(auto & it : receiving_transfers) {
         auto & trans = it.second;
 
-        if(trans.last_activity + chunk_timeout*seconds < now()) {
+        // With no timeout errors, we don't ignore the timeout completely, as
+        // this would clog up everything and also continually spam the logs.
+        // Instead we go for an hour instead.
+        double chosen_timeout = zwitch.no_timeout_errors() ? 3600 : chunk_timeout;
+        if(trans.last_activity + chosen_timeout*seconds < now()) {
             to_remove.push_back(trans.uid);
             if(zwitch.developer_output()) {
                 std::cerr << "Going to remove chunked transfer which has:" << std::endl;
