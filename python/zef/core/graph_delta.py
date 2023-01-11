@@ -73,6 +73,7 @@ for t in [list, tuple]:
 
 import os
 gd_timing = "ZEFDB_GRAPH_DELTA_TIMING" in os.environ
+gd_perform_transaction_debug = "ZEFDB_GRAPH_DELTA_PERFORM_DEBUG" in os.environ
 
 ##############################
 # * Description
@@ -1400,6 +1401,8 @@ def perform_transaction_commands(commands: list, g: Graph):
 
             next_print = now()+5*seconds
             for i,cmd in enumerate(commands):
+                if gd_perform_transaction_debug:
+                    log.debug("Performing", i=i, cmd=cmd)
                 if gd_timing:
                     if now() > next_print:
                         log.debug("Perform", i=i, total=len(commands))
