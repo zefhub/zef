@@ -40,6 +40,7 @@ for t in [list, tuple]:
 
 import os
 gd_timing = "ZEFDB_GRAPH_DELTA_TIMING" in os.environ
+gd_perform_transaction_debug = "ZEFDB_GRAPH_DELTA_PERFORM_DEBUG" in os.environ
 
 ##############################
 # * Description
@@ -979,7 +980,7 @@ def verify_and_compact_commands(cmds: tuple):
     state_final = (
         {"state": state_initial, "num_changed": -1}
         | iterate[resolve_dag_ordering_step] 
-        | (tap[make_debug_output()] if gd_timing else identity)
+        | (map[tap[make_debug_output()]] if gd_timing else identity)
         | take_until[lambda s: s["num_changed"] == 0]
         # | map[tap[print]]
         | last
@@ -1270,6 +1271,8 @@ def perform_transaction_commands(commands: list, g: Graph):
 
             next_print = now()+5*seconds
             for i,cmd in enumerate(commands):
+                if gd_perform_transaction_debug:
+                    log.debug("Performing", i=i, cmd=cmd)
                 if gd_timing:
                     if now() > next_print:
                         log.debug("Perform", i=i, total=len(commands))
