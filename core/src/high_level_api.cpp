@@ -424,6 +424,8 @@ namespace zefDB {
 			throw std::runtime_error("'instantiate entity' called for a graph which is not a primary instance. This is not allowed. Shame on you!");
 		using namespace internals;
 
+        std::cerr << "In the start of instantiate(EntityType, GraphData)" << std::endl;
+
 		// allocate this structure in the memory pool and move head forward
 		auto my_tx_to_keep_this_open_in_this_fct = Transaction(gd);
 
