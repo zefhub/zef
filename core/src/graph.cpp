@@ -904,12 +904,14 @@ namespace zefDB {
         // std::thread::id() works as the "unset" value in this case.
         auto this_id = std::this_thread::get_id();
         if(this_id == gd.sync_thread_id) {
+            std::cerr << "In StartTransaction: we are the sync thread." << std::endl;
             // If we are here, then we are the manager running subscriptions. We
             // only need to take the write role.
             update_when_ready(gd.open_tx_thread_locker,
                             gd.open_tx_thread,
                             std::thread::id(),
                             this_id);
+            std::cerr << "In StartTransaction: sync thread took tx" << std::endl;
         } else {
             // We are a client, we need to wait for the manager to have caught
             // up and no-one else is writing.
@@ -919,6 +921,10 @@ namespace zefDB {
             // problematic?
             while(gd.latest_complete_tx != gd.manager_tx_head.load()
                 || gd.open_tx_thread != this_id) {
+
+                std::cerr << "In StartTransaction: we are waiting (guid=" << internals::get_graph_uid(gd) << ") for something:" << std::endl;
+                std::cerr << "In StartTransaction: latest_complete_tx=" << gd.latest_complete_tx.load() << " manager_tx_head=" << gd.manager_tx_head.load() << std::endl;
+                std::cerr << "In StartTransaction: open_tx_thread=" << gd.open_tx_thread << " this_id=" << this_id << std::endl;
                 // Give up the open_tx_thread if we stole it before the manager can catch up.
                 if(gd.open_tx_thread == this_id)
                     update(gd.open_tx_thread_locker, gd.open_tx_thread, std::thread::id());
@@ -928,6 +934,7 @@ namespace zefDB {
                                 std::thread::id(),
                                 this_id);
             }
+            std::cerr << "In StartTransaction: done waiting" << std::endl;
         }
                           
 		if (gd.number_of_open_tx_sessions == 0) // make sure a tx has been instantiated, e.g. for the case that someone does my_ent | now and expects a ZR within this very time slice
