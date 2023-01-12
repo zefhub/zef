@@ -328,7 +328,7 @@ namespace zefDB {
             // only time this could be useful is if there is nobody blocking on
             // a ZH query, e.g. a zearch request.
             template <class T>
-            T msg_push_timeout(Request && content, double timeout = butler_generic_timeout, bool ignore_closed=false);
+            T msg_push_timeout(Request && content, double timeout = butler_generic_timeout, bool ignore_closed=false, std::optional<std::string> maybe_task_uid={});
 
             ////////////////////////////////////////////////////
             // * Graph manager functions

@@ -736,11 +736,16 @@ namespace zefDB {
                butler->msg_push_timeout<Messages::MergeRequestResponse>(
                    // Note: don't move, as we might be redoing this.
                    msg,
-                   Butler::zefhub_generic_timeout
+                   Butler::zefhub_generic_timeout,
+                   false,
+                   msg.idempotent_task_uid
                );
            } catch(const Communication::disconnected_exception &) {
                std::cerr << "Disconnected in the middle of a merge request, going to wait for auth and try again." << std::endl;
                // wait_for_auth();
+               continue;
+           } catch(const Butler::Butler::timeout_exception &) {
+               std::cerr << "Got a timeout in the middle of a merge request, going to try again." << std::endl;
                continue;
            }
            break;
