@@ -19,7 +19,7 @@
 Butler::task_ptr Butler::add_task(bool is_online, double timeout) {
     return add_task(is_online, timeout, std::promise<Response>(), true);
 };
-Butler::task_ptr Butler::add_task(bool is_online, double timeout, std::promise<Response> && promise, bool acquire_future) {
+Butler::task_ptr Butler::add_task(bool is_online, double timeout, std::promise<Response> && promise, bool acquire_future, std::optional<std::string> maybe_task_uid) {
     std::lock_guard lock(waiting_tasks_mutex);
 #ifdef ZEF_DEBUG
     if(waiting_tasks.size() > 100)
@@ -29,7 +29,7 @@ Butler::task_ptr Butler::add_task(bool is_online, double timeout, std::promise<R
     // if(is_online && !network.connected)
     //     throw std::runtime_error("Not adding a new network task when we aren't online.");
    
-    task_ptr task = std::make_shared<Task>(now(), is_online, timeout, promise, acquire_future);
+    task_ptr task = std::make_shared<Task>(now(), is_online, timeout, promise, acquire_future, maybe_task_uid);
     waiting_tasks.emplace_back(std::make_shared<TaskPromise>(task, std::move(promise)));
     return task;
 };
@@ -72,8 +72,9 @@ void Butler::cancel_online_tasks() {
 
 Response wait_future(Butler::task_ptr task, std::optional<activity_callback_t> activity_callback={}) {
     if(task->timeout > 0) {
+        double timeout = task->timeout;
         while(true) {
-            auto wait_time = Time(task->last_activity.load()) + task->timeout*seconds - now();
+            auto wait_time = Time(task->last_activity.load()) + timeout*seconds - now();
             wait_pred(task->locker,
                       [&task, &activity_callback]() { return (((bool)activity_callback) && task->messages.size() > 0)
                               || is_future_ready(task->future); },
@@ -100,7 +101,13 @@ Response wait_future(Butler::task_ptr task, std::optional<activity_callback_t> a
                 break;
             }
 
-            if(now() > Time(task->last_activity.load()) + task->timeout*seconds) {
+            if(now() > Time(task->last_activity.load()) + timeout*seconds) {
+                if(zwitch.no_timeout_errors()) {
+                    std::cerr << "Reached timeout for task because last_activity was " << std::fixed << task->last_activity << " and now is " << now() << std::endl;
+                    std::cerr << "Going to continue without error because zwitch.no_timeout_errors() is true" << std::endl;
+                    timeout = 1e30;
+                    continue;
+                }
                 std::cerr << "Throwing timeout exception because last_activity was " << std::fixed << task->last_activity << " and now is " << now() << std::endl;
                 throw Butler::timeout_exception();
             }

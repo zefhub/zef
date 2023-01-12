@@ -124,13 +124,15 @@ namespace zefDB {
                 // Handle when making a Task from a RequestMesssage, which
                 // is forwarding a client request straight to zefhub, letting
                 // the client wait on the response rather than the butler.
-                Task(Time time, bool is_online, double timeout, std::promise<Response> & promise, bool acquire_future)
+                Task(Time time, bool is_online, double timeout, std::promise<Response> & promise, bool acquire_future, std::optional<std::string> maybe_task_uid={})
                     : started_time(time),
                       is_online(is_online),
                       last_activity(time.seconds_since_1970),
                       timeout(timeout) {
                     if(acquire_future)
                         future = promise.get_future();
+                    if(maybe_task_uid)
+                        task_uid = *maybe_task_uid;
                 }
                 // This is to make it explicit to avoid problematic cases.
                 Task& operator=(const Task &) = delete;
@@ -163,7 +165,7 @@ namespace zefDB {
             // reference a location in the vector which may later change from
             // multi-threaded behaviour.
             task_ptr add_task(bool is_online, double timeout);
-            task_ptr add_task(bool is_online, double timeout, std::promise<Response> && promise, bool acquire_future=false);
+            task_ptr add_task(bool is_online, double timeout, std::promise<Response> && promise, bool acquire_future=false, std::optional<std::string> maybe_task_uid={});
             task_promise_ptr find_task(std::string task_uid, bool forget=false);
             bool forget_task(std::string task_uid);
             void cancel_online_tasks();
@@ -328,7 +330,7 @@ namespace zefDB {
             // only time this could be useful is if there is nobody blocking on
             // a ZH query, e.g. a zearch request.
             template <class T>
-            T msg_push_timeout(Request && content, double timeout = butler_generic_timeout, bool ignore_closed=false);
+            T msg_push_timeout(Request && content, double timeout = butler_generic_timeout, bool ignore_closed=false, std::optional<std::string> maybe_task_uid={});
 
             ////////////////////////////////////////////////////
             // * Graph manager functions

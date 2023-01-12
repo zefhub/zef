@@ -219,7 +219,7 @@ namespace zefDB {
         }
 
         Time now() {
-            return Time{ std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() * 1E-6 };
+            return Time{ time_double() };
         }
 
         //////////////////////////////

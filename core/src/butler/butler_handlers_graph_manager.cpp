@@ -1030,11 +1030,11 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
 
     auto err_reply = [&](std::string text) {
         std::cerr << "Merge request trying to send out error: " << text << std::endl;
-        if(content.task_uid) {
+        if(content.upstream_task_uid) {
             if(content.msg_version <= 0) {
                 send_ZH_message({
                         {"msg_type", "merge_request_response"},
-                        {"task_uid", *content.task_uid},
+                        {"task_uid", *content.upstream_task_uid},
                         {"success", "0"},
                         {"reason", text},
                         {"indices", "[]"},
@@ -1043,7 +1043,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
             } else {
                 send_ZH_message({
                         {"msg_type", "merge_request_response"},
-                        {"task_uid", *content.task_uid},
+                        {"task_uid", *content.upstream_task_uid},
                         {"msg_version", 3},
                         {"success", false},
                         {"reason", text},
@@ -1080,14 +1080,14 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
                     // json receipt = pymerge(Graph(*me.gd), payload.delta);
                     json receipt = internals::pass_to_merge_handler(Graph(*me.gd), payload.commands);
 
-                    if(content.task_uid) {
+                    if(content.upstream_task_uid) {
                         if(content.msg_version <= 0) {
                             throw std::runtime_error("Shouldn't get here - msg_version is zero");
                         } else {
                             send_ZH_message({
                                 {"msg_type", "merge_request_response"},
                                 {"msg_version", 3},
-                                {"task_uid", *content.task_uid},
+                                {"task_uid", *content.upstream_task_uid},
                                 {"success", true},
                                 {"reason", "merged"},
                                 {"receipt", {
@@ -1258,7 +1258,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, TagGrap
         msg->promise.set_value(GenericResponse("Can't tag graph when not being synchronised."));
         return;
     }
-    if(!wait_diff(me.gd->heads_locker, me.gd->sync_head, 0, std::chrono::duration<double>(butler_generic_timeout))) {
+    if(!wait_diff(me.gd->heads_locker, me.gd->sync_head, 0, std::chrono::duration<double>(zefhub_generic_timeout))) {
         msg->promise.set_value(GenericResponse("Timed out waiting for graph to be synced."));
         return;
     }

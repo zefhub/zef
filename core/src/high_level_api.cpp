@@ -720,6 +720,7 @@ namespace zefDB {
        auto butler = Butler::get_butler();
 
        Messages::MergeRequest msg {
+           generate_random_task_uid(),
            {},
            internals::get_graph_uid(target_graph),
            Messages::MergeRequest::PayloadGraphDelta{j},
@@ -731,11 +732,31 @@ namespace zefDB {
            return {};
        }
 
-       auto response =
-           butler->msg_push_timeout<Messages::MergeRequestResponse>(
-               std::move(msg),
-               Butler::zefhub_generic_timeout
-           );
+       // We retry any merge that fails because of a disconnect, but fail
+       // through for anything else.
+       std::optional<Messages::MergeRequestResponse> response_store;
+       while(true) {
+           try {
+           response_store =
+               butler->msg_push_timeout<Messages::MergeRequestResponse>(
+                   // Note: don't move, as we might be redoing this.
+                   msg,
+                   Butler::zefhub_generic_timeout,
+                   false,
+                   msg.idempotent_task_uid
+               );
+           } catch(const Communication::disconnected_exception &) {
+               std::cerr << "Disconnected in the middle of a merge request, going to wait for auth and try again." << std::endl;
+               // wait_for_auth();
+               continue;
+           } catch(const Butler::Butler::timeout_exception &) {
+               std::cerr << "Got a timeout in the middle of a merge request, going to try again." << std::endl;
+               continue;
+           }
+           break;
+       }
+
+       auto response = *response_store;
 
        if(!response.generic.success)
            throw std::runtime_error("Unable to perform merge: " + response.generic.reason);
@@ -747,10 +768,11 @@ namespace zefDB {
        auto r = std::get<Messages::MergeRequestResponse::ReceiptGraphDelta>(response.receipt);
        // Wait for graph to be up to date before deserializing
        auto & gd = target_graph.my_graph_data();
+       double chosen_timeout = zwitch.no_timeout_errors() ? 3600 : 60.0;
        bool reached_sync = wait_pred(gd.heads_locker,
                                      [&]() { return gd.read_head >= r.read_head; },
                                      // std::chrono::duration<double>(Butler::butler_generic_timeout.value));
-                                     std::chrono::duration<double>(60.0));
+                                     std::chrono::duration<double>(chosen_timeout));
        if(!reached_sync)
            throw std::runtime_error("Did not sync in time to handle merge receipt.");
        
