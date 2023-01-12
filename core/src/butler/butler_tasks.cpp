@@ -19,7 +19,7 @@
 Butler::task_ptr Butler::add_task(bool is_online, double timeout) {
     return add_task(is_online, timeout, std::promise<Response>(), true);
 };
-Butler::task_ptr Butler::add_task(bool is_online, double timeout, std::promise<Response> && promise, bool acquire_future) {
+Butler::task_ptr Butler::add_task(bool is_online, double timeout, std::promise<Response> && promise, bool acquire_future, std::optional<std::string> maybe_task_uid) {
     std::lock_guard lock(waiting_tasks_mutex);
 #ifdef ZEF_DEBUG
     if(waiting_tasks.size() > 100)
@@ -29,7 +29,7 @@ Butler::task_ptr Butler::add_task(bool is_online, double timeout, std::promise<R
     // if(is_online && !network.connected)
     //     throw std::runtime_error("Not adding a new network task when we aren't online.");
    
-    task_ptr task = std::make_shared<Task>(now(), is_online, timeout, promise, acquire_future);
+    task_ptr task = std::make_shared<Task>(now(), is_online, timeout, promise, acquire_future, maybe_task_uid);
     waiting_tasks.emplace_back(std::make_shared<TaskPromise>(task, std::move(promise)));
     return task;
 };

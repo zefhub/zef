@@ -715,6 +715,7 @@ namespace zefDB {
        auto butler = Butler::get_butler();
 
        Messages::MergeRequest msg {
+           generate_random_task_uid(),
            {},
            internals::get_graph_uid(target_graph),
            Messages::MergeRequest::PayloadGraphDelta{j},
@@ -726,11 +727,26 @@ namespace zefDB {
            return {};
        }
 
-       auto response =
-           butler->msg_push_timeout<Messages::MergeRequestResponse>(
-               std::move(msg),
-               Butler::zefhub_generic_timeout
-           );
+       // We retry any merge that fails because of a disconnect, but fail
+       // through for anything else.
+       std::optional<Messages::MergeRequestResponse> response_store;
+       while(true) {
+           try {
+           response_store =
+               butler->msg_push_timeout<Messages::MergeRequestResponse>(
+                   // Note: don't move, as we might be redoing this.
+                   msg,
+                   Butler::zefhub_generic_timeout
+               );
+           } catch(const Communication::disconnected_exception &) {
+               std::cerr << "Disconnected in the middle of a merge request, going to wait for auth and try again." << std::endl;
+               // wait_for_auth();
+               continue;
+           }
+           break;
+       }
+
+       auto response = *response_store;
 
        if(!response.generic.success)
            throw std::runtime_error("Unable to perform merge: " + response.generic.reason);

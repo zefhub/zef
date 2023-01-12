@@ -442,6 +442,11 @@ void Butler::handle_incoming_merge_request(json & j) {
         std::string payload_type = j["payload"]["type"].get<std::string>();
         if(payload_type == "delta") {
             content = MergeRequest{
+                // TODO: We need to update this to handle idempotent tasks on
+                // our end. A the moment, if the connection drops, then we have
+                // no way to remember that the upstream task is the same across
+                // multiple requests.
+                zefDB::generate_random_task_uid(),
                 task_uid,
                 target_guid,
                 MergeRequest::PayloadGraphDelta{

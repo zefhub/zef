@@ -66,6 +66,8 @@ namespace zefDB {
             Messages::Response response;
             try {
                 response = future.get();
+            } catch(const Communication::disconnected_exception &) {
+                throw;
             } catch(const std::exception & e) {
                 // std::cerr << "Exception: " << e.what() << std::endl;
                 throw std::runtime_error("Got unexpected butler error when processing message of type: " + msg_type + "\nException was: " + e.what());
