@@ -315,6 +315,7 @@ void Butler::handle_guest_message(UIDQuery & content, Butler::msg_ptr & msg) {
     }
 }
 
+
 template <>
 void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg) {
     // Even if we don't use the task, it's easier to create it now with try/catch.
@@ -335,12 +336,12 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
         if(butler_is_master)
             throw std::runtime_error("Butler as master does not allow for upstream delegation of merges.");
 
-        if(content.task_uid) {
+        if(content.upstream_task_uid) {
             // This is a remote request, so we should abort.
             throw std::runtime_error("Can't handle remote request anymore. Presumably we lost transactor role in between the request being sent out.");
         }
 
-        task = add_task(true, 0, std::move(msg->promise));
+        task = add_task(true, 0, std::move(msg->promise), false, content.idempotent_task_uid);
         // Need to delegate to zefhub
         std::visit(overloaded {
                 [&](MergeRequest::PayloadGraphDelta & payload) {
@@ -366,7 +367,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
                 }
             }, content.payload);
     } catch(...) {
-        if(content.task_uid) {
+        if(content.upstream_task_uid) {
             // This is a remote request, so we should let upstream know of the problem.
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
