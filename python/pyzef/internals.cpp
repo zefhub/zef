@@ -581,35 +581,50 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("heads_apply", &Butler::heads_apply, "Low-level function to see an update can be applied onto a graph.", py::call_guard<py::gil_scoped_release>());
     internals_submodule.def("parse_payload_update_heads", &Butler::parse_payload_update_heads, py::call_guard<py::gil_scoped_release>());
 
-    internals_submodule.def("create_update_heads", [](GraphData & gd, blob_index blob_head, py::dict cache_heads) {
-        LockGraphData lock{&gd};
-
-        Butler::UpdateHeads update_heads{ {blob_head, gd.read_head} };
-
-        for(auto & it : cache_heads) {
+    internals_submodule.def("create_update_heads", [](GraphData & gd, blob_index blob_head, py::dict _cache_heads) {
+        // Convert the python dictionary to a simple mapping
+        std::vector<std::tuple<std::string,size_t,size_t>> temp_cache_heads;
+        for(auto & it : _cache_heads) {
             std::string name = py::cast<std::string>(it.first);
-            if(false) {}
-#define GEN_CACHE(x,y) else if(name == x) { \
-                auto ptr = gd.y->get(); \
-                update_heads.caches.push_back({x, py::cast<size_t>(it.second["head"]), ptr->size(), py::cast<size_t>(it.second["revision"])}); \
-            }
+            size_t head = py::cast<size_t>(it.second["head"]);
+            size_t revision = py::cast<size_t>(it.second["revision"]);
 
-            GEN_CACHE("_ETs_used", ETs_used)
-            GEN_CACHE("_RTs_used", RTs_used)
-            GEN_CACHE("_ENs_used", ENs_used)
-
-            GEN_CACHE("_uid_lookup", uid_lookup)
-            GEN_CACHE("_euid_lookup", euid_lookup)
-            GEN_CACHE("_tag_lookup", tag_lookup)
-            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
-            else
-                throw std::runtime_error("Don't understand cache: " + name);
+            temp_cache_heads.push_back(std::make_tuple(name, head, revision));
         }
 
-        return update_heads;
+        {
+            py::gil_scoped_release release;
+            LockGraphData lock{&gd};
+
+            Butler::UpdateHeads update_heads{ {blob_head, gd.read_head} };
+
+            for(auto & it : temp_cache_heads) {
+                std::string name = std::get<0>(it);
+                size_t head = std::get<1>(it);
+                size_t revision = std::get<2>(it);
+                if(false) {}
+    #define GEN_CACHE(x,y) else if(name == x) { \
+                    auto ptr = gd.y->get(); \
+                    update_heads.caches.push_back({x, head, ptr->size(), revision}); \
+                }
+
+                GEN_CACHE("_ETs_used", ETs_used)
+                GEN_CACHE("_RTs_used", RTs_used)
+                GEN_CACHE("_ENs_used", ENs_used)
+
+                GEN_CACHE("_uid_lookup", uid_lookup)
+                GEN_CACHE("_euid_lookup", euid_lookup)
+                GEN_CACHE("_tag_lookup", tag_lookup)
+                GEN_CACHE("_av_hash_lookup", av_hash_lookup)
+                else
+                    throw std::runtime_error("Don't understand cache: " + name);
+            }
+
+            return update_heads;
+        }
     },
         // DO NOT RELEASE THE GIL FOR THIS FUNCTION
-        "Low-level function to see if an update needs to be sent out.");
+            "Low-level function to see if an update needs to be sent out.");
 
     internals_submodule.def("create_update_heads", [](GraphData & gd) {
         return internals::full_graph_heads(gd);
