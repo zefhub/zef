@@ -80,16 +80,23 @@ namespace zefDB {
                             timeout = time_double() - task_promise->task->last_activity < timeout;
                             if(timeout > 0)
                                 continue;
-
-                            // If we are done with this, we need to forget the task.
-                            forget_task(*maybe_task_uid);
+                            // Note: we can't forget task in here as we might
+                            // have a timeout/disconnect from higher up.
                         }
                     }
                     throw Butler::timeout_exception();
                 }
             } catch(const Communication::disconnected_exception &) {
+                // If we are done with this, we need to forget the task.
+                auto task_promise = find_task(*maybe_task_uid);
+                if(task_promise)
+                    forget_task(*maybe_task_uid);
                 throw;
             } catch(const Butler::timeout_exception &) {
+                // If we are done with this, we need to forget the task.
+                auto task_promise = find_task(*maybe_task_uid);
+                if(task_promise)
+                    forget_task(*maybe_task_uid);
                 throw;
             } catch(const std::exception & e) {
                 // std::cerr << "Exception: " << e.what() << std::endl;
