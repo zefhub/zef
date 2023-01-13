@@ -732,9 +732,6 @@ namespace zefDB {
        std::optional<Messages::MergeRequestResponse> response_store;
        while(true) {
            try {
-               auto task_promise = find_task(msg.idempotent_task_uid);
-               if(task_promise)
-                    forget_task(msg.idempotent_task_uid);
            response_store =
                butler->msg_push_timeout<Messages::MergeRequestResponse>(
                    // Note: don't move, as we might be redoing this.
