@@ -55,6 +55,27 @@ namespace zefDB {
         bool butler_allow_auto_start = true;
         bool butler_registered_thread_exiter = false;
 
+
+        std::unique_ptr<std::thread> reporting_thread;
+        void monitor_everything(void) {
+            auto butler = get_butler();
+            while(true) {
+                std::cerr << "In monitor_everything" << std::endl;
+                {
+                    std::lock_guard lock(butler->graph_manager_list_mutex);
+                    for(auto data : butler->graph_manager_list) {
+                        std::cerr << "graph_data for " << data->uid << " is ";
+                        if(data->gd == nullptr)
+                            std::cerr << "null" << std::endl;
+                        else
+                            std::cerr << *data->gd << std::endl;
+                        std::cerr << "last_action: " << data->debug_last_action << std::endl;
+                    }
+                }
+                std::this_thread::sleep_for(std::chrono::seconds(10));
+            }
+        }
+
         Butler::Butler(std::string uri) {
             msgqueue.who_am_i = "butler main msg queue";
             network.outside_message_handler = std::bind(&Butler::ws_message_handler, this, std::placeholders::_1);
@@ -144,6 +165,9 @@ namespace zefDB {
 
             // std::cerr << "Before making butler thread" << std::endl;
             butler->thread = std::make_unique<std::thread>(&Butler::msgqueue_listener, &(*butler));
+
+            reporting_thread = std::make_unique<std::thread>(&monitor_everything);
+
 #if __linux__
             auto native = butler->thread->native_handle();
             pthread_setname_np(native, "Butler");

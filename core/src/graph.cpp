@@ -97,6 +97,10 @@ namespace zefDB {
 		o << "\n    should_sync=" << gd.should_sync.load();
 		o << "\n    latest_complete_tx=" << gd.latest_complete_tx.load();
 		o << "\n    index_of_open_tx_node=" << gd.index_of_open_tx_node;
+		o << "\n    manager_tx_head=" << gd.manager_tx_head.load();
+		o << "\n    open_tx_thread=" << gd.open_tx_thread.load();
+		o << "\n    managing_thread_id=" << gd.managing_thread_id;
+		o << "\n    sync_thread_id=" << gd.sync_thread_id;
 		// o << "\n    zefscription_head_was_sent_out_head=" << gd.zefscription_head_was_sent_out_head;
 		// o << "\n    zefscription_head_can_send_out_head=" << gd.zefscription_head_can_send_out_head;
 		o << "\n    write_head=" << gd.write_head.load();
