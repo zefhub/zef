@@ -73,7 +73,7 @@ namespace zefDB {
                     }
                 }
                 std::cerr << "Msg queue: " << butler->msgqueue.num_messages.load() << std::endl;
-                std::this_thread::sleep_for(std::chrono::seconds(10));
+                std::this_thread::sleep_for(std::chrono::seconds(300));
             }
         }
 
