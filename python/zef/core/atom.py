@@ -29,7 +29,7 @@ class Atom_:
         ref_pointer = None
         if is_a(arg, BlobPtr):
             # This means we can extract the atom_type and uid from the Ref
-            ref_pointer = atom_type
+            ref_pointer = arg
             atom_type = rae_type(ref_pointer)
             names = (str(origin_uid(ref_pointer)), *names)
 
@@ -89,6 +89,13 @@ class Atom_:
             raise AttributeError(name)
     def __dir__(self):
         return dir(object.__getattribute__(self, "fields"))
+
+    def __eq__(self, other):
+        return (get_atom_type(self) == get_atom_type(other)
+                and get_ref_pointer(self) == get_ref_pointer(other)
+                and get_names(self) == get_names(other)
+                and get_fields(self) == get_fields(other))
+
 
 from .VT import make_VT
 Atom = make_VT('Atom', pytype=Atom_)

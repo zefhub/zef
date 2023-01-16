@@ -34,7 +34,7 @@ from ..internals import BaseUID, EternalUID, ZefRefUID, to_uid, ZefEnumStruct, Z
 from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
-from ..atom import get_ref_pointer
+from ..atom import get_ref_pointer, get_atom_type, get_names, get_fields
 
 zef_types = [VT.Graph, VT.ZefRef, VT.EZefRef]
 ref_types = [VT.ZefRef, VT.EZefRef]
@@ -5198,7 +5198,7 @@ def discard_frame_imp(x):
         if internals.is_delegate(x):
             return to_delegate(x)
         if BT(x) in [BT.ENTITY_NODE, BT.RELATION_EDGE, BT.ATTRIBUTE_ENTITY_NODE, BT.TX_EVENT_NODE, BT.ROOT_NODE]:
-            return Atom(x)
+            return discard_frame(Atom(x))
         elif BT(x) == BT.VALUE_NODE:
             return Val(value(x))
         raise Exception("Not a ZefRef that is a concrete RAE")
@@ -5487,12 +5487,12 @@ def run_effect_implementation(eff):
 
 def hasout_implementation(zr, rt):
     if check_Atom_with_ref(zr):
-        return Atom_unpack_and_rewrap(hasout_implementation)(zr, rt)
+        return hasout_implementation(get_ref_pointer(zr), rt)
     return curry_args_in_zefop(pyzefops.has_out, zr, (internals.get_c_token(rt),))
 
 def hasin_implementation(zr, rt):
     if check_Atom_with_ref(zr):
-        return Atom_unpack_and_rewrap(hasin_implementation)(zr, rt)
+        return hasin_implementation(get_ref_pointer(zr), rt)
     return curry_args_in_zefop(pyzefops.has_in, zr, (internals.get_c_token(rt),))
 
 
@@ -6403,7 +6403,7 @@ def source_implementation(zr):
 
 def target_implementation(zr):
     if check_Atom_with_ref(zr):
-        return Atom_unpack_and_rewrap(source_implementation)(zr)
+        return Atom_unpack_and_rewrap(target_implementation)(zr)
 
     if is_a(zr, Entity):
         raise Exception(f"Can't take the target of an entity (have {zr}), only relations have sources/targets")
@@ -6420,7 +6420,7 @@ def target_implementation(zr):
 
 def value_implementation(zr, maybe_tx=None):
     if check_Atom_with_ref(zr):
-        return value_implementation(get_ref_pointer(z), maybe_tx)
+        return value_implementation(get_ref_pointer(zr), maybe_tx)
 
     if isinstance(zr, FlatRef):
         return fr_value_imp(zr)
@@ -6450,6 +6450,7 @@ def time_implementation(x):
     if isinstance(x, GraphSlice):
         return pyzefops.time(to_tx(x))
     if check_Atom_with_ref(x):
+        import pdb; pdb.set_trace()
         return time_implementation(get_ref_pointer(x))
     return (pyzefops.time)(x)
 
@@ -6504,8 +6505,8 @@ def zef_id_imp(x):
 
 def exists_at_implementation(z, frame):
     assert isinstance(frame, GraphSlice)
-    if check_Atom_with_ref(x):
-        return Atom_unpack_and_rewrap(exists_at_implementation)(z, frame)
+    if check_Atom_with_ref(z):
+        return exists_at_implementation(get_ref_pointer(z), frame)
     return (pyzefops.exists_at)(z, frame.tx)
 
 def first_tx_for_low_level_blob(z):
