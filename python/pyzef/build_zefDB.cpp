@@ -689,7 +689,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
     main_module.def("list_config", &list_config, py::call_guard<py::gil_scoped_release>(), "List the config including all default/environment set variables.", py::arg("filter")="");
     main_module.def("validate_config_file", &validate_config_file, py::call_guard<py::gil_scoped_release>(), "Ensure the config file and environment overrides have sensible values.");
 
-
+    main_module.def("check_env_bool", &check_env_bool, py::arg("var"), py::arg("default")=false);
 
 	fill_internals_module(internals_submodule);
 	create_zefops_module(toplevel_module, internals_submodule);
