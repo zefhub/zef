@@ -2694,7 +2694,7 @@ def subtract_tp(a, second):
     
 
 #---------------------------------------- multiply -----------------------------------------------
-def multiply_imp(a, second=None, *args):
+def multiply_imp(a, b):
     """ 
     Binary operator only. For a list of numbers, use `product`.
 
@@ -2715,10 +2715,11 @@ def multiply_imp(a, second=None, *args):
     related zefop: subtract
     related zefop: unpack
     """
-    from functools import reduce
-    if second is None:
-        return reduce(lambda x, y: x * y, a)
-    return reduce(lambda x, y: x * y, [a, second, *args])
+    print(type(a))
+    
+    if type(a) in {list, tuple, Generator} or type(b) in {list, tuple, Generator}:
+        raise TypeError(f"`multiply` is a binary operator, i.e. always takes two arguments. If you want to calculate the product of all elements in a list, use `product`")
+    return a*b
     
 
 def multiply_tp(a, second, *args):
@@ -2749,7 +2750,7 @@ def divide_imp(a, b=None):
     related zefop: unpack
     """
     if type(a) in {list, tuple} or type(b) in {list, tuple}:
-        raise TypeError(f"`subtract` is a binary operator, i.e. always takes two arguments.")
+        raise TypeError(f"`divide` is a binary operator, i.e. always takes two arguments.")
     return a/b
     
     
