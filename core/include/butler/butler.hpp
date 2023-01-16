@@ -77,7 +77,7 @@ namespace zefDB {
                         auto task_promise = find_task(*maybe_task_uid);
                         if(task_promise) {
                             // New timeout from new activity.
-                            timeout = time_double() - task_promise->task->last_activity < timeout;
+                            timeout = time_double() - task_promise->task->last_activity;
                             if(timeout > 0)
                                 continue;
                             // Note: we can't forget task in here as we might
