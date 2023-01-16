@@ -52,6 +52,18 @@ def parse_input_type(input_type: ValueType_) -> str:
     if input_type == VT.Awaitable: return "awaitable"
     if input_type in  zef_types: return "zef"
     return "tools"
+@func 
+def verify_zef_list(z_list: ZefRef):
+    """
+    1) z_list must be of type ET.ZEF_List
+    2) all RAEs attached to z_list via an RT.ZEF_ListElement must form a linear linked list
+    3) all elements connect via RT.ZEF_NextElement must be to edges coming off that ZefList
+    """
+    assert z_list | is_a[ET.ZEF_List] | collect
+    # TODO
+    return True
+
+
 #--utils---
 
 def is_RT_triple(x):
@@ -117,20 +129,6 @@ def call_wrap_errors_as_unexpected(func, *args, maybe_context=None, **kwargs):
         inspect.getlineno
         e = add_error_context(e, {"frames": frames})
         wrap_error_raising(e, maybe_context)
-
-@func 
-def verify_zef_list(z_list: ZefRef):
-    """
-    1) z_list must be of type ET.ZEF_List
-    2) all RAEs attached to z_list via an RT.ZEF_ListElement must form a linear linked list
-    3) all elements connect via RT.ZEF_NextElement must be to edges coming off that ZefList
-    """
-    assert z_list | is_a[ET.ZEF_List] | collect
-    return True
-
-
-
-
 
 
 ####################################################
@@ -6568,24 +6566,6 @@ def is_zefref_promotable_implementation(z):
 def to_ezefref_implementation(zr):
     return pyzefops.to_ezefref(zr)
 
-def l_implementation(first_arg, curried_args):
-    return (pyzefops.L)(first_arg, *curried_args)
-
-def o_implementation(first_arg, curried_args):
-    """
-    O[...]  is "optional", meaning it will return either 0,1 results.
-    If the RT.Edge  exists it'll traverse that and return a ZefRef
-    If the RT.Edge  doesn't exist, it'll return None or nothing .
-    If there are multiple RT.Edge  it'll throw an error
-
-    ---- Examples ----
-    >>> z1 >> O[RT.Foo]        # of type {ZefRef, None, Error}
-    """
-    return (pyzefops.O)(first_arg, *curried_args)
-
-
-
-
 #---------------------------------------- value_type -----------------------------------------------
 # @register_zefop(RT.ZefType)
 def representation_type_imp(x):
@@ -6668,123 +6648,6 @@ def is_a_implementation(x, typ):
 
     return isinstance(x, typ)
 
-    def rp_matching(x, rp):
-        triple = rp._d['absorbed'][0]
-        v = tuple(el == Z for el in triple)
-        try:
-            if v == (True, False, False):
-                return x | Out[triple[1]] | is_a[triple[2]] | collect
-
-            if v == (False, False, True):
-                return x | In[triple[1]] | is_a[triple[0]] | collect
-
-            if v == (False, True, False):
-                return is_a(source(x), triple[0]) and is_a(target(x), triple[2])
-                
-            if  v == (False, False, False):
-                return is_a(x, triple[1]) and is_a(source(x), triple[0]) and is_a(target(x), triple[2])
-        except:
-            return False
-        raise TypeError(f"invalid pattern to match on in RP: {triple}")
-
-
-    def has_value_matching(x, vt):
-        my_set = vt._d['absorbed'][0]
-        try:
-            val = value(x)
-        except:
-            raise TypeError(f"HasValue can only be applied to AETs")
-            # TODO: or return false here
-
-        if isinstance(my_set, Set):
-            return val in my_set            
-        # If we're here, it should be a VT    
-        return is_a(val, my_set)
-
-    if isinstance(typ, ValueType):
-        if typ._d['type_name'] == "RP":
-            return rp_matching(x, typ)
-
-        if typ._d['type_name'] == "HasValue":
-            return has_value_matching(x, typ)
-        
-        if typ._d['type_name'] in  {"Instantiated", "Assigned", "Terminated"}:
-            map_ = {"Instantiated": instantiated, "Assigned": assigned, "Terminated": terminated}
-            def compare_absorbed(x, typ):
-                val_absorbed = absorbed(x)
-                typ_absorbed = absorbed(typ)
-                for i,typ in enumerate(typ_absorbed):
-                    if i >= len(val_absorbed): break               # It means something is wrong, i.e typ= Instantiated[Any][Any]; val=instantiated[z1]
-                    if not is_a(val_absorbed[i],typ): return False
-                return True
-            return without_absorbed(x) == map_[typ._d['type_name']] and compare_absorbed(x, typ)
-
-
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef):
-        if isinstance(typ, BlobType):
-            return BT(x) == typ
-
-        if typ == Delegate:
-            return internals.is_delegate(x)
-
-        if is_a(typ, Delegate):
-            return delegate_of(x) == typ
-
-        if not internals.is_delegate(x):
-            # The old route is just for instances only
-            if _is_a_instance_delegate_generic(x, typ):
-                return True
-
-    if isinstance(x, ZefEnumValue):
-        if isinstance(typ, ZefEnumStruct):
-            return True
-        if isinstance(typ, ZefEnumStructPartial):
-            return x.enum_type == typ.__enum_type
-        if isinstance(typ, ZefEnumValue):
-            return x == typ
-
-
-
-
-
-
-
-
-def _is_a_instance_delegate_generic(x, typ):
-    # This function is for internal use only and does the comparisons against
-    # ET, ET.x, RT, (Z, RT.x, ET.y), etc... ignoring whether the reference is an
-    # instance or delegate
-    if typ == Z:
-        return True
-    if typ == RAE:
-        if BT(x) in [BT.ENTITY_NODE, BT.RELATION_EDGE, BT.ATTRIBUTE_ENTITY_NODE]:
-            return True
-    if isinstance(typ, EntityType):
-        if BT(x) != BT.ENTITY_NODE:
-            return False
-        return ET(x) == typ
-    if isinstance(typ, RelationType):
-        if BT(x) != BT.RELATION_EDGE:
-            return False
-        return RT(x) == typ
-    if is_RT_triple(typ):
-        if BT(x) != BT.RELATION_EDGE:
-            return False
-        return (_is_a_instance_delegate_generic(pyzefops.source(x), typ[0])
-                and _is_a_instance_delegate_generic(x, typ[1])
-                and _is_a_instance_delegate_generic(pyzefops.target(x), typ[2]))
-    if is_a(typ, AET):
-        if BT(x) != BT.ATTRIBUTE_ENTITY_NODE:
-            return False
-        return is_a(AET(x), typ)
-    if isinstance(typ, EntityTypeStruct):
-        return BT(x) == BT.ENTITY_NODE
-    if isinstance(typ, RelationTypeStruct):
-        return BT(x) == BT.RELATION_EDGE
-    if isinstance(typ, AttributeEntityTypeStruct):
-        return BT(x) == BT.ATTRIBUTE_ENTITY_NODE
-
-    return False
 
 def has_relation_implementation(z1, rt, z2):
     return pyzefops.has_relation(z1, internals.get_c_token(rt), z2)
@@ -8714,87 +8577,6 @@ def range_tp(op, curr_type):
     return None
 
 
-# -----------------------------Old Traversals-----------------------------
-def traverse_implementation(first_arg, *curried_args, func_only, func_multi, func_optional, func_RT, func_BT, traverse_direction):
-    translation_dict = {
-        "outout": "Out",
-        "out"  : "out_rel",
-        "inin": "In",
-        "in": "in_rel",
-    }
-    print(f"Old traversal style will be retired: use `{translation_dict[traverse_direction]}` instead. 🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱🥱 ")
-    if isinstance(first_arg, FlatRef):
-        return traverse_flatref_imp(first_arg, curried_args, traverse_direction)
-    elif isinstance(first_arg, FlatRefs):
-        return [traverse_flatref_imp(FlatRef(first_arg.fg, idx), curried_args, traverse_direction) for idx in first_arg.idxs]
-    
-
-    spec = type_spec(first_arg)         # TODO: why is this called "spec"? Not sure which specification it refers to.
-    if len(curried_args) == 1:
-        # "only" traverse
-        if spec not in zef_types:
-            raise Exception(f"Can only traverse ref types, not {spec}")
-        return func_only(first_arg, curried_args[0])
-    traverse_type,(rel,) = curried_args
-    if traverse_type == RT.L:
-        if spec not in zef_types:
-            raise Exception(f"Can only traverse ref types, not {spec}")
-        if rel==RT:
-            return func_RT(first_arg)       # if only z1 > L[RT]   is passed: don't filter
-        if rel==BT:
-            return func_BT(first_arg)       # if only z1 > L[BT]   is passed: don't filter
-        return func_multi(first_arg, rel)
-    if traverse_type == RT.O:
-        if spec == VT.Nil:
-            return None
-        elif spec in zef_types:
-            return func_optional(first_arg, rel)
-        else:
-            raise Exception(f"Can only traverse ref types or None, not {spec}")
-    raise Exception(f"Unknown traverse type {traverse_type}")
-        
-def out_rts(obj):
-    return pyzefops.filter(obj | pyzefops.outs, BT.RELATION_EDGE)
-def in_rts(obj):
-    return pyzefops.filter(obj | pyzefops.ins, BT.RELATION_EDGE)
-from functools import partial
-OutOld_implementation = partial(traverse_implementation,
-                             func_only=pyzefops.traverse_out_edge,
-                             func_multi=pyzefops.traverse_out_edge_multi,
-                             func_optional=pyzefops.traverse_out_edge_optional,
-                             func_RT=out_rts,
-                             func_BT=lambda zz: pyzefops.outs(pyzefops.to_ezefref(zz)),
-                             traverse_direction="out",
-                             )
-InOld_implementation = partial(traverse_implementation,
-                            func_only=pyzefops.traverse_in_edge,
-                            func_multi=pyzefops.traverse_in_edge_multi,
-                            func_optional=pyzefops.traverse_in_edge_optional,
-                            func_RT=in_rts,
-                            func_BT=lambda zz: pyzefops.ins(pyzefops.to_ezefref(zz)),
-                            traverse_direction="in",
-                            )
-OutOutOld_implementation = partial(traverse_implementation,
-                                func_only=pyzefops.traverse_out_node,
-                                func_multi=pyzefops.traverse_out_node_multi,
-                                func_optional=pyzefops.traverse_out_node_optional,
-                                func_RT=lambda zz: pyzefops.target(out_rts(zz)),
-                                func_BT=lambda zz: pyzefops.target(pyzefops.outs(pyzefops.to_ezefref(zz))),
-                                traverse_direction="outout",
-                                )
-InInOld_implementation = partial(traverse_implementation,
-                              func_only=pyzefops.traverse_in_node,
-                              func_multi=pyzefops.traverse_in_node_multi,
-                              func_optional=pyzefops.traverse_in_node_optional,
-                              func_RT=lambda zz: pyzefops.target(in_rts(zz)),
-                              func_BT=lambda zz: pyzefops.target(pyzefops.ins(pyzefops.to_ezefref(zz))),
-                              traverse_direction="inin",
-                              )
-
-
-
-
-
 
 
 
@@ -9138,20 +8920,13 @@ def field_imp(z, rt):
     - related zefop: Out
     - used for: graph traversal
     """
-    def val_maybe(x):
-        if is_a(x, AttributeEntity): return value(x)
-        else: return x
 
-    if isinstance(z, ZefRef):
-        return val_maybe(Out(z, rt))
-
+    # We have to special case lists because otherwise we'd end up with taking
+    # "single" on the outer instead of the inner part.
     if isinstance(z, list) or isinstance(z, tuple):
         return [field(zz, rt) for zz in z]
 
-    if isinstance(z, EntityValueInstance):
-        return z._kwargs[token_name(rt)]
-
-    raise TypeError(f"Field operator not implemented for type(z)={type(z)}    z={z}")
+    return single(fields_imp(z, rt))
 
 
 # ----------------------------- fields -----------------------------

@@ -76,11 +76,6 @@ _op_to_functions = {
         internals.RT.InRels:          (in_rels_imp, None),
         internals.RT.OutRel:          (out_rel_imp, None),
         internals.RT.OutRels:         (out_rels_imp, None),
-
-        internals.RT.InOld:              (InOld_implementation, None),
-        internals.RT.InInOld:            (InInOld_implementation, None),
-        internals.RT.OutOld:             (OutOld_implementation, None),
-        internals.RT.OutOutOld:          (OutOutOld_implementation, None),
         
         internals.RT.Source:          (source_implementation, source_type_info),
         internals.RT.Target:          (target_implementation, target_type_info),
@@ -104,8 +99,6 @@ _op_to_functions = {
         internals.RT.ToTx:            (to_tx_imp, to_tx_tp),
         internals.RT.TimeTravel:      (time_travel_imp, time_travel_tp),
         internals.RT.ToEZefRef:       (to_ezefref_implementation, to_ezefref_type_info),
-        internals.RT.O:               (o_implementation, o_type_info),
-        internals.RT.L:               (l_implementation, l_type_info),
         internals.RT.Terminate:       (terminate_implementation, terminate_type_info),
         internals.RT.Assign:          (assign_imp, assign_tp),
         internals.RT.ET:              (ET_implementation, ET_type_info),
