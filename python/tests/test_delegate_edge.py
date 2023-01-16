@@ -29,7 +29,7 @@ class MyTestCase(unittest.TestCase):
             m2 = I(ET.Machine)
             r1 = I(m1, RT.EtoE, m2)
             rel_E_DR = I(m1, RT.EtoDR, r1 | delegate_of | collect)
-        zef.pyzef.verification.verify_graph_double_linking(g)
+        zef.pyzef.verification.verify_graph_double_linking(g.graph_data)
         # serialize_check(g)
 
 
