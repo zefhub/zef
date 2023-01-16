@@ -40,18 +40,29 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED bool verify_that_all_uzrs_in_my_edgelist_refer_to_me(EZefRef uzr);
 
         // check low level graph that double linking of node / edges with indexes is consistent
-        LIBZEF_DLL_EXPORTED bool verify_graph_double_linking(Graph& g);
-        LIBZEF_DLL_EXPORTED bool verify_chronological_instantiation_order(Graph g);
+        LIBZEF_DLL_EXPORTED bool verify_graph_double_linking(GraphData& gd);
+        LIBZEF_DLL_EXPORTED bool verify_chronological_instantiation_order(GraphData& gd);
+        LIBZEF_DLL_EXPORTED bool verify_all_edge_lists_in_range(GraphData& gd);
+
         LIBZEF_DLL_EXPORTED void break_graph(Graph&g, blob_index index, int style);
 
-        inline bool verify_graph(Graph&g) {
+        inline bool verify_graph(GraphData&gd) {
             try {
-            return (verify_graph_double_linking(g)
-                    && verify_chronological_instantiation_order(g));
+            return (verify_graph_double_linking(gd)
+                    && verify_chronological_instantiation_order(gd)
+                    && verify_all_edge_lists_in_range(gd));
             } catch(const std::exception & e) {
                 std::cerr << "Verification failed with: " << e.what() << std::endl;
                 return false;
             }
+        }
+
+        inline bool verify_graph(Graph g) {
+            return verify_graph(g.my_graph_data());
+        }
+
+        inline bool verify_graph(GraphDataWrapper gdw) {
+            return verify_graph(*gdw.gd);
         }
 	}
 }

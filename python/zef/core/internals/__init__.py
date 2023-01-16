@@ -71,6 +71,7 @@ from ...pyzef.internals import (
     apply_update,
     blob_to_json,
     compress_zstd,
+    create_GraphDataWrapper,
     create_graph_from_bytes,
     create_update_heads,
     create_update_payload,
