@@ -358,12 +358,17 @@ ET = make_VT('ET',
 
 AttributeEntityTypeToken = make_VT('AttributeEntityTypeToken', pytype=internals.AttributeEntityType)
 def AET_ctor(self, x):
-    if type(x) == str:
-        return getattr(self, x)
-    token = RAET_get_token(self)
-    if token is not None:
-        return NotImplemented
-    return AET[internals.AET(x)]
+    if RAET_get_token(self) is None:
+        input = x
+        if isinstance(input, ValueType) and isinstance(input, AET):
+            return input
+        return AET[internals.AET(x)]
+
+    else:
+        names = RAET_get_names(self)
+        names = (x, *names)
+        from . import Atom
+        return Atom(RAET_without_names(self), *names)
 
 AET = make_VT('AET',
               constructor_func=AET_ctor,
