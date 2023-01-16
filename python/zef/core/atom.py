@@ -23,15 +23,26 @@ class Atom_:
     """
 
     def __init__(self, atom_type, *names, **fields):
-        from ._ops import is_a, rae_type, uid
-        from .VT import ZefRef, EZefRef, RAET
+        from ._ops import is_a, rae_type, source, target, origin_uid, rae_type
+        from .VT import ZefRef, EZefRef, RAET, EntityRef, RelationRef, AttributeEntityRef
 
         ref_pointer = None
         if is_a(atom_type, ZefRef) or is_a(atom_type, EZefRef):
             # This means we can extract the atom_type and uid from the Ref
             ref_pointer = atom_type
             atom_type = rae_type(ref_pointer)
-            names =  (str(uid(ref_pointer)), *names)
+            names =  (str(origin_uid(ref_pointer)), *names)
+
+        elif is_a(atom_type, EntityRef) or is_a(atom_type, AttributeEntityRef):
+            rae = atom_type
+            atom_type = rae_type(rae)
+            names =  (str(origin_uid(rae)), *names)
+
+        elif is_a(atom_type, RelationRef):
+            rae = atom_type
+            atom_type = rae_type(rae)
+            compound_uid = f"{origin_uid(source(rae))}-{origin_uid(rae)}-{origin_uid(target(rae))}"
+            names =  (compound_uid, *names)
 
         elif not is_a(atom_type, RAET):
             raise TypeError(f"Atom was called with an invalid atom_type: {atom_type}")
