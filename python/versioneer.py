@@ -34,7 +34,6 @@ the embedded version string" step from your release process. Making a new
 release should be as easy as recording a new tag in your version-control
 system, and maybe making new tarballs.
 
-
 ## Quick Install
 
 * `pip install versioneer` to somewhere in your $PATH
@@ -239,7 +238,6 @@ a different virtualenv), so this can be surprising.
 this one, but upgrading to a newer version of setuptools should probably
 resolve it.
 
-
 ## Updating Versioneer
 
 To upgrade your project to a new release of Versioneer, do the following:
@@ -304,10 +302,8 @@ import sys
 from typing import Callable, Dict
 import functools
 
-
 class VersioneerConfig:
     """Container for Versioneer configuration parameters."""
-
 
 def get_root():
     """Get the project root directory.
@@ -347,7 +343,6 @@ def get_root():
         pass
     return root
 
-
 def get_config_from_root(root):
     """Read the project setup.cfg file to determine Versioneer config."""
     # This might raise OSError (if setup.cfg is missing), or
@@ -375,7 +370,6 @@ def get_config_from_root(root):
     cfg.verbose = section.get("verbose")
     return cfg
 
-
 class NotThisMethod(Exception):
     """Exception raised if a method is not valid for the current scenario."""
 
@@ -384,7 +378,6 @@ class NotThisMethod(Exception):
 LONG_VERSION_PY: Dict[str, str] = {}
 HANDLERS: Dict[str, Dict[str, Callable]] = {}
 
-
 def register_vcs_handler(vcs, method):  # decorator
     """Create decorator to mark a method as the handler of a VCS."""
     def decorate(f):
@@ -392,7 +385,6 @@ def register_vcs_handler(vcs, method):  # decorator
         HANDLERS.setdefault(vcs, {})[method] = f
         return f
     return decorate
-
 
 def run_command(commands, args, cwd=None, verbose=False, hide_stderr=False,
                 env=None):
@@ -895,7 +887,6 @@ def render_pep440_pre(pieces):
         # exception #1
         rendered = "0.post0.dev%%d" %% pieces["distance"]
     return rendered
-
 
 def render_pep440_post(pieces):
     """TAG[.postDISTANCE[.dev0]+gHEX] .
