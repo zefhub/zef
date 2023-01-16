@@ -81,7 +81,7 @@ class Atom_:
         names = get_names(self)
         fields = get_fields(self)
         items = [f'"{get_reference_type(self)}"'] + [f"{k}={v!r}" for k,v in fields.items()]
-        items = names + tuple(items)
+        items = tuple([str(name) for name in names]) + tuple(items)
         ref_pointer_str = f" -> {ref_pointer}" if ref_pointer else ""
         return f'{atom_type}({f", ".join(items)}){ref_pointer_str}'
 
@@ -139,7 +139,7 @@ def get_reference_type(atom: Atom) -> str:
     if len(names) == 0:
         return 'unidentified'
     def is_uid(x):
-        return x.startswith('㏈-')
+        return isinstance(x, str) and x.startswith('㏈-')
     uids = [name for name in names if is_uid(name)]
     if len(uids) >= 2:
         raise Exception("Atom containing more than 1 uid makes no sense currently")
