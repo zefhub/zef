@@ -634,7 +634,8 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	verification_submodule.def("verify_graph_double_linking", verification::verify_graph_double_linking, "Check that node/edge linking is consistent for the indexes.");
 	verification_submodule.def("verify_chronological_instantiation_order", verification::verify_chronological_instantiation_order, "Check that RAEs and delegates have a correct chronological instantiation order.");
 	verification_submodule.def("break_graph", verification::break_graph, "Internal use checks");
-	verification_submodule.def("verify_graph", verification::verify_graph, "Internal use checks", py::call_guard<py::gil_scoped_release>());
+	verification_submodule.def("verify_graph", py::overload_cast<Graph>(verification::verify_graph), "Internal use checks", py::call_guard<py::gil_scoped_release>());
+	verification_submodule.def("verify_graph", py::overload_cast<GraphDataWrapper>(verification::verify_graph), "Internal use checks", py::call_guard<py::gil_scoped_release>());
 
 	admins_submodule.def("add_user", [](std::string username, std::string key) { zefDB::user_management("add_user", username, "", key);});
 	admins_submodule.def("reset_user_key", [](std::string username, std::string key) { zefDB::user_management("reset_user_key", username, "", key);});

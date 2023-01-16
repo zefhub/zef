@@ -483,6 +483,7 @@ namespace zefDB {
 
 	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, Graph& g);
 
+    LIBZEF_DLL_EXPORTED GraphDataWrapper create_GraphDataWrapper(const Messages::UpdatePayload & payload);
     LIBZEF_DLL_EXPORTED GraphDataWrapper create_partial_graph(GraphData & cur_gd, blob_index index_hi);
     LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string working_layout);
 

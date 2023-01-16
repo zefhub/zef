@@ -159,9 +159,7 @@ namespace zefDB {
 
 
 		// check low level graph that double linking of node / edges with indexes is consistent
-		bool verify_graph_double_linking(Graph& g){
-			GraphData& gd = g.my_graph_data();
-
+		bool verify_graph_double_linking(GraphData& gd){
             if(!verify_source_target_in_edge_lists(gd))
                 return false;
             
@@ -179,9 +177,7 @@ namespace zefDB {
 		}
 
 
-        bool verify_chronological_instantiation_order(Graph g) {
-			GraphData& gd = g.my_graph_data();
-
+        bool verify_chronological_instantiation_order(GraphData& gd) {
             blob_index cur_index = internals::root_node_blob_index();
 			while (cur_index < gd.write_head) {
                 EZefRef uzr{cur_index,gd};
@@ -223,6 +219,26 @@ namespace zefDB {
                 cur_index += blob_index_size(uzr);
             }
             
+            return true;
+        }
+
+        bool verify_all_edge_lists_in_range(GraphData& gd) {
+            blob_index cur_index = internals::root_node_blob_index();
+			while (cur_index < gd.write_head) {
+                EZefRef uzr{cur_index,gd};
+
+				if (internals::has_edge_list(uzr)) {
+                    blob_index * edges = edge_indexes(uzr);
+                    int num = local_edge_indexes_capacity(uzr);
+                    for(blob_index * edge = edges ; edge - edges <= num ; edge++) {
+                        if(abs(*edge) >= gd.write_head)
+                            throw std::runtime_error("Detected edge in blob " + to_str(cur_index) + " which is beyond write_head.");
+                    }
+				}
+
+                cur_index += blob_index_size(uzr);
+            }
+
             return true;
         }
 

@@ -519,6 +519,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     // Define the special graph constructor seperately
     internals_submodule.def("create_graph_from_bytes", [](Messages::UpdatePayload payload, int mem_style) { return Graph::create_from_bytes(std::move(payload), mem_style); }, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");
+    internals_submodule.def("create_GraphDataWrapper", [](Messages::UpdatePayload payload) { return create_GraphDataWrapper(std::move(payload)); }, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");
 
     internals_submodule.def("Graph_from_ptr", [](const py::object ptr) {
         // Assuming this object is a ctypes.c_void_p type

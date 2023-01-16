@@ -475,6 +475,14 @@ namespace zefDB {
         return old_gdw->hash(constants::ROOT_NODE_blob_index, index_hi, seed, target_layout_version);
     }
 
+    GraphDataWrapper create_GraphDataWrapper(const Messages::UpdatePayload & payload) {
+        GraphData * gd = create_GraphData(MMap::MMAP_STYLE_ANONYMOUS, nullptr, {}, false);
+
+        Butler::apply_update_with_caches(*gd, payload, false, false);
+
+        return GraphDataWrapper(gd);
+    }
+
     GraphDataWrapper create_partial_graph(GraphData & cur_gd, blob_index index_hi) {
         blob_index index_lo = constants::ROOT_NODE_blob_index;
         {

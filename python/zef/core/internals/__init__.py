@@ -47,6 +47,7 @@ from ...pyzef.internals import (
     all_relation_types,
     apply_update,
     blob_to_json,
+    create_GraphDataWrapper,
     create_graph_from_bytes,
     create_update_heads,
     create_update_payload,
