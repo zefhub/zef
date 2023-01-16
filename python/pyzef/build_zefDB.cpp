@@ -719,6 +719,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
         return zefdb_config_path().string();
     }, py::call_guard<py::gil_scoped_release>());
 
+    main_module.def("check_env_bool", &check_env_bool, py::arg("var"), py::arg("default")=false);
 
 	fill_internals_module(internals_submodule);
 	create_zefops_module(toplevel_module, internals_submodule);

@@ -71,9 +71,8 @@ for t in [list, tuple]:
     ListOrTuple.register(t)
 
 
-import os
-gd_timing = "ZEFDB_GRAPH_DELTA_TIMING" in os.environ
-gd_perform_transaction_debug = "ZEFDB_GRAPH_DELTA_PERFORM_DEBUG" in os.environ
+gd_timing = check_env_bool("ZEFDB_GRAPH_DELTA_TIMING")
+gd_perform_transaction_debug = check_env_bool("ZEFDB_GRAPH_DELTA_PERFORM_DEBUG")
 
 ##############################
 # * Description
