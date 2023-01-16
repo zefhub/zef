@@ -141,9 +141,16 @@ def graphviz_imp(zz, *flags):
     zz = list(zz)
     if len(zz) == 0:
         return G            # exit early if there is nothing to plot
-    if (isinstance(zz, list) and isinstance(zz[0], ZefRef)):
+
+    # Convert all Atom to BlobPtrs
+    zz = zz | map[match[(Atom, get_ref_pointer),
+                        (Any, identity)]] | collect
+    if isinstance(zz, List[ZefRef]):
+        frames = zz | map[frame] | collect
+        assert frames | map[equals[first(frames)]] | all | collect
         plotting_eternal_graph = False
     else:
+        assert isinstance(zz, List[EZefRef])
         plotting_eternal_graph = True
 
     edge_colors = {}

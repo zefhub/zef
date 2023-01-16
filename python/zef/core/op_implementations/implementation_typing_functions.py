@@ -39,6 +39,8 @@ from ..atom import get_ref_pointer
 zef_types = [VT.Graph, VT.ZefRef, VT.EZefRef]
 ref_types = [VT.ZefRef, VT.EZefRef]
 
+AtomWithRef = Atom & Is[lambda x: get_ref_pointer(x) is not None]
+ZEF_List_Type = (BlobPtr | AtomWithRef) & ET.ZEF_List
 
 #--utils---
 def curry_args_in_zefop(zefop, first_arg, nargs = ()):
@@ -52,6 +54,24 @@ def parse_input_type(input_type: ValueType_) -> str:
     if input_type == VT.Awaitable: return "awaitable"
     if input_type in  zef_types: return "zef"
     return "tools"
+
+def check_Atom_with_ref(x):
+    if not isinstance(x, Atom):
+        return False
+    if get_ref_pointer(x) is None:
+        raise Exception("Can't handle an Atom without a reference included.")
+    return True
+
+def Atom_unpack_and_rewrap(func, is_list=False):
+    def Atom_unpack_and_rewrap_inner(x, *args, **kwargs):
+        z = get_ref_pointer(x)
+        out = func(z, *args, **kwargs)
+        if is_list:
+            return type(out)(Atom(x) for x in out)
+        else:
+            return Atom(out)
+    return Atom_unpack_and_rewrap_inner
+
 @func 
 def verify_zef_list(z_list: ZefRef):
     """
@@ -642,7 +662,9 @@ def prepend_imp(v, item, *additional_items):
     from typing import Generator, Iterable, Iterator
     if isinstance(v, list):
         return [item, *v]
-    elif isinstance(v, ZefRef) and is_a[ET.ZEF_List](v):
+    elif isinstance(v, ZEF_List_Type):
+        if isinstance(v, Atom):
+            raise NotImplementedError("TOOD: Atoms inside of preprend")
         """
         args must be existing RAEs on the graph
         """
@@ -730,7 +752,9 @@ def append_imp(v, item, *additional_items):
         return [*v, item]    
     elif isinstance(v, tuple):
         return (*v, item)
-    elif isinstance(v, ZefRef) and is_a[ET.ZEF_List](v):
+    elif isinstance(v, ZEF_List_Type):
+        if isinstance(v, Atom):
+            raise NotImplementedError("TOOD: Atoms inside of append")
         """
         args must be existing RAEs on the graph
         """
@@ -1942,6 +1966,7 @@ def all_imp(*args):
 
     return match[
         (FlatGraph, lambda _: fg_all_imp(*args)),
+        (AtomWithRef, lambda x: Atom_unpack_and_rewrap(all_imp, is_list=True)(*args)),
         (ZefRef & ET.ZEF_List, lambda _: zef_list_all_imp(*args)),
         (GraphSlice, lambda _: graphslice_all_imp(*args)),
         (Graph, lambda _: graph_all_imp(*args)),
@@ -1986,68 +2011,58 @@ def graphslice_all_imp(*args):
         raise Exception(f"all can only take a maximum of 2 arguments, got {len(args)} instead")
 
     fil = args[1]
-    # These options have C++ backing so try them first
-    # The specific all[ET.x/AET.x] options (not all[RT.x] though)
-    if isinstance(fil, ET) or isinstance(fil, AET):
-        after_filter = None
-        from zef.core.VT.rae_types import RAET_get_token
-        token = RAET_get_token(fil)
-        if token is None:
-            if isinstance(fil, ET):
-                c_fil = None
-                after_filter = Entity
-            else:
-                c_fil = None
-                after_filter = AttributeEntity
-        else:
-            if isinstance(token, (EntityTypeToken, AttributeEntityTypeToken)):
-                c_fil = token
-            else:
-                # This must be a more general filter, so we should apply it afterwards
-                after_filter = token
-                c_fil = None
-        
-        if c_fil is None:
-            initial = gs.tx | pyzefops.instances
-        else:
-            initial = gs.tx | pyzefops.instances[c_fil]
-        if after_filter is not None:
-            return ZefGenerator(lambda: iter(initial | filter[after_filter]))
-        else:
-            return initial
-    
 
-    if  isinstance(fil, ValueType) and fil != RAE and fil._d['type_name'] in {"Union", "Intersection"}:
+    from ..VT.helpers import type_name
+    from ..VT.rae_types import RAET_get_token
+    from ..VT.sets import get_union_intersection_subtypes
+    if isinstance(fil, ValueType) and type_name(fil) in ["ET", "AET"]:
+        # Just use the same code as handles Intersection
+        fil = Intersection[(fil,)]
+        
+
+    if  isinstance(fil, ValueType) and fil != RAE and type_name(fil) in {"Union", "Intersection"}:
         # extract the rae types i.e ET and AET VTs
-        rae_types = absorbed(fil) | first | filter[lambda x: is_a(x, (ET, AET))] | func[set] | collect
+        subtypes = get_union_intersection_subtypes(fil)
+        rae_types = subtypes | filter[ET | AET] | func[set] | collect
 
         # only keep here not RAE value types
-        value_types = set(absorbed(fil)[0]) - rae_types
+        value_types = set(subtypes) - rae_types
 
         # Extract the underlying 'libzef' low level token
-        rae_types = rae_types | map[absorbed | first] | collect
+        rae_types = rae_types | map[RAET_get_token] | collect
         
 
         if len(value_types) > 0: 
             # Wrap the remaining ValueTypes after removing representation_types in the original ValueType
-            value_types = {"Union": Union, "Intersection": Intersection}[fil._d['type_name']][tuple(value_types)]      
+            value_types = without_absorbed(fil)[tuple(value_types)]      
 
         if fil._d['type_name'] == "Union":
 
             sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in rae_types]))
+            # TODO: Can't represent all graphslice things as atoms
+            # sets_union = [Atom(x) for x in sets_union]
             if not value_types: return sets_union
-            return list(set.union(set(filter(gs.tx | pyzefops.instances, lambda x: is_a(x, value_types))), sets_union))
+            initial = gs.tx | pyzefops.instances
+            # TODO: Can't represent all graphslice things as atoms
+            # initial = [Atom(x) for x in initial]
+            return list(set.union(set(filter(initial, lambda x: is_a(x, value_types))), sets_union))
 
         elif fil._d['type_name'] == "Intersection":
             if len(rae_types) > 1: return []
             if len(rae_types) == 1: initial = gs.tx | pyzefops.instances[rae_types.pop()]
             else:  initial = gs.tx | pyzefops.instances
-            if not value_types: return initial
+            # TODO: Can't represent all graphslice things as atoms
+            # initial = [Atom(x) for x in initial]
 
-            return filter(initial, lambda x: is_a(x, value_types))
+            if not value_types: return initial
+            return ZefGenerator(lambda: iter(initial | filter[value_types]))
 
     # The remaining options will just use the generic filter and is_a
-    return filter(gs.tx | pyzefops.instances, lambda x: is_a(x, fil))
+    initial = gs.tx | pyzefops.instances
+    # TODO: Can't represent all graphslice things as atoms
+    # initial = [Atom(x) for x in initial]
+
+    return ZefGenerator(lambda: iter(initial | filter[fil]))
 
 
 
@@ -4663,6 +4678,10 @@ def now_implementation(*args):
     """
     if len(args) == 0:
         return pyzefops.now()
+
+    if check_Atom_with_ref(args[0]):
+        return Atom_unpack_and_rewrap(now_implementation)(*args)
+
     if len(args) == 1:
         if isinstance(args[0], Graph):
             return GraphSlice(pyzefops.now(args[0]))
@@ -4784,6 +4803,9 @@ def next_tx_imp(z_tx):
     - related zefop: previous_tx
     - related zefop: time_travel
     """
+    if check_Atom_with_ref(z_tx):
+        return Atom_unpack_and_rewrap(next_tx_imp)(z_tx)
+
     def next_tx_ezr(zz):
         try:
             return zz | Out[BT.NEXT_TX_EDGE] | collect
@@ -4828,6 +4850,9 @@ def previous_tx_imp(z_tx):
     - related zefop: previous_tx
     - related zefop: time_travel
     """
+    if check_Atom_with_ref(z_tx):
+        return Atom_unpack_and_rewrap(previous_tx_imp)(z_tx)
+
     def previous_tx_ezr(zz):
         try:
             return zz | In[BT.NEXT_TX_EDGE] | collect
@@ -4876,6 +4901,9 @@ def preceding_events_imp(x, filter_on=None):
     
     if isinstance(x, GraphSlice):
         return 'TODO!!!!!!!!!!!!!!!'
+
+    if check_Atom_with_ref(x):
+        return preceding_events_imp(get_ref_pointer(x), filter_on)
 
     if BT(x) == BT.TX_EVENT_NODE:
         raise TypeError(f"`preceding_events` can only be called on RAEs and GraphSlices and lists all relevant events form the past. It was called on a TX. You may be looking for the `events` operator, which lists all events that happened in a TX.")
@@ -4953,8 +4981,10 @@ def events_imp(z_tx_or_rae, filter_on=None):
     """
     from zef.pyzef import zefops as pyzefops
     # TODO: can remove this once imports are sorted out
-    
 
+    if check_Atom_with_ref(z_tx_or_rae):
+        return events_imp(get_ref_pointer(z_tx_or_rae), filter_on)
+    
     if internals.is_delegate(z_tx_or_rae):
         ezr = to_ezefref(z_tx_or_rae)
         to_del = ezr | in_rel[BT.TO_DELEGATE_EDGE] | collect
@@ -5030,6 +5060,8 @@ def frame_imp(x):
     ---- Signature ----
     ZefRef -> GraphSlice
     """
+    if check_Atom_with_ref(x):
+        return frame_imp(get_ref_pointer(x))
     return GraphSlice(pyzefops.tx(x))
 
 
@@ -5053,6 +5085,10 @@ def to_frame_imp(z, *args):
     (ZefRef, GraphSlice)        -> Union[ZefRef, Error]
     (EZefRef[TRAE], GraphSlice) -> Union[ZefRef, Error]    
     """
+
+    if check_Atom_with_ref(z):
+        return Atom_unpack_and_rewrap(___)(z, *args)
+
     # if one additional arg is passed in, it must be a frame
     if len(args)==1:
         # if the reference frame is a lazy value, trigger evaluation
@@ -5151,19 +5187,18 @@ def discard_frame_imp(x):
     """
     if isinstance(x, AtomRef):
         return x
+    if isinstance(x, Atom):
+        ref = get_ref_pointer(x)
+        if ref is None:
+            return x
+        return Atom(get_atom_type(x),
+                    *get_names(x),
+                    **get_fields(x))
     if isinstance(x, BlobPtr):
         if internals.is_delegate(x):
             return to_delegate(x)
-        if BT(x) == BT.ENTITY_NODE:
-            return EntityRef(x)
-        elif BT(x) == BT.RELATION_EDGE:
-            return RelationRef(x)
-        elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE:
-            return AttributeEntityRef(x)
-        elif BT(x) == BT.TX_EVENT_NODE:
-            return TXNodeRef(x)
-        elif BT(x) == BT.ROOT_NODE:
-            return RootRef(x)
+        if BT(x) in [BT.ENTITY_NODE, BT.RELATION_EDGE, BT.ATTRIBUTE_ENTITY_NODE, BT.TX_EVENT_NODE, BT.ROOT_NODE]:
+            return Atom(x)
         elif BT(x) == BT.VALUE_NODE:
             return Val(value(x))
         raise Exception("Not a ZefRef that is a concrete RAE")
@@ -5210,11 +5245,11 @@ def to_tx_imp(x, t=None):
     if isinstance(x, GraphSlice):
         zz = x.tx
         assert t is None
-        return ZefRef(zz, zz)
+        return Atom(ZefRef(zz, zz))
     elif isinstance(x, Graph):
         c = collect
         # inefficient implementation for now
-        txs = x | all[TX] | c
+        txs = x | all[TX] | map[Atom] | c
         if (txs | first | time | greater_than[t] | c) or t > now():
             return None
         if t < now() and t >= (txs | last | time  | c):
@@ -5278,6 +5313,9 @@ def time_travel_imp(x, *args):
     - related zefop: time
     """
     c = collect 
+
+    if check_Atom_with_ref(x):
+        return Atom_unpack_and_rewrap(time_travel_imp)(x, *args)
 
     def is_duration(xx) -> bool:
         return (
@@ -5357,6 +5395,8 @@ def time_travel_tp(x, p):
 def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
     if isinstance(z, AtomRef):
+        return uid(z)
+    if isinstance(z, Atom):
         return uid(z)
     assert BT(z) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
@@ -5446,9 +5486,13 @@ def run_effect_implementation(eff):
 
 
 def hasout_implementation(zr, rt):
+    if check_Atom_with_ref(zr):
+        return Atom_unpack_and_rewrap(hasout_implementation)(zr, rt)
     return curry_args_in_zefop(pyzefops.has_out, zr, (internals.get_c_token(rt),))
 
 def hasin_implementation(zr, rt):
+    if check_Atom_with_ref(zr):
+        return Atom_unpack_and_rewrap(hasin_implementation)(zr, rt)
     return curry_args_in_zefop(pyzefops.has_in, zr, (internals.get_c_token(rt),))
 
 
@@ -5805,15 +5849,13 @@ def filter_implementation(itr, pred_or_vt):
     """
     pred = make_predicate(pred_or_vt)
     input_type = parse_input_type(type_spec(itr))
-    if input_type == "tools":
+    if input_type in ["tools", "zef"]:
         # As this is an intermediate, we return an explicit generator
         # return (x for x in builtins.filter(pred, itr))
         def wrapper():
             return (x for x in builtins.filter(pred, itr))
         return ZefGenerator(wrapper)
             
-    elif input_type == "zef":
-        return pyzefops.filter(itr, pred)
     elif input_type == "awaitable":
         observable_chain = itr
         return observable_chain.pipe(rxops.filter(pred))
@@ -5840,6 +5882,14 @@ def select_by_field_imp(zrs : Iterable[ZefRef], rt: RT, val):
     - related zefop: filter
     - related zefop: value    
     """
+    if len(zrs) == 0:
+        return None
+    if check_Atom_with_ref(zrs[0]):
+        zrs = [get_ref_pointer(z) for z in zrs]
+        out = select_by_field_imp(zrs, rt, val)
+        if out is None:
+            return out
+        return Atom(out)
     return pyzefops.select_by_field_impl(zrs, internals.get_c_token(rt), val)
 
 def select_by_field_tp(v_tp):
@@ -5996,36 +6046,8 @@ def Out_imp(z, rt=VT.Any, target_filter= None):
     - related zefop: target
     - related zefop: source
     """
-    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
-
-    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "single")
-    # if isinstance(rt, RelationType):
-    #     try:
-    #         return traverse_out_node(z, rt)
-    #     except RuntimeError as exc:
-    #         # create a summary of what went wrong
-    #         existing_rels = (outs(z)
-    #             | map[RT] 
-    #             | frequencies       # which relation types are present how often?
-    #             | items 
-    #             | map[lambda p: f"{repr(p[0])}: {repr(p[1])}"] 
-    #             | join['\n'] 
-    #             | collect
-    #             )
-    #         return Error(f"traversing {z} via relation type {rt}. The existing outgoing edges here are: {existing_rels}")    
-    # elif rt==VT.Any or rt==RT:
-    #     my_outs = outs(z)
-    #     if len(my_outs)==1:
-    #         return my_outs[0]
-    #     else:
-    #         return Error(f"traversing {z} using 'out': there were {len(my_outs)} outgoing edges: {my_outs}")
-    # else:
-    #     return Error(f'Invalid type "{rt}" specified in Out[...]')
-    # res = target(out_rel_imp(z, rt))
-    # if target_filter and not is_a_implementation(res, target_filter):
     res = out_rel_imp(z, rt, target_filter)
-    return Atom(target_implementation(get_ref_pointer(res)))
+    return target_implementation(res)
 
 
 
@@ -6056,13 +6078,7 @@ def Outs_imp(z, rt=None, target_filter = None):
     - related zefop: In
     - related zefop: ins_and_outs
     """
-    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
-
-
-    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "outout", "multi")
-
-    return out_rels_imp(z, rt, target_filter) | map[lambda atom: Atom(target(get_ref_pointer(atom)))] | collect
+    return out_rels_imp(z, rt, target_filter) | map[target] | collect
 
 
 #---------------------------------------- In -----------------------------------------------
@@ -6095,13 +6111,8 @@ def In_imp(z, rt=None, source_filter = None):
     - related zefop: target
     - related zefop: source
     """
-    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
-
-    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "single")
-
     res = in_rel_imp(z, rt, source_filter)
-    return Atom(source_implementation(get_ref_pointer(res)))
+    return source_implementation(res)
 
 
 #---------------------------------------- Ins -----------------------------------------------
@@ -6130,12 +6141,7 @@ def Ins_imp(z, rt=None, source_filter = None):
     - related zefop: Out
     - related zefop: ins_and_outs
     """
-    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
-
-    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "inin", "multi")
-
-    return in_rels_imp(z, rt, source_filter) | map[lambda atom: Atom(source(get_ref_pointer(atom)))] | collect
+    return in_rels_imp(z, rt, source_filter) | map[source] | collect
 
 
 #---------------------------------------- isn_and_outs -----------------------------------------------
@@ -6194,12 +6200,6 @@ def out_rel_imp(z, rt=None, target_filter = None):
     - related zefop: Out
     - related zefop: Outs
     """
-    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
-
-    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "out", "single")
-
-
     opts = out_rels_imp(z, rt, target_filter)
     if len(opts) != 1:
         # We use a function here for ease of control flow
@@ -6257,10 +6257,8 @@ def out_rels_imp(z, rt_or_bt=None, target_filter=None):
     - related zefop: Out
     - related zefop: Outs
     """
-    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
-
-    assert is_a(z, ZefRef) or is_a(z, EZefRef) or is_a(z, FlatRef)
-    if is_a(z, FlatRef): return traverse_flatref_imp(z, rt_or_bt, "out", "multi")
+    if check_Atom_with_ref(z):
+        return Atom_unpack_and_rewrap(out_rels_imp, is_list=True)(z, rt_or_bt, target_filter)
 
     if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt_or_bt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
@@ -6273,9 +6271,9 @@ def out_rels_imp(z, rt_or_bt=None, target_filter=None):
             raise Exception("TODO: Need to implement non-specific relation types for out_rels")
     if target_filter: 
         if isinstance(target_filter, ZefOp): target_filter = Is[target_filter]
-        return res | filter[target | is_a[target_filter]] | map[func[Atom]] | collect 
+        return res | filter[target | is_a[target_filter]] | collect 
 
-    return res | map[func[Atom]] | collect
+    return res
 
 
 
@@ -6307,12 +6305,6 @@ def in_rel_imp(z, rt=None, source_filter = None):
     - related zefop: In
     - related zefop: Ins
     """
-    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
-
-    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
-    if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt, "in", "single")
-
-
     opts = in_rels_imp(z, rt, source_filter)
     if len(opts) != 1:
         # We use a function here for ease of control flow
@@ -6369,8 +6361,8 @@ def in_rels_imp(z, rt_or_bt=None, source_filter=None):
     - related zefop: In
     - related zefop: Ins
     """
-    if is_a(z, Atom) and get_ref_pointer(z): z = get_ref_pointer(z)
-
+    if check_Atom_with_ref(z):
+        return Atom_unpack_and_rewrap(in_rels_imp, is_list=True)(z, rt_or_bt, source_filter)
 
     assert isinstance(z, (ZefRef, EZefRef, FlatRef))
     if isinstance(z, FlatRef): return traverse_flatref_imp(z, rt_or_bt, "in", "multi")
@@ -6385,14 +6377,17 @@ def in_rels_imp(z, rt_or_bt=None, source_filter=None):
             raise Exception("TODO: Need to implement non-specific relation types for out_rels")
     if source_filter: 
         if isinstance(source_filter, ZefOp): source_filter = Is[source_filter]
-        return res | filter[source | is_a[source_filter]] | map[func[Atom]] | collect 
+        return res | filter[source | is_a[source_filter]] | collect 
 
-    return res | map[func[Atom]] | collect
-
-
+    return res
 
 
-def source_implementation(zr, *curried_args):
+
+
+def source_implementation(zr):
+    if check_Atom_with_ref(zr):
+        return Atom_unpack_and_rewrap(source_implementation)(zr)
+
     if is_a(zr, Entity):
         raise Exception(f"Can't take the source of an entity (have {zr}), only relations have sources/targets")
     if isinstance(zr, FlatRef):
@@ -6404,9 +6399,12 @@ def source_implementation(zr, *curried_args):
         if not isinstance(zr.item, DelegateRelationTriple):
             raise Exception(f"Can't take the source of a non-relation-triple Delegate ({zr})")
         return internals.Delegate(zr.order + zr.item.source.order, zr.item.source.item)
-    return (pyzefops.source)(zr, *curried_args)
+    return (pyzefops.source)(zr)
 
 def target_implementation(zr):
+    if check_Atom_with_ref(zr):
+        return Atom_unpack_and_rewrap(source_implementation)(zr)
+
     if is_a(zr, Entity):
         raise Exception(f"Can't take the target of an entity (have {zr}), only relations have sources/targets")
     if isinstance(zr, FlatRef):
@@ -6421,6 +6419,9 @@ def target_implementation(zr):
     return pyzefops.target(zr)
 
 def value_implementation(zr, maybe_tx=None):
+    if check_Atom_with_ref(zr):
+        return value_implementation(get_ref_pointer(z), maybe_tx)
+
     if isinstance(zr, FlatRef):
         return fr_value_imp(zr)
     if maybe_tx is None:
@@ -6437,7 +6438,7 @@ def value_implementation(zr, maybe_tx=None):
         val = AET[val]
     return val
 
-def time_implementation(x, *curried_args):
+def time_implementation(x):
     """
     Return the time of the object.
 
@@ -6448,7 +6449,9 @@ def time_implementation(x, *curried_args):
     """
     if isinstance(x, GraphSlice):
         return pyzefops.time(to_tx(x))
-    return (pyzefops.time)(x, *curried_args)
+    if check_Atom_with_ref(x):
+        return time_implementation(get_ref_pointer(x))
+    return (pyzefops.time)(x)
 
 
 
@@ -6470,6 +6473,8 @@ def uid_implementation(arg):
         return arg.d["uid"]
     if is_a(arg, UID):
         return arg
+    if check_Atom_with_ref(arg):
+        return uid_implementation(get_ref_pointer(arg))
     return pyzefops.uid(arg)
 
 def base_uid_implementation(first_arg):
@@ -6488,6 +6493,8 @@ def zef_id_imp(x):
             return zef_id_imp(to_delegate(x))
         elif internals.has_uid(to_ezefref(x)):
             return uid(x)
+    elif isinstance(x, Atom) and get_ref_pointer(x) is not None:
+        return zef_id_imp(get_ref_pointer(x))
     elif isinstance(x, AtomRef):
         return origin_uid(x)
     elif isinstance(x, DelegateRef):
@@ -6497,6 +6504,8 @@ def zef_id_imp(x):
 
 def exists_at_implementation(z, frame):
     assert isinstance(frame, GraphSlice)
+    if check_Atom_with_ref(x):
+        return Atom_unpack_and_rewrap(exists_at_implementation)(z, frame)
     return (pyzefops.exists_at)(z, frame.tx)
 
 def first_tx_for_low_level_blob(z):
@@ -6564,6 +6573,8 @@ def is_zefref_promotable_implementation(z):
     return pyzefops.is_zefref_promotable(z)
 
 def to_ezefref_implementation(zr):
+    if check_Atom_with_ref(zr):
+        return Atom_unpack_and_rewrap(to_ezefref_implementation)(zr)
     return pyzefops.to_ezefref(zr)
 
 #---------------------------------------- value_type -----------------------------------------------
@@ -6650,16 +6661,24 @@ def is_a_implementation(x, typ):
 
 
 def has_relation_implementation(z1, rt, z2):
+    if check_Atom_with_ref(z1):
+        z1 = get_ref_pointer(z1)
+    if check_Atom_with_ref(z2):
+        z2 = get_ref_pointer(z2)
     return pyzefops.has_relation(z1, internals.get_c_token(rt), z2)
 
 def relation_implementation(z1, *args):
-    if len(args) == 1:
-        return pyzefops.relation(z, *args)
-    else:
-        rt,z2 = args
-        return pyzefops.relation(z1, internals.get_c_token(rt), z2)
+    return single_imp(relations_implementation(z1, *args))
 
-def relations_implementation(z, *args):
+def relations_implementation(z1, *args):
+    # Just dispatch on z1 and let future errors sort it out
+    if check_Atom_with_ref(z1):
+        if len(args) == 1:
+            out = relations_implementation(get_ref_pointer(z1), get_ref_pointer(args[0]))
+        else:
+            out = relations_implementation(get_ref_pointer(z1), args[0], get_ref_pointer(args[1]))
+        return [Atom(x) for x in out]
+
     if len(args) == 1:
         return pyzefops.relations(z, *args)
     else:
@@ -6667,8 +6686,8 @@ def relations_implementation(z, *args):
         return pyzefops.relations(z1, internals.get_c_token(rt), z2)
 
 def rae_type_implementation(z):
-    if isinstance(z, RAERef):
-        return z.d["type"]
+    if isinstance(z, Atom):
+        return get_atom_type(z)
 
     elif isinstance(z, FlatRef):
         from ..flat_graph import FlatRef_rae_type
@@ -8444,8 +8463,10 @@ def to_zef_list_imp(elements: list):
             raise Exception(f"Need to implement code for type {rae}")
         return names[0] if names else None
 
-    all_zef = elements | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
+    all_zef = elements | map[lambda v: isinstance(v, BlobPtr) or (isinstance(v, Atom) and get_ref_pointer(v) is not None)] | all | collect
     if not all_zef: return Error("to_zef_list only takes ZefRef or EZefRef.")
+    # Convert all Atom to ZefRef
+    elements = elements | map[match[(Atom, get_ref_pointer), (Any, identity)]] | collect
     is_any_terminated = elements | map[preceding_events[Terminated]] | filter[SetOf[None]] | length | greater_than[0] | collect 
     if is_any_terminated: return Error("Cannot create a Zef List Element from a terminated ZefRef")
     rels_to_els = (elements 
@@ -8964,6 +8985,21 @@ def fields_imp(z, rt):
 
     if isinstance(z, list) or isinstance(z, tuple):
         return [fields(zz, rt) for zz in z]
+
+    if isinstance(z, Atom):
+        # Fields overrides the ref if it is there
+        atom_fields = get_fields(z)
+        if token_name(rt) in atom_fields:
+            val = atom_fields[token_name(rt)]
+            if not isinstance(val, List):
+                return [val]
+            else:
+                return val
+                
+        zr = get_ref_pointer(z)
+        if zr is not None:
+            return fields_imp(zr, rt)
+        raise AttributeError("Unable to get fields for Atom")
 
     raise TypeError(f"`fields` operator not implemented for type(z)={type(z)}    z={z}")
 

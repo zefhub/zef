@@ -45,7 +45,15 @@ def to_delegate_imp(first_arg, *curried_args):
                 raise Exception("Delegate does not exist at given graph slice.")
             return to_frame(d_ezr, curried_args[0])
 
-    if isinstance(first_arg, ZefRef) or isinstance(first_arg, EZefRef):
+    from .op_implementations.implementation_typing_functions import check_Atom_with_ref
+    from .atom import get_ref_pointer
+    if check_Atom_with_ref(x):
+        # TODO: Lots of fixups needed - reconsider the whole thing carefully
+        out = to_delegate_imp(get_ref_pointer(x), *curried_args)
+        if isinstance(out, BlobPtr):
+            return Atom(out)
+        return out
+    if isinstance(first_arg, BlobPtr):
         assert len(curried_args) == 0
         return internals.ezr_to_delegate(first_arg)
 
@@ -65,6 +73,15 @@ def attempt_to_delegate(args):
 def delegate_of_imp(x, arg1=None, arg2=None):
     # TODO: Move implementation
     from ._ops import to_frame, frame, collect
+
+    from .op_implementations.implementation_typing_functions import check_Atom_with_ref
+    from .atom import get_ref_pointer
+    if check_Atom_with_ref(x):
+        # TODO: Lots of fixups needed - reconsider the whole thing carefully
+        out = delegate_of_imp(get_ref_pointer(x), *curried_args)
+        if isinstance(out, BlobPtr):
+            return Atom(out)
+        return out
 
     # TODO: Break this up and document
     if isinstance(x, EZefRef) or isinstance(x, ZefRef):

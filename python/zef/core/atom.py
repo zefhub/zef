@@ -22,19 +22,21 @@ class Atom_:
     derived quantity reference_type: e.g. 'unidentified', 'local_name', 'red', 'db_ref', 'db_state_ref', 'graph_ref'
     """
 
-    def __init__(self, atom_type, *names, **fields):
-        from ._ops import is_a, rae_type, uid
-        from .VT import ZefRef, EZefRef, RAET
+    def __init__(self, arg, *names, **fields):
+        from ._ops import is_a, rae_type, origin_uid
+        from .VT import BlobPtr, RAET
 
         ref_pointer = None
-        if is_a(atom_type, ZefRef) or is_a(atom_type, EZefRef):
+        if is_a(arg, BlobPtr):
             # This means we can extract the atom_type and uid from the Ref
             ref_pointer = atom_type
             atom_type = rae_type(ref_pointer)
-            names =  (str(uid(ref_pointer)), *names)
+            names = (str(origin_uid(ref_pointer)), *names)
 
-        elif not is_a(atom_type, RAET):
-            raise TypeError(f"Atom was called with an invalid atom_type: {atom_type}")
+        else:
+            atom_type = arg
+            if not is_a(atom_type, RAET):
+                raise TypeError(f"Atom was called with an invalid atom_type: {atom_type}")
 
         object.__setattr__(self, "atom_type", atom_type)
         object.__setattr__(self, "names", names)
@@ -78,6 +80,8 @@ class Atom_:
         raise AttributeError("Atoms are immutable")
 
     def __getattribute__(self, name):
+        if name.startswith("__"):
+            return object.__getattribute__(self, name)
         # Need to convert KeyErrors to AttributeErrors for calling code to handle things like __x__ accesses
         try:
             return object.__getattribute__(self, "fields")[name]
