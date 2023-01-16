@@ -57,6 +57,7 @@ from ...pyzef.internals import (
     delegate_to_ezr,
     early_token_list,
     ezr_to_delegate,
+    full_graph_heads,
     get_data_layout_version_info,
     get_enum_value_from_string,
     get_graph_revision_info,

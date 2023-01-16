@@ -1274,6 +1274,7 @@ namespace zefDB {
 		}	
 
         Butler::UpdateHeads full_graph_heads(const GraphData & gd) {
+            LockGraphData lock{me.gd};
             Butler::UpdateHeads heads{
                 {constants::ROOT_NODE_blob_index, gd.read_head}
             };
