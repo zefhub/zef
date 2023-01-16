@@ -23,15 +23,26 @@ class Atom_:
     """
 
     def __init__(self, arg, *names, **fields):
-        from ._ops import is_a, rae_type, origin_uid
-        from .VT import BlobPtr, RAET
+        from ._ops import is_a, rae_type, source, target, origin_uid, rae_type
+        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef
 
         ref_pointer = None
         if is_a(arg, BlobPtr):
             # This means we can extract the atom_type and uid from the Ref
             ref_pointer = arg
             atom_type = rae_type(ref_pointer)
-            names = (str(origin_uid(ref_pointer)), *names)
+            names =  (str(origin_uid(ref_pointer)), *names)
+
+        elif is_a(arg, EntityRef | AttributeEntityRef):
+            rae = arg
+            atom_type = rae_type(rae)
+            names =  (str(origin_uid(rae)), *names)
+
+        elif is_a(arg, RelationRef):
+            rae = arg
+            atom_type = rae_type(rae)
+            compound_uid = f"{origin_uid(source(rae))}-{origin_uid(rae)}-{origin_uid(target(rae))}"
+            names =  (compound_uid, *names)
 
         else:
             atom_type = arg
