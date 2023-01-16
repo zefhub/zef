@@ -64,14 +64,22 @@ void Butler::handle_guest_message(TokenQuery & content, Butler::msg_ptr & msg) {
     }
 
     if(content.create) {
+        std::string err_msg = "";
         if(content.group == TokenQuery::ET && !zwitch.allow_dynamic_entity_type_definitions())
-            throw std::runtime_error("ET creation is disallowed.");
+            err_msg = "ET creation is disallowed.";
         if(content.group == TokenQuery::RT && !zwitch.allow_dynamic_relation_type_definitions())
-            throw std::runtime_error("RT creation is disallowed.");
+            err_msg = "RT creation is disallowed.";
         if(content.group == TokenQuery::EN && !zwitch.allow_dynamic_enum_type_definitions())
-            throw std::runtime_error("EN creation is disallowed.");
+            err_msg = "EN creation is disallowed.";
         if(content.group == TokenQuery::KW && !zwitch.allow_dynamic_keyword_definitions())
-            throw std::runtime_error("KW creation is disallowed.");
+            err_msg = "KW creation is disallowed.";
+        if(err_msg != "") {
+            err_msg += "[";
+            for(auto & name : content.names)
+                err_msg += name + ",";
+            err_msg += "]";
+            throw std::runtime_error(err_msg);
+        }
 
         if(check_env_bool("ZEFDB_OFFLINE_MODE") || check_env_bool("ZEFDB_DEVELOPER_LOCAL_TOKENS")) {
             auto & tokens = global_token_store();
