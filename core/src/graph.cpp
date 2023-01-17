@@ -353,10 +353,10 @@ namespace zefDB {
     {}
 
 
-    Graph::Graph(const std::string & graph_uid_or_tag_or_file, int mem_style) {
+    Graph::Graph(const std::string & graph_uid_or_tag_or_file, int mem_style, bool create) {
         auto butler = Butler::get_butler();
         butler_weak = butler;
-        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::LoadGraph{graph_uid_or_tag_or_file, mem_style});
+        auto response = butler->msg_push<Messages::GraphLoaded>(Butler::LoadGraph{graph_uid_or_tag_or_file, mem_style, {}, create});
         if(!response.generic.success)
             throw std::runtime_error("Unable to load graph: " + response.generic.reason);
 

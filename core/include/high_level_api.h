@@ -133,7 +133,7 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED void tag(const Graph& g, const std::string& name_tag, bool force_if_name_tags_other_graph=false, bool adding=true) ;
     LIBZEF_DLL_EXPORTED std::tuple<Graph,EZefRef> zef_get(const std::string& some_uid_or_name_tag) ;	
 	LIBZEF_DLL_EXPORTED std::vector<std::string> zearch(const std::string& zearch_term) ;
-	LIBZEF_DLL_EXPORTED std::optional<std::string> lookup_uid(const std::string& tag) ;
+	LIBZEF_DLL_EXPORTED std::optional<std::string> lookup_uid(const std::string& tag, bool * created=nullptr) ;
 	LIBZEF_DLL_EXPORTED void sync(Graph& g, bool do_sync=true) ;
 	LIBZEF_DLL_EXPORTED void pageout(Graph& g) ;
 	LIBZEF_DLL_EXPORTED void set_keep_alive(Graph& g, bool keep_alive=true) ;

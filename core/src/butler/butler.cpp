@@ -434,6 +434,7 @@ namespace zefDB {
                 auto response = wait_on_zefhub_message({
                         {"msg_type", "lookup_uid"},
                         {"tag", content.tag_or_uid},
+                        {"create", content.create},
                     });
                 if(!response.generic.success) {
                     msg->promise.set_value(GraphLoaded{"Unable to lookup graph uid: " + response.generic.reason});

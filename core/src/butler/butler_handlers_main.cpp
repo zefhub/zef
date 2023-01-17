@@ -21,6 +21,8 @@ void Butler::handle_guest_message(T & content, Butler::msg_ptr & msg) {
 template <>
 void Butler::handle_guest_message(LoadGraph & content, Butler::msg_ptr & msg) {
     if(is_BaseUID(content.tag_or_uid)) { // is uid
+        if(content.create)
+            throw std::runtime_error("Can't load a graph with a UID and create=True");
         load_graph_from_uid(msg, BaseUID::from_hex(content.tag_or_uid));
     } else if(starts_with(content.tag_or_uid, "file://")) {
         auto filename = content.tag_or_uid.substr(strlen("file://"));
@@ -314,8 +316,10 @@ void Butler::handle_guest_message(UIDQuery & content, Butler::msg_ptr & msg) {
     try {
         send_ZH_message({
                 {"msg_type", "lookup_uid"},
+                {"msg_version", 2},
                 {"task_uid", task->task_uid},
-                {"tag", content.query}
+                {"tag", content.query},
+                {"create", content.create},
             });
     } catch(...) {
         auto task_promise = find_task(task->task_uid, true);

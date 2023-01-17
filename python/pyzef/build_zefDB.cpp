@@ -35,9 +35,9 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		//.def("__init__", [](const Graph& self, bool sync) {self.my_graph_data().sync = sync; return self; }, py::arg("self"), py::arg("sync") = true, py::return_value_policy::take_ownership)
 		.def(py::init<bool,int>(), py::arg("sync") = false, py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor: sync=False does not register this graph on zefhub. mem_style should be chosen from MMAP_STYLE_AUTO, MMAP_STYLE_ANONYMOUS, MMAP_STYLE_FILE_BACKED.")
 		// .def(py::init<py::bytes, py::bytes, bool, int, bool>(), py::arg("blob_bytes"), py::arg("uid_bytes"), py::arg("is_master_graph") = 0, py::arg("index_of_latest_complete_tx_node_hint") = 0, py::arg("sync") = true, "Graph constructor from blob and uid bytes")
-		.def(py::init<std::string,int>(), py::arg("tag_or_uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid or tag")
+		.def(py::init<std::string,int,bool>(), py::arg("tag_or_uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::arg("create") = false, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid or tag")
 		.def(py::init<BaseUID,int>(), py::arg("uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid")   // TODO: move this into the fct? Is the gil put back on if the constructor throws?
-		.def(py::init<GraphData&>(), "Graph constructor from graph uid")
+		.def(py::init<GraphData&>())
 		.def(py::init<EZefRef>(), "Graph constructor from EZefRef")
 		.def(py::init<ZefRef>(), "Graph constructor from ZefRef: returns the graph that owns the zefref data, not the reference frame graph")
 		.def_property_readonly("graph_data", [](Graph& g)->GraphData& { return g.my_graph_data(); }, py::return_value_policy::reference)  // the mem policy return_value_policy::reference_internal is used here by default: ties lifetime of property returned to lifetime of parent (also stops parent from being destroyed while this is alive)
@@ -625,7 +625,16 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	main_module.def("tag", py::overload_cast<const Graph&,const std::string&,bool,bool>(&tag), py::call_guard<py::gil_scoped_release>(), "Add a name tag to a graph to retrieve it by that name in the future: tag(g, 'some_graph_name_tag')", "g"_a, "name_tag"_a, "force"_a=false, "adding"_a=true);
 	main_module.def("zef_get", zef_get, py::call_guard<py::gil_scoped_release>(), "get a EZefRef together with the graph for some specified uid (could be on any graph - zefhub searches)", "uid_or_name_tag"_a);
     main_module.def("zearch", zearch, py::call_guard<py::gil_scoped_release>(), "perform a general fuzzy search for stuff on zefhub. Returns a string as an answer.", "zearch_term"_a="");
-    main_module.def("lookup_uid", lookup_uid, py::call_guard<py::gil_scoped_release>(), "lookup a UID for a graph by tag. Should return None if not found but will currently error.", "tag"_a);
+    main_module.def("lookup_uid", [](const std::string& tag) { return lookup_uid(tag); }, py::call_guard<py::gil_scoped_release>(), "lookup a UID for a graph by tag. Should return None if not found but will currently error.", "tag"_a);
+    main_module.def("lookup_uid", [](const std::string& tag, bool create) {
+        if(!create) {
+            // Default to other overload, but we have to return the same thing
+            return std::make_tuple(lookup_uid(tag), false);
+        }
+        bool created;
+        std::optional<std::string> guid = lookup_uid(tag, &created);
+        return std::make_tuple(guid, created);
+    }, py::call_guard<py::gil_scoped_release>(), "lookup a UID for a graph by tag. Will return GUID,created", "tag"_a, "create"_a);
 	main_module.def("sync", zefDB::sync, py::call_guard<py::gil_scoped_release>(), "set the sync state of a graph: should it sed / receive updates to/from zefhub? Zpplies to primary and view instances.", "g"_a, "do_sync"_a=true);
 
 	main_module.def("tag", py::overload_cast<ZefRef,const std::string,bool>(&tag), py::call_guard<py::gil_scoped_release>(), "Add a name tag / key_dict entry to for a specific ZefRef:  tag(my_z, 'my_favorite_zefref')", "z"_a, "name_tag"_a, "force_if_name_tags_other_rel_ent"_a=false);
