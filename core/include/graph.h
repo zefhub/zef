@@ -317,7 +317,7 @@ namespace zefDB {
         explicit Graph(void * ptr) = delete;
         explicit Graph(const GraphData * ptr, bool stealing_reference);
 
-		explicit Graph(const std::string& graph_uid_or_tag_or_file, int mem_style = MMap::MMAP_STYLE_AUTO) ;
+		explicit Graph(const std::string& graph_uid_or_tag_or_file, int mem_style = MMap::MMAP_STYLE_AUTO, bool create = false);
         explicit Graph(const char * graph_uid_or_tag, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(std::string(graph_uid_or_tag), mem_style) {}
 		explicit Graph(const BaseUID& graph_uid, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(str(graph_uid), mem_style) {};
 

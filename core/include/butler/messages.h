@@ -123,6 +123,7 @@ namespace zefDB {
             std::string tag_or_uid;
             int mem_style = MMap::MMAP_STYLE_AUTO;
             std::optional<load_graph_callback_t> callback;
+            bool create = false;
         };
         struct GraphLoaded {
             GenericResponse generic;
@@ -232,6 +233,7 @@ namespace zefDB {
 
         struct UIDQuery {
             std::string query;
+            bool create;
         };
 
         struct MakePrimary {

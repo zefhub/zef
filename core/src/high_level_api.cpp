@@ -206,15 +206,29 @@ namespace zefDB {
         return response.j["matches"].get<std::vector<std::string>>();
 	}
 
-    std::optional<GraphRef> lookup_uid(const std::string& tag) {
+    std::optional<GraphRef> lookup_uid(const std::string& tag, bool * created) {
+        bool should_create = (created != nullptr);
         auto butler = Butler::get_butler();
-        auto response = butler->msg_push_timeout<Messages::GenericZefHubResponse>(Messages::UIDQuery{tag});
+        auto response = butler->msg_push_timeout<Messages::GenericZefHubResponse>(Messages::UIDQuery{tag, should_create});
         if(!response.generic.success)
             throw std::runtime_error("Failed with uid lookup: " + response.generic.reason);
+
+        int msg_version = 0;
+        if(response.j.contains("msg_version"))
+            msg_version = response.j["msg_version"];
+        if(should_create && msg_version < 2)
+            throw std::runtime_error("ZefHub is too old to be able to handle creating a graph when the tag is missing");
+
+        std::optional<GraphRef> guid;
         if(response.j.contains("graph_uid"))
-            return GraphRef(BaseUID::from_hex(response.j["graph_uid"].get<std::string>()));
-        else
-            return std::optional<GraphRef>();
+            guid = GraphRef(BaseUID::from_hex(response.j["graph_uid"].get<std::string>()));
+        if(should_create) {
+            if(response.j.contains("created"))
+                *created = response.j["created"];
+            else
+                *created = false;
+        }
+        return guid;
     }
 
 
