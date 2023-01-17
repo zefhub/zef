@@ -24,7 +24,7 @@ class Atom_:
 
     def __init__(self, arg, *names, **fields):
         from ._ops import is_a, rae_type, source, target, origin_uid, rae_type
-        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef
+        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef
 
         ref_pointer = None
         if is_a(arg, BlobPtr):
@@ -32,6 +32,13 @@ class Atom_:
             ref_pointer = arg
             atom_type = rae_type(ref_pointer)
             names =  (str(origin_uid(ref_pointer)), *names)
+        
+        elif is_a(arg, FlatRef):
+            ref_pointer = arg
+            fr = arg
+            atom_type = fr.fg.blobs[fr.idx][1]
+            fr_uid =  fr.fg.blobs[fr.idx][-1]
+            if fr_uid: names =  (str(fr_uid), *names)
 
         elif is_a(arg, EntityRef | AttributeEntityRef):
             rae = arg
