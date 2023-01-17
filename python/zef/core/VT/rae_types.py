@@ -330,6 +330,7 @@ def VRT_is_a(x, typ):
 
 
 def ET_ctor(self, *args, **kwargs):
+    print(self, args, kwargs)
     if RAET_get_token(self) is None:
         assert len(args) == 1
         assert len(kwargs) == 0
@@ -379,8 +380,24 @@ AET = make_VT('AET',
               str_func=token_str)
 
 RelationTypeToken = make_VT('RelationTypeToken', pytype=internals.RelationType)
+
+def RT_ctor(self, *args, **kwargs):
+    if RAET_get_token(self) is None:
+        assert len(args) == 1
+        assert len(kwargs) == 0
+        input = args[0]
+        if isinstance(input, ValueType) and isinstance(input, RT):
+            return input
+        return RT[internals.RT(input)]
+    else:
+        names = RAET_get_names(self)
+        names = names + args
+        from . import Atom
+        return Atom(RAET_without_names(self), *names, **kwargs)
+
 RT = make_VT('RT',
-             constructor_func=lambda x: RT[internals.RT(x)],
+             constructor_func=RT_ctor,
+             pass_self=True,
              attr_funcs=wrap_attr_readonly_token(internals.RT),
              is_a_func=RT_is_a,
              is_subtype_func=token_subtype,
