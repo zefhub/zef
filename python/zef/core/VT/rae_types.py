@@ -330,7 +330,6 @@ def VRT_is_a(x, typ):
 
 
 def ET_ctor(self, *args, **kwargs):
-    print(self, args, kwargs)
     if RAET_get_token(self) is None:
         assert len(args) == 1
         assert len(kwargs) == 0
@@ -370,6 +369,20 @@ def AET_ctor(self, x):
         names = (x, *names)
         from . import Atom
         return Atom(RAET_without_names(self), *names)
+
+def AET_ctor(self, *args, **kwargs):
+    if RAET_get_token(self) is None:
+        assert len(args) == 1
+        assert len(kwargs) == 0
+        input = args[0]
+        if isinstance(input, ValueType) and isinstance(input, AET):
+            return input
+        return AET[internals.AET(input)]
+    else:
+        names = RAET_get_names(self)
+        names = names + args
+        from . import Atom
+        return Atom(RAET_without_names(self), *names, **kwargs)
 
 AET = make_VT('AET',
               constructor_func=AET_ctor,
