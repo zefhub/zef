@@ -780,7 +780,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
         return py::bytes(internals::get_blobs_as_bytes(gd, start_index, end_index)); 
 		}, "read the content of the memory pool filled with blobs_ns for a given graph", py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload, py::call_guard<py::gil_scoped_release>());
-	internals_submodule.def("full_graph_heads", &internals::full_graph_heads, py::call_guard<py::gil_scoped_release>());
+    // This is covered by one overload of create_update_heads.
+	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads, py::call_guard<py::gil_scoped_release>());
 	// internals_submodule.def("convert_payload_0_3_0_to_0_2_0", &conversions::convert_payload_0_3_0_to_0_2_0);
 
     internals_submodule.def("version_layout", &conversions::version_layout, py::call_guard<py::gil_scoped_release>());

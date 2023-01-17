@@ -1273,14 +1273,14 @@ namespace zefDB {
 			);
 		}	
 
-        Butler::UpdateHeads full_graph_heads(const GraphData & gd) {
-            LockGraphData lock{me.gd};
+        Butler::UpdateHeads full_graph_heads(GraphData & gd) {
+            LockGraphData lock{&gd};
             Butler::UpdateHeads heads{
                 {constants::ROOT_NODE_blob_index, gd.read_head}
             };
 
-#define GEN_CACHE(x,y) { \
-                auto ptr = gd.y->get(); \
+#define GEN_CACHE(x,y) {                                     \
+                auto ptr = gd.y->get();                      \
                 heads.caches.push_back({x, 0, ptr->size()}); \
             }
 
