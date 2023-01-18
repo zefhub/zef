@@ -23,15 +23,18 @@ class Atom_:
     """
 
     def __init__(self, arg, *names, **fields):
-        from ._ops import is_a, rae_type, source, target, origin_uid, rae_type
-        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef
+        from ._ops import is_a, rae_type, source, target, origin_uid, rae_type, discard_frame
+        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation
 
-        ref_pointer = None
+        ref_pointer, rt_source, rt_target = None, None, None
         if is_a(arg, BlobPtr):
             # This means we can extract the atom_type and uid from the Ref
             ref_pointer = arg
             atom_type = rae_type(ref_pointer)
             names =  (str(origin_uid(ref_pointer)), *names)
+            if is_a(arg, Relation):
+                rt_source = discard_frame(source(arg))
+                rt_target = discard_frame(target(arg))
         
         elif is_a(arg, FlatRef):
             ref_pointer = arg
@@ -46,10 +49,11 @@ class Atom_:
             names =  (str(origin_uid(rae)), *names)
 
         elif is_a(arg, RelationRef):
+            rt_source = source(arg)
+            rt_target = target(arg)
             rae = arg
             atom_type = rae_type(rae)
-            compound_uid = f"{origin_uid(source(rae))}-{origin_uid(rae)}-{origin_uid(target(rae))}"
-            names =  (compound_uid, *names)
+            names =  (str(origin_uid(rae)), *names)
 
         else:
             atom_type = arg
@@ -60,6 +64,8 @@ class Atom_:
         object.__setattr__(self, "names", names)
         object.__setattr__(self, "fields", fields)
         object.__setattr__(self, "ref_pointer", ref_pointer)
+        object.__setattr__(self, "rt_source", rt_source)
+        object.__setattr__(self, "rt_target", rt_target)
 
     def __call__(self, *args, **fields):
         # TODO Add checks on passed *args to ensure they are valid names or accepted values
@@ -87,10 +93,13 @@ class Atom_:
         atom_type = get_atom_type(self)
         names = get_names(self)
         fields = get_fields(self)
+        rt_source = get_rt_source(self)
+        rt_target = get_rt_target(self)
         items = [f'"{get_reference_type(self)}"'] + [f"{k}={v!r}" for k,v in fields.items()]
         items = tuple([str(name) for name in names]) + tuple(items)
-        ref_pointer_str = f" -> {ref_pointer}" if ref_pointer else ""
-        return f'{atom_type}({f", ".join(items)}){ref_pointer_str}'
+        ref_pointer_str = f"\nPointer: {ref_pointer}" if ref_pointer else ""
+        src_trgt_str = f"\nSrc: {rt_source}\nTrgt: {rt_target}" if rt_target else ""
+        return f'{atom_type}({f", ".join(items)}){ref_pointer_str}{src_trgt_str}'
 
     def __setattr__(self, name, value):
         raise AttributeError("Atoms are immutable")
@@ -126,6 +135,10 @@ def get_fields(atom: Atom):
     return object.__getattribute__(atom, "fields")
 def get_ref_pointer(atom: Atom):
     return object.__getattribute__(atom, "ref_pointer")
+def get_rt_source(atom: Atom):
+    return object.__getattribute__(atom, "rt_source")
+def get_rt_target(atom: Atom):
+    return object.__getattribute__(atom, "rt_target")
 
 def get_uid_type(uid_str: str) -> str:
     uid_chunk_size = 12
