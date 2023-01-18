@@ -6690,6 +6690,9 @@ def rae_type_implementation(z):
     if isinstance(z, Atom):
         return get_atom_type(z)
 
+    if isinstance(z, RAERef):
+        return z.d["type"]
+
     elif isinstance(z, FlatRef):
         from ..flat_graph import FlatRef_rae_type
         return FlatRef_rae_type(z)
