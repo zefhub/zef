@@ -23,7 +23,7 @@
     <br />
     <a href="https://zef.zefhub.io/">Docs</a>
     <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
-    <a href="https://zef.zefhub.io/blog">Blog</a>
+    <a href="https://blog.zefhub.io/">Blog</a>
     <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
     <a href="https://zef.chat/">Chat</a>
     <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
@@ -90,14 +90,14 @@ pip install zef
 
 This will attempt to install a wheel if supported by your system and compile from source otherwise. See INSTALL for more details if compiling from source.
 
-Check out our [installation doc](https://zef.zefhub.io/introduction/installation) for more details about getting up and running once installed.
+Check out our [installation doc](https://zef.zefhub.io/installing-zef) for more details about getting up and running once installed.
 
 <br />
 <br />
 
 ## Using Zef
 
-Here's some quick points to get going. Check out our [Quick Start](https://zef.zefhub.io/introduction/quick-start) and docs for more details.
+Here's some quick points to get going. Check out our [Quick Start](https://zef.zefhub.io/quick-start) and docs for more details.
 
 A quick note, in Zef, we overloaded the "|" pipe so users can chain together values, Zef operators (ZefOps), and functions in sequential, lazy, and executable pipelines where data flow is left to right.
 
@@ -174,12 +174,12 @@ g | now | all[ET] | collect                     # see all entities in the latest
     <h3>🚣 Choose your own adventure 🚣</h3>
 </div>
 
-- [Basic tutorial of Zef](https://zef.zefhub.io/tutorials/basic/employee-database)
-- [Build Wordle clone with Zef](https://zef.zefhub.io/blog/wordle-using-zefops)
-- [Import data from CSV](https://zef.zefhub.io/how-to/import-csv)
-- [Import data from NetworkX](https://zef.zefhub.io/how-to/import-graph-formats)
-- [Set up a GraphQL API](https://zef.zefhub.io/how-to/graphql-basic)
-- [Use Zef graphs in NetworkX](https://zef.zefhub.io/how-to/use-zef-networkx)
+- [Basic tutorial of Zef](https://zef.zefhub.io/employee-database)
+- [Build Wordle clone with Zef](https://blog.zefhub.io/build-wordle-in-30-lines-of-python/)
+- [Import data from CSV](https://zef.zefhub.io/multiple-interlinked-csvs)
+- [Import data from NetworkX](https://zef.zefhub.io/graph-formats)
+- [Set up a GraphQL API](https://zef.zefhub.io/quick-api-creation)
+- [Use Zef graphs in NetworkX](https://zef.zefhub.io/network-x-interface)
 
 <br />
 
@@ -187,7 +187,7 @@ g | now | all[ET] | collect                     # see all entities in the latest
     <h3>📌 A note on ZefHub 📌</h3>
 </div>
 
-Zef is designed so you can use it locally and drop it into any existing project. You have the option of syncing your graphs with ZefHub, a service that persists, syncs, and distributes graphs automatically (and the company behind Zef). ZefHub makes it possible to [share graphs with other users and see changes live](https://zef.zefhub.io/how-to/share-graphs), by memory mapping across machines in real-time!
+Zef is designed so you can use it locally and drop it into any existing project. You have the option of syncing your graphs with ZefHub, a service that persists, syncs, and distributes graphs automatically (and the company behind Zef). ZefHub makes it possible to [share graphs with other users and see changes live](https://zef.zefhub.io/collaborate), by memory mapping across machines in real-time!
 
 You can create a ZefHub account for free which gives you full access to storing and sharing graphs forever. For full transparency, our long-term hope is that many users will get value from Zef or Zef + ZefHub for free, while ZefHub power users will pay a fee for added features and services.
 
