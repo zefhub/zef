@@ -123,6 +123,10 @@ class Atom_:
                 and get_names(self) == get_names(other)
                 and get_fields(self) == get_fields(other))
 
+    def __hash__(self):
+        from .VT.value_type import hash_frozen
+        return hash_frozen(("Atom_", get_atom_type(self), get_ref_pointer(self), get_names(self), get_fields(self)))
+
 
 from .VT import make_VT
 Atom = make_VT('Atom', pytype=Atom_)

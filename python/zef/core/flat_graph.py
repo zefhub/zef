@@ -115,6 +115,9 @@ class FlatRefs_:
     def __iter__(self):
         return (FlatRef_(self.fg, i) for i in self.idxs)
 
+    def __len__(self):
+        return len(self.idxs)
+
     def __gt__(self, other):
         return LazyValue(self) > other
 
