@@ -6260,6 +6260,8 @@ def out_rels_imp(z, rt_or_bt=None, target_filter=None):
     if check_Atom_with_ref(z):
         return Atom_unpack_and_rewrap(out_rels_imp, is_list=True)(z, rt_or_bt, target_filter)
 
+    assert isinstance(z, (ZefRef, EZefRef, FlatRef))
+    if is_a(z, FlatRef): return traverse_flatref_imp(z, rt_or_bt, "out", "multi")
     if rt_or_bt == RT or rt_or_bt is None: res = pyzefops.outs(z) | filter[is_a[BT.RELATION_EDGE]] | collect
     elif rt_or_bt == BT: res =  pyzefops.outs(z | to_ezefref | collect)
     else:
