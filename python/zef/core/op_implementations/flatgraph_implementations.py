@@ -82,6 +82,15 @@ def fg_insert_imp(fg, new_el):
             idx = next_idx()
             new_blobs.append((idx, aet, [], None, new_el))
 
+        elif is_a(new_el, Atom):
+            from ..atom import get_atom_type, get_names
+            node_type, node_uid = get_atom_type(new_el), get_names(new_el)[0]
+            if node_uid not in new_key_dict:
+                idx = next_idx()
+                new_blobs.append((idx, node_type, [], node_uid))
+                new_key_dict[node_uid] = idx
+            idx = new_key_dict[node_uid]
+
         elif is_a(new_el, (ZefRef, EZefRef)):
             idx = common_logic(discard_frame(new_el))
             if isinstance(new_blobs[idx][1], AET) and isinstance(new_el, ZefRef):
@@ -249,7 +258,7 @@ def fg_insert_imp(fg, new_el):
    
 
     def _insert_single(new_el):
-        if is_a(new_el, (EntityRef, AttributeEntityRef, ZefOp, PleaseAssign, BlobPtr, *shorthand_scalar_types, Val, Delegate, ET, AET)):
+        if is_a(new_el, (EntityRef, AttributeEntityRef, ZefOp, PleaseAssign, BlobPtr, *shorthand_scalar_types, Val, Delegate, ET, AET, Atom)):
             common_logic(new_el)
         elif is_a(new_el, tuple) and len(new_el) == 3:
             src, rt, trgt = new_el
