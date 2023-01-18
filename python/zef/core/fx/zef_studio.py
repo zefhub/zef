@@ -435,10 +435,14 @@ def studio_start_server_handler(eff: Dict):
    """Example
    {
       "type": FX.Studio.StartServer,
+      "report_errors": True, # Optional
    } | run
    """
+   report_errors = eff.get("report_errors", False)
+   report_errors = "?report_errors=true" if report_errors else ""
+
    def open_browser(port):
-      studio_url = f"https://studio.zefhub.io/?endpoint=http://localhost:{port}/graphql"
+      studio_url = f"https://studio.zefhub.io/?endpoint=http://localhost:{port}/graphql{report_errors}"
       log.info(f"Started Zef Studio at {studio_url}")
       import webbrowser
       webbrowser.open(studio_url)
