@@ -424,7 +424,7 @@ namespace zefDB {
 	
 		// exposed to python to get access to the serialized form
         LIBZEF_DLL_EXPORTED std::string get_blobs_as_bytes(GraphData& gd, blob_index start_index, blob_index end_index);
-        LIBZEF_DLL_EXPORTED Butler::UpdateHeads full_graph_heads(const GraphData & gd);
+        LIBZEF_DLL_EXPORTED Butler::UpdateHeads full_graph_heads(GraphData & gd);
 		LIBZEF_DLL_EXPORTED Messages::UpdatePayload graph_as_UpdatePayload(GraphData& gd, std::string target_layout="");
 
 
