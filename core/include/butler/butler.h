@@ -451,6 +451,25 @@ namespace zefDB {
             return o;
         }
 
+        inline bool operator==(const UpdateHeads & a, const UpdateHeads & b) {
+            if(a.blobs.from != b.blobs.from
+               || a.blobs.to != b.blobs.to
+               || a.blobs.revision != b.blobs.revision)
+                return false;
+            if(a.caches.size() != b.caches.size())
+                return false;
+            for(int i = 0; i < a.caches.size() ; i++) {
+                auto & ac = a.caches[i];
+                auto & bc = b.caches[i];
+                if(ac.name != bc.name
+                   || ac.from != bc.from
+                   || ac.to != bc.to
+                   || ac.revision != bc.revision)
+                    return false;
+            }
+            return true;
+        }
+
         LIBZEF_DLL_EXPORTED bool is_up_to_date(const UpdateHeads & update_heads);
         LIBZEF_DLL_EXPORTED bool heads_apply(const UpdateHeads & update_heads, const GraphData & gd);
         LIBZEF_DLL_EXPORTED UpdatePayload create_update_payload_current(GraphData & gd, const UpdateHeads & update_heads);
