@@ -129,6 +129,10 @@ namespace zefDB {
             if(zwitch.zefhub_communication_output()) {
                 std::cerr << "Pong timeout" << std::endl;
             }
+            if(zwitch.no_timeout_errors()) {
+                std::cerr << "Ignoring pong timeout because no_timeout_errors is set" << std::endl;
+                return;
+            }
             // Probably need to assert or forcibly close here.
             // While zefhub doesn't support it yet, we will not fail just yet.
             // fail_handler(hdl);
