@@ -79,8 +79,13 @@ namespace zefDB {
 
             if(new_todo.size() == 0)
                 break;
-            if(new_todo.size() == todo.size())
+            if(new_todo.size() == todo.size()) {
+                std::cerr << "Cycle detected, can't clone" << std::endl;
+                std::cerr << "Remaining todo items: " << std::endl;
+                for(auto it : new_todo)
+                    std::cerr << it << std::endl;
                 throw std::runtime_error("Cycle detected, can't clone");
+            }
 
             todo = new_todo;
             new_todo.clear();
