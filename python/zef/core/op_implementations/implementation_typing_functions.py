@@ -5188,12 +5188,8 @@ def discard_frame_imp(x):
     if isinstance(x, AtomRef):
         return x
     if isinstance(x, Atom):
-        ref = get_ref_pointer(x)
-        if ref is None:
-            return x
-        return Atom(get_atom_type(x),
-                    *get_names(x),
-                    **get_fields(x))
+        x =  x.__replace__(ref_pointer = None)
+        return x
     if isinstance(x, BlobPtr):
         if internals.is_delegate(x):
             return to_delegate(x)
