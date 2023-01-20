@@ -76,20 +76,34 @@ def fg_insert_imp(fg, new_el):
 
     def common_logic(new_el):
         nonlocal new_blobs, new_key_dict
-
         if is_a(new_el, shorthand_scalar_types):
             aet = map_scalar_to_aet_type(new_el)
             idx = next_idx()
             new_blobs.append((idx, aet, [], None, new_el))
 
         elif is_a(new_el, Atom):
-            from ..atom import get_atom_type, get_names
-            node_type, node_uid = get_atom_type(new_el), get_names(new_el)[0]
-            if node_uid not in new_key_dict:
-                idx = next_idx()
-                new_blobs.append((idx, node_type, [], node_uid))
-                new_key_dict[node_uid] = idx
-            idx = new_key_dict[node_uid]
+            from ..atom import get_atom_type, get_names, get_ref_pointer
+            if is_a(get_atom_type(new_el), RT):
+                # TODO Make this part work with unwrapping an Atom pointing to an RT
+                # examples:
+                # z = db | now | all[RT.Game] | last | collect
+                # FlatGraph([Atom(RelationRef(z))])  
+                # FlatGraph([Atom(z)])  
+                
+                # if get_ref_pointer(new_el):
+                    # idx = _insert_single(RelationRef(get_ref_pointer(new_el)))
+                # else:
+                
+                raise NotImplementedError("An Atom of a Relation Type is not yet supported.")
+            elif get_ref_pointer(new_el):
+                idx = common_logic(get_ref_pointer(new_el))
+            else:
+                node_type, node_uid = get_atom_type(new_el), get_names(new_el)[0]
+                if node_uid not in new_key_dict:
+                    idx = next_idx()
+                    new_blobs.append((idx, node_type, [], node_uid))
+                    new_key_dict[node_uid] = idx
+                idx = new_key_dict[node_uid]
 
         elif is_a(new_el, (ZefRef, EZefRef)):
             idx = common_logic(discard_frame(new_el))
