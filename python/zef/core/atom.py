@@ -67,6 +67,21 @@ class Atom_:
         object.__setattr__(self, "rt_source", rt_source)
         object.__setattr__(self, "rt_target", rt_target)
 
+    
+
+    def __replace__(self, **kwargs):
+        attrs = ["atom_type", "names", "fields", "ref_pointer", "rt_source", "rt_target"]
+        assert all(kwarg in attrs for kwarg in kwargs), "Trying to set an Attribute for Atom that isn't allowed."
+
+        new_atom = Atom(get_atom_type(self))
+        for attr in attrs:
+            if attr in kwargs:
+                object.__setattr__(new_atom, attr, kwargs[attr])
+            else:
+                object.__setattr__(new_atom, attr, object.__getattribute__(self, attr))
+
+        return new_atom
+
     def __call__(self, *args, **fields):
         # TODO Add checks on passed *args to ensure they are valid names or accepted values
         new_fields = dict(object.__getattribute__(self, "fields"))
