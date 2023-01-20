@@ -663,8 +663,7 @@ def prepend_imp(v, item, *additional_items):
     if isinstance(v, list):
         return [item, *v]
     elif isinstance(v, ZEF_List_Type):
-        if isinstance(v, Atom):
-            raise NotImplementedError("TOOD: Atoms inside of preprend")
+        if isinstance(v, Atom): v = get_ref_pointer(v)
         """
         args must be existing RAEs on the graph
         """
@@ -753,8 +752,8 @@ def append_imp(v, item, *additional_items):
     elif isinstance(v, tuple):
         return (*v, item)
     elif isinstance(v, ZEF_List_Type):
-        if isinstance(v, Atom):
-            raise NotImplementedError("TOOD: Atoms inside of append")
+        if isinstance(v, Atom): v = get_ref_pointer(v)
+
         """
         args must be existing RAEs on the graph
         """
@@ -3800,7 +3799,8 @@ def first_imp(iterable):
     ---- Signature ----
     List[T] -> Union[T, Error]
     """
-    if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
+    if isinstance(iterable, ZEF_List_Type):
+        if isinstance(iterable, Atom):  iterable = get_ref_pointer(iterable)
         return iterable | all | first | collect
 
 
@@ -3838,9 +3838,10 @@ def second_imp(iterable):
     ---- Signature ----
     List[T] -> Union[T, Error]
     """
-    if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
+    if isinstance(iterable, ZEF_List_Type):
+        if isinstance(iterable, Atom):  iterable = get_ref_pointer(iterable)
         return iterable | all | second | collect
-    
+
     it = iter(iterable)
     try:
         _ = next(it)
@@ -3876,7 +3877,8 @@ def last_imp(iterable):
     ---- Signature ----
     List[T] -> Union[T, Error]
     """
-    if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
+    if isinstance(iterable, ZEF_List_Type):
+        if isinstance(iterable, Atom):  iterable = get_ref_pointer(iterable)
         return iterable | all | last | collect
 
     input_type = parse_input_type(type_spec(iterable))
@@ -5757,7 +5759,8 @@ def nth_implementation(iterable, n):
     if isinstance(iterable, Dict): 
         raise TypeError(f"`nth` was called on a dict, but is only supported for Lists")
 
-    if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
+    if isinstance(iterable, ZEF_List_Type):
+        if isinstance(iterable, Atom):  iterable = get_ref_pointer(iterable)
         return iterable | all | nth[n] | collect
         
     if isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, String):
@@ -8469,7 +8472,7 @@ def to_zef_list_imp(elements: list):
     if not all_zef: return Error("to_zef_list only takes ZefRef or EZefRef.")
     # Convert all Atom to ZefRef
     elements = elements | map[match[(Atom, get_ref_pointer), (Any, identity)]] | collect
-    is_any_terminated = elements | map[preceding_events[Terminated]] | filter[SetOf[None]] | length | greater_than[0] | collect 
+    is_any_terminated = elements | map[preceding_events[Terminated]] | filter[lambda x: x is None] | length | greater_than[0] | collect 
     if is_any_terminated: return Error("Cannot create a Zef List Element from a terminated ZefRef")
     rels_to_els = (elements 
             | enumerate 
