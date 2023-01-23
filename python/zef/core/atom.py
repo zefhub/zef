@@ -29,7 +29,7 @@ class Atom_:
         from ._ops import is_a, rae_type, source, target, origin_uid, rae_type, discard_frame, value
         from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation, AttributeEntity
 
-        ref_pointer, rt_source, rt_target = None, None, None
+        ref_pointer, rt_source, rt_target, ae_value = None, None, None, None
         if is_a(arg, BlobPtr):
             # This means we can extract the atom_type and uid from the Ref
             ref_pointer = arg
@@ -38,6 +38,8 @@ class Atom_:
             if is_a(arg, Relation):
                 rt_source = discard_frame(source(arg))
                 rt_target = discard_frame(target(arg))
+            elif is_a(arg, AttributeEntity):
+                ae_value = value(arg)
         
         elif is_a(arg, FlatRef):
             ref_pointer = arg
@@ -72,11 +74,12 @@ class Atom_:
         object.__setattr__(self, "ref_pointer", ref_pointer)
         object.__setattr__(self, "rt_source", rt_source)
         object.__setattr__(self, "rt_target", rt_target)
+        object.__setattr__(self, "ae_value", ae_value)
 
     
 
     def __replace__(self, **kwargs):
-        attrs = ["atom_type", "names", "fields", "ref_pointer", "rt_source", "rt_target"]
+        attrs = ["atom_type", "names", "fields", "ref_pointer", "rt_source", "rt_target", "ae_value"]
         assert all(kwarg in attrs for kwarg in kwargs), "Trying to set an Attribute for Atom that isn't allowed."
 
         new_atom = Atom(get_atom_type(self))
@@ -167,6 +170,8 @@ def get_rt_source(atom: Atom):
     return object.__getattribute__(atom, "rt_source")
 def get_rt_target(atom: Atom):
     return object.__getattribute__(atom, "rt_target")
+def get_ae_value(atom: Atom):
+    return object.__getattribute__(atom, "ae_value")
 
 def get_uid_type(uid_str: str) -> str:
     uid_chunk_size = 12
