@@ -36,7 +36,20 @@ def make_VT(name, **kwargs):
     return insert_VT(name, vt)
 
 
+def ValueType_validate(vt):
+    from .value_type import absorbed
+    assert type(vt) == ValueType_
+    abs = absorbed(vt)
+    if len(abs) == 0:
+        return True
+    elif len(abs) == 1:
+        if not isinstance(abs[0], ValueType):
+            raise Exception(f"Absorbed parameter in ValueType is itself not a ValueType: {abs}")
+        return True
+    else:
+        raise Exception(f"ValueType has multiple absorbed things: {abs}")
 def ValueType_is_a(x, vt):
+    assert ValueType_validate(vt)
     if type(x) != ValueType_:
         return False
     from .value_type import absorbed, type_name
