@@ -2364,15 +2364,58 @@ def cartesian_product_imp(x, second=None, *args):
     - related zefop: combinations
     - related zefop: permutations
     """    
-    from itertools import product
+    def cartesian_product_gen(*vs):
+        """
+        This function reimplements Python's itertools.product, which
+        does not seem to deal with infinite iterators correctly. (???!)
+        """
+        vs = tuple(vs)    
+        its = [iter(el) for el in vs]
+        # vs[0] does not need to be cached: only iterated over once
+        if len(vs) == 0:
+            return
+        
+        latest_vals = [next(it) for it in its]
+        cache = [[el] for el in latest_vals]
+        busy_caching = [False] + [True] * (len(vs)-1)
+
+        def it_step(offset):
+            # print(f"offset={offset}  latest_vals={latest_vals}  cache={cache}")        
+            try:
+                latest_vals[offset] = next(its[offset])
+                if busy_caching[offset]:
+                    cache[offset].append(latest_vals[offset])
+                return
+            except StopIteration:
+                if offset == 0:
+                    raise StopIteration()
+                busy_caching[offset] = False
+                its[offset] = iter(cache[offset])
+                latest_vals[offset] = next(its[offset])
+                it_step(offset - 1)
+
+
+        m = len(vs) - 1
+        while True:
+            try:
+                yield tuple(latest_vals)
+                it_step(m)
+            except StopIteration:
+                return
+
+
     if second is None:
         def wrapper1():
-            yield from itertools.product(*x)
+            yield from cartesian_product_gen(*x)
         return ZefGenerator(wrapper1)
     else:
+        c = 0
         def wrapper2():
-            yield from itertools.product( *(x, second, *args) )
+            w = [*(x, second, *args)]
+            yield from cartesian_product_gen( *(x, second, *args) )
         return ZefGenerator(wrapper2)
+
+
 
 
 def cartesian_product_tp(a, second, *args):
