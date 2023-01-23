@@ -127,9 +127,10 @@ class GraphSlice_:
     def __contains__(self, thing):
         from ._ops import exists_at, uid, collect, to_delegate
         from . import internals
+        from .rae_type_definitions import RAE
 
-        if isinstance(thing, (EntityRef, AttributeEntityRef, RelationRef)):
-            return get_instance_rae(uid(thing), self) is not None
+        if isinstance(thing, RAE):
+            return get_instance_rae(origin_uid(thing), self) is not None
 
         from .VT import Delegate
         if isinstance(thing, Delegate):
@@ -158,7 +159,7 @@ from .VT import make_VT
 GraphSlice = make_VT("GraphSlice", pytype=GraphSlice_)
 
 
-def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
+def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice, allow_tombstone=False)->ZefRef:
     """
     Returns the instance of a foreign rae in the given slice. It could be that
     the node asked for has its origin on this graph (the original rae may still
@@ -184,11 +185,19 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
         if len(z_candidates) > 1:
             raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {origin_uid}")
         elif len(z_candidates) == 1:
-            return z_candidates | only | to_frame[gs] | collect
+            if allow_tombstone:
+                from . import _ops
+                return z_candidates | only | to_frame[gs][_ops.allow_tombstone] | collect
+            else:
+                return z_candidates | only | to_frame[gs] | collect
         else:
             return None     # no instance alive at the moment
         
     elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}:
-        return zz
+        if allow_tombstone:
+            from . import _ops
+            return zz | to_frame[gs][_ops.allow_tombstone] | collect
+        else:
+            return zz | to_frame[gs] | collect
     else:
         raise RuntimeError("Unexpected option in get_instance_rae")

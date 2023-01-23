@@ -337,10 +337,11 @@ main.Graph.__contains__ = Graph__contains__
 original_Graph__getitem__ = main.Graph.__getitem__
 def Graph__getitem__(self, x):
     from .abstract_raes import EntityRef_, AttributeEntityRef_, RelationRef_
-    from ._ops import uid, target, to_delegate
+    from .atom import Atom_
+    from ._ops import uid, target, to_delegate, origin_uid
     from .internals import BT, val_as_serialized_if_necessary
-    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_]:
-        return self[uid(x)]
+    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_, Atom_]:
+        return self[origin_uid(x)]
 
     from .VT import Delegate
     if isinstance(x, Delegate):
