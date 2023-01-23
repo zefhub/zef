@@ -32,18 +32,29 @@ if ! which realpath > /dev/null ; then
     exit 1
 fi
 
+if [ -n "$VIRTUAL_ENV" ] ; then
+    # If the user is using a virtualenv, then pip should automatically use that.
+    # But for safety, let's force it.
+    PIP_FLAGS=--require-virtualenv
+else
+    # If the user is outside of a virtualenv, then don't allow packages to
+    # install to system directories.
+    PIP_FLAGS=--user
+fi
+
+
 # Use tomlq to extract the build requirements
 if ! which tomlq > /dev/null ; then
-    python3 -m pip install --user yq || exit 1
+    python3 -m pip install $PIP_FLAGS yq || exit 1
 fi
 
 # Q and z are here to split using quotes and then remove the quotes in the resultant array
 # packages=( ${(Q)${(z)$(tomlq -r '."build-system".requires | @sh' python/pyproject.toml)}} )
 jqout=$(tomlq -r '."build-system".requires | @sh' python/pyproject.toml)
 eval "packages=( $jqout )"
-python3 -m pip install --user "${packages[@]}" || exit 1
+python3 -m pip install $PIP_FLAGS "${packages[@]}" || exit 1
 # Install the runtime requirements
-python3 -m pip install --user -qr python/requirements.txt || exit 1
+python3 -m pip install $PIP_FLAGS -qr python/requirements.txt || exit 1
 
 
 
