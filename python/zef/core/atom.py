@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .VT import *
+from .VT import insert_VT, make_VT
+
 class Atom_:
     """
     AtomType: e.g. ET.Person, RT.Foo, AET[String]
@@ -23,15 +26,15 @@ class Atom_:
     """
 
     def __init__(self, arg, *names, **fields):
-        from ._ops import is_a, rae_type, source, target, origin_uid, rae_type, discard_frame
-        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation
+        from ._ops import is_a, rae_type, source, target, origin_uid, rae_type, discard_frame, value
+        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation, AttributeEntity
 
         ref_pointer, rt_source, rt_target = None, None, None
         if is_a(arg, BlobPtr):
             # This means we can extract the atom_type and uid from the Ref
             ref_pointer = arg
             atom_type = rae_type(ref_pointer)
-            names =  (str(origin_uid(ref_pointer)), *names)
+            names =  (origin_uid(ref_pointer), *names)
             if is_a(arg, Relation):
                 rt_source = discard_frame(source(arg))
                 rt_target = discard_frame(target(arg))
@@ -46,19 +49,22 @@ class Atom_:
         elif is_a(arg, EntityRef | AttributeEntityRef):
             rae = arg
             atom_type = rae_type(rae)
-            names =  (str(origin_uid(rae)), *names)
+            names =  (origin_uid(rae), *names)
 
         elif is_a(arg, RelationRef):
             rt_source = source(arg)
             rt_target = target(arg)
             rae = arg
             atom_type = rae_type(rae)
-            names =  (str(origin_uid(rae)), *names)
+            names =  (origin_uid(rae), *names)
 
-        else:
+        elif is_a(arg, RAET):
             atom_type = arg
-            if not is_a(atom_type, RAET):
-                raise TypeError(f"Atom was called with an invalid atom_type: {atom_type}")
+        elif is_a(arg, Nil):
+            atom_type = None
+        else:
+            atom_type = None
+            names = (arg,) + names
 
         object.__setattr__(self, "atom_type", atom_type)
         object.__setattr__(self, "names", names)
@@ -111,10 +117,12 @@ class Atom_:
         rt_source = get_rt_source(self)
         rt_target = get_rt_target(self)
         items = [f'"{get_reference_type(self)}"'] + [f"{k}={v!r}" for k,v in fields.items()]
-        items = tuple([str(name) for name in names]) + tuple(items)
-        ref_pointer_str = f"\nPointer: {ref_pointer}" if ref_pointer else ""
-        src_trgt_str = f"\nSrc: {rt_source}\nTrgt: {rt_target}" if rt_target else ""
-        return f'{atom_type}({f", ".join(items)}){ref_pointer_str}{src_trgt_str}'
+        items = [str(name) for name in names] + list(items)
+        if ref_pointer:
+            items += [f"Pointer: {ref_pointer}"]
+        if rt_target:
+            items += [f"Src: {rt_source}", f"Trgt: {rt_target}"]
+        return f'{atom_type}({f", ".join(items)})'
 
     def __setattr__(self, name, value):
         raise AttributeError("Atoms are immutable")
@@ -133,6 +141,8 @@ class Atom_:
         return dir(object.__getattribute__(self, "fields"))
 
     def __eq__(self, other):
+        if type(other) != Atom_:
+            return False
         return (get_atom_type(self) == get_atom_type(other)
                 and get_ref_pointer(self) == get_ref_pointer(other)
                 and get_names(self) == get_names(other)
@@ -143,7 +153,6 @@ class Atom_:
         return hash_frozen(("Atom_", get_atom_type(self), get_ref_pointer(self), get_names(self), get_fields(self)))
 
 
-from .VT import make_VT
 Atom = make_VT('Atom', pytype=Atom_)
 
 def get_atom_type(atom: Atom):
@@ -195,3 +204,17 @@ def get_reference_type(atom: Atom) -> str:
     if len(uids) == 0:
         return "local_name"
     return get_uid_type(uids[0])
+
+
+def RelationAtom_is_a(x, typ):
+    from ._ops import rae_type, is_a
+    return isinstance(x, Atom & Is[rae_type | is_a[RT]])
+RelationAtom = make_VT("RelationAtom", is_a_func=RelationAtom_is_a)
+def EntityAtom_is_a(x, typ):
+    from ._ops import rae_type, is_a
+    return isinstance(x, Atom & Is[rae_type | is_a[ET]])
+EntityAtom = make_VT("EntityAtom", is_a_func=EntityAtom_is_a)
+def AttributeEntityAtom_is_a(x, typ):
+    from ._ops import rae_type, is_a
+    return isinstance(x, Atom & Is[rae_type | is_a[AET]])
+AttributeEntityAtom = make_VT("AttributeEntityAtom", is_a_func=AttributeEntityAtom_is_a)
