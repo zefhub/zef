@@ -5431,7 +5431,10 @@ def origin_uid_tp(x):
 
 
 def set_field_implementation(z, rt, val, incoming=False):
-    return LazyValue(z) | set_field[rt][val][incoming]
+    if incoming:
+        raise Exception("TODO: Need to handle incoming for set_field again")
+    name = token_name(rt)
+    return Atom(z, **{name: val})
 
 def set_field_type_info(op, curr_type):
     return curr_type
