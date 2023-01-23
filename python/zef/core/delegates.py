@@ -47,9 +47,9 @@ def to_delegate_imp(first_arg, *curried_args):
 
     from .op_implementations.implementation_typing_functions import check_Atom_with_ref
     from .atom import get_ref_pointer
-    if check_Atom_with_ref(x):
+    if check_Atom_with_ref(first_arg):
         # TODO: Lots of fixups needed - reconsider the whole thing carefully
-        out = to_delegate_imp(get_ref_pointer(x), *curried_args)
+        out = to_delegate_imp(get_ref_pointer(first_arg), *curried_args)
         if isinstance(out, BlobPtr):
             return Atom(out)
         return out
