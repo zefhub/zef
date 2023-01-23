@@ -5739,6 +5739,29 @@ def length_implementation(iterable):
         return len(list(iterable))
 
 
+# -------------------------------- count -------------------------------------------------
+def count_imp(iterable, tp=Any):
+    """
+    Count the number of items that fulfill a condition.
+    When used with the condition "Any" (default), this is identical 
+    to the length function.
+
+    ---- Examples ----
+    >>> range(10) | count[Z % 2 == 0]     # => 3
+    >>> range(10) | count                 # => 10   
+
+    ---- Signature ----
+    (List[T]) -> Int
+
+    ---- Tags ----
+    related zefop: length
+    operates on: List
+    operates on: Stream
+    """
+    return len( [1 for el in iterable if is_a(el, tp)] )
+
+
+
 
 # -------------------------------- nth -------------------------------------------------
 def nth_implementation(iterable, n):

@@ -35,6 +35,7 @@ _op_to_functions = {
         internals.RT.Iterate:        (iterate_implementation, iterate_type_info),
         internals.RT.Identity:       (identity_implementation, identity_type_info),
         internals.RT.Length:         (length_implementation, length_type_info),
+        internals.RT.Count:          (count_imp, None),
         internals.RT.Take :          (take_implementation, take_type_info),
         internals.RT.TakeWhile:      (take_while_imp, take_while_tp),
         internals.RT.TakeWhilePair:  (take_while_pair_imp, take_while_pair_tp),
