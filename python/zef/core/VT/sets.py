@@ -244,7 +244,7 @@ def where_is_a(el, typ):
     number of curried + data flow args does not match the 
     number of arguments which the predicate expects.
     """
-    is_validation(typ)
+    # is_validation(typ)
     predicate = remove_names(absorbed(typ))[0]
     curried_args = absorbed(typ)[1:]
     try:
