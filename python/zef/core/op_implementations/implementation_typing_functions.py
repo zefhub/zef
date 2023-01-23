@@ -8990,7 +8990,7 @@ def fields_imp(z, rt):
     - used for: graph traversal
     """
     def val_maybe(x):
-        if is_a(x, AET): return value(x)
+        if is_a(x, AttributeEntity): return value(x)
         else: return x
 
     if isinstance(z, ZefRef):

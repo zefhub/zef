@@ -183,7 +183,7 @@ def dispatch_ror_graph(g, x):
                 return {**cmd, 'internal_id': internal_id}
             return cmd
 
-        commands_with_ids = [insert_id_maybe(c) for  c in commands]
+        commands_with_ids = [insert_id_maybe(c) for c in commands]
         return {
                 "type": FX.Graph.Transact,
                 "target_graph": g,
