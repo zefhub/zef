@@ -6475,8 +6475,22 @@ def uid_implementation(arg):
         return arg.d["uid"]
     if is_a(arg, UID):
         return arg
-    if check_Atom_with_ref(arg):
-        return uid_implementation(get_ref_pointer(arg))
+    if isinstance(arg, Atom):
+        # This is so messy! We have to look for uids in each of the names of the
+        # atom. If we don't find any, we can fall back to the included ref
+        # pointer.
+        #
+        # Allowed uid names - a direct EternalUID struct, or a string beginning with "db-"
+        for name in get_names(arg):
+            if isinstance(name, BaseUID | EternalUID | ZefRefUID):
+                return name
+            if isinstance(name, String) and name.startswith("㏈-"):
+                from ..atom import uid_str_to_uid
+                return uid_str_to_uid(name)
+        
+        # Should we fail here if there is no ref pointer? Or should we return None.
+        if check_Atom_with_ref(arg):
+            return uid_implementation(get_ref_pointer(arg))
     return pyzefops.uid(arg)
 
 def base_uid_implementation(first_arg):

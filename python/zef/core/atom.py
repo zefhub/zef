@@ -172,6 +172,16 @@ def get_uid_type(uid_str: str) -> str:
     else:
         raise ValueError(f"Invalid UID: {uid_str}")
 
+def uid_str_to_uid(uid_str: str) -> UID:
+    uid_str = uid_str[2:]
+    if get_uid_type(uid_str) == "db_state_ref":
+        return ZefRefUID(*uid_str.split('-'))
+    elif get_uid_type(uid_str) == "db_ref":
+        return EternalUID(*uid_str.split('-'))
+    elif get_uid_type(uid_str) == "ref":
+        return BaseUID(uid_str)
+    else:
+        raise Exception(f"Unknown type of uid: {uid_str}")
 
 def get_reference_type(atom: Atom) -> str:
     names = get_names(atom)
