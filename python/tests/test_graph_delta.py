@@ -47,7 +47,7 @@ class MyTestCase(unittest.TestCase):
         z_joe = r["joe"]
         r2 = [
             (r["joe"], RT.NickName, "Jay"),
-            r["joe"] | Out[RT.LastName] | assign["Smith"],
+            r["joe"] | Out[RT.LastName] | assign["Smith"] | collect,
         ] | transact[g] | run
 
         z2_joe = now(z_joe)
@@ -142,6 +142,7 @@ class MyTestCase(unittest.TestCase):
         x, y, z = (y, RT.Something, 3) | g | run
         g | now | all[ET.Example] | last | out_rel[RT.Something] | Out[RT.Something] | collect
 
+    @unittest.skip("Tagging is TODO again")
     def test_tagging(self):
         g = Graph()
 

@@ -42,6 +42,17 @@ class MyTestCase(unittest.TestCase):
         fg = (fg 
         | insert[[
             ET.Foo['x1'],
+            # TODO: Enable these with object notation syntax again.
+            #
+            # These are currenlty breaking because the flatgraph code evaluates
+            # the assign zefop that tries to produce a PleaseAssign that
+            # requires an ID instead of "AET.Int".
+            #
+            # Need to either a) make flatgraph code interpret these expressions
+            # like the graph wish code, or b) change the assign implementation
+            # to produce an "AETWithValue" for cases like this, or c) allow
+            # PleaseAssign to take AET.Int and make an alternative level1
+            # command to take the place of PleaseAssign.
             AET.Int | assign[41],
             AET.Int['k2'] | assign[41],
             (Any['x1'], RT.A['r2'], ET.Baz),

@@ -52,13 +52,12 @@ class MyTestCase(unittest.TestCase):
 
         g2 = Graph()
         r2 = [
-            r["rel"] | terminate["rel from g2"],
+            r["rel"] | terminate,
         ] | transact[g2] | run
         self.assertEqual(1, g | now | all[ET.Person] | length | collect)
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)
         self.assertEqual(0, g2 | now | all[ET.Person] | length | collect)
         self.assertEqual(0, g2 | now | all[RT.FirstName] | length | collect)
-        self.assertEqual(None, r2["rel from g2"])
 
     def test_no_duplicate_internal_name(self):
         g = Graph()

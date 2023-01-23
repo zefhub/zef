@@ -6913,23 +6913,28 @@ def InIn_type_info(op, curr_type):
     return curr_type
 
 def terminate_implementation(z, *args):
-    from ..graph_delta import PleaseTerminate
-    # We need to keep terminate as something that works in the GraphDelta code.
-    # So we simply wrap everything up as a LazyValue and return that.
-    assert len(args) <= 1
-    internal_id = args[0] if len(args) == 1 else None
-    return PleaseTerminate(target=z, internal_id=internal_id)
+    from ..graph_additions.types import PleaseTerminate
+    # assert len(args) <= 1
+    # internal_id = args[0] if len(args) == 1 else None
+    assert len(args) == 0
+    if isinstance(z, Atom):
+        z = origin_uid(z)
+    if isinstance(z, BlobPtr):
+        z = origin_uid(z)
+    return PleaseTerminate(target=z)
 
 def terminate_type_info(op, curr_type):
     return curr_type
 
-def assign_imp(z, val):
+def assign_imp(x, val):
     # We need to keep the assign value as something that works in the GraphDelta
     # code. So we simply wrap everything up as a LazyValue and return that.
     # return LazyValue(z) | assign[val]
-    from ..graph_delta import PleaseAssign
-    return PleaseAssign({"target": z,
-                          "value": val})
+    from ..graph_additions.types import PleaseAssign
+    if isinstance(x, AttributeEntity):
+        x = origin_uid(x)
+    return PleaseAssign({"target": x,
+                          "value": Val(val)})
 
 def assign_tp(op, curr_type):
     return VT.Any
@@ -7035,7 +7040,7 @@ def tag_imp(x, tag_s: str, *args):
             'force': force,
             'adding': True,
         }
-    from ..graph_delta import NamedZ
+    from ..graph_additions.types import NamedZ
     if isinstance(x, ZefRef) or isinstance(x, EZefRef) or isinstance(x, NamedZ) or (isinstance(x, ValueType) and without_absorbed(x) == Any):
         assert len(args) == 0
         return LazyValue(x) | tag[tag_s]
@@ -8504,32 +8509,35 @@ def to_zef_list_tp(op, curr_type):
 
 
 # -------------------------------- transact -------------------------------------------------
-def transact_imp(data, g, **kwargs):
-    from typing import Generator
-    from ..graph_delta import construct_commands
-    if is_a(data, FlatGraph):
-        if isinstance(g, Graph):
-            commands = flatgraph_to_commands(data)
-        else:
-            fg = data
-            commands = g
-            return fg_insert_imp(fg, commands)
-    elif is_a(g, FlatGraph):
-        fg = g
-        commands = data
-        return fg_insert_imp(fg, commands)
-    elif type(data) in {list, tuple}:
-        commands = construct_commands(data)
-    elif isinstance(data, (Generator, ZefGenerator)):
-        commands = construct_commands(tuple(data))
-    else:
-        raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
+def transact_imp(data, g, *args):
+    from ..graph_additions.transact import transact_dispatch
+    return transact_dispatch(data, g, *args)
 
-    return {
-            "type": FX.Graph.Transact,
-            "target_graph": g,
-            "commands":commands
-    }
+    # from typing import Generator
+    # from ..graph_delta import construct_commands
+    # if is_a(data, FlatGraph):
+    #     if isinstance(g, Graph):
+    #         commands = flatgraph_to_commands(data)
+    #     else:
+    #         fg = data
+    #         commands = g
+    #         return fg_insert_imp(fg, commands)
+    # elif is_a(g, FlatGraph):
+    #     fg = g
+    #     commands = data
+    #     return fg_insert_imp(fg, commands)
+    # elif type(data) in {list, tuple}:
+    #     commands = construct_commands(data)
+    # elif isinstance(data, (Generator, ZefGenerator)):
+    #     commands = construct_commands(tuple(data))
+    # else:
+    #     raise ValueError(f"Expected FlatGraph or [] or () for transact, but got {data} instead.")
+
+    # return {
+    #         "type": FX.Graph.Transact,
+    #         "target_graph": g,
+    #         "commands":commands
+    # }
 
 def transact_tp(op, curr_type):
     return VT.Effect
