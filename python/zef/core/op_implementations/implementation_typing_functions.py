@@ -3825,38 +3825,39 @@ def single_or_tp(op, curr_type):
 
 #---------------------------------------- first -----------------------------------------------
 
-def first_imp(iterable):
+def first_imp(iterable, Constraint=Any):
     """
     Return the first element of a list.
 
     ---- Examples ----
     >>> [1,2,3] | first          # => 1
     >>> [] | first               # => Error
+    >>> [1,2,3] | first[Z%2==0] # => 2
 
     ---- Signature ----
     List[T] -> Union[T, Error]
     """
-    if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
-        return iterable | all | first | collect
+    if Constraint is Any:
+        if isinstance(iterable, ZefRef) and is_a[ET.ZEF_List](iterable):
+            return iterable | all | first | collect
 
 
-    it = iter(iterable)
-    try:
-        return next(it)
-    except StopIteration:
-        return Error("Empty iterable when asking for first element.")
-
-
-
-def first_tp(op, curr_type):
-    if curr_type in ref_types:
-        curr_type = downing_d[curr_type]
-    else:
+        it = iter(iterable)
         try:
-            curr_type = absorbed(curr_type)[0]
-        except AttributeError as e:
-            raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
-    return curr_type
+            return next(it)
+        except StopIteration:
+            return Error("Empty iterable when asking for first element.")
+      
+    else:
+        it = iter(iterable)
+        try:
+          while True:  
+              x = next(it)
+              if is_a(x, Constraint):
+                  return x
+
+        except StopIteration:
+            return Error(f"Completed looking through list, but no element found when calling 'first' with Constraint={Constraint}.")
 
 
 
@@ -3916,6 +3917,9 @@ def last_imp(iterable):
         return iterable | all | last | collect
 
     input_type = parse_input_type(type_spec(iterable))
+    
+    print(f"{input_type=}  {type(input_type)=}")
+
     if "zef" in input_type:
         return curry_args_in_zefop(pyzefops.last, iterable)
     elif input_type == "awaitable":

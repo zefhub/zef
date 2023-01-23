@@ -49,7 +49,7 @@ _op_to_functions = {
         internals.RT.Modulo:         (modulo_imp, None),
         internals.RT.SelectByField:  (select_by_field_imp, select_by_field_tp),
         internals.RT.Without:        (without_imp, without_tp),
-        internals.RT.First:          (first_imp, first_tp),
+        internals.RT.First:          (first_imp, None),
         internals.RT.Second:         (second_imp, second_tp),
         internals.RT.Last:           (last_imp, last_tp),
         internals.RT.Single:         (single_imp, single_tp),
