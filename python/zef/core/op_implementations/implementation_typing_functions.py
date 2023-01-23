@@ -5430,12 +5430,6 @@ def origin_uid_tp(x):
 
 
 
-def fill_or_attach_implementation(z, rt, val):
-    return LazyValue(z) | fill_or_attach[rt][val]
-
-def fill_or_attach_type_info(op, curr_type):
-    return curr_type
-
 def set_field_implementation(z, rt, val, incoming=False):
     return LazyValue(z) | set_field[rt][val][incoming]
 
