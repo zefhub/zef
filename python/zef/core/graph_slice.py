@@ -19,6 +19,7 @@ report_import("zef.core.graph_slice")
 from ._core import *
 from .abstract_raes import *
 from .internals import EternalUID
+from .VT import *
 
 class GraphSlice_:
     def __init__(self, *args):
@@ -28,8 +29,7 @@ class GraphSlice_:
         Construct a GraphSlice, aka reference frame.
 
         Signature:
-            ZefRef[TX] -> GraphSlice
-            EZefRef[TX] -> GraphSlice
+            TX -> GraphSlice
             (Time, Graph) -> GraphSlice
             (Graph, Time) -> GraphSlice
         """
@@ -37,8 +37,13 @@ class GraphSlice_:
         # ZefRef[TX] -> GraphSlice and EZefRef[TX] -> GraphSlice
         if len(args) == 1:
             z = args[0]
-            if not (isinstance(z, ZefRef) or isinstance(z, EZefRef)):
-                raise TypeError(f'When calling the GraphSlice constructor with a single arguments, this has to be a ZefRef[TX] / EZefRef[TX]. Called with: args={args}')
+            if not isinstance(z, TX):
+                raise TypeError(f'When calling the GraphSlice constructor with a single arguments, this has to be a TX. Called with: args={args}')
+            if isinstance(z, Atom):
+                from .atom import get_ref_pointer
+                z = get_ref_pointer(z)
+                if z is None:
+                    raise TypeError(f"Atom did not have a BlobPtr contained in it: {args}.")
             self.tx = to_ezefref(z)
             # Hold a reference to the graph open
             self._g = Graph(self.tx)

@@ -20,5 +20,5 @@ AttributeEntity = insert_VT("AttributeEntity", AttributeEntityRef | AttributeEnt
 Entity = insert_VT("Entity", EntityRef | EntityConcrete | EntityAtom)
 RAE = insert_VT('RAE', Entity | AttributeEntity | Relation)
 
-TXNode = insert_VT("TXNode", TXNodeConcrete | TXNodeRef)
-Root = insert_VT("Root", RootConcrete | RootRef)
+TX = insert_VT("TX", TXNodeConcrete | TXNodeRef | TXNodeAtom)
+Root = insert_VT("Root", RootConcrete | RootRef | RootAtom)

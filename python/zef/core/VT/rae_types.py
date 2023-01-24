@@ -479,10 +479,4 @@ VRT = make_VT('VRT',
               is_subtype_func=token_subtype,
               str_func=token_str)
 
-
-def tx_is_a(x, typ):
-    return isinstance(x, BT.TX_EVENT_NODE)
-
-TX = make_VT("TX", is_a_func=tx_is_a)
-
 RAET = insert_VT("RAET", ET | RT | AET)

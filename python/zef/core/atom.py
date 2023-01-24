@@ -26,14 +26,14 @@ class Atom_:
     """
 
     def __init__(self, arg, *names, **fields):
-        from ._ops import is_a, rae_type, source, target, origin_uid, rae_type, discard_frame, value
+        from ._ops import is_a, rae_type, source, target, origin_uid, abstract_type, discard_frame, value
         from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation, AttributeEntity
 
         ref_pointer, rt_source, rt_target, ae_value = None, None, None, None
         if is_a(arg, BlobPtr):
             # This means we can extract the atom_type and uid from the Ref
             ref_pointer = arg
-            atom_type = rae_type(ref_pointer)
+            atom_type = abstract_type(ref_pointer)
             names =  (origin_uid(ref_pointer), *names)
             if is_a(arg, Relation):
                 rt_source = discard_frame(source(arg))
@@ -223,3 +223,11 @@ def AttributeEntityAtom_is_a(x, typ):
     from ._ops import rae_type, is_a
     return isinstance(x, Atom & Is[rae_type | is_a[AET]])
 AttributeEntityAtom = make_VT("AttributeEntityAtom", is_a_func=AttributeEntityAtom_is_a)
+def TXNodeAtom_is_a(x, typ):
+    from ._ops import abstract_type, equals
+    return isinstance(x, Atom & Is[abstract_type | equals[BT.TX_EVENT_NODE]])
+TXNodeAtom = make_VT("TXNodeAtom", is_a_func=TXNodeAtom_is_a)
+def RootAtom_is_a(x, typ):
+    from ._ops import abstract_type, equals
+    return isinstance(x, Atom & Is[abstract_type | equals[BT.ROOT_NODE]])
+RootAtom = make_VT("RootAtom", is_a_func=RootAtom_is_a)
