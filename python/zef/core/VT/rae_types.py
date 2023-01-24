@@ -392,13 +392,16 @@ def AET_ctor(self, x):
         return Atom(RAET_without_names(self), *names)
 
 def AET_ctor(self, *args, **kwargs):
-    if RAET_get_token(self) is None:
+    if RAET_get_token(self) is None or isinstance(RAET_get_token(self), AET_QFloat | AET_QInt | AET_Enum):
         assert len(args) == 1
         assert len(kwargs) == 0
         input = args[0]
         if isinstance(input, ValueType) and isinstance(input, AET):
             return input
-        return AET[internals.AET(input)]
+        if RAET_get_token(self) is None:
+            return AET[internals.AET(input)]
+        else:
+            return AET[RAET_get_token(self)(input)]
     else:
         names = RAET_get_names(self)
         names = names + args
