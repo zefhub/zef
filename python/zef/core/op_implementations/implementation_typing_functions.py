@@ -2022,7 +2022,7 @@ def graphslice_all_imp(*args):
     if  isinstance(fil, ValueType) and fil != RAE and type_name(fil) in {"Union", "Intersection"}:
         # extract the rae types i.e ET and AET VTs
         subtypes = get_union_intersection_subtypes(fil)
-        rae_types = subtypes | filter[ET | AET] | func[set] | collect
+        rae_types = subtypes | filter[(ET | AET) & ~Is[equals[ET]] & ~Is[equals[AET]]] | func[set] | collect
 
         # only keep here not RAE value types
         value_types = set(subtypes) - rae_types
@@ -2037,7 +2037,10 @@ def graphslice_all_imp(*args):
 
         if fil._d['type_name'] == "Union":
 
-            sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in rae_types]))
+            if len(rae_types) == 0:
+                sets_union = []
+            else:
+                sets_union = list(set.union(*[set((gs.tx | pyzefops.instances[t])) for t in rae_types]))
             # TODO: Can't represent all graphslice things as atoms
             # sets_union = [Atom(x) for x in sets_union]
             if not value_types: return sets_union

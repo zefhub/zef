@@ -141,7 +141,7 @@ class MyTestCase(unittest.TestCase):
         ae | assign["word"] | g | run
         self.assertEqual(value(now(ae)), "word")
 
-        g | now | all[AET] | single | assign["single"] | g | run
+        g | now | all[AttributeEntity] | single | assign["single"] | g | run
         self.assertEqual(value(now(ae)), "single")
 
 if __name__ == '__main__':
