@@ -6451,7 +6451,6 @@ def time_implementation(x):
     if isinstance(x, GraphSlice):
         return pyzefops.time(to_tx(x))
     if check_Atom_with_ref(x):
-        import pdb; pdb.set_trace()
         return time_implementation(get_ref_pointer(x))
     return (pyzefops.time)(x)
 

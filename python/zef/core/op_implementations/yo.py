@@ -21,6 +21,12 @@ from .._core import *
 from .. import internals
 from ..VT import *
 
+def index_imp(x):
+    if isinstance(x, Atom):
+        from ..atom import get_ref_pointer
+        return index(get_ref_pointer(x))
+    return index(x)
+
 def yo_implementation(x, display=True):
     import inspect
     from ..fx.fx_types import FXElement, _group_types
@@ -125,7 +131,7 @@ def tx_view(zr_or_uzr) -> str:
 ======================================================================================================================
 
 uid:                    {uid(uzr)}
-blob index:             {index(uzr)}
+blob index:             {index_imp(uzr)}
 current owning graphs:  {uid(Graph(uzr))} {f", name tags: ({','.join(Graph(uzr).graph_data.tag_list)})"
     if Graph(uzr).graph_data.tag_list else ""}
 total affected:         {length(uzr | events)}
@@ -220,7 +226,7 @@ def value_of_aet_at_tx(aet, tx) -> str:
 
 def readable_datetime_from_tx_uzr(uzr_tx) -> str:
     uzr_tx = to_ezefref(uzr_tx)
-    if index(uzr_tx) == root_node_blob_index():
+    if index_imp(uzr_tx) == root_node_blob_index():
         return '/'
     return f'GraphSlice {str(graph_slice_index(to_graph_slice(uzr_tx)))}: {str(uzr_tx | time | collect)}'
 
@@ -237,7 +243,7 @@ def eternalist_view(zr_or_uzr) -> str:
 ======================================================================================================================
 
 uid:                    {uid(uzr)}
-blob index:             {index(uzr)}
+blob index:             {index_imp(uzr)}
 type:                   {zr_type(uzr)}
 current owning graphs:  {Graph(uzr) | uid | collect} {f", name tags: ({','.join(Graph(uzr).graph_data.tag_list)})"
     if Graph(uzr).graph_data.tag_list else ""}
