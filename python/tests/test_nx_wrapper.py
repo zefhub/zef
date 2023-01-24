@@ -17,6 +17,8 @@ from zef import *
 from zef.ops import *
 import zef
 
+from zef.core.atom import get_ref_pointer
+
 class MyTestCase(unittest.TestCase):
     def test_networkx(self):
         from networkx import DiGraph
@@ -53,8 +55,8 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(set(dg.nodes) | func[set] | collect,
                          set(g | now | all[ET.Person] | collect))
         self.assertEqual(set(dg.edges) | func[set] | collect,
-                         set([(r["alex"], r["bob"]),
-                              (r["alex"], r["zach"])]))
+                         set([(get_ref_pointer(r["alex"]), get_ref_pointer(r["bob"])),
+                              (get_ref_pointer(r["alex"]), get_ref_pointer(r["zach"]))]))
         self.assertEqual(dg[r["alex"]][r["bob"]]["From"], "University")
         self.assertEqual(dg.nodes[r["alex"]]["ZefAge"], 1)
         self.assertEqual(dg.edges[r["d-e"]]["From"], "University")

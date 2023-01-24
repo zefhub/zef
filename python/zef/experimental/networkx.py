@@ -194,6 +194,8 @@ class ProxyGraph:
         #     resolved = item.z
         elif isinstance(item, (str,int)) or is_a(item, UID):
             resolved = self.gs[item]
+        elif isinstance(item, Atom):
+            resolved = self.gs[origin_uid(item)]
         elif isinstance(item, ZefRef):
             resolved = to_frame(item, self.gs)
 
