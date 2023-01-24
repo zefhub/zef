@@ -72,7 +72,7 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
         if isinstance(id, WishIDInternal | WrappedValue | DelegateRef):
             internal_mapping[id] = z
         elif isinstance(id, Variable):
-            receipt[id] = z | discard_frame | collect
+            receipt[id] = Atom(z)
         else:
             raise Exception("Shouldn't get here")
 
