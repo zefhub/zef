@@ -151,7 +151,9 @@ def unpack_receipt(template, receipt, gs):
         return receipt[template]
     if isinstance(template, EternalUID):
         from ..graph_slice import get_instance_rae
-        return get_instance_rae(template, gs, allow_tombstone=True)
+        out = get_instance_rae(template, gs, allow_tombstone=True)
+        assert out is not None
+        return out
     if isinstance(template, Nil):
         return None
     if isinstance(template, DelegateRef):

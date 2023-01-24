@@ -310,7 +310,8 @@ def Graph__contains__(self, x):
     from .abstract_raes import EntityRef_, AttributeEntityRef_, RelationRef_
     from ._ops import origin_uid, to_delegate
     from .internals import val_as_serialized_if_necessary
-    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_]:
+    from .atom import Atom_
+    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_, Atom_]:
         return origin_uid(x) in self
 
     from .VT import Delegate

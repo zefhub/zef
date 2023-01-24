@@ -20,7 +20,7 @@ from .._ops import *
 
 from ..zef_functions import func
 
-from ..atom import get_names, get_fields, get_atom_type, get_ref_pointer, get_ae_value
+from ..atom import get_names, get_fields, get_atom_type, get_ref_pointer, get_ae_value, get_rt_source, get_rt_target
 
 from .types import *
 

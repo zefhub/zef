@@ -114,6 +114,11 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
             if isinstance(z, Relation):
                 add_must_live_cmds(source(z))
                 add_must_live_cmds(target(z))
+        elif isinstance(src_or_trg, BlobPtr):
+            id = origin_uid(src_or_trg)
+            if isinstance(src_or_trg, Relation):
+                add_must_live_cmds(source(src_or_trg))
+                add_must_live_cmds(target(src_or_trg))
         else:
             raise Exception(f"Shouldn't get here: {src_or_trg}")
         nonlocal out_cmds

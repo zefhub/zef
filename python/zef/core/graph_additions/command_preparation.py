@@ -50,11 +50,6 @@ def prepare_obj_notation(cmd, gs, context):
         #     cmds += [PleaseAlias(ids=(force_as_id(me),) + names)]
         # if me in gs:
         #     z_on_graph = gs | get[me] | collect
-    elif isinstance(cmd, RelationAtom):
-        # This requires a source/target defined elsewhere - we should be putting
-        # something in here to check for that, but will ignore it for the
-        # moment.
-        pass
     elif isinstance(me, WishID):
         if get_atom_type(cmd) is not None:
             need_to_create = True
@@ -70,8 +65,32 @@ def prepare_obj_notation(cmd, gs, context):
         # (the ET.x[y] is a legacy style), this might have to change into
         # something more directly the pure ET creation, i.e. a PleaseInstantiate
         # itself directly.
-        if isinstance(get_atom_type(cmd), PureET):
+        if isinstance(get_atom_type(cmd), PureET | PureAET):
+            # TODO: Probably need to handle multiple names here at some point
+            assert len(get_names(cmd)) == 1
             cmds += [get_atom_type(cmd)[me]]
+        elif isinstance(get_atom_type(cmd), PureRT):
+            # Note: we can't just create a triple here and let that work itself
+            # out, as the middle of the triple is a pure RT and that can't take
+            # an origin uid. We need to create the full PleaseInstantiate for it
+            # here.
+
+            # TODO: Probably need to handle multiple names here at some point
+            assert len(get_names(cmd)) == 1
+            if isinstance(me, EternalUID):
+                id_dict = {"origin_uid": me}
+            else:
+                id_dict = {"internal_ids": [me]}
+            src,src_id,gen_id_state = ensure_tag(get_rt_source(cmd), gen_id_state)
+            trg,trg_id,gen_id_state = ensure_tag(get_rt_target(cmd), gen_id_state)
+            rel_cmd = PleaseInstantiate(
+                atom={"rt": get_atom_type(cmd),
+                      "source": src_id,
+                      "target": trg_id},
+                **id_dict,
+            )
+                                        
+            cmds += [src, rel_cmd, trg]
         else:
             raise NotImplementedError(f"TODO can't create something without a known type: {cmd}")
 
