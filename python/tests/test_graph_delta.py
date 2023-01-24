@@ -223,7 +223,7 @@ class MyTestCase(unittest.TestCase):
 
         z_jane = r["jane"]
         # self.assertEqual(z_joe | F.friend | collect, z_jane)
-        self.assertEqual(z_joe | F.friend_temp | collect, z_jane)
+        self.assertEqual(Atom(z_joe | F.friend_temp | collect), z_jane)
         self.assertEqual(rae_type(z_jane), ET.Person)
         self.assertEqual(z_jane | F.first_name | collect, "Jane")
         self.assertEqual(z_jane | F.last_name | collect, "Doe")
