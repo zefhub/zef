@@ -51,7 +51,14 @@ def prepare_obj_notation(cmd, gs, context):
         # if me in gs:
         #     z_on_graph = gs | get[me] | collect
     elif isinstance(me, WishID):
-        if get_atom_type(cmd) is not None:
+        if get_atom_type(cmd) is None:
+            pass
+        elif isinstance(get_atom_type(cmd), RT):
+            if get_rt_source(cmd) is None or get_rt_target(cmd) is None:
+                pass
+            else:
+                need_to_create = True
+        else:
             need_to_create = True
     elif isinstance(me, EternalUID):
         z_on_graph = most_recent_rae_on_graph(me, Graph(gs))
