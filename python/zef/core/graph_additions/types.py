@@ -337,6 +337,8 @@ GraphWishInputSimple = _alias(
     | PureET
     | PureAET
     | RAE
+    | TX
+    | Root
     | Delegate
     | OldStyleDict,
     "GraphWishInputSimple"

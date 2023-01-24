@@ -201,11 +201,11 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice, allow_tombstone=Fal
         else:
             return None     # no instance alive at the moment
         
-    elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}:
+    elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}:
         if allow_tombstone:
             from . import _ops
             return zz | to_frame[gs][_ops.allow_tombstone] | collect
         else:
             return zz | to_frame[gs] | collect
     else:
-        raise RuntimeError("Unexpected option in get_instance_rae")
+        raise RuntimeError(f"Unexpected option in get_instance_rae: {zz}")

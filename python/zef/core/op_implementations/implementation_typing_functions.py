@@ -6529,7 +6529,12 @@ def first_tx_for_low_level_blob(z):
     # be delegates and would need their own logic.
     if internals.is_delegate(z):
         # Chronological order is mandatory so we find the first instantiation edge
-        return first_tx_for_low_level_blob(z | in_rel[BT.TO_DELEGATE_EDGE] | collect)
+        out = first_tx_for_low_level_blob(z | in_rel[BT.TO_DELEGATE_EDGE] | collect)
+        # There is a special case here for the TX delegate. This connects to the
+        # root node, and we instead want to return the first tx.
+        if BT(out) == BT.ROOT_NODE:
+            out = out | Out[BT.NEXT_TX_EDGE] | collect
+        return out
     elif BT(z) in [BT.ENTITY_NODE,
                    BT.RELATION_EDGE,
                    BT.ATTRIBUTE_ENTITY_NODE,
