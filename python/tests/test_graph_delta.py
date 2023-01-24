@@ -37,8 +37,8 @@ class MyTestCase(unittest.TestCase):
             (Z["joe-spot"], RT.Date, Time("12:34 May 2020")),
         ] | transact[g] | run
 
-        self.assertEqual(r["joe"], g | now | all[ET.Person] | only | collect)
-        self.assertEqual(r["spot"], g | now | all[ET.Pet] | only | collect)
+        self.assertEqual(r["joe"], Atom(g | now | all[ET.Person] | only | collect))
+        self.assertEqual(r["spot"], Atom(g | now | all[ET.Pet] | only | collect))
 
         self.assertEqual(r["joe"] | Out[RT.FirstName] | value | collect, "Joe")
         self.assertEqual(r["joe"] | Out[RT.HasPet] | collect, r["spot"])
