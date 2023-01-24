@@ -35,6 +35,7 @@ from .flat_graph import FlatGraph_, FlatRef_, FlatRefs_
 from ..pyzef import internals as pyinternals
 from .symbolic_expression import SymbolicExpression_
 from .user_value_type import UserValueInstance_
+from .atom import Atom_
 
 ##############################
 # * Definition
@@ -307,6 +308,20 @@ def serialize_val(val):
         "iid": serialize_internal(val.iid),
     }
 
+def serialize_atom(atom):
+    from .atom import get_atom_type, get_names, get_fields, get_ref_pointer, get_rt_source, get_rt_target, get_ae_value
+    return {
+        "_zeftype": "Atom",
+        "atom_type": serialize_internal(get_atom_type(atom)),
+        "names": serialize_internal(get_names(atom)),
+        "fields": serialize_internal(get_fields(atom)),
+        "ref_pointer": serialize_internal(get_ref_pointer(atom)),
+        "rt_source": serialize_internal(get_rt_source(atom)),
+        "rt_target": serialize_internal(get_rt_target(atom)),
+        "ae_value": serialize_internal(get_ae_value(atom)),
+    }
+
+
 
 def deserialize_tuple(json_d: dict) -> tuple:
     return tuple(deserialize_internal(el) for el in json_d["items"])
@@ -488,6 +503,16 @@ def deserialize_val(d):
         deserialize_internal(d["iid"]),
     )
 
+def deserialize_atom(d):
+    atom = Atom_(deserialize_internal(d["atom_type"]))
+    object.__setattr__(atom, "names", deserialize_internal(d["names"]))
+    object.__setattr__(atom, "fields", deserialize_internal(d["fields"]))
+    object.__setattr__(atom, "ref_pointer", deserialize_internal(d["ref_pointer"]))
+    object.__setattr__(atom, "rt_source", deserialize_internal(d["rt_source"]))
+    object.__setattr__(atom, "rt_target", deserialize_internal(d["rt_target"]))
+    object.__setattr__(atom, "ae_value", deserialize_internal(d["ae_value"]))
+    return atom
+
 serialization_mapping[internals.ZefRef] = serialize_zeftypes
 # serialization_mapping[ZefRefs] = serialize_zeftypes
 serialization_mapping[internals.EZefRef] = serialize_zeftypes
@@ -530,6 +555,7 @@ serialization_mapping[dict] = serialize_dict
 serialization_mapping[SymbolicExpression_] = serialize_symbolicexpression
 serialization_mapping[UserValueInstance_] = serialize_user_value_instance
 serialization_mapping[Val_] = serialize_val
+serialization_mapping[Atom_] = serialize_atom
 
 deserialization_mapping["dict"] = deserialize_dict
 deserialization_mapping["tuple"] = deserialize_tuple
@@ -575,3 +601,4 @@ deserialization_mapping["ValueType"] = deserialize_valuetype
 deserialization_mapping["SymbolicExpression"] = deserialize_symbolicexpression
 deserialization_mapping["UserValueInstance"] = deserialize_user_value_instance
 deserialization_mapping["Val"] = deserialize_val
+deserialization_mapping["Atom"] = deserialize_atom
