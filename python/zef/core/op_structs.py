@@ -544,7 +544,8 @@ class CollectingOp:
         self.el_ops = other.el_ops
 
     def __repr__(self):
-        return f"CollectingOp({op_chain_pretty_print(self.el_ops)})"
+        ops_str = f"({op_chain_pretty_print(self.el_ops)})" if self.el_ops else ""
+        return f"collect{ops_str}"
         
     def __ror__(self, other):
         if isinstance(other, ZefOp): 
