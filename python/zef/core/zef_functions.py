@@ -148,6 +148,9 @@ class FunctionConstructor:
         # TODO we gotta check if arg is of type Zef Lambda once we implement it
         # return ZefOp(((RT.Function, ((1, arg), )), ))
         return ZefOp(((internals.RT.Function, ((1, arg), )), ))
+    
+    def __repr__(self):
+        return "func"
 
 
 func = FunctionConstructor()
