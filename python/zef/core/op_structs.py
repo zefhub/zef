@@ -197,6 +197,28 @@ _call_0_args_translation = {
 _call_n_args_translation = {}
 _sources = {}
 
+_overloaded_repr = {
+    "And": "And",
+    "Assert": "Assert",
+    "If": "If",
+    "In": "In",
+    "Ins": "Ins",
+    "L": "L",
+    "O": "O",
+    "Or": "Or",
+    "Out": "Out",
+    "Outs": "Outs",
+    "Range": "Range",
+    "IsZefRefPromotable": "is_zefref_promotable",
+    "ToEZefRef": "to_ezefref",
+    "ToFlatGraph": "to_flatgraph",
+    "ZasciiToFlatGraph": "zascii_to_flatgraph",
+    "ZasciiToFlatGraph": "zascii_to_flatgraph",
+    (internals.RT.Privileges, (KW.grant,)): "grant",
+    (internals.RT.Privileges, (KW.revoke,)): "revoke",
+
+}
+
 def unpack_ops(rt, ops):
     if len(ops) > 1:
         return ((rt, ops[0]),  *ops[1:])
@@ -261,9 +283,14 @@ def op_chain_pretty_print(el_ops):
             if isinstance(inner_f, types.FunctionType):
                 name = inner_f.__name__
                 return name + ''.join([param_to_str(pp) for pp in p[1][1:]])
-        # if p[0] == RT.OutOutOld:
-        #     return f"\n>> todo!!!!"            
-        return to_snake_case(p[0].name) + ''.join([param_to_str(pp) for pp in p[1]])
+
+        if p[0].name in _overloaded_repr:
+            op_name = _overloaded_repr[p[0].name]
+        elif p in _overloaded_repr:
+            return _overloaded_repr[p]
+        else:
+            op_name = to_snake_case(p[0].name)
+        return op_name + ''.join([param_to_str(pp) for pp in p[1]])
     return ' | '.join(el_op_to_str(x) for x in el_ops)
 
 #   _                          ___                  ___                    _                                _           _    _               
