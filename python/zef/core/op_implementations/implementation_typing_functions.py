@@ -5930,8 +5930,12 @@ def select_by_field_tp(v_tp):
 
 def sort_implementation(v, key_fct=None, reverse=False):
     """
-    An optional key function for sorting may be provided, e.g.
-    list_of_strs | sort[len]
+    Sorts an iterable. Takes 2 optional arguments.
+    key_fct: a function that is used to sort the iterable by applying it to each element
+    reverse: if True, the iterable is sorted in reverse order
+
+    ---- Examples ----
+    >>> list_of_strs | sort[len]
 
     ---- Signature ----
     List[T] -> List[T]
