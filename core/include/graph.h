@@ -395,24 +395,8 @@ namespace zefDB {
         // TODO: I was thinking about making this reset to open_tx_thread... might revist later.
         bool was_already_set;
 
-        LockGraphData(GraphData * gd) : gd(gd) {
-            if(gd->open_tx_thread == std::this_thread::get_id())
-                was_already_set = true;
-            else {
-                was_already_set = false;
-                update_when_ready(gd->open_tx_thread_locker,
-                                  gd->open_tx_thread,
-                                  std::thread::id(),
-                                  std::this_thread::get_id());
-            }
-        }
-        ~LockGraphData() {
-            if(was_already_set)
-                return;
-            // If is for safety - someone lower down may have unlocked already.
-            if(gd->open_tx_thread == std::this_thread::get_id())
-                update(gd->open_tx_thread_locker, gd->open_tx_thread, std::thread::id());
-        }
+        LockGraphData(GraphData * gd);
+        ~LockGraphData();
     };
 
 

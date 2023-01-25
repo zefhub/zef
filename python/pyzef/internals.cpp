@@ -885,6 +885,18 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("register_determine_primitive_type", &internals::register_determine_primitive_type);
     internals_submodule.add_object("_cleanup_determine_primitive_type", py::capsule(&internals::remove_determine_primitive_type));
 
+    internals_submodule.def("setup_pre_lock_hook", []() {
+        internals::register_pre_lock_hook([](BaseUID guid) {
+            if(PyGILState_Check())
+                throw std::runtime_error("Can't lock a graph (guid=" + to_str(guid) + ") while holding onto the GIL");
+        });
+    }, "Sets up the check for no GIL acquired while trying to lock a graph");
+    internals_submodule.add_object("_cleanup_pre_lock_hook", py::capsule(&internals::remove_pre_lock_hook));
+
+    internals_submodule.def("test_pre_lock_hook", [](Graph g) {
+        LockGraphData lock{&g.my_graph_data()};
+    }, "Only for test suite. Should raise an exception.");
+
     internals_submodule.def("copy_graph_slice", &copy_graph_slice, py::call_guard<py::gil_scoped_release>());
 
     // internals_submodule.def("decompress_zstd", &decompress_zstd, py::call_guard<py::gil_scoped_release>());

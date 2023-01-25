@@ -909,6 +909,30 @@ namespace zefDB {
 		return &(my_graph_data()) == &(g2.my_graph_data());  // do they point to the same GraphData struct?
 	}
 
+    LockGraphData::LockGraphData(GraphData * gd) : gd(gd) {
+        if(gd->open_tx_thread == std::this_thread::get_id())
+            was_already_set = true;
+        else {
+            // We only get the guid if the graph has been initialized.
+            BaseUID guid;
+            if(gd->write_head > constants::ROOT_NODE_blob_index)
+                guid = uid(*gd);
+            internals::pass_to_pre_lock_hook(guid);
+            was_already_set = false;
+            update_when_ready(gd->open_tx_thread_locker,
+                                gd->open_tx_thread,
+                                std::thread::id(),
+                                std::this_thread::get_id());
+        }
+    }
+    LockGraphData::~LockGraphData() {
+        if(was_already_set)
+            return;
+        // If is for safety - someone lower down may have unlocked already.
+        if(gd->open_tx_thread == std::this_thread::get_id())
+            update(gd->open_tx_thread_locker, gd->open_tx_thread, std::thread::id());
+    }
+
 	namespace internals {
 		// // exposed to python to get access to the serialized form
 		std::string get_blobs_as_bytes(GraphData& gd, blob_index start_index, blob_index end_index) {

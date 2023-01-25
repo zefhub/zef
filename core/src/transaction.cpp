@@ -42,6 +42,8 @@ namespace zefDB {
             // We are a client, we need to wait for the manager to have caught
             // up and no-one else is writing.
 
+            internals::pass_to_pre_lock_hook(uid(gd));
+
             // Note: the two things we check are actually accessed using
             // different locks. This is a little weird... and might be
             // problematic?
