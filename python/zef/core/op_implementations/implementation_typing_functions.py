@@ -8364,8 +8364,21 @@ def permute_to_imp(v, indices: VT.List[VT.Int]):
 
 #---------------------------------------- is_alpha -----------------------------------------------
 def is_alpha_imp(s: VT.String) -> VT.Bool:
-    """ 
+    """
     Given a string return if it is only composed of Alphabet characters
+
+    ---- Examples ----
+    >>> 'abc1' | is_alpha          # => False
+    >>> 'abc' | is_alpha           # => True
+
+    ---- Signature ----
+    String -> Bool
+
+    ---- Tags ----
+    - related zefop: is_numeric
+    - related zefop: is_alpha_numeric
+    - operates on: String
+    - used for: predicate function    
     """
     return s.isalpha()
 
