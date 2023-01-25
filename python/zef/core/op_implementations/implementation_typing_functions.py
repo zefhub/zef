@@ -2942,6 +2942,22 @@ def logarithm_tp(x,base):
 
 #---------------------------------------- max -----------------------------------------------
 def max_imp(*args):
+    """
+    Returns the maximum of the given iterable.
+
+    ---- Examples ----
+    >>> [1,2,3] | max    # => 3
+
+    ---- Signature ----
+    Iterable[T] -> T
+
+    ---- Tags ----
+    - used for: maths
+    - operates on: List
+    - related zefop: min
+    - related zefop: max_by
+    - related zefop: clamp
+    """
     return builtins.max(*args)
     
     
@@ -2975,6 +2991,22 @@ def min_tp(a, second, *args):
 
 #---------------------------------------- min_by -----------------------------------------------
 def min_by_imp(v, min_by_function=None):
+    """
+    Returns the minimum of the given iterable.
+
+    ---- Examples ----
+    >>> [1,2,3] | min    # => 1
+
+    ---- Signature ----
+    Iterable[T] -> T
+
+    ---- Tags ----
+    - used for: maths
+    - operates on: List
+    - related zefop: max
+    - related zefop: max_by
+    - related zefop: clamp
+    """
     if min_by_function is None:
         raise RuntimeError(f'A function needs to be provided when using min_by. Called for v={v}')
     return builtins.min(v, key=min_by_function)
@@ -5460,6 +5492,19 @@ def set_field_type_info(op, curr_type):
     return curr_type
 
 def assert_implementation(z, predicate=None, message=None):
+    """
+    If a `predicate` is provided, asserts that the value of a `predicate` applied on a value `z` is True and returns `z`.
+    If the value of `predicate` is `False`, raises an Exception with an optional `message`.
+
+    ---- Examples ----
+    >>> [1,2,3] | Assert[is_a[List]]["Passed argument is not a list"] # => [1,2,3]
+
+    ---- Signature ----
+    (T, Func, String) -> T
+
+    ---- Tags ----
+    - used for: debugging, testing, assertions, error handling
+    """
     if predicate is None:
         success = z
     else:
@@ -5608,8 +5653,18 @@ def map_implementation(v, f):
  
 
 def reduce_implementation(iterable, fct, init=None):
-    # import functools
-    # return functools.reduce(fct, iterable, init)
+    """
+    An operator that take a list of values together with an initial state 
+    an emits the last state.
+
+    reduce[f][state_ini] == scan[f][state_ini] | last
+
+    ---- Examples ----
+    >>> ['a', 'b', 'c', 'd', 'e'] | scan[lambda s, el: s+el]  # => 'abcde'
+    
+    ---- Signature ----    
+    (List[T1], ((T2, T1)->T2), T2)  ->  T2
+    """
     return last(scan_implementation(iterable, fct, init))
 
 
@@ -6531,6 +6586,18 @@ def uid_implementation(arg):
     return pyzefops.uid(arg)
 
 def base_uid_implementation(first_arg):
+    """
+    Returns the BaseUID for a ZefRef or EZefRef.
+    If the object passed is already a UID, the BaseUID portion is returned.
+
+
+    ---- Signature ----
+    ZefRef  -> BaseUID
+    EZefRef  -> BaseUID
+    EternalUID  -> BaseUID
+    ZefRefUID  -> BaseUID
+    BaseUID  -> BaseUID
+    """
     if isinstance(first_arg, EternalUID) or isinstance(first_arg, ZefRefUID):
         return (lambda x: x.blob_uid)(first_arg)
     if isinstance(first_arg, BaseUID):
@@ -6895,6 +6962,20 @@ def rae_type_implementation(z):
     raise Exception(f"Don't know how to get rae_type from {z}")
 
 def abstract_type_implementation(z):
+    """
+    Similar to rae_type, but is additionally defined for TXNodeRef and RootRef.
+
+    Returns the BlobType of an Atom.
+
+    ---- Examples ----
+    >>> zr | abstract_type  
+
+    ---- Signature ----
+    Atom -> BlobType
+
+    ---- Tags ----
+    - used for: ZefRef, EZefRef, TXNodeRef, RootRef
+    """
     # This is basically rae_type, but also including TXNode and Root
     if isinstance(z, TXNodeRef):
         return BT.TX_EVENT_NODE
@@ -7098,9 +7179,12 @@ def terminate_type_info(op, curr_type):
     return curr_type
 
 def assign_imp(z, val):
-    # We need to keep the assign value as something that works in the GraphDelta
-    # code. So we simply wrap everything up as a LazyValue and return that.
-    # return LazyValue(z) | assign[val]
+    """
+    We need to keep the assign value as something that works in the GraphDelta
+    code. So we simply wrap everything up as a LazyValue and return that.
+    return LazyValue(z) | assign[val]
+    """
+
     from ..graph_delta import PleaseAssign
     return PleaseAssign({"target": z,
                           "value": val})
