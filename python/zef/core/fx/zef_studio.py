@@ -439,7 +439,7 @@ def studio_start_server_handler(eff: Dict):
    } | run
    """
    report_errors = eff.get("report_errors", False)
-   report_errors = "?report_errors=true" if report_errors else ""
+   report_errors = "&report_errors=true" if report_errors else ""
 
    def open_browser(port):
       studio_url = f"https://studio.zefhub.io/?endpoint=http://localhost:{port}/graphql{report_errors}"
