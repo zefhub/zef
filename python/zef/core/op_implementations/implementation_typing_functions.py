@@ -6710,7 +6710,20 @@ def representation_type_imp(x):
 
 def is_a_implementation(x, typ):
     """
+    Similar to isinstance, but hooks into the Zef type system rules.
+    Checks if the value `x` is of type `typ`. 
+    `typ` can be a ValueType or a python type.
 
+    ---- Examples ----
+    >>> 1 | is_a[Int]  # => True
+    >>> [1,2,3] | is_a[List]  # => True
+
+    ---- Signature ----
+    (Any, Any) -> Bool
+
+    ---- Tags ----
+    - used for: zefop
+    - used for: type checking
     """
     # To handle user passing by int instead of Int by mistake
     if typ in [int, float, bool]:
