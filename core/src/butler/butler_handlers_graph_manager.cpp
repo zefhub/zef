@@ -894,14 +894,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
             // This occurs via us triggering the sync thread.
             blob_index sync_to = me.gd->read_head;
             wake(me.gd->heads_locker);
-            // bool reached_sync = wait_pred(
-            //     me.gd->heads_locker,
-            //     [&]() { return me.gd->sync_head >= sync_to; },
-            //     std::chrono::duration<double>(butler_generic_timeout.value));
-            // if(!reached_sync) { 
-            //     msg->promise.set_value(GenericResponse{false, "Timed out waiting for sync."});
-            //     return;
-            // }
             // We use poll here to bail out when network disconnection happens.
             // It would be preferable to listen to two CVs simultaneously, but
             // that is not natively supported. Maybe a rewrite of the locks
@@ -1215,12 +1207,48 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePri
         heads = client_create_update_heads(*me.gd);
     }
 
-    // First make sure we believe we have everything that upstream has
-    if(me.gd->read_head < me.gd->sync_head) {
-        developer_output("Retrying syncing while taking transactor role");
-        // TODO: This effectively spin-locks, need to fix up.
-        me.queue.push(std::move(msg), true);
-        return;
+    if(me.gd->is_primary_instance) {
+        if(me.gd->read_head > me.gd->sync_head) {
+            // We can block here as it is the sync thread that sends out updates.
+            developer_output("Waiting for sync thread to send out updates before getting rid of transactor role");
+
+            // This is the same as in NotifySync. I wanted to combine the two,
+            // but it is a little annoying with the msg objects.
+            blob_index sync_to = me.gd->read_head;
+            wake(me.gd->heads_locker);
+            // We use poll here to bail out when network disconnection happens.
+            // It would be preferable to listen to two CVs simultaneously, but
+            // that is not natively supported. Maybe a rewrite of the locks
+            // structure would help here.
+            wait_pred_poll(me.gd->heads_locker,
+                      [&]() {
+                          return me.gd->sync_head >= sync_to || !network.connected || me.gd->error_state != GraphData::ErrorState::OK; }, std::chrono::seconds(1));
+
+            if(!network.connected) {
+                msg->promise.set_value(GenericResponse{false, "Lost network connection while trying to sync."});
+                return;
+            }
+
+            // Technically, the user is able to put more updates onto the graph
+            // before we can send out the final updates. For now, going to
+            // consider that their fault (they shouldn't give up the transactor
+            // role and immediately write to it) but in the future we could
+            // instead track this with 2 variables "desired_primary_instance"
+            // and "is_primary_instance". The new variable
+            // "desired_primary_instance" would be what transactions check to
+            // see if they should write to the graph or submit a merge request.
+        }
+    } else {
+        // First make sure we believe we have everything that upstream has
+        if(me.gd->read_head < me.gd->sync_head) {
+            // We can't block here as we need to process GraphUpdate messages in
+            // this queue. Instead we can watch from a separate thread and place
+            // this message back into the queue once ready.
+            developer_output("Retrying syncing while taking transactor role");
+            // TODO: This effectively spin-locks, need to fix up.
+            me.queue.push(std::move(msg), true);
+            return;
+        }
     }
 
     json j = create_json_from_heads_from(heads);
