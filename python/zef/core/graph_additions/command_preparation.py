@@ -147,12 +147,12 @@ def prepare_obj_notation(cmd, gs, context):
                         if isinstance(item, Atom):
                             if discard_frame(item) == discard_frame(existing_target):
                                 to_keep += [existing_rel]
-                                existing_free -= existing_rel
+                                existing_free.remove(existing_rel)
                                 break
                         else:
                             if item == existing_val:
                                 to_keep += [existing_rel]
-                                existing_free -= existing_rel
+                                existing_free.remove(existing_rel)
                                 break
                             if can_assign_to(item, existing_target):
                                 this_assign_candidates += [existing_rel]

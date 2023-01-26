@@ -148,12 +148,13 @@ def unpack_receipt(template, receipt, gs):
     if isinstance(template, WishID):
         if isinstance(template, Variable) and isinstance(template.name, OriginallyUserID):
             template = template.name.obj
-        return receipt[template]
+        # This should probably be an atom already in the receipt
+        return Atom(receipt[template])
     if isinstance(template, EternalUID):
         from ..graph_slice import get_instance_rae
         out = get_instance_rae(template, gs, allow_tombstone=True)
         assert out is not None
-        return out
+        return Atom(out)
     if isinstance(template, Nil):
         return None
     if isinstance(template, DelegateRef):
