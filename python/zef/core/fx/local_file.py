@@ -136,10 +136,11 @@ def save_localfile_handler(eff: Effect):
         content   = eff["content"]
         filename  = eff["filename"]
         settings  = eff.get("settings", {})
-
+        formats = {".svg", ".png", ".jpg", ".jpeg", ".gif"}
+        
         if isinstance(content, Image):
             format = f'.{content.format}'
-            if format not in {".svg", ".png", ".jpg", ".jpeg"}: return Error.ValueError(f'Image format needs to be one of these types {{".svg", ".png", ".jpg", ".jpeg"}} got {format} instead.')        
+            if format not in formats: return Error.ValueError(f'Image format needs to be one of these types {formats} got {format} instead.')        
             filename = filename if format == (filename[-4:] or filename[-5:])  else filename + format
             with open(filename, 'wb') as f: f.write(internals.decompress_zstd(content.buffer))
             
