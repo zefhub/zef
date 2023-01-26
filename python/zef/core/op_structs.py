@@ -284,18 +284,22 @@ def op_chain_pretty_print(el_ops):
 
     def el_op_to_str(p):
         import types
-        if p[0] == internals.RT.Function:
-            inner_f = p[1][0][1]
-            if isinstance(inner_f, types.FunctionType):
-                name = inner_f.__name__
-                return name + ''.join([param_to_str(pp) for pp in p[1][1:]])
-
+        
         if p[0].name in _overloaded_repr:
             op_name = _overloaded_repr[p[0].name]
         elif p in _overloaded_repr:
             return _overloaded_repr[p]
+
+        elif p[0] == internals.RT.Function:
+            inner_f = p[1][0][1]
+            if isinstance(inner_f, types.FunctionType):
+                name = inner_f.__name__
+                return name + ''.join([param_to_str(pp) for pp in p[1][1:]])
+            else:
+                op_name = to_snake_case(p[0].name)
         else:
             op_name = to_snake_case(p[0].name)
+
         return op_name + ''.join([param_to_str(pp) for pp in p[1]])
     return ' | '.join(el_op_to_str(x) for x in el_ops)
 
