@@ -387,4 +387,4 @@ displayable = run[match_and_dispatch]
 to_rich_str = run[to_rich_str_imp]
 
 from ..core.op_structs import _overloaded_repr
-_overloaded_repr[(internals.RT.Run, (evaluating, print_rich))] = "show"
+_overloaded_repr[show.el_ops[0]] = "show"
