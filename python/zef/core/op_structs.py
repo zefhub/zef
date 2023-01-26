@@ -189,6 +189,12 @@ from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
 from .generators import ZefGenerator_
 
+class Evaluating:
+    def __repr__(self):
+        return "evaluating"
+evaluating = Evaluating()
+
+
 # this is used to circumvent the python '<' and '>' operator resolution rules
 _terrible_global_state = {}
 _call_0_args_translation = {
@@ -216,7 +222,7 @@ _overloaded_repr = {
     "ZasciiToFlatGraph": "zascii_to_flatgraph",
     (internals.RT.Privileges, (KW.grant,)): "grant",
     (internals.RT.Privileges, (KW.revoke,)): "revoke",
-
+    (internals.RT.Run, (evaluating,)): "run",
 }
 
 def unpack_ops(rt, ops):
@@ -316,10 +322,7 @@ def op_chain_pretty_print(el_ops):
 # _old_excepthook = sys.excepthook
 # sys.excepthook = lambda *args, prior_hook=_old_excepthook: zef_error_hook(*args, prior_hook=prior_hook)
 
-class Evaluating:
-    def __repr__(self):
-        return "evaluating"
-evaluating = Evaluating()
+
 
 class ZefOp_:    
     def __init__(self, el_ops: tuple):
