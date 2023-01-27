@@ -431,10 +431,10 @@ def create_schema_dict(simple_schema):
    )
    return schema_dict
 
-def studio_start_server_handler(eff: Dict):
+def studio_start_handler(eff: Dict):
    """Example
    {
-      "type": FX.Studio.StartServer,
+      "type": FX.Studio.Start,
       "report_errors": True, # Optional
    } | run
    """

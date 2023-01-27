@@ -123,8 +123,8 @@ class _Graph_Class():
 
 class _Studio_Class():
     _name = "Studio"
-    StartServer = FXElement(('Studio', 'StartServer'))
-    StopServer = FXElement(('Studio', 'StopServer'))
+    Start = FXElement(('Studio', 'Start'))
+    Stop = FXElement(('Studio', 'Stop'))
 
 
 class _Stream_Class():
