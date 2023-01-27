@@ -19,6 +19,7 @@ __all__ = [
     "Instantiated",
     "Terminated",
     "Assigned",
+    "infinity"
 ]
 
 from .VT import *
