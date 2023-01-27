@@ -213,6 +213,19 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
 
             // All of these messages must be passed down the line
             std::string task_uid = j["task_uid"].get<std::string>();
+
+            if(j.contains("please_ack") && j["please_ack"].get<bool>()) {
+                developer_output("Got a message requesting an ack");
+                // Send a quick response acknolwedging we have got this message
+                //
+                // Is this possible? Are we blocking the WS thread, therefore
+                // making it impossible to ensure that we are connected?
+                send_ZH_message({
+                        {"msg_type", "ACK_RECEIPT"},
+                        {"task_uid", task_uid},
+                    }, {}, true);
+            }
+
             task_promise_ptr task_promise = find_task(task_uid);
             if(!task_promise)
                 throw std::runtime_error("Task uid isn't in the waiting list!");

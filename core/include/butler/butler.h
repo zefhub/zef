@@ -171,10 +171,10 @@ namespace zefDB {
             void cancel_online_tasks();
 
             void fill_out_ZH_message(json & j);
-            void send_ZH_message(json & j, const std::vector<std::string> & rest = {});
+            void send_ZH_message(json & j, const std::vector<std::string> & rest = {}, bool ignore_wait=false);
             // This is to allow brace initialisation, while still preferring pass-by-reference.
-            void send_ZH_message(json && j, const std::vector<std::string> & rest = {}) {
-                send_ZH_message(j, rest);
+            void send_ZH_message(json && j, const std::vector<std::string> & rest = {}, bool ignore_wait=false) {
+                send_ZH_message(j, rest, ignore_wait);
             }
             void send_chunked_ZH_message(std::string main_task_uid, json & j, const std::vector<std::string> & rest);
 
