@@ -1211,6 +1211,12 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePri
         return;
     }
 
+    if(butler_is_master) {
+        me.gd->is_primary_instance = content.make_primary;
+        msg->promise.set_value(GenericResponse(true));
+        return;
+    }
+
     if(!me.gd->currently_subscribed) {
         msg->promise.set_value(GenericResponse{"Can't take transactor role when not subscribed to graph."});
         return;
@@ -1218,12 +1224,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePri
 
     if(content.make_primary == me.gd->is_primary_instance) {
         // Nothing to do!
-        msg->promise.set_value(GenericResponse(true));
-        return;
-    }
-
-    if(butler_is_master) {
-        me.gd->is_primary_instance = content.make_primary;
         msg->promise.set_value(GenericResponse(true));
         return;
     }
