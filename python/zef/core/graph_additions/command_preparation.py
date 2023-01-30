@@ -54,16 +54,16 @@ def prepare_obj_notation(cmd, gs, context):
         if get_atom_type(cmd) is None:
             pass
         elif isinstance(get_atom_type(cmd), RT):
-            if get_rt_source(cmd) is None or get_rt_target(cmd) is None:
-                pass
-            else:
-                need_to_create = True
+            need_to_create = False
         else:
             need_to_create = True
     elif isinstance(me, EternalUID):
-        z_on_graph = most_recent_rae_on_graph(me, Graph(gs))
-        if z_on_graph is None:
-            need_to_create = True
+        if isinstance(get_atom_type(cmd), RT):
+            need_to_create = False
+        else:
+            z_on_graph = most_recent_rae_on_graph(me, Graph(gs))
+            if z_on_graph is None:
+                need_to_create = True
     else:
         raise Exception(f"Object notation got a weird value for its own ID: {me}")
 
@@ -74,30 +74,10 @@ def prepare_obj_notation(cmd, gs, context):
         # itself directly.
         if isinstance(get_atom_type(cmd), PureET | PureAET):
             # TODO: Probably need to handle multiple names here at some point
-            assert len(get_names(cmd)) == 1
+            # assert len(get_names(cmd)) == 1
             cmds += [get_atom_type(cmd)[me]]
         elif isinstance(get_atom_type(cmd), PureRT):
-            # Note: we can't just create a triple here and let that work itself
-            # out, as the middle of the triple is a pure RT and that can't take
-            # an origin uid. We need to create the full PleaseInstantiate for it
-            # here.
-
-            # TODO: Probably need to handle multiple names here at some point
-            assert len(get_names(cmd)) == 1
-            if isinstance(me, EternalUID):
-                id_dict = {"origin_uid": me}
-            else:
-                id_dict = {"internal_ids": [me]}
-            src,src_id,gen_id_state = ensure_tag(get_rt_source(cmd), gen_id_state)
-            trg,trg_id,gen_id_state = ensure_tag(get_rt_target(cmd), gen_id_state)
-            rel_cmd = PleaseInstantiate(
-                atom={"rt": get_atom_type(cmd),
-                      "source": src_id,
-                      "target": trg_id},
-                **id_dict,
-            )
-                                        
-            cmds += [src, rel_cmd, trg]
+            raise Exception("Shouldn't get here anymore")
         else:
             raise NotImplementedError(f"TODO can't create something without a known type: {cmd}")
 
@@ -217,11 +197,6 @@ def prepare_obj_notation(cmd, gs, context):
         #     cmds.append( (me, RT(to_pascal_case(k)), v) )
         else:
             raise NotImplementedError(f"TODO: obj notation for {v}")
-
-
-    if isinstance(cmd, AttributeEntityAtom):
-        if get_ae_value(cmd) is not None:
-            cmds += [PleaseAssign(target=me, value=Val(get_ae_value(cmd)))]
 
     context = context | insert["gen_id_state"][gen_id_state] | collect
     return [], cmds, context

@@ -680,6 +680,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
         .def_static("from_base64", [](const std::string & uid) { return EternalUID::from_base64(uid); })
 		;
 	py::class_<ZefRefUID>(internals_submodule, "ZefRefUID", py::buffer_protocol())
+		.def(py::init([](const BaseUID & blob_uid, const BaseUID & tx_uid, const BaseUID & graph_uid) { return ZefRefUID{blob_uid, tx_uid, graph_uid}; } ))
 		.def("__repr__", [](const ZefRefUID& self) { return to_str(self); })
 		.def("__str__", [](const ZefRefUID& self) { return str(self); })
 		.def("__eq__", [](const ZefRefUID& self, const ZefRefUID& other) { return self == other; }, py::is_operator(), py::is_operator())

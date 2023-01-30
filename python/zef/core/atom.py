@@ -15,6 +15,121 @@
 from .VT import *
 from .VT import insert_VT, make_VT
 
+def Atom_is_global_identifier(input):
+    if type(input) == str and input.startswith("㏈-"):
+        return True
+    if isinstance(input, EternalUID):
+        return True
+    # TODO: This will go away at some point
+    if isinstance(input, ZefRefUID):
+        return True
+    return False
+
+
+# UIDString = String & Where[startswith["㏈-"]]
+UIDString = String & Is[lambda x: x.startswith["㏈-"]]
+AtomIdentity = (
+    Pattern[{
+        Optional["global_uid"]: EternalUID,
+        Optional["tx_uid"]: BaseUID,
+        Optional["graph_uid"]: BaseUID,
+        Optional["local_names"]: List[~UIDString],
+    }]
+    # & Cond[Contains["tx_uid"] | Contains["graph_uid"]]
+    #       [Contains["graph_uid"] & Contains["tx_uid"] & Contains["global_uid"]]
+    & Cond[Is[lambda x: "tx_uid" in x or "graph_uid" in x]]
+          [Is[lambda x: "graph_uid" in x and "tx_uid" in x and "global_uid" in x]]
+)
+
+# Yes, the last bit is just List[Any] but it makes more sense for me to write
+# down the various parts.
+PrettyAtomIdentity = AtomIdentity | List[UIDString | EternalUID | ~UIDString]
+
+def interpret_atom_identity(inputs) -> AtomIdentity:
+    # Danny has been writing this from a combination of memory and making up
+    # things where needed. Here is a list of points that need addressing.
+    # TODO:
+    # - what should "global identifier" be called?
+    # - EternalUID should be replaced with new global identifier binary object
+    # - tx_uid and graph_uid should be replaced with their appropriate sizes.
+
+    from ._ops import uid
+
+    # Given a tuple of inputs to an Atom, determine a standardised dictionary to represent this.
+
+    # Only one item in the list is allowed to be an item with a global
+    # identifier (for now?). So check this first.
+    glob_identifiers = []
+    others = []
+    for input in inputs:
+        if Atom_is_global_identifier(input):
+            glob_identifiers += [input]
+        else:
+            others += [input]
+    if len(glob_identifiers) >= 2:
+        raise Exception("Can't interpret atom identity, too many global identifiers")
+        
+    desc = {}
+    
+    if len(glob_identifiers) == 1:
+        input = glob_identifiers[0]
+        if type(input) == str and input.startswith("㏈-"):
+            parts = input[len("㏈-"):].split("-")
+
+            def parse_global_uid(x):
+                out = uid(x)
+                assert isinstance(out, EternalUID)
+                return out
+            
+            # Option 1: just a global identifier "㏈-49836587346876342856236478"
+            if len(parts) == 1:
+                # TODO: this type of ID will change
+                desc = dict(global_uid=parse_global_uid(parts[0]))
+            elif len(parts) == 3:
+                desc = dict(
+                    global_uid=parse_global_uid(parts[0]),
+                    tx_uid=BaseUID(parts[1]),
+                    graph_uid=BaseUID(parts[2])
+                )
+            else:
+                raise Exception(f"Not sure how to interpret this kind of identifier! {input}")
+        elif isinstance(input, EternalUID):
+            desc = dict(global_uid=input)
+        elif isinstance(input, ZefRefUID):
+            # TODO: This will change
+            global_uid = EternalUID(input.blob_uid, input.graph_uid)
+            tx_uid = input.tx_uid
+            graph_uid = input.graph_uid
+            desc = dict(
+                global_uid=global_uid,
+                tx_uid=tx_uid,
+                graph_uid=graph_uid,
+            )
+        else:
+            raise Exception("Shouldn't get here")
+
+    if len(others) > 0:
+        desc["local_names"] = others
+
+    return desc
+
+def pretty_atom_identity(desc: AtomIdentity):
+    assert isinstance(desc, AtomIdentity)
+    # The inverse of interpret_atom_identity
+    names = []
+    if "global_uid" in desc:
+        s = "㏈-" + str(desc["global_uid"])
+        if "tx_uid" in desc:
+            s += f"-{desc['tx_uid']}-{desc['graph_uid']}"
+
+        names += [s]
+    if "local_names" in desc:
+        names += list(desc["local_names"])
+
+    return tuple(names)
+        
+    
+
 class Atom_:
     """
     AtomType: e.g. ET.Person, RT.Foo, AET[String]
@@ -25,64 +140,31 @@ class Atom_:
     derived quantity reference_type: e.g. 'unidentified', 'local_name', 'red', 'db_ref', 'db_state_ref', 'graph_ref'
     """
 
-    def __init__(self, arg, *names, **fields):
-        from ._ops import is_a, rae_type, source, target, origin_uid, abstract_type, discard_frame, value
-        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation, AttributeEntity
+    def __init__(self, *args, **fields):
+        # Construct a blank slate and then call ourselves
+        object.__setattr__(self, "atom_type", None)
+        object.__setattr__(self, "atom_id", {})
+        object.__setattr__(self, "fields", {})
+        object.__setattr__(self, "ref_pointer", None)
 
-        ref_pointer, rt_source, rt_target, ae_value = None, None, None, None
-        if is_a(arg, BlobPtr):
-            # This means we can extract the atom_type and uid from the Ref
-            ref_pointer = arg
-            atom_type = abstract_type(ref_pointer)
-            names =  (origin_uid(ref_pointer), *names)
-            if is_a(arg, Relation):
-                rt_source = discard_frame(source(arg))
-                rt_target = discard_frame(target(arg))
-            elif is_a(arg, AttributeEntity):
-                ae_value = value(arg)
+        # Special case for an empty atom
+        if len(args) == 0 and len(fields) == 0:
+            return
         
-        elif is_a(arg, FlatRef):
-            ref_pointer = arg
-            fr = arg
-            atom_type = fr.fg.blobs[fr.idx][1]
-            fr_uid =  fr.fg.blobs[fr.idx][-1]
-            if fr_uid: names =  (str(fr_uid), *names)
+        # Because we can't return a completely different value, we have to
+        # assign everything to us.
+        new_atom = self(*args, **fields)
 
-        elif is_a(arg, EntityRef | AttributeEntityRef):
-            rae = arg
-            atom_type = rae_type(rae)
-            names =  (origin_uid(rae), *names)
-
-        elif is_a(arg, RelationRef):
-            rt_source = source(arg)
-            rt_target = target(arg)
-            rae = arg
-            atom_type = rae_type(rae)
-            names =  (origin_uid(rae), *names)
-
-        elif is_a(arg, RAET):
-            atom_type = arg
-        elif is_a(arg, Nil):
-            atom_type = None
-        else:
-            atom_type = None
-            names = (arg,) + names
-
-        object.__setattr__(self, "atom_type", atom_type)
-        object.__setattr__(self, "names", names)
-        object.__setattr__(self, "fields", fields)
-        object.__setattr__(self, "ref_pointer", ref_pointer)
-        object.__setattr__(self, "rt_source", rt_source)
-        object.__setattr__(self, "rt_target", rt_target)
-        object.__setattr__(self, "ae_value", ae_value)
-
+        attrs = ["atom_type", "atom_id", "fields", "ref_pointer"]
+        for attr in attrs:
+            object.__setattr__(self, attr, object.__getattribute__(new_atom, attr))
     
 
     def __replace__(self, **kwargs):
-        attrs = ["atom_type", "names", "fields", "ref_pointer", "rt_source", "rt_target", "ae_value"]
+        attrs = ["atom_type", "atom_id", "fields", "ref_pointer"]
         assert all(kwarg in attrs for kwarg in kwargs), "Trying to set an Attribute for Atom that isn't allowed."
 
-        new_atom = Atom(get_atom_type(self))
+        new_atom = Atom()
         for attr in attrs:
             if attr in kwargs:
                 object.__setattr__(new_atom, attr, kwargs[attr])
@@ -91,40 +173,96 @@ class Atom_:
 
         return new_atom
 
-    def __call__(self, *args, **fields):
-        # TODO Add checks on passed *args to ensure they are valid names or accepted values
-        new_fields = dict(object.__getattribute__(self, "fields"))
-        new_fields.update(fields)
-        names = object.__getattribute__(self, "names")
+    def __call__(self, *args, **kwargs):
+        atom_type = object.__getattribute__(self, "atom_type")
+        fields = dict(object.__getattribute__(self, "fields"))
         ref_pointer = object.__getattribute__(self, "ref_pointer")
 
-        if ref_pointer:
-            # In case ref_pointer is defined remove the first name "uid" as it gets added when we __init__ a new Object
-            new_names = names[1:] + args
-        else:
-            new_names = names + args
+        # We represent our internal id as a pretty identity so that we can
+        # conform to whatever the user is speaking.
+        atom_id = object.__getattribute__(self, "atom_id")
+        names = pretty_atom_identity(atom_id)
 
-        return Atom_(
-            # If ref_pointer is defined then pass that instead of atom_type
-            ref_pointer if ref_pointer else object.__getattribute__(self, "atom_type"),
-            *new_names,
-            **new_fields
-        )
+        fields.update(kwargs)
+        
+        from ._ops import is_a, rae_type, source, target, origin_uid, abstract_type, discard_frame, value, uid
+        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation, AttributeEntity
+
+        for arg in args:
+            if is_a(arg, Atom):
+                # Take over everything about the other atom
+                other_ref_pointer = object.__getattribute__(arg, "ref_pointer")
+                other_fields = object.__getattribute__(arg, "fields")
+                other_atom_type = object.__getattribute__(arg, "atom_type")
+                other_atom_id = object.__getattribute__(arg, "atom_id")
+
+                assert ref_pointer is None or other_ref_pointer is None
+                if ref_pointer is None:
+                    ref_pointer = other_ref_pointer
+
+                fields.update(other_fields)
+
+                assert atom_type is None or other_atom_type is None
+                if atom_type is None:
+                    atom_type = other_atom_type
+
+                other_names = pretty_atom_identity(other_atom_id)
+                names = names + other_names
+            
+            elif is_a(arg, BlobPtr):
+                # This means we can extract the atom_type and uid from the Ref
+                assert ref_pointer is None
+                ref_pointer = arg
+                ptr_atom_type = abstract_type(ref_pointer)
+                assert atom_type is None or atom_type == ptr_atom_type
+                atom_type = ptr_atom_type
+                names = (uid(ref_pointer), *names)
+        
+            elif is_a(arg, FlatRef):
+                raise NotImplementedError("TODO")
+                # TODO
+                ref_pointer = arg
+                fr = arg
+                atom_type = fr.fg.blobs[fr.idx][1]
+                fr_uid =  fr.fg.blobs[fr.idx][-1]
+                if fr_uid: names =  (str(fr_uid), *names)
+
+            elif is_a(arg, EntityRef | AttributeEntityRef):
+                raise NotImplementedError("TODO")
+                rae = arg
+                atom_type = rae_type(rae)
+                names =  (origin_uid(rae), *names)
+
+            elif is_a(arg, RelationRef):
+                raise NotImplementedError("TODO")
+                rae = arg
+                atom_type = rae_type(rae)
+                names = (origin_uid(rae), *names)
+
+            elif is_a(arg, RAET):
+                assert atom_type is None
+                atom_type = arg
+            else:
+                names = names + (arg,)
+        
+        atom_id = interpret_atom_identity(names)
+
+        return self.__replace__(atom_type=atom_type,
+                                atom_id=atom_id,
+                                fields=fields,
+                                ref_pointer=ref_pointer)
 
 
     def __repr__(self):
         ref_pointer = get_ref_pointer(self)
         atom_type = get_atom_type(self)
-        names = get_names(self)
+        atom_id = pretty_atom_identity(get_atom_id(self))
         fields = get_fields(self)
-        rt_source = get_rt_source(self)
-        rt_target = get_rt_target(self)
-        items = [f'"{get_reference_type(self)}"'] + [f"{k}={v!r}" for k,v in fields.items()]
-        items = [str(name) for name in names] + list(items)
+        # items = [f'"{get_reference_type(self)}"'] + [f"{k}={v!r}" for k,v in fields.items()]
+        items = [f"{k}={v!r}" for k,v in fields.items()]
+        items = [repr(name) for name in atom_id] + list(items)
         if ref_pointer:
-            items += [f"Pointer: {ref_pointer}"]
-        if rt_target:
-            items += [f"Src: {rt_source}", f"Trgt: {rt_target}"]
+            items += [f"*"]
         return f'{atom_type}({f", ".join(items)})'
 
     def __setattr__(self, name, value):
@@ -148,30 +286,43 @@ class Atom_:
             return False
         return (get_atom_type(self) == get_atom_type(other)
                 and get_ref_pointer(self) == get_ref_pointer(other)
-                and get_names(self) == get_names(other)
+                and get_atom_id(self) == get_atom_id(other)
                 and get_fields(self) == get_fields(other))
 
     def __hash__(self):
         from .VT.value_type import hash_frozen
-        return hash_frozen(("Atom_", get_atom_type(self), get_ref_pointer(self), get_names(self), get_fields(self)))
+        return hash_frozen(("Atom_", get_atom_type(self), get_ref_pointer(self), get_atom_id(self), get_fields(self)))
 
 
 Atom = make_VT('Atom', pytype=Atom_)
 
 def get_atom_type(atom: Atom):
     return object.__getattribute__(atom, "atom_type")
-def get_names(atom: Atom):
-    return object.__getattribute__(atom, "names")
+def get_atom_id(atom: Atom):
+    return object.__getattribute__(atom, "atom_id")
 def get_fields(atom: Atom):
     return object.__getattribute__(atom, "fields")
 def get_ref_pointer(atom: Atom):
     return object.__getattribute__(atom, "ref_pointer")
-def get_rt_source(atom: Atom):
-    return object.__getattribute__(atom, "rt_source")
-def get_rt_target(atom: Atom):
-    return object.__getattribute__(atom, "rt_target")
-def get_ae_value(atom: Atom):
-    return object.__getattribute__(atom, "ae_value")
+
+def get_most_authorative_id(atom: Atom):
+    atom_id = get_atom_id(atom)
+    if "global_uid" in atom_id:
+        return atom_id["global_uid"]
+    if "local_names" in atom_id:
+        return atom_id["local_names"][0]
+    return None
+
+def get_all_names(atom: Atom):
+    atom_id = get_atom_id(atom)
+
+    names = []
+    if "global_uid" in atom_id:
+        names += [atom_id["global_uid"]]
+    if "local_names" in atom_id:
+        names += atom_id["local_names"]
+
+    return tuple(names)
 
 def get_uid_type(uid_str: str) -> str:
     uid_chunk_size = 12
@@ -198,17 +349,16 @@ def uid_str_to_uid(uid_str: str) -> UID:
         raise Exception(f"Unknown type of uid: {uid_str}")
 
 def get_reference_type(atom: Atom) -> str:
-    names = get_names(atom)
-    if len(names) == 0:
+    atom_id = get_atom_id(atom)
+    if "local_names" not in atom_id and "global_uid" not in atom_id:
         return 'unidentified'
-    def is_uid(x):
-        return isinstance(x, str) and x.startswith('㏈-')
-    uids = [name for name in names if is_uid(name)]
-    if len(uids) >= 2:
-        raise Exception("Atom containing more than 1 uid makes no sense currently")
-    if len(uids) == 0:
+    if "global_uid" not in atom_id:
         return "local_name"
-    return get_uid_type(uids[0])
+    # return get_uid_type(uids[0])
+    if "tx_uid" in atom_id:
+        return "db_state_ref"
+    else:
+        return "db_ref"
 
 
 def RelationAtom_is_a(x, typ):

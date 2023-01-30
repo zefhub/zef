@@ -20,7 +20,7 @@ from .._ops import *
 
 from ..zef_functions import func
 
-from ..atom import get_names, get_fields, get_atom_type, get_ref_pointer, get_ae_value, get_rt_source, get_rt_target
+from ..atom import get_atom_id, get_fields, get_atom_type, get_ref_pointer, get_all_names, get_most_authorative_id
 
 from .types import *
 
@@ -71,7 +71,7 @@ def names_of_raet(raet):
     names = (raet
              | match[
                  (PureET | PureRT | PureAET, RAET_get_names),
-                 (Atom, get_names),
+                 (Atom, get_all_names),
              ]
              | map[match[
                  (AllIDs, identity),

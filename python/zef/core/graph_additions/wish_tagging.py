@@ -18,22 +18,21 @@ report_import("zef.core.graph_additions.wish_translation")
 from .common import *
 
 def ensure_tag_atom(obj, gen_id_state):
-    maybe_ids = get_names(obj)
-    if len(maybe_ids) >= 2:
-        raise Exception("Not expecting two names for an atom")
-    elif len(maybe_ids) == 1:
-        maybe_id = maybe_ids[0]
-    else:
-        maybe_id = None
+    atom_id = get_atom_id(obj)
 
-    if maybe_id is not None:
-        me = force_as_id(maybe_id)
-    else:
-        # Add a generated ID on
-        me,gen_id_state = gen_internal_id(gen_id_state)
+    if "global_uid" in atom_id:
+        me = atom_id["global_uid"]
+        return obj,me,gen_id_state
 
-    if me != maybe_id:
-        obj = obj.__replace__(names=(me,))
+    if "local_names" in atom_id:
+        me = atom_id["local_names"][0]
+        return obj,me,gen_id_state
+        
+    me,gen_id_state = gen_internal_id(gen_id_state)
+
+    atom_id = dict(**atom_id)
+    atom_id["local_names"] = [me]
+    obj = obj.__replace__(atom_id=atom_id)
 
     return obj,me,gen_id_state
 

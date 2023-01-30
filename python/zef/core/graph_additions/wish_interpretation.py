@@ -118,8 +118,13 @@ def lvl2cmds_for_relation_triple(input: RelationTriple, context: Lvl2Context):
             "target": trg,
         }
     }
-    if len(names) > 0:
-        d["internal_ids"] = names
+    euids = [x for x in names if isinstance(x, EternalUID)]
+    others = [x for x in names if not isinstance(x, EternalUID)]
+    if len(euids) > 0:
+        assert len(euids) == 1
+        d["origin_uid"] = euids[0]
+    if len(others) > 0:
+        d["internal_ids"] = others
 
     cmds = [PleaseInstantiate(d)]
 
@@ -253,6 +258,96 @@ def lvl2cmds_for_se(input, context):
     from .obj_evaluation import cast_symbolic_expression_as_lazyvalue
     new_input = cast_symbolic_expression_as_lazyvalue(input)
     return [], [new_input], context
+        
+@func
+def lvl2cmds_for_atom(atom, context):
+    if isinstance(atom, Entity):
+        return [atom], [], context
+
+    if isinstance(atom, Relation):
+        # We need to ensure the relation source/target is also included.
+
+        # If the relation atom is included without an id, either global or
+        # local, then this is an error. If the atom were in a relation triple,
+        # then we should have a local name by this point.
+        authorative_id = get_most_authorative_id(atom)
+        if authorative_id is None:
+            raise Exception("Can't have relation Atom without source/target")
+
+        if isinstance(authorative_id, WishID):
+            # Good enough, source/target should be defined elsewhere
+            return [atom], [], context
+
+        if isinstance(authorative_id, EternalUID):
+            # This means the atom should have a source/target. Let's find them
+            # from the atom internals.
+
+            # Quick path - use the ref pointer
+            z = get_ref_pointer(atom)
+            if z is not None:
+                if isinstance(z, EZefRef):
+                    raise Exception("Can't get source/target of relation from eternal reference")
+            else:
+                atom_id = get_atom_id(atom)
+                if "tx_uid" not in atom_id:
+                    raise Exception("Can't determine relation source/target without a reference frame")
+                gref = GraphRef(atom_id["graph_uid"])
+                from ..internals import get_loaded_graph
+                g = get_loaded_graph(gref)
+                if g is None:
+                    raise Exception("Can't determine relation source/target without the graph for the corresponding reference frame being loaded.")
+                gs = GraphSlice(g[atom_id["tx_uid"]])
+                z = gs[atom_id["global_uid"]]
+
+            src = Atom(source(z))
+            trg = Atom(target(z))
+            plain_rt = get_atom_type(atom)[authorative_id]
+
+            return [atom], [(src, plain_rt, trg)], context
+
+        raise Exception("Huh?")
+
+    if isinstance(atom, AttributeEntity):
+        # We need to ensure the value is also included, if the reference frame is accessible.
+        #
+        # If the frame is not given, we can assume "no value" is what is intended.
+
+        authorative_id = get_most_authorative_id(atom)
+        if authorative_id is None:
+            return [atom], [], context
+
+        if isinstance(authorative_id, WishID):
+            # Good enough, value might be defined elsewhere
+            return [atom], [], context
+
+        if isinstance(authorative_id, EternalUID):
+            # Quick path - use the ref pointer
+            z = get_ref_pointer(atom)
+            if z is None:
+                atom_id = get_atom_id(atom)
+                if "tx_uid" in atom_id:
+                    gref = GraphRef(atom_id["graph_uid"])
+                    from ..internals import get_loaded_graph
+                    g = get_loaded_graph(gref)
+                    if g is None:
+                        raise Exception("Can't determine value of attribute entity without the graph for the corresponding reference frame being loaded.")
+                    gs = GraphSlice(g[atom_id["tx_uid"]])
+                    z = gs[atom_id["global_uid"]]
+
+            if isinstance(z, ZefRef):
+                val = value(z)
+                ezr = to_ezefref(z)
+
+                new_atom = Atom(ezr)
+                return [new_atom], [PleaseAssign(target=uid(ezr), value=Val(val))], context
+            else:
+                return [atom], [], context
+
+        raise Exception("Huh?")
+
+    raise Exception("Shouldn't get here")
+
+
 
 @func
 def OS_lvl2cmds_for_dict(input: OldStyleDict, context: Lvl2Context):
@@ -277,7 +372,6 @@ def OS_lvl2cmds_for_dict(input: OldStyleDict, context: Lvl2Context):
 
     context = context | insert["gen_id_state"][gen_id_state] | collect
     return [], res, context
-        
 
 @func
 def pass_through(input, context):
@@ -296,12 +390,13 @@ default_interpretation_rules = [
     #
     (LazyValue, lvl2cmds_for_lazyvalue),
     (SymbolicExpression, lvl2cmds_for_se),
+    # (ObjectNotation, pass_through),
+    (ObjectNotation, lvl2cmds_for_atom),
     (PleaseCommandLevel1, pass_through),
     # (PleaseCommandLevel2, not_implemented_error["TODO"]),
     (PleaseCommandLevel2, pass_through),
     (PureET|PureAET, lvl2cmds_for_ETorAET),
     (RelationTriple, lvl2cmds_for_relation_triple),
-    (ObjectNotation, pass_through),
     (AETWithValue, lvl2cmds_for_aet_with_value),
     (RAE, lvl2cmds_for_rae),
     # Things not in base version

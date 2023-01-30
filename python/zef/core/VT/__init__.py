@@ -75,6 +75,8 @@ Variable = String
 
 from . import sets
 
+from . import cond
+
 from . import libzef_types
 
 from . import rae_types

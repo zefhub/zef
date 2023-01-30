@@ -34,7 +34,7 @@ from ..internals import BaseUID, EternalUID, ZefRefUID, to_uid, ZefEnumStruct, Z
 from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
-from ..atom import get_ref_pointer, get_atom_type, get_names, get_fields
+from ..atom import get_ref_pointer, get_atom_type, get_atom_id, get_fields
 
 zef_types = [VT.Graph, VT.ZefRef, VT.EZefRef]
 ref_types = [VT.ZefRef, VT.EZefRef]
@@ -5193,7 +5193,15 @@ def discard_frame_imp(x):
     if isinstance(x, AtomRef):
         return x
     if isinstance(x, Atom):
-        x =  x.__replace__(ref_pointer = None)
+        atom_id = get_atom_id(x)
+        if "tx_uid" in atom_id:
+            atom_id = dict(**atom_id)
+            del atom_id["tx_uid"]
+            del atom_id["graph_uid"]
+        ref_pointer = get_ref_pointer(x)
+        if ref_pointer is not None:
+            ref_pointer = to_ezefref(ref_pointer)
+        x =  x.__replace__(atom_id=atom_id, ref_pointer=ref_pointer)
         return x
     if isinstance(x, BlobPtr):
         if internals.is_delegate(x):
@@ -6480,16 +6488,24 @@ def uid_implementation(arg):
         # pointer.
         #
         # Allowed uid names - a direct EternalUID struct, or a string beginning with "db-"
-        for name in get_names(arg):
-            if isinstance(name, BaseUID | EternalUID | ZefRefUID):
-                return name
-            if isinstance(name, String) and name.startswith("㏈-"):
-                from ..atom import uid_str_to_uid
-                return uid_str_to_uid(name)
-        
-        # Should we fail here if there is no ref pointer? Or should we return None.
-        if check_Atom_with_ref(arg):
-            return uid_implementation(get_ref_pointer(arg))
+        atom_id = get_atom_id(arg)
+        if "tx_uid" in atom_id:
+            # In the case that the global_id graph and the graph_uid are the same, then we know what to do.
+            #
+            # In other cases, we have to handle this differently.
+            #
+            # Maybe suggests that "uid" only ever returns the global id and "frame" is the only way to query the tx.
+
+            if atom_id["global_uid"].graph_uid != atom_id["graph_uid"]:
+                raise NotImplementedError("Need to understand Atoms and new Eternal+TX+Graph")
+
+            return ZefRefUID(atom_id["global_uid"].blob_uid, atom_id["tx_uid"], atom_id["graph_uid"])
+        elif "global_uid" in atom_id:
+            return arg["global_uid"]
+        else:
+            # Should we fail here or should we return None?
+            raise Exception("No UID in Atom")
+
     return pyzefops.uid(arg)
 
 def base_uid_implementation(first_arg):
