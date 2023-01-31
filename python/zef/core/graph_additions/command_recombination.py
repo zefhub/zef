@@ -88,7 +88,7 @@ def recombination_checks(cmds):
             return False, new_cmds, later_cmds
         elif isinstance(cmd1, PleaseAssign):
             if cmd1.value != cmd2.value:
-                raise Exception("Two assigns have different values")
+                raise Exception(f"Two assigns have different values: {cmd1} {cmd2}")
             # Any of the ids will do - they will be relabelled anyway.
             _,names = distinguish_assign(cmd1)
             return False, [PleaseAssign(target=names[0], value=cmd1.value)], []

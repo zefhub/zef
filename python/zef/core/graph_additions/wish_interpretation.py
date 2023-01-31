@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ... import report_import
-report_import("zef.core.graph_additions.wish_translation")
+report_import("zef.core.graph_additions.wish_interpretation")
 
 from .common import *
 from .wish_tagging import Taggable, ensure_tag
@@ -201,7 +201,9 @@ def lvl2cmds_for_lazyvalue(input: LazyValue, context: Lvl2Context):
     further_cmds = []
     if isinstance(input.initial_val, Atom | Variable):
         obj = input.initial_val
-        final_state = evaluate_chain(obj, input.el_ops)
+        gen_id_state = context["gen_id_state"]
+        final_state = evaluate_chain(obj, input.el_ops, gen_id_state)
+        gen_id_state = final_state["gen_id_state"]
         further_cmds += final_state["emitted_cmds"]
         if isinstance(final_state["obj"], Nil | Variable):
             pass
@@ -261,7 +263,10 @@ def lvl2cmds_for_se(input, context):
         
 @func
 def lvl2cmds_for_atom(atom, context):
-    if isinstance(atom, Entity):
+    if isinstance(atom, Entity | TX | Root):
+        return [discard_frame(atom)], [], context
+
+    if isinstance(rae_type(atom), Nil):
         return [atom], [], context
 
     if isinstance(atom, Relation):
@@ -282,28 +287,15 @@ def lvl2cmds_for_atom(atom, context):
             # This means the atom should have a source/target. Let's find them
             # from the atom internals.
 
-            # Quick path - use the ref pointer
-            z = get_ref_pointer(atom)
-            if z is not None:
-                if isinstance(z, EZefRef):
-                    raise Exception("Can't get source/target of relation from eternal reference")
-            else:
-                atom_id = get_atom_id(atom)
-                if "tx_uid" not in atom_id:
-                    raise Exception("Can't determine relation source/target without a reference frame")
-                gref = GraphRef(atom_id["graph_uid"])
-                from ..internals import get_loaded_graph
-                g = get_loaded_graph(gref)
-                if g is None:
-                    raise Exception("Can't determine relation source/target without the graph for the corresponding reference frame being loaded.")
-                gs = GraphSlice(g[atom_id["tx_uid"]])
-                z = gs[atom_id["global_uid"]]
+            z = find_zefref(atom)
+            if z is None:
+                raise Exception("Can't determine relation source/target because we can't load a concrete ZefRef for this Atom")
 
             src = Atom(source(z))
             trg = Atom(target(z))
-            plain_rt = get_atom_type(atom)[authorative_id]
+            plain_rt = rae_type(atom)[authorative_id]
 
-            return [atom], [(src, plain_rt, trg)], context
+            return [discard_frame(atom)], [(src, plain_rt, trg)], context
 
         raise Exception("Huh?")
 
@@ -321,31 +313,24 @@ def lvl2cmds_for_atom(atom, context):
             return [atom], [], context
 
         if isinstance(authorative_id, EternalUID):
-            # Quick path - use the ref pointer
-            z = get_ref_pointer(atom)
-            if z is None:
-                atom_id = get_atom_id(atom)
-                if "tx_uid" in atom_id:
-                    gref = GraphRef(atom_id["graph_uid"])
-                    from ..internals import get_loaded_graph
-                    g = get_loaded_graph(gref)
-                    if g is None:
-                        raise Exception("Can't determine value of attribute entity without the graph for the corresponding reference frame being loaded.")
-                    gs = GraphSlice(g[atom_id["tx_uid"]])
-                    z = gs[atom_id["global_uid"]]
-
-            if isinstance(z, ZefRef):
+            from ..atom import _get_atom_id
+            atom_id = _get_atom_id(atom)
+            if "frame_uid" in atom_id:
+                z = find_zefref(atom)
+                if z is None:
+                    raise Exception("Can't determine value of AttributeEntity as frame is not loaded")
                 val = value(z)
-                ezr = to_ezefref(z)
-
-                new_atom = Atom(ezr)
-                return [new_atom], [PleaseAssign(target=uid(ezr), value=Val(val))], context
+                if val is not None:
+                    cmds = [PleaseAssign(target=uid(ezr), value=Val(val))]
+                else:
+                    cmds = []
+                return [discard_frame(atom)], cmds, context
             else:
                 return [atom], [], context
 
         raise Exception("Huh?")
 
-    raise Exception("Shouldn't get here")
+    raise Exception(f"Shouldn't get here: {atom}")
 
 
 

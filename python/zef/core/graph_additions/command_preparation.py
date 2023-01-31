@@ -51,14 +51,14 @@ def prepare_obj_notation(cmd, gs, context):
         # if me in gs:
         #     z_on_graph = gs | get[me] | collect
     elif isinstance(me, WishID):
-        if get_atom_type(cmd) is None:
+        if rae_type(cmd) is None:
             pass
-        elif isinstance(get_atom_type(cmd), RT):
+        elif isinstance(rae_type(cmd), RT):
             need_to_create = False
         else:
             need_to_create = True
     elif isinstance(me, EternalUID):
-        if isinstance(get_atom_type(cmd), RT):
+        if isinstance(rae_type(cmd), RT):
             need_to_create = False
         else:
             z_on_graph = most_recent_rae_on_graph(me, Graph(gs))
@@ -72,17 +72,18 @@ def prepare_obj_notation(cmd, gs, context):
         # (the ET.x[y] is a legacy style), this might have to change into
         # something more directly the pure ET creation, i.e. a PleaseInstantiate
         # itself directly.
-        if isinstance(get_atom_type(cmd), PureET | PureAET):
+        if isinstance(rae_type(cmd), PureET | PureAET):
             # TODO: Probably need to handle multiple names here at some point
             # assert len(get_names(cmd)) == 1
-            cmds += [get_atom_type(cmd)[me]]
-        elif isinstance(get_atom_type(cmd), PureRT):
+            cmds += [rae_type(cmd)[me]]
+        elif isinstance(rae_type(cmd), PureRT):
             raise Exception("Shouldn't get here anymore")
         else:
             raise NotImplementedError(f"TODO can't create something without a known type: {cmd}")
 
 
-    for k, v in get_fields(cmd).items():
+    from ..atom import _get_fields
+    for k, v in _get_fields(cmd).items():
         rels_exact = False
         rt = RT(k)
         if isinstance(v, PrimitiveValue | Taggable | UserWishID):

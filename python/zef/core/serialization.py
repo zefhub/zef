@@ -309,16 +309,13 @@ def serialize_val(val):
     }
 
 def serialize_atom(atom):
-    from .atom import get_atom_type, get_names, get_fields, get_ref_pointer, get_rt_source, get_rt_target, get_ae_value
+    from .atom import _get_atom_type, _get_atom_id, _get_fields, _get_ref_pointer
     return {
         "_zeftype": "Atom",
-        "atom_type": serialize_internal(get_atom_type(atom)),
-        "names": serialize_internal(get_names(atom)),
-        "fields": serialize_internal(get_fields(atom)),
-        "ref_pointer": serialize_internal(get_ref_pointer(atom)),
-        "rt_source": serialize_internal(get_rt_source(atom)),
-        "rt_target": serialize_internal(get_rt_target(atom)),
-        "ae_value": serialize_internal(get_ae_value(atom)),
+        "atom_type": serialize_internal(_get_atom_type(atom)),
+        "atom_id": serialize_internal(_get_atom_id(atom)),
+        "fields": serialize_internal(_get_fields(atom)),
+        "ref_pointer": serialize_internal(_get_ref_pointer(atom)),
     }
 
 
@@ -504,13 +501,11 @@ def deserialize_val(d):
     )
 
 def deserialize_atom(d):
-    atom = Atom_(deserialize_internal(d["atom_type"]))
-    object.__setattr__(atom, "names", deserialize_internal(d["names"]))
+    atom = Atom_()
+    object.__setattr__(atom, "atom_type", deserialize_internal(d["atom_type"]))
+    object.__setattr__(atom, "atom_id", deserialize_internal(d["atom_id"]))
     object.__setattr__(atom, "fields", deserialize_internal(d["fields"]))
     object.__setattr__(atom, "ref_pointer", deserialize_internal(d["ref_pointer"]))
-    object.__setattr__(atom, "rt_source", deserialize_internal(d["rt_source"]))
-    object.__setattr__(atom, "rt_target", deserialize_internal(d["rt_target"]))
-    object.__setattr__(atom, "ae_value", deserialize_internal(d["ae_value"]))
     return atom
 
 serialization_mapping[internals.ZefRef] = serialize_zeftypes

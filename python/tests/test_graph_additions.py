@@ -173,7 +173,7 @@ class MyTestCase(unittest.TestCase):
         z = ET.Location | g | run
         ae = AET.Int | g | run
         # loc = ET.Location(z)
-        loc = ET.Location("㏈_yfFTQhEQh1YANWqavwAksU")
+        loc = ET.Location("㏈-51ec2f5e07f6063c1eb21d36ef2ccf19")
 
         inputs = [
             ET.Person[V.bob](name="Bob", favourite_food={"cheese", "pizza"}),
@@ -300,10 +300,11 @@ class MyTestCase(unittest.TestCase):
 
         with self.assertRaises(Exception):
             z = ET.Machine | g | run
+            g2 = Graph()
             [
                 z,
                 z | terminate,
-            ] | transact[g] | run
+            ] | transact[g2] | run
 
         with self.assertRaises(Exception):
             [

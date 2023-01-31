@@ -82,8 +82,8 @@ def fg_insert_imp(fg, new_el):
             new_blobs.append((idx, aet, [], None, new_el))
 
         elif is_a(new_el, Atom):
-            from ..atom import get_atom_type, get_names, get_ref_pointer
-            if is_a(get_atom_type(new_el), RT):
+            from ..atom import _get_atom_type, get_most_authorative_id, _get_ref_pointer
+            if is_a(_get_atom_type(new_el), RT):
                 # TODO Make this part work with unwrapping an Atom pointing to an RT
                 # examples:
                 # z = db | now | all[RT.Game] | last | collect
@@ -98,7 +98,7 @@ def fg_insert_imp(fg, new_el):
             elif get_ref_pointer(new_el):
                 idx = common_logic(get_ref_pointer(new_el))
             else:
-                node_type, node_uid = get_atom_type(new_el), get_names(new_el)[0]
+                node_type, node_uid = _get_atom_type(new_el), get_most_authorative_id(new_el)[0]
                 if node_uid not in new_key_dict:
                     idx = next_idx()
                     new_blobs.append((idx, node_type, [], node_uid))

@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from ... import report_import
+report_import("zef.core.graph_additions.common")
 
 from ..VT import *
 from ..VT.rae_types import RAET_get_token, RAET_get_names, RAET_without_names
@@ -20,7 +22,8 @@ from .._ops import *
 
 from ..zef_functions import func
 
-from ..atom import get_atom_id, get_fields, get_atom_type, get_ref_pointer, get_all_names, get_most_authorative_id
+# from ..atom import _get_atom_id, _get_fields, _get_atom_type, _get_ref_pointer, get_all_ids, get_most_authorative_id, find_zefref
+from ..atom import get_all_ids, get_most_authorative_id, find_zefref
 
 from .types import *
 
@@ -71,7 +74,7 @@ def names_of_raet(raet):
     names = (raet
              | match[
                  (PureET | PureRT | PureAET, RAET_get_names),
-                 (Atom, get_all_names),
+                 (Atom, get_all_ids),
              ]
              | map[match[
                  (AllIDs, identity),

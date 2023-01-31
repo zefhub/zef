@@ -359,8 +359,8 @@ def ET_ctor(self, *args, **kwargs):
             return input.d["type"]
         from . import Atom
         if isinstance(input, Atom):
-            from ..atom import get_atom_type
-            return ET(get_atom_type(input))
+            from ..atom import _get_atom_type
+            return ET(_get_atom_type(input))
         return ET[internals.ET(input)]
     else:
         names = RAET_get_names(self)
@@ -405,8 +405,8 @@ def AET_ctor(self, *args, **kwargs):
         if RAET_get_token(self) is None:
             from . import Atom
             if isinstance(input, Atom):
-                from ..atom import get_atom_type
-                return AET(get_atom_type(input))
+                from ..atom import _get_atom_type
+                return AET(_get_atom_type(input))
             return AET[internals.AET(input)]
         else:
             return AET[RAET_get_token(self)(input)]
@@ -435,8 +435,8 @@ def RT_ctor(self, *args, **kwargs):
             return input
         from . import Atom
         if isinstance(input, Atom):
-            from ..atom import get_atom_type
-            return RT(get_atom_type(input))
+            from ..atom import _get_atom_type
+            return RT(_get_atom_type(input))
         return RT[internals.RT(input)]
     else:
         names = RAET_get_names(self)

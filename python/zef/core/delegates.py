@@ -46,10 +46,10 @@ def to_delegate_imp(first_arg, *curried_args):
             return to_frame(d_ezr, curried_args[0])
 
     from .op_implementations.implementation_typing_functions import check_Atom_with_ref
-    from .atom import get_ref_pointer
+    from .atom import _get_ref_pointer
     if check_Atom_with_ref(first_arg):
         # TODO: Lots of fixups needed - reconsider the whole thing carefully
-        out = to_delegate_imp(get_ref_pointer(first_arg), *curried_args)
+        out = to_delegate_imp(_get_ref_pointer(first_arg), *curried_args)
         if isinstance(out, BlobPtr):
             return Atom(out)
         return out
@@ -75,10 +75,10 @@ def delegate_of_imp(x, arg1=None, arg2=None):
     from ._ops import to_frame, frame, collect
 
     from .op_implementations.implementation_typing_functions import check_Atom_with_ref
-    from .atom import get_ref_pointer
+    from .atom import _get_ref_pointer
     if check_Atom_with_ref(x):
         # TODO: Lots of fixups needed - reconsider the whole thing carefully
-        out = delegate_of_imp(get_ref_pointer(x), *curried_args)
+        out = delegate_of_imp(_get_ref_pointer(x), *curried_args)
         if isinstance(out, BlobPtr):
             return Atom(out)
         return out

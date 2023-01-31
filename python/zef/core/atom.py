@@ -23,27 +23,81 @@ def Atom_is_global_identifier(input):
     # TODO: This will go away at some point
     if isinstance(input, ZefRefUID):
         return True
+    if isinstance(input, DBStateRefUID):
+        return True
     return False
 
+
+# This is like a GraphSlice but without an explicit ZefRef tx.
+DBStateUID = UserValueType("DBStateUID",
+                           Dict,
+                           Pattern[{"tx_uid": BaseUID,
+                                    "graph_uid": BaseUID}],
+                           forced_uid="5f58a60ab5ae121b")
+
+def make_dbstate_uid(gs):
+    from ._ops import uid
+    ctx = gs.tx
+    tx_uid = uid(ctx).blob_uid
+    graph_uid = uid(ctx).graph_uid
+    return DBStateUID(tx_uid=tx_uid, graph_uid=graph_uid)
+
+def find_dbstate(dbstate_uid: DBStateUID):
+    # Tries to find the DBState for the given UID but returns None if we can't
+    # without causing a graph load.
+    gref = GraphRef(dbstate_uid.graph_uid)
+    from .internals import get_loaded_graph
+    g = get_loaded_graph(gref)
+    if g is None:
+        return None
+    gs = GraphSlice(g[dbstate_uid.tx_uid])
+    return gs
+
+    
+# A temporary internal structure to represent a global id with a reference frame
+DBStateRefUID = UserValueType("DBStateRefUID",
+                           Dict,
+                           Pattern[{"global_uid": EternalUID,
+                                    "dbstate_uid": DBStateUID}],
+                           forced_uid="e2481c246411fd50")
+
+def make_dbstateref_uid(z):
+    if isinstance(z, Atom_):
+        z = get_ref_pointer(z)
+    if not isinstance(z, ZefRef):
+        raise Exception(f"Can't get DBStateRefUID from a {z}")
+
+    from ._ops import origin_uid, frame, get_field, collect, uid
+
+    global_uid = origin_uid(z)
+    # Have to avoid calling to_tx as that would recurse into this function.
+    dbstate_uid = make_dbstate_uid(z | frame | collect)
+
+    return DBStateRefUID(
+        global_uid=global_uid,
+        dbstate_uid=dbstate_uid,
+    )
 
 # UIDString = String & Where[startswith["㏈-"]]
 UIDString = String & Is[lambda x: x.startswith["㏈-"]]
 AtomIdentity = (
     Pattern[{
         Optional["global_uid"]: EternalUID,
-        Optional["tx_uid"]: BaseUID,
-        Optional["graph_uid"]: BaseUID,
+        Optional["frame_uid"]: DBStateUID,
         Optional["local_names"]: List[~UIDString],
     }]
-    # & Cond[Contains["tx_uid"] | Contains["graph_uid"]]
-    #       [Contains["graph_uid"] & Contains["tx_uid"] & Contains["global_uid"]]
-    & Cond[Is[lambda x: "tx_uid" in x or "graph_uid" in x]]
-          [Is[lambda x: "graph_uid" in x and "tx_uid" in x and "global_uid" in x]]
+    # & Cond[Contains["frame_uid"]][Contains["global_uid"]]
+    & Cond[Is[lambda x: "frame_uid" in x]]
+          [Is[lambda x: "global_uid" in x]]
 )
 
 # Yes, the last bit is just List[Any] but it makes more sense for me to write
 # down the various parts.
 PrettyAtomIdentity = AtomIdentity | List[UIDString | EternalUID | ~UIDString]
+
+
+
+    
 
 def interpret_atom_identity(inputs) -> AtomIdentity:
     # Danny has been writing this from a combination of memory and making up
@@ -60,12 +114,12 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
     # Only one item in the list is allowed to be an item with a global
     # identifier (for now?). So check this first.
     glob_identifiers = []
-    others = []
+    others = set()
     for input in inputs:
         if Atom_is_global_identifier(input):
             glob_identifiers += [input]
         else:
-            others += [input]
+            others.add(input)
     if len(glob_identifiers) >= 2:
         raise Exception("Can't interpret atom identity, too many global identifiers")
         
@@ -86,10 +140,13 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
                 # TODO: this type of ID will change
                 desc = dict(global_uid=parse_global_uid(parts[0]))
             elif len(parts) == 3:
-                desc = dict(
-                    global_uid=parse_global_uid(parts[0]),
+                dbstate_uid = DBStateUID(
                     tx_uid=BaseUID(parts[1]),
                     graph_uid=BaseUID(parts[2])
+                )
+                desc = dict(
+                    global_uid=parse_global_uid(parts[0]),
+                    frame_uid=dbstate_uid,
                 )
             else:
                 raise Exception(f"Not sure how to interpret this kind of identifier! {input}")
@@ -98,12 +155,15 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
         elif isinstance(input, ZefRefUID):
             # TODO: This will change
             global_uid = EternalUID(input.blob_uid, input.graph_uid)
-            tx_uid = input.tx_uid
-            graph_uid = input.graph_uid
+            dbstate_uid = DBStateUID(input.tx_uid, input.graph_uid)
             desc = dict(
                 global_uid=global_uid,
-                tx_uid=tx_uid,
-                graph_uid=graph_uid,
+                frame_uid=dbstate_uid,
+            )
+        elif isinstance(input, DBStateRefUID):
+            desc = dict(
+                global_uid=input.global_uid,
+                frame_uid=input.dbstate_uid,
             )
         else:
             raise Exception("Shouldn't get here")
@@ -119,8 +179,11 @@ def pretty_atom_identity(desc: AtomIdentity):
     names = []
     if "global_uid" in desc:
         s = "㏈-" + str(desc["global_uid"])
-        if "tx_uid" in desc:
-            s += f"-{desc['tx_uid']}-{desc['graph_uid']}"
+        if "frame_uid" in desc:
+            if isinstance(desc["frame_uid"], DBStateUID):
+                s += f"-{desc['frame_uid'].tx_uid}-{desc['frame_uid'].graph_uid}"
+            else:
+                raise NotImplementedError(f"Unknown type of frame: {desc['frame_uid']}")
 
         names += [s]
     if "local_names" in desc:
@@ -216,7 +279,10 @@ class Atom_:
                 ptr_atom_type = abstract_type(ref_pointer)
                 assert atom_type is None or atom_type == ptr_atom_type
                 atom_type = ptr_atom_type
-                names = (uid(ref_pointer), *names)
+                if isinstance(arg, ZefRef):
+                    names = (make_dbstateref_uid(ref_pointer), *names)
+                else:
+                    names = (origin_uid(ref_pointer), *names)
         
             elif is_a(arg, FlatRef):
                 raise NotImplementedError("TODO")
@@ -227,15 +293,9 @@ class Atom_:
                 fr_uid =  fr.fg.blobs[fr.idx][-1]
                 if fr_uid: names =  (str(fr_uid), *names)
 
-            elif is_a(arg, EntityRef | AttributeEntityRef):
-                raise NotImplementedError("TODO")
+            elif is_a(arg, EntityRef | AttributeEntityRef | RelationRef):
                 rae = arg
-                atom_type = rae_type(rae)
-                names =  (origin_uid(rae), *names)
-
-            elif is_a(arg, RelationRef):
-                raise NotImplementedError("TODO")
-                rae = arg
+                assert atom_type is None
                 atom_type = rae_type(rae)
                 names = (origin_uid(rae), *names)
 
@@ -254,15 +314,16 @@ class Atom_:
 
 
     def __repr__(self):
-        ref_pointer = get_ref_pointer(self)
-        atom_type = get_atom_type(self)
-        atom_id = pretty_atom_identity(get_atom_id(self))
-        fields = get_fields(self)
+        ref_pointer = _get_ref_pointer(self)
+        atom_type = _get_atom_type(self)
+        atom_id = pretty_atom_identity(_get_atom_id(self))
+        fields = _get_fields(self)
         # items = [f'"{get_reference_type(self)}"'] + [f"{k}={v!r}" for k,v in fields.items()]
         items = [f"{k}={v!r}" for k,v in fields.items()]
         items = [repr(name) for name in atom_id] + list(items)
         if ref_pointer:
-            items += [f"*"]
+            # This is just for us while we are developing. Will be removed in the future.
+            items += ["**{}"]
         return f'{atom_type}({f", ".join(items)})'
 
     def __setattr__(self, name, value):
@@ -284,37 +345,39 @@ class Atom_:
     def __eq__(self, other):
         if type(other) != Atom_:
             return False
-        return (get_atom_type(self) == get_atom_type(other)
-                and get_ref_pointer(self) == get_ref_pointer(other)
-                and get_atom_id(self) == get_atom_id(other)
-                and get_fields(self) == get_fields(other))
+        return (_get_atom_type(self) == _get_atom_type(other)
+                and _get_ref_pointer(self) == _get_ref_pointer(other)
+                and _get_atom_id(self) == _get_atom_id(other)
+                and _get_fields(self) == _get_fields(other))
 
     def __hash__(self):
         from .VT.value_type import hash_frozen
-        return hash_frozen(("Atom_", get_atom_type(self), get_ref_pointer(self), get_atom_id(self), get_fields(self)))
+        return hash_frozen(("Atom_", _get_atom_type(self), _get_ref_pointer(self), _get_atom_id(self), _get_fields(self)))
 
 
 Atom = make_VT('Atom', pytype=Atom_)
 
-def get_atom_type(atom: Atom):
+def _get_atom_type(atom: Atom):
     return object.__getattribute__(atom, "atom_type")
-def get_atom_id(atom: Atom):
+def _get_atom_id(atom: Atom):
     return object.__getattribute__(atom, "atom_id")
-def get_fields(atom: Atom):
+def _get_fields(atom: Atom):
     return object.__getattribute__(atom, "fields")
-def get_ref_pointer(atom: Atom):
+def _get_ref_pointer(atom: Atom):
     return object.__getattribute__(atom, "ref_pointer")
 
 def get_most_authorative_id(atom: Atom):
-    atom_id = get_atom_id(atom)
+    atom_id = _get_atom_id(atom)
     if "global_uid" in atom_id:
         return atom_id["global_uid"]
     if "local_names" in atom_id:
-        return atom_id["local_names"][0]
+        from ._ops import sort, first, collect
+        from .VT.value_type import hash_frozen
+        return atom_id["local_names"] | sort[hash_frozen] | first | collect
     return None
 
-def get_all_names(atom: Atom):
-    atom_id = get_atom_id(atom)
+def get_all_ids(atom: Atom):
+    atom_id = _get_atom_id(atom)
 
     names = []
     if "global_uid" in atom_id:
@@ -323,6 +386,27 @@ def get_all_names(atom: Atom):
         names += atom_id["local_names"]
 
     return tuple(names)
+
+def find_zefref(atom: Atom):
+    # Find the ZefRef for an atom if we can. If we can't, return None
+    z = _get_ref_pointer(atom)
+    if z is not None:
+        if isinstance(z, EZefRef):
+            return None
+        return z
+
+    atom_id = _get_atom_id(atom)
+    if "frame_uid" not in atom_id:
+        return None
+    frame_uid = atom_id.frame_uid
+    if not isinstance(frame_uid, DBStateUID):
+        return None
+
+    gs = find_dbstate(frame_uid)
+    if gs is None:
+        return None
+    z = gs[atom_id.global_uid]
+    return z
 
 def get_uid_type(uid_str: str) -> str:
     uid_chunk_size = 12

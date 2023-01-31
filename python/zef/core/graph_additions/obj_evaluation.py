@@ -14,11 +14,14 @@
 
 from .common import *
 
-def evaluate_chain(val, el_ops):
+from .wish_tagging import ensure_tag
+
+def evaluate_chain(val, el_ops, gen_id_state):
     state = dict(obj=val,
                  # ops_itr=iter(el_ops),
                  focused_field=None,
-                 emitted_cmds=[])
+                 emitted_cmds=[],
+                 gen_id_state=gen_id_state)
 
     final_state = list(el_ops) | reduce[apply_op][state] | collect
 
@@ -60,17 +63,32 @@ def apply_field(op, state):
 def apply_assign(op, state):
     val = single(absorbed(op))
 
-    # assert isinstance(state["focused_field"], RT)
-    if state["focused_field"] is None:
-        assert isinstance(state["obj"], AttributeEntityAtom)
-        new_obj = state["obj"].__replace__(ae_value=val)
-    else:
-        new_obj = state["obj"](**{token_name(state["focused_field"]) : val })
+    gen_id_state = state["gen_id_state"]
+    new_cmds = []
 
-    return (state
-            | insert["focused_field"][None]
-            | insert["obj"][new_obj]
-            | collect)
+    if isinstance(state["obj"], Atom):
+        # assert isinstance(state["focused_field"], RT)
+        if state["focused_field"] is None:
+            assert isinstance(state["obj"], AttributeEntityAtom)
+            new_obj,me,gen_id_state = ensure_tag(state["obj"], gen_id_state)
+            # Make sure that we don't include the frame with the atom now, since we
+            # are assigning a value to it.
+            from .._ops import discard_frame
+            new_obj = discard_frame(new_obj)
+            new_cmds += [PleaseAssign(target=me, value=Val(val))]
+        else:
+            new_obj = state["obj"](**{token_name(state["focused_field"]) : val })
+
+        return (state
+                | merge[{
+                    "focused_field": None,
+                    "obj": new_obj,
+                    "gen_id_state": gen_id_state,
+                    "emitted_cmds": state["emitted_cmds"] + new_cmds,
+                }]
+                | collect)
+    else:
+        raise NotImplementedError("TODO: non-atoms in assign")
 
 def apply_set_field(op, state):
     set_target = state["obj"]
@@ -90,8 +108,9 @@ def apply_terminate(op, state):
     obj = state["obj"]
     if not isinstance(obj, Atom):
         raise Exception("Terminate can't understand anything other than an Atom")
-    assert len(get_fields(obj)) == 0
-    id = force_as_id(single(get_names(obj)))
+    from ..atom import _get_fields
+    assert len(_get_fields(obj)) == 0
+    id = force_as_id(get_most_authorative_id(obj))
         
     new_obj = PleaseTerminate(target=id)
     return (state

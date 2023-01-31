@@ -18,21 +18,13 @@ report_import("zef.core.graph_additions.wish_translation")
 from .common import *
 
 def ensure_tag_atom(obj, gen_id_state):
-    atom_id = get_atom_id(obj)
-
-    if "global_uid" in atom_id:
-        me = atom_id["global_uid"]
-        return obj,me,gen_id_state
-
-    if "local_names" in atom_id:
-        me = atom_id["local_names"][0]
+    me = get_most_authorative_id(obj)
+    if me is not None:
         return obj,me,gen_id_state
         
     me,gen_id_state = gen_internal_id(gen_id_state)
 
-    atom_id = dict(**atom_id)
-    atom_id["local_names"] = [me]
-    obj = obj.__replace__(atom_id=atom_id)
+    obj = obj(me)
 
     return obj,me,gen_id_state
 
