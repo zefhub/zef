@@ -2136,8 +2136,14 @@ def trim_left_imp(v, el_to_trim):
     Removes all contiguous occurrences of a specified 
     element / character from the left side of a list / string.
 
+    Note: this function behaves differently from the Python str.lstrip:
+    For a string, str.lstrip interprets the "string to trim" as a set of
+    characters to remove (order does not matter). This function, however,
+    interprets the "string to trim" as a single string to remove.
+
     ---- Examples ----
-    >>> '..hello..' | trim_left['.']            # => 'hello..'
+    >>> '..hello..' | trim_left['.']             # => 'hello..'
+    >>> 'call this zef' | trim_left['call this'] # => ' zef'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2153,8 +2159,15 @@ def trim_left_imp(v, el_to_trim):
     - used for: string manipulation
     """
     if isinstance(v, String):
+
         if isinstance(el_to_trim, String):
-            return v.lstrip(el_to_trim)
+            def string_trim_left(s: str, what_to_trim) -> str:
+                if s[:len(what_to_trim)] == what_to_trim:
+                    return string_trim_left(s[len(what_to_trim):], what_to_trim)
+                else:
+                    return s
+            return string_trim_left(v, el_to_trim)
+
         elif isinstance(el_to_trim, Set):
             vv = v
             for el in el_to_trim:
@@ -2189,8 +2202,14 @@ def trim_right_imp(v, el_to_trim):
     Removes all contiguous occurrences of a specified 
     element / character from the right side of a list / string.
 
+    Note: this function behaves differently from the Python str.rstrip:
+    For a string, str.rstrip interprets the "string to trim" as a set of
+    characters to remove (order does not matter). This function, however,
+    interprets the "string to trim" as a single string to remove.
+    
     ---- Examples ----
     >>> '..hello..' | trim_right['.']            # => '..hello'
+    >>> 'call this zef' | trim_right['this zef']      # => 'call '
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2208,7 +2227,12 @@ def trim_right_imp(v, el_to_trim):
     import itertools 
     if isinstance(v, String):
         if isinstance(el_to_trim, String):
-            return v.rstrip(el_to_trim)
+            def string_trim_right(s: str, what_to_trim) -> str:
+                if s[-len(what_to_trim):] == what_to_trim:
+                    return string_trim_right(s[:-len(what_to_trim)], what_to_trim)
+                else:
+                    return s
+            return string_trim_right(v, el_to_trim)
         elif isinstance(el_to_trim, Set):
             vv = v
             for el in el_to_trim:
@@ -3949,8 +3973,6 @@ def last_imp(iterable):
         return iterable | all | last | collect
 
     input_type = parse_input_type(type_spec(iterable))
-    
-    print(f"{input_type=}  {type(input_type)=}")
 
     if "zef" in input_type:
         return curry_args_in_zefop(pyzefops.last, iterable)
@@ -7575,7 +7597,7 @@ def from_json_tp(op, curr_type):
 #------------------------------------------yaml/toml---------------------------------------------
 def to_yaml_imp(v: VT.Any)-> VT.Dict:
     import yaml 
-    return yaml.safe_dump(v)
+    return yaml.safe_dump(v, sort_keys=False)
     
 def to_yaml_tp(op, curr_type):
     return VT.Dict
