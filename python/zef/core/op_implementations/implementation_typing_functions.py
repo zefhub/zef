@@ -3086,6 +3086,50 @@ def min_by_tp(v_tp, min_by_function_tp):
     
     
 
+#---------------------------------------- arg_max -----------------------------------------------
+
+def arg_max_imp(iterable, f):
+    """
+    A function that returns the argument which
+    minimizes a given function.
+
+    ['hi', 'hello', 'bye'] | arg_max[len]    # => 'hello'
+    """
+    it = iter(iterable)
+    max_so_far = next(it)
+    func_val_of_max_so_far = f(max_so_far)
+
+    for el in it:
+        x = el
+        f_val = f(el)
+        if f_val > func_val_of_max_so_far:
+            max_so_far = x
+            func_val_of_max_so_far = f_val
+    return max_so_far
+
+
+#---------------------------------------- arg_min -----------------------------------------------
+
+def arg_min_imp(iterable, f):
+    """
+    A function that returns the argument which
+    minimizes a given function.
+
+    ['hi', 'hello', 'bye'] | arg_min[len]    # => 'hi'
+    """
+    it = iter(iterable)
+    min_so_far = next(it)
+    func_val_of_min_so_far = f(min_so_far)
+
+    for el in it:
+        x = el
+        f_val = f(el)
+        if f_val < func_val_of_min_so_far:
+            min_so_far = x
+            func_val_of_min_so_far = f_val
+    return min_so_far
+
+
 #---------------------------------------- clamp -----------------------------------------------
 def clamp_imp(x, x_min, x_max):
     """
