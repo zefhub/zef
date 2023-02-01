@@ -82,7 +82,7 @@ def cull_instantiate(cmd: PleaseInstantiate, gs):
     maybe_ezr = None
     if "origin_uid" in cmd:
         from ..graph_slice import get_instance_rae
-        maybe_ezr = get_instance_rae(cmd.origin_uid, gs)
+        maybe_ezr = find_rae_in_target(cmd.origin_uid, gs)
     elif isinstance(cmd.atom, PleaseInstantiateValueNode):
         val = internals.val_as_serialized_if_necessary(cmd.atom)
         maybe_ezr = Graph(gs).get_value_node(val)

@@ -37,7 +37,7 @@ def graph_transaction_handler(eff: dict):
     """
 
 
-    if internals.is_transactor(eff["target_graph"]):
+    if isinstance(eff["target_graph"], FlatGraph) or (isinstance(eff["target_graph"], GraphRef) and internals.is_transactor(eff["target_graph"])):
         # For backwards compatibility we dispatch on whether this is a new or old transact effect
 
         if "level2_commands" in eff:
@@ -47,7 +47,11 @@ def graph_transaction_handler(eff: dict):
                 pass
             else:
                 raise Exception("There are no options for translation rules at the moment. TODO: Need to replace with distinguish/recombine/relabel/cull rules later.")
-            lvl1_cmds = generate_level1_commands(eff["level2_commands"]["cmds"], now(Graph(eff["target_graph"])))
+
+            target_ref = eff["target_graph"]
+            if isinstance(target_ref, GraphRef):
+                target_ref = now(Graph(target_ref))
+            lvl1_cmds = generate_level1_commands(eff["level2_commands"]["cmds"], target_ref)
 
             from ..graph_additions.low_level import perform_level1_commands
             receipt = perform_level1_commands(lvl1_cmds, eff.get("keep_internal_ids", False))

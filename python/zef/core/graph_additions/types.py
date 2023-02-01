@@ -233,7 +233,7 @@ ResolvedVariableDict = Dict[Variable][EternalUID | Variable]
 Level1CommandInfo = UserValueType(
     "Level1CommandInfo",
     Dict,
-    Pattern[{"gs": GraphSlice,
+    Pattern[{"gs": GraphSlice | FlatGraph,
              "cmds": List[PleaseCommandLevel1],
              # Resolved variables are those that are identified at translation
              # time, in contrast to instantiations that will happen at action

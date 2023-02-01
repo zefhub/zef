@@ -20,6 +20,12 @@ from .common import *
 def ensure_tag_atom(obj, gen_id_state):
     me = get_most_authorative_id(obj)
     if me is not None:
+        me2 = force_as_id(me)
+        if me != me2:
+            # A slightly weird syntax, as we need to first *remove* names.
+            obj = obj.__replace__(atom_id={})
+            obj = obj(me2)
+            me = me2
         return obj,me,gen_id_state
         
     me,gen_id_state = gen_internal_id(gen_id_state)

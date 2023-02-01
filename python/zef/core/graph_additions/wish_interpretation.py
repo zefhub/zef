@@ -287,7 +287,7 @@ def lvl2cmds_for_atom(atom, context):
             # This means the atom should have a source/target. Let's find them
             # from the atom internals.
 
-            z = find_zefref(atom)
+            z = find_concrete_pointer(atom)
             if z is None:
                 raise Exception("Can't determine relation source/target because we can't load a concrete ZefRef for this Atom")
 
@@ -316,7 +316,7 @@ def lvl2cmds_for_atom(atom, context):
             from ..atom import _get_atom_id
             atom_id = _get_atom_id(atom)
             if "frame_uid" in atom_id:
-                z = find_zefref(atom)
+                z = find_concrete_pointer(atom)
                 if z is None:
                     raise Exception("Can't determine value of AttributeEntity as frame is not loaded")
                 val = value(z)

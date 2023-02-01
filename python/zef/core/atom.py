@@ -28,6 +28,9 @@ def Atom_is_global_identifier(input):
     from .flat_graph import FlatRef, FlatRef_maybe_uid
     if isinstance(input, FlatRef) and FlatRef_maybe_uid(input) is not None:
         return True
+    if isinstance(input, FlatRefUID):
+        if isinstance(input.tag, EternalUID):
+            return True
     return False
 
 
@@ -81,11 +84,11 @@ def make_dbstateref_uid(z):
         dbstate_uid=dbstate_uid,
     )
 
-# FlatRefUID = UserValueType("FlatRefUID",
-#                            Dict,
-#                            Pattern[{"internal_id": Any,
-#                                     "flatgraph": FlatGraph}])
-# There is no point to the above, as a FlatRef *is* an index + flatgraph combination.
+FlatGraphPlaceholder = UserValueType("FlatGraphPlaceholder", Int, Any)
+FlatRefUID = UserValueType("FlatRefUID",
+                           Dict,
+                           Pattern[{"tag": Any,
+                                    "flatgraph": FlatGraphPlaceholder}])
 
 # UIDString = String & Where[startswith["㏈-"]]
 UIDString = String & Is[lambda x: x.startswith["㏈-"]]
@@ -149,6 +152,7 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
             if len(parts) == 1:
                 # TODO: this type of ID will change
                 desc = dict(global_uid=parse_global_uid(parts[0]))
+            # Option 2: "㏈-49836587346876342856236478-xxx-yyy"
             elif len(parts) == 3:
                 dbstate_uid = DBStateUID(
                     tx_uid=BaseUID(parts[1]),
@@ -169,15 +173,18 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
                 global_uid=input.global_uid,
                 frame_uid=input.dbstate_uid,
             )
-        elif isinstance(input, FlatRef):
+        elif isinstance(input, FlatRefUID):
             # The global identifier must be given in the FlatRef if we hit this point
             desc = dict(
-                global_uid=FlatRef_maybe_uid(input),
-                # TODO: This is not a UID, is there a better way to express this?
-                frame_uid=input.fg
+                tag=input.tag,
+                frame_uid=input.flatgraph,
             )
         else:
             raise Exception("Shouldn't get here")
+    elif len(glob_identifiers) >= 2:
+        raise Exception("Can't have more than one global identifier")
+    else:
+        pass
 
     # There could be a FlatGraph in the list when strictly_invertible is used in
     # pretty_atom_identity. This is to be interpreted as the reference frame
@@ -218,7 +225,6 @@ def pretty_atom_identity(desc: AtomIdentity, strictly_invertible=False):
         names += list(desc["local_names"])
 
     return tuple(names)
-        
     
 
 class Atom_:
@@ -315,8 +321,13 @@ class Atom_:
         
             elif is_a(arg, FlatRef):
                 ref_pointer = arg
-                names = (arg, *names)
-                # Should this just be "rae_type"?
+
+                from .flat_graph import register_flatgraph
+                placeholder = FlatGraphPlaceholder(register_flatgraph(arg.fg))
+                tag = FlatRef_maybe_uid(arg)
+                fr_name = FlatRefUID(tag=tag, flatgraph=placeholder)
+                names = (fr_name, *names)
+
                 atom_type = FlatRef_rae_type(arg)
 
             elif is_a(arg, EntityRef | AttributeEntityRef | RelationRef):
@@ -413,7 +424,7 @@ def get_all_ids(atom: Atom):
 
     return tuple(names)
 
-def find_zefref(atom: Atom):
+def find_concrete_pointer(atom: Atom):
     # Find the ZefRef for an atom if we can. If we can't, return None
     z = _get_ref_pointer(atom)
     if z is not None:
@@ -425,14 +436,19 @@ def find_zefref(atom: Atom):
     if "frame_uid" not in atom_id:
         return None
     frame_uid = atom_id.frame_uid
-    if not isinstance(frame_uid, DBStateUID):
+    if isinstance(frame_uid, DBStateUID):
+        gs = find_dbstate(frame_uid)
+        if gs is None:
+            return None
+        z = gs[atom_id.global_uid]
+        return z
+    elif isinstance(frame_uid, FlatGraphUID):
+        fg = lookup_flatgraph(frame_uid.flatgraph)
+        fr = fg[frame_uid.tag]
+        return fr
+    else:
         return None
 
-    gs = find_dbstate(frame_uid)
-    if gs is None:
-        return None
-    z = gs[atom_id.global_uid]
-    return z
 
 def get_uid_type(uid_str: str) -> str:
     uid_chunk_size = 12

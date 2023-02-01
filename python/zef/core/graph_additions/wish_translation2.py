@@ -110,7 +110,7 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
             id = origin_uid(src_or_trg)
         elif isinstance(src_or_trg, EternalUID):
             id = src_or_trg
-            z = most_recent_rae_on_graph(id, Graph(gs))
+            z = find_rae_in_target(id, gs)
             if isinstance(z, Relation):
                 add_must_live_cmds(source(z))
                 add_must_live_cmds(target(z))

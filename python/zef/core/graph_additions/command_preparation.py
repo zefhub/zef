@@ -61,7 +61,7 @@ def prepare_obj_notation(cmd, gs, context):
         if isinstance(rae_type(cmd), RT):
             need_to_create = False
         else:
-            z_on_graph = most_recent_rae_on_graph(me, Graph(gs))
+            z_on_graph = find_rae_in_target(me, gs)
             if z_on_graph is None:
                 need_to_create = True
     else:

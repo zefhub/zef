@@ -23,7 +23,7 @@ from .._ops import *
 from ..zef_functions import func
 
 # from ..atom import _get_atom_id, _get_fields, _get_atom_type, _get_ref_pointer, get_all_ids, get_most_authorative_id, find_zefref
-from ..atom import get_all_ids, get_most_authorative_id, find_zefref
+from ..atom import get_all_ids, get_most_authorative_id, find_concrete_pointer
 
 from .types import *
 
@@ -286,3 +286,17 @@ def id_preference_pair(x: AllIDs, y: AllIDs) -> AllIDs:
 def id_preference(l: List[AllIDs]) -> AllIDs:
     out = l | reduce[id_preference_pair] | collect
     return out
+
+
+def find_rae_in_target(global_uid, target):
+    if isinstance(target, GraphSlice):
+        # TODO: This migth not be good enough, if the gs is not the same as the
+        # latest slice on the graph... but then why should it not be that?
+        z_on_graph = get_instance_rae(global_uid, gs)
+    elif isinstance(target, FlatGraph):
+        if global_uid in target:
+            return target[global_uid]
+        else:
+            return None
+    else:
+        raise Exception(f"Don't understand target: {target}")

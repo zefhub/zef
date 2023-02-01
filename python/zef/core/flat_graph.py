@@ -65,6 +65,9 @@ class FlatGraph_:
     def __getitem__(self, key):
         return get(self, key)
 
+    def __contains__(self, key):
+        return key in self.key_dict
+
 FlatGraph = make_VT("FlatGraph", pytype=FlatGraph_)
 
 
@@ -140,3 +143,18 @@ def FlatRef_rae_type(fr):
 
 def FlatRef_maybe_uid(fr):
     return fr.fg.blobs[fr.idx][-1]
+
+
+
+
+
+
+fg_registry = {}
+def register_flatgraph(fg):
+    from .VT.value_type import hash_frozen
+    h = hash_frozen(fg)
+    fg_registry[h] = fg
+    return h
+
+def lookup_flatgraph(h):
+    return fg_registry.get(h, None)

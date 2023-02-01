@@ -32,7 +32,8 @@ from .common import *
 
 @func
 def transact_dispatch(input, onto, *others):
-    if isinstance(onto, (Graph, GraphRef)):
+    # if isinstance(onto, (Graph, GraphRef)):
+    if True:
         return transact_graph(input, onto, *others)
     elif isinstance(onto, FlatGraph):
         from ..op_implementations import fg_insert_imp
@@ -60,10 +61,17 @@ def transact_graph(input: GraphWishInput | List[GraphWishInput], g, interpretati
     from .wish_interpretation import generate_level2_commands
     cmds = generate_level2_commands(input, interpretation_rules)
 
+    if isinstance(g, Graph | GraphRef):
+        target_ref = GraphRef(g)
+    elif isinstance(g, FlatGraph):
+        target_ref = g
+    else:
+        raise Exception("Unknown target for a transaction")
+
     from ..fx import FX
     return {
         "type": FX.Graph.Transact,
-        "target_graph": GraphRef(g),
+        "target_graph": target_ref,
         "level2_commands": cmds,
         "translation_rules": translation_rules,
         "post_transact_rule": post_transact_rule,
