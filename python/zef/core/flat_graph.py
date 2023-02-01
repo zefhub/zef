@@ -65,7 +65,7 @@ class FlatGraph_:
     def __getitem__(self, key):
         return get(self, key)
 
-make_VT("FlatGraph", pytype=FlatGraph_)
+FlatGraph = make_VT("FlatGraph", pytype=FlatGraph_)
 
 
 class FlatRef_:
@@ -90,7 +90,7 @@ class FlatRef_:
     def __rshift__(self, other):
         return LazyValue(self) >> other
 
-make_VT("FlatRef", pytype=FlatRef_)
+FlatRef = make_VT("FlatRef", pytype=FlatRef_)
 
 def FlatRef_rae_type(fr):
     return fr.fg.blobs[fr.idx][1]
@@ -130,5 +130,13 @@ class FlatRefs_:
     def __rshift__(self, other):
         return LazyValue(self) >> other
 
-make_VT("FlatRefs", pytype=FlatRefs_)
+FlatRefs = make_VT("FlatRefs", pytype=FlatRefs_)
 
+
+
+# Danny added to avoid implementation specific coding
+def FlatRef_rae_type(fr):
+    return fr.fg.blobs[fr.idx][1]
+
+def FlatRef_maybe_uid(fr):
+    return fr.fg.blobs[fr.idx][-1]

@@ -26,6 +26,7 @@ from ..logger import log
 from ...pyzef import zefops as pyzefops, main as pymain
 from .. import internals
 from typing import Generator, Iterable, Iterator
+from ..atom import Atom_
 
 
 #-----------------------------FlatGraph Implementations-----------------------------------
@@ -81,9 +82,9 @@ def fg_insert_imp(fg, new_el):
             idx = next_idx()
             new_blobs.append((idx, aet, [], None, new_el))
 
-        elif is_a(new_el, Atom):
+        elif isinstance(new_el, Atom_):
             from ..atom import _get_atom_type, get_most_authorative_id, _get_ref_pointer
-            if is_a(_get_atom_type(new_el), RT):
+            if is_a(new_el, Relation):
                 # TODO Make this part work with unwrapping an Atom pointing to an RT
                 # examples:
                 # z = db | now | all[RT.Game] | last | collect
@@ -95,17 +96,17 @@ def fg_insert_imp(fg, new_el):
                 # else:
                 
                 raise NotImplementedError("An Atom of a Relation Type is not yet supported.")
-            elif get_ref_pointer(new_el):
-                idx = common_logic(get_ref_pointer(new_el))
+            # elif _get_ref_pointer(new_el):
+            #     idx = common_logic(_get_ref_pointer(new_el))
             else:
-                node_type, node_uid = _get_atom_type(new_el), get_most_authorative_id(new_el)[0]
+                node_type, node_uid = rae_type(new_el), get_most_authorative_id(new_el)
                 if node_uid not in new_key_dict:
                     idx = next_idx()
                     new_blobs.append((idx, node_type, [], node_uid))
                     new_key_dict[node_uid] = idx
                 idx = new_key_dict[node_uid]
 
-        elif is_a(new_el, (ZefRef, EZefRef)):
+        elif is_a(new_el, BlobPtr):
             idx = common_logic(discard_frame(new_el))
             if isinstance(new_blobs[idx][1], AET) and isinstance(new_el, ZefRef):
                 new_blobs[idx] = (*new_blobs[idx][:4], value(new_el))

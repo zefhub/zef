@@ -25,6 +25,9 @@ def Atom_is_global_identifier(input):
         return True
     if isinstance(input, DBStateRefUID):
         return True
+    from .flat_graph import FlatRef, FlatRef_maybe_uid
+    if isinstance(input, FlatRef) and FlatRef_maybe_uid(input) is not None:
+        return True
     return False
 
 
@@ -78,6 +81,12 @@ def make_dbstateref_uid(z):
         dbstate_uid=dbstate_uid,
     )
 
+# FlatRefUID = UserValueType("FlatRefUID",
+#                            Dict,
+#                            Pattern[{"internal_id": Any,
+#                                     "flatgraph": FlatGraph}])
+# There is no point to the above, as a FlatRef *is* an index + flatgraph combination.
+
 # UIDString = String & Where[startswith["㏈-"]]
 UIDString = String & Is[lambda x: x.startswith["㏈-"]]
 AtomIdentity = (
@@ -107,7 +116,8 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
     # - EternalUID should be replaced with new global identifier binary object
     # - tx_uid and graph_uid should be replaced with their appropriate sizes.
 
-    from ._ops import uid
+    from ._ops import uid, filter, collect, single
+    from .flat_graph import FlatGraph, FlatRef, FlatRef_maybe_uid
 
     # Given a tuple of inputs to an Atom, determine a standardised dictionary to represent this.
 
@@ -153,27 +163,40 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
         elif isinstance(input, EternalUID):
             desc = dict(global_uid=input)
         elif isinstance(input, ZefRefUID):
-            # TODO: This will change
-            global_uid = EternalUID(input.blob_uid, input.graph_uid)
-            dbstate_uid = DBStateUID(input.tx_uid, input.graph_uid)
-            desc = dict(
-                global_uid=global_uid,
-                frame_uid=dbstate_uid,
-            )
+            raise Exception("Shouldn't be getting a ZefRefUID anymore - we would need to load the graph to determine the global uid")
         elif isinstance(input, DBStateRefUID):
             desc = dict(
                 global_uid=input.global_uid,
                 frame_uid=input.dbstate_uid,
             )
+        elif isinstance(input, FlatRef):
+            # The global identifier must be given in the FlatRef if we hit this point
+            desc = dict(
+                global_uid=FlatRef_maybe_uid(input),
+                # TODO: This is not a UID, is there a better way to express this?
+                frame_uid=input.fg
+            )
         else:
             raise Exception("Shouldn't get here")
+
+    # There could be a FlatGraph in the list when strictly_invertible is used in
+    # pretty_atom_identity. This is to be interpreted as the reference frame
+    fgs = others | filter[FlatGraph] | collect
+    if len(fgs) > 0:
+        if "frame_uid" in desc:
+            raise Exception("Can't have a FlatGraph as a reference frame when the atom already has a reference graph")
+        desc["frame_uid"] = single(fgs)
+
+    others = others | filter[~FlatGraph] | collect
 
     if len(others) > 0:
         desc["local_names"] = others
 
     return desc
 
-def pretty_atom_identity(desc: AtomIdentity):
+def pretty_atom_identity(desc: AtomIdentity, strictly_invertible=False):
+    from .flat_graph import FlatGraph
+
     assert isinstance(desc, AtomIdentity)
     # The inverse of interpret_atom_identity
     names = []
@@ -182,6 +205,11 @@ def pretty_atom_identity(desc: AtomIdentity):
         if "frame_uid" in desc:
             if isinstance(desc["frame_uid"], DBStateUID):
                 s += f"-{desc['frame_uid'].tx_uid}-{desc['frame_uid'].graph_uid}"
+            elif isinstance(desc["frame_uid"], FlatGraph):
+                if strictly_invertible:
+                    names += [desc["frame_uid"]]
+                else:
+                    s += f"-(flat graph)"
             else:
                 raise NotImplementedError(f"Unknown type of frame: {desc['frame_uid']}")
 
@@ -244,12 +272,13 @@ class Atom_:
         # We represent our internal id as a pretty identity so that we can
         # conform to whatever the user is speaking.
         atom_id = object.__getattribute__(self, "atom_id")
-        names = pretty_atom_identity(atom_id)
+        names = pretty_atom_identity(atom_id, strictly_invertible=True)
 
         fields.update(kwargs)
         
         from ._ops import is_a, rae_type, source, target, origin_uid, abstract_type, discard_frame, value, uid
         from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation, AttributeEntity
+        from .flat_graph import FlatRef, FlatRef_rae_type, FlatRef_maybe_uid
 
         for arg in args:
             if is_a(arg, Atom):
@@ -269,7 +298,7 @@ class Atom_:
                 if atom_type is None:
                     atom_type = other_atom_type
 
-                other_names = pretty_atom_identity(other_atom_id)
+                other_names = pretty_atom_identity(other_atom_id, strictly_invertible=True)
                 names = names + other_names
             
             elif is_a(arg, BlobPtr):
@@ -285,13 +314,10 @@ class Atom_:
                     names = (origin_uid(ref_pointer), *names)
         
             elif is_a(arg, FlatRef):
-                raise NotImplementedError("TODO")
-                # TODO
                 ref_pointer = arg
-                fr = arg
-                atom_type = fr.fg.blobs[fr.idx][1]
-                fr_uid =  fr.fg.blobs[fr.idx][-1]
-                if fr_uid: names =  (str(fr_uid), *names)
+                names = (arg, *names)
+                # Should this just be "rae_type"?
+                atom_type = FlatRef_rae_type(arg)
 
             elif is_a(arg, EntityRef | AttributeEntityRef | RelationRef):
                 rae = arg
