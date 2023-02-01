@@ -1315,6 +1315,7 @@ def chunk_imp(iterable, chunk_size: int):
     used for: list manipulation
     used for: string manipulation
     used for: stream manipulation
+    related zefop: chunk_by
     related zefop: stride
     related zefop: sliding
     related zefop: slice
@@ -1354,6 +1355,48 @@ def chunk_imp(iterable, chunk_size: int):
 
 def chunk_tp(v_tp, step_tp):
     return VT.List
+
+
+#---------------------------------------- chunk_by -----------------------------------------------
+
+def chunk_by_imp(iterable, condition):
+    """
+    Useful for chunking sequences where the size of each
+    chunk is specified by a predicate function that acts
+    on the state aggregated since the last chunk.
+
+    e.g. if we want to chunk a long string into a paragraph
+    of fixed maximum width, but along word boundaries.
+
+    >>> (['this is a sentence with quite a few words'] 
+    ... | split[' '] 
+    ... | chunk_by[lambda v: v| map[length] | sum | collect < 8]
+    ... # this is a
+    ... # sentence with
+    ... # quite a few words
+    
+    related zefop: chunk
+    """
+    def wrapper():
+        it = iter(iterable)
+        state = []
+        try:
+            while True:
+                if(not condition(state)):
+                    # print('y2')
+                    yield state
+                    state = []
+                while(condition(state)):
+                    state.append(next(it))
+                # print('y1', state)
+                if len(state) > 1:
+                    yield state[:-1]
+                state = [state[-1]]
+        except StopIteration:
+            yield state
+            return
+
+    return ZefGenerator(wrapper)
 
 
 #---------------------------------------- insert -----------------------------------------------

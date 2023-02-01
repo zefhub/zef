@@ -128,6 +128,7 @@ _op_to_functions = {
         internals.RT.Relation:        (relation_implementation, relation_type_info),
         internals.RT.Relations:       (relations_implementation, relations_type_info),
         internals.RT.Chunk:           (chunk_imp, chunk_tp),
+        internals.RT.ChunkBy:         (chunk_by_imp, None),
         internals.RT.Sliding:         (sliding_imp, sliding_tp),
         internals.RT.Stride:          (stride_imp, stride_tp),
         internals.RT.Insert:          (insert_imp, insert_tp),
