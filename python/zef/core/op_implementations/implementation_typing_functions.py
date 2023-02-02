@@ -7673,9 +7673,12 @@ def from_json_imp(d: VT.Dict)-> VT.Any:
     ---- Signature ----
     VT.Dict -> VT.Any
     """
-    from ..serialization import deserialize
+    from ..serialization import deserialize, is_serialization
     import json
-    return deserialize(json.loads(d))
+    loaded_d = json.loads(d)
+    if is_serialization(loaded_d):
+        return deserialize(loaded_d)
+    return loaded_d
     
 def from_json_tp(op, curr_type):
     return VT.Any
