@@ -647,7 +647,7 @@ def fg_merge_imp(fg1, fg2 = None):
 # ------------------------------FlatGraph GraphWish Syntax----------------------------------
 def without_names(raet):
     if isinstance(raet, ValueType):
-        from zef.core.VT.helpers import remove_names, absorbed
+        from ...core.VT.helpers import remove_names, absorbed
         abs = remove_names(absorbed(raet))
         return raet._replace(absorbed=abs)
     else:
@@ -675,9 +675,7 @@ def idx_generator(n):
 
 
 def fg_transaction_implementation(cmds, fg):
-    from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types, PleaseAssign
-    from ..internals import DelegateRelationTriple
-    from ..graph_additions.types import PleaseInstantiate, WishIDInternal
+    from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal
 
     assert is_a(fg, FlatGraph)
     new_fg = FlatGraph()
@@ -745,7 +743,18 @@ def fg_transaction_implementation(cmds, fg):
                             _wish_ids[internal_name] = idx
                         else:
                             new_key_dict[internal_name] = idx
+
+            elif isinstance(cmd, PleaseAssign):
+                target_internal_id = cmd['target']
+                _value = cmd['value']
+
+                if target_internal_id in _wish_ids:
+                    target_idx = _wish_ids[target_internal_id]
+                else:
+                    target_idx = new_key_dict[target_internal_id]
                 
+                new_blobs[target_idx] = (*new_blobs[target_idx][:3], _value.arg) # TODO do we care about iid for _value?
+
             else:
 
                 print(f"Can't handle PleaseInstaniate for {atom}")
