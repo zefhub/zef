@@ -641,3 +641,124 @@ def fg_merge_imp(fg1, fg2 = None):
     new_fg.blobs = blobs
     new_fg.key_dict = k_dict
     return new_fg
+
+
+
+# ------------------------------FlatGraph GraphWish Syntax----------------------------------
+def without_names(raet):
+    if isinstance(raet, ValueType):
+        from zef.core.VT.helpers import remove_names, absorbed
+        abs = remove_names(absorbed(raet))
+        return raet._replace(absorbed=abs)
+    else:
+        return raet
+
+def internal_name(rae):
+    if isinstance(rae, RAERef):
+        names = absorbed(rae)
+    elif isinstance(rae, ValueType):
+        from zef.core.VT.helpers import names_of
+        names = names_of(rae)
+    else:
+        raise Exception(f"Need to implement code for type {rae}")
+    return names[0] if names else None
+
+def inner_zefop_type(zefop, rt):
+    return peel(zefop)[0][0] == rt
+
+def idx_generator(n):
+    def next_idx():
+        nonlocal n
+        n = n + 1
+        return n
+    return next_idx
+
+
+def fg_transaction_implementation(cmds, fg):
+    from ..graph_delta import map_scalar_to_aet_type, shorthand_scalar_types, PleaseAssign
+    from ..internals import DelegateRelationTriple
+    from ..graph_additions.types import PleaseInstantiate, WishIDInternal
+
+    assert is_a(fg, FlatGraph)
+    new_fg = FlatGraph()
+    new_blobs = [*fg.blobs]
+    new_key_dict =  {**fg.key_dict}
+    _wish_ids = {}
+    next_idx = idx_generator(length(fg.blobs) - 1)
+
+    
+    def _insert_cmd(cmd):
+        nonlocal new_blobs, new_key_dict
+
+        if isinstance(cmd, PleaseInstantiate):
+            atom = cmd['atom']
+            _origin_uid = cmd._value.get('origin_uid', None)
+            internal_ids = cmd._value.get('internal_ids', None)
+
+            if is_a(atom, ET):
+                
+                if _origin_uid:
+
+                    if _origin_uid not in new_key_dict:
+                        idx = next_idx()
+                        new_blobs.append((idx, atom, [], _origin_uid))
+                        new_key_dict[_origin_uid] = idx
+                    else:
+                        idx = new_key_dict[_origin_uid]
+
+                # _origin_uid isn't definied so we can directly insert the atom and if there is an internal name we overwrite it with this new blob
+                else:
+                    # TODO: What to do with multiple internal_ids?
+                    
+                    idx = next_idx()
+                    new_blobs.append((idx, atom, [], None))
+
+                    internal_name = internal_ids[0] if internal_ids else None
+                    if internal_name is not None:
+                        if is_a(internal_name, WishIDInternal): 
+                            _wish_ids[internal_name] = idx
+                        else:
+                            new_key_dict[internal_name] = idx
+
+            
+            elif is_a(atom, AET):
+
+                if _origin_uid:
+
+                    if _origin_uid not in new_key_dict:
+                        idx = next_idx()
+                        new_blobs.append((idx, atom, [], _origin_uid, None))
+                        new_key_dict[_origin_uid] = idx
+                    else:
+                        idx = new_key_dict[_origin_uid]
+
+                # _origin_uid isn't definied so we can directly insert the atom and if there is an internal name we overwrite it with this new blob
+                else:
+                    # TODO: What to do with multiple internal_ids?
+                    
+                    idx = next_idx()
+                    new_blobs.append((idx, atom, [], None, None))
+
+                    internal_name = internal_ids[0] if internal_ids else None
+                    if internal_name is not None:
+                        if is_a(internal_name, WishIDInternal): 
+                            _wish_ids[internal_name] = idx
+                        else:
+                            new_key_dict[internal_name] = idx
+                
+            else:
+
+                print(f"Can't handle PleaseInstaniate for {atom}")
+                # raise NotImplementedError(f"Can't handle PleaseInstaniate for {atom}")
+                
+        else:
+            print(f"Can't handle {cmd} for FlatGraph")
+            # raise NotImplementedError(f"Can't handle {cmd} for FlatGraph") 
+        
+    for cmd in cmds:
+        _insert_cmd(cmd)
+        
+    new_fg.key_dict = new_key_dict
+    new_fg.blobs = (*new_blobs,)
+    return new_fg
+
