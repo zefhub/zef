@@ -677,6 +677,23 @@ def idx_generator(n):
 def fg_transaction_implementation(cmds, fg):
     from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal
 
+    def _add_internal_id(internal_ids, idx):
+        # TODO: What to do with multiple internal_ids?
+        internal_name = internal_ids[0] if internal_ids else None
+        if internal_name is not None:
+            if is_a(internal_name, WishIDInternal): 
+                _wish_ids[internal_name] = idx
+            else:
+                new_key_dict[internal_name] = idx
+    
+    def _extract_idx_from_id(id):
+        if is_a(id, WishIDInternal): 
+            assert id in _wish_ids, "Internal wish id not found in _wish_ids"
+            return _wish_ids[id]
+        else:
+            assert id in new_key_dict, "Internal id not found in new_key_dict"
+            return new_key_dict[id]
+
     assert is_a(fg, FlatGraph)
     new_fg = FlatGraph()
     new_blobs = [*fg.blobs]
@@ -704,20 +721,10 @@ def fg_transaction_implementation(cmds, fg):
                     else:
                         idx = new_key_dict[_origin_uid]
 
-                # _origin_uid isn't definied so we can directly insert the atom and if there is an internal name we overwrite it with this new blob
                 else:
-                    # TODO: What to do with multiple internal_ids?
-                    
                     idx = next_idx()
                     new_blobs.append((idx, atom, [], None))
-
-                    internal_name = internal_ids[0] if internal_ids else None
-                    if internal_name is not None:
-                        if is_a(internal_name, WishIDInternal): 
-                            _wish_ids[internal_name] = idx
-                        else:
-                            new_key_dict[internal_name] = idx
-
+                    _add_internal_id(internal_ids, idx)
             
             elif is_a(atom, AET):
 
@@ -730,44 +737,43 @@ def fg_transaction_implementation(cmds, fg):
                     else:
                         idx = new_key_dict[_origin_uid]
 
-                # _origin_uid isn't definied so we can directly insert the atom and if there is an internal name we overwrite it with this new blob
                 else:
-                    # TODO: What to do with multiple internal_ids?
-                    
                     idx = next_idx()
                     new_blobs.append((idx, atom, [], None, None))
-
-                    internal_name = internal_ids[0] if internal_ids else None
-                    if internal_name is not None:
-                        if is_a(internal_name, WishIDInternal): 
-                            _wish_ids[internal_name] = idx
-                        else:
-                            new_key_dict[internal_name] = idx
-
-            elif isinstance(cmd, PleaseAssign):
-                target_internal_id = cmd['target']
-                _value = cmd['value']
-
-                if target_internal_id in _wish_ids:
-                    target_idx = _wish_ids[target_internal_id]
-                else:
-                    target_idx = new_key_dict[target_internal_id]
+                    _add_internal_id(internal_ids, idx)
+            
+            elif is_a(atom, dict) and atom.get("rt", None):
+                rt = atom["rt"]
                 
-                new_blobs[target_idx] = (*new_blobs[target_idx][:4], _value.arg) # TODO do we care about iid for _value?
+                src_idx = _extract_idx_from_id(atom['source'])
+                trgt_idx = _extract_idx_from_id(atom['target'])
+                idx = next_idx()
+
+                new_blobs.append((idx, rt, [], None, src_idx, trgt_idx))
+                if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
+                if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
+                _add_internal_id(internal_ids, idx)
 
             else:
+                raise NotImplementedError(f"Can't handle PleaseInstaniate for {atom}")
 
-                print(f"Can't handle PleaseInstaniate for {atom}")
-                # raise NotImplementedError(f"Can't handle PleaseInstaniate for {atom}")
-                
+        elif isinstance(cmd, PleaseAssign):
+            target_internal_id = cmd['target']
+            _value = cmd['value']
+
+            if target_internal_id in _wish_ids:
+                idx = _wish_ids[target_internal_id]
+            else:
+                idx = new_key_dict[target_internal_id]
+            
+            new_blobs[idx] = (*new_blobs[idx][:4], _value.arg) # TODO do we care about iid for _value?
+
         else:
-            print(f"Can't handle {cmd} for FlatGraph")
-            # raise NotImplementedError(f"Can't handle {cmd} for FlatGraph") 
+            raise NotImplementedError(f"Can't handle {cmd} for FlatGraph") 
         
-    for cmd in cmds:
-        _insert_cmd(cmd)
+    for cmd in cmds:  _insert_cmd(cmd)
         
     new_fg.key_dict = new_key_dict
     new_fg.blobs = (*new_blobs,)
-    return new_fg
 
+    return new_fg
