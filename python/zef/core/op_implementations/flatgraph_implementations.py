@@ -753,7 +753,7 @@ def fg_transaction_implementation(cmds, fg):
                 else:
                     target_idx = new_key_dict[target_internal_id]
                 
-                new_blobs[target_idx] = (*new_blobs[target_idx][:3], _value.arg) # TODO do we care about iid for _value?
+                new_blobs[target_idx] = (*new_blobs[target_idx][:4], _value.arg) # TODO do we care about iid for _value?
 
             else:
 
