@@ -647,6 +647,30 @@ def fg_merge_imp(fg1, fg2 = None):
 
 
 # ------------------------------FlatGraph GraphWish Syntax----------------------------------
+def fg_remove_imp2(fg, idx, key):
+    kdict = fg.key_dict
+    idx_key = {idx:key for key,idx in kdict.items()}
+    kdict   = {**fg.key_dict}
+    blobs   = [*fg.blobs]
+
+    def remove_blob(idx, key = None):
+        blob  = blobs[idx]
+        if blob:
+            blob_type = blob[1]
+            ins_outs  = blob[2]
+            blobs[idx] = None
+            if not key: 
+                key = idx_key.get(idx, None)
+                if key : del(kdict[key])
+            else: del(kdict[key])
+            if issubclass(blob_type, RT):
+                src_idx, trgt_idx = blob[4:]
+                if blobs[src_idx] and idx in blobs[src_idx][2]: blobs[src_idx][2].remove(idx)
+                if blobs[trgt_idx] and -idx in blobs[trgt_idx][2]: blobs[trgt_idx][2].remove(-idx)
+            ins_outs | map[abs] | for_each[remove_blob]
+    remove_blob(idx, key)
+
+    return blobs, kdict
 def without_names(raet):
     if isinstance(raet, ValueType):
         from ...core.VT.helpers import remove_names, absorbed
@@ -680,6 +704,7 @@ def idx_generator(n):
 
 def fg_transaction_implementation(cmds, fg):
     from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal, Val, FlatRefUID, PleaseTerminate
+    from ..graph_additions.common import maybe_unwrap_variable
 
     def _add_internal_id(internal_ids, idx):
         # TODO: What to do with multiple internal_ids?
@@ -688,6 +713,7 @@ def fg_transaction_implementation(cmds, fg):
             if is_a(internal_name, (WishIDInternal, FlatRefUID)): 
                 _wish_ids[internal_name] = idx
             else:
+                internal_name = maybe_unwrap_variable(internal_name)
                 new_key_dict[internal_name] = idx
     
     def _extract_idx_from_id(id):
@@ -695,6 +721,7 @@ def fg_transaction_implementation(cmds, fg):
             assert id in _wish_ids, "Internal wish id not found in _wish_ids"
             return _wish_ids[id]
         else:
+            id = maybe_unwrap_variable(id)
             assert id in new_key_dict, "Internal id not found in new_key_dict"
             return new_key_dict[id]
 
