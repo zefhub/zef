@@ -139,10 +139,13 @@ def token_str(self):
     return s
 
 def ET_is_a(x, typ):
-    from . import DelegateRef, EntityRef, FlatRef, Atom
+    from . import DelegateRef, EntityRef, FlatRef, AtomClass
     token = RAET_get_token(typ)
     if token is None:
-        if isinstance(x, DelegateRef):
+        # Note: ET check needs to happen first, as the others recurse into this
+        if isinstance(x, ValueType):
+            return type_name(x) == "ET"
+        elif isinstance(x, DelegateRef):
             print(" ⚠️  Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
             return isinstance(x.item, EntityTypeToken)
         elif isinstance(x, BlobPtr):
@@ -151,10 +154,12 @@ def ET_is_a(x, typ):
         elif isinstance(x, EntityRef):
             print(" ⚠ ️ Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
             return True
-        elif isinstance(x, Atom):
+        elif isinstance(x, AtomClass):
+            print(" ⚠ ️ Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
             from .._ops import rae_type
             return isinstance(rae_type(x), ET)
-        return isinstance(x, ValueType) and type_name(x) == "ET"
+
+        return False
     else:
         if isinstance(x, DelegateRef):
             return x.item == token
@@ -170,17 +175,20 @@ def ET_is_a(x, typ):
         elif isinstance(x, EntityRef):
             from .._ops import rae_type
             return RAET_get_token(rae_type(x)) == token
-        elif isinstance(x, Atom):
+        elif isinstance(x, AtomClass):
             from .._ops import rae_type
             return RAET_get_token(rae_type(x)) == token
         else:
             return False
 
 def AET_is_a(x, typ):
-    from . import DelegateRef, AttributeEntityRef, FlatRef, Atom
+    from . import DelegateRef, AttributeEntityRef, FlatRef, AtomClass
     token = RAET_get_token(typ)
     if token is None:
-        if isinstance(x, DelegateRef):
+        # Note: AET check needs to happen first, as the others recurse into this
+        if isinstance(x, ValueType):
+            return type_name(x) == "AET"
+        elif isinstance(x, DelegateRef):
             print(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
             return isinstance(x.item, AttributeEntityTypeToken)
         elif isinstance(x, BlobPtr):
@@ -189,10 +197,11 @@ def AET_is_a(x, typ):
         elif isinstance(x, AttributeEntityRef):
             print(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
             return True
-        elif isinstance(x, Atom):
+        elif isinstance(x, AtomClass):
+            print(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
             from .._ops import rae_type
             return isinstance(rae_type(x), AET)
-        return is_type_name_(x, "AET")
+        return False
     else:
         if isinstance(x, DelegateRef):
             x_aet = x.item
@@ -212,7 +221,7 @@ def AET_is_a(x, typ):
         elif isinstance(x, AttributeEntityRef):
             from .._ops import rae_type
             x_aet = rae_type(x)
-        elif isinstance(x, Atom):
+        elif isinstance(x, AtomClass):
             from .._ops import rae_type
             x_aet = rae_type(x)
         else:
@@ -236,10 +245,13 @@ def AET_is_a(x, typ):
                     return internals.is_vrt_a_enum(x_aet.rep_type)
         return False
 def RT_is_a(x, typ):
-    from . import DelegateRef, RelationRef, FlatRef, Atom
+    from . import DelegateRef, RelationRef, FlatRef, AtomClass
     token = RAET_get_token(typ)
     if token is None:
-        if isinstance(x, DelegateRef):
+        # Note: RT check needs to happen first, as the others recurse into this
+        if isinstance(x, ValueType):
+            return type_name(x) == "RT"
+        elif isinstance(x, DelegateRef):
             print(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
             if type(x.item) == internals.DelegateRelationTriple:
                 return isinstance(x.item.rt, RelationTypeToken)
@@ -250,10 +262,11 @@ def RT_is_a(x, typ):
         elif isinstance(x, RelationRef):
             print(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
             return True
-        elif isinstance(x, Atom):
+        elif isinstance(x, AtomClass):
+            print(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
             from .._ops import rae_type
             return isinstance(rae_type(x), RT)
-        return isinstance(x, ValueType) and type_name(x) == "RT"
+        return False
     else:
         if isinstance(x, DelegateRef):
             if type(x.item) == internals.DelegateRelationTriple:
@@ -273,7 +286,7 @@ def RT_is_a(x, typ):
         elif isinstance(x, RelationRef):
             from .._ops import rae_type
             return RAET_get_token(rae_type(x)) == token
-        elif isinstance(x, Atom):
+        elif isinstance(x, AtomClass):
             from .._ops import rae_type
             return RAET_get_token(rae_type(x)) == token
         else:
@@ -281,10 +294,13 @@ def RT_is_a(x, typ):
 def BT_is_a(x, typ):
     token = RAET_get_token(typ)
     if token is None:
-        if isinstance(x, BlobPtr):
+        # Note: BT check needs to happen first, as the others recurse into this
+        if isinstance(x, ValueType):
+            return type_name(x) == "BT"
+        elif isinstance(x, BlobPtr):
             print(" ⚠ ️ Warning, `BT` was used as the type in an isinstance comparison for a `BlobPtr`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., BlobPtr) instead. If you want to only catch e.g. isinstance(BT.VALUE_NODE, BT) then until the deprecation occurs, you should use isinstance(BT.VALUE_NODE, ValueType & BT). ⚠ ️️")
             return True
-        return isinstance(x, ValueType) and type_name(x) == "BT"
+        return False
     else:
         c_bt = token
         if not isinstance(c_bt, BlobTypeToken):
@@ -305,14 +321,17 @@ def VRT_is_a(x, typ):
     from . import DelegateRef
     token = RAET_get_token(typ)
     if token is None:
-        if isinstance(x, DelegateRef):
+        # Note: VRT check needs to happen first, as the others recurse into this
+        if isinstance(x, ValueType):
+            return type_name(x) == "VRT"
+        elif isinstance(x, DelegateRef):
             print(" ⚠ ️ Warning, `VRT` was used as the type in an isinstance comparison for a `Delegate`. This will become False in the future, but currently returns True. This actually is nonsensical, update your code logic. ⚠ ️")
             return isinstance(x.item, ValueRepTypeToken)
         elif isinstance(x, BlobPtr):
             print(" ⚠ ️ Warning, `VRT` was used as the type in an isinstance comparison for a `Delegate`. This will become False in the future, but currently returns True. This actually is nonsensical, update your code logic. ⚠ ️")
             return internals.BT(x) in [internals.BT.ATTRIBUTE_ENTITY_NODE,
                                        internals.BT.VALUE_NODE]
-        return is_type_name_(x, "VRT")
+        return False
     else:
         if isinstance(x, DelegateRef):
             x_vrt = x.item
@@ -357,16 +376,16 @@ def ET_ctor(self, *args, **kwargs):
             return input
         if isinstance(input, EntityRef):
             return input.d["type"]
-        from . import Atom
-        if isinstance(input, Atom):
+        from . import AtomClass
+        if isinstance(input, AtomClass):
             from ..atom import _get_atom_type
             return ET(_get_atom_type(input))
         return ET[internals.ET(input)]
     else:
         names = RAET_get_names(self)
         names = names + args
-        from . import Atom
-        return Atom(RAET_without_names(self), *names, **kwargs)
+        from . import AtomClass
+        return AtomClass(RAET_without_names(self), *names, **kwargs)
     
 # TODO: Move this somewhere
 from ..patching import EntityValueInstance_
@@ -392,8 +411,8 @@ def AET_ctor(self, x):
     else:
         names = RAET_get_names(self)
         names = (x, *names)
-        from . import Atom
-        return Atom(RAET_without_names(self), *names)
+        from . import AtomClass
+        return AtomClass(RAET_without_names(self), *names)
 
 def AET_ctor(self, *args, **kwargs):
     if RAET_get_token(self) is None or isinstance(RAET_get_token(self), AET_QFloat | AET_QInt | AET_Enum):
@@ -403,8 +422,8 @@ def AET_ctor(self, *args, **kwargs):
         if isinstance(input, ValueType) and isinstance(input, AET):
             return input
         if RAET_get_token(self) is None:
-            from . import Atom
-            if isinstance(input, Atom):
+            from . import AtomClass
+            if isinstance(input, AtomClass):
                 from ..atom import _get_atom_type
                 return AET(_get_atom_type(input))
             return AET[internals.AET(input)]
@@ -413,8 +432,8 @@ def AET_ctor(self, *args, **kwargs):
     else:
         names = RAET_get_names(self)
         names = names + args
-        from . import Atom
-        return Atom(RAET_without_names(self), *names, **kwargs)
+        from . import AtomClass
+        return AtomClass(RAET_without_names(self), *names, **kwargs)
 
 AET = make_VT('AET',
               constructor_func=AET_ctor,
@@ -433,16 +452,16 @@ def RT_ctor(self, *args, **kwargs):
         input = args[0]
         if isinstance(input, ValueType) and isinstance(input, RT):
             return input
-        from . import Atom
-        if isinstance(input, Atom):
+        from . import AtomClass
+        if isinstance(input, AtomClass):
             from ..atom import _get_atom_type
             return RT(_get_atom_type(input))
         return RT[internals.RT(input)]
     else:
         names = RAET_get_names(self)
         names = names + args
-        from . import Atom
-        return Atom(RAET_without_names(self), *names, **kwargs)
+        from . import AtomClass
+        return AtomClass(RAET_without_names(self), *names, **kwargs)
 
 RT = make_VT('RT',
              constructor_func=RT_ctor,

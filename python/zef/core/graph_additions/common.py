@@ -74,7 +74,7 @@ def names_of_raet(raet):
     names = (raet
              | match[
                  (PureET | PureRT | PureAET, RAET_get_names),
-                 (Atom, get_all_ids),
+                 (AtomClass, get_all_ids),
              ]
              | map[match[
                  (AllIDs, identity),
@@ -85,7 +85,7 @@ def names_of_raet(raet):
 def bare_raet(raet):
     if isinstance(raet, PureET | PureRT | PureAET):
         return RAET_without_names(raet)
-    elif isinstance(raet, Atom):
+    elif isinstance(raet, AtomClass):
         return rae_type(raet)
     else:
         raise Exception(f"Unknown type in bare_raet: {raet}")
@@ -145,7 +145,7 @@ def make_qf_aet(x):
 def make_qi_aet(x):
     return getattr(AET.QuantityInt, x.unit.enum_value)
 
-def can_assign_to(val, z: Atom):
+def can_assign_to(val, z: AtomClass):
     if not isinstance(z, AttributeEntity):
         return False
     # Special cases
@@ -263,6 +263,8 @@ def force_as_id(x):
             return ouid
     if isinstance(x, AllIDs):
         return x
+    if isinstance(x, FlatRefUID):
+        return x
     return wrap_user_id(x)
 
 
@@ -292,7 +294,8 @@ def find_rae_in_target(global_uid, target):
     if isinstance(target, GraphSlice):
         # TODO: This migth not be good enough, if the gs is not the same as the
         # latest slice on the graph... but then why should it not be that?
-        z_on_graph = get_instance_rae(global_uid, gs)
+        from ..graph_slice import get_instance_rae
+        return get_instance_rae(global_uid, target)
     elif isinstance(target, FlatGraph):
         if global_uid in target:
             return target[global_uid]
@@ -300,3 +303,17 @@ def find_rae_in_target(global_uid, target):
             return None
     else:
         raise Exception(f"Don't understand target: {target}")
+
+
+def find_value_node_in_target(val, glike):
+    # This requires a bit of distinguishing between graphs and flat graphs,
+    # because graphs need to serialize first.
+
+    if isinstance(glike, GraphSlice):
+        s = internals.val_as_serialized_if_necessary(val)
+        return Graph(glike).get_value_node(s)
+    elif isinstance(glike, FlatGraph):
+        if val in glike:
+            return glike[val]
+        return None
+        

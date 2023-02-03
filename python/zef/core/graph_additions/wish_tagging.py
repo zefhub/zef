@@ -82,6 +82,17 @@ def ensure_tag_blob_ptr(obj: BlobPtr, gen_id_state):
     return ensure_tag(obj, gen_id_state)
     # return obj,origin_uid(obj),gen_id_state
 
+def ensure_tag_flatref(obj: FlatRef, gen_id_state):
+    from ..flat_graph import FlatRef_maybe_uid
+    fr_uid = FlatRef_maybe_uid(obj)
+    if isinstance(fr_uid, EternalUID):
+        me = fr_uid
+    else:
+        from ..atom import make_flatref_uid
+        me = make_flatref_uid(obj)
+
+    return obj,me,gen_id_state
+
 def ensure_tag_pass_through(obj, gen_id_state):
     return obj,obj,gen_id_state
 
@@ -91,13 +102,14 @@ def ensure_tag_extra_user_id(obj: ExtraUserAllowedIDs, gen_id_state):
 
 
 tagging_rules = [
-    (Atom, ensure_tag_atom),
+    (AtomClass, ensure_tag_atom),
     (PrimitiveValue, ensure_tag_primitive),
     (AETWithValue, ensure_tag_aet),
     (PureET | PureAET, ensure_tag_pure_et_aet),
     (Delegate, ensure_tag_delegate),
     (PleaseAssign, ensure_tag_assign),
     (RAERef, ensure_tag_rae_ref),
+    (FlatRef, ensure_tag_flatref),
     (BlobPtr, ensure_tag_blob_ptr),
     (OldStyleDict, ensure_tag_OS_dict),
     (WrappedValue, ensure_tag_pass_through),

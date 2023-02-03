@@ -25,12 +25,8 @@ def Atom_is_global_identifier(input):
         return True
     if isinstance(input, DBStateRefUID):
         return True
-    from .flat_graph import FlatRef, FlatRef_maybe_uid
-    if isinstance(input, FlatRef) and FlatRef_maybe_uid(input) is not None:
-        return True
     if isinstance(input, FlatRefUID):
-        if isinstance(input.tag, EternalUID):
-            return True
+        return True
     return False
 
 
@@ -87,8 +83,14 @@ def make_dbstateref_uid(z):
 FlatGraphPlaceholder = UserValueType("FlatGraphPlaceholder", Int, Any)
 FlatRefUID = UserValueType("FlatRefUID",
                            Dict,
-                           Pattern[{"tag": Any,
+                           Pattern[{"idx": Int,
                                     "flatgraph": FlatGraphPlaceholder}])
+
+def make_flatref_uid(fr):
+    from .flat_graph import register_flatgraph
+    h = register_flatgraph(fr.fg)
+    placeholder = FlatGraphPlaceholder(h)
+    return FlatRefUID(idx=fr.idx, flatgraph=placeholder)
 
 # UIDString = String & Where[startswith["㏈-"]]
 UIDString = String & Is[lambda x: x.startswith["㏈-"]]
@@ -97,10 +99,11 @@ AtomIdentity = (
         Optional["global_uid"]: EternalUID,
         Optional["frame_uid"]: DBStateUID,
         Optional["local_names"]: List[~UIDString],
+        Optional["flatref_idx"]: Int,
     }]
     # & Cond[Contains["frame_uid"]][Contains["global_uid"]]
     & Cond[Is[lambda x: "frame_uid" in x]]
-          [Is[lambda x: "global_uid" in x]]
+          [Is[lambda x: "global_uid" in x] | Is[lambda x: "flatref_idx" in x]]
 )
 
 # Yes, the last bit is just List[Any] but it makes more sense for me to write
@@ -162,6 +165,14 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
                     global_uid=parse_global_uid(parts[0]),
                     frame_uid=dbstate_uid,
                 )
+            # Option 3: "㏈-49836587346876342856236478-FG#xxx"
+            elif len(parts) == 2:
+                assert parts[1].startswith("FG#")
+                flatgraph_uid = FlatGraphPlaceholder(int(parts[1][len("FG#"):]))
+                desc = dict(
+                    global_uid=parse_global_uid(parts[0]),
+                    frame_uid=flatgraph_uid,
+                )
             else:
                 raise Exception(f"Not sure how to interpret this kind of identifier! {input}")
         elif isinstance(input, EternalUID):
@@ -176,7 +187,7 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
         elif isinstance(input, FlatRefUID):
             # The global identifier must be given in the FlatRef if we hit this point
             desc = dict(
-                tag=input.tag,
+                flatref_idx=input.idx,
                 frame_uid=input.flatgraph,
             )
         else:
@@ -188,20 +199,20 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
 
     # There could be a FlatGraph in the list when strictly_invertible is used in
     # pretty_atom_identity. This is to be interpreted as the reference frame
-    fgs = others | filter[FlatGraph] | collect
+    fgs = others | filter[FlatGraphPlaceholder] | collect
     if len(fgs) > 0:
         if "frame_uid" in desc:
             raise Exception("Can't have a FlatGraph as a reference frame when the atom already has a reference graph")
         desc["frame_uid"] = single(fgs)
 
-    others = others | filter[~FlatGraph] | collect
+    others = others | filter[~FlatGraphPlaceholder] | collect
 
     if len(others) > 0:
         desc["local_names"] = others
 
     return desc
 
-def pretty_atom_identity(desc: AtomIdentity, strictly_invertible=False):
+def pretty_atom_identity(desc: AtomIdentity):
     from .flat_graph import FlatGraph
 
     assert isinstance(desc, AtomIdentity)
@@ -212,15 +223,14 @@ def pretty_atom_identity(desc: AtomIdentity, strictly_invertible=False):
         if "frame_uid" in desc:
             if isinstance(desc["frame_uid"], DBStateUID):
                 s += f"-{desc['frame_uid'].tx_uid}-{desc['frame_uid'].graph_uid}"
-            elif isinstance(desc["frame_uid"], FlatGraph):
-                if strictly_invertible:
-                    names += [desc["frame_uid"]]
-                else:
-                    s += f"-(flat graph)"
+            elif isinstance(desc["frame_uid"], FlatGraphPlaceholder):
+                s += f"-FG#{desc['frame_uid']._value}"
             else:
                 raise NotImplementedError(f"Unknown type of frame: {desc['frame_uid']}")
 
         names += [s]
+    if "flatref_idx" in desc:
+        names += [FlatRefUID(idx=desc["flatref_idx"], flatgraph=desc["frame_uid"])]
     if "local_names" in desc:
         names += list(desc["local_names"])
 
@@ -261,7 +271,7 @@ class Atom_:
         attrs = ["atom_type", "atom_id", "fields", "ref_pointer"]
         assert all(kwarg in attrs for kwarg in kwargs), "Trying to set an Attribute for Atom that isn't allowed."
 
-        new_atom = Atom()
+        new_atom = Atom_()
         for attr in attrs:
             if attr in kwargs:
                 object.__setattr__(new_atom, attr, kwargs[attr])
@@ -278,7 +288,7 @@ class Atom_:
         # We represent our internal id as a pretty identity so that we can
         # conform to whatever the user is speaking.
         atom_id = object.__getattribute__(self, "atom_id")
-        names = pretty_atom_identity(atom_id, strictly_invertible=True)
+        names = pretty_atom_identity(atom_id)
 
         fields.update(kwargs)
         
@@ -287,7 +297,7 @@ class Atom_:
         from .flat_graph import FlatRef, FlatRef_rae_type, FlatRef_maybe_uid
 
         for arg in args:
-            if is_a(arg, Atom):
+            if is_a(arg, AtomClass):
                 # Take over everything about the other atom
                 other_ref_pointer = object.__getattribute__(arg, "ref_pointer")
                 other_fields = object.__getattribute__(arg, "fields")
@@ -304,7 +314,7 @@ class Atom_:
                 if atom_type is None:
                     atom_type = other_atom_type
 
-                other_names = pretty_atom_identity(other_atom_id, strictly_invertible=True)
+                other_names = pretty_atom_identity(other_atom_id)
                 names = names + other_names
             
             elif is_a(arg, BlobPtr):
@@ -323,11 +333,12 @@ class Atom_:
                 ref_pointer = arg
 
                 from .flat_graph import register_flatgraph
-                placeholder = FlatGraphPlaceholder(register_flatgraph(arg.fg))
+                fr_uid = make_flatref_uid(arg)
                 tag = FlatRef_maybe_uid(arg)
-                fr_name = FlatRefUID(tag=tag, flatgraph=placeholder)
-                names = (fr_name, *names)
-
+                if isinstance(tag, EternalUID):
+                    names = (tag, fr_uid.flatgraph, *names)
+                else:
+                    names = (fr_uid, *names)
                 atom_type = FlatRef_rae_type(arg)
 
             elif is_a(arg, EntityRef | AttributeEntityRef | RelationRef):
@@ -392,28 +403,32 @@ class Atom_:
         return hash_frozen(("Atom_", _get_atom_type(self), _get_ref_pointer(self), _get_atom_id(self), _get_fields(self)))
 
 
-Atom = make_VT('Atom', pytype=Atom_)
+# This means we are really specifically just the atom class, not a generic
+# "atom".
+AtomClass = make_VT('AtomClass', pytype=Atom_)
 
-def _get_atom_type(atom: Atom):
+def _get_atom_type(atom: AtomClass):
     return object.__getattribute__(atom, "atom_type")
-def _get_atom_id(atom: Atom):
+def _get_atom_id(atom: AtomClass):
     return object.__getattribute__(atom, "atom_id")
-def _get_fields(atom: Atom):
+def _get_fields(atom: AtomClass):
     return object.__getattribute__(atom, "fields")
-def _get_ref_pointer(atom: Atom):
+def _get_ref_pointer(atom: AtomClass):
     return object.__getattribute__(atom, "ref_pointer")
 
-def get_most_authorative_id(atom: Atom):
+def get_most_authorative_id(atom: AtomClass):
     atom_id = _get_atom_id(atom)
     if "global_uid" in atom_id:
         return atom_id["global_uid"]
+    if "flatref_idx" in atom_id:
+        return FlatRefUID(idx=atom_id["flatref_idx"], flatgraph=atom_id["frame_uid"])
     if "local_names" in atom_id:
         from ._ops import sort, first, collect
         from .VT.value_type import hash_frozen
         return atom_id["local_names"] | sort[hash_frozen] | first | collect
     return None
 
-def get_all_ids(atom: Atom):
+def get_all_ids(atom: AtomClass):
     atom_id = _get_atom_id(atom)
 
     names = []
@@ -424,7 +439,7 @@ def get_all_ids(atom: Atom):
 
     return tuple(names)
 
-def find_concrete_pointer(atom: Atom):
+def find_concrete_pointer(atom: AtomClass):
     # Find the ZefRef for an atom if we can. If we can't, return None
     z = _get_ref_pointer(atom)
     if z is not None:
@@ -474,7 +489,7 @@ def uid_str_to_uid(uid_str: str) -> UID:
     else:
         raise Exception(f"Unknown type of uid: {uid_str}")
 
-def get_reference_type(atom: Atom) -> str:
+def get_reference_type(atom: AtomClass) -> str:
     atom_id = get_atom_id(atom)
     if "local_names" not in atom_id and "global_uid" not in atom_id:
         return 'unidentified'
@@ -489,21 +504,21 @@ def get_reference_type(atom: Atom) -> str:
 
 def RelationAtom_is_a(x, typ):
     from ._ops import rae_type, is_a
-    return isinstance(x, Atom & Is[rae_type | is_a[RT]])
+    return isinstance(x, AtomClass & Is[rae_type | is_a[RT]])
 RelationAtom = make_VT("RelationAtom", is_a_func=RelationAtom_is_a)
 def EntityAtom_is_a(x, typ):
     from ._ops import rae_type, is_a
-    return isinstance(x, Atom & Is[rae_type | is_a[ET]])
+    return isinstance(x, AtomClass & Is[rae_type | is_a[ET]])
 EntityAtom = make_VT("EntityAtom", is_a_func=EntityAtom_is_a)
 def AttributeEntityAtom_is_a(x, typ):
     from ._ops import rae_type, is_a
-    return isinstance(x, Atom & Is[rae_type | is_a[AET]])
+    return isinstance(x, AtomClass & Is[rae_type | is_a[AET]])
 AttributeEntityAtom = make_VT("AttributeEntityAtom", is_a_func=AttributeEntityAtom_is_a)
 def TXNodeAtom_is_a(x, typ):
     from ._ops import abstract_type, equals
-    return isinstance(x, Atom & Is[abstract_type | equals[BT.TX_EVENT_NODE]])
+    return isinstance(x, AtomClass & Is[abstract_type | equals[BT.TX_EVENT_NODE]])
 TXNodeAtom = make_VT("TXNodeAtom", is_a_func=TXNodeAtom_is_a)
 def RootAtom_is_a(x, typ):
     from ._ops import abstract_type, equals
-    return isinstance(x, Atom & Is[abstract_type | equals[BT.ROOT_NODE]])
+    return isinstance(x, AtomClass & Is[abstract_type | equals[BT.ROOT_NODE]])
 RootAtom = make_VT("RootAtom", is_a_func=RootAtom_is_a)

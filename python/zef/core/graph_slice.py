@@ -37,11 +37,12 @@ class GraphSlice_:
         # ZefRef[TX] -> GraphSlice and EZefRef[TX] -> GraphSlice
         if len(args) == 1:
             z = args[0]
+            from .VT import TX
             if not isinstance(z, TX):
                 raise TypeError(f'When calling the GraphSlice constructor with a single arguments, this has to be a TX. Called with: args={args}')
-            if isinstance(z, Atom):
-                from .atom import get_ref_pointer
-                z = get_ref_pointer(z)
+            if isinstance(z, AtomClass):
+                from .atom import _get_ref_pointer
+                z = _get_ref_pointer(z)
                 if z is None:
                     raise TypeError(f"Atom did not have a BlobPtr contained in it: {args}.")
             self.tx = to_ezefref(z)

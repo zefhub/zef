@@ -125,7 +125,7 @@ def prepare_obj_notation(cmd, gs, context):
                     this_assign_candidates = []
                     for existing_rel in existing_free:
                         existing_target,existing_val = existing_items[existing_rel]
-                        if isinstance(item, Atom):
+                        if isinstance(item, AtomClass):
                             if discard_frame(item) == discard_frame(existing_target):
                                 to_keep += [existing_rel]
                                 existing_free.remove(existing_rel)
@@ -138,7 +138,7 @@ def prepare_obj_notation(cmd, gs, context):
                             if can_assign_to(item, existing_target):
                                 this_assign_candidates += [existing_rel]
                     else:
-                        if isinstance(item, Atom):
+                        if isinstance(item, AtomClass):
                             to_create += [item]
                         else:
                             assign_candidates[item] = this_assign_candidates
@@ -266,7 +266,7 @@ def prepare_interpret(cmd, gs, context):
     return [], cmds + todo, context
 
 preparation_rules = [
-    (Atom, prepare_obj_notation),
+    (AtomClass, prepare_obj_notation),
     (PleaseRun, prepare_please_run),
     (PleaseInstantiate & Is[get["atom"] | is_a[PleaseInstantiateRelation]], prepare_relations),
     (PleaseCommandLevel1, prepare_pass_through),

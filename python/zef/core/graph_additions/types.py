@@ -43,7 +43,6 @@ __all__ = [
     "PureRT",
     "PureAET",
 
-    "ObjectNotation",
     "RelationTriple",
     "PrimitiveValue",
     "WrappedValue",
@@ -58,6 +57,8 @@ __all__ = [
 
     "WishID",
     "WishIDInternal",
+    "InternalIDs",
+    "FlatRefUID",
     "Variable",
     "AllIDs",
     "UserWishID",
@@ -84,6 +85,7 @@ __all__ = [
 from ..VT import *
 from ..VT import make_VT
 from .. import _ops
+from ..atom import FlatRefUID, FlatGraphPlaceholder
 
 def non_zefop_alias(vt, name):
     from ..VT import ValueType_
@@ -102,7 +104,9 @@ Variable = _alias(SymbolicExpression & Is[_ops.get_field["root_node"] | _ops.equ
 # Internal wish ids as used to reference items, but are themselves not returned in the receipt.
 WishIDInternal = UserValueType("WishIDInternal", String)
 
-WishID = _alias(Variable | WishIDInternal,
+InternalIDs = WishIDInternal | FlatRefUID
+
+WishID = _alias(Variable | InternalIDs,
                "WishID")
 
 # This is to allow us potentially switching up the intention of Val in the main
@@ -133,6 +137,7 @@ PrimitiveValue = _alias(PyInt | String | PyFloat | PyBool | Time | Enum | Quanti
 PureET = ValueType & ET
 PureRT = ValueType & RT
 PureAET = ValueType & AET
+
 
 ######################################
 # * Level 1 commands
@@ -253,9 +258,7 @@ PleaseRun = UserValueType("PleaseRun",
                           Dict,
                           Pattern[{"action": LazyValue | ZefOp | ZExpression}])
 
-ObjectNotation = Atom
-
-PleaseCommandLevel2 = _alias(PleaseCommandLevel1 | PleaseRun | ObjectNotation,
+PleaseCommandLevel2 = _alias(PleaseCommandLevel1 | PleaseRun | AtomClass,
                                  "PleaseCommandLevel2")
 Level2CommandInfo = UserValueType("Level2CommandInfo",
                                   Dict,
@@ -287,7 +290,7 @@ def is_relation_triple(x):
     Item = GraphWishInput | UserWishID | EternalUID
     if not isinstance(x[0], Item):
         return False
-    if not isinstance(x[1], PureRT | (Atom & Relation)):
+    if not isinstance(x[1], PureRT | RelationAtom):
         return False
     if not isinstance(x[2], Item):
         return False

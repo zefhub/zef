@@ -42,7 +42,7 @@ def generate_level2_commands(inputs: List[GraphWishInput], rules: List[Tuple[Val
 
     output_cmds = []
     context = {
-        "gen_id_state": generate_initial_state("lvl2")
+        "gen_id_state": generate_initial_state("lvl2"),
     }
 
     todo = list(inputs)
@@ -199,7 +199,7 @@ def lvl2cmds_for_lazyvalue(input: LazyValue, context: Lvl2Context):
 
     lvl2cmds = []
     further_cmds = []
-    if isinstance(input.initial_val, Atom | Variable):
+    if isinstance(input.initial_val, AtomClass | Variable):
         obj = input.initial_val
         gen_id_state = context["gen_id_state"]
         final_state = evaluate_chain(obj, input.el_ops, gen_id_state)
@@ -252,6 +252,9 @@ def lvl2cmds_for_rae(input: RAE, context: Lvl2Context):
     else:
         raise Exception("Shouldn't get here")
 
+def lvl2cmds_for_flatref(input: FlatRef, context: Lvl2Context):
+    return [], [Atom(input)], context
+
 @func
 def lvl2cmds_for_se(input, context):
     # Note: this should not hit Variables as they will be handled in AllIDs before this
@@ -261,13 +264,23 @@ def lvl2cmds_for_se(input, context):
     new_input = cast_symbolic_expression_as_lazyvalue(input)
     return [], [new_input], context
         
+
+def discard_unnecessary_frame(x):
+    # This function exists solely to handle Atoms with FlatRefs in them. The
+    # problem with these is the presence of the FlatGraph is necessary to
+    # uniquely identify them. Other Atoms can have that aspect removed.
+    authority = get_most_authorative_id(x)
+    if isinstance(authority, FlatRefUID):
+        return x
+    return discard_frame(x)
+        
 @func
 def lvl2cmds_for_atom(atom, context):
-    if isinstance(atom, Entity | TX | Root):
-        return [discard_frame(atom)], [], context
-
     if isinstance(rae_type(atom), Nil):
         return [atom], [], context
+
+    if isinstance(atom, Entity | TX | Root):
+        return [discard_unnecessary_frame(atom)], [], context
 
     if isinstance(atom, Relation):
         # We need to ensure the relation source/target is also included.
@@ -283,21 +296,18 @@ def lvl2cmds_for_atom(atom, context):
             # Good enough, source/target should be defined elsewhere
             return [atom], [], context
 
-        if isinstance(authorative_id, EternalUID):
-            # This means the atom should have a source/target. Let's find them
-            # from the atom internals.
+        # This means the atom should have a source/target. Let's find them
+        # from the atom internals.
 
-            z = find_concrete_pointer(atom)
-            if z is None:
-                raise Exception("Can't determine relation source/target because we can't load a concrete ZefRef for this Atom")
+        z = find_concrete_pointer(atom)
+        if z is None:
+            raise Exception("Can't determine relation source/target because we can't load a concrete ZefRef for this Atom")
 
-            src = Atom(source(z))
-            trg = Atom(target(z))
-            plain_rt = rae_type(atom)[authorative_id]
+        src = Atom(source(z))
+        trg = Atom(target(z))
+        plain_rt = rae_type(atom)[authorative_id]
 
-            return [discard_frame(atom)], [(src, plain_rt, trg)], context
-
-        raise Exception("Huh?")
+        return [discard_unnecessary_frame(atom)], [(src, plain_rt, trg)], context
 
     if isinstance(atom, AttributeEntity):
         # We need to ensure the value is also included, if the reference frame is accessible.
@@ -312,23 +322,20 @@ def lvl2cmds_for_atom(atom, context):
             # Good enough, value might be defined elsewhere
             return [atom], [], context
 
-        if isinstance(authorative_id, EternalUID):
-            from ..atom import _get_atom_id
-            atom_id = _get_atom_id(atom)
-            if "frame_uid" in atom_id:
-                z = find_concrete_pointer(atom)
-                if z is None:
-                    raise Exception("Can't determine value of AttributeEntity as frame is not loaded")
-                val = value(z)
-                if val is not None:
-                    cmds = [PleaseAssign(target=uid(ezr), value=Val(val))]
-                else:
-                    cmds = []
-                return [discard_frame(atom)], cmds, context
+        from ..atom import _get_atom_id
+        atom_id = _get_atom_id(atom)
+        if "frame_uid" in atom_id:
+            z = find_concrete_pointer(atom)
+            if z is None:
+                raise Exception("Can't determine value of AttributeEntity as frame is not loaded")
+            val = value(z)
+            if val is not None:
+                cmds = [PleaseAssign(target=uid(ezr), value=Val(val))]
             else:
-                return [atom], [], context
-
-        raise Exception("Huh?")
+                cmds = []
+            return [discard_unnecessary_frame(atom)], cmds, context
+        else:
+            return [atom], [], context
 
     raise Exception(f"Shouldn't get here: {atom}")
 
@@ -376,14 +383,15 @@ default_interpretation_rules = [
     (LazyValue, lvl2cmds_for_lazyvalue),
     (SymbolicExpression, lvl2cmds_for_se),
     # (ObjectNotation, pass_through),
-    (ObjectNotation, lvl2cmds_for_atom),
+    (AtomClass, lvl2cmds_for_atom),
     (PleaseCommandLevel1, pass_through),
     # (PleaseCommandLevel2, not_implemented_error["TODO"]),
     (PleaseCommandLevel2, pass_through),
     (PureET|PureAET, lvl2cmds_for_ETorAET),
     (RelationTriple, lvl2cmds_for_relation_triple),
     (AETWithValue, lvl2cmds_for_aet_with_value),
-    (RAE, lvl2cmds_for_rae),
+    (RAERef | RAEConcrete, lvl2cmds_for_rae),
+    (FlatRef, lvl2cmds_for_flatref),
     # Things not in base version
     (OldStyleDict, OS_lvl2cmds_for_dict),
     (OldStyleRelationTriple, OS_lvl2cmds_for_relation_triple),

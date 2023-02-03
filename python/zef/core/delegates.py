@@ -18,44 +18,63 @@ from . import internals
 from ..pyzef import zefops as pyzefops
 
 def to_delegate_imp(first_arg, *curried_args):
+    from .flat_graph import FlatGraph, FlatRef
     # TODO: Break this up and document
 
     if isinstance(first_arg, DelegateRef):
         if len(curried_args) == 0:
             return first_arg
-        if isinstance(curried_args[0], Graph):
-            g = curried_args[0]
+        if isinstance(curried_args[0], Graph | FlatGraph):
+            glike = curried_args[0]
         else:
             assert isinstance(curried_args[0], GraphSlice)
-            g = Graph(curried_args[0])
-        if len(curried_args) == 1:
-            d_ezr = internals.delegate_to_ezr(first_arg, g, False, 0)
-        elif len(curried_args) == 2:
-            d_ezr = internals.delegate_to_ezr(first_arg, g, curried_args[1], 0)
+            glike = Graph(curried_args[0])
+
+        if isinstance(glike, Graph):
+            if len(curried_args) == 1:
+                d_ezr = internals.delegate_to_ezr(first_arg, glike, False, 0)
+            elif len(curried_args) == 2:
+                d_ezr = internals.delegate_to_ezr(first_arg, glike, curried_args[1], 0)
+            else:
+                raise Exception("Too many args for to_delegate with a Delegate")
+        elif isinstance(glike, FlatGraph):
+            if len(curried_args) == 1:
+                pass
+            elif len(curried_args) == 2:
+                if curried_args[1]:
+                    raise Exception("Can't create a delegate automatically on a FlatGraph")
+            else:
+                raise Exception("Too many args for to_delegate with a Delegate")
+            if first_arg in glike:
+                d_ezr = glike[first_arg]
+            else:
+                d_ezr = None
         else:
-            raise Exception("Too many args for to_delegate with a Delegate")
+            raise Exception("Shouldn't get here")
 
         if d_ezr is None:
             return None
-        elif isinstance(curried_args[0], Graph):
-            return d_ezr
-        else:
+        elif isinstance(curried_args[0], GraphSlice):
             from ._ops import to_frame, exists_at
             if not exists_at(d_ezr, curried_args[0]):
                 raise Exception("Delegate does not exist at given graph slice.")
             return to_frame(d_ezr, curried_args[0])
+        else:
+            return d_ezr
 
     from .op_implementations.implementation_typing_functions import check_Atom_with_ref
     from .atom import _get_ref_pointer
     if check_Atom_with_ref(first_arg):
         # TODO: Lots of fixups needed - reconsider the whole thing carefully
         out = to_delegate_imp(_get_ref_pointer(first_arg), *curried_args)
-        if isinstance(out, BlobPtr):
+        if isinstance(out, BlobPtr | FlatRef):
             return Atom(out)
         return out
     if isinstance(first_arg, BlobPtr):
         assert len(curried_args) == 0
         return internals.ezr_to_delegate(first_arg)
+    if isinstance(first_arg, FlatRef):
+        raise NotImplementedError("TODO")
 
     raise Exception(f"Unknown type for to_delegate: {type(first_arg)}. Maybe you meant to write delegate_of?")
 

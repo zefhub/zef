@@ -21,7 +21,7 @@ from .common import *
 
 SetFieldAction = LazyValue[Any][ZefOp[set_field]]
 # TODO: More stuff here
-SetFieldActionValid = LazyValue[Atom | AllIDs][ZefOp[set_field]]
+SetFieldActionValid = LazyValue[AtomClass | AllIDs][ZefOp[set_field]]
 
 ##########################################
 # * Level 1 generation
@@ -106,7 +106,7 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
             add_must_live_cmds(source(src_or_trg))
             add_must_live_cmds(target(src_or_trg))
             id = origin_uid(src_or_trg)
-        elif isinstance(src_or_trg, Atom):
+        elif isinstance(src_or_trg, AtomClass):
             id = origin_uid(src_or_trg)
         elif isinstance(src_or_trg, EternalUID):
             id = src_or_trg

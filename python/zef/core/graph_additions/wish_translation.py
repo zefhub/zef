@@ -125,7 +125,7 @@ def cmds_for_instantiate(cmd: PleaseInstantiate, gs: GraphSlice, context: CmdDis
             if cmd.origin_uid in gs:
                 maybe_ezr = gs[cmd.origin_uid]
         elif isinstance(cmd.atom, PleaseInstantiateValueNode):
-            maybe_ezr = Graph(gs).get_value_node(cmd.atom)
+            maybe_ezr = find_value_node_in_target(cmd.atom, gs)
         elif isinstance(cmd.atom, PleaseInstantiateDelegate):
             maybe_ezr = delegate_of(cmd.atom, g, False)
         else:

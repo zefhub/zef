@@ -56,7 +56,7 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
             return find_euid(id)
         elif isinstance(id, AtomRef):
             return find_euid(origin_uid(id))
-        elif isinstance(id, WishIDInternal):
+        elif isinstance(id, InternalIDs):
             return internal_mapping[id]
         elif isinstance(id, WrappedValue | DelegateRef):
             if id in internal_mapping:
@@ -69,7 +69,7 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
 
     def record_id(id: AllIDs, z: ZefRef):
         # print("record_id", id, z)
-        if isinstance(id, WishIDInternal | WrappedValue | DelegateRef):
+        if isinstance(id, InternalIDs | WrappedValue | DelegateRef):
             internal_mapping[id] = z
         elif isinstance(id, Variable):
             receipt[id] = Atom(z)

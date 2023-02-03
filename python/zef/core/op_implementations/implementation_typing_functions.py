@@ -57,7 +57,7 @@ def parse_input_type(input_type: ValueType_) -> str:
     return "tools"
 
 def check_Atom_with_ref(x):
-    if not isinstance(x, Atom):
+    if not isinstance(x, AtomClass):
         return False
     if _get_ref_pointer(x) is None:
         raise Exception("Can't handle an Atom without a reference included.")
@@ -68,9 +68,9 @@ def Atom_unpack_and_rewrap(func, is_list=False):
         z = _get_ref_pointer(x)
         out = func(z, *args, **kwargs)
         if is_list:
-            return type(out)(Atom(x) for x in out)
+            return type(out)(AtomClass(x) for x in out)
         else:
-            return Atom(out)
+            return AtomClass(out)
     return Atom_unpack_and_rewrap_inner
 
 @func 
@@ -664,7 +664,7 @@ def prepend_imp(v, item, *additional_items):
     if isinstance(v, list):
         return [item, *v]
     elif isinstance(v, ZEF_List_Type):
-        if isinstance(v, Atom): v = _get_ref_pointer(v)
+        if isinstance(v, AtomClass): v = _get_ref_pointer(v)
         """
         args must be existing RAEs on the graph
         """
@@ -753,7 +753,7 @@ def append_imp(v, item, *additional_items):
     elif isinstance(v, tuple):
         return (*v, item)
     elif isinstance(v, ZEF_List_Type):
-        if isinstance(v, Atom): v = _get_ref_pointer(v)
+        if isinstance(v, AtomClass): v = _get_ref_pointer(v)
 
         """
         args must be existing RAEs on the graph
@@ -2518,6 +2518,11 @@ def absorbed_imp(x):
     elif isinstance(x, ValueType):
         return x._d['absorbed']
 
+    elif isinstance(x, DelegateRef):
+        if hasattr(x, "_absorbed"):
+            return x._absorbed
+        return ()
+
     else:
         return Error(f'absorbed called on type(x)={type(x)}   x={x}')
 
@@ -3804,7 +3809,7 @@ def first_imp(iterable):
     List[T] -> Union[T, Error]
     """
     if isinstance(iterable, ZEF_List_Type):
-        if isinstance(iterable, Atom):  iterable = _get_ref_pointer(iterable)
+        if isinstance(iterable, AtomClass):  iterable = _get_ref_pointer(iterable)
         return iterable | all | first | collect
 
 
@@ -3843,7 +3848,7 @@ def second_imp(iterable):
     List[T] -> Union[T, Error]
     """
     if isinstance(iterable, ZEF_List_Type):
-        if isinstance(iterable, Atom):  iterable = _get_ref_pointer(iterable)
+        if isinstance(iterable, AtomClass):  iterable = _get_ref_pointer(iterable)
         return iterable | all | second | collect
 
     it = iter(iterable)
@@ -3882,7 +3887,7 @@ def last_imp(iterable):
     List[T] -> Union[T, Error]
     """
     if isinstance(iterable, ZEF_List_Type):
-        if isinstance(iterable, Atom):  iterable = _get_ref_pointer(iterable)
+        if isinstance(iterable, AtomClass):  iterable = _get_ref_pointer(iterable)
         return iterable | all | last | collect
 
     input_type = parse_input_type(type_spec(iterable))
@@ -5193,13 +5198,21 @@ def discard_frame_imp(x):
     """
     if isinstance(x, AtomRef):
         return x
-    if isinstance(x, Atom):
+    if isinstance(x, AtomClass):
         atom_id = _get_atom_id(x)
         if "frame_uid" in atom_id:
-            atom_id = atom_id | without[["frame_uid"]] | collect
+            if "global_uid" in atom_id:
+                atom_id = atom_id | without[["frame_uid"]] | collect
+            elif "flatref_idx" in atom_id:
+                atom_id = {key: val for (key,val) in atom_id.items() if key not in ["flatref_idx", "frame_uid"]}
+                return Atom.__replace__(atom_id=atom_id)
+            else:
+                raise Exception("Shouldn't get here")
         ref_pointer = _get_ref_pointer(x)
-        if ref_pointer is not None:
+        if ref_pointer is ZefRef:
             ref_pointer = to_ezefref(ref_pointer)
+        elif ref_pointer is FlatRef:
+            ref_pointer = None
         x =  x.__replace__(atom_id=atom_id, ref_pointer=ref_pointer)
         return x
     if isinstance(x, BlobPtr):
@@ -5212,6 +5225,13 @@ def discard_frame_imp(x):
         raise Exception("Not a ZefRef that is a concrete RAE")
     if is_a_implementation(x, Delegate):
         return x
+    if is_a_implementation(x, FlatRef):
+        from ..flat_graph import FlatRef_maybe_uid
+        out = FlatRef_maybe_uid(x)
+        if isinstance(out, EternalUID):
+            return Atom(rae_type(x), out)
+        else:
+            raise Exception("FlatRef does not have a unique id to be represented away from its FlatGraph")
     raise TypeError(f"'discard_frame' not implemented for type {type(x)}: it was passed {x}")
 
 
@@ -5404,8 +5424,14 @@ def origin_uid_imp(z) -> EternalUID:
     """used in constructing GraphDelta, could be useful elsewhere"""
     if isinstance(z, AtomRef):
         return uid(z)
-    if isinstance(z, Atom):
+    if isinstance(z, AtomClass):
         return uid(discard_frame(z))
+    if isinstance(z, FlatRef):
+        from ..flat_graph import FlatRef_maybe_uid
+        temp = FlatRef_maybe_uid(z)
+        if not isinstance(temp, EternalUID):
+            raise Exception("This FlatRef has no uid")
+        return temp
     assert BT(z) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
         return uid(to_ezefref(z))
@@ -5767,7 +5793,7 @@ def nth_implementation(iterable, n):
         raise TypeError(f"`nth` was called on a dict, but is only supported for Lists")
 
     if isinstance(iterable, ZEF_List_Type):
-        if isinstance(iterable, Atom):  iterable = _get_ref_pointer(iterable)
+        if isinstance(iterable, AtomClass):  iterable = _get_ref_pointer(iterable)
         return iterable | all | nth[n] | collect
         
     if isinstance(iterable, list) or isinstance(iterable, tuple) or isinstance(iterable, String):
@@ -6481,7 +6507,7 @@ def uid_implementation(arg):
         return arg.d["uid"]
     if is_a(arg, UID):
         return arg
-    if isinstance(arg, Atom):
+    if isinstance(arg, AtomClass):
         # This is so messy! We have to look for uids in each of the names of the
         # atom. If we don't find any, we can fall back to the included ref
         # pointer.
@@ -6524,7 +6550,7 @@ def zef_id_imp(x):
             return zef_id_imp(to_delegate(x))
         elif internals.has_uid(to_ezefref(x)):
             return uid(x)
-    elif isinstance(x, Atom) and _get_ref_pointer(x) is not None:
+    elif isinstance(x, AtomClass) and _get_ref_pointer(x) is not None:
         return zef_id_imp(_get_ref_pointer(x))
     elif isinstance(x, AtomRef):
         return origin_uid(x)
@@ -6722,7 +6748,7 @@ def relations_implementation(z1, *args):
         return pyzefops.relations(z1, internals.get_c_token(rt), z2)
 
 def rae_type_implementation(z):
-    if isinstance(z, Atom):
+    if isinstance(z, AtomClass):
         return _get_atom_type(z)
 
     if isinstance(z, RAERef):
@@ -6943,7 +6969,7 @@ def terminate_implementation(z, *args):
     # assert len(args) <= 1
     # internal_id = args[0] if len(args) == 1 else None
     assert len(args) == 0
-    if isinstance(z, Atom):
+    if isinstance(z, AtomClass):
         z = origin_uid(z)
     if isinstance(z, BlobPtr):
         z = origin_uid(z)
@@ -8507,10 +8533,10 @@ def to_zef_list_imp(elements: list):
             raise Exception(f"Need to implement code for type {rae}")
         return names[0] if names else None
 
-    all_zef = elements | map[lambda v: isinstance(v, BlobPtr) or (isinstance(v, Atom) and _get_ref_pointer(v) is not None)] | all | collect
+    all_zef = elements | map[lambda v: isinstance(v, BlobPtr) or (isinstance(v, AtomClass) and _get_ref_pointer(v) is not None)] | all | collect
     if not all_zef: return Error("to_zef_list only takes ZefRef or EZefRef.")
     # Convert all Atom to ZefRef
-    elements = elements | map[match[(Atom, _get_ref_pointer), (Any, identity)]] | collect
+    elements = elements | map[match[(AtomClass, _get_ref_pointer), (Any, identity)]] | collect
     is_any_terminated = elements | map[preceding_events[Terminated]] | filter[lambda x: x is None] | length | greater_than[0] | collect 
     if is_any_terminated: return Error("Cannot create a Zef List Element from a terminated ZefRef")
     rels_to_els = (elements 
@@ -9033,7 +9059,7 @@ def fields_imp(z, rt):
     if isinstance(z, list) or isinstance(z, tuple):
         return [fields(zz, rt) for zz in z]
 
-    if isinstance(z, Atom):
+    if isinstance(z, AtomClass):
         # Fields overrides the ref if it is there
         atom_fields = _get_fields(z)
         if token_name(rt) in atom_fields:

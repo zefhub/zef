@@ -84,8 +84,7 @@ def cull_instantiate(cmd: PleaseInstantiate, gs):
         from ..graph_slice import get_instance_rae
         maybe_ezr = find_rae_in_target(cmd.origin_uid, gs)
     elif isinstance(cmd.atom, PleaseInstantiateValueNode):
-        val = internals.val_as_serialized_if_necessary(cmd.atom)
-        maybe_ezr = Graph(gs).get_value_node(val)
+        maybe_ezr = find_value_node_in_target(cmd.atom, gs)
     elif isinstance(cmd.atom, PleaseInstantiateDelegate):
         maybe_ezr = to_delegate(cmd.atom, gs, False)
 

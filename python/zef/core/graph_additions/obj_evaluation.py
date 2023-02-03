@@ -66,7 +66,7 @@ def apply_assign(op, state):
     gen_id_state = state["gen_id_state"]
     new_cmds = []
 
-    if isinstance(state["obj"], Atom):
+    if isinstance(state["obj"], AtomClass):
         # assert isinstance(state["focused_field"], RT)
         if state["focused_field"] is None:
             assert isinstance(state["obj"], AttributeEntityAtom)
@@ -93,7 +93,7 @@ def apply_assign(op, state):
 def apply_set_field(op, state):
     set_target = state["obj"]
 
-    if not isinstance(set_target, Atom):
+    if not isinstance(set_target, AtomClass):
         set_target = Atom(set_target)
 
     rt,val = absorbed(op)
@@ -106,7 +106,7 @@ def apply_terminate(op, state):
     if len(absorbed(op)) > 0:
         raise Exception(f"Terminate should take no additional arguments: {absorbed(op)}.")
     obj = state["obj"]
-    if not isinstance(obj, Atom):
+    if not isinstance(obj, AtomClass):
         raise Exception("Terminate can't understand anything other than an Atom")
     from ..atom import _get_fields
     assert len(_get_fields(obj)) == 0

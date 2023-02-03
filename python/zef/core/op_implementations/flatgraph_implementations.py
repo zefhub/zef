@@ -48,6 +48,8 @@ def fg_insert_imp(fg, new_el):
         elif isinstance(rae, ValueType):
             from ...core.VT.helpers import names_of
             names = names_of(rae)
+        elif isinstance(rae, DelegateRef):
+            names = absorbed(rae)
         else:
             raise Exception(f"Need to implement code for type {rae}")
         return names[0] if names else None
@@ -82,7 +84,7 @@ def fg_insert_imp(fg, new_el):
             idx = next_idx()
             new_blobs.append((idx, aet, [], None, new_el))
 
-        elif isinstance(new_el, Atom_):
+        elif isinstance(new_el, AtomClass):
             from ..atom import _get_atom_type, get_most_authorative_id, _get_ref_pointer
             if is_a(new_el, Relation):
                 # TODO Make this part work with unwrapping an Atom pointing to an RT
@@ -273,7 +275,7 @@ def fg_insert_imp(fg, new_el):
    
 
     def _insert_single(new_el):
-        if is_a(new_el, (EntityRef, AttributeEntityRef, ZefOp, PleaseAssign, BlobPtr, *shorthand_scalar_types, Val, Delegate, ET, AET, Atom)):
+        if is_a(new_el, (EntityRef, AttributeEntityRef, ZefOp, PleaseAssign, BlobPtr, *shorthand_scalar_types, Val, Delegate, ET, AET, AtomClass)):
             common_logic(new_el)
         elif is_a(new_el, tuple) and len(new_el) == 3:
             src, rt, trgt = new_el

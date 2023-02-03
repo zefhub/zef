@@ -73,14 +73,14 @@ from . import _bytes
 # Up to here, DEFINITELY no zefops can be called
 from . import atom
 from . import abstract_raes
-from . import rae_type_definitions
 from . import graph_slice
 from . import delegates
+from . import flat_graph
+from . import rae_type_definitions
 from . import op_structs
 from . import _ops
 from . import zef_functions
 from . import graph_delta
-from . import flat_graph
 from . import fx
 from . import serialization
 from . import graph_events
