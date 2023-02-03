@@ -677,7 +677,7 @@ def idx_generator(n):
 
 
 def fg_transaction_implementation(cmds, fg):
-    from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal
+    from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal, Val
 
     def _add_internal_id(internal_ids, idx):
         # TODO: What to do with multiple internal_ids?
@@ -755,6 +755,15 @@ def fg_transaction_implementation(cmds, fg):
                 if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
                 if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
                 _add_internal_id(internal_ids, idx)
+
+            elif is_a(atom, Val):
+                atom = atom.arg
+                hash_vn = value_hash(atom)
+                if hash_vn not in new_key_dict:
+                    idx = next_idx()
+                    new_key_dict[hash_vn] = idx
+                    new_blobs.append((idx, BT.VALUE_NODE, [], atom))  
+                idx = new_key_dict[hash_vn]
 
             else:
                 raise NotImplementedError(f"Can't handle PleaseInstaniate for {atom}")
