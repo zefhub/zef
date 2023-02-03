@@ -212,7 +212,10 @@ def lvl2cmds_for_lazyvalue(input: LazyValue, context: Lvl2Context):
                 raise Exception("lvl2cmds is getting stuck in infinite loop when evaluating LazyValue")
             further_cmds += [final_state["obj"]]
     elif isinstance(input.initial_val, BlobPtr):
-        # TODO: Probably just convert to ref and go with that
+        obj = Atom(input.initial_val)
+        new_lv = obj | input.el_ops
+        further_cmds += [new_lv]
+    elif isinstance(input.initial_val, FlatRef):
         obj = Atom(input.initial_val)
         new_lv = obj | input.el_ops
         further_cmds += [new_lv]
