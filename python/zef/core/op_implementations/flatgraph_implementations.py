@@ -643,3 +643,139 @@ def fg_merge_imp(fg1, fg2 = None):
     new_fg.blobs = blobs
     new_fg.key_dict = k_dict
     return new_fg
+
+
+
+# ------------------------------FlatGraph GraphWish Syntax----------------------------------
+def without_names(raet):
+    if isinstance(raet, ValueType):
+        from ...core.VT.helpers import remove_names, absorbed
+        abs = remove_names(absorbed(raet))
+        return raet._replace(absorbed=abs)
+    else:
+        return raet
+
+def internal_name(rae):
+    if isinstance(rae, RAERef):
+        names = absorbed(rae)
+    elif isinstance(rae, ValueType):
+        from zef.core.VT.helpers import names_of
+        names = names_of(rae)
+    else:
+        raise Exception(f"Need to implement code for type {rae}")
+    return names[0] if names else None
+
+def inner_zefop_type(zefop, rt):
+    return peel(zefop)[0][0] == rt
+
+def idx_generator(n):
+    def next_idx():
+        nonlocal n
+        n = n + 1
+        return n
+    return next_idx
+
+
+def fg_transaction_implementation(cmds, fg):
+    from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal
+
+    def _add_internal_id(internal_ids, idx):
+        # TODO: What to do with multiple internal_ids?
+        internal_name = internal_ids[0] if internal_ids else None
+        if internal_name is not None:
+            if is_a(internal_name, WishIDInternal): 
+                _wish_ids[internal_name] = idx
+            else:
+                new_key_dict[internal_name] = idx
+    
+    def _extract_idx_from_id(id):
+        if is_a(id, WishIDInternal): 
+            assert id in _wish_ids, "Internal wish id not found in _wish_ids"
+            return _wish_ids[id]
+        else:
+            assert id in new_key_dict, "Internal id not found in new_key_dict"
+            return new_key_dict[id]
+
+    assert is_a(fg, FlatGraph)
+    new_fg = FlatGraph()
+    new_blobs = [*fg.blobs]
+    new_key_dict =  {**fg.key_dict}
+    _wish_ids = {}
+    next_idx = idx_generator(length(fg.blobs) - 1)
+
+    
+    def _insert_cmd(cmd):
+        nonlocal new_blobs, new_key_dict
+
+        if isinstance(cmd, PleaseInstantiate):
+            atom = cmd['atom']
+            _origin_uid = cmd._value.get('origin_uid', None)
+            internal_ids = cmd._value.get('internal_ids', None)
+
+            if is_a(atom, ET):
+                
+                if _origin_uid:
+
+                    if _origin_uid not in new_key_dict:
+                        idx = next_idx()
+                        new_blobs.append((idx, atom, [], _origin_uid))
+                        new_key_dict[_origin_uid] = idx
+                    else:
+                        idx = new_key_dict[_origin_uid]
+
+                else:
+                    idx = next_idx()
+                    new_blobs.append((idx, atom, [], None))
+                    _add_internal_id(internal_ids, idx)
+            
+            elif is_a(atom, AET):
+
+                if _origin_uid:
+
+                    if _origin_uid not in new_key_dict:
+                        idx = next_idx()
+                        new_blobs.append((idx, atom, [], _origin_uid, None))
+                        new_key_dict[_origin_uid] = idx
+                    else:
+                        idx = new_key_dict[_origin_uid]
+
+                else:
+                    idx = next_idx()
+                    new_blobs.append((idx, atom, [], None, None))
+                    _add_internal_id(internal_ids, idx)
+            
+            elif is_a(atom, dict) and atom.get("rt", None):
+                rt = atom["rt"]
+                
+                src_idx = _extract_idx_from_id(atom['source'])
+                trgt_idx = _extract_idx_from_id(atom['target'])
+                idx = next_idx()
+
+                new_blobs.append((idx, rt, [], None, src_idx, trgt_idx))
+                if idx not in new_blobs[src_idx][2]: new_blobs[src_idx][2].append(idx)
+                if idx not in new_blobs[trgt_idx][2]: new_blobs[trgt_idx][2].append(-idx)
+                _add_internal_id(internal_ids, idx)
+
+            else:
+                raise NotImplementedError(f"Can't handle PleaseInstaniate for {atom}")
+
+        elif isinstance(cmd, PleaseAssign):
+            target_internal_id = cmd['target']
+            _value = cmd['value']
+
+            if target_internal_id in _wish_ids:
+                idx = _wish_ids[target_internal_id]
+            else:
+                idx = new_key_dict[target_internal_id]
+            
+            new_blobs[idx] = (*new_blobs[idx][:4], _value.arg) # TODO do we care about iid for _value?
+
+        else:
+            raise NotImplementedError(f"Can't handle {cmd} for FlatGraph") 
+        
+    for cmd in cmds:  _insert_cmd(cmd)
+        
+    new_fg.key_dict = new_key_dict
+    new_fg.blobs = (*new_blobs,)
+
+    return new_fg
