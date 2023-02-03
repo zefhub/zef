@@ -38,7 +38,7 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
     # The receipt is for items that are returned to the wisher
     receipt: GraphWishReceipt = {}
     # The mapping is a way for us to keep track of items created internally
-    internal_mapping: Dict[WishIDInternal | WrappedValue | DelegateRef][ZefRef] = {}
+    internal_mapping: Dict[InternalIDs | WrappedValue | DelegateRef][ZefRef] = {}
 
     # Optimised euid lookup, instead of looking up using full lineage system all the time
     euid_mapping: Dict[EternalUID][ZefRef] = {}
@@ -165,18 +165,6 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
         receipt.update(internal_mapping)
 
     # We undo any non-variable user ids based upon their included value
-    receipt = (receipt
-               | items
-               | map[match[
-                   (Is[first | is_a[Variable]] & Is[first
-                                                    | get_field["name"]
-                                                    | is_a[OriginallyUserID]],
-                    apply[first
-                          | get_field["name"]
-                          | get_field["obj"], second]),
-                   (Any, identity)
-               ]]
-               | func[dict]
-               | collect)
+    receipt = maybe_unwrap_variables_in_receipt(receipt)
      
     return receipt

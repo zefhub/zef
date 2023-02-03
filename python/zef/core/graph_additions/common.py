@@ -46,6 +46,24 @@ class OriginallyUserID:
     def __repr__(self):
         return f"was:{self.obj}"
 
+@func
+def maybe_unwrap_variable(x):
+    return LazyValue(x) | match[
+        (Variable & Is[get_field["name"]
+            | is_a[OriginallyUserID]],
+         get_field["name"]
+               | get_field["obj"]),
+        (Any, identity)
+    ] | collect
+
+def maybe_unwrap_variables_in_receipt(receipt):
+    return (receipt
+               | items
+               | map[apply[first | maybe_unwrap_variable,
+                           second]]
+               | func[dict]
+               | collect)
+
 def wrap_user_id(thing):
     if isinstance(thing, ExtraUserAllowedIDs):
         return convert_extra_allowed_id(thing)
