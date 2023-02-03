@@ -104,7 +104,7 @@ def make_column(column):
 def make_columns(g, entity_type):
    # TODO Add sorting of columns
    z = delegate_of(entity_type, g)
-   connected_rels = z | out_rels[RT] | map[rae_type] | collect
+   connected_rels = set(z | out_rels[RT] | map[rae_type] | collect)
    return connected_rels, connected_rels | map[make_column] | collect
 
 def make_table_return(g, entity_type, entities):
