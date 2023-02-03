@@ -661,6 +661,8 @@ def internal_name(rae):
     elif isinstance(rae, ValueType):
         from zef.core.VT.helpers import names_of
         names = names_of(rae)
+    elif isinstance(rae, DelegateRef):
+        names = absorbed(rae)
     else:
         raise Exception(f"Need to implement code for type {rae}")
     return names[0] if names else None
@@ -677,7 +679,7 @@ def idx_generator(n):
 
 
 def fg_transaction_implementation(cmds, fg):
-    from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal, Val
+    from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal, Val, Delegate
 
     def _add_internal_id(internal_ids, idx):
         # TODO: What to do with multiple internal_ids?
@@ -712,7 +714,18 @@ def fg_transaction_implementation(cmds, fg):
             _origin_uid = cmd._value.get('origin_uid', None)
             internal_ids = cmd._value.get('internal_ids', None)
 
-            if is_a(atom, ET):
+            if is_a(atom, Delegate):
+                internal_id = internal_name(atom)
+                atom = without_names(atom)
+                if atom in new_key_dict:
+                    idx = new_key_dict[atom]
+                else:
+                    idx = next_idx()
+                    if internal_id: new_key_dict[internal_id] = idx
+                    new_key_dict[atom] = idx
+                    new_blobs.append((idx, atom, [], None))
+
+            elif is_a(atom, ET):
                 
                 if _origin_uid:
 
