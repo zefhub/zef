@@ -27,7 +27,7 @@ def to_delegate_imp(first_arg, *curried_args):
         if isinstance(curried_args[0], Graph | FlatGraph):
             glike = curried_args[0]
         else:
-            assert isinstance(curried_args[0], GraphSlice)
+            assert isinstance(curried_args[0], GraphSlice), f"{curried_args[0]} is not a GraphSlice"
             glike = Graph(curried_args[0])
 
         if isinstance(glike, Graph):
