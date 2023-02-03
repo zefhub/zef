@@ -647,11 +647,10 @@ def fg_merge_imp(fg1, fg2 = None):
 
 
 # ------------------------------FlatGraph GraphWish Syntax----------------------------------
-def fg_remove_imp2(fg, idx, key):
-    kdict = fg.key_dict
+def fg_remove_imp2(kdict, blobs, idx, key):
+    kdict   = {**kdict}
+    blobs   = [*blobs]
     idx_key = {idx:key for key,idx in kdict.items()}
-    kdict   = {**fg.key_dict}
-    blobs   = [*fg.blobs]
 
     def remove_blob(idx, key = None):
         blob  = blobs[idx]
@@ -814,6 +813,11 @@ def fg_transaction_implementation(cmds, fg):
 
             idx =  _extract_idx_from_id(target_internal_id)
             new_blobs[idx] = (*new_blobs[idx][:4], _value.arg) 
+
+        elif isinstance(cmd, PleaseTerminate):
+            key = cmd['target']
+            idx =  _extract_idx_from_id(key)
+            new_blobs, new_key_dict = fg_remove_imp2(new_key_dict, new_blobs, idx, key)
 
         else:
             raise NotImplementedError(f"Can't handle {cmd} for FlatGraph") 
