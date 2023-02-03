@@ -53,8 +53,13 @@ def graph_transaction_handler(eff: dict):
                 target_ref = now(Graph(target_ref))
             lvl1_cmds = generate_level1_commands(eff["level2_commands"]["cmds"], target_ref)
 
-            from ..graph_additions.low_level import perform_level1_commands
-            receipt = perform_level1_commands(lvl1_cmds, eff.get("keep_internal_ids", False))
+            if isinstance(target_ref, GraphSlice):
+                from ..graph_additions.low_level import perform_level1_commands
+                receipt = perform_level1_commands(lvl1_cmds, eff.get("keep_internal_ids", False))
+            else:
+                assert isinstance(target_ref, FlatGraph)
+                from ..op_implementations.flatgraph_implementations import fg_transaction_implementation
+                return fg_transaction_implementation(lvl1_cmds["cmds"], target_ref)
 
             # TODO: Postprocess using custom info stored in the level2 commands info
             post_transact_rule = eff.get("post_transact_rule", None)
