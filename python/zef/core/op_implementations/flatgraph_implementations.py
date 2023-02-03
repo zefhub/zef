@@ -679,13 +679,13 @@ def idx_generator(n):
 
 
 def fg_transaction_implementation(cmds, fg):
-    from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal, Val, Delegate
+    from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal, Val, FlatRefUID
 
     def _add_internal_id(internal_ids, idx):
         # TODO: What to do with multiple internal_ids?
         internal_name = internal_ids[0] if internal_ids else None
         if internal_name is not None:
-            if is_a(internal_name, WishIDInternal): 
+            if is_a(internal_name, (WishIDInternal, FlatRefUID)): 
                 _wish_ids[internal_name] = idx
             else:
                 new_key_dict[internal_name] = idx
@@ -790,7 +790,7 @@ def fg_transaction_implementation(cmds, fg):
             else:
                 idx = new_key_dict[target_internal_id]
             
-            new_blobs[idx] = (*new_blobs[idx][:4], _value.arg) # TODO do we care about iid for _value?
+            new_blobs[idx] = (*new_blobs[idx][:4], _value.arg) 
 
         else:
             raise NotImplementedError(f"Can't handle {cmd} for FlatGraph") 
@@ -800,4 +800,4 @@ def fg_transaction_implementation(cmds, fg):
     new_fg.key_dict = new_key_dict
     new_fg.blobs = (*new_blobs,)
 
-    return new_fg
+    return new_fg, {}
