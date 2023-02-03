@@ -679,7 +679,7 @@ def idx_generator(n):
 
 
 def fg_transaction_implementation(cmds, fg):
-    from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal, Val, FlatRefUID
+    from ..graph_additions.types import PleaseInstantiate, PleaseAssign, WishIDInternal, Val, FlatRefUID, PleaseTerminate
 
     def _add_internal_id(internal_ids, idx):
         # TODO: What to do with multiple internal_ids?
@@ -691,7 +691,7 @@ def fg_transaction_implementation(cmds, fg):
                 new_key_dict[internal_name] = idx
     
     def _extract_idx_from_id(id):
-        if is_a(id, WishIDInternal): 
+        if is_a(id, (WishIDInternal, FlatRefUID)): 
             assert id in _wish_ids, "Internal wish id not found in _wish_ids"
             return _wish_ids[id]
         else:
@@ -785,11 +785,7 @@ def fg_transaction_implementation(cmds, fg):
             target_internal_id = cmd['target']
             _value = cmd['value']
 
-            if target_internal_id in _wish_ids:
-                idx = _wish_ids[target_internal_id]
-            else:
-                idx = new_key_dict[target_internal_id]
-            
+            idx =  _extract_idx_from_id(target_internal_id)
             new_blobs[idx] = (*new_blobs[idx][:4], _value.arg) 
 
         else:
