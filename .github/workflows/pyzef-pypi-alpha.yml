@@ -100,40 +100,40 @@ jobs:
           pip3 install --upgrade twine
           python3 -m twine upload -u __token__ -p "${PYPI_TOKEN}" --skip-existing wheelhouse/*
           
-  dev-announcement:
-    name: Dev announcement
-    runs-on: ubuntu-20.04
-    needs: [upload-to-pypi]
-    steps:
-      - uses: actions/checkout@v3
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          persist-credentials: true
+  # dev-announcement:
+  #   name: Dev announcement
+  #   runs-on: ubuntu-20.04
+  #   needs: [upload-to-pypi]
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #       with:
+  #         token: ${{ secrets.GITHUB_TOKEN }}
+  #         persist-credentials: true
 
-      - name: Get tag
-        id: vars
-        run: |
-          echo "tag=${GITHUB_REF##*/pyzef-}" >> $GITHUB_OUTPUT
+  #     - name: Get tag
+  #       id: vars
+  #       run: |
+  #         echo "tag=${GITHUB_REF##*/pyzef-}" >> $GITHUB_OUTPUT
 
-      # - name: Release announcement
-      #   if: ${{ (!contains(github.ref, 'dev') && github.event.release.prerelease == false) }}
-      #   env:
-      #     MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
-      #     CHANNEL: releases
-      #     NAME: ${{ github.event.release.name }}
-      #     DESCRIPTION: ${{ github.event.release.body }}
-      #     VERSION_STRING: ${{ steps.vars.outputs.tag }}
-      #     DOWNLOAD_STRING: "`pip3 install --upgrade zef`"
-      #   run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
+  #     # - name: Release announcement
+  #     #   if: ${{ (!contains(github.ref, 'dev') && github.event.release.prerelease == false) }}
+  #     #   env:
+  #     #     MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
+  #     #     CHANNEL: releases
+  #     #     NAME: ${{ github.event.release.name }}
+  #     #     DESCRIPTION: ${{ github.event.release.body }}
+  #     #     VERSION_STRING: ${{ steps.vars.outputs.tag }}
+  #     #     DOWNLOAD_STRING: "`pip3 install --upgrade zef`"
+  #     #   run: go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
 
-      - name: Release announcement for dev
-        env:
-          MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
-          CHANNEL: "dev-releases"
-          NAME: ${{ steps.vars.outputs.tag }}
-          DESCRIPTION_FILE: "release.body"
-          VERSION_STRING: ${{ steps.vars.outputs.tag }}
-          DOWNLOAD_STRING: "`pip install zef==${{ steps.vars.outputs.tag }}`"
-        run: |
-          echo "Alpha/dev release of PyPI wheels for version ${VERSION_STRING}" > release.body
-          go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
+  #     - name: Release announcement for dev
+  #       env:
+  #         MATTERMOST_URL: ${{ secrets.MATTERMOST_URL }}
+  #         CHANNEL: "dev-releases"
+  #         NAME: ${{ steps.vars.outputs.tag }}
+  #         DESCRIPTION_FILE: "release.body"
+  #         VERSION_STRING: ${{ steps.vars.outputs.tag }}
+  #         DOWNLOAD_STRING: "`pip install zef==${{ steps.vars.outputs.tag }}`"
+  #       run: |
+  #         echo "Alpha/dev release of PyPI wheels for version ${VERSION_STRING}" > release.body
+  #         go run ${GITHUB_WORKSPACE}/.github/scripts/publish_release_announcement.go
