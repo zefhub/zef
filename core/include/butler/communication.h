@@ -134,6 +134,7 @@ namespace zefDB {
             // Managing vars
             std::unique_ptr<std::thread> managing_thread;
             std::atomic_bool connected = false;
+            std::atomic_bool connected_from_wspp = false;
             std::atomic_bool wspp_in_control = false;
             bool last_was_failure = false;
             std::chrono::time_point<std::chrono::steady_clock> last_connect_time;

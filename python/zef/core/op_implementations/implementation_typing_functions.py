@@ -595,7 +595,7 @@ def concat_implementation(v, first_curried_list_maybe=None, *args):
     - used for: stream manipulation
     - used for: string manipulation
     """
-    if (isinstance(v, list) or isinstance(v, tuple)) and len(v)>0 and isinstance(v[0], str):
+    if (isinstance(v, list) or isinstance(v, tuple)) and len(v)>0 and isinstance(v[0], str) and first_curried_list_maybe is None:
         if not all((isinstance(el, str) for el in v)):
             raise TypeError(f'A list starting with a string was passed to concat, but not all other elements were strings. {v}')
         return v | join[''] | collect
@@ -1342,6 +1342,7 @@ def chunk_imp(iterable, chunk_size: int):
     related zefop: sliding
     related zefop: slice
     """
+    if isinstance(chunk_size, LazyValue):  chunk_size = collect(chunk_size)
     if isinstance(iterable, String):
         def wrapper():
             c = 0        
@@ -2380,10 +2381,58 @@ def cartesian_product_imp(x, second=None, *args):
     - related zefop: combinations
     - related zefop: permutations
     """    
-    from itertools import product
+    def cartesian_product_gen(*vs):
+        """
+        This function reimplements Python's itertools.product, which
+        does not seem to deal with infinite iterators correctly. (???!)
+        """
+        vs = tuple(vs)    
+        its = [iter(el) for el in vs]
+        # vs[0] does not need to be cached: only iterated over once
+        if len(vs) == 0:
+            return
+        
+        latest_vals = [next(it) for it in its]
+        cache = [[el] for el in latest_vals]
+        busy_caching = [False] + [True] * (len(vs)-1)
+
+        def it_step(offset):
+            # print(f"offset={offset}  latest_vals={latest_vals}  cache={cache}")        
+            try:
+                latest_vals[offset] = next(its[offset])
+                if busy_caching[offset]:
+                    cache[offset].append(latest_vals[offset])
+                return
+            except StopIteration:
+                if offset == 0:
+                    raise StopIteration()
+                busy_caching[offset] = False
+                its[offset] = iter(cache[offset])
+                latest_vals[offset] = next(its[offset])
+                it_step(offset - 1)
+
+
+        m = len(vs) - 1
+        while True:
+            try:
+                yield tuple(latest_vals)
+                it_step(m)
+            except StopIteration:
+                return
+
+
     if second is None:
-        return product(*x)
-    return product( *(x, second, *args) )
+        def wrapper1():
+            yield from cartesian_product_gen(*x)
+        return ZefGenerator(wrapper1)
+    else:
+        c = 0
+        def wrapper2():
+            w = [*(x, second, *args)]
+            yield from cartesian_product_gen( *(x, second, *args) )
+        return ZefGenerator(wrapper2)
+
+
 
 
 def cartesian_product_tp(a, second, *args):
@@ -2710,7 +2759,7 @@ def subtract_tp(a, second):
     
 
 #---------------------------------------- multiply -----------------------------------------------
-def multiply_imp(a, second=None, *args):
+def multiply_imp(a, b):
     """ 
     Binary operator only. For a list of numbers, use `product`.
 
@@ -2731,10 +2780,11 @@ def multiply_imp(a, second=None, *args):
     related zefop: subtract
     related zefop: unpack
     """
-    from functools import reduce
-    if second is None:
-        return reduce(lambda x, y: x * y, a)
-    return reduce(lambda x, y: x * y, [a, second, *args])
+    print(type(a))
+    
+    if type(a) in {list, tuple, Generator} or type(b) in {list, tuple, Generator}:
+        raise TypeError(f"`multiply` is a binary operator, i.e. always takes two arguments. If you want to calculate the product of all elements in a list, use `product`")
+    return a*b
     
 
 def multiply_tp(a, second, *args):
@@ -2765,7 +2815,7 @@ def divide_imp(a, b=None):
     related zefop: unpack
     """
     if type(a) in {list, tuple} or type(b) in {list, tuple}:
-        raise TypeError(f"`subtract` is a binary operator, i.e. always takes two arguments.")
+        raise TypeError(f"`divide` is a binary operator, i.e. always takes two arguments.")
     return a/b
     
     
@@ -2914,6 +2964,22 @@ def logarithm_tp(x,base):
 
 #---------------------------------------- max -----------------------------------------------
 def max_imp(*args):
+    """
+    Returns the maximum of the given iterable.
+
+    ---- Examples ----
+    >>> [1,2,3] | max    # => 3
+
+    ---- Signature ----
+    Iterable[T] -> T
+
+    ---- Tags ----
+    - used for: maths
+    - operates on: List
+    - related zefop: min
+    - related zefop: max_by
+    - related zefop: clamp
+    """
     return builtins.max(*args)
     
     
@@ -2947,6 +3013,22 @@ def min_tp(a, second, *args):
 
 #---------------------------------------- min_by -----------------------------------------------
 def min_by_imp(v, min_by_function=None):
+    """
+    Returns the minimum of the given iterable.
+
+    ---- Examples ----
+    >>> [1,2,3] | min    # => 1
+
+    ---- Signature ----
+    Iterable[T] -> T
+
+    ---- Tags ----
+    - used for: maths
+    - operates on: List
+    - related zefop: max
+    - related zefop: max_by
+    - related zefop: clamp
+    """
     if min_by_function is None:
         raise RuntimeError(f'A function needs to be provided when using min_by. Called for v={v}')
     return builtins.min(v, key=min_by_function)
@@ -3797,39 +3879,40 @@ def single_or_tp(op, curr_type):
 
 #---------------------------------------- first -----------------------------------------------
 
-def first_imp(iterable):
+def first_imp(iterable, Constraint=Any):
     """
     Return the first element of a list.
 
     ---- Examples ----
     >>> [1,2,3] | first          # => 1
     >>> [] | first               # => Error
+    >>> [1,2,3] | first[Z%2==0] # => 2
 
     ---- Signature ----
     List[T] -> Union[T, Error]
     """
-    if isinstance(iterable, ZEF_List_Type):
-        if isinstance(iterable, AtomClass):  iterable = _get_ref_pointer(iterable)
-        return iterable | all | first | collect
+    if Constraint is Any:
+        if isinstance(iterable, ZEF_List_Type):
+            if isinstance(iterable, AtomClass):  iterable = _get_ref_pointer(iterable)
+            return iterable | all | first | collect
 
 
-    it = iter(iterable)
-    try:
-        return next(it)
-    except StopIteration:
-        return Error("Empty iterable when asking for first element.")
-
-
-
-def first_tp(op, curr_type):
-    if curr_type in ref_types:
-        curr_type = downing_d[curr_type]
-    else:
+        it = iter(iterable)
         try:
-            curr_type = absorbed(curr_type)[0]
-        except AttributeError as e:
-            raise Exception(f"An operator that downs the degree of a Nestable object was called on a Degree-0 Object {curr_type}: {e}")
-    return curr_type
+            return next(it)
+        except StopIteration:
+            return Error("Empty iterable when asking for first element.")
+      
+    else:
+        it = iter(iterable)
+        try:
+          while True:  
+              x = next(it)
+              if is_a(x, Constraint):
+                  return x
+
+        except StopIteration:
+            return Error(f"Completed looking through list, but no element found when calling 'first' with Constraint={Constraint}.")
 
 
 
@@ -3891,6 +3974,9 @@ def last_imp(iterable):
         return iterable | all | last | collect
 
     input_type = parse_input_type(type_spec(iterable))
+    
+    print(f"{input_type=}  {type(input_type)=}")
+
     if "zef" in input_type:
         return curry_args_in_zefop(pyzefops.last, iterable)
     elif input_type == "awaitable":
@@ -4052,7 +4138,7 @@ def attempt_imp(x, op, alternative_value):
     try:
         res = op(x)
         return res
-    except:                
+    except Exception:                
         return alternative_value
 
 
@@ -4950,7 +5036,7 @@ def preceding_events_imp(x, filter_on=None):
             try:
                 prev_tx  = tx | previous_tx | collect                                   # Will fail if tx is already first TX
                 prev_val = pyzefops.to_frame(zr, prev_tx) | value | collect     # Will fail if aet didn't exist at prev_tx
-            except:
+            except Exception:
                 prev_val = None
             return Assigned(target = aet_at_frame, prev = prev_val, current = value(aet_at_frame))
 
@@ -5019,7 +5105,7 @@ def events_imp(z_tx_or_rae, filter_on=None):
             try:
                 prev_tx  = zr | previous_tx | collect                                  # Will fail if tx is already first TX
                 prev_val = pyzefops.to_frame(aet, prev_tx) | value | collect   # Will fail if aet didn't exist at prev_tx
-            except:
+            except Exception:
                 prev_val = None
             return Assigned(target = aet_at_frame, prev = prev_val, current = value(aet_at_frame))
 
@@ -5038,7 +5124,7 @@ def events_imp(z_tx_or_rae, filter_on=None):
             try:
                 prev_tx  = tx | previous_tx | collect                                   # Will fail if tx is already first TX
                 prev_val = pyzefops.to_frame(zr, prev_tx) | value | collect     # Will fail if aet didn't exist at prev_tx
-            except:
+            except Exception:
                 prev_val = None
             return value_assigned[aet_at_frame][prev_val][value(aet_at_frame)]
 
@@ -5477,6 +5563,19 @@ def set_field_type_info(op, curr_type):
     return curr_type
 
 def assert_implementation(z, predicate=None, message=None):
+    """
+    If a `predicate` is provided, asserts that the value of a `predicate` applied on a value `z` is True and returns `z`.
+    If the value of `predicate` is `False`, raises an Exception with an optional `message`.
+
+    ---- Examples ----
+    >>> [1,2,3] | Assert[is_a[List]]["Passed argument is not a list"] # => [1,2,3]
+
+    ---- Signature ----
+    (T, Func, String) -> T
+
+    ---- Tags ----
+    - used for: debugging, testing, assertions, error handling
+    """
     if predicate is None:
         success = z
     else:
@@ -5492,7 +5591,7 @@ def assert_implementation(z, predicate=None, message=None):
         else:
             try:
                 message = message(z)
-            except:
+            except Exception:
                 message = "exception when generating this message"
         raise Exception(f"Assertion failed: {message}")
 
@@ -5629,8 +5728,18 @@ def map_implementation(v, f):
  
 
 def reduce_implementation(iterable, fct, init=None):
-    # import functools
-    # return functools.reduce(fct, iterable, init)
+    """
+    An operator that take a list of values together with an initial state 
+    an emits the last state.
+
+    reduce[f][state_ini] == scan[f][state_ini] | last
+
+    ---- Examples ----
+    >>> ['a', 'b', 'c', 'd', 'e'] | scan[lambda s, el: s+el]  # => 'abcde'
+    
+    ---- Signature ----    
+    (List[T1], ((T2, T1)->T2), T2)  ->  T2
+    """
     return last(scan_implementation(iterable, fct, init))
 
 
@@ -5762,6 +5871,29 @@ def length_implementation(iterable):
     else:
         # benchark: this is faster than iterating with a counter
         return len(list(iterable))
+
+
+# -------------------------------- count -------------------------------------------------
+def count_imp(iterable, tp=Any):
+    """
+    Count the number of items that fulfill a condition.
+    When used with the condition "Any" (default), this is identical 
+    to the length function.
+
+    ---- Examples ----
+    >>> range(10) | count[Z % 2 == 0]     # => 3
+    >>> range(10) | count                 # => 10   
+
+    ---- Signature ----
+    (List[T]) -> Int
+
+    ---- Tags ----
+    related zefop: length
+    operates on: List
+    operates on: Stream
+    """
+    return len( [1 for el in iterable if is_a(el, tp)] )
+
 
 
 
@@ -5935,8 +6067,12 @@ def select_by_field_tp(v_tp):
 
 def sort_implementation(v, key_fct=None, reverse=False):
     """
-    An optional key function for sorting may be provided, e.g.
-    list_of_strs | sort[len]
+    Sorts an iterable. Takes 2 optional arguments.
+    key_fct: a function that is used to sort the iterable by applying it to each element
+    reverse: if True, the iterable is sorted in reverse order
+
+    ---- Examples ----
+    >>> list_of_strs | sort[len]
 
     ---- Signature ----
     List[T] -> List[T]
@@ -6543,6 +6679,18 @@ def uid_implementation(arg):
     return pyzefops.uid(arg)
 
 def base_uid_implementation(first_arg):
+    """
+    Returns the BaseUID for a ZefRef or EZefRef.
+    If the object passed is already a UID, the BaseUID portion is returned.
+
+
+    ---- Signature ----
+    ZefRef  -> BaseUID
+    EZefRef  -> BaseUID
+    EternalUID  -> BaseUID
+    ZefRefUID  -> BaseUID
+    BaseUID  -> BaseUID
+    """
     if isinstance(first_arg, EternalUID) or isinstance(first_arg, ZefRefUID):
         return (lambda x: x.blob_uid)(first_arg)
     if isinstance(first_arg, BaseUID):
@@ -6715,7 +6863,20 @@ def representation_type_imp(x):
 
 def is_a_implementation(x, typ):
     """
+    Similar to isinstance, but hooks into the Zef type system rules.
+    Checks if the value `x` is of type `typ`. 
+    `typ` can be a ValueType or a python type.
 
+    ---- Examples ----
+    >>> 1 | is_a[Int]  # => True
+    >>> [1,2,3] | is_a[List]  # => True
+
+    ---- Signature ----
+    (Any, Any) -> Bool
+
+    ---- Tags ----
+    - used for: zefop
+    - used for: type checking
     """
     # To handle user passing by int instead of Int by mistake
     if typ in [int, float, bool]:
@@ -6781,6 +6942,20 @@ def rae_type_implementation(z):
     raise Exception(f"Don't know how to get rae_type from {z}")
 
 def abstract_type_implementation(z):
+    """
+    Similar to rae_type, but is additionally defined for TXNodeRef and RootRef.
+
+    Returns the BlobType of an Atom.
+
+    ---- Examples ----
+    >>> zr | abstract_type  
+
+    ---- Signature ----
+    Atom -> BlobType
+
+    ---- Tags ----
+    - used for: ZefRef, EZefRef, TXNodeRef, RootRef
+    """
     # This is basically rae_type, but also including TXNode and Root
     if isinstance(z, TXNodeRef):
         return BT.TX_EVENT_NODE
@@ -6987,9 +7162,12 @@ def terminate_type_info(op, curr_type):
     return curr_type
 
 def assign_imp(x, val):
-    # We need to keep the assign value as something that works in the GraphDelta
-    # code. So we simply wrap everything up as a LazyValue and return that.
-    # return LazyValue(z) | assign[val]
+    """
+    Use in a graph wish to assign a value to an AttributeEntity.
+
+    For example, `atom_ae | assign[42] | g | run`
+    """
+
     from ..graph_additions.types import PleaseAssign
     if isinstance(x, AttributeEntity):
         x = origin_uid(x)
@@ -8118,7 +8296,7 @@ def pad_center_imp(s, target_length: int, pad_element=' '):
     if len(pad_element) != 1: raise ValueError("pad_element must be of length 1 in 'pad_center'")
     l = len(s)
     diff2 = (target_length-l)/2
-    return s if l>= target_length else f"{pad_element*(ceil(diff2))}{s}{pad_element*(floor(diff2))}"
+    return s if l>= target_length else f"{pad_element*(floor(diff2))}{s}{pad_element*(ceil(diff2))}"
 
 
 
@@ -8178,8 +8356,21 @@ def permute_to_imp(v, indices: VT.List[VT.Int]):
 
 #---------------------------------------- is_alpha -----------------------------------------------
 def is_alpha_imp(s: VT.String) -> VT.Bool:
-    """ 
+    """
     Given a string return if it is only composed of Alphabet characters
+
+    ---- Examples ----
+    >>> 'abc1' | is_alpha          # => False
+    >>> 'abc' | is_alpha           # => True
+
+    ---- Signature ----
+    String -> Bool
+
+    ---- Tags ----
+    - related zefop: is_numeric
+    - related zefop: is_alpha_numeric
+    - operates on: String
+    - used for: predicate function    
     """
     return s.isalpha()
 
@@ -8527,7 +8718,7 @@ def value_hash_imp(obj) -> VT.String:
     try:
         from ..op_structs import type_spec
         type_str = str(type_spec(obj))
-    except:
+    except Exception:
         type_str = str(type(obj))
     return blake3_imp(type_str + str(obj))
 
@@ -8910,7 +9101,7 @@ def without_imp(x, y):
     # work... TODO: make this more general and test for 'contains' support.
     try:
         y_itr = iter(y)
-    except:
+    except Exception:
         return Error("The given argument to `without` is not iterable. If you have passed a single value, then you must wrap it in a list first, e.g. `| without[[1]]` instead of `| without[1]`.")
         
     if isinstance(x, Dict):
@@ -9329,7 +9520,7 @@ def signature_imp(op: VT.ZefOp) -> VT.List[VT.String]:
     s = LazyValue(op) | docstring | split["\n"] | collect
     try:
         signature_idx = s.index("---- Signature ----")
-    except:
+    except Exception:
         raise ValueError(f"The docstring for {op} is either malformed or missing a Signature section!")  from None
     signature = (
         s 
@@ -9376,7 +9567,7 @@ def tags_imp(op: VT.ZefOp) -> VT.List:
         | map[split[':'] | map[trim[' ']]]
         | collect
     )
-    except:
+    except Exception:
         return []
 
 
@@ -9897,3 +10088,141 @@ def is_blueprint_atom_imp(z: ZefRef | EZefRef) -> Bool:
 # def is_blueprint_atom_imp(z):
     from ..internals import is_delegate
     return is_delegate(z)
+
+
+
+
+def recursive_flatten_imp(v):
+    """
+    A function which recusrively flattens a list of lists or other iterables.
+    --- Example ----
+    >>> [['a', 'b', 'c'],  7, [8, 9, {True, 5}]] | recursive_flatten | collect
+    ['a', 'b', 'c', 7, 8, 9, True, 5]
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: concat
+    - related zefop: interleave
+    """
+    if type(v) in {list, tuple, set}:
+        return v | map[recursive_flatten] | concat | collect
+    else:
+        return [v]
+
+
+
+
+
+def split_at_imp(v: List, index: int):
+    """
+    Splits `v` into two parts at `pos`.
+
+    Note: this does not deal with laziness as well as it could.
+    Specifically, it does currently not work with infinite lists.
+
+    ---- Examples ----
+    >>> [1, 2, 3, 4] | split_at[2] | collect   # [[1, 2], [3, 4]]
+    >>> 'hello' | split_at[4] | collect        # ['hell', 'o']
+
+    ---- Tags ----
+    - operates on: Iterable
+    - used for: list manipulation
+    - related zefop: split_left
+    - related zefop: split_right
+    """
+    return v[:index], v[index:]
+
+
+
+def split_lines_imp(s: str, keepends: bool = False):
+    """
+    In constrast to `split['\\n]`, this operator also splits on
+    a variety of other "universal newlines" characters, such as
+    Line Feed (LF), Carriage Return (CR), and Carriage Return and more.
+
+    For a full list, see https://docs.python.org/3/library/stdtypes.html#str.splitlines.
+
+    ---- Examples ----
+    >>> "hello\nworld" | split_lines | collect
+    >>> "hello\rworld" | split_lines | collect
+    >>> "hello\r\nworld" | split_lines | collect
+
+    ---- Tags ----
+    - operates on: String
+    - used for: string manipulation
+    - related zefop: split
+    - related zefop: split_left
+    - related zefop: split_right
+    """
+    if not isinstance(s, str):
+        raise TypeError(f'A string was expected, but {s} was passed instead.')
+    return s.splitlines(keepends=keepends)
+
+
+
+
+def filter_map_imp(v: List, f):
+    """
+    Applies `f` to each element of `v` and returns a list of the results.
+    If `f` returns 'nil', an Error or raises an exception, the element 
+    is not included in the result.
+
+    ---- Examples ----
+    >>> [1, 2, 3, 4] | filter_map[lambda x: x * 2 if x % 2 == 0 else None] | collect
+    >>> '7 moved from 4 to 9' | filter_map[int] | collect
+
+    ---- Tags ----
+    - operates on: List
+    - used for: list manipulation
+    - related zefop: map
+    - related zefop: filter
+    """
+    def wrapper():
+        for el in v:
+            try:
+                result = f(el)
+            except Exception:
+                continue
+            if result is not None:
+                yield result
+    return ZefGenerator(wrapper)
+
+
+
+
+def ends_with_imp(s: str, suffix: str):
+    """
+    Returns True if `s` ends with `suffix`, False otherwise.
+
+    ---- Examples ----
+    >>> 'hello' | ends_with['lo']   # True
+    >>> 'hello' | ends_with['he']   # False
+
+    ---- Tags ----
+    - operates on: String
+    - used for: string manipulation
+    - related zefop: starts_with
+    - related zefop: contains
+    """
+    return s.endswith(suffix)
+
+
+def starts_with_imp(s: str, prefix: str):
+    """
+    Returns True if `s` starts with `prefix`, False otherwise.
+
+    ---- Examples ----
+    >>> 'hello' | starts_with['he']   # True
+    >>> 'hello' | starts_with['lo']   # False
+
+    ---- Tags ----
+    - operates on: String
+    - used for: string manipulation
+    - related zefop: ends_with
+    - related zefop: contains
+    """
+    return s.startswith(prefix)
+
+
+

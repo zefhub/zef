@@ -15,6 +15,7 @@
 import unittest  # pytest takes ages to run anything as soon as anything from zef is imported
 from zef import *
 from zef.ops import *
+import sys
 
 
 class MyTestCase(unittest.TestCase):
@@ -140,6 +141,7 @@ class MyTestCase(unittest.TestCase):
 
 
     @unittest.skip("TODO: flatgraph as input to wish")
+    @unittest.skipIf(sys.platform.startswith("win"), "Not testing graphviz on windows")
     def test_fg_graphviz(self):
         fg = FlatGraph([{
                 ET.Person['z1'] : {

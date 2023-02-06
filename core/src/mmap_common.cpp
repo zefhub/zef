@@ -486,5 +486,9 @@ namespace zefDB {
             lock.lock();
             return parent->ptr;
         }
+
+        bool is_graph_mem_alive(void * ptr) {
+            return !info_from_blob(ptr).released;
+        }
     }
 }

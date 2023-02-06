@@ -14,9 +14,11 @@
 
 from urllib.request import urlopen
 
-import sys
+import sys, os
 if len(sys.argv) >= 2:
     server = sys.argv[1]
+elif "ZEFHUB_URL" in os.environ:
+    server = os.environ["ZEFHUB_URL"]
 else:
     server = "https://hub.zefhub.io"
     

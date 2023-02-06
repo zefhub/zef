@@ -183,7 +183,7 @@ def fg_insert_imp(fg, new_el):
                     new_blobs, new_key_dict = [*new_fg.blobs], {**new_fg.key_dict}
                 except KeyError:
                     pass
-                except:
+                except Exception:
                     raise Exception(f"An exception happened while trying to perform {new_el} on {fg}")
 
         # TODO remove this once Z is fully deprecated

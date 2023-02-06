@@ -70,6 +70,8 @@ def wrap_attr_readonly_token(orig):
     def this_get_attr(self, name):
         token = RAET_get_token(self)
         if token is None:
+            if name.endswith("_"):
+                raise AttributeError("Tokens cannot end with '_'.")
             out = getattr(orig, name)
         else:
             # This is just for AETs

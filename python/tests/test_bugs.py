@@ -67,7 +67,11 @@ class MyTestCase(unittest.TestCase):
                 ET.Machine["a"],
                 (Z["a"], RT.Something, "name")
             ] | transact[g] | run
-        
+
+    def gil_locks(self):
+        g = Graph()
+        with self.assertRaisesRegex(Exception, "Can't lock a graph"):
+            zef.pyzef.internals.test_pre_lock_hook(g)
 
 if __name__ == '__main__':
     unittest.main()

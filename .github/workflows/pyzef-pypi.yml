@@ -17,8 +17,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [ubuntu-20.04, macos-latest, windows-latest]
-        os: [ubuntu-20.04, macos-latest]
+        os: [ubuntu-20.04, macos-latest, windows-latest]
+        # os: [ubuntu-20.04, macos-latest]
         # os: [ubuntu-20.04]
         # Note: need "3.10" as yaml will truncate floating point number
         python-version: ["cp37", "cp38", "cp39", "cp310", "cp311"]
@@ -39,7 +39,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.11.2
+        uses: pypa/cibuildwheel@v2.11.4
         with:
           package-dir: python
         env:

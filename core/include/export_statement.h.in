@@ -43,6 +43,12 @@
 #endif
 #endif
 
+#cmakedefine LIBZEF_BUNDLED_LIBARCHIVE 
+#ifdef LIBZEF_BUNDLED_LIBARCHIVE
+// Need this on windows
+#define LIBARCHIVE_STATIC
+#endif
+
 #if defined(_MSC_VER) || defined(WIN32) || defined(__WIN32__)
 #define ZEF_WIN32 1
 #endif

@@ -162,6 +162,7 @@ skip_while      = make_zefop(internals.RT.SkipWhile)
 skip_until      = make_zefop(internals.RT.SkipUntil)
 skip            = make_zefop(internals.RT.Skip)
 length          = make_zefop(internals.RT.Length) 
+count           = make_zefop(internals.RT.Count) 
 nth             = make_zefop(internals.RT.Nth) 
 now             = make_zefop(internals.RT.Now) 
 events          = make_zefop(internals.RT.Events) 
@@ -318,6 +319,12 @@ zascii_to_blueprint_fg = make_zefop(internals.RT.ZasciiToBlueprintFg)
 
 
 
+recursive_flatten = make_zefop(internals.RT.RecursiveFlatten)
+split_at          = make_zefop(internals.RT.SplitAt)
+split_lines       = make_zefop(internals.RT.SplitLines)
+filter_map        = make_zefop(internals.RT.FilterMap)
+ends_with         = make_zefop(internals.RT.EndsWith)
+starts_with       = make_zefop(internals.RT.StartsWith)
 
 
 merge           = make_zefop(internals.RT.Merge)                 # We need this for observables. Only there?
@@ -417,3 +424,16 @@ class FsClass:
         return fields[RT(s)]    # just returns a normal zefop called 'field'
 
 Fs = FsClass()
+
+
+
+
+
+# ----------- Some Types declared in terms of ZefOps -------------
+
+from .VT import insert_VT, Where
+
+insert_VT("StartsWith", Where[starts_with])
+insert_VT("EndsWith", Where[ends_with])
+insert_VT("Contains", Where[contains])
+

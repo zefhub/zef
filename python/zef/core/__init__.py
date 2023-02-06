@@ -101,7 +101,7 @@ from .serialization import serialize, deserialize
 from .symbolic_expression import SV, SVs, V
 from .z_expression import Z
 
-from .graph_events import Instantiated, Assigned, Terminated
+from .graph_events import Instantiated, Assigned, Terminated, infinity
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
@@ -120,7 +120,7 @@ def visual_exception_view(error_value):
     except Exception as e:
         try:
             e_s = str(e)
-        except:
+        except Exception:
             e_s = "Can't take str of failure exception"
         print("Failed in displaying zef error: {e_s}")
         pass
@@ -142,7 +142,7 @@ try:
 
         # Overloading ipython exception handler
         ip.set_custom_exc((Exception,), ip_exception_handler) 
-except:
+except Exception:
     pass
 
 pyzef.internals.finished_loading_python_core()

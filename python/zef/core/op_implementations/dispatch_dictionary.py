@@ -35,6 +35,7 @@ _op_to_functions = {
         internals.RT.Iterate:        (iterate_implementation, iterate_type_info),
         internals.RT.Identity:       (identity_implementation, identity_type_info),
         internals.RT.Length:         (length_implementation, length_type_info),
+        internals.RT.Count:          (count_imp, None),
         internals.RT.Take :          (take_implementation, take_type_info),
         internals.RT.TakeWhile:      (take_while_imp, take_while_tp),
         internals.RT.TakeWhilePair:  (take_while_pair_imp, take_while_pair_tp),
@@ -48,7 +49,7 @@ _op_to_functions = {
         internals.RT.Modulo:         (modulo_imp, None),
         internals.RT.SelectByField:  (select_by_field_imp, select_by_field_tp),
         internals.RT.Without:        (without_imp, without_tp),
-        internals.RT.First:          (first_imp, first_tp),
+        internals.RT.First:          (first_imp, None),
         internals.RT.Second:         (second_imp, second_tp),
         internals.RT.Last:           (last_imp, last_tp),
         internals.RT.Single:         (single_imp, single_tp),
@@ -324,4 +325,15 @@ _op_to_functions = {
         internals.RT.InferTypes :          (infer_types, None),
         internals.RT.Deduplicate:          (deduplicate, None),
         internals.RT.IdentifyEntities:     (identify_entities, None),
+
+
+ 
+        internals.RT.RecursiveFlatten:     (recursive_flatten_imp, None),
+        internals.RT.SplitAt:              (split_at_imp, None),
+        internals.RT.SplitLines:           (split_lines_imp, None),
+        internals.RT.FilterMap:            (filter_map_imp, None),
+        internals.RT.EndsWith:             (ends_with_imp, None),
+        internals.RT.StartsWith:           (starts_with_imp, None),
 }
+
+

@@ -317,7 +317,7 @@ namespace zefDB {
         explicit Graph(void * ptr) = delete;
         explicit Graph(const GraphData * ptr, bool stealing_reference);
 
-		explicit Graph(const std::string& graph_uid_or_tag_or_file, int mem_style = MMap::MMAP_STYLE_AUTO) ;
+		explicit Graph(const std::string& graph_uid_or_tag_or_file, int mem_style = MMap::MMAP_STYLE_AUTO, bool create = false);
         explicit Graph(const char * graph_uid_or_tag, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(std::string(graph_uid_or_tag), mem_style) {}
 		explicit Graph(const BaseUID& graph_uid, int mem_style = MMap::MMAP_STYLE_AUTO) : Graph(str(graph_uid), mem_style) {};
 
@@ -381,6 +381,7 @@ namespace zefDB {
 	LIBZEF_DLL_EXPORTED std::ostream& operator << (std::ostream& o, GraphRef& g);
 
 
+    LIBZEF_DLL_EXPORTED GraphDataWrapper create_GraphDataWrapper(const Messages::UpdatePayload & payload);
     LIBZEF_DLL_EXPORTED GraphDataWrapper create_partial_graph(GraphData & cur_gd, blob_index index_hi);
     LIBZEF_DLL_EXPORTED uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string working_layout);
 
@@ -394,24 +395,8 @@ namespace zefDB {
         // TODO: I was thinking about making this reset to open_tx_thread... might revist later.
         bool was_already_set;
 
-        LockGraphData(GraphData * gd) : gd(gd) {
-            if(gd->open_tx_thread == std::this_thread::get_id())
-                was_already_set = true;
-            else {
-                was_already_set = false;
-                update_when_ready(gd->open_tx_thread_locker,
-                                  gd->open_tx_thread,
-                                  std::thread::id(),
-                                  std::this_thread::get_id());
-            }
-        }
-        ~LockGraphData() {
-            if(was_already_set)
-                return;
-            // If is for safety - someone lower down may have unlocked already.
-            if(gd->open_tx_thread == std::this_thread::get_id())
-                update(gd->open_tx_thread_locker, gd->open_tx_thread, std::thread::id());
-        }
+        LockGraphData(GraphData * gd);
+        ~LockGraphData();
     };
 
 
@@ -423,7 +408,7 @@ namespace zefDB {
 	
 		// exposed to python to get access to the serialized form
         LIBZEF_DLL_EXPORTED std::string get_blobs_as_bytes(GraphData& gd, blob_index start_index, blob_index end_index);
-        LIBZEF_DLL_EXPORTED Butler::UpdateHeads full_graph_heads(const GraphData & gd);
+        LIBZEF_DLL_EXPORTED Butler::UpdateHeads full_graph_heads(GraphData & gd);
 		LIBZEF_DLL_EXPORTED Messages::UpdatePayload graph_as_UpdatePayload(GraphData& gd, std::string target_layout="");
 
 

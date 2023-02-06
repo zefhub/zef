@@ -71,8 +71,8 @@ for t in [list, tuple]:
     ListOrTuple.register(t)
 
 
-import os
-gd_timing = "ZEFDB_GRAPH_DELTA_TIMING" in os.environ
+gd_timing = check_env_bool("ZEFDB_GRAPH_DELTA_TIMING")
+gd_perform_transaction_debug = check_env_bool("ZEFDB_GRAPH_DELTA_PERFORM_DEBUG")
 
 ##############################
 # * Description
@@ -1400,6 +1400,8 @@ def perform_transaction_commands(commands: list, g: Graph):
 
             next_print = now()+5*seconds
             for i,cmd in enumerate(commands):
+                if gd_perform_transaction_debug:
+                    log.debug("Performing", i=i, cmd=cmd)
                 if gd_timing:
                     if now() > next_print:
                         log.debug("Perform", i=i, total=len(commands))

@@ -51,5 +51,15 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED void remove_determine_primitive_type();
         LIBZEF_DLL_EXPORTED ValueRepType pass_to_determine_primitive_type(AttributeEntityType aet);
 
+        // ** Graph lock sanity checks
+        //
+        // This is primarily designed for a hook so that python bindings can be
+        // sure no graph lock occurs when the GIL is held. If such a scenario
+        // happens, then 2 locks are attempting to be held at the same time.
+        typedef void (pre_lock_hook_t)(BaseUID guid);
+        LIBZEF_DLL_EXPORTED void register_pre_lock_hook(std::function<pre_lock_hook_t> func);
+        LIBZEF_DLL_EXPORTED void remove_pre_lock_hook();
+        LIBZEF_DLL_EXPORTED void pass_to_pre_lock_hook(BaseUID guid);
+
     }
 }

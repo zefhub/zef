@@ -90,7 +90,8 @@ def make_cell(obj, rt):
 
 def make_row(obj, connected_rels):
    return {
-      "cells": [make_cell(obj, rt) for rt in connected_rels]
+        "id": str(uid(obj)),
+        "cells": [make_cell(obj, rt) for rt in connected_rels]
    }
 
 
@@ -116,14 +117,18 @@ def make_table_return(g, entity_type, entities):
 
 @func
 def entity_table(query_args):
-   graph_id = query_args.get('graphID', None)
-   et_type  = query_args.get('entityType', None)
-   if not graph_id or not et_type: return None
+    graph_id = query_args.get('graphID', None)
+    et_type  = query_args.get('entityType', None)
+    if not graph_id or not et_type: return None
 
-   et_type = ET(et_type)
-   limit  = query_args.get('limit', 10)
-   g = Graph(graph_id)
-   return make_table_return(g, et_type, list(g | now |  all[et_type] | take[limit] | collect))
+    limit  = query_args.get('limit', 10)
+    try:
+        et_type = ET(et_type)
+        g = Graph(graph_id)
+        return make_table_return(g, et_type, list(g | now |  all[et_type] | take[limit] | collect))
+    except Exception as e:
+        log.error(f"Error in entityTable: {e}")
+        return None
 
 
 @func
@@ -182,7 +187,7 @@ def value_of_aet_at_tx(aet, tx) -> str:
             return '' if val is None else str(val)
         else:
             return ''
-    except:
+    except Exception:
         return ''
 
 @func
@@ -216,7 +221,7 @@ def atom_events(zr):
         rel_ent_inst_edge = uzr | in_rel[BT.RAE_INSTANCE_EDGE]
         return rel_ent_inst_edge | in_rels[BT] | map[construct_event] | collect
     
-    return zr | out_rels | map[events_for_rt] | concat | sort[lambda d: d['transaction']['txTimestamp']] | collect
+    return zr | out_rels | map[events_for_rt] | concat | sort[lambda d: d['transaction']['txTimestamp']] | reverse | collect
 
 
 def create_tx(tx):
@@ -243,7 +248,7 @@ def create_field(atom, field_rt):
         # "id": str(uid(field_rt)),
         "name": str(field_rt),
         "value": make_cell(atom, field_rt),
-        "isEditable": True,
+        "isEditable": False,
     }
 
 @func
@@ -332,6 +337,7 @@ header: String
 }
 
 type Row {
+id: ID!
 cells: [Cell]
 }
 
@@ -425,14 +431,18 @@ def create_schema_dict(simple_schema):
    )
    return schema_dict
 
-def studio_start_server_handler(eff: Dict):
+def studio_start_handler(eff: Dict):
    """Example
    {
-      "type": FX.Studio.StartServer,
+      "type": FX.Studio.Start,
+      "report_errors": True, # Optional
    } | run
    """
+   report_errors = eff.get("report_errors", False)
+   report_errors = "&report_errors=true" if report_errors else ""
+
    def open_browser(port):
-      studio_url = f"https://studio.zefhub.io/?endpoint=http://localhost:{port}/graphql"
+      studio_url = f"https://studio.zefhub.io/?endpoint=http://localhost:{port}/graphql{report_errors}"
       log.info(f"Started Zef Studio at {studio_url}")
       import webbrowser
       webbrowser.open(studio_url)

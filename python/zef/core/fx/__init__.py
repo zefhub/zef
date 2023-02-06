@@ -108,7 +108,7 @@ from .local_file import (
 )
 
 from .zef_studio import (
-    studio_start_server_handler,
+    studio_start_handler,
     studio_stop_server_handler,
 )
 
@@ -131,8 +131,8 @@ _effect_handlers = {
     FX.GraphQL.StopPlayground.d: graphql_stop_playground_handler,
     FX.GraphQL.GenerateSchemaString.d: graphql_generate_schema_string_handler,
 
-    FX.Studio.StartServer.d: studio_start_server_handler,
-    FX.Studio.StopServer.d: studio_stop_server_handler,
+    FX.Studio.Start.d: studio_start_handler,
+    FX.Studio.Stop.d: studio_stop_server_handler,
     
     FX.Stream.CreatePushableStream.d: stream_create_pushable_stream_handler,
     FX.Stream.Push.d: stream_push_handler,

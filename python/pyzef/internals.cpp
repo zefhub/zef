@@ -526,6 +526,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 
     // Define the special graph constructor seperately
     internals_submodule.def("create_graph_from_bytes", [](Messages::UpdatePayload payload, int mem_style) { return Graph::create_from_bytes(std::move(payload), mem_style); }, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");
+    internals_submodule.def("create_GraphDataWrapper", [](Messages::UpdatePayload payload) { return create_GraphDataWrapper(std::move(payload)); }, py::call_guard<py::gil_scoped_release>(), "This is a low-level graph creation function. Do not use if you don't know what you are doing.");
 
     internals_submodule.def("Graph_from_ptr", [](const py::object ptr) {
         // Assuming this object is a ctypes.c_void_p type
@@ -784,7 +785,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
         return py::bytes(internals::get_blobs_as_bytes(gd, start_index, end_index)); 
 		}, "read the content of the memory pool filled with blobs_ns for a given graph", py::call_guard<py::gil_scoped_release>());
 	internals_submodule.def("graph_as_UpdatePayload", &internals::graph_as_UpdatePayload, py::call_guard<py::gil_scoped_release>());
-	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads);
+    // This is covered by one overload of create_update_heads.
+	// internals_submodule.def("full_graph_heads", &internals::full_graph_heads, py::call_guard<py::gil_scoped_release>());
 	// internals_submodule.def("convert_payload_0_3_0_to_0_2_0", &conversions::convert_payload_0_3_0_to_0_2_0);
 
     internals_submodule.def("version_layout", &conversions::version_layout, py::call_guard<py::gil_scoped_release>());
@@ -884,11 +886,27 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("register_determine_primitive_type", &internals::register_determine_primitive_type);
     internals_submodule.add_object("_cleanup_determine_primitive_type", py::capsule(&internals::remove_determine_primitive_type));
 
+    internals_submodule.def("setup_pre_lock_hook", []() {
+        internals::register_pre_lock_hook([](BaseUID guid) {
+            if(PyGILState_Check())
+                throw std::runtime_error("Can't lock a graph (guid=" + to_str(guid) + ") while holding onto the GIL");
+        });
+    }, "Sets up the check for no GIL acquired while trying to lock a graph");
+    internals_submodule.add_object("_cleanup_pre_lock_hook", py::capsule(&internals::remove_pre_lock_hook));
+
+    internals_submodule.def("test_pre_lock_hook", [](Graph g) {
+        LockGraphData lock{&g.my_graph_data()};
+    }, "Only for test suite. Should raise an exception.");
+
     internals_submodule.def("copy_graph_slice", &copy_graph_slice, py::call_guard<py::gil_scoped_release>());
 
     // internals_submodule.def("decompress_zstd", &decompress_zstd, py::call_guard<py::gil_scoped_release>());
     internals_submodule.def("decompress_zstd", [](const std::string & input) {
-        return decompress_zstd(input);
+        std::string temp = decompress_zstd(input);
+        {
+            py::gil_scoped_acquire acquire;
+            return py::bytes(temp);
+        }
     }, py::call_guard<py::gil_scoped_release>());
     // internals_submodule.def("compress_zstd", &compress_zstd, py::arg("input"), py::arg("compression_level")=10, py::call_guard<py::gil_scoped_release>());
     internals_submodule.def("compress_zstd", [](const std::string & input, int compression_level) {

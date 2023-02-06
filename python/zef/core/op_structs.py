@@ -189,6 +189,12 @@ from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
 from .generators import ZefGenerator_
 
+class Evaluating:
+    def __repr__(self):
+        return "evaluating"
+evaluating = Evaluating()
+
+
 # this is used to circumvent the python '<' and '>' operator resolution rules
 _terrible_global_state = {}
 _call_0_args_translation = {
@@ -196,6 +202,28 @@ _call_0_args_translation = {
 }
 _call_n_args_translation = {}
 _sources = {}
+
+_overloaded_repr = {
+    "And": "And",
+    "Assert": "Assert",
+    "If": "If",
+    "In": "In",
+    "Ins": "Ins",
+    "L": "L",
+    "O": "O",
+    "Or": "Or",
+    "Out": "Out",
+    "Outs": "Outs",
+    "Range": "Range",
+    "IsZefRefPromotable": "is_zefref_promotable",
+    "ToEZefRef": "to_ezefref",
+    "ToFlatGraph": "to_flatgraph",
+    "ZasciiToFlatGraph": "zascii_to_flatgraph",
+    "ZasciiToFlatGraph": "zascii_to_flatgraph",
+    (internals.RT.Privileges, (KW.grant,)): "grant",
+    (internals.RT.Privileges, (KW.revoke,)): "revoke",
+    (internals.RT.Run, (evaluating,)): "run",
+}
 
 def unpack_ops(rt, ops):
     if len(ops) > 1:
@@ -256,14 +284,23 @@ def op_chain_pretty_print(el_ops):
 
     def el_op_to_str(p):
         import types
-        if p[0] == internals.RT.Function:
+        
+        if p[0].name in _overloaded_repr:
+            op_name = _overloaded_repr[p[0].name]
+        elif p in _overloaded_repr:
+            return _overloaded_repr[p]
+
+        elif p[0] == internals.RT.Function:
             inner_f = p[1][0][1]
             if isinstance(inner_f, types.FunctionType):
                 name = inner_f.__name__
                 return name + ''.join([param_to_str(pp) for pp in p[1][1:]])
-        # if p[0] == RT.OutOutOld:
-        #     return f"\n>> todo!!!!"            
-        return to_snake_case(p[0].name) + ''.join([param_to_str(pp) for pp in p[1]])
+            else:
+                op_name = to_snake_case(p[0].name)
+        else:
+            op_name = to_snake_case(p[0].name)
+
+        return op_name + ''.join([param_to_str(pp) for pp in p[1]])
     return ' | '.join(el_op_to_str(x) for x in el_ops)
 
 #   _                          ___                  ___                    _                                _           _    _               
@@ -289,10 +326,7 @@ def op_chain_pretty_print(el_ops):
 # _old_excepthook = sys.excepthook
 # sys.excepthook = lambda *args, prior_hook=_old_excepthook: zef_error_hook(*args, prior_hook=prior_hook)
 
-class Evaluating:
-    def __repr__(self):
-        return "evaluating"
-evaluating = Evaluating()
+
 
 class ZefOp_:    
     def __init__(self, el_ops: tuple):
@@ -544,7 +578,8 @@ class CollectingOp:
         self.el_ops = other.el_ops
 
     def __repr__(self):
-        return f"CollectingOp({op_chain_pretty_print(self.el_ops)})"
+        ops_str = f"({op_chain_pretty_print(self.el_ops)})" if self.el_ops else ""
+        return f"collect{ops_str}"
         
     def __ror__(self, other):
         if isinstance(other, ZefOp): 
@@ -1390,7 +1425,7 @@ def type_spec_iterable(obj, vt_type):
             return vt_type[next(iter(tps))]
         else:
             return vt_type[VT.Any]
-    except:
+    except Exception:
         return vt_type[VT.Any]
         
 def type_spec_dict(obj):

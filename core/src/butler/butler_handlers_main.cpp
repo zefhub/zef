@@ -21,6 +21,8 @@ void Butler::handle_guest_message(T & content, Butler::msg_ptr & msg) {
 template <>
 void Butler::handle_guest_message(LoadGraph & content, Butler::msg_ptr & msg) {
     if(is_BaseUID(content.tag_or_uid)) { // is uid
+        if(content.create)
+            throw std::runtime_error("Can't load a graph with a UID and create=True");
         load_graph_from_uid(msg, BaseUID::from_hex(content.tag_or_uid));
     } else if(starts_with(content.tag_or_uid, "file://")) {
         auto filename = content.tag_or_uid.substr(strlen("file://"));
@@ -64,14 +66,22 @@ void Butler::handle_guest_message(TokenQuery & content, Butler::msg_ptr & msg) {
     }
 
     if(content.create) {
+        std::string err_msg = "";
         if(content.group == TokenQuery::ET && !zwitch.allow_dynamic_entity_type_definitions())
-            throw std::runtime_error("ET creation is disallowed.");
+            err_msg = "ET creation is disallowed.";
         if(content.group == TokenQuery::RT && !zwitch.allow_dynamic_relation_type_definitions())
-            throw std::runtime_error("RT creation is disallowed.");
+            err_msg = "RT creation is disallowed.";
         if(content.group == TokenQuery::EN && !zwitch.allow_dynamic_enum_type_definitions())
-            throw std::runtime_error("EN creation is disallowed.");
+            err_msg = "EN creation is disallowed.";
         if(content.group == TokenQuery::KW && !zwitch.allow_dynamic_keyword_definitions())
-            throw std::runtime_error("KW creation is disallowed.");
+            err_msg = "KW creation is disallowed.";
+        if(err_msg != "") {
+            err_msg += "[";
+            for(auto & name : content.names)
+                err_msg += name + ",";
+            err_msg += "]";
+            throw std::runtime_error(err_msg);
+        }
 
         if(check_env_bool("ZEFDB_OFFLINE_MODE") || check_env_bool("ZEFDB_DEVELOPER_LOCAL_TOKENS")) {
             auto & tokens = global_token_store();
@@ -306,14 +316,17 @@ void Butler::handle_guest_message(UIDQuery & content, Butler::msg_ptr & msg) {
     try {
         send_ZH_message({
                 {"msg_type", "lookup_uid"},
+                {"msg_version", 2},
                 {"task_uid", task->task_uid},
-                {"tag", content.query}
+                {"tag", content.query},
+                {"create", content.create},
             });
     } catch(...) {
         auto task_promise = find_task(task->task_uid, true);
         task_promise->promise.set_exception(std::current_exception());
     }
 }
+
 
 template <>
 void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg) {
@@ -335,12 +348,12 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
         if(butler_is_master)
             throw std::runtime_error("Butler as master does not allow for upstream delegation of merges.");
 
-        if(content.task_uid) {
+        if(content.upstream_task_uid) {
             // This is a remote request, so we should abort.
             throw std::runtime_error("Can't handle remote request anymore. Presumably we lost transactor role in between the request being sent out.");
         }
 
-        task = add_task(true, 0, std::move(msg->promise));
+        task = add_task(true, 0, std::move(msg->promise), false, content.idempotent_task_uid);
         // Need to delegate to zefhub
         std::visit(overloaded {
                 [&](MergeRequest::PayloadGraphDelta & payload) {
@@ -366,7 +379,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
                 }
             }, content.payload);
     } catch(...) {
-        if(content.task_uid) {
+        if(content.upstream_task_uid) {
             // This is a remote request, so we should let upstream know of the problem.
             send_ZH_message({
                     {"msg_type", "merge_request_response"},

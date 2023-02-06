@@ -64,9 +64,13 @@ def yo_implementation(x, display=True):
         if len(x.el_ops) == 1:
             from .dispatch_dictionary import _op_to_functions
             if len(x.el_ops) == 1:
-                f = _op_to_functions[x.el_ops[0][0]][0]
-                doc = inspect.getdoc(f)
-                doc = doc if doc else f"No docstring found for given {x}!"
+                zefop_key = x.el_ops[0][0]
+                if zefop_key not in _op_to_functions:
+                    doc = f"No docstring found for {x}!"
+                else:
+                    f = _op_to_functions[x.el_ops[0][0]][0]
+                    doc = inspect.getdoc(f)
+                    doc = doc if doc else f"No docstring found for {x}!"
                 print(doc, file=file)
         else:
             from .yo_ascii import make_op_chain_ascii_output
@@ -76,7 +80,7 @@ def yo_implementation(x, display=True):
         handler = _effect_handlers.get(x.d, None)
         if handler:
             doc = inspect.getdoc(handler)
-            doc = doc if doc else f"No docstring found for given {x}!"
+            doc = doc if doc else f"No docstring found for {x}!"
             print(doc, file=file)
         else:
             print(x, file=file)
@@ -206,7 +210,7 @@ def value_previous_of_aet(aet, tx) -> str:
             return f" [previous val: {'/' if not val else str(val)}]"
         else:
             return ''
-    except:
+    except Exception:
         return str(f" [previous val: NA]")
 
 
@@ -220,7 +224,7 @@ def value_of_aet_at_tx(aet, tx) -> str:
             return f" [{latest_or_current} val: {'/' if val is None else str(val)}]"
         else:
             return ''
-    except:
+    except Exception:
         return str(f" [{latest_or_current} val: NA]")
 
 

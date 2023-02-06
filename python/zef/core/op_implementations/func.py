@@ -38,9 +38,10 @@ def unpack_implementation(inputs, f):
     related zefop: reverse_args
     """
     from typing import Generator
+    from ...core.generators import ZefGenerator_      # yikes! I hope the definition "place" of this function never moves 
     if isinstance(inputs, tuple) or isinstance(inputs, list):
         return f(*inputs)
-    if isinstance(inputs, Generator):
+    if isinstance(inputs, Generator) or isinstance(inputs, ZefGenerator_):
         return f(*tuple(inputs))
 
     elif isinstance(inputs, dict):

@@ -230,12 +230,32 @@ def is_is_a(el, typ):
     predicate = remove_names(absorbed(typ))[0]
     try:
         if not predicate(el): return False
-    except:
+    except Exception:
         return False
     return True
 
 make_VT('Is',
         is_a_func=is_is_a)
+
+
+def where_is_a(el, typ):
+    """
+    Future improvement: detect and don't return False if the
+    number of curried + data flow args does not match the 
+    number of arguments which the predicate expects.
+    """
+    # is_validation(typ)
+    predicate = remove_names(absorbed(typ))[0]
+    curried_args = absorbed(typ)[1:]
+    try:
+        return predicate(el, *curried_args)
+    except Exception:
+        return False
+    return True
+
+make_VT('Where',
+        is_a_func=where_is_a)
+
 
 def setof_ctor(self, *args):
     """

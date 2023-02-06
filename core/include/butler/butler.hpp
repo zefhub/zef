@@ -54,18 +54,53 @@ namespace zefDB {
         }
 
         template <class T>
-        T Butler::msg_push_timeout(Request && content, double timeout, bool ignore_closed) {
+        T Butler::msg_push_timeout(Request && content, double timeout, bool ignore_closed, std::optional<std::string> maybe_task_uid) {
             std::string msg_type = std::visit([](auto & content) {return msgqueue_to_str(content);}, content);
             auto future = msg_push_internal(std::move(content), ignore_closed);
-            // std::future_status status;
-            // This needs to be changed to timeout on the butler side instead of here.
-            // if(timeout.value == 0)
-            //     status = std::future_status::ready;
-            // else
-            //     status = future.wait_for(std::chrono::duration<double>(timeout.value));
+            std::future_status status;
             Messages::Response response;
+
             try {
-                response = future.get();
+                while(true) {
+                    if(timeout == 0) {
+                        future.wait();
+                        status = std::future_status::ready;
+                    } else {
+                        status = future.wait_for(std::chrono::duration<double>(timeout));
+                    }
+                    if(status == std::future_status::ready) {
+                        response = future.get();
+                        break;
+                    }
+                    // We have reached our timeout, check to see if we've received any pokes from upstream
+                    if(maybe_task_uid) {
+                        auto task_promise = find_task(*maybe_task_uid);
+                        if(task_promise) {
+                            // New timeout from new activity.
+                            double time_since_activity = time_double() - task_promise->task->last_activity;
+                            if(zwitch.developer_output()) {
+                                std::cerr << "While waiting for msg to finish, we are checking for a task timeout and found a time_since_acitivity of: " << time_since_activity << std::endl;
+                            }
+                            if(time_since_activity < timeout)
+                                continue;
+                            // Note: we can't forget task in here as we might
+                            // have a timeout/disconnect from higher up.
+                        }
+                    }
+                    throw Butler::timeout_exception();
+                }
+            } catch(const Communication::disconnected_exception &) {
+                // If we are done with this, we need to forget the task.
+                auto task_promise = find_task(*maybe_task_uid);
+                if(task_promise)
+                    forget_task(*maybe_task_uid);
+                throw;
+            } catch(const Butler::timeout_exception &) {
+                // If we are done with this, we need to forget the task.
+                auto task_promise = find_task(*maybe_task_uid);
+                if(task_promise)
+                    forget_task(*maybe_task_uid);
+                throw;
             } catch(const std::exception & e) {
                 // std::cerr << "Exception: " << e.what() << std::endl;
                 throw std::runtime_error("Got unexpected butler error when processing message of type: " + msg_type + "\nException was: " + e.what());

@@ -213,6 +213,19 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
 
             // All of these messages must be passed down the line
             std::string task_uid = j["task_uid"].get<std::string>();
+
+            if(j.contains("please_ack") && j["please_ack"].get<bool>()) {
+                developer_output("Got a message requesting an ack");
+                // Send a quick response acknolwedging we have got this message
+                //
+                // Is this possible? Are we blocking the WS thread, therefore
+                // making it impossible to ensure that we are connected?
+                send_ZH_message({
+                        {"msg_type", "ACK_RECEIPT"},
+                        {"task_uid", task_uid},
+                    }, {}, true);
+            }
+
             task_promise_ptr task_promise = find_task(task_uid);
             if(!task_promise)
                 throw std::runtime_error("Task uid isn't in the waiting list!");
@@ -441,6 +454,11 @@ void Butler::handle_incoming_merge_request(json & j) {
         std::string payload_type = j["payload"]["type"].get<std::string>();
         if(payload_type == "delta") {
             content = MergeRequest{
+                // TODO: We need to update this to handle idempotent tasks on
+                // our end. A the moment, if the connection drops, then we have
+                // no way to remember that the upstream task is the same across
+                // multiple requests.
+                zefDB::generate_random_task_uid(),
                 task_uid,
                 target_guid,
                 MergeRequest::PayloadGraphDelta{
@@ -644,7 +662,11 @@ void Butler::check_overdue_receiving_transfers() {
     for(auto & it : receiving_transfers) {
         auto & trans = it.second;
 
-        if(trans.last_activity + chunk_timeout*seconds < now()) {
+        // With no timeout errors, we don't ignore the timeout completely, as
+        // this would clog up everything and also continually spam the logs.
+        // Instead we go for an hour instead.
+        double chosen_timeout = zwitch.no_timeout_errors() ? 3600 : chunk_timeout;
+        if(trans.last_activity + chosen_timeout*seconds < now()) {
             to_remove.push_back(trans.uid);
             if(zwitch.developer_output()) {
                 std::cerr << "Going to remove chunked transfer which has:" << std::endl;

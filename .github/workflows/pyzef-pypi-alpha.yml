@@ -19,9 +19,12 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-20.04, macos-latest]
+        os: [ubuntu-20.04, macos-latest, windows-latest]
+        # os: [windows-latest]
+        # os: [ubuntu-20.04, macos-latest]
         # Note: need "3.10" as yaml will truncate floating point number
         python-version: ["cp39", "cp310", "cp311"]
+        # python-version: ["cp39"]
     env:
       ZEFHUB_AUTH_KEY: "GUEST"
 
@@ -33,11 +36,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.11.2
+        uses: pypa/cibuildwheel@v2.11.4
         with:
           package-dir: python
         env:
           CIBW_BUILD: "${{ matrix.python-version}}*"
+          # CIBW_BUILD_VERBOSITY: 3
 
       - name: save wheels in artifacts
         uses: actions/upload-artifact@v3

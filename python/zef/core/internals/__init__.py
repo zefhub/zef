@@ -71,6 +71,7 @@ from ...pyzef.internals import (
     apply_update,
     blob_to_json,
     compress_zstd,
+    create_GraphDataWrapper,
     create_graph_from_bytes,
     create_update_heads,
     create_update_payload,
@@ -120,6 +121,7 @@ from ...pyzef.internals import (
     partial_hash,
     root_node_blob_index,
     search_value_node,
+    setup_pre_lock_hook,
     set_data_layout_version_info,
     set_graph_revision_info,
     show_blob_details,
@@ -160,6 +162,7 @@ from .value_type_check import register_value_type_check
 register_value_type_check()
 from .determine_primitive_type import register_determine_primitive_type
 register_determine_primitive_type()
+setup_pre_lock_hook()
 
 BT = BlobTypeStruct()
 

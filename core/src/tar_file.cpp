@@ -35,7 +35,7 @@ namespace zefDB {
 
         archive_read_support_filter_all(a);
         archive_read_support_format_tar(a);
-        if(ARCHIVE_OK != archive_read_open_filename(a, path.c_str(), 0))
+        if(ARCHIVE_OK != archive_read_open_filename(a, path.string().c_str(), 0))
             throw std::runtime_error("Failed to open tar file: "s + archive_error_string(a));
 
 
@@ -65,7 +65,7 @@ namespace zefDB {
 
         archive_read_support_filter_all(a);
         archive_read_support_format_tar(a);
-        if(ARCHIVE_OK != archive_read_open_filename(a, path.c_str(), 0))
+        if(ARCHIVE_OK != archive_read_open_filename(a, path.string().c_str(), 0))
             throw std::runtime_error("Failed to open tar file: "s + archive_error_string(a));
 
         archive_entry * entry;
@@ -106,7 +106,7 @@ namespace zefDB {
         });
         archive_write_add_filter_gzip(a);
         archive_write_set_format_pax_restricted(a);
-        if(ARCHIVE_OK != archive_write_open_filename(a, path.c_str()))
+        if(ARCHIVE_OK != archive_write_open_filename(a, path.string().c_str()))
             throw std::runtime_error("Failed to open tar file");
 
         for(auto & file : file_group.files) {
