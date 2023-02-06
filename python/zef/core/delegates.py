@@ -19,6 +19,7 @@ from ..pyzef import zefops as pyzefops
 
 def to_delegate_imp(first_arg, *curried_args):
     from .flat_graph import FlatGraph, FlatRef
+    from .VT import GraphSlice
     # TODO: Break this up and document
 
     if isinstance(first_arg, DelegateRef):
@@ -63,12 +64,12 @@ def to_delegate_imp(first_arg, *curried_args):
             return d_ezr
 
     from .op_implementations.implementation_typing_functions import check_Atom_with_ref
-    from .atom import _get_ref_pointer
+    from .atom import _get_ref_pointer, AtomClass
     if check_Atom_with_ref(first_arg):
         # TODO: Lots of fixups needed - reconsider the whole thing carefully
         out = to_delegate_imp(_get_ref_pointer(first_arg), *curried_args)
         if isinstance(out, BlobPtr | FlatRef):
-            return Atom(out)
+            return AtomClass(out)
         return out
     if isinstance(first_arg, BlobPtr):
         assert len(curried_args) == 0
@@ -94,7 +95,7 @@ def delegate_of_imp(x, arg1=None, arg2=None):
     from ._ops import to_frame, frame, collect
 
     from .op_implementations.implementation_typing_functions import check_Atom_with_ref
-    from .atom import _get_ref_pointer
+    from .atom import _get_ref_pointer, AtomClass
     if check_Atom_with_ref(x):
         # TODO: Lots of fixups needed - reconsider the whole thing carefully
         out = delegate_of_imp(_get_ref_pointer(x), arg1, arg2)

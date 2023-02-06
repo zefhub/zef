@@ -180,7 +180,7 @@ def unpack_receipt_graphslice(template, receipt, gs):
     if isinstance(template, EternalUID):
         from ..graph_slice import get_instance_rae
         out = get_instance_rae(template, gs, allow_tombstone=True)
-        assert out is not None
+        assert out is not None, f"Out is None! Coming from {template}"
         return Atom(out)
     if isinstance(template, Nil):
         return None

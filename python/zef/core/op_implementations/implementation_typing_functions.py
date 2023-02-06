@@ -5434,7 +5434,8 @@ def origin_uid_imp(z) -> EternalUID:
         return temp
     assert BT(z) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}
     if internals.is_delegate(z):
-        return uid(to_ezefref(z))
+        # raise NotImplementedError("NEED TO HANDLE DELGATE!")
+        return to_delegate(z)
     if BT(z) in {BT.TX_EVENT_NODE, BT.ROOT_NODE}:
         return uid(to_ezefref(z))
     origin_candidates = z | to_ezefref | in_rel[BT.RAE_INSTANCE_EDGE] | Outs[BT.ORIGIN_RAE_EDGE] | collect    
@@ -6521,6 +6522,8 @@ def uid_implementation(arg):
             #
             # Maybe suggests that "uid" only ever returns the global id and "frame" is the only way to query the tx.
 
+            if "delegate" in atom_id:
+                raise NotImplementedError("NEED TO HANDLE DELGATE!")
             if atom_id["global_uid"].graph_uid != atom_id["frame_uid"].graph_uid:
                 raise NotImplementedError("Need to understand Atoms and new Eternal+TX+Graph")
 
@@ -6528,9 +6531,14 @@ def uid_implementation(arg):
             return ZefRefUID(atom_id["global_uid"].blob_uid, atom_id["frame_uid"].tx_uid, atom_id["frame_uid"].graph_uid)
         elif "global_uid" in atom_id:
             return atom_id["global_uid"]
+        elif "delegate" in atom_id:
+            raise NotImplementedError("NEED TO HANDLE DELGATE!")
         else:
             # Should we fail here or should we return None?
             raise Exception("No UID in Atom")
+
+    if isinstance(arg, BlobPtr) and internals.is_delegate(arg):
+        raise NotImplementedError("NEED TO HANDLE DELGATE!")
 
     return pyzefops.uid(arg)
 

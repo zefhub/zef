@@ -27,6 +27,8 @@ def Atom_is_global_identifier(input):
         return True
     if isinstance(input, FlatRefUID):
         return True
+    if isinstance(input, DelegateRef):
+        return True
     return False
 
 
@@ -59,7 +61,7 @@ def find_dbstate(dbstate_uid: DBStateUID):
 # A temporary internal structure to represent a global id with a reference frame
 DBStateRefUID = UserValueType("DBStateRefUID",
                            Dict,
-                           Pattern[{"global_uid": EternalUID,
+                           Pattern[{"global_uid": EternalUID | DelegateRef,
                                     "dbstate_uid": DBStateUID}],
                            forced_uid="e2481c246411fd50")
 
@@ -190,6 +192,8 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
                 flatref_idx=input.idx,
                 frame_uid=input.flatgraph,
             )
+        elif isinstance(input, DelegateRef):
+            desc = dict(global_uid=input)
         else:
             raise Exception("Shouldn't get here")
     elif len(glob_identifiers) >= 2:
@@ -200,12 +204,21 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
     # There could be a FlatGraph in the list when strictly_invertible is used in
     # pretty_atom_identity. This is to be interpreted as the reference frame
     fgs = others | filter[FlatGraphPlaceholder] | collect
+    others = others | filter[~FlatGraphPlaceholder] | collect
     if len(fgs) > 0:
         if "frame_uid" in desc:
             raise Exception("Can't have a FlatGraph as a reference frame when the atom already has a reference graph")
         desc["frame_uid"] = single(fgs)
 
-    others = others | filter[~FlatGraphPlaceholder] | collect
+
+    # Same but with DBStateUID
+    dbs = others | filter[DBStateUID] | collect
+    others = others | filter[~DBStateUID] | collect
+    if len(dbs) > 0:
+        if "frame_uid" in desc:
+            raise Exception("Can't have a DBState as a reference frame when the atom already has a reference graph")
+        desc["frame_uid"] = single(dbs)
+
 
     if len(others) > 0:
         desc["local_names"] = others
@@ -218,19 +231,36 @@ def pretty_atom_identity(desc: AtomIdentity):
     assert isinstance(desc, AtomIdentity)
     # The inverse of interpret_atom_identity
     names = []
-    if "global_uid" in desc:
-        s = "㏈-" + str(desc["global_uid"])
-        if "frame_uid" in desc:
-            if isinstance(desc["frame_uid"], DBStateUID):
-                s += f"-{desc['frame_uid'].tx_uid}-{desc['frame_uid'].graph_uid}"
-            elif isinstance(desc["frame_uid"], FlatGraphPlaceholder):
-                s += f"-FG#{desc['frame_uid']._value}"
+    if "frame_uid" not in desc:
+        if "global_uid" in desc:
+            if isinstance(desc["global_uid"], DelegateRef):
+                # We can't pretty print delegates so just output directly
+                names += [desc["global_uid"]]
             else:
-                raise NotImplementedError(f"Unknown type of frame: {desc['frame_uid']}")
+                names += ["㏈-" + str(desc["global_uid"])]
 
-        names += [s]
-    if "flatref_idx" in desc:
-        names += [FlatRefUID(idx=desc["flatref_idx"], flatgraph=desc["frame_uid"])]
+    elif isinstance(desc["frame_uid"], DBStateUID):
+        if isinstance(desc["global_uid"], DelegateRef):
+            # We can't pretty print delegates so just output directly
+            names += [DBStateRefUID(global_uid=desc["global_uid"],
+                                    dbstate_uid=desc["frame_uid"])]
+        else:
+            s = "㏈-" + str(desc["global_uid"])
+            s += f"-{desc['frame_uid'].tx_uid}-{desc['frame_uid'].graph_uid}"
+            names += [s]
+
+    elif isinstance(desc["frame_uid"], FlatGraphPlaceholder):
+        if "global_uid" in desc:
+            s = "㏈-" + str(desc["global_uid"])
+            s += f"-FG#{desc['frame_uid']._value}"
+            names += [s]
+        else:
+            names += [FlatRefUID(global_uid=desc["flatref_idx"],
+                                frame_uid=desc["frame_uid"])]
+            
+    else:
+        raise NotImplementedError(f"Unknown type of frame: {desc['frame_uid']}")
+
     if "local_names" in desc:
         names += list(desc["local_names"])
 
