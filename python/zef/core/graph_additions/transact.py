@@ -71,7 +71,7 @@ def transact_graph(input: GraphWishInput | List[GraphWishInput], g, interpretati
     from ..fx import FX
     return {
         "type": FX.Graph.Transact,
-        "target_graph": target_ref,
+        "target_glike": target_ref,
         "level2_commands": cmds,
         "translation_rules": translation_rules,
         "post_transact_rule": post_transact_rule,

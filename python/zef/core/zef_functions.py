@@ -377,7 +377,10 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
                 if docstring_maybe: (z_zef_fct, RT.DocString, docstring_maybe) | g | run
         else:
             # zef function does not exist yet. Make a new ET.ZEF_Function and attach the string after processing
-            z_zef_fct = ET.ZEF_Function | g | run
+            # z_zef_fct = ET.ZEF_Function | g | run
+            atom = ET.ZEF_Function | g | run
+            from .atom import _get_ref_pointer
+            z_zef_fct = _get_ref_pointer(atom)
             # replace the function name given by the user with a unique one containing the uid of the rel
             s_renamed = s[:s.find('def')] + f"def zef_function_{uid(z_zef_fct)}" + s[s.find('('):]
             (z_zef_fct, RT.PythonSourceCode, s_renamed) | g | run

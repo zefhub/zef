@@ -31,13 +31,13 @@ def graph_transaction_handler(eff: dict):
     Args:
         eff (dict): {
             "type": FX.Graph.Transact,
-            "target_graph": g1,
+            "target_glike": g1: GraphRef|FlatGraph,
             "commands": list_of_commands
         }
     """
 
 
-    if isinstance(eff["target_graph"], FlatGraph) or (isinstance(eff["target_graph"], GraphRef) and internals.is_transactor(eff["target_graph"])):
+    if isinstance(eff["target_glike"], FlatGraph) or (isinstance(eff["target_glike"], GraphRef) and internals.is_transactor(eff["target_glike"])):
         # For backwards compatibility we dispatch on whether this is a new or old transact effect
 
         if "level2_commands" in eff:
@@ -48,18 +48,18 @@ def graph_transaction_handler(eff: dict):
             else:
                 raise Exception("There are no options for translation rules at the moment. TODO: Need to replace with distinguish/recombine/relabel/cull rules later.")
 
-            target_ref = eff["target_graph"]
+            target_ref = eff["target_glike"]
             if isinstance(target_ref, GraphRef):
                 target_ref = now(Graph(target_ref))
             lvl1_cmds = generate_level1_commands(eff["level2_commands"]["cmds"], target_ref)
 
             if isinstance(target_ref, GraphSlice):
                 from ..graph_additions.low_level import perform_level1_commands
-                receipt = perform_level1_commands(lvl1_cmds, eff.get("keep_internal_ids", False))
+                glike_frame,receipt = perform_level1_commands(lvl1_cmds, eff.get("keep_internal_ids", False))
             else:
                 assert isinstance(target_ref, FlatGraph)
                 from ..op_implementations.flatgraph_implementations import fg_transaction_implementation
-                return fg_transaction_implementation(lvl1_cmds["cmds"], target_ref)
+                glike_frame,receipt = fg_transaction_implementation(lvl1_cmds["cmds"], target_ref)
 
             # TODO: Postprocess using custom info stored in the level2 commands info
             post_transact_rule = eff.get("post_transact_rule", None)
@@ -67,33 +67,47 @@ def graph_transaction_handler(eff: dict):
                 receipt = post_transact_rule(receipt, lvl2_custom=eff["level2_commands"].get("custom", None))
         else:
             from ..graph_delta import perform_transaction_commands
-            receipt = perform_transaction_commands(eff['commands'], eff['target_graph'])
+            receipt = perform_transaction_commands(eff['commands'], eff['target_glike'])
     else:
         from ..overrides import merge
-        receipt = merge(eff["commands"], eff["target_graph"])
+        # TODO: This will have to be updated to handle sending GraphSlices over the wire
+        glike_frame,receipt = merge(eff["commands"], eff["target_glike"])
     
     # Handling receipt response needs a similar dispatch between old and new
     if "level2_commands" in eff:
-        # New path
+        # New graph wish path
+
+        # TODO:
+        #if isinstance(glike_frame, DBStateRef):
+        #    glike_frame = ... load GraphSlice from ref
+
         from ..graph_additions.shorthand import unpack_receipt
         if 'unpacking_template' in eff:
-            after_gs = now(Graph(eff["target_graph"]))
-            return unpack_receipt(eff['unpacking_template'], receipt, after_gs)
-        else:
-            g = internals.get_loaded_graph(eff["target_graph"])
-            if g is not None:
-                # Since g is loaded, we can return ZefRefs instead of AtomRefs.
-                gs = now(g)
-                from .. import func
-                receipt = (receipt
-                           | items
-                           | map[match[
-                               (Is[second | is_a[AtomRef]], apply[first, lambda x: gs | get[second(x)] | collect]),
-                               (Any, identity)
-                               ]]
-                           | func[dict]
-                           | collect)
-        return receipt
+            return unpack_receipt(eff['unpacking_template'], receipt, glike_frame)
+        elif glike_frame is not None:
+            # Since g is loaded, we can return Atoms instead of AtomRefs and FlatRefs instead of FlatRefUIDs.
+            if isinstance(glike_frame, GraphSlice):
+                from ..atom import _get_ref_pointer
+                conversions = [
+                    (AtomRef,
+                     lambda x: glike_frame | get[x] | collect),
+                    (Atom & Is[lambda x: _get_ref_pointer(x) is None],
+                     lambda x: glike_frame | get[x] | collect),
+                ]
+            else:
+                from ..graph_additions.types import FlatRefUID
+                conversions = [(FlatRefUID, lambda x: glike_frame[x.idx])]
+            from .. import func
+            receipt = (receipt
+                        | items
+                        | map[apply[first,
+                                    second | match[[
+                                        *conversions,
+                                        (Any, identity)
+                                    ]]]]
+                        | func[dict]
+                        | collect)
+        return glike_frame, receipt
     else:
         from ..graph_delta import perform_transaction_commands, filter_temporary_ids, unpack_receipt
         # we need to forward this if it is in the effect

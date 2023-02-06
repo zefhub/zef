@@ -142,7 +142,34 @@ def encode_ensure_tag_fallback(obj, tagging_rules, gen_id_state):
     
 
 
-def unpack_receipt(template, receipt, gs):
+def unpack_receipt(template, receipt, glike_frame):
+    if isinstance(glike_frame, GraphSlice):
+        return unpack_receipt_graphslice(template, receipt, glike_frame)
+    elif isinstance(glike_frame, FlatGraph):
+        return unpack_receipt_flatgraph(template, receipt, glike_frame)
+    else:
+        raise Exception(f"Unexpected frame-like: {glike_frame}")
+
+def unpack_receipt_flatgraph(template, receipt, fg):
+    if isinstance(template, List):
+        return tuple((unpack_receipt_flatgraph(el, receipt, fg) for el in template))
+    if isinstance(template, WishID):
+        if isinstance(template, Variable) and isinstance(template.name, OriginallyUserID):
+            template = template.name.obj
+        # This should probably be an atom already in the receipt
+        # return Atom(receipt[template])
+        return fg[template]
+    if isinstance(template, EternalUID):
+        return fg[template]
+    if isinstance(template, Nil):
+        return None
+    if isinstance(template, DelegateRef):
+        return fg[template]
+    if isinstance(template, WrappedValue):
+        return fg[template]
+    raise Exception(f"Should not get here - unknown type in unpacking template: {template}")
+
+def unpack_receipt_graphslice(template, receipt, gs):
     if isinstance(template, List):
         return tuple((unpack_receipt(el, receipt, gs) for el in template))
     if isinstance(template, WishID):

@@ -97,9 +97,9 @@ def delegate_of_imp(x, arg1=None, arg2=None):
     from .atom import _get_ref_pointer
     if check_Atom_with_ref(x):
         # TODO: Lots of fixups needed - reconsider the whole thing carefully
-        out = delegate_of_imp(_get_ref_pointer(x), *curried_args)
+        out = delegate_of_imp(_get_ref_pointer(x), arg1, arg2)
         if isinstance(out, BlobPtr):
-            return Atom(out)
+            return AtomClass(out)
         return out
 
     # TODO: Break this up and document

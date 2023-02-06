@@ -25,6 +25,14 @@ from .common import *
 
 def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids: Bool) -> GraphWishReceipt:
     assert isinstance(command_struct, Level1CommandInfo)
+
+    if len(command_struct.cmds) == 0:
+        # There is nothing to do! Let's just return early with the old graph slice
+        gs_updated = command_struct.gs
+        receipt = {}
+        return gs_updated, receipt
+
+
     # Run through each command
 
     # For each command:
@@ -155,6 +163,9 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
             else:
                 raise NotImplementedError(f"TODO cmd: {cmd}")
 
+    # We keep track of the exact GraphSlice resulting from this transaction
+    gs_updated = GraphSlice(ctx)
+
     # The receipt also gains the predetermined variables that were able to be
     # resovled before reaching this function.
     for k,alias in command_struct.resolved_variables.items():
@@ -167,4 +178,4 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
     # We undo any non-variable user ids based upon their included value
     receipt = maybe_unwrap_variables_in_receipt(receipt)
      
-    return receipt
+    return gs_updated, receipt

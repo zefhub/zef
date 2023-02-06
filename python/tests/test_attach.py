@@ -58,16 +58,17 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(length(z2 | now | out_rels[RT]), 2)
         self.assertEqual(length(z3 | now | out_rels[RT]), 5)
 
-        r = [ET.Machine["z"],
-             ET.Person["y"],
-             Any["z"] | set_field[RT.Supervisor][Z["y"]],
-             ] | transact[g] | run
+        _,r = [
+            ET.Machine["z"],
+            ET.Person["y"],
+            Any["z"] | set_field[RT.Supervisor][Z["y"]],
+        ] | transact[g] | run
         self.assertEqual(r["z"] | Out[RT.Supervisor] | collect, r["y"])
         
-        r2 = [ET.Machine["z"] | set_field[RT.Supervisor][ET.Person["y"]]] | transact[g] | run
+        _,r2 = [ET.Machine["z"] | set_field[RT.Supervisor][ET.Person["y"]]] | transact[g] | run
         self.assertEqual(r2["z"] | Out[RT.Supervisor] | collect, r2["y"])
 
-        r3 = [r["z"] | set_field[RT.Supervisor][ET.Person["new"]]] | transact[g] | run
+        _,r3 = [r["z"] | set_field[RT.Supervisor][ET.Person["new"]]] | transact[g] | run
         self.assertEqual(r["z"] | now | Outs[RT.Supervisor] | length | collect, 1)
         self.assertEqual(r["z"] | now | Out[RT.Supervisor] | collect, r3["new"])
 

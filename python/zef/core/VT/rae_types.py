@@ -57,6 +57,14 @@ def RAET_without_names(typ):
         return typ._replace(absorbed=())
     else:
         return typ._replace(absorbed=(token,))
+
+def print_or_error(text):
+    # This is a way to toggle the deprecation of the checks isinstance(some_atom, ET) for isinstance(some_atom, Entity)
+    if True:
+        print(text)
+    else:
+        raise Exception(text)
+        
     
 def wrap_attr_readonly_token(orig):
     def this_get_attr(self, name):
@@ -146,16 +154,16 @@ def ET_is_a(x, typ):
         if isinstance(x, ValueType):
             return type_name(x) == "ET"
         elif isinstance(x, DelegateRef):
-            print(" ⚠️  Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
+            print_or_error(" ⚠️  Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
             return isinstance(x.item, EntityTypeToken)
         elif isinstance(x, BlobPtr):
-            print(" ⚠ ️ Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
             return internals.BT(x) == internals.BT.ENTITY_NODE
         elif isinstance(x, EntityRef):
-            print(" ⚠ ️ Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
             return True
         elif isinstance(x, AtomClass):
-            print(" ⚠ ️ Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `ET` was used as the type in an isinstance comparison for an `Entity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Entity) instead. If you want to only catch e.g. isinstance(ET.X, ET) then until the deprecation occurs, you should use isinstance(ET.X, ValueType & ET). ⚠ ️")
             from .._ops import rae_type
             return isinstance(rae_type(x), ET)
 
@@ -189,16 +197,16 @@ def AET_is_a(x, typ):
         if isinstance(x, ValueType):
             return type_name(x) == "AET"
         elif isinstance(x, DelegateRef):
-            print(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
             return isinstance(x.item, AttributeEntityTypeToken)
         elif isinstance(x, BlobPtr):
-            print(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
             return internals.BT(x) == internals.BT.ATTRIBUTE_ENTITY_NODE
         elif isinstance(x, AttributeEntityRef):
-            print(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
             return True
         elif isinstance(x, AtomClass):
-            print(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `AET` was used as the type in an isinstance comparison for an `AttributeEntity`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., AttributeEntity) instead. If you want to only catch e.g. isinstance(AET.Int, AET) then until the deprecation occurs, you should use isinstance(AET.Int, ValueType & AET). ⚠ ️")
             from .._ops import rae_type
             return isinstance(rae_type(x), AET)
         return False
@@ -252,18 +260,18 @@ def RT_is_a(x, typ):
         if isinstance(x, ValueType):
             return type_name(x) == "RT"
         elif isinstance(x, DelegateRef):
-            print(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
             if type(x.item) == internals.DelegateRelationTriple:
                 return isinstance(x.item.rt, RelationTypeToken)
             return isinstance(x.item, RelationTypeToken)
         elif isinstance(x, BlobPtr):
-            print(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
             return internals.BT(x) == internals.BT.RELATION_EDGE
         elif isinstance(x, RelationRef):
-            print(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
             return True
         elif isinstance(x, AtomClass):
-            print(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `RT` was used as the type in an isinstance comparison for a `Relation`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., Relation) instead. If you want to only catch e.g. isinstance(RT.X, RT) then until the deprecation occurs, you should use isinstance(RT.X, ValueType & RT). ⚠ ️")
             from .._ops import rae_type
             return isinstance(rae_type(x), RT)
         return False
@@ -298,7 +306,7 @@ def BT_is_a(x, typ):
         if isinstance(x, ValueType):
             return type_name(x) == "BT"
         elif isinstance(x, BlobPtr):
-            print(" ⚠ ️ Warning, `BT` was used as the type in an isinstance comparison for a `BlobPtr`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., BlobPtr) instead. If you want to only catch e.g. isinstance(BT.VALUE_NODE, BT) then until the deprecation occurs, you should use isinstance(BT.VALUE_NODE, ValueType & BT). ⚠ ️️")
+            print_or_error(" ⚠ ️ Warning, `BT` was used as the type in an isinstance comparison for a `BlobPtr`. This will become False in the future, but currently returns True. Update your code to compare isinstance(..., BlobPtr) instead. If you want to only catch e.g. isinstance(BT.VALUE_NODE, BT) then until the deprecation occurs, you should use isinstance(BT.VALUE_NODE, ValueType & BT). ⚠ ️️")
             return True
         return False
     else:
@@ -325,10 +333,10 @@ def VRT_is_a(x, typ):
         if isinstance(x, ValueType):
             return type_name(x) == "VRT"
         elif isinstance(x, DelegateRef):
-            print(" ⚠ ️ Warning, `VRT` was used as the type in an isinstance comparison for a `Delegate`. This will become False in the future, but currently returns True. This actually is nonsensical, update your code logic. ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `VRT` was used as the type in an isinstance comparison for a `Delegate`. This will become False in the future, but currently returns True. This actually is nonsensical, update your code logic. ⚠ ️")
             return isinstance(x.item, ValueRepTypeToken)
         elif isinstance(x, BlobPtr):
-            print(" ⚠ ️ Warning, `VRT` was used as the type in an isinstance comparison for a `Delegate`. This will become False in the future, but currently returns True. This actually is nonsensical, update your code logic. ⚠ ️")
+            print_or_error(" ⚠ ️ Warning, `VRT` was used as the type in an isinstance comparison for a `Delegate`. This will become False in the future, but currently returns True. This actually is nonsensical, update your code logic. ⚠ ️")
             return internals.BT(x) in [internals.BT.ATTRIBUTE_ENTITY_NODE,
                                        internals.BT.VALUE_NODE]
         return False

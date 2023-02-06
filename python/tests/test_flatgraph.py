@@ -30,7 +30,8 @@ class MyTestCase(unittest.TestCase):
                     ET.Man: {
                         RT.Name: "Bob"
                     }
-                }
+                },
+                RT.Value: Val(42),
             }
         }])
 
@@ -38,7 +39,6 @@ class MyTestCase(unittest.TestCase):
         fg | transact[g2] | run
 
 
-    @unittest.skip("Broken with assign")
     def test_mixed_types(self):
         fg = FlatGraph()
         fg = (fg 
@@ -55,8 +55,10 @@ class MyTestCase(unittest.TestCase):
             # to produce an "AETWithValue" for cases like this, or c) allow
             # PleaseAssign to take AET.Int and make an alternative level1
             # command to take the place of PleaseAssign.
-            AET.Int | assign[41],
-            AET.Int['k2'] | assign[41],
+            # AET.Int | assign[41],
+            # AET.Int['k2'] | assign[41],
+            AET.Int | assign[41] | collect,
+            AET.Int['k2'] | assign[41] | collect,
             (Any['x1'], RT.A['r2'], ET.Baz),
             (Any['r2'], RT.B, AET.String| assign["Fred"]),
             (Any['r2'], RT.C, AET.String['aet1'] | assign["Some"]),

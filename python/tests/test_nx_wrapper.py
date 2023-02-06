@@ -17,7 +17,7 @@ from zef import *
 from zef.ops import *
 import zef
 
-from zef.core.atom import get_ref_pointer
+from zef.core.atom import _get_ref_pointer
 
 class MyTestCase(unittest.TestCase):
     def test_networkx(self):
@@ -33,7 +33,7 @@ class MyTestCase(unittest.TestCase):
                     (5,6), (6,7), (7,8), (8,6)]:
             (zs[i], RT.UsedBy, zs[j]) | g | run
 
-        r = [
+        _,r = [
             (ET.Person["alex"], [(RT.FirstName, "Alex"),
                                 (RT.Status, EN.Status.Developer),
                                 (RT.ZefAge, 1)]),
@@ -55,8 +55,8 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(set(dg.nodes) | func[set] | collect,
                          set(g | now | all[ET.Person] | collect))
         self.assertEqual(set(dg.edges) | func[set] | collect,
-                         set([(get_ref_pointer(r["alex"]), get_ref_pointer(r["bob"])),
-                              (get_ref_pointer(r["alex"]), get_ref_pointer(r["zach"]))]))
+                         set([(_get_ref_pointer(r["alex"]), _get_ref_pointer(r["bob"])),
+                              (_get_ref_pointer(r["alex"]), _get_ref_pointer(r["zach"]))]))
         self.assertEqual(dg[r["alex"]][r["bob"]]["From"], "University")
         self.assertEqual(dg.nodes[r["alex"]]["ZefAge"], 1)
         self.assertEqual(dg.edges[r["d-e"]]["From"], "University")

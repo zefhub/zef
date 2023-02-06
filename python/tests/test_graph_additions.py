@@ -35,7 +35,7 @@ class MyTestCase(unittest.TestCase):
         concrete_cmd_list = Level1CommandInfo({"cmds": cmds,
                                                "gs": now(g),
                                                "resolved_variables": {}})
-        receipt = perform_level1_commands(concrete_cmd_list, False)
+        gs_updated,receipt = perform_level1_commands(concrete_cmd_list, False)
 
         self.assertSetEqual(set(receipt.keys()), {V.asdf})
         self.assertIsInstance(receipt[V.asdf], ET.Machine)
@@ -47,7 +47,7 @@ class MyTestCase(unittest.TestCase):
         concrete_cmd_list = Level1CommandInfo({"cmds": cmds,
                                                "gs": now(g2),
                                                "resolved_variables": {}})
-        receipt2 = perform_level1_commands(concrete_cmd_list, False)
+        gs_updated,receipt2 = perform_level1_commands(concrete_cmd_list, False)
         self.assertEqual(origin_uid(receipt[V.asdf]), origin_uid(receipt2[V.two]))
 
     def test_generate_level1(self):
@@ -84,7 +84,7 @@ class MyTestCase(unittest.TestCase):
                           PleaseInstantiate({"atom": ET.Machine,
                                              "origin_uid": origin_uid(z)})})
 
-        receipt = perform_level1_commands(output_cmds2, False)
+        gs_updated,receipt = perform_level1_commands(output_cmds2, False)
         self.assertEqual(set(receipt.keys()), {V.one, V.two, V.three, V.four})
         self.assertEqual(receipt[V.three], receipt[V.four])
         self.assertNotEqual(receipt[V.one], receipt[V.two])
@@ -196,10 +196,10 @@ class MyTestCase(unittest.TestCase):
         for input in inputs:
             self.assertIsInstance(input, GraphWishInput)
 
-        receipt = inputs | transact[g] | run
+        gs_updated,receipt = inputs | transact[g] | run
 
         married_rel = receipt[V.married]
-        z_married_rel = g | now | get[married_rel] | collect
+        z_married_rel = gs_updated | get[married_rel] | collect
         self.assertEqual(z_married_rel | F.meta | collect, "meta-test")
         self.assertEqual(value(now(ae)), 42)
 
@@ -235,7 +235,7 @@ class MyTestCase(unittest.TestCase):
             # z2 | Out[RT.Details] | assign[1],
         ]
 
-        receipt = inputs | transact[g] | run
+        gs_updated,receipt = inputs | transact[g] | run
 
 
     def test_all_encode(self):
@@ -263,7 +263,7 @@ class MyTestCase(unittest.TestCase):
         z2 = ET.Machine | g | run
         z_ae = AET.Int | g | run
 
-        r = [
+        gs_updated,r = [
             ET.Machine(V.x, something=42),
             (V.x, RT.Something(V.relation, meta=1), 42),
             (z, RT.Relation, [ET.Machine, ET.Machine]),
@@ -281,7 +281,7 @@ class MyTestCase(unittest.TestCase):
         z2 = ET.Machine | g | run
         z_ae = AET.Int | g | run
 
-        r = [
+        gs_updated,r = [
             z_ae | assign[43] | collect,
             z2 | terminate | collect,
         ] | transact[g] | run

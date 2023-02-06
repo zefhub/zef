@@ -27,7 +27,7 @@ class MyTestCase(unittest.TestCase):
     def test_terminate_relation(self):
         g = Graph()
 
-        r = [
+        _,r = [
             ET.Person["joe"],
             (Z["joe"], RT.FirstName["rel"], "name"),
         ] | transact[g] | run
@@ -42,7 +42,7 @@ class MyTestCase(unittest.TestCase):
     def test_terminate_relation_merge(self):
         g = Graph()
 
-        r = [
+        _,r = [
             ET.Person["joe"],
             (Z["joe"], RT.FirstName["rel"], "name"),
         ] | transact[g] | run
@@ -51,7 +51,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)
 
         g2 = Graph()
-        r2 = [
+        _,r2 = [
             r["rel"] | terminate,
         ] | transact[g2] | run
         self.assertEqual(1, g | now | all[ET.Person] | length | collect)
@@ -62,7 +62,7 @@ class MyTestCase(unittest.TestCase):
     def test_no_duplicate_internal_name(self):
         g = Graph()
         with self.assertRaises(Exception):
-            r = [
+            _,r = [
                 ET.Danny["a"],
                 ET.Machine["a"],
                 (Z["a"], RT.Something, "name")

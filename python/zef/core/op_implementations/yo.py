@@ -22,9 +22,9 @@ from .. import internals
 from ..VT import *
 
 def index_imp(x):
-    if isinstance(x, Atom):
-        from ..atom import get_ref_pointer
-        return index(get_ref_pointer(x))
+    if isinstance(x, AtomClass):
+        from ..atom import _get_ref_pointer
+        return index(_get_ref_pointer(x))
     return index(x)
 
 def yo_implementation(x, display=True):

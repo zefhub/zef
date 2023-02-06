@@ -258,6 +258,13 @@ def lvl2cmds_for_rae(input: RAE, context: Lvl2Context):
 def lvl2cmds_for_flatref(input: FlatRef, context: Lvl2Context):
     return [], [Atom(input)], context
 
+def lvl2cmds_for_flatrefs(input: FlatRefs, context: Lvl2Context):
+    return [], list(input), context
+
+def lvl2cmds_for_flatgraph(input: FlatGraph, context: Lvl2Context):
+    new_cmds = list(input | all | collect)
+    return [], new_cmds, context
+
 @func
 def lvl2cmds_for_se(input, context):
     # Note: this should not hit Variables as they will be handled in AllIDs before this
@@ -333,7 +340,7 @@ def lvl2cmds_for_atom(atom, context):
                 raise Exception("Can't determine value of AttributeEntity as frame is not loaded")
             val = value(z)
             if val is not None:
-                cmds = [PleaseAssign(target=uid(ezr), value=Val(val))]
+                cmds = [PleaseAssign(target=authorative_id, value=Val(val))]
             else:
                 cmds = []
             return [discard_unnecessary_frame(atom)], cmds, context
@@ -395,6 +402,8 @@ default_interpretation_rules = [
     (AETWithValue, lvl2cmds_for_aet_with_value),
     (RAERef | RAEConcrete, lvl2cmds_for_rae),
     (FlatRef, lvl2cmds_for_flatref),
+    (FlatRefs, lvl2cmds_for_flatrefs),
+    (FlatGraph, lvl2cmds_for_flatgraph),
     # Things not in base version
     (OldStyleDict, OS_lvl2cmds_for_dict),
     (OldStyleRelationTriple, OS_lvl2cmds_for_relation_triple),

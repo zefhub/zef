@@ -20,32 +20,25 @@ import zef
 class MyTestCase(unittest.TestCase):
 
     def test_atom(self):
+        from zef.core.atom import _get_ref_pointer
         g = Graph()
 
-        z = ET.Machine | g | run
-        # TODO
-        atom = g | now | all[ET.Machine] | single | collect
-        atom = Atom(atom)
+        atom = ET.Machine | g | run
+        z = _get_ref_pointer(atom)
 
         self.assertIsInstance(atom, Atom)
-        from zef.core.atom import get_ref_pointer
-        self.assertEqual(get_ref_pointer(atom), z)
-        self.assertEqual(get_ref_pointer(to_ezefref(atom)), to_ezefref(z))
+        self.assertEqual(_get_ref_pointer(to_ezefref(atom)), to_ezefref(z))
         self.assertEqual(rae_type(atom), rae_type(z))
-        # self.assertEqual(time(atom), time(z))
         self.assertEqual(preceding_events(atom), preceding_events(z))
-        # Currently fails - behaviour should change
-        with self.subTest():
-            self.skipTest("uid behaviour needs to change")
-            self.assertEqual(uid(atom), uid(z))
+        self.assertEqual(uid(atom), uid(z))
         self.assertEqual(exists_at(atom, now(g)), exists_at(z, now(g)))
         self.assertEqual(frame(atom), frame(z))
         self.assertEqual(discard_frame(atom), discard_frame(z))
 
-        z2 = AET.Int | g | run
-        zef.pyzef.zefops.assign_value(z2, 42)
-        z2 = now(z2)
-        atom2 = Atom(z2)
+        atom2 = AET.Int | g | run
+        atom2 | assign[42] | g | run
+        atom2 = now(atom2)
+        z2 = _get_ref_pointer(atom2)
         self.assertEqual(value(atom2), value(z2))
 
         from zef.core.VT.rae_types import RAET_get_token
@@ -53,7 +46,7 @@ class MyTestCase(unittest.TestCase):
 
         atom_rel = Atom(rel)
 
-        self.assertEqual(get_ref_pointer(now(atom)), now(get_ref_pointer(atom)))
+        self.assertEqual(_get_ref_pointer(now(atom)), now(_get_ref_pointer(atom)))
 
         z = now(z)
         atom = now(atom)
@@ -76,7 +69,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(has_out(atom, RT.Something), has_out(z, RT.Something))
         self.assertEqual(has_in(atom, RT.Something), has_in(z, RT.Something))
 
-        self.assertEqual(get_ref_pointer(select_by_field([atom], RT.Something, 42)), select_by_field([z], RT.Something, 42))
+        self.assertEqual(_get_ref_pointer(select_by_field([atom], RT.Something, 42)), select_by_field([z], RT.Something, 42))
 
 
 if __name__ == '__main__':
