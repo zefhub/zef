@@ -160,12 +160,19 @@ DelegateRef = make_VT("DelegateRef", pytype=internals.Delegate,
 
 
 def delegate_is_a(x, typ):
+    from .VT import AtomClass
     if isinstance(x, BlobPtr):
         if not internals.is_delegate(x):
             return False
         del_ref = to_delegate_imp(x)
     elif isinstance(x, DelegateRef):
         del_ref = x
+    elif isinstance(x, AtomClass):
+        from .atom import get_most_authorative_id
+        auth_id = get_most_authorative_id(x)
+        if not isinstance(auth_id, Delegate):
+            return False
+        del_ref = auth_id
     else:
         return False
 

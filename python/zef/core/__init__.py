@@ -72,10 +72,10 @@ from . import _decimal
 from . import _bytes
 # Up to here, DEFINITELY no zefops can be called
 from . import delegates
-from . import atom
-from . import abstract_raes
 from . import graph_slice
 from . import flat_graph
+from . import atom
+from . import abstract_raes
 from . import rae_type_definitions
 from . import op_structs
 from . import _ops
@@ -102,6 +102,8 @@ from .symbolic_expression import SV, SVs, V
 from .z_expression import Z
 
 from .graph_events import Instantiated, Assigned, Terminated, infinity
+from .flat_graph import FlatGraphPlaceholder, FlatRefUID
+from .graph_slice import DBStateUID, DBStateRefUID
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations

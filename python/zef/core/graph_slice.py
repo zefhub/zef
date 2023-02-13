@@ -37,7 +37,7 @@ class GraphSlice_:
         # ZefRef[TX] -> GraphSlice and EZefRef[TX] -> GraphSlice
         if len(args) == 1:
             z = args[0]
-            from .VT import TX
+            from .VT import TX, AtomClass
             if not isinstance(z, TX):
                 raise TypeError(f'When calling the GraphSlice constructor with a single arguments, this has to be a TX. Called with: args={args}')
             if isinstance(z, AtomClass):
@@ -210,3 +210,57 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice, allow_tombstone=Fal
             return zz | to_frame[gs] | collect
     else:
         raise RuntimeError(f"Unexpected option in get_instance_rae: {zz}")
+
+
+# This is like a GraphSlice but without an explicit ZefRef tx.
+DBStateUID = UserValueType("DBStateUID",
+                           Dict,
+                           Pattern[{"tx_uid": BaseUID,
+                                    "graph_uid": BaseUID}],
+                           forced_uid="5f58a60ab5ae121b")
+
+def make_dbstate_uid(gs):
+    from ._ops import uid
+    ctx = gs.tx
+    tx_uid = uid(ctx).blob_uid
+    graph_uid = uid(ctx).graph_uid
+    return DBStateUID(tx_uid=tx_uid, graph_uid=graph_uid)
+
+
+def find_dbstate(dbstate_uid: DBStateUID):
+    # Tries to find the DBState for the given UID but returns None if we can't
+    # without causing a graph load.
+    gref = GraphRef(dbstate_uid.graph_uid)
+    from .internals import get_loaded_graph
+    g = get_loaded_graph(gref)
+    if g is None:
+        return None
+    gs = GraphSlice(g[dbstate_uid.tx_uid])
+    return gs
+
+    
+# A temporary internal structure to represent a global id with a reference frame
+DBStateRefUID = UserValueType("DBStateRefUID",
+                           Dict,
+                           Pattern[{"global_uid": EternalUID | DelegateRef | Val,
+                                    "dbstate_uid": DBStateUID}],
+                           forced_uid="e2481c246411fd50")
+
+def make_dbstateref_uid(z):
+    from .VT import AtomClass
+    from .atom import _get_ref_pointer
+    if isinstance(z, AtomClass):
+        z = _get_ref_pointer(z)
+    if not isinstance(z, ZefRef):
+        raise Exception(f"Can't get DBStateRefUID from a {z}")
+
+    from ._ops import origin_uid, frame, get_field, collect, uid
+
+    global_uid = origin_uid(z)
+    # Have to avoid calling to_tx as that would recurse into this function.
+    dbstate_uid = make_dbstate_uid(z | frame | collect)
+
+    return DBStateRefUID(
+        global_uid=global_uid,
+        dbstate_uid=dbstate_uid,
+    )

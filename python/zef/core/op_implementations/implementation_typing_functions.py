@@ -5293,9 +5293,9 @@ def discard_frame_imp(x):
             else:
                 raise Exception("Shouldn't get here")
         ref_pointer = _get_ref_pointer(x)
-        if ref_pointer is ZefRef:
+        if isinstance(ref_pointer, ZefRef):
             ref_pointer = to_ezefref(ref_pointer)
-        elif ref_pointer is FlatRef:
+        elif isinstance(ref_pointer, FlatRef):
             ref_pointer = None
         x =  x.__replace__(atom_id=atom_id, ref_pointer=ref_pointer)
         return x

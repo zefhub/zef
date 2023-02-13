@@ -15,6 +15,9 @@
 from .VT import *
 from .VT import insert_VT, make_VT
 
+from .graph_slice import DBStateUID, DBStateRefUID, make_dbstateref_uid, make_dbstate_uid
+from .flat_graph import FlatGraphPlaceholder, FlatRefUID, make_flatref_uid
+
 def Atom_is_global_identifier(input):
     if type(input) == str and input.startswith("㏈-"):
         return True
@@ -29,76 +32,15 @@ def Atom_is_global_identifier(input):
         return True
     if isinstance(input, DelegateRef):
         return True
+    if isinstance(input, Val):
+        return True
     return False
-
-
-# This is like a GraphSlice but without an explicit ZefRef tx.
-DBStateUID = UserValueType("DBStateUID",
-                           Dict,
-                           Pattern[{"tx_uid": BaseUID,
-                                    "graph_uid": BaseUID}],
-                           forced_uid="5f58a60ab5ae121b")
-
-def make_dbstate_uid(gs):
-    from ._ops import uid
-    ctx = gs.tx
-    tx_uid = uid(ctx).blob_uid
-    graph_uid = uid(ctx).graph_uid
-    return DBStateUID(tx_uid=tx_uid, graph_uid=graph_uid)
-
-def find_dbstate(dbstate_uid: DBStateUID):
-    # Tries to find the DBState for the given UID but returns None if we can't
-    # without causing a graph load.
-    gref = GraphRef(dbstate_uid.graph_uid)
-    from .internals import get_loaded_graph
-    g = get_loaded_graph(gref)
-    if g is None:
-        return None
-    gs = GraphSlice(g[dbstate_uid.tx_uid])
-    return gs
-
-    
-# A temporary internal structure to represent a global id with a reference frame
-DBStateRefUID = UserValueType("DBStateRefUID",
-                           Dict,
-                           Pattern[{"global_uid": EternalUID | DelegateRef,
-                                    "dbstate_uid": DBStateUID}],
-                           forced_uid="e2481c246411fd50")
-
-def make_dbstateref_uid(z):
-    if isinstance(z, Atom_):
-        z = get_ref_pointer(z)
-    if not isinstance(z, ZefRef):
-        raise Exception(f"Can't get DBStateRefUID from a {z}")
-
-    from ._ops import origin_uid, frame, get_field, collect, uid
-
-    global_uid = origin_uid(z)
-    # Have to avoid calling to_tx as that would recurse into this function.
-    dbstate_uid = make_dbstate_uid(z | frame | collect)
-
-    return DBStateRefUID(
-        global_uid=global_uid,
-        dbstate_uid=dbstate_uid,
-    )
-
-FlatGraphPlaceholder = UserValueType("FlatGraphPlaceholder", Int, Any)
-FlatRefUID = UserValueType("FlatRefUID",
-                           Dict,
-                           Pattern[{"idx": Int,
-                                    "flatgraph": FlatGraphPlaceholder}])
-
-def make_flatref_uid(fr):
-    from .flat_graph import register_flatgraph
-    h = register_flatgraph(fr.fg)
-    placeholder = FlatGraphPlaceholder(h)
-    return FlatRefUID(idx=fr.idx, flatgraph=placeholder)
 
 # UIDString = String & Where[startswith["㏈-"]]
 UIDString = String & Is[lambda x: x.startswith["㏈-"]]
 AtomIdentity = (
     Pattern[{
-        Optional["global_uid"]: EternalUID,
+        Optional["global_uid"]: EternalUID | DelegateRef | Val,
         Optional["frame_uid"]: DBStateUID,
         Optional["local_names"]: List[~UIDString],
         Optional["flatref_idx"]: Int,
@@ -113,8 +55,6 @@ AtomIdentity = (
 PrettyAtomIdentity = AtomIdentity | List[UIDString | EternalUID | ~UIDString]
 
 
-
-    
 
 def interpret_atom_identity(inputs) -> AtomIdentity:
     # Danny has been writing this from a combination of memory and making up
@@ -192,7 +132,7 @@ def interpret_atom_identity(inputs) -> AtomIdentity:
                 flatref_idx=input.idx,
                 frame_uid=input.flatgraph,
             )
-        elif isinstance(input, DelegateRef):
+        elif isinstance(input, DelegateRef | Val):
             desc = dict(global_uid=input)
         else:
             raise Exception("Shouldn't get here")
@@ -233,14 +173,14 @@ def pretty_atom_identity(desc: AtomIdentity):
     names = []
     if "frame_uid" not in desc:
         if "global_uid" in desc:
-            if isinstance(desc["global_uid"], DelegateRef):
+            if isinstance(desc["global_uid"], DelegateRef | Val):
                 # We can't pretty print delegates so just output directly
                 names += [desc["global_uid"]]
             else:
                 names += ["㏈-" + str(desc["global_uid"])]
 
     elif isinstance(desc["frame_uid"], DBStateUID):
-        if isinstance(desc["global_uid"], DelegateRef):
+        if isinstance(desc["global_uid"], DelegateRef | Val):
             # We can't pretty print delegates so just output directly
             names += [DBStateRefUID(global_uid=desc["global_uid"],
                                     dbstate_uid=desc["frame_uid"])]
@@ -322,7 +262,7 @@ class Atom_:
 
         fields.update(kwargs)
         
-        from ._ops import is_a, rae_type, source, target, origin_uid, abstract_type, discard_frame, value, uid
+        from ._ops import is_a, rae_type, source, target, origin_uid, abstract_type, discard_frame, value, uid, to_delegate, frame
         from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation, AttributeEntity
         from .flat_graph import FlatRef, FlatRef_rae_type, FlatRef_maybe_uid
 
@@ -352,12 +292,21 @@ class Atom_:
                 assert ref_pointer is None
                 ref_pointer = arg
                 ptr_atom_type = abstract_type(ref_pointer)
-                assert atom_type is None or atom_type == ptr_atom_type
-                atom_type = ptr_atom_type
-                if isinstance(arg, ZefRef):
+                if isinstance(arg, BT.VALUE_NODE):
+                    names = (Val(value(arg)), *names)
+                    ptr_atom_type = Val
+                    if isinstance(arg, ZefRef):
+                        names = (make_dbstate_uid(frame(arg)), *names)
+                        
+                elif isinstance(arg, Delegate):
+                    names = (to_delegate(arg), *names)
+                elif isinstance(arg, ZefRef):
                     names = (make_dbstateref_uid(ref_pointer), *names)
                 else:
                     names = (origin_uid(ref_pointer), *names)
+
+                assert atom_type is None or atom_type == ptr_atom_type
+                atom_type = ptr_atom_type
         
             elif is_a(arg, FlatRef):
                 ref_pointer = arg
@@ -377,7 +326,9 @@ class Atom_:
                 atom_type = rae_type(rae)
                 names = (origin_uid(rae), *names)
 
-            elif is_a(arg, RAET):
+            # Have the ValueType check in here while we are still deprecating
+            # the RAET capture
+            elif is_a(arg, ValueType & RAET):
                 assert atom_type is None
                 atom_type = arg
             else:
@@ -552,3 +503,12 @@ def RootAtom_is_a(x, typ):
     from ._ops import abstract_type, equals
     return isinstance(x, AtomClass & Is[abstract_type | equals[BT.ROOT_NODE]])
 RootAtom = make_VT("RootAtom", is_a_func=RootAtom_is_a)
+
+def ValAtom_is_a(x, typ):
+    from ._ops import abstract_type, equals
+    if not isinstance(x, AtomClass):
+        return False
+    
+    auth_id = get_most_authorative_id(x)
+    return isinstance(auth_id, Val)
+ValAtom = make_VT("ValAtom", is_a_func=ValAtom_is_a)

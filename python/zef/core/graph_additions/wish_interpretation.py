@@ -347,6 +347,18 @@ def lvl2cmds_for_atom(atom, context):
         else:
             return [atom], [], context
 
+    if isinstance(atom, ValAtom):
+        auth_id = get_most_authorative_id(atom)
+        assert isinstance(auth_id, Val)
+
+        return [auth_id], [], context
+
+    if isinstance(atom, Delegate):
+        auth_id = get_most_authorative_id(atom)
+        assert isinstance(auth_id, Delegate)
+
+        return [auth_id], [], context
+
     raise Exception(f"Shouldn't get here: {atom}")
 
 

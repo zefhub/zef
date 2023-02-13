@@ -187,10 +187,10 @@ def unpack_receipt_graphslice(template, receipt, gs):
     if isinstance(template, DelegateRef):
         out = to_delegate(template, gs)
         assert out is not None
-        return out
+        return Atom(out)
     if isinstance(template, WrappedValue):
         val = internals.val_as_serialized_if_necessary(template)
         out = Graph(gs).get_value_node(val)
         assert out is not None
-        return out | in_frame[gs] | collect
+        return Atom(out | in_frame[gs] | collect)
     raise Exception(f"Should not get here - unknown type in unpacking template: {template}")

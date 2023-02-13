@@ -76,7 +76,7 @@ def ensure_tag_rae_ref(obj: RAERef, gen_id_state):
     return obj,origin_uid(obj),gen_id_state
 
 def ensure_tag_blob_ptr(obj: BlobPtr, gen_id_state):
-    obj = discard_frame(obj)
+    obj = Atom(obj)
     # BlobPtrs could be RAEs or other things like value nodes/delegates/txs, so
     # pass this back through to ensure_tag to dispatch on the right thing.
     return ensure_tag(obj, gen_id_state)

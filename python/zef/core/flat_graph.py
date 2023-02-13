@@ -203,3 +203,18 @@ RootFlatRef = make_VT("RootFlatRef", is_a_func=RootFlatRef_is_a)
 
 
 RAEFlatRef = insert_VT('RAEFlatRef', EntityFlatRef | AttributeEntityFlatRef | RelationFlatRef)
+
+
+
+
+
+FlatGraphPlaceholder = UserValueType("FlatGraphPlaceholder", Int, Any)
+FlatRefUID = UserValueType("FlatRefUID",
+                           Dict,
+                           Pattern[{"idx": Int,
+                                    "flatgraph": FlatGraphPlaceholder}])
+
+def make_flatref_uid(fr):
+    h = register_flatgraph(fr.fg)
+    placeholder = FlatGraphPlaceholder(h)
+    return FlatRefUID(idx=fr.idx, flatgraph=placeholder)
