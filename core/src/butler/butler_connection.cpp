@@ -208,8 +208,13 @@ void wait_for_token_errors(std::vector<Butler::task_ptr> tasks) {
             break;
         }
     }
-    } catch(...) {
-        failed = true;
+    } catch(const Communication::disconnected_exception &) {
+        // Do nothing so we don't spam on an early exit
+    } catch(const std::exception & e) {
+        // One final check to see if the butler is running - if not then don't bother printing a failed message.
+        auto butler = get_butler();
+        if(butler && butler->network.is_running())
+            failed = true;
     }
     if(failed) {
         std::cerr << "=============================================" << std::endl;
