@@ -242,6 +242,30 @@ namespace zefDB {
             return true;
         }
 
+        bool verify_edge_list_chronological(EZefRef ezr) {
+            blob_index last_edge = 0;
+            for(auto & edge : AllEdgeIndexes(ezr)) {
+                if(std::abs(edge) < last_edge)
+                    throw std::runtime_error("Detected edge list not in order: " + to_str(edge) + " < " + to_str(last_edge));
+            }
+            return true;
+        }
+
+        bool verify_edge_lists_chronological(GraphData& gd) {
+            blob_index cur_index = internals::root_node_blob_index();
+			while (cur_index < gd.write_head) {
+                EZefRef uzr{cur_index,gd};
+
+				if (internals::has_edges(uzr)) {
+                    verify_edge_list_chronological(uzr);
+				}
+
+                cur_index += blob_index_size(uzr);
+            }
+
+            return true;
+        }
+
 
         // This was for some kind of testing
 

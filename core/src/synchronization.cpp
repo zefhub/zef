@@ -17,6 +17,7 @@
 #include "low_level_api.h"
 #include "high_level_api.h"
 #include "blobs.h"
+#include "verification.h"
 
 #include "zefops.h"
 
@@ -137,7 +138,15 @@ namespace zefDB {
                 };
                 std::sort(sorted_edges.begin(), sorted_edges.end(),
                           custom_sort);
+
+
+                // This is for verification in a peculiar bug that is occuring on a macos compilation.
+                blob_index last_edge = 0;
                 for(blob_index edge : sorted_edges) {
+                    if(std::abs(edge) < last_edge) {
+                        throw std::runtime_error("When adding new edges, somehow got an edge out of order, despite first sorting the edge list: " + to_str(edge) + " last was " + to_str(last_edge));
+                    }
+                    last_edge = edge;
                     if(!append_edge_index(uzr, edge, true)) {
                         // This logic path means that append_edge_index wanted
                         // to create a deferred list but was not allowed. This
@@ -146,6 +155,8 @@ namespace zefDB {
                         throw std::runtime_error("Issue with too many new edges for double linking in an update.");
                     }
                 }
+
+                verification::verify_edge_list_chronological(uzr);
 
                 // Now we assert that anything which had a new subsequent index
                 // also got filled up, and assign the subsequent index at the
@@ -160,7 +171,7 @@ namespace zefDB {
                     // This should line up with the subsequent index location.
                     last_blob[3] = subseq->second;
 
-                    // TODO: Need to upate the last_blob
+                    // Now upate the last_blob
                     // Also update the direct lookup for the original blob - first find what we have as the final used index.
 
                     blob_index final_deferred_index = subseq->second;

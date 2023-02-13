@@ -43,6 +43,8 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED bool verify_graph_double_linking(GraphData& gd);
         LIBZEF_DLL_EXPORTED bool verify_chronological_instantiation_order(GraphData& gd);
         LIBZEF_DLL_EXPORTED bool verify_all_edge_lists_in_range(GraphData& gd);
+        LIBZEF_DLL_EXPORTED bool verify_edge_list_chronological(EZefRef ezr);
+        LIBZEF_DLL_EXPORTED bool verify_edge_lists_chronological(GraphData& gd);
 
         LIBZEF_DLL_EXPORTED void break_graph(Graph&g, blob_index index, int style);
 
@@ -50,7 +52,8 @@ namespace zefDB {
             try {
             return (verify_graph_double_linking(gd)
                     && verify_chronological_instantiation_order(gd)
-                    && verify_all_edge_lists_in_range(gd));
+                    && verify_all_edge_lists_in_range(gd)
+                    && verify_edge_lists_chronological(gd));
             } catch(const std::exception & e) {
                 std::cerr << "Verification failed with: " << e.what() << std::endl;
                 return false;
