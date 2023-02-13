@@ -427,6 +427,7 @@ void Butler::handle_guest_message(OLD_STYLE_UserManagement & content, Butler::ms
 template <>
 void Butler::handle_guest_message(TokenManagement & content, Butler::msg_ptr & msg) {
     task_ptr task = add_task(true, 0, std::move(msg->promise));
+    wait_for_auth();
     try {
         send_ZH_message({
                 {"msg_type", "token_management"},
