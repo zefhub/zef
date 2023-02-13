@@ -3974,8 +3974,6 @@ def last_imp(iterable):
         return iterable | all | last | collect
 
     input_type = parse_input_type(type_spec(iterable))
-    
-    print(f"{input_type=}  {type(input_type)=}")
 
     if "zef" in input_type:
         return curry_args_in_zefop(pyzefops.last, iterable)
