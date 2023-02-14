@@ -180,12 +180,11 @@ def OS_lvl2cmds_for_relation_triple(input: OldStyleRelationTriple, context: Lvl2
     return [], more_inputs, context
 
 @func
-def lvl2cmds_for_aet_with_value(input: AETWithValue, context: Lvl2Context):
+def lvl2cmds_for_aet_with_value(input: PleaseAssignAlsoInstantiate, context: Lvl2Context):
     gen_id_state = context["gen_id_state"]
     input, me, gen_id_state = ensure_tag(input, gen_id_state)
 
-    lvl2_cmds = [PleaseInstantiate({"atom": input.aet,
-                                    "internal_ids": input.internal_ids}),
+    lvl2_cmds = [input.target,
                  PleaseAssign({"target": me,
                                "value": input.value})]
             
@@ -411,7 +410,7 @@ default_interpretation_rules = [
     (PleaseCommandLevel2, pass_through),
     (PureET|PureAET, lvl2cmds_for_ETorAET),
     (RelationTriple, lvl2cmds_for_relation_triple),
-    (AETWithValue, lvl2cmds_for_aet_with_value),
+    (PleaseAssignAlsoInstantiate, lvl2cmds_for_aet_with_value),
     (RAERef | RAEConcrete, lvl2cmds_for_rae),
     (FlatRef, lvl2cmds_for_flatref),
     (FlatRefs, lvl2cmds_for_flatrefs),

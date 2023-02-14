@@ -136,7 +136,7 @@ global_gen_internal_id.last_id = 1
     
 
 def convert_scalar(scalar):
-    return AETWithValue({"aet": map_scalar_to_aet(scalar),
+    return PleaseAssign({"target": map_scalar_to_aet(scalar),
                          "value": Val(scalar)})
 
 def map_scalar_to_aet(x):

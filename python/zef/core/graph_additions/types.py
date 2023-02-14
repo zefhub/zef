@@ -24,6 +24,8 @@ __all__ = [
     "PleaseInstantiate",
     "PleaseTerminate",
     "PleaseAssign",
+    "PleaseAssignJustValue",
+    "PleaseAssignAlsoInstantiate",
     "PleaseTag",
     "PleaseCommandLevel1",
     "Level1CommandInfo",
@@ -46,7 +48,7 @@ __all__ = [
     "RelationTriple",
     "PrimitiveValue",
     "WrappedValue",
-    "AETWithValue",
+    # "AETWithValue",
     "OldStyleDict",
     "OldStyleRelationTriple",
 
@@ -184,8 +186,12 @@ PleaseTerminate = UserValueType("PleaseTerminate",
 
 PleaseAssign = UserValueType("PleaseAssign",
                               Dict,
-                              Pattern[{"target": AllIDs,
+                              Pattern[{"target": AllIDs | PureAET,
                                        "value": WrappedValue}])
+
+# Changing to use PleaseAssign but we have this type in order to distinguish the logic required to instantiate the AET
+PleaseAssignAlsoInstantiate = PleaseAssign & Is[_ops.get_field["target"] | _ops.is_a[PureAET]]
+PleaseAssignJustValue = PleaseAssign & ~PleaseAssignAlsoInstantiate
 
 PleaseTag = UserValueType("PleaseTag",
                           Dict,
@@ -216,7 +222,7 @@ PleaseAlias = UserValueType("PleaseAlias",
                             Pattern[{"ids": List[AllIDs]}])
 
 PleaseCommandLevel1 = _alias(PleaseInstantiate
-                             | PleaseAssign
+                             | PleaseAssignJustValue
                              | PleaseTerminate
                              | PleaseTag
                              | PleaseMustLive
@@ -316,11 +322,15 @@ GraphWishValue = _alias(PrimitiveValue | WrappedValue, "GraphWishValue")
 # This is a declaration of *always* instantiating a new AE with the given AET
 # and initializing it with a value. It primarily exists for internal use at the
 # lvl2 phase, although there's no reason a user couldn't also write this.
-AETWithValue = UserValueType("AETWithValue",
-                             Dict,
-                             Pattern[{"aet": PureAET,
-                                      "value": Any, # TODO: This should be a parametric type related to the AET
-                                      Optional["internal_ids"]: List[WishID]}])
+# AETWithValue = UserValueType("AETWithValue",
+#                              Dict,
+#                              Pattern[{"aet": PureAET,
+#                                       "value": Any, # TODO: This should be a parametric type related to the AET
+#                                       Optional["internal_ids"]: List[WishID]}])
+
+# Changing to use PleaseAssign but we have this type in order to distinguish the logic required to instantiate the AET
+PleaseAssignAlsoInstantiate = PleaseAssign & Is[_ops.get_field["target"] | _ops.is_a[PureAET]]
+PleaseAssignJustValue = PleaseAssign & ~PleaseAssignAlsoInstantiate
 
 
 # Backwards compatibility
@@ -335,7 +345,7 @@ GraphWishInputSimple = _alias(
     | RelationTriple
     | OldStyleRelationTriple
     | GraphWishValue
-    | AETWithValue
+    | PleaseAssignAlsoInstantiate
     | FlatGraph
     | PureET
     | PureAET

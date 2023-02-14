@@ -90,6 +90,7 @@ def recombination_checks(cmds):
             if cmd1.value != cmd2.value:
                 raise Exception(f"Two assigns have different values: {cmd1} {cmd2}")
             # Any of the ids will do - they will be relabelled anyway.
+            from .command_multi_rules import distinguish_assign
             _,names = distinguish_assign(cmd1)
             return False, [PleaseAssign(target=names[0], value=cmd1.value)], []
         else:
@@ -134,7 +135,7 @@ def recombination_be_source_target(cmds):
         cmd1_diff = [id for id in cmd1.rel_ids if id not in cmd2.rel_ids]
         cmd2_diff = [id for id in cmd2.rel_ids if id not in cmd1.rel_ids]
         for id1,id2 in zip(cmd1_diff, cmd2_diff):
-            other_cmds += [PleaseAlias(ids=[cmd1.rel_id, cmd2.rel_id])]
+            alias_cmds += [PleaseAlias(ids=[id1,id2])]
         return False, [cmd1], alias_cmds
 
     return True, [], []
@@ -153,7 +154,7 @@ recombination_rules = [
     (Tuple[PleaseAlias, PleaseAlias], recombination_alias),
     (Tuple[PleaseAlias, ~PleaseAlias], recombination_unchanged),
     (Tuple[~PleaseAlias, PleaseAlias], recombination_unchanged),
-    (Tuple[PleaseMustLive, PleaseMustLive], first | wrap_list),
+    (Tuple[PleaseMustLive, PleaseMustLive], lambda x: (False, [x[0]], [])),
     (Tuple[~PleaseTerminate, ~PleaseTerminate], recombination_checks),
     (Tuple[~PleaseTerminate, PleaseTerminate], recombination_invalid),
     (Tuple[PleaseTerminate, ~PleaseTerminate], recombination_invalid),

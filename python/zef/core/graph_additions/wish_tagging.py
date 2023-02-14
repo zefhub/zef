@@ -36,19 +36,7 @@ def ensure_tag_atom(obj, gen_id_state):
 
 def ensure_tag_primitive(obj, gen_id_state):
     obj = convert_scalar(obj)
-    me,gen_id_state = gen_internal_id(gen_id_state)
-    # Create new AETWithValue with the id included.
-    obj = obj._get_type()(obj._value | insert["internal_ids"][[me]] | collect)
-    return obj,me,gen_id_state
-
-def ensure_tag_aet(obj: AETWithValue, gen_id_state):
-    if "internal_ids" in obj and len(obj.internal_ids) > 0:
-        me = obj.internal_ids[0]
-    else:
-        me,gen_id_state = gen_internal_id(gen_id_state)
-        # Create new AETWithValue with the id included.
-        obj = obj._get_type()(obj._value | insert["internal_ids"][[me]] | collect)
-    return obj,me,gen_id_state
+    return ensure_tag_assign(obj, gen_id_state)
 
 def ensure_tag_pure_et_aet(obj, gen_id_state):
     names = names_of_raet(obj)
@@ -64,7 +52,13 @@ def ensure_tag_delegate(obj, gen_id_state):
     return obj,obj,gen_id_state
 
 def ensure_tag_assign(obj: PleaseAssign, gen_id_state):
-    return obj, force_as_id(obj.target), gen_id_state
+    if isinstance(obj, PleaseAssignAlsoInstantiate):
+        new_target, me, gen_id_state = ensure_tag_pure_et_aet(obj.target, gen_id_state)
+        if new_target != target:
+            obj = PleaseAssign(obj._value | insert["target"][new_target] | collect)
+    else:
+        me = force_as_id(obj.target)
+    return obj, me, gen_id_state
 
 def ensure_tag_OS_dict(obj: OldStyleDict, gen_id_state):
     main_obj = single(obj.keys())
@@ -104,7 +98,6 @@ def ensure_tag_extra_user_id(obj: ExtraUserAllowedIDs, gen_id_state):
 tagging_rules = [
     (AtomClass, ensure_tag_atom),
     (PrimitiveValue, ensure_tag_primitive),
-    (AETWithValue, ensure_tag_aet),
     (PureET | PureAET, ensure_tag_pure_et_aet),
     (Delegate, ensure_tag_delegate),
     (PleaseAssign, ensure_tag_assign),
