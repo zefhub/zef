@@ -298,6 +298,7 @@ void Butler::handle_guest_message(NewGraph & content, Butler::msg_ptr & msg) {
 template <>
 void Butler::handle_guest_message(ZearchQuery & content, Butler::msg_ptr & msg) {
     task_ptr task = add_task(true, 0, std::move(msg->promise));
+    wait_for_auth();
     try {
         send_ZH_message({
                 {"msg_type", "zearch"},
@@ -313,6 +314,7 @@ void Butler::handle_guest_message(ZearchQuery & content, Butler::msg_ptr & msg) 
 template <>
 void Butler::handle_guest_message(UIDQuery & content, Butler::msg_ptr & msg) {
     task_ptr task = add_task(true, 0, std::move(msg->promise));
+    wait_for_auth();
     try {
         send_ZH_message({
                 {"msg_type", "lookup_uid"},
@@ -354,12 +356,17 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
         }
 
         task = add_task(true, 0, std::move(msg->promise), false, content.idempotent_task_uid);
+        wait_for_auth();
         // Need to delegate to zefhub
         std::visit(overloaded {
                 [&](MergeRequest::PayloadGraphDelta & payload) {
                     if(zefdb_protocol_version <= 1) {
                         auto task_promise = find_task(task->task_uid, true);
                         task_promise->promise.set_value(MergeRequestResponse{"ZefHub is too old to handle graph deltas."});
+                        return;
+                    } else if(zefdb_protocol_version <= 7) {
+                        auto task_promise = find_task(task->task_uid, true);
+                        task_promise->promise.set_value(MergeRequestResponse{"ZefHub is too old and can't deserialize our request."});
                         return;
                     } else {
                         send_ZH_message({
