@@ -31,6 +31,10 @@ def yo_implementation(x, display=True):
     import inspect
     from ..fx.fx_types import FXElement, _group_types
     from ..fx import _effect_handlers
+
+    from ..atom import _get_ref_pointer
+    if isinstance(x, AtomClass) and _get_ref_pointer(x) is not None:
+        return yo_implementation(_get_ref_pointer(x), display)
     
     if display:
         import sys

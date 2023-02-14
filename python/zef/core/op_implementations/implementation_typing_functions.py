@@ -6701,6 +6701,8 @@ def target_implementation(zr):
 def value_implementation(zr, maybe_tx=None):
     if check_Atom_with_ref(zr):
         return value_implementation(_get_ref_pointer(zr), maybe_tx)
+    if check_Atom_with_ref(maybe_tx):
+        return value_implementation(zr, _get_ref_pointer(maybe_tx))
 
     if isinstance(zr, FlatRef):
         return fr_value_imp(zr)
@@ -7280,12 +7282,6 @@ def assign_imp(x, val):
     from ..graph_additions.types import PleaseAssign
     if isinstance(x, AttributeEntity):
         x = origin_uid(x)
-    if isinstance(x, ValueType & AET):
-        # In this path, we need to return a different structure to represent
-        # both the creation of the AttributeEntity and assignment of the value.
-        from ..graph_additions.types import AETWithValue
-        # TODO: We need to pass the internal IDs into the AETWithValue if given
-        return AETWithValue(aet=x, value=Val(val))
 
     return PleaseAssign({"target": x,
                           "value": Val(val)})
