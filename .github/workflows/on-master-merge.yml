@@ -12,6 +12,7 @@ jobs:
     # check-license is quick and we want to abort quickly if that fails
     needs: check-license
     runs-on: ${{ matrix.os }}
+    environment: Release
     strategy:
       matrix:
         # os: [ubuntu-20.04, macos-latest, windows-latest]
@@ -24,8 +25,6 @@ jobs:
             python-version: 3.7
           - os: windows-latest
             python-version: 3.7
-    env:
-      ZEFHUB_AUTH_KEY: "GUEST"
     steps:
       ########
       # Git things
@@ -40,6 +39,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
+          test-auth-key: ${{ secrets.TEST_AUTH_KEY }}
 
       - uses: 8398a7/action-slack@v3
         with:

@@ -15,6 +15,7 @@ jobs:
     needs: check-license
     name: Build wheels
     runs-on: ${{ matrix.os }}
+    environment: Release
     strategy:
       matrix:
         os: [ubuntu-20.04, macos-latest, windows-latest]
@@ -29,7 +30,8 @@ jobs:
           - os: macos-latest
             python-version: "cp37"
     env:
-      ZEFHUB_AUTH_KEY: "GUEST"
+      # ZEFHUB_AUTH_KEY: "GUEST"
+      ZEFHUB_AUTH_KEY: "${{ secrets.TEST_AUTH_KEY }}"
 
     steps:
       ########
