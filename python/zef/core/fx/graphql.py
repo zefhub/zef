@@ -32,7 +32,7 @@ def graphql_start_server_handler(eff: Effect):
         "schema_root": z_schema,
         --- OR ---
         "schema_dict": d,
-        "g": g,
+        "db": db,
         "path": "/gql", (default="/gql")
         "playground_path": "/", (default=None)
         "open_browser": False (default=False)
@@ -45,14 +45,14 @@ def graphql_start_server_handler(eff: Effect):
 
     if "schema_root" in eff:
         schema = make_api(eff['schema_root'])
-    elif "schema_dict" in eff and "g" in eff:
+    elif "schema_dict" in eff and "db" in eff:
         try:
-            schema = make_graphql_api(eff['schema_dict'], eff['g'])
+            schema = make_graphql_api(eff['schema_dict'], eff['db'])
         except Exception as e:
             log.error(f"Error creating GraphQL API: {e}")
             raise e
     else:
-        raise Exception("Either schema_root or schema_dict and g must be provided to run a GraphQL server")
+        raise Exception("Either schema_root or schema_dict and db must be provided to run a GraphQL server")
     port = eff.get("port", 5000)
 
     gql_path = eff.get("path", "/gql")
@@ -118,7 +118,7 @@ def graphql_start_playground_handler(eff: dict):
         "schema_root": z_schema,
         --- OR ---
         "schema_dict": d,
-        "g": g,
+        "db": db,
         "port": 5001, (default=5000)
         "path": "/gql", (default="/gql")
         "playground_path": "/", (default="/")
@@ -127,10 +127,10 @@ def graphql_start_playground_handler(eff: dict):
     """   
     if "schema_root" in eff:
         schema = {"schema_root": eff['schema_root']}
-    elif "schema_dict" in eff and "g" in eff:
-        schema = {"schema_dict": eff['schema_dict'], "g": eff['g']}
+    elif "schema_dict" in eff and "db" in eff:
+        schema = {"schema_dict": eff['schema_dict'], "db": eff['db']}
     else:
-        raise Exception("Either schema_root or schema_dict and g must be provided to run a GraphQL Playground")
+        raise Exception("Either schema_root or schema_dict and db must be provided to run a GraphQL Playground")
 
     port = eff.get("port", 5000)
 
