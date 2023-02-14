@@ -6728,7 +6728,7 @@ def time_implementation(x):
     GraphSlice  -> Time
     """
     if isinstance(x, GraphSlice):
-        return pyzefops.time(to_tx(x))
+        return time_implementation(to_tx(x))
     if check_Atom_with_ref(x):
         return time_implementation(_get_ref_pointer(x))
     return (pyzefops.time)(x)
