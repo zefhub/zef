@@ -2,10 +2,11 @@
 skip = ["pp*", "*musllinux*"]
 archs = ["auto64"]
 before-test = "python -mpip install -r {project}/python/tests/requirements_tests.txt"
-# test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST ZEFDB_QUIET=YES python -mpytest {project}/python/tests && python {project}/python/tests/quick_start.py"
+test-command = "bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST ZEFDB_QUIET=YES python -mpytest {project}/python/tests && python {project}/python/tests/quick_start.py && cd {project}/python/tests/robot && bash runtests.sh"
 
 [tool.cibuildwheel.linux]
 before-all = "yum install -y openssl-devel graphviz"
+environment-pass = ["ZEFHUB_AUTH_KEY"]
 
 [tool.cibuildwheel.macos]
 before-all = "brew install openssl graphviz"

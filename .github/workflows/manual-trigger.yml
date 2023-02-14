@@ -20,7 +20,8 @@ on:
         type: boolean
 
 env:
-  ZEFHUB_AUTH_KEY: "GUEST"
+    ZEFHUB_AUTH_KEY: GUEST
+
 
 jobs:
   check-license:

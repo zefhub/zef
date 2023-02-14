@@ -1338,6 +1338,7 @@ def chunk_imp(iterable, chunk_size: int):
     used for: list manipulation
     used for: string manipulation
     used for: stream manipulation
+    related zefop: chunk_by
     related zefop: stride
     related zefop: sliding
     related zefop: slice
@@ -1377,6 +1378,48 @@ def chunk_imp(iterable, chunk_size: int):
 
 def chunk_tp(v_tp, step_tp):
     return VT.List
+
+
+#---------------------------------------- chunk_by -----------------------------------------------
+
+def chunk_by_imp(iterable, condition):
+    """
+    Useful for chunking sequences where the size of each
+    chunk is specified by a predicate function that acts
+    on the state aggregated since the last chunk.
+
+    e.g. if we want to chunk a long string into a paragraph
+    of fixed maximum width, but along word boundaries.
+
+    >>> (['this is a sentence with quite a few words'] 
+    ... | split[' '] 
+    ... | chunk_by[lambda v: v| map[length] | sum | collect < 8]
+    ... # this is a
+    ... # sentence with
+    ... # quite a few words
+    
+    related zefop: chunk
+    """
+    def wrapper():
+        it = iter(iterable)
+        state = []
+        try:
+            while True:
+                if(not condition(state)):
+                    # print('y2')
+                    yield state
+                    state = []
+                while(condition(state)):
+                    state.append(next(it))
+                # print('y1', state)
+                if len(state) > 1:
+                    yield state[:-1]
+                state = [state[-1]]
+        except StopIteration:
+            yield state
+            return
+
+    return ZefGenerator(wrapper)
 
 
 #---------------------------------------- insert -----------------------------------------------
@@ -2153,8 +2196,14 @@ def trim_left_imp(v, el_to_trim):
     Removes all contiguous occurrences of a specified 
     element / character from the left side of a list / string.
 
+    Note: this function behaves differently from the Python str.lstrip:
+    For a string, str.lstrip interprets the "string to trim" as a set of
+    characters to remove (order does not matter). This function, however,
+    interprets the "string to trim" as a single string to remove.
+
     ---- Examples ----
-    >>> '..hello..' | trim_left['.']            # => 'hello..'
+    >>> '..hello..' | trim_left['.']             # => 'hello..'
+    >>> 'call this zef' | trim_left['call this'] # => ' zef'
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2170,8 +2219,15 @@ def trim_left_imp(v, el_to_trim):
     - used for: string manipulation
     """
     if isinstance(v, String):
+
         if isinstance(el_to_trim, String):
-            return v.lstrip(el_to_trim)
+            def string_trim_left(s: str, what_to_trim) -> str:
+                if s[:len(what_to_trim)] == what_to_trim:
+                    return string_trim_left(s[len(what_to_trim):], what_to_trim)
+                else:
+                    return s
+            return string_trim_left(v, el_to_trim)
+
         elif isinstance(el_to_trim, Set):
             vv = v
             for el in el_to_trim:
@@ -2206,8 +2262,14 @@ def trim_right_imp(v, el_to_trim):
     Removes all contiguous occurrences of a specified 
     element / character from the right side of a list / string.
 
+    Note: this function behaves differently from the Python str.rstrip:
+    For a string, str.rstrip interprets the "string to trim" as a set of
+    characters to remove (order does not matter). This function, however,
+    interprets the "string to trim" as a single string to remove.
+    
     ---- Examples ----
     >>> '..hello..' | trim_right['.']            # => '..hello'
+    >>> 'call this zef' | trim_right['this zef']      # => 'call '
 
     ---- Signature ----
     (List[T], T) -> List[T]
@@ -2225,7 +2287,12 @@ def trim_right_imp(v, el_to_trim):
     import itertools 
     if isinstance(v, String):
         if isinstance(el_to_trim, String):
-            return v.rstrip(el_to_trim)
+            def string_trim_right(s: str, what_to_trim) -> str:
+                if s[-len(what_to_trim):] == what_to_trim:
+                    return string_trim_right(s[:-len(what_to_trim)], what_to_trim)
+                else:
+                    return s
+            return string_trim_right(v, el_to_trim)
         elif isinstance(el_to_trim, Set):
             vv = v
             for el in el_to_trim:
@@ -3040,6 +3107,50 @@ def min_by_tp(v_tp, min_by_function_tp):
     
     
     
+
+#---------------------------------------- arg_max -----------------------------------------------
+
+def arg_max_imp(iterable, f):
+    """
+    A function that returns the argument which
+    minimizes a given function.
+
+    ['hi', 'hello', 'bye'] | arg_max[len]    # => 'hello'
+    """
+    it = iter(iterable)
+    max_so_far = next(it)
+    func_val_of_max_so_far = f(max_so_far)
+
+    for el in it:
+        x = el
+        f_val = f(el)
+        if f_val > func_val_of_max_so_far:
+            max_so_far = x
+            func_val_of_max_so_far = f_val
+    return max_so_far
+
+
+#---------------------------------------- arg_min -----------------------------------------------
+
+def arg_min_imp(iterable, f):
+    """
+    A function that returns the argument which
+    minimizes a given function.
+
+    ['hi', 'hello', 'bye'] | arg_min[len]    # => 'hi'
+    """
+    it = iter(iterable)
+    min_so_far = next(it)
+    func_val_of_min_so_far = f(min_so_far)
+
+    for el in it:
+        x = el
+        f_val = f(el)
+        if f_val < func_val_of_min_so_far:
+            min_so_far = x
+            func_val_of_min_so_far = f_val
+    return min_so_far
+
 
 #---------------------------------------- clamp -----------------------------------------------
 def clamp_imp(x, x_min, x_max):
@@ -7554,9 +7665,12 @@ def from_json_imp(d: VT.Dict)-> VT.Any:
     ---- Signature ----
     VT.Dict -> VT.Any
     """
-    from ..serialization import deserialize
+    from ..serialization import deserialize, is_serialization
     import json
-    return deserialize(json.loads(d))
+    loaded_d = json.loads(d)
+    if is_serialization(loaded_d):
+        return deserialize(loaded_d)
+    return loaded_d
     
 def from_json_tp(op, curr_type):
     return VT.Any
@@ -7565,7 +7679,7 @@ def from_json_tp(op, curr_type):
 #------------------------------------------yaml/toml---------------------------------------------
 def to_yaml_imp(v: VT.Any)-> VT.Dict:
     import yaml 
-    return yaml.safe_dump(v)
+    return yaml.safe_dump(v, sort_keys=False)
     
 def to_yaml_tp(op, curr_type):
     return VT.Dict
