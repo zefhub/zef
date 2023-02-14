@@ -263,7 +263,7 @@ namespace zefDB {
         std::string version_layout(int version) {
             if(version <= 6)
                 return "0.2.0";
-            if(version == 7)
+            if(version <= 8)
                 return "0.3.0";
             throw std::runtime_error("Did not have a way to say what the upstream layout was for zefdb protocol version: " + to_str(version));
         }
