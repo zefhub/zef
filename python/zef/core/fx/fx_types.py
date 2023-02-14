@@ -15,7 +15,7 @@
 
 #---------------------------------------------------------------------------------------
 
-from ..VT import make_VT
+from ..VT import make_VT, UserValueType, Dict, Any, Pattern
 
 # allow value based comparisons
 class FXElement():
@@ -45,13 +45,17 @@ class FXElement():
         can be run, execute this before returning. If it fails, return an
         error.
         """
-        return {
+        return FX_UVT(**{
             **kwargs,
             'type': self,
-        }
+        })
 
 EffectType = make_VT("EffectType", pytype=FXElement)
 
+def FX__repr__(self):
+    return f"{self._value['type']}({', '.join(f'{k}={v}' for k,v in self._value.items() if k != 'type')})"
+
+FX_UVT = UserValueType("FX", Dict, Pattern[{"type": EffectType}], object_methods = {"__repr__": FX__repr__})
 
 class _HTTP_Class():
     _name = "HTTP"
@@ -216,7 +220,7 @@ def effect_ctor(*args, **kwargs) -> dict:
         return kwargs
 
 def effect_is_a(x, typ):
-    return isinstance(x, Pattern[{"type": EffectType}])
+    return isinstance(x.type,  EffectType)
 
 Effect = make_VT("Effect",
                  constructor_func=effect_ctor,

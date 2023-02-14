@@ -182,6 +182,10 @@ class UserValueInstance_:
         return _user_value_type_registry[self._user_type_id]
         
     def __repr__(self):
+        typ = self._get_type()
+        object_methods = typ._d["object_methods"]
+        if "__repr__" in object_methods:
+            return object_methods["__repr__"](self)
         # look up the name in the _user_value_type_registry from the id
         type_name = self._get_type()._d["name"]
         return f"{type_name}({repr(self._value)})"
