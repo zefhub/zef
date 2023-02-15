@@ -21,7 +21,6 @@ import sys
 class MyTestCase(unittest.TestCase):
 
 
-    @unittest.skip("TODO: flatgraph as input to wish")
     def test_dict_syntax(self):
         fg = FlatGraph([{
                 ET.Person['z1'] : {
@@ -77,14 +76,15 @@ class MyTestCase(unittest.TestCase):
         fg | transact[g2] | run
 
 
-    @unittest.skip("Broken with assign")
     def test_all_types(self):
+        from zef.core.atom import _get_ref_pointer
         g  = Graph()
         z0 = ET.Person | g | run
-        z1 = EntityRef(z0)
-        z2 = AttributeEntityRef(AET.Bool | g | run)
+        z1 = EntityRef(_get_ref_pointer(z0))
+        z2 = AttributeEntityRef(_get_ref_pointer(AET.Bool | g | run))
         rt = ((z0, RT.Name, AET.String) | g | run)[1]
-        z3 = RelationRef(((rt, RT.Another, AET.String) | g | run)[1])
+        # z3 = RelationRef(_get_ref_pointer(((rt, RT.Another, AET.String) | g | run)[1]))
+        _,z3,_ = (rt, RT.Another, AET.String) | g | run
         z4 = AET.String | g | run
         z5 = (z4 | assign["hey"]) | g | run 
 
@@ -113,7 +113,7 @@ class MyTestCase(unittest.TestCase):
         | insert[z5]
         | insert[z1] 
         | insert[(z1, RT.H['t1'], Any['n1'])]
-        | insert[RelationRef(rt)]
+        | insert[discard_frame(rt)]
         | insert[z3]
         | insert[z2]
         | insert[z2 | assign[True]]
@@ -140,7 +140,6 @@ class MyTestCase(unittest.TestCase):
         fg | to_json | from_json | collect 
 
 
-    @unittest.skip("TODO: flatgraph as input to wish")
     @unittest.skipIf(sys.platform.startswith("win"), "Not testing graphviz on windows")
     def test_fg_graphviz(self):
         fg = FlatGraph([{
@@ -157,7 +156,6 @@ class MyTestCase(unittest.TestCase):
         fg | graphviz | collect
 
 
-    @unittest.skip("TODO: flatgraph as input to wish")
     def test_merging_flatgraphs(self):
         g  = Graph()
         z0 = ET.Person | g | run

@@ -348,7 +348,7 @@ def lvl2cmds_for_atom(atom, context):
 
     if isinstance(atom, ValAtom):
         auth_id = get_most_authorative_id(atom)
-        assert isinstance(auth_id, Val)
+        assert isinstance(auth_id, Val), f"Auth id is not a Val: {auth_id}"
 
         return [auth_id], [], context
 

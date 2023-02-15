@@ -7280,8 +7280,8 @@ def assign_imp(x, val):
     """
 
     from ..graph_additions.types import PleaseAssign
-    if isinstance(x, AttributeEntity):
-        x = origin_uid(x)
+    # if isinstance(x, AttributeEntity):
+    #     x = origin_uid(x)
 
     return PleaseAssign({"target": x,
                           "value": Val(val)})

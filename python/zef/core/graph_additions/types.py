@@ -186,12 +186,14 @@ PleaseTerminate = UserValueType("PleaseTerminate",
 
 PleaseAssign = UserValueType("PleaseAssign",
                               Dict,
-                              Pattern[{"target": AllIDs | PureAET,
+                              # Pattern[{"target": AllIDs | PureAET,
+                             # We go to allowing anything in here, but this is only the user-facing front.
+                             Pattern[{"target": Any,
                                        "value": WrappedValue}])
 
 # Changing to use PleaseAssign but we have this type in order to distinguish the logic required to instantiate the AET
-PleaseAssignAlsoInstantiate = PleaseAssign & Is[_ops.get_field["target"] | _ops.is_a[PureAET]]
-PleaseAssignJustValue = PleaseAssign & ~PleaseAssignAlsoInstantiate
+PleaseAssignJustValue = PleaseAssign & Is[_ops.get_field["target"] | _ops.is_a[AllIDs]]
+PleaseAssignAlsoInstantiate = PleaseAssign & ~PleaseAssignJustValue
 
 PleaseTag = UserValueType("PleaseTag",
                           Dict,
@@ -329,8 +331,8 @@ GraphWishValue = _alias(PrimitiveValue | WrappedValue, "GraphWishValue")
 #                                       Optional["internal_ids"]: List[WishID]}])
 
 # Changing to use PleaseAssign but we have this type in order to distinguish the logic required to instantiate the AET
-PleaseAssignAlsoInstantiate = PleaseAssign & Is[_ops.get_field["target"] | _ops.is_a[PureAET]]
-PleaseAssignJustValue = PleaseAssign & ~PleaseAssignAlsoInstantiate
+# PleaseAssignAlsoInstantiate = PleaseAssign & Is[_ops.get_field["target"] | _ops.is_a[PureAET]]
+# PleaseAssignJustValue = PleaseAssign & ~PleaseAssignAlsoInstantiate
 
 
 # Backwards compatibility
@@ -345,7 +347,7 @@ GraphWishInputSimple = _alias(
     | RelationTriple
     | OldStyleRelationTriple
     | GraphWishValue
-    | PleaseAssignAlsoInstantiate
+    | PleaseAssign
     | FlatGraph
     | PureET
     | PureAET

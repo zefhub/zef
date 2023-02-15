@@ -53,7 +53,7 @@ def ensure_tag_delegate(obj, gen_id_state):
 
 def ensure_tag_assign(obj: PleaseAssign, gen_id_state):
     if isinstance(obj, PleaseAssignAlsoInstantiate):
-        new_target, me, gen_id_state = ensure_tag_pure_et_aet(obj.target, gen_id_state)
+        new_target, me, gen_id_state = ensure_tag(obj.target, gen_id_state)
         if new_target != target:
             obj = PleaseAssign(obj._value | insert["target"][new_target] | collect)
     else:

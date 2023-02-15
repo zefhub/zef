@@ -195,8 +195,8 @@ def pretty_atom_identity(desc: AtomIdentity):
             s += f"-FG#{desc['frame_uid']._value}"
             names += [s]
         else:
-            names += [FlatRefUID(global_uid=desc["flatref_idx"],
-                                frame_uid=desc["frame_uid"])]
+            names += [FlatRefUID(idx=desc["flatref_idx"],
+                                flatgraph=desc["frame_uid"])]
             
     else:
         raise NotImplementedError(f"Unknown type of frame: {desc['frame_uid']}")
@@ -314,11 +314,13 @@ class Atom_:
                 from .flat_graph import register_flatgraph
                 fr_uid = make_flatref_uid(arg)
                 tag = FlatRef_maybe_uid(arg)
-                if isinstance(tag, EternalUID):
+                atom_type = FlatRef_rae_type(arg)
+                if atom_type == BT.VALUE_NODE:
+                    names = (Val(value(arg)), fr_uid.flatgraph, *names)
+                elif isinstance(tag, EternalUID | Val | Delegate):
                     names = (tag, fr_uid.flatgraph, *names)
                 else:
                     names = (fr_uid, *names)
-                atom_type = FlatRef_rae_type(arg)
 
             elif is_a(arg, EntityRef | AttributeEntityRef | RelationRef):
                 rae = arg
@@ -505,10 +507,11 @@ def RootAtom_is_a(x, typ):
 RootAtom = make_VT("RootAtom", is_a_func=RootAtom_is_a)
 
 def ValAtom_is_a(x, typ):
-    from ._ops import abstract_type, equals
+    from ._ops import abstract_type
     if not isinstance(x, AtomClass):
         return False
-    
-    auth_id = get_most_authorative_id(x)
-    return isinstance(auth_id, Val)
+
+    # auth_id = get_most_authorative_id(x)
+    # return isinstance(auth_id, Val)
+    return abstract_type(x) == BT.VALUE_NODE
 ValAtom = make_VT("ValAtom", is_a_func=ValAtom_is_a)

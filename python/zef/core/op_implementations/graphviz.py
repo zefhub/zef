@@ -143,7 +143,8 @@ def graphviz_imp(zz, *flags):
         return G            # exit early if there is nothing to plot
 
     # Convert all Atom to BlobPtrs
-    zz = zz | map[match[(Atom, get_ref_pointer),
+    from ..atom import _get_ref_pointer
+    zz = zz | map[match[(AtomClass, _get_ref_pointer),
                         (Any, identity)]] | collect
     if isinstance(zz, List[ZefRef]):
         frames = zz | map[frame] | collect
