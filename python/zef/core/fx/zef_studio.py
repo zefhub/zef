@@ -413,8 +413,13 @@ type ValueAssignedEvent implements Event {
 def create_schema_dict(simple_schema):
    from ...graphql import generate_schema_dict, fill_types_default_resolvers
 
+    # Step 1: Create a Schema Dict "Data Structure" from the GraphQL Schema String
    schema_dict = generate_schema_dict(simple_schema)
+
+   # Step 2 (Optional): Fill in the default resolvers for the types
    schema_dict = fill_types_default_resolvers(schema_dict, lambda field_name: get[field_name])
+
+   # Step 3: Add the resolvers for the fields
    schema_dict = (
       schema_dict 
       | insert_in[('_Types', 'Query', 'graphs', 'resolver')][graphs] 
@@ -460,7 +465,7 @@ def studio_start_handler(eff: Dict):
          http_r = {
             "type": FX.GraphQL.StartServer,
             "schema_dict" : schema_dict,
-            "g" :  Graph(),
+            "db" :  Graph(),
             "port" :  random_port, 
             "path" :  "/graphql", 
          } | run

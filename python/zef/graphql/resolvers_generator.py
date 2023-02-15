@@ -71,14 +71,14 @@ def resolve_scalar_type(object_type, options):
     serializer = options.get("serializer", None)
     return ScalarType(object_type, serializer=serializer, value_parser=value_parser)
 
-def resolve_interface_type(interface_name, interface_d, g):
+def resolve_interface_type(interface_name, interface_d, db):
     interface_resolver = interface_d.get("_interface_resolver", None)
     if interface_resolver is None: raise ValueError(f"{interface_name} Interface's type resolver must be definied")
 
     interface_type = InterfaceType(interface_name, interface_resolver)
     for field_name, field_dict in interface_d.items():
         if field_name.startswith("_"): continue
-        assign_field_resolver(interface_type, field_name, field_dict, g, True)
+        assign_field_resolver(interface_type, field_name, field_dict, db, True)
     
     return interface_type
 
@@ -96,11 +96,11 @@ def resolve_args(args):
         | collect
     )
 
-def get_zef_function_args(z_fct, g):
+def get_zef_function_args(z_fct, db):
     from ..core.zef_functions import zef_function_args
     zefref_or_func = peel(z_fct)[0][1][0][1]
     if is_a(zefref_or_func, Entity):
-        full_arg_spec = zef_function_args(g[zefref_or_func] | now  | collect)
+        full_arg_spec = zef_function_args(db[zefref_or_func] | now  | collect)
         args, defaults =  full_arg_spec.args, full_arg_spec.defaults
         if defaults: args = args[:len(args) - len(defaults)]
         return args
@@ -115,7 +115,7 @@ def get_zef_function_args(z_fct, g):
         args = args[0:1] + args[1+len(curried):]
         return args
 
-def generate_fct(field_dict,field_name, g, allow_none):
+def generate_fct(field_dict,field_name, db, allow_none):
     resolver = field_dict["resolver"]
     if resolver is None and not allow_none:
         raise ValueError("A type's field resolver shouldn't be set to None! \n\
@@ -128,11 +128,11 @@ def generate_fct(field_dict,field_name, g, allow_none):
                 "obj": obj,
                 "query_args": kwargs,
                 "graphql_info": info,
-                "g": g,
+                "db": db,
                 # To be extended
             }
             if isinstance(resolver, ZefFunction):
-                args = get_zef_function_args(resolver, g)
+                args = get_zef_function_args(resolver, db)
                 arg_values = select_keys(context, *args).values()
                 # Check if some args that are present in the Zef Function aren't present in context dict
                 if len(arg_values) < len(args): raise ValueError("Some args present in the Zef Function aren't present in context dict")
@@ -153,12 +153,12 @@ def generate_fct(field_dict,field_name, g, allow_none):
             raise Exception(f"Error while resolving {field_name} with following arguments {obj}, {kwargs}") from e
     return resolve_field
 
-def assign_field_resolver(object_type, field_name, field_dict, g, allow_none=False):
-    fct = generate_fct(field_dict, field_name, g, allow_none)
+def assign_field_resolver(object_type, field_name, field_dict, db, allow_none=False):
+    fct = generate_fct(field_dict, field_name, db, allow_none)
     if fct is not None:
         object_type.field(field_name)(fct)
 
-def generate_resolvers(schema_dict, g):
+def generate_resolvers(schema_dict, db):
     """
     Given a schema dict with definied resolvers fields, generates the ariadane resolvers.
     Returns back ariadne object types list.
@@ -174,7 +174,7 @@ def generate_resolvers(schema_dict, g):
 
         for field_name, field_dict in fields_dict.items():
             if field_name.startswith("_"): continue
-            assign_field_resolver(object_type, field_name, field_dict, g)
+            assign_field_resolver(object_type, field_name, field_dict, db)
 
     enums = schema_dict.get("_Enums", {})
     for object_type, options in enums.items():
@@ -187,6 +187,6 @@ def generate_resolvers(schema_dict, g):
     
     interfaces = schema_dict.get("_Interfaces", {})
     for interface_name, interface_d in interfaces.items():
-        object_types.append(resolve_interface_type(interface_name, interface_d, g))
+        object_types.append(resolve_interface_type(interface_name, interface_d, db))
 
     return object_types
