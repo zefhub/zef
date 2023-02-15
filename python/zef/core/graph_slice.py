@@ -97,8 +97,9 @@ class GraphSlice_:
     def __getitem__(self, thing):
         from ._ops import to_frame, uid, collect, to_delegate, exists_at
         from . import internals
+        from .atom import AtomClass
 
-        from .VT import Delegate
+        from .VT import Delegate, Val
         if isinstance(thing, Delegate):
             # In case thing is a BlobPtr, convert it to DelegateRef first
             d = to_delegate(thing)
@@ -107,8 +108,7 @@ class GraphSlice_:
                 raise KeyError(f"Delegate {thing} not present in this timeslice")
             return maybe_z
 
-        from .VT import Val
-        if isinstance(thing, Val):
+        elif isinstance(thing, Val):
             val = internals.val_as_serialized_if_necessary(thing)
             maybe_z = Graph(self.tx).get_value_node(val)
             if maybe_z is None:
@@ -117,18 +117,23 @@ class GraphSlice_:
                 raise KeyError(f"ValueNode {thing} isn't alive in this timeslice") 
             return maybe_z | to_frame[self] | collect
         
-        g = Graph(self.tx)
-        ezr = g[thing]
-        # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
-        # Accessing the low-level BTs can only be done through traversals
-        if BT(ezr) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
-            res = get_instance_rae(uid(thing), self)
-            if res is None:
-                raise KeyError("RAE doesn't have an alive instance in this timeslice")
-            return res
-
         else:
-            return ezr | to_frame[GraphSlice(self.tx)] | collect
+            g = Graph(self.tx)
+            ezr = g[thing]
+            # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
+            # Accessing the low-level BTs can only be done through traversals
+            if BT(ezr) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
+                out = get_instance_rae(uid(thing), self)
+                if out is None:
+                    raise KeyError("RAE doesn't have an alive instance in this timeslice")
+
+            else:
+                out = ezr | to_frame[GraphSlice(self.tx)] | collect
+
+        from .atom import AtomClass
+        if out is not None:
+            out = AtomClass(out)
+        return out
 
     def __contains__(self, thing):
         from ._ops import exists_at, uid, collect, to_delegate
@@ -198,18 +203,23 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice, allow_tombstone=Fal
             raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {origin_uid}")
         elif len(z_candidates) == 1:
             from . import _ops
-            return z_candidates | only | to_frame[gs][_ops.allow_tombstone] | collect
+            out = z_candidates | only | to_frame[gs][_ops.allow_tombstone] | collect
         else:
-            return None     # no instance alive at the moment
+            out = None     # no instance alive at the moment
         
     elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}:
         if allow_tombstone:
             from . import _ops
-            return zz | to_frame[gs][_ops.allow_tombstone] | collect
+            out = zz | to_frame[gs][_ops.allow_tombstone] | collect
         else:
-            return zz | to_frame[gs] | collect
+            out = zz | to_frame[gs] | collect
     else:
         raise RuntimeError(f"Unexpected option in get_instance_rae: {zz}")
+
+    from .atom import AtomClass
+    if out is not None:
+        out = AtomClass(out)
+    return out
 
 
 # This is like a GraphSlice but without an explicit ZefRef tx.

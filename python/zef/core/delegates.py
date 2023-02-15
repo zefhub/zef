@@ -159,33 +159,33 @@ DelegateRef = make_VT("DelegateRef", pytype=internals.Delegate,
                       constructor_func=DelegateRef_ctor)
 
 
-def delegate_is_a(x, typ):
-    from .VT import AtomClass
-    if isinstance(x, BlobPtr):
-        if not internals.is_delegate(x):
-            return False
-        del_ref = to_delegate_imp(x)
-    elif isinstance(x, DelegateRef):
-        del_ref = x
-    elif isinstance(x, AtomClass):
-        from .atom import get_most_authorative_id
-        auth_id = get_most_authorative_id(x)
-        if not isinstance(auth_id, Delegate):
-            return False
-        del_ref = auth_id
-    else:
-        return False
+# def delegate_is_a(x, typ):
+#     from .VT import AtomClass
+#     if isinstance(x, BlobPtr):
+#         if not internals.is_delegate(x):
+#             return False
+#         del_ref = to_delegate_imp(x)
+#     elif isinstance(x, DelegateRef):
+#         del_ref = x
+#     elif isinstance(x, AtomClass):
+#         from .atom import get_most_authorative_id
+#         auth_id = get_most_authorative_id(x)
+#         if not isinstance(auth_id, Delegate):
+#             return False
+#         del_ref = auth_id
+#     else:
+#         return False
 
-    # Get to here, x is at least some kind of delegate
-    if len(typ._d["absorbed"]) == 0:
-        return True
+#     # Get to here, x is at least some kind of delegate
+#     if len(typ._d["absorbed"]) == 0:
+#         return True
 
-    raise NotImplementedError("TODO")
-    # Could probably just do a isinstance on the absorbed part, but not if
-    # there's more interesting types going in there.
+#     raise NotImplementedError("TODO")
+#     # Could probably just do a isinstance on the absorbed part, but not if
+#     # there's more interesting types going in there.
 
-Delegate = make_VT("Delegate", is_a_func=delegate_is_a)
+# Delegate = make_VT("Delegate", is_a_func=delegate_is_a)
 
-def instancecheck_Delegate(self, other):
-    raise NotImplementedError("TODO")
+# def instancecheck_Delegate(self, other):
+    # raise NotImplementedError("TODO")
     

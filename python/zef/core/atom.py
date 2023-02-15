@@ -298,7 +298,7 @@ class Atom_:
                     if isinstance(arg, ZefRef):
                         names = (make_dbstate_uid(frame(arg)), *names)
                         
-                elif isinstance(arg, Delegate):
+                elif isinstance(arg, DelegateConcrete):
                     names = (to_delegate(arg), *names)
                 elif isinstance(arg, ZefRef):
                     names = (make_dbstateref_uid(ref_pointer), *names)
@@ -513,5 +513,15 @@ def ValAtom_is_a(x, typ):
 
     # auth_id = get_most_authorative_id(x)
     # return isinstance(auth_id, Val)
-    return abstract_type(x) == BT.VALUE_NODE
+    return abstract_type(x) == Val
 ValAtom = make_VT("ValAtom", is_a_func=ValAtom_is_a)
+
+def DelegateAtom_is_a(x, typ):
+    from ._ops import abstract_type
+    if not isinstance(x, AtomClass):
+        return False
+
+    auth_id = get_most_authorative_id(x)
+    return isinstance(auth_id, DelegateRef)
+
+DelegateAtom = make_VT("DelegateAtom", is_a_func=DelegateAtom_is_a)

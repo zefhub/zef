@@ -482,9 +482,17 @@ RT = make_VT('RT',
              str_func=token_str)
 
 
+def BT_ctor(self, x):
+    from . import AtomClass
+    if isinstance(x, AtomClass):
+        from ..atom import _get_ref_pointer
+        return BT_ctor(self, _get_ref_pointer(x))
+    return BT[internals.BT(x)]
+
 BlobTypeToken = make_VT('BlobTypeToken', pytype=internals.BlobType)
 BT = make_VT('BT',
-             constructor_func=lambda x: BT[internals.BT(x)],
+             constructor_func=BT_ctor,
+             pass_self=True,
              attr_funcs=wrap_attr_readonly_token(internals.BT),
              is_a_func=BT_is_a,
              is_subtype_func=token_subtype,

@@ -351,10 +351,7 @@ GraphWishInputSimple = _alias(
     | FlatGraph
     | PureET
     | PureAET
-    | RAE
-    | TX
-    | Root
-    | Delegate
+    | Atom
     | OldStyleDict,
     "GraphWishInputSimple"
 )

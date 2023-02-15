@@ -23,11 +23,14 @@ AttributeEntity = insert_VT("AttributeEntity", AttributeEntityRef | AttributeEnt
 Entity = insert_VT("Entity", EntityRef | EntityConcrete | EntityAtom | EntityFlatRef)
 RAE = insert_VT('RAE', Entity | AttributeEntity | Relation)
 
+ValueNode = insert_VT('ValueNode', Val | ValAtom | ValConcrete)
+Delegate = insert_VT('Delegate', DelegateRef | DelegateAtom | DelegateConcrete)
+
 TX = insert_VT("TX", TXNodeConcrete | TXNodeRef | TXNodeAtom | TXNodeFlatRef)
 Root = insert_VT("Root", RootConcrete | RootRef | RootAtom | RootFlatRef)
 
 def Atom_is_a(x, typ):
-    return isinstance(x, RAE | TX | Root)
+    return isinstance(x, RAE | TX | Root | ValueNode | Delegate)
 def Atom_ctor(self, *args, **kwargs):
     return AtomClass(*args, **kwargs)
     

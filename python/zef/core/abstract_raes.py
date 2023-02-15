@@ -313,9 +313,16 @@ def abstract_rae_from_rae_type_and_uid(rae_type, uid):
 RAERef = insert_VT('RAERef', EntityRef | AttributeEntityRef | RelationRef)
 RAEConcrete = insert_VT('RAEConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete)
 
+ValConcrete = insert_VT('ValConcrete', BlobPtr & BT.VALUE_NODE)
+
+def is_delegate_import(x):
+    from .internals import is_delegate
+    return is_delegate(x)
+DelegateConcrete = insert_VT('DelegateConcrete', BlobPtr & Is[is_delegate_import])
+
+# For backwards compatibility, DelegateRef and Val don't appear here, even though that's where they should go
 AtomRef = insert_VT('AtomRef', EntityRef | AttributeEntityRef | RelationRef | TXNodeRef | RootRef)
-AtomConcrete = insert_VT('AtomConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete | TXNodeConcrete | RootConcrete)
-# Atom = insert_VT('Atom', Entity | AttributeEntity | Relation | TXNode | Root)
+AtomConcrete = insert_VT('AtomConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete | TXNodeConcrete | RootConcrete | ValConcrete | DelegateConcrete)
 
 
 

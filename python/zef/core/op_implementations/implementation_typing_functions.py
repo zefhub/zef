@@ -5293,7 +5293,7 @@ def to_frame_imp(z, *args):
     """
 
     if check_Atom_with_ref(z):
-        return Atom_unpack_and_rewrap(___)(z, *args)
+        return Atom_unpack_and_rewrap(to_frame_imp)(z, *args)
 
     # if one additional arg is passed in, it must be a frame
     if len(args)==1:
@@ -5403,12 +5403,8 @@ def discard_frame_imp(x):
                 return Atom.__replace__(atom_id=atom_id)
             else:
                 raise Exception("Shouldn't get here")
-        ref_pointer = _get_ref_pointer(x)
-        if isinstance(ref_pointer, ZefRef):
-            ref_pointer = to_ezefref(ref_pointer)
-        elif isinstance(ref_pointer, FlatRef):
-            ref_pointer = None
-        x =  x.__replace__(atom_id=atom_id, ref_pointer=ref_pointer)
+        # Always remove the ref pointer since this *must* be a ZefRef or FlatRef
+        x =  x.__replace__(atom_id=atom_id, ref_pointer=None)
         return x
     if isinstance(x, BlobPtr):
         if internals.is_delegate(x):
@@ -5581,9 +5577,11 @@ def time_travel_imp(x, *args):
 
         if isinstance(x, GraphSlice):
             if isinstance(p, Int):
-                tx_zr = ZefRef(Graph(x.tx)[42], x.tx)       # hacky: we want some ZefRef that we can time travel with. Use root for now
+                root_atom = root(x)       # hacky: we want some ZefRef that we can time travel with. Use root for now
+                from ..atom import _get_ref_pointer
+                root_zr = _get_ref_pointer(root_atom)
                 # some gymnastics using the old ops to get to the frame that we want
-                return GraphSlice(tx_zr | pyzefops.time_travel[p] | pyzefops.tx | pyzefops.to_ezefref)
+                return GraphSlice(root_zr | pyzefops.time_travel[p] | pyzefops.tx | pyzefops.to_ezefref)
             elif isinstance(p, Time):
                 return Graph(x.tx) | to_tx[p] | to_graph_slice | c
             elif is_duration(p):
