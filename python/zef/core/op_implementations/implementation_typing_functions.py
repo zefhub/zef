@@ -2050,7 +2050,9 @@ def graphslice_all_imp(*args):
     # | all[RAE]
     gs = args[0]
     if len(args) == 1:
-        return gs.tx | pyzefops.instances
+        initial = gs.tx | pyzefops.instances
+        initial = [Atom(x) for x in initial]
+        return initial
     if len(args) >= 3:
         raise Exception(f"all can only take a maximum of 2 arguments, got {len(args)} instead")
 
@@ -2092,12 +2094,15 @@ def graphslice_all_imp(*args):
             initial = gs.tx | pyzefops.instances
             # TODO: Can't represent all graphslice things as atoms
             # initial = [Atom(x) for x in initial]
-            return list(set.union(set(filter(initial, lambda x: is_a(x, value_types))), sets_union))
+            out = list(set.union(set(filter(initial, lambda x: is_a(x, value_types))), sets_union))
+            out = [Atom(x) for x in out]
+            return out
 
         elif fil._d['type_name'] == "Intersection":
             if len(rae_types) > 1: return []
             if len(rae_types) == 1: initial = gs.tx | pyzefops.instances[rae_types.pop()]
             else:  initial = gs.tx | pyzefops.instances
+            initial = [Atom(x) for x in initial]
             # TODO: Can't represent all graphslice things as atoms
             # initial = [Atom(x) for x in initial]
 
@@ -2106,8 +2111,7 @@ def graphslice_all_imp(*args):
 
     # The remaining options will just use the generic filter and is_a
     initial = gs.tx | pyzefops.instances
-    # TODO: Can't represent all graphslice things as atoms
-    # initial = [Atom(x) for x in initial]
+    initial = [Atom(x) for x in initial]
 
     return ZefGenerator(lambda: iter(initial | filter[fil]))
 

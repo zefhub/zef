@@ -97,7 +97,7 @@ class MyTestCase(unittest.TestCase):
         | insert[(Any['r2'], RT.B, AET.String| assign["Fred"])]    # assign value in one go
         | insert[(Any['r2'], RT.C, AET.String['aet1'] | assign["Some"])]    # internal id
         | insert[(Any['r2'], RT.G, "Egypt")]                  # value node
-        | insert[AET.String] 
+        | insert[AET.String]
         | insert[AET.String['n1'] | assign["zeyad"]]
         | insert[AET.String | assign["wow"]]
         | insert[AET.Int['n2'] | assign[45]]
@@ -111,9 +111,9 @@ class MyTestCase(unittest.TestCase):
         | insert[(Any['r1'], RT.F, Any['r2'])]
         | insert[z4 | assign['500000'] ]
         | insert[z5]
-        | insert[z1] 
+        | insert[z1]
         | insert[(z1, RT.H['t1'], Any['n1'])]
-        | insert[discard_frame(rt)]
+        | insert[rt]
         | insert[z3]
         | insert[z2]
         | insert[z2 | assign[True]]

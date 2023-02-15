@@ -33,7 +33,8 @@ def ZefRef_to_edge_ref(z, direction):
     else:
         assert direction == Direction.BOTH
         # For consistency, make the smallest index the first node
-        if index(source(z)) < index(target(z)):
+        from ..core.atom import _get_ref_pointer
+        if index(_get_ref_pointer(source(z))) < index(_get_ref_pointer(target(z))):
             return (src_ref, trg_ref)
         else:
             return (trg_ref, src_ref)

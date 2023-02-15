@@ -55,8 +55,8 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(set(dg.nodes) | func[set] | collect,
                          set(g | now | all[ET.Person] | collect))
         self.assertEqual(set(dg.edges) | func[set] | collect,
-                         set([(_get_ref_pointer(r["alex"]), _get_ref_pointer(r["bob"])),
-                              (_get_ref_pointer(r["alex"]), _get_ref_pointer(r["zach"]))]))
+                         set([(r["alex"], r["bob"]),
+                              (r["alex"], r["zach"])]))
         self.assertEqual(dg[r["alex"]][r["bob"]]["From"], "University")
         self.assertEqual(dg.nodes[r["alex"]]["ZefAge"], 1)
         self.assertEqual(dg.edges[r["d-e"]]["From"], "University")

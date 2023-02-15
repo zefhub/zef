@@ -263,7 +263,7 @@ class Atom_:
         fields.update(kwargs)
         
         from ._ops import is_a, rae_type, source, target, origin_uid, abstract_type, discard_frame, value, uid, to_delegate, frame
-        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation, AttributeEntity
+        from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation, AttributeEntity, Delegate
         from .flat_graph import FlatRef, FlatRef_rae_type, FlatRef_maybe_uid
 
         for arg in args:
@@ -317,6 +317,7 @@ class Atom_:
                 atom_type = FlatRef_rae_type(arg)
                 if atom_type == BT.VALUE_NODE:
                     names = (Val(value(arg)), fr_uid.flatgraph, *names)
+                    atom_type = Val
                 elif isinstance(tag, EternalUID | Val | Delegate):
                     names = (tag, fr_uid.flatgraph, *names)
                 else:
