@@ -383,9 +383,13 @@ main.Graph.__getitem__ = Graph__getitem__
 
 original_Graph__init__ = main.Graph.__init__
 def Graph__init__(self, *args, **kwds):
-    from .graph_slice import GraphSlice_
-    if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], GraphSlice_):
-        return original_Graph__init__(self, args[0].tx)
+    if len(kwds) == 0 and len(args) == 1:
+        from .graph_slice import GraphSlice_
+        from .atom import AtomClass, _get_ref_pointer
+        if isinstance(args[0], GraphSlice_):
+            return original_Graph__init__(self, args[0].tx)
+        elif isinstance(args[0], AtomClass):
+            return original_Graph__init__(self, _get_ref_pointer(args[0]))
 
     return original_Graph__init__(self, *args, **kwds)
 main.Graph.__init__ = Graph__init__
