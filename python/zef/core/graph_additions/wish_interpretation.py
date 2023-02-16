@@ -356,7 +356,8 @@ def lvl2cmds_for_atom(atom, context):
                 raise Exception("Can't determine value of AttributeEntity as frame is not loaded")
             val = value(z)
             if val is not None:
-                cmds = [PleaseAssign(target=authorative_id, value=Val(val))]
+                # We set droppable so that this can be overridden by an explicit assign
+                cmds = [PleaseAssign(target=authorative_id, value=Val(val), droppable=True)]
             else:
                 cmds = []
             return [discard_unnecessary_frame(atom)], cmds, context

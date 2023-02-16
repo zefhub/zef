@@ -196,7 +196,11 @@ PleaseAssign = UserValueType("PleaseAssign",
                               # Pattern[{"target": AllIDs | PureAET,
                              # We go to allowing anything in here, but this is only the user-facing front.
                              Pattern[{"target": Any,
-                                       "value": WrappedValue}])
+                                      "value": WrappedValue,
+                                      # This is for when an AE is merged across
+                                      # but can be overridden by an explicit
+                                      # assign.
+                                      Optional["droppable"]: Bool}])
 
 # Only the "JustValue" version is acceptable as a low level command
 PleaseAssignJustValue = PleaseAssign & Is[_ops.get_field["target"] | _ops.is_a[AllIDs]]

@@ -87,12 +87,19 @@ def recombination_checks(cmds):
 
             return False, new_cmds, later_cmds
         elif isinstance(cmd1, PleaseAssign):
-            if cmd1.value != cmd2.value:
-                raise Exception(f"Two assigns have different values: {cmd1} {cmd2}")
-            # Any of the ids will do - they will be relabelled anyway.
-            from .command_multi_rules import distinguish_assign
-            _,names = distinguish_assign(cmd1)
-            return False, [PleaseAssign(target=names[0], value=cmd1.value)], []
+            cmd1_droppable = cmd1._value.get("droppable", False)
+            cmd2_droppable = cmd2._value.get("droppable", False)
+            if cmd1_droppable and not cmd2_droppable:
+                return False, [cmd2], []
+            elif cmd2_droppable and not cmd1_droppable:
+                return False, [cmd1], []
+            else:
+                if cmd1.value != cmd2.value:
+                    raise Exception(f"Two assigns have different values: {cmd1} {cmd2}")
+                # Any of the ids will do - they will be relabelled anyway.
+                from .command_multi_rules import distinguish_assign
+                _,names = distinguish_assign(cmd1)
+                return False, [PleaseAssign(*(cmd1._value | insert["target"][names[0]] | collect))], []
         else:
             raise NotImplementedError(f"TODO: {cmd1._get_type()}")
     else:

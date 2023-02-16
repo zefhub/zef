@@ -55,7 +55,7 @@ def ensure_tag_assign(obj: PleaseAssign, gen_id_state):
     if isinstance(obj, PleaseAssignAlsoInstantiate):
         new_target, me, gen_id_state = ensure_tag(obj.target, gen_id_state)
         if new_target != target:
-            obj = PleaseAssign(target=new_target, value=obj.value)
+            obj = PleaseAssign(**(obj._value | insert["target"][new_target] | collect))
     else:
         me = force_as_id(obj.target)
     return obj, me, gen_id_state
