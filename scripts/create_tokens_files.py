@@ -31,7 +31,7 @@ g = Graph()
 g2 = Graph()
 
 d =[ET.User["z"]]
-r = d | transact[g] | run
+_,r = d | transact[g] | run
 
 z = r["z"]
 d2 =[
