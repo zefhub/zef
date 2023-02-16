@@ -35,7 +35,6 @@ void declare_zef_tensor_1(py::module& m, const std::string& typestr) {
 		;
 }
 
-
 void fill_internals_module(py::module_ & internals_submodule) {
     using namespace zefDB;
     using namespace zefDB::zefOps;
@@ -698,8 +697,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		//.def("__repr__", [](const ZefObservables::DictElement& self) { return to_str(self); })
 		;
 
-	
-	py::class_<zefDB::Subscription>(internals_submodule, "Subscription", py::buffer_protocol())
+	py::class_<zefDB::Subscription, std::unique_ptr<Subscription, Subscription_deleter>>(internals_submodule, "Subscription", py::buffer_protocol())
 		.def_property_readonly("subscription_graph", [](const Subscription& self) {return *(self.zef_observables_ptr.lock()->g_observables); })  // if the Subscription object exists, the 'self.zef_observables_ptr' was definitely created
 		// .def_property_readonly("callbacks_and_refcount", [](const Subscription& self) {return self.zef_observables_ptr->callbacks_and_refcount; })
 		.def_readonly("uid", &Subscription::uid)
