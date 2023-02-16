@@ -170,8 +170,16 @@ def deps_assign(cmd, gs):
         deps += [("Instantiate", cmd.target)]
     return name,deps
 
+def deps_tag(cmd, gs):
+    name = ("Tag", cmd.target)
+    deps = []
+    if not isinstance(cmd.target, EternalUID) or cmd.target not in gs:
+        deps += [("Instantiate", cmd.target)]
+    return name,deps
+
 command_dep_rules = [
     (PleaseInstantiate, deps_instantiate),
     (PleaseTerminate, deps_terminate),
-    (PleaseAssign, deps_assign),
+    (PleaseAssignJustValue, deps_assign),
+    (PleaseTagJustTag, deps_tag),
 ]

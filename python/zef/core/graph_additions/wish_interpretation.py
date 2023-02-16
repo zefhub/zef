@@ -180,15 +180,32 @@ def OS_lvl2cmds_for_relation_triple(input: OldStyleRelationTriple, context: Lvl2
     return [], more_inputs, context
 
 @func
-def lvl2cmds_for_aet_with_value(input: PleaseAssignAlsoInstantiate, context: Lvl2Context):
+def lvl2cmds_for_aet_with_value(input: PleaseAssign, context: Lvl2Context):
+    if isinstance(input, PleaseAssignJustValue):
+        return [input], [], context
+
     gen_id_state = context["gen_id_state"]
     input, me, gen_id_state = ensure_tag(input, gen_id_state)
 
-    lvl2_cmds = [input.target,
-                 PleaseAssign({"target": me,
+    further_cmds = [input.target]
+    lvl2_cmds = [PleaseAssign({"target": me,
                                "value": input.value})]
             
-    return lvl2_cmds, [], context
+    return lvl2_cmds, further_cmds, context
+
+@func
+def lvl2cmds_for_tag(input: PleaseTag, context: Lvl2Context):
+    if isinstance(input, PleaseTagJustTag):
+        return [input], [], context
+
+    gen_id_state = context["gen_id_state"]
+    input, me, gen_id_state = ensure_tag(input, gen_id_state)
+
+    further_cmds = [input.target]
+    lvl2_cmds = [PleaseTag({"target": me,
+                            "tag": input.tag})]
+            
+    return lvl2_cmds, further_cmds, context
 
 # @func
 # Note: can't be a func, can't allow this to participate in the normal
@@ -411,6 +428,7 @@ default_interpretation_rules = [
     (PureET|PureAET, lvl2cmds_for_ETorAET),
     (RelationTriple, lvl2cmds_for_relation_triple),
     (PleaseAssignAlsoInstantiate, lvl2cmds_for_aet_with_value),
+    (PleaseTag, lvl2cmds_for_tag),
     (RAERef | RAEConcrete, lvl2cmds_for_rae),
     (FlatRef, lvl2cmds_for_flatref),
     (FlatRefs, lvl2cmds_for_flatrefs),

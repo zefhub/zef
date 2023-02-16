@@ -176,6 +176,26 @@ def relabel_terminate(cmd: PleaseTerminate, aliases: AliasDict) -> PleaseTermina
     new_target = lookup_alias(cmd.target, aliases)
     return PleaseTerminate(target=new_target)
     
+#########
+# ** PleaseTag
+
+def distinguish_tag(cmd):
+    return cmd, [cmd.target]
+
+def cull_tag(cmd: PleaseTag, gs):
+    # If object is already tagged, no need to do it again
+    if isinstance(cmd.target, EternalUID):
+        if cmd.tag in gs:
+            atom = gs[cmd.tag]
+            if cmd.target == origin_uid(atom):
+                # Note: we are not aliasing the target but the tag id, in
+                # contrast to something like PleaseTerminate
+                return [], {TagIDInternal(cmd.tag): None}
+    return [cmd], {}
+
+def relabel_tag(cmd: PleaseTag, aliases: AliasDict):
+    new_target = lookup_alias(cmd.target, aliases)
+    return PleaseTag(target=new_target, tag=cmd.tag)
 
 #########
 # ** PleaseAlias
@@ -223,31 +243,34 @@ def distinguish_has_target(cmd):
 
 cull_rules = [
     (PleaseInstantiate, cull_instantiate),
-    (PleaseAssign, cull_assign),
+    (PleaseAssignJustValue, cull_assign),
     (PleaseAlias, cull_alias),
     (PleaseTerminate, cull_terminate),
     # These don't have to be culled, could just be no-ops at the low level. 
     (PleaseBeSource | PleaseBeTarget, cull_unconditionally),
     (PleaseMustLive, cull_unconditionally),
+    (PleaseTagJustTag, cull_tag)
 ]
 
 relabel_rules = [
     (PleaseInstantiate, relabel_instantiate),
-    (PleaseAssign, relabel_just_target),
+    (PleaseAssignJustValue, relabel_just_target),
     (PleaseBeSource | PleaseBeTarget, relabel_just_target),
     (PleaseMustLive, relabel_just_target),
     (PleaseAlias, relabel_alias),
     (PleaseTerminate, relabel_terminate),
+    (PleaseTagJustTag, relabel_tag)
 ]
         
     
 distinguish_rules = [
     (PleaseInstantiate, distinguish_instantiate),
-    (PleaseAssign, distinguish_assign),
+    (PleaseAssignJustValue, distinguish_assign),
     (PleaseBeSource | PleaseBeTarget, distinguish_has_target),
     (PleaseAlias, distinguish_alias),
     (PleaseMustLive, distinguish_must_live),
     (PleaseTerminate, distinguish_has_target),
+    (PleaseTagJustTag, distinguish_tag),
 ]
 
 

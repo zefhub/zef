@@ -27,6 +27,8 @@ __all__ = [
     "PleaseAssignJustValue",
     "PleaseAssignAlsoInstantiate",
     "PleaseTag",
+    "PleaseTagJustTag",
+    "PleaseTagAlsoInstantiate",
     "PleaseCommandLevel1",
     "Level1CommandInfo",
 
@@ -59,6 +61,7 @@ __all__ = [
 
     "WishID",
     "WishIDInternal",
+    "TagIDInternal",
     "InternalIDs",
     "FlatRefUID",
     "Variable",
@@ -106,7 +109,11 @@ Variable = _alias(SymbolicExpression & Is[_ops.get_field["root_node"] | _ops.equ
 # Internal wish ids as used to reference items, but are themselves not returned in the receipt.
 WishIDInternal = UserValueType("WishIDInternal", String)
 
-InternalIDs = WishIDInternal | FlatRefUID
+# This is only to allow tagging to share same names as other labels, but be
+# distinguishable. Only for internal use in this module.
+TagIDInternal = UserValueType("TagIDInternal", Any)
+
+InternalIDs = WishIDInternal | FlatRefUID | TagIDInternal
 
 WishID = _alias(Variable | InternalIDs,
                "WishID")
@@ -191,14 +198,17 @@ PleaseAssign = UserValueType("PleaseAssign",
                              Pattern[{"target": Any,
                                        "value": WrappedValue}])
 
-# Changing to use PleaseAssign but we have this type in order to distinguish the logic required to instantiate the AET
+# Only the "JustValue" version is acceptable as a low level command
 PleaseAssignJustValue = PleaseAssign & Is[_ops.get_field["target"] | _ops.is_a[AllIDs]]
 PleaseAssignAlsoInstantiate = PleaseAssign & ~PleaseAssignJustValue
 
 PleaseTag = UserValueType("PleaseTag",
                           Dict,
-                          Pattern[{"target": RAERef | AllIDs,
-                                   Optional["internal_ids"]: List[WishID]}])
+                          Pattern[{"target": Any,
+                                   "tag": Any}])
+# Only the "JustTag" version is acceptable as a low level command
+PleaseTagJustTag = PleaseTag & Is[_ops.get_field["target"] | _ops.is_a[AllIDs]]
+PleaseTagAlsoInstantiate = PleaseTag & ~PleaseTagJustTag
 
 # Only for internal use to resolve potential invalid graph wishes.
 PleaseMustLive = UserValueType("PleaseMustLive",
@@ -226,7 +236,7 @@ PleaseAlias = UserValueType("PleaseAlias",
 PleaseCommandLevel1 = _alias(PleaseInstantiate
                              | PleaseAssignJustValue
                              | PleaseTerminate
-                             | PleaseTag
+                             | PleaseTagJustTag
                              | PleaseMustLive
                              | PleaseBeSource
                              | PleaseBeTarget
@@ -321,20 +331,6 @@ def is_relation_triple_OS(x):
 OldStyleRelationTriple = _alias(Is[is_relation_triple_OS], "OldStyleRelationTriple")
 GraphWishValue = _alias(PrimitiveValue | WrappedValue, "GraphWishValue")
 
-# This is a declaration of *always* instantiating a new AE with the given AET
-# and initializing it with a value. It primarily exists for internal use at the
-# lvl2 phase, although there's no reason a user couldn't also write this.
-# AETWithValue = UserValueType("AETWithValue",
-#                              Dict,
-#                              Pattern[{"aet": PureAET,
-#                                       "value": Any, # TODO: This should be a parametric type related to the AET
-#                                       Optional["internal_ids"]: List[WishID]}])
-
-# Changing to use PleaseAssign but we have this type in order to distinguish the logic required to instantiate the AET
-# PleaseAssignAlsoInstantiate = PleaseAssign & Is[_ops.get_field["target"] | _ops.is_a[PureAET]]
-# PleaseAssignJustValue = PleaseAssign & ~PleaseAssignAlsoInstantiate
-
-
 # Backwards compatibility
 # Any is used here instead of GraphWishInputSimple. It would be nice to have the
 # recursive definition but that makes for ugly hacks to implement it.
@@ -348,6 +344,7 @@ GraphWishInputSimple = _alias(
     | OldStyleRelationTriple
     | GraphWishValue
     | PleaseAssign
+    | PleaseTag
     | FlatGraph
     | PureET
     | PureAET

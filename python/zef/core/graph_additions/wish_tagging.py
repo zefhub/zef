@@ -55,7 +55,16 @@ def ensure_tag_assign(obj: PleaseAssign, gen_id_state):
     if isinstance(obj, PleaseAssignAlsoInstantiate):
         new_target, me, gen_id_state = ensure_tag(obj.target, gen_id_state)
         if new_target != target:
-            obj = PleaseAssign(obj._value | insert["target"][new_target] | collect)
+            obj = PleaseAssign(target=new_target, value=obj.value)
+    else:
+        me = force_as_id(obj.target)
+    return obj, me, gen_id_state
+
+def ensure_tag_tag(obj: PleaseTag, gen_id_state):
+    if isinstance(obj, PleaseTagAlsoInstantiate):
+        new_target, me, gen_id_state = ensure_tag(obj.target, gen_id_state)
+        if new_target != target:
+            obj = PleaseTag(target=new_target, tag=obj.tag)
     else:
         me = force_as_id(obj.target)
     return obj, me, gen_id_state
@@ -101,6 +110,7 @@ tagging_rules = [
     (PureET | PureAET, ensure_tag_pure_et_aet),
     (Delegate, ensure_tag_delegate),
     (PleaseAssign, ensure_tag_assign),
+    (PleaseTag, ensure_tag_tag),
     (RAERef, ensure_tag_rae_ref),
     (FlatRef, ensure_tag_flatref),
     (BlobPtr, ensure_tag_blob_ptr),

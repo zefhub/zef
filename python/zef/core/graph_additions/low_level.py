@@ -160,6 +160,9 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
             elif isinstance(cmd, PleaseTerminate):
                 z = find_id(cmd.target)
                 pyzef.zefops.terminate(z)
+            elif isinstance(cmd, PleaseTag):
+                z = find_id(cmd.target)
+                pyzef.main.tag(z, cmd.tag)
             else:
                 raise NotImplementedError(f"TODO cmd: {cmd}")
 

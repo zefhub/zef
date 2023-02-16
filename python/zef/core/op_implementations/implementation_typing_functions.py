@@ -7392,12 +7392,14 @@ def tag_imp(x, tag_s: str, *args):
             'force': force,
             'adding': True,
         }
-    from ..graph_additions.types import NamedZ
-    if isinstance(x, ZefRef) or isinstance(x, EZefRef) or isinstance(x, NamedZ) or (isinstance(x, ValueType) and without_absorbed(x) == Any):
-        assert len(args) == 0
-        return LazyValue(x) | tag[tag_s]
+    # from ..graph_additions.types import NamedZ
+    # if isinstance(x, ZefRef) or isinstance(x, EZefRef) or isinstance(x, NamedZ) or (isinstance(x, ValueType) and without_absorbed(x) == Any):
+    #     assert len(args) == 0
+    #     return LazyValue(x) | tag[tag_s]
 
-    raise RuntimeError(f"Unknown type for tag: {type(x)}")
+    # raise RuntimeError(f"Unknown type for tag: {type(x)}")
+    from ..graph_additions.types import PleaseTag
+    return PleaseTag(target=x, tag=tag_s)
     
     
 def tag_tp(op, curr_type):
