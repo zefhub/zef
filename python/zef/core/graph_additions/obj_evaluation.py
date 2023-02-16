@@ -38,6 +38,7 @@ def apply_op(state, op):
         (RT.Assign, apply_assign),
         (RT.SetField, apply_set_field),
         (RT.Terminate, apply_terminate),
+        (RT.Tag, apply_tag),
     ] | collect
 
 @func
@@ -115,6 +116,23 @@ def apply_terminate(op, state):
     new_obj = PleaseTerminate(target=id)
     return (state
             | insert["obj"][new_obj]
+            | collect)
+
+def apply_tag(op, state):
+    target = state["obj"]
+    tag, = absorbed(op)
+
+    gen_id_state = state["gen_id_state"]
+    new_obj,me,gen_id_state = ensure_tag(target, gen_id_state)
+
+    new_cmds = [PleaseTag(target=me, tag=tag)]
+        
+    return (state
+            | merge[{
+                "obj": new_obj,
+                "gen_id_state": gen_id_state,
+                "emitted_cmds": state["emitted_cmds"] + new_cmds,
+            }]
             | collect)
 
 
