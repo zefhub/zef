@@ -6905,7 +6905,7 @@ def is_zefref_promotable_implementation(z):
 
 def to_ezefref_implementation(zr):
     if check_Atom_with_ref(zr):
-        return Atom_unpack_and_rewrap(to_ezefref_implementation)(zr)
+        return to_ezefref_implementation(_get_ref_pointer(zr))
     return pyzefops.to_ezefref(zr)
 
 #---------------------------------------- value_type -----------------------------------------------
