@@ -18,6 +18,10 @@ on:
         required: true
         default: true
         type: boolean
+      targetEnvironment:
+        required: true
+        type: environment
+      
 
 env:
     ZEFHUB_AUTH_KEY: GUEST
@@ -47,6 +51,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
+          test-auth-key: ${{ secrets.TEST_AUTH_KEY }}
 
   macos-build:
     if: inputs.macosBuild == true
@@ -68,6 +73,7 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
+          test-auth-key: ${{ secrets.TEST_AUTH_KEY }}
 
   windows-build:
     if: inputs.windowsBuild == true
@@ -89,3 +95,4 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
+          test-auth-key: ${{ secrets.TEST_AUTH_KEY }}
