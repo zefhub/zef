@@ -159,7 +159,13 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
                 internals.assign_value_imp(z, cmd.value.arg)
             elif isinstance(cmd, PleaseTerminate):
                 z = find_id(cmd.target)
-                pyzef.zefops.terminate(z)
+                # Note: if we don't find a z here, it could be that this is a
+                # relation which was terminated by its source/target
+                # disappearing. Ideally we should order the commands so this is
+                # fine, but it is otherwise a pain in the neck, so just ignore
+                # it here.
+                if z is not None:
+                    pyzef.zefops.terminate(z)
             elif isinstance(cmd, PleaseTag):
                 z = find_id(cmd.target)
                 pyzef.main.tag(z, cmd.tag)

@@ -27,7 +27,7 @@ class MyTestCase(unittest.TestCase):
         z = _get_ref_pointer(atom)
 
         self.assertIsInstance(atom, Atom)
-        self.assertEqual(_get_ref_pointer(to_ezefref(atom)), to_ezefref(z))
+        self.assertEqual(to_ezefref(atom), to_ezefref(z))
         self.assertEqual(rae_type(atom), rae_type(z))
         self.assertEqual(preceding_events(atom), preceding_events(z))
         self.assertEqual(uid(atom), uid(z))
