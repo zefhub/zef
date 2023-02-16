@@ -204,6 +204,7 @@ def most_recent_rae_on_graph(origin_uid: EternalUID, g: Graph) -> Nil|ZefRef:
     if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
         from ..graph_slice import get_instance_rae
         out = get_instance_rae(origin_uid, now(g))
+        out = _get_ref_pointer(out)
         
     elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}:
         if zz | exists_at[now(g)] | collect:
