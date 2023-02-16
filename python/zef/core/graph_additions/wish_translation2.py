@@ -51,6 +51,8 @@ from .command_ordering import order_level1_commands
 
 
 
+import os
+debugging_active = len(os.environ.get("ZEF_DEBUG_GRAPH_WISH_LVL1", "")) > 0
 
 # Really want to use Subtype[PleaseCommandLevel2] instead of ValueType
 def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice) -> Level1CommandInfo:
@@ -82,11 +84,12 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
         prepared_cmds += ready_cmds
         todo += new_todo
 
-    # print()
-    # print("AFTER PREPARATION RUN")
-    # for cmd in prepared_cmds:
-    #     print(cmd)
-    # print()
+    if debugging_active:
+        print()
+        print("AFTER PREPARATION RUN")
+        for cmd in prepared_cmds:
+            print(cmd)
+        print()
 
     # Now we know all after_please_run commands are level1 commands, but we need
     # to include references where there are relations being affected, as these
@@ -140,11 +143,12 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
 
         out_cmds += [cmd]
 
-    # print()
-    # print("OUT CMDS from implicit constraints")
-    # for cmd in out_cmds:
-    #     print(cmd)
-    # print()
+    if debugging_active:
+        print()
+        print("OUT CMDS from implicit constraints")
+        for cmd in out_cmds:
+            print(cmd)
+        print()
 
     # Now we know all out_cmds are level1 commands, including all possible
     # dependents (e.g. relation source/target references). But we don't know if
@@ -154,15 +158,16 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
     cur_cmds = out_cmds
     while True:
         new_cmds,simplify_aliases,did_something = validate_and_simplify_lvl1_cmds(cur_cmds)
-        if not did_something:
-            break
         cur_cmds = relabel_cmds(new_cmds, simplify_aliases)
+        if not did_something and new_cmds == cur_cmds:
+            break
         resolved_variables = resolved_variables | merge[resolved_variables_from_aliases(simplify_aliases)] | collect
-        # print()
-        # print("NAMED OUTPUT CMDS")
-        # for cmd in cur_cmds:
-        #     print(cmd)
-        # print()
+        if debugging_active:
+            print()
+            print("NAMED OUTPUT CMDS")
+            for cmd in cur_cmds:
+                print(cmd)
+            print()
 
     named_output_cmds = cur_cmds
 
@@ -172,25 +177,28 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
     culled_cmds = relabel_cmds(culled_cmds, cull_aliases)
     resolved_variables = resolved_variables | merge[resolved_variables_from_aliases(cull_aliases)] | collect
 
-    # print()
-    # print("CULLED CMDS")
-    # for cmd in culled_cmds:
-    #     print(cmd)
-    # print("---")
+    if debugging_active:
+        print()
+        print("CULLED CMDS")
+        for cmd in culled_cmds:
+            print(cmd)
+        print("---")
 
     ordered_cmds = order_level1_commands(culled_cmds, gs)
 
-    # print()
-    # print("ORDERED CMDS")
-    # for cmd in ordered_cmds:
-    #     print(cmd)
-    # print("---")
+    if debugging_active:
+        print()
+        print("ORDERED CMDS")
+        for cmd in ordered_cmds:
+            print(cmd)
+        print("---")
 
-    # print()
-    # print("RESOLVED VARIABLES:")
-    # for a,b in resolved_variables.items():
-    #     print(a,b)
-    # print("---")
+    if debugging_active:
+        print()
+        print("RESOLVED VARIABLES:")
+        for a,b in resolved_variables.items():
+            print(a,b)
+        print("---")
 
     return Level1CommandInfo(gs=gs,
                              cmds=ordered_cmds,
@@ -263,7 +271,7 @@ def validate_and_simplify_lvl1_cmds(cmds_in):
 
     # Only components (i.e. name sets of >= 2 names) need further processing
     for comp_names in components:
-        did_something = True
+        # did_something = True
         chosen_name = id_preference(comp_names)
         for name in comp_names:
             # print("CHOSEN NAME COMPARE:", name, chosen_name, bool(name == chosen_name), bool(name != chosen_name))

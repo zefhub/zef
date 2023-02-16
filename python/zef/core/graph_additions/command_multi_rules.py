@@ -180,7 +180,7 @@ def relabel_terminate(cmd: PleaseTerminate, aliases: AliasDict) -> PleaseTermina
 # ** PleaseTag
 
 def distinguish_tag(cmd):
-    return cmd, [cmd.target]
+    return cmd, [cmd.target, TagIDInternal(cmd.tag)]
 
 def cull_tag(cmd: PleaseTag, gs):
     # If object is already tagged, no need to do it again

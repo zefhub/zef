@@ -18,8 +18,11 @@ from . import make_VT
 
 make_VT('Nil', pytype=type(None))
 make_VT('Any',
-              is_a_func=lambda x,typ: True,
-              is_subtype_func=lambda x,typ: True)
+        is_a_func=lambda x,typ: True,
+        is_subtype_func=lambda x,typ: True,
+        constructor_func=lambda self,x: x,
+        pass_self=True,
+        )
 
 def numeric_is_a(x, typ):
     from .value_type import _value_type_pytypes
