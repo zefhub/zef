@@ -153,7 +153,7 @@ def assign_value_general(query_args, aet_type):
       return False
 
     try:
-      aet_value = query_args['value']
+      aet_value = query_args.get('value', None)
       aet | assign[aet_value] | g | run
       
       return True
@@ -297,10 +297,10 @@ type Query {
 }
 
 type Mutation {
-    assignValueString(ids: AssignValueIDs!, value: String!): Boolean
-    assignValueFloat( ids: AssignValueIDs!, value: Float!): Boolean
-    assignValueInt(   ids: AssignValueIDs!, value: Int!): Boolean
-    assignValueBool(  ids: AssignValueIDs!, value: Boolean!): Boolean
+    assignValueString(ids: AssignValueIDs!, value: String): Boolean
+    assignValueFloat( ids: AssignValueIDs!, value: Float): Boolean
+    assignValueInt(   ids: AssignValueIDs!, value: Int): Boolean
+    assignValueBool(  ids: AssignValueIDs!, value: Boolean): Boolean
 }
 
 input AssignValueIDs {
