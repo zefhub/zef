@@ -35,7 +35,7 @@ void Butler::ws_open_handler(void) {
     network.send(j.dump());
 }
 
-void Butler::ws_close_handler(void) {
+void Butler::ws_close_handler(bool problem) {
     if(should_stop)
         return;
 
@@ -51,6 +51,9 @@ void Butler::ws_close_handler(void) {
     if(connection_authed)
         msg_push(Disconnected{}, false, true);
     connection_authed = false;
+
+    if(problem)
+        update(auth_locker, fatal_connection_error, true);
 }
 
 void Butler::ws_fatal_handler(std::string reason) {

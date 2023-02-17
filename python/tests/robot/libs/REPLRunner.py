@@ -57,6 +57,8 @@ class REPLRunner:
 
     def _end_test(self, name, attrs):
         for i,repl in enumerate(self.repls):
+            if repl is None:
+                continue
             if repl.proc.returncode is None:
                 self.quit_repl(i)
 
@@ -123,6 +125,13 @@ class REPLRunner:
 
         i = len(self.repls) - 1
         BuiltIn.set_test_variable("${ACTIVE_REPL}", i)
+
+        line = self.repls[i].from_file.readline()
+        line = line.strip()
+        # TODO: Make this delayed
+        if line != b"START_SUCCESS":
+            self.repls[i] = None
+            raise Exception("Failed to start REPL properly")
 
         return i
 

@@ -307,7 +307,7 @@ namespace zefDB {
 
             void ws_open_handler(void); 
             void ws_message_handler(std::string msg);
-            void ws_close_handler(void);
+            void ws_close_handler(bool problem=false);
             void ws_fatal_handler(std::string reason);
             void handle_successful_auth(void);
 
