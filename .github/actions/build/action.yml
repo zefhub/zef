@@ -181,6 +181,7 @@ runs:
         pip3 install --user -r python/tests/requirements_tests.txt
 
     - name: Robot Framework tests
+      id: robot-framework
       if: ${{ inputs.test-auth-key != '' && !startsWith(inputs.os, 'windows') }}
       shell: bash
       env:
@@ -194,7 +195,7 @@ runs:
         bash runtests.sh
 
     - name: Save robot logs on failure
-      if: failure()
+      if: ${{ failure() && steps.robot-framework.outcome == 'failure' }}
       uses: actions/upload-artifact@v3
       with:
         name: robot-logs
@@ -202,6 +203,7 @@ runs:
           python/tests/robot/output.xml
           python/tests/robot/log.html
           python/tests/robot/report.html
+          /tmp/zefrobot*
       
 
     - name: Check no created tokens

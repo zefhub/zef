@@ -105,8 +105,8 @@ class REPLRunner:
         from_repl_read_fd,from_repl_write_fd = os.pipe()
 
         import tempfile
-        temp_stdout = tempfile.NamedTemporaryFile(delete=False)
-        temp_stderr = tempfile.NamedTemporaryFile(delete=False)
+        temp_stdout = tempfile.NamedTemporaryFile(prefix="zefrobot_", delete=False)
+        temp_stderr = tempfile.NamedTemporaryFile(prefix="zefrobot_", delete=False)
         print("temp_stdout:", temp_stdout.name)
         print("temp_stderr:", temp_stderr.name)
 

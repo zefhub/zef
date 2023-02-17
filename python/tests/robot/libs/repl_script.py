@@ -48,6 +48,7 @@ def wait_and_execute(file_in, file_out):
                 file_out.write((f"SUCCESS {dt}\n").encode())
             except Exception as exc:
                 print("Should be writing failure")
+                import traceback ; traceback.print_exc()
                 file_out.write(("FAILURE " + str(exc) + "\n").encode())
         elif line.startswith("EVAL"):
             try:
