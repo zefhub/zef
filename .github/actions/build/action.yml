@@ -232,7 +232,7 @@ runs:
         ZEFDB_QUIET: YES
         ZEF_ERROR_HANDLING: NO
         # Because the robot tests end up creating/loading graphs, we need a real user here
-        ZEFHUB_AUTH_KEY: ${inputs.test-auth-key}
+        ZEFHUB_AUTH_KEY: ${{ inputs.test-auth-key }}
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         cd python/tests/robot
