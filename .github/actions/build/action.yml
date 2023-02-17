@@ -194,7 +194,7 @@ runs:
         bash runtests.sh
 
     - name: Save robot logs on failure
-      if: failure
+      if: failure()
       uses: actions/upload-artifact@v3
       with:
         name: robot-logs
