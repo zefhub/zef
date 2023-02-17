@@ -136,7 +136,7 @@ class GraphSlice_:
         return out
 
     def __contains__(self, thing):
-        from ._ops import exists_at, uid, collect, to_delegate
+        from ._ops import exists_at, uid, collect, to_delegate, origin_uid
         from . import internals
         from .rae_type_definitions import RAE
 

@@ -82,6 +82,8 @@ void Butler::determine_login_token() {
         if(*key_string == constants::zefhub_guest_key) {
             std::cerr << "Connecting as guest user" << std::endl;
             have_logged_in_as_guest = true;
+        } else if(using_private_key()) {
+            refresh_token = *key_string;
         } else  {
             api_key = *key_string;
         }
@@ -429,11 +431,16 @@ bool Butler::is_credentials_file_valid() {
 
 void Butler::ensure_auth_credentials() {
     // TODO: mutex here
+
+    // TODO: There is too much duplication between this, determine_login_token,
+    // and who_am_i.
             
     std::optional<std::string> forced_zefhub_key = load_forced_zefhub_key(); 
     if(forced_zefhub_key) {
         if(*forced_zefhub_key == constants::zefhub_guest_key)
             have_logged_in_as_guest = true;
+        else if(using_private_key())
+            refresh_token = *forced_zefhub_key;
         else
             api_key = *forced_zefhub_key;
     } else {

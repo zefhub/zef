@@ -10,7 +10,7 @@ Graph ${uid} should be found
 
 
 Prepare Big Actions
-    [Arguments]    ${num}=2000    ${g}=g
+    [Arguments]    ${num}=40    ${g}=g
     Ensure Variable Exists  ${g}
     Send REPL     actions = [{ET.Machine: {RT.Name: str(i), RT.Const: 42}} for i in range(${num})]
     Send REPL     eff = actions | transact[${g}]

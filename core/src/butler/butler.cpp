@@ -58,7 +58,7 @@ namespace zefDB {
         Butler::Butler(std::string uri) {
             msgqueue.who_am_i = "butler main msg queue";
             network.outside_message_handler = std::bind(&Butler::ws_message_handler, this, std::placeholders::_1);
-            network.outside_close_handler = std::bind(&Butler::ws_close_handler, this);
+            network.outside_close_handler = std::bind(&Butler::ws_close_handler, this, std::placeholders::_1);
             network.outside_fatal_handler = std::bind(&Butler::ws_fatal_handler, this, std::placeholders::_1);
             network.outside_open_handler = std::bind(&Butler::ws_open_handler, this);
             network.uri = uri;

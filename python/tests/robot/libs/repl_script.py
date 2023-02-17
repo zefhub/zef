@@ -23,6 +23,12 @@ def wait_and_execute(file_in, file_out):
     exec("from zef.ops import *", globs, globs)
     exec("import zef", globs, globs)
 
+    try:
+        exec("""zef.core.internals.wait_for_auth()""", globs, globs)
+    except:
+        file_out.write("START_FAILURE\n".encode())
+    file_out.write("START_SUCCESS\n".encode())
+
     while True:
         print("Waiting for a line")
         line = file_in.readline()
@@ -41,6 +47,8 @@ def wait_and_execute(file_in, file_out):
                 print("Should be writing success")
                 file_out.write((f"SUCCESS {dt}\n").encode())
             except Exception as exc:
+                print("Should be writing failure")
+                import traceback ; traceback.print_exc()
                 file_out.write(("FAILURE " + str(exc) + "\n").encode())
         elif line.startswith("EVAL"):
             try:
