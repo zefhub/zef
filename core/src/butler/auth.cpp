@@ -212,8 +212,10 @@ namespace zefDB {
     }
 
     std::string get_firebase_token_refresh_token(std::string refresh_token) {
+        // TODO: this function is named incorrectly as it handles both private
+        // and firebase tokens. Some refactoring is needed.
         if(using_private_key())
-            return refresh_token;
+            return get_private_token(refresh_token);
 
         time start = clock::now();
 

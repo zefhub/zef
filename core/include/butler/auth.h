@@ -25,4 +25,6 @@ namespace zefDB {
     LIBZEF_DLL_EXPORTED std::string get_firebase_refresh_token_email(std::string email, std::string password);
 
     LIBZEF_DLL_EXPORTED std::string get_firebase_token_refresh_token(std::string refresh_token);
+
+    bool using_private_key();
 }
