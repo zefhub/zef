@@ -193,6 +193,17 @@ runs:
         cd python/tests/robot
         bash runtests.sh
 
+    - name: Save robot logs on failure
+      if: failure
+      uses: actions/upload-artifact@v3
+      with:
+        name: robot-logs
+        path: |
+          python/tests/robot/output.xml
+          python/tests/robot/log.html
+          python/tests/robot/report.html
+      
+
     - name: Check no created tokens
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash
