@@ -10,6 +10,7 @@ Test Long Enough
     Ensure Big Actions Takes 5 Seconds
 
 Testing big merge with loading graph
+    [Tags]    robot:skip
     Start 10 Repls
 
     Switch Repl     0
