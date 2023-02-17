@@ -220,6 +220,8 @@ def effect_ctor(*args, **kwargs) -> dict:
         return kwargs
 
 def effect_is_a(x, typ):
+    # Dict could still be passed around so for sake of completion this should be checked as it is valid
+    if isinstance(x, Dict): return isinstance(x['type'],  EffectType)
     return isinstance(x.type,  EffectType)
 
 Effect = make_VT("Effect",

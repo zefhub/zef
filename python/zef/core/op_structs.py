@@ -1053,6 +1053,7 @@ class LazyValue_:
         from .op_implementations.dispatch_dictionary import _op_to_functions
         from .op_implementations.implementation_typing_functions import ZefGenerator
         from ..core._error import Error_
+        from .VT import Effect
 
         curr_op = None
         curr_value = self.initial_val
@@ -1086,7 +1087,9 @@ class LazyValue_:
                             err.keep_traceback = True
                             err.__traceback__ = e.__traceback__
                             raise err from e
-                    elif isinstance(curr_value, dict): 
+                    elif isinstance(curr_value, Effect): 
+                        # Create a Wrapped Effect type from a dict for ease of passing around
+                        if isinstance(curr_value, Dict): curr_value = curr_value['type'](**curr_value)
                         try:
                             curr_value = _op_to_functions[op[0]][0](curr_value)
                         except Exception as e:

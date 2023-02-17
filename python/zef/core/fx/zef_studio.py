@@ -462,13 +462,12 @@ def studio_start_handler(eff: Dict):
    while trials:
       random_port = random.randint(10000, 30000)
       try:
-         http_r = {
-            "type": FX.GraphQL.StartServer,
+         http_r = FX.GraphQL.StartServer(**{
             "schema_dict" : schema_dict,
             "db" :  Graph(),
             "port" :  random_port, 
-            "path" :  "/graphql", 
-         } | run
+             "path" :  "/graphql", 
+         }) | run
 
          server_zr = now(g_process[http_r['server_uuid']])
          
@@ -486,5 +485,5 @@ def studio_start_handler(eff: Dict):
 
 
 def studio_stop_server_handler(eff: Dict):
-    return run({**eff, 'type': FX.HTTP.StopServer})
+    return run(FX.HTTP.StopServer(**eff))
 

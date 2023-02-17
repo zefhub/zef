@@ -93,10 +93,13 @@ fx_dispatch_dict = {
     FX.HTTP.StartServer: {"create_http_server": create_http_server, "create_eff_to_process_graph_wish": create_eff_to_process_graph_wish},
 }
 
-def fx_runtime(eff: Dict):
+def fx_runtime(eff: Effect):
     from ...core.fx import _effect_handlers
-    if not isinstance(eff, Dict): raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run a wish, which are represented as dictionaries.")
+    if not isinstance(eff, Effect): raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run a wish, which are represented as dictionaries.")
     
+    # Extract the internal dict from the Effect
+    eff = eff._value
+
     if eff['type'] in fx_dispatch_dict:
 
         if eff['type'] == FX.HTTP.StartServer:
