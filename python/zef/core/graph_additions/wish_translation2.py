@@ -58,6 +58,13 @@ debugging_active = len(os.environ.get("ZEF_DEBUG_GRAPH_WISH_LVL1", "")) > 0
 def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice) -> Level1CommandInfo:
     # Blind generation, using no culling at this stage, merely resolving PleaseRun commands
 
+    if debugging_active:
+        print()
+        print("Going to translate commands")
+        for cmd in commands:
+            print(cmd)
+        print()
+
     # context = CmdDispatchContext({
     #     "gen_id_state": generate_initial_state("lvl1"),
     # })

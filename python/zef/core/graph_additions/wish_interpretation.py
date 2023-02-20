@@ -387,21 +387,17 @@ def OS_lvl2cmds_for_dict(input: OldStyleDict, context: Lvl2Context):
     assert isinstance(input, OldStyleDict)
     assert len(input) == 1
 
-    gen_id_state = context["gen_id_state"]
-
-    res = []
-
     source_input, rel_dict = single(input.items())
-
-    source_input, me, gen_id_state = ensure_tag(source_input, gen_id_state)
-    res += [source_input]
-
+    new_dict = {}
     for k,v in rel_dict.items():
-        v,v_id,gen_id_state = ensure_tag(v, gen_id_state)
-        res += [v]
-        res += [(me, k, v_id)]
+        # TODO: Update for the Atom dictionary syntax.
+        assert isinstance(k, PureRT)
+        from ..VT.rae_types import RAET_get_names
+        assert len(RAET_get_names(k)) == 0
+        name = token_name(k)
 
-    context = context | insert["gen_id_state"][gen_id_state] | collect
+        new_dict[name] = v
+    res = [source_input(**new_dict)]
     return [], res, context
 
 @func
