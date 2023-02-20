@@ -187,7 +187,7 @@ void Butler::send_ZH_message(json & j, const std::vector<std::string> & rest, bo
     // We do our own wait here, so that this is a proper timeout.
     // network.wait_for_connected(constants::zefhub_reconnect_timeout);
     // wait_for_auth(constants::zefhub_reconnect_timeout);
-    if(ignore_wait) { 
+    if(!ignore_wait) { 
         wait_for_auth();
         if(!network.connected)
             throw Communication::disconnected_exception();
