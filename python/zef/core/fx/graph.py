@@ -15,6 +15,8 @@
 from .._ops import *
 from ..VT import *
 
+report_calls = False
+
 def graph_take_transactor_role_handler(eff: dict):
     from ...pyzef.main import make_primary
     make_primary(eff["graph"], True)
@@ -47,6 +49,11 @@ def graph_transaction_handler(eff: dict):
                 pass
             else:
                 raise Exception("There are no options for translation rules at the moment. TODO: Need to replace with distinguish/recombine/relabel/cull rules later.")
+
+            if report_calls:
+                print("Transact is being called from:")
+                import traceback
+                traceback.print_stack()
 
             target_ref = eff["target_glike"]
             if isinstance(target_ref, GraphRef):
