@@ -396,6 +396,9 @@ to_object    = make_zefop(internals.RT.ToObject)
 infer_types  = make_zefop(internals.RT.InferTypes)
 deduplicate  = make_zefop(internals.RT.Deduplicate)
 identify_entities = make_zefop(internals.RT.IdentifyEntities)
+
+explain = make_zefop(internals.RT.Explain)
+
 # match
 # split_before
 # split_after

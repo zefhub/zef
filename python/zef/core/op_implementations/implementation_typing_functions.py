@@ -10301,8 +10301,6 @@ def filter_map_imp(v: List, f):
     return ZefGenerator(wrapper)
 
 
-
-
 def ends_with_imp(s: str, suffix: str):
     """
     Returns True if `s` ends with `suffix`, False otherwise.
@@ -10338,3 +10336,55 @@ def starts_with_imp(s: str, prefix: str):
 
 
 
+def explain_imp(val: Any, typ: ValueType)-> Dict:
+    from ..VT.sets import get_union_intersection_subtypes
+    from ..VT.extended_containers import tuple_get_params
+    from ..VT.helpers import generic_subtype_get, remove_names
+
+    default_value = {
+        'value': val,
+        'type': typ,
+        'is_a': is_a(val, typ),
+        'reason': []
+    }
+
+    def union_intersection_imp(val, typ):
+        subtypes = get_union_intersection_subtypes(typ)
+        return {
+            **default_value,
+            'reason': [explain_imp(val, subtype) for subtype in subtypes]
+        }
+    
+    def list_set_imp(val, typ):    
+        subtype = generic_subtype_get(typ)
+        return {
+            **default_value,
+            'reason': [explain_imp(inner_val, subtype) for inner_val in val] if subtype else []
+        }
+
+    def tuple_imp(val, typ):
+        subtypes = tuple_get_params(typ)
+        return {
+            **default_value,
+            'reason': [explain_imp(inner_val, inner_subtype) for inner_val, inner_subtype in zip(val, subtypes)] if subtypes else []
+        }
+
+    def dict_imp(val, typ):
+        subtypes = remove_names(absorbed(typ))
+        if len(subtypes) == 0: return {**default_value,}
+        T1, T2 = subtypes
+        return {
+                **default_value,
+                'reason': [(explain_imp(key, T1), explain_imp(inner_val, T2)) for key, inner_val in val.items()]
+        }
+
+    assert is_a(typ, ValueType), f"typ must be a ValueType but is {typ}"
+    type_name = typ._d['type_name']
+
+    return match[
+        (Is[lambda name: name in {'Union', 'Intersection'}], lambda _: union_intersection_imp(val, typ)),
+        (Is[lambda name: name in {'List', 'Set'}], lambda _: list_set_imp(val, typ)),
+        (Is[equals['Tuple']], lambda _: tuple_imp(val, typ)),
+        (Is[equals['Dict']], lambda _: dict_imp(val, typ)),
+        (Any, lambda _: {**default_value})
+    ](type_name)

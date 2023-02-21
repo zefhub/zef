@@ -337,6 +337,8 @@ _op_to_functions = {
         internals.RT.FilterMap:            (filter_map_imp, None),
         internals.RT.EndsWith:             (ends_with_imp, None),
         internals.RT.StartsWith:           (starts_with_imp, None),
+
+        internals.RT.Explain:              (explain_imp, None),
 }
 
 
