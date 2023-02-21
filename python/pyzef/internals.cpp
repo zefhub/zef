@@ -645,6 +645,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		// .def_readwrite("zefscription_head_was_sent_out_head", &GraphData::zefscription_head_was_sent_out_head)
 		.def_readonly("is_primary_instance", &GraphData::is_primary_instance)
 		.def_property_readonly("should_sync", [](const GraphData & self) { return self.should_sync.load(); })
+		.def_property_readonly("currently_subscribed", [](const GraphData & self) { return self.currently_subscribed.load(); })
+		.def_property_readonly("has_errored", [](const GraphData & self) { return self.error_state != GraphData::ErrorState::OK; } )
 		.def_readonly("revision", &GraphData::revision)
 		.def_readwrite("tag_list", &GraphData::tag_list)
 		.def("__repr__", [](const GraphData& self)->std::string { std::stringstream ss; ss << self; return ss.str(); })
