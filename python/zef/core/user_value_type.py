@@ -88,31 +88,10 @@ _user_value_type_registry = {}    # append to this: keep track of all types know
 #def UVT_ctor(self, name: String, representation_type, constraints):
 def UVT_ctor(self, *args, **kwargs):
     if "user_type_id" in self._d:
-        # if bool(kwargs):
-        #     # if keyword args, then the representation_type MUST be a dict and no positional args are allowed
-        #     assert args == ()
-        #     assert self.representation_type in {Dict, dict}
-        #     val = kwargs
-
-        # else:
-        #     # if positional args, then the representation_type MUST be a tuple and no keyword args are allowed
-        #     assert bool(kwargs)==False    # no keyword args
-        #     if len(args) == 1:         # if there is only one positional arg, then it is the value itself
-        #         val = args[0]
-        #     elif len(args) == 0 and self.representation_type in {Dict, dict}:
-        #         # The constructor is valid without args only in the case of a dictionary
-        #         val = {}
-        #     else:
-        #         raise ValueError("Error initializing UserValueType")
-        # try:
-        #     cast_val = self.representation_type(val)
-        # except:
-        #     raise Exception(f"UserValueType(name={self.name}) cannot cast '{val}' to {self.representation_type}")
-
         try:
             cast_val = self._d["representation_type"](*args, **kwargs)
-        except Exception:
-            raise ValueError("Couldn't construct type")
+        except Exception as exc:
+            raise ValueError(f"Couldn't construct type: {exc}")
 
         # check whether the constraints are satisfied
         if not isinstance(cast_val, self._d["constraints"]):

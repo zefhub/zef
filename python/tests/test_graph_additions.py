@@ -311,7 +311,50 @@ class MyTestCase(unittest.TestCase):
                 ET.Machine[V.something],
                 V.something | terminate,
             ] | transact[g] | run
+
+    def test_multiple_rts(self):
+        template = ET.Machine("local label", something=42)
+        template_no_label = ET.Machine(something=42)
+
+        g = Graph()
+
+        _,r = [
+            (template, RT.blah, "a"),
+            (template, RT.blah, "bbb")
+        ] | transact[g] | run
+
+        ent = g | now | all[ET.Machine] | single | collect
+        self.assertEqual(ent | Out[RT.something] | value | collect, 42)
+        self.assertEqual(ent | Outs[RT.blah] | map[value] | func[set] | collect, {"a", "bbb"})
             
+        g = Graph()
+
+        (a,_,_),(b,_,_) = [
+            (template, RT.blah, "a"),
+            (template, RT.blah, "bbb")
+        ] | g | run
+
+        self.assertEqual(a, b)
+        self.assertEqual(a | Out[RT.something] | value | collect, 42)
+        self.assertEqual(a | Outs[RT.blah] | map[value] | func[set] | collect, {"a", "bbb"})
+
+        (a,_,_),(b,_,_) = [
+            (template_no_label, RT.blah, "a"),
+            (template_no_label, RT.blah, "bbb")
+        ] | g | run
+
+        self.assertNotEqual(a, b)
+        self.assertEqual(a | Out[RT.something] | value | collect, 42)
+        self.assertEqual(b | Out[RT.something] | value | collect, 42)
+        self.assertEqual(a | Out[RT.blah] | value | collect, "a")
+        self.assertEqual(b | Out[RT.blah] | value | collect, "bbb")
+
+        with self.assertRaisesRegex(Exception, "Two assigns have different values"):
+            template_break = ET.Machine("local label", something=123456789)
+            [
+                (template, RT.blah, "a"),
+                (template_break, RT.blah, "bbb")
+            ] | transact[g] | run
 
         
 

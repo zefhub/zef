@@ -99,7 +99,7 @@ def recombination_checks(cmds):
                 # Any of the ids will do - they will be relabelled anyway.
                 from .command_multi_rules import distinguish_assign
                 _,names = distinguish_assign(cmd1)
-                return False, [PleaseAssign(*(cmd1._value | insert["target"][names[0]] | collect))], []
+                return False, [PleaseAssign(**(cmd1._value | insert["target"][names[0]] | collect))], []
         else:
             raise NotImplementedError(f"TODO: {cmd1._get_type()}")
     else:

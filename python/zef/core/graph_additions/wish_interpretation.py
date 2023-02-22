@@ -388,7 +388,10 @@ def OS_lvl2cmds_for_dict(input: OldStyleDict, context: Lvl2Context):
     assert len(input) == 1
 
     source_input, rel_dict = single(input.items())
-    res = [source_input(rel_dict)]
+    if isinstance(source_input, UserWishID):
+        res = [Atom(force_as_id(source_input), rel_dict)]
+    else:
+        res = [source_input(rel_dict)]
     return [], res, context
 
 @func
