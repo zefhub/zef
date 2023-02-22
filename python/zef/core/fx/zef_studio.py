@@ -20,8 +20,6 @@ from ..logger import log
 
 
 # TODO:
-# 1. Make Value Assignment mutations non nullable
-# 2. Add a mutation for terminating a field
 # 3. Add a mutation for adding a new field
 
 
@@ -291,6 +289,23 @@ def et_color(et):
     idx =  hash(et) % len(colors)
     return list(colors.values())[idx].upper()
 
+
+@func
+def terminate_field(query_args):
+    try:
+        field_id  = query_args.get('fieldID')
+        g_id = BaseUID(field_id[-16:])
+        g = Graph(g_id)
+
+        field = g[field_id]
+        field | terminate | g | run
+
+        return True
+    except Exception as e:
+        log.error(f"Failed to terminate field {query_args}. {e}")
+        return False
+
+
 #-------------------------------------------------------------
 #-------------------Schema String-------------------------------
 #-------------------------------------------------------------
@@ -307,6 +322,7 @@ type Mutation {
     assignValueFloat( ids: AssignValueIDs!, value: Float!): Boolean
     assignValueInt(   ids: AssignValueIDs!, value: Int!): Boolean
     assignValueBool(  ids: AssignValueIDs!, value: Boolean!): Boolean
+    terminateField(fieldID: ID!): Boolean
 }
 
 input AssignValueIDs {
@@ -436,6 +452,7 @@ def create_schema_dict(simple_schema):
       | insert_in[('_Types', 'Mutation', 'assignValueFloat', 'resolver')][assign_value_float]
       | insert_in[('_Types', 'Mutation', 'assignValueInt', 'resolver')][assign_value_int]
       | insert_in[('_Types', 'Mutation', 'assignValueBool', 'resolver')][assign_value_bool]
+      | insert_in[('_Types', 'Mutation', 'terminateField', 'resolver')][terminate_field]
       | insert_in[('_Interfaces', 'Cell', '_interface_resolver')][cell_interface_resolver] 
       | insert_in[('_Interfaces', 'Event', '_interface_resolver')][event_interface_resolver] 
       | collect
