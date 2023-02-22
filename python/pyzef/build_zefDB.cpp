@@ -610,7 +610,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 
 
 
- 	main_module.def("merge", py::overload_cast<const json&,Graph,bool>(&merge), py::call_guard<py::gil_scoped_release>(), "graph_delta"_a, "target_graph"_a, "fire_and_forget"_a = false);
+ 	main_module.def("merge", py::overload_cast<const json&,GraphRef>(&merge), py::call_guard<py::gil_scoped_release>(), "lvl2_cmds"_a, "target_graph"_a);
 
 
 	main_module.def("instantiate", py::overload_cast<EntityType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an entity", "entity_type"_a, "g"_a, "uid"_a=py::none());

@@ -1136,6 +1136,8 @@ MergeRequestResponse Butler::parse_ws_response<MergeRequestResponse>(json j) {
 
     if(msg_version <= 0) {
         throw std::runtime_error("Shouldn't get old msg_version==0 resposne from merge request anymore.");
+    } else if(msg_version <= 2) {
+        throw std::runtime_error("Merge request responses should be at least version 3 now.");
     } else {
         std::string receipt_type = j["receipt"]["type"].get<std::string>();
         if(receipt_type == "indices") {
@@ -1143,7 +1145,8 @@ MergeRequestResponse Butler::parse_ws_response<MergeRequestResponse>(json j) {
         } else if(receipt_type == "delta") {
             MergeRequestResponse::ReceiptGraphDelta receipt{
                 j["receipt"]["receipt"].get<json>(),
-                j["receipt"]["read_head"].get<blob_index>()
+                j["receipt"]["read_head"].get<blob_index>(),
+                j["receipt"]["tx_index"].get<blob_index>()
             };
             return MergeRequestResponse{generic, receipt};
         } else {

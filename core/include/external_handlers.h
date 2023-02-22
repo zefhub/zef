@@ -27,7 +27,7 @@ namespace zefDB {
 
     namespace internals {
         // ** Merge handler
-        typedef json (merge_handler_t)(Graph, const json &);
+        typedef std::tuple<EZefRef,json> (merge_handler_t)(Graph, const json &);
         LIBZEF_DLL_EXPORTED void register_merge_handler(std::function<merge_handler_t> func);
         LIBZEF_DLL_EXPORTED void remove_merge_handler();
         LIBZEF_DLL_EXPORTED json pass_to_merge_handler(Graph g, const json & payload);

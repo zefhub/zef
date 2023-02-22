@@ -208,11 +208,12 @@ RAEFlatRef = insert_VT('RAEFlatRef', EntityFlatRef | AttributeEntityFlatRef | Re
 
 
 
-FlatGraphPlaceholder = UserValueType("FlatGraphPlaceholder", Int, Any)
+FlatGraphPlaceholder = UserValueType("FlatGraphPlaceholder", Int, Any, forced_uid="47332221361")
 FlatRefUID = UserValueType("FlatRefUID",
                            Dict,
                            Pattern[{"idx": Int,
-                                    "flatgraph": FlatGraphPlaceholder}])
+                                    "flatgraph": FlatGraphPlaceholder}],
+                           forced_uid="74771677704")
 
 def make_flatref_uid(fr):
     h = register_flatgraph(fr.fg)
