@@ -305,6 +305,22 @@ def terminate_field(query_args):
         log.error(f"Failed to terminate field {query_args}. {e}")
         return False
 
+@func
+def add_field(query_args):
+    try:
+        source_id  = query_args.get('sourceID')
+        relation_name  = query_args.get('relationName')
+        value  = query_args.get('value')
+
+        g_id = BaseUID(source_id[-16:])
+        g = Graph(g_id)
+
+        res = (g[source_id], RT(relation_name), value) | g | run
+        return str(uid(res[-1]))
+    except Exception as e:
+        log.error(f"Failed to add field {query_args}. {e}")
+        return False
+
 
 #-------------------------------------------------------------
 #-------------------Schema String-------------------------------
@@ -323,6 +339,10 @@ type Mutation {
     assignValueInt(   ids: AssignValueIDs!, value: Int!): Boolean
     assignValueBool(  ids: AssignValueIDs!, value: Boolean!): Boolean
     terminateField(fieldID: ID!): Boolean
+    addFieldString(sourceID: ID!, relationName: String!, value: String!): ID
+    addFieldFloat(sourceID: ID!, relationName: Float!, value: Float!): ID
+    addFieldInt(sourceID: ID!, relationName: Int!, value: Int!): ID
+    addFieldBool(sourceID: ID!, relationName: Boolean!, value: Boolean!): ID
 }
 
 input AssignValueIDs {
@@ -453,6 +473,10 @@ def create_schema_dict(simple_schema):
       | insert_in[('_Types', 'Mutation', 'assignValueInt', 'resolver')][assign_value_int]
       | insert_in[('_Types', 'Mutation', 'assignValueBool', 'resolver')][assign_value_bool]
       | insert_in[('_Types', 'Mutation', 'terminateField', 'resolver')][terminate_field]
+      | insert_in[('_Types', 'Mutation', 'addFieldString', 'resolver')][add_field]
+      | insert_in[('_Types', 'Mutation', 'addFieldFloat', 'resolver')][add_field]
+      | insert_in[('_Types', 'Mutation', 'addFieldInt', 'resolver')][add_field]
+      | insert_in[('_Types', 'Mutation', 'addFieldBool', 'resolver')][add_field]
       | insert_in[('_Interfaces', 'Cell', '_interface_resolver')][cell_interface_resolver] 
       | insert_in[('_Interfaces', 'Event', '_interface_resolver')][event_interface_resolver] 
       | collect
