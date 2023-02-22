@@ -34,7 +34,7 @@ def dispatch_preparation(cmd, gs, context):
 # existing object. They can use the same code for final application.
 def prepare_obj_notation(cmd, gs, context):
     gen_id_state = context["gen_id_state"]
-    from .wish_tagging import ensure_tag, Taggable
+    from .wish_tagging import ensure_tag
 
     cmds = []
 
@@ -81,10 +81,21 @@ def prepare_obj_notation(cmd, gs, context):
         else:
             raise NotImplementedError(f"TODO can't create something without a known type: {cmd}")
 
+    obj_id = force_as_id(me)
 
     from ..atom import _get_fields
-    for k, v in _get_fields(cmd).items():
-        rels_exact = False
+    fields = _get_fields(cmd)
+    more_cmds,gen_id_state = nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state)
+    cmds += more_cmds
+
+    context = context | insert["gen_id_state"][gen_id_state] | collect
+    return [], cmds, context
+
+def nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state):
+    from .wish_tagging import ensure_tag, Taggable
+    cmds = []
+
+    for k, (obj, v) in fields.items():
         rt = RT(k)
         if isinstance(v, PrimitiveValue | Taggable | UserWishID):
             v = {v}
@@ -155,29 +166,71 @@ def prepare_obj_notation(cmd, gs, context):
                 to_terminate = list(existing_free)
                         
 
+
+            # Get an id from the specification if we have it. This id will only
+            # make sense if there is exactly one item being given it (i.e. no
+            # multiple relations created), and we will let the fallout after
+            # this function handle that error case.
+            prior_name = None
+            if isinstance(obj, AtomClass):
+                from ..atom import get_most_authorative_id
+                # Note: this could be None
+                prior_name = get_most_authorative_id(obj)
+            elif isinstance(obj, ValueType & RT):
+                from ..VT.rae_types import RAET_get_names
+                names = RAET_get_names(obj)
+                if len(names) > 2:
+                    raise Exception(f"Don't know what to do with multiple names in a RT: {names}")
+                if len(names) == 1:
+                    prior_name = force_as_id(names[0])
+
             exact_ids = []
+            exact_zs = []
 
             for rel in to_keep:
                 exact_ids += [origin_uid(rel)]
+                exact_zs += [rel]
+                if prior_name is not None:
+                    cmds += [PleaseAlias(ids=[origin_uid(rel), prior_name])]
 
             for rel in to_terminate:
                 cmds += [PleaseTerminate(target=origin_uid(rel))]
 
             for val,rel in to_assign:
                 exact_ids += [origin_uid(rel)]
+                exact_zs += [rel]
                 cmds += [PleaseAssign(target=origin_uid(target(rel)), value=Val(val))]
+                if prior_name is not None:
+                    cmds += [PleaseAlias(ids=[origin_uid(rel), prior_name])]
 
             for item in to_create:
                 item,item_id,gen_id_state = ensure_tag(item, gen_id_state)
                 cmds += [item]
                 id_rel,gen_id_state = gen_internal_id(gen_id_state)
                 cmds += [PleaseInstantiate(
-                    atom=dict(rt=rt, source=me, target=item_id),
+                    atom=dict(rt=rt, source=obj_id, target=item_id),
                     internal_ids=[id_rel]
                 )]
                 exact_ids += [id_rel]
+                exact_zs += [None]
 
-            cmds += [PleaseBeSource(target=force_as_id(me), rel_ids=exact_ids, exact=True, rt=rt)]
+                if prior_name is not None:
+                    # Note that we use alias here instead of including it into
+                    # the PleaseInstantiate, as all names can be aliased but the
+                    # instantiate requires choosing between origin_uid and
+                    # internal_ids.
+                    cmds += [PleaseAlias(ids=[id_rel, prior_name])]
+
+            cmds += [PleaseBeSource(target=obj_id, rel_ids=exact_ids, exact=True, rt=rt)]
+
+            # Now check if we have additional information that should be added to the relations
+            if isinstance(obj, AtomClass):
+                from ..atom import _get_fields
+                fields = _get_fields(obj)
+                if len(fields) > 0:
+                    for (id,z) in zip(exact_ids, exact_zs):
+                        more_cmds,gen_id_state = nested_prepare_obj_fields(id, z, fields, gen_id_state)
+                        cmds += more_cmds
 
         # elif type(v) in {list, tuple}:
         #     list_id = gen_id()
@@ -199,8 +252,7 @@ def prepare_obj_notation(cmd, gs, context):
         else:
             raise NotImplementedError(f"TODO: obj notation for {v}")
 
-    context = context | insert["gen_id_state"][gen_id_state] | collect
-    return [], cmds, context
+    return cmds, gen_id_state
 
 def prepare_please_run(cmd, gs, context):
     todo = []

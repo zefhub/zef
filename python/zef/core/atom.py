@@ -206,6 +206,23 @@ def pretty_atom_identity(desc: AtomIdentity):
 
     return tuple(names)
     
+def kwargs_to_fields_dict(kwargs):
+    fields = {}
+    for name,val in kwargs.items():
+        fields[name] = (RT(name), val)
+    return fields
+def user_dict_to_fields_dict(user):
+    from ._ops import token_name, rae_type
+    fields = {}
+    for obj,val in user.items():
+        if isinstance(obj, ValueType & RT):
+            name = token_name(obj)
+        elif isinstance(obj, RelationAtom):
+            name = token_name(rae_type(obj))
+        else:
+            raise Exception(f"Don't understand type of key in user dict: {obj}")
+        fields[name] = (obj, val)
+    return fields
 
 class Atom_:
     """
@@ -260,7 +277,7 @@ class Atom_:
         atom_id = object.__getattribute__(self, "atom_id")
         names = pretty_atom_identity(atom_id)
 
-        fields.update(kwargs)
+        fields.update(kwargs_to_fields_dict(kwargs))
         
         from ._ops import is_a, rae_type, source, target, origin_uid, abstract_type, discard_frame, value, uid, to_delegate, frame
         from .VT import BlobPtr, RAET, EntityRef, RelationRef, AttributeEntityRef, FlatRef, Relation, AttributeEntity, Delegate
@@ -334,6 +351,16 @@ class Atom_:
             elif is_a(arg, ValueType & RAET):
                 assert atom_type is None
                 atom_type = arg
+
+            elif is_a(arg, Dict):
+                new_fields = user_dict_to_fields_dict(arg)
+                # This is just a check for assign the same name in two different
+                # ways - in this case we wouldn't know which one we are supposed
+                # to take.
+                overlaps = set(new_fields.keys()) & set(kwargs.keys())
+                if len(overlaps) > 0:
+                    raise Exception(f"There are relations assigned through both kwargs and explicit dictionary: {overlaps}")
+                fields.update(new_fields)
             else:
                 names = names + (arg,)
         
@@ -346,12 +373,23 @@ class Atom_:
 
 
     def __repr__(self):
+        from .VT.rae_types import RAET_get_names
+
         ref_pointer = _get_ref_pointer(self)
         atom_type = _get_atom_type(self)
         atom_id = pretty_atom_identity(_get_atom_id(self))
         fields = _get_fields(self)
         # items = [f'"{get_reference_type(self)}"'] + [f"{k}={v!r}" for k,v in fields.items()]
-        items = [f"{k}={v!r}" for k,v in fields.items()]
+        items = []
+        dict_items = []
+        for name,(obj,val) in fields.items():
+            if isinstance(obj, ValueType & RT) and len(RAET_get_names(obj)) == 0:
+                items += [f"{name}={val!r}"]
+            else:
+                dict_items += [f"{obj}: {val!r}"]
+        if len(dict_items) > 0:
+            dict_full = "{" + ", ".join(dict_items) + "}"
+            items = [dict_full] + list(items)
         items = [repr(name) for name in atom_id] + list(items)
         if ref_pointer:
             # This is just for us while we are developing. Will be removed in the future.

@@ -388,16 +388,7 @@ def OS_lvl2cmds_for_dict(input: OldStyleDict, context: Lvl2Context):
     assert len(input) == 1
 
     source_input, rel_dict = single(input.items())
-    new_dict = {}
-    for k,v in rel_dict.items():
-        # TODO: Update for the Atom dictionary syntax.
-        assert isinstance(k, PureRT)
-        from ..VT.rae_types import RAET_get_names
-        assert len(RAET_get_names(k)) == 0
-        name = token_name(k)
-
-        new_dict[name] = v
-    res = [source_input(**new_dict)]
+    res = [source_input(rel_dict)]
     return [], res, context
 
 @func

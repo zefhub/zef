@@ -338,7 +338,7 @@ GraphWishValue = _alias(PrimitiveValue | WrappedValue, "GraphWishValue")
 # Backwards compatibility
 # Any is used here instead of GraphWishInputSimple. It would be nice to have the
 # recursive definition but that makes for ugly hacks to implement it.
-OldStyleDict = Dict[UserWishID | PureET | RAE][Dict[PureRT][Any]] & Is[_ops.length | _ops.equals[1]]
+OldStyleDict = Dict[UserWishID | PureET | RAE][Dict[PureRT | RelationAtom][Any]] & Is[_ops.length | _ops.equals[1]]
 
 # "Simple" inputs are those that can be interpreted almost (excepting EUID references) directly into lvl1 commands
 GraphWishInputSimple = _alias(

@@ -288,16 +288,10 @@ from dataclasses import dataclass
 class Val_:
     # arg: VT.Any
     arg: int
-    iid: str = None
-
-    def __getitem__(self, x):
-        if self.iid is not None:
-            raise Exception("Can't overwrite iid")
-        return Val_(self.arg, x)
 
     def __hash__(self):
         from ..VT.value_type import hash_frozen
-        return hash_frozen(("Val_", self.arg, self.iid))
+        return hash_frozen(("Val_", self.arg))
 
 def is_transactor(glike): #: Graph | GraphRef):
     if isinstance(glike, Graph):
