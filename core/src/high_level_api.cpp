@@ -730,7 +730,7 @@ namespace zefDB {
 	}
 
 
-    nlohmann::json merge(const nlohmann::json & j, Graph target_graph, bool fire_and_forget) {
+    std::tuple<EZefRef,nlohmann::json> merge(const nlohmann::json & j, GraphRef target_graph) {
        auto butler = Butler::get_butler();
 
        Messages::MergeRequest msg {
@@ -739,12 +739,6 @@ namespace zefDB {
            internals::get_graph_uid(target_graph),
            Messages::MergeRequest::PayloadGraphDelta{j},
        };
-
-       if(fire_and_forget) {
-           butler->msg_push_internal(std::move(msg));
-           // Empty reply is a little weird, but need to return something
-           return {};
-       }
 
        // We retry any merge that fails because of a disconnect, but fail
        // through for anything else.
@@ -780,8 +774,10 @@ namespace zefDB {
        // TODO: This is not possible now, but need to do this in the future.
 
        auto r = std::get<Messages::MergeRequestResponse::ReceiptGraphDelta>(response.receipt);
-       // Wait for graph to be up to date before deserializing
-       auto & gd = target_graph.my_graph_data();
+       // Wait for graph to be up to date before deserializing - this means we
+       // are loading the graph which breaks the laziness, but we will worry
+       // about this once things like GraphSliceRef is available to the C code.
+       auto & gd = Graph(target_graph).my_graph_data();
        double chosen_timeout = zwitch.no_timeout_errors() ? 3600 : 60.0;
        bool reached_sync = wait_pred(gd.heads_locker,
                                      [&]() { return gd.read_head >= r.read_head; },
@@ -790,7 +786,10 @@ namespace zefDB {
        if(!reached_sync)
            throw std::runtime_error("Did not sync in time to handle merge receipt.");
        
-       return r.receipt;
+       // The graph slice is obtainable from the tx_index provided
+       EZefRef ez_tx{r.tx_index, gd};
+
+       return std::make_tuple(ez_tx, r.receipt);
     }
 
 

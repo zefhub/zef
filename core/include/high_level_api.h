@@ -286,7 +286,7 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED EZefRef local_entity(EZefRef uzr);
 	}
 
-    LIBZEF_DLL_EXPORTED nlohmann::json merge(const nlohmann::json & j, Graph target_graph, bool fire_and_forget=false);
+    LIBZEF_DLL_EXPORTED std::tuple<EZefRef,nlohmann::json> merge(const nlohmann::json & j, GraphRef target_graph);
 
 
     // Expose some low_level_api things as high_level_api with ZefRefs supported too.

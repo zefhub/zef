@@ -107,11 +107,11 @@ Variable = _alias(SymbolicExpression & Is[_ops.get_field["root_node"] | _ops.equ
                  "Variable")
     
 # Internal wish ids as used to reference items, but are themselves not returned in the receipt.
-WishIDInternal = UserValueType("WishIDInternal", String)
+WishIDInternal = UserValueType("WishIDInternal", String, forced_uid="83192238824")
 
 # This is only to allow tagging to share same names as other labels, but be
 # distinguishable. Only for internal use in this module.
-TagIDInternal = UserValueType("TagIDInternal", Any)
+TagIDInternal = UserValueType("TagIDInternal", Any, forced_uid="54701468908")
 
 InternalIDs = WishIDInternal | FlatRefUID | TagIDInternal
 
@@ -177,7 +177,8 @@ PleaseInstantiate = UserValueType("PleaseInstantiate",
                                            Optional["internal_ids"]: List[WishID]}]
                                   # An exception to the rule, is that value nodes and delegates cannot have origin_uids
                                   & ~Pattern[{"atom": PleaseInstantiateDelegate | PleaseInstantiateValueNode,
-                                              "origin_uid": Any}]
+                                              "origin_uid": Any}],
+                                  forced_uid="79672068288",
                                   )
 
 PleaseTerminate = UserValueType("PleaseTerminate",
@@ -189,7 +190,8 @@ PleaseTerminate = UserValueType("PleaseTerminate",
                                     # exclude this possibility for the moment,
                                     # but can introduce it later on if needed.
                                     #"internal_ids": Optional[List[WishID]]
-                                }])
+                                }],
+                                forced_uid="40694214316")
 
 PleaseAssign = UserValueType("PleaseAssign",
                               Dict,
@@ -200,7 +202,8 @@ PleaseAssign = UserValueType("PleaseAssign",
                                       # This is for when an AE is merged across
                                       # but can be overridden by an explicit
                                       # assign.
-                                      Optional["droppable"]: Bool}])
+                                      Optional["droppable"]: Bool}],
+                             forced_uid="64659041312")
 
 # Only the "JustValue" version is acceptable as a low level command
 PleaseAssignJustValue = PleaseAssign & Is[_ops.get_field["target"] | _ops.is_a[AllIDs]]
@@ -209,7 +212,8 @@ PleaseAssignAlsoInstantiate = PleaseAssign & ~PleaseAssignJustValue
 PleaseTag = UserValueType("PleaseTag",
                           Dict,
                           Pattern[{"target": Any,
-                                   "tag": Any}])
+                                   "tag": Any}],
+                          forced_uid="60325761894")
 # Only the "JustTag" version is acceptable as a low level command
 PleaseTagJustTag = PleaseTag & Is[_ops.get_field["target"] | _ops.is_a[AllIDs]]
 PleaseTagAlsoInstantiate = PleaseTag & ~PleaseTagJustTag
@@ -217,7 +221,8 @@ PleaseTagAlsoInstantiate = PleaseTag & ~PleaseTagJustTag
 # Only for internal use to resolve potential invalid graph wishes.
 PleaseMustLive = UserValueType("PleaseMustLive",
                                Dict,
-                               Pattern[{"target": AllIDs}])
+                               Pattern[{"target": AllIDs}],
+                               forced_uid="84949934812")
 # Only for internal use to handle set_field etc
 PleaseBeSource = UserValueType("PleaseBeSource",
                                Dict,
@@ -225,17 +230,20 @@ PleaseBeSource = UserValueType("PleaseBeSource",
                                         "rel_ids": List[AllIDs],
                                         "exact": Bool,
                                         "rt": RT,
-                                        }])
+                                        }],
+                               forced_uid="60712358786")
 PleaseBeTarget = UserValueType("PleaseBeTarget",
                                Dict,
                                Pattern[{"target": AllIDs,
                                         "rel_ids": [AllIDs],
                                         "exact": Bool,
                                         "rt": RT,
-                                        }])
+                                        }],
+                               forced_uid="97470448928")
 PleaseAlias = UserValueType("PleaseAlias",
                             Dict,
-                            Pattern[{"ids": List[AllIDs]}])
+                            Pattern[{"ids": List[AllIDs]}],
+                            forced_uid="53003798204")
 
 PleaseCommandLevel1 = _alias(PleaseInstantiate
                              | PleaseAssignJustValue
@@ -278,7 +286,8 @@ Level1CommandInfo = UserValueType(
 
 PleaseRun = UserValueType("PleaseRun",
                           Dict,
-                          Pattern[{"action": LazyValue | ZefOp | ZExpression}])
+                          Pattern[{"action": LazyValue | ZefOp | ZExpression}],
+                          forced_uid="37775167477")
 
 PleaseCommandLevel2 = _alias(PleaseCommandLevel1 | PleaseRun | AtomClass,
                                  "PleaseCommandLevel2")
