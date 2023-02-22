@@ -319,8 +319,7 @@ def add_field(query_args):
         return str(uid(res[-1]))
     except Exception as e:
         log.error(f"Failed to add field {query_args}. {e}")
-        return False
-
+        raise e
 
 #-------------------------------------------------------------
 #-------------------Schema String-------------------------------
