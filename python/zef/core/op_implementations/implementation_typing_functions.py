@@ -308,7 +308,7 @@ def on_implementation(g, op):
                 elif is_a(rae_or_zr, RAET):
                     def filter_func(root_node): 
                         # TODO in the filter step change it once UVT shape is consistent
-                        root_node | frame | to_tx | events[op_kind] | filter[lambda event: rae_type(event.target) == rae_or_zr] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
+                        root_node | frame | to_tx | events[op_kind] | filter[lambda event: rae_type(event.target) == rae_or_zr or is_a(rae_type(event.target), rae_or_zr)] |  for_each[lambda x: LazyValue(x) | push[stream] | run ] 
                     sub_decl = sub_decl[filter_func]
                     sub = g | sub_decl
                 else:
@@ -350,7 +350,7 @@ def on_implementation(g, op):
                 sub = g | sub_decl
             # Type 2: any AET.* i.e on[assigned[AET.String]]
             elif isinstance(aet_or_zr, AET): 
-                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda event: rae_type(event.target) == aet_or_zr] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
+                def filter_func(root_node): root_node | frame | to_tx | events[Assigned] | filter[lambda event: rae_type(event.target) == aet_or_zr or is_a(rae_type(event.target), aet_or_zr)] |  for_each[lambda x: run(LazyValue(x) | push[stream]) ]  
                 sub_decl = sub_decl[filter_func]
                 sub = g | sub_decl        
         else:
