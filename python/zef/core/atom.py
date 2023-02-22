@@ -406,7 +406,8 @@ class Atom_:
             return object.__getattribute__(self, name)
         # Need to convert KeyErrors to AttributeErrors for calling code to handle things like __x__ accesses
         try:
-            return object.__getattribute__(self, "fields")[name]
+            # Only get the value, not the rt representation
+            return object.__getattribute__(self, "fields")[name][1]
         except KeyError:
             raise AttributeError(name)
     def __dir__(self):
