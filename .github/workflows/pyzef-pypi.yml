@@ -16,6 +16,7 @@ jobs:
     name: Build wheels
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
         # os: [ubuntu-20.04, macos-latest, windows-latest]
         os: [ubuntu-20.04, macos-latest]
@@ -39,11 +40,13 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.4.0
+        uses: pypa/cibuildwheel@v2.11.4
         with:
           package-dir: python
         env:
           CIBW_BUILD: "${{ matrix.python-version}}*"
+          CIBW_TEST_SKIP: *_arm64 *_universal2:arm64
+          CIBW_ARCHS_MACOS: x86_64 arm64 universal2
 
       - name: save wheels in artifacts
         uses: actions/upload-artifact@v3
