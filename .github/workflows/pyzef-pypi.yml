@@ -45,7 +45,7 @@ jobs:
           package-dir: python
         env:
           CIBW_BUILD: "${{ matrix.python-version}}*"
-          CIBW_TEST_SKIP: *_arm64 *_universal2:arm64
+          CIBW_TEST_SKIP: "*_arm64 *_universal2:arm64"
           CIBW_ARCHS_MACOS: x86_64 arm64 universal2
 
       - name: save wheels in artifacts
