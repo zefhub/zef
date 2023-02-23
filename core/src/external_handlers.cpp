@@ -20,7 +20,7 @@ namespace zefDB {
     namespace internals {
         // ** Merge handler
         std::optional<std::function<merge_handler_t>> merge_handler;
-        json pass_to_merge_handler(Graph g, const json & payload) {
+        std::tuple<EZefRef,json> pass_to_merge_handler(Graph g, const json & payload) {
             if(!merge_handler)
                 throw std::runtime_error("Merge handler has not been assigned.");
 
