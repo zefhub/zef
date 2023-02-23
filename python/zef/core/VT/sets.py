@@ -92,6 +92,9 @@ def union_simplify(x):
 
 
     """
+    # Ignore all of this while we can't call subtypes
+    return x
+
     # flatten out unions: Union[Union[A][B]][C]  == Union[A][B][C]
     old_subtypes = get_union_intersection_subtypes(x)
     types = tuple(get_union_intersection_subtypes(el) if is_union_VT(el) else (el,) for el in old_subtypes)  # flatten this out
@@ -171,6 +174,9 @@ def intersection_simplify(x):
 
 
     """
+    # Ignore all of this while we can't call subtypes
+    return x
+
     # flatten out Intersections: Intersection[Intersection[A][B]][C]  == Intersection[A][B][C]
     old_subtypes = get_union_intersection_subtypes(x)
     types = tuple(get_union_intersection_subtypes(el) if is_intersection_VT(el) else (el,) for el in old_subtypes)  # flatten this out
@@ -351,7 +357,8 @@ def pattern_validation(self):
     if isinstance(pattern, PyDict):
         for k,v in pattern.items():
             if not isinstance(v, ValueType): raise ValueError(f"The pattern passed didn't have a ValueType but rather {v}")
-            if issubclass(v, Optional):
+            # if issubclass(v, Optional):
+            if type_name(v) == "Optional":
                 subtyp = optional_get_type(v)
                 if subtyp is None:
                     raise Exception("Optionals in a Pattern need to have a subtype, even if Optional[Any] is used.")
