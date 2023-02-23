@@ -315,7 +315,8 @@ def serialize_atom(atom):
         "atom_type": serialize_internal(_get_atom_type(atom)),
         "atom_id": serialize_internal(_get_atom_id(atom)),
         "fields": serialize_internal(_get_fields(atom)),
-        "ref_pointer": serialize_internal(_get_ref_pointer(atom)),
+        # We never serialize a ref pointer - it's an internal optimisation detail only.
+        # "ref_pointer": serialize_internal(_get_ref_pointer(atom)),
     }
 
 
@@ -505,7 +506,8 @@ def deserialize_atom(d):
     object.__setattr__(atom, "atom_type", deserialize_internal(d["atom_type"]))
     object.__setattr__(atom, "atom_id", deserialize_internal(d["atom_id"]))
     object.__setattr__(atom, "fields", deserialize_internal(d["fields"]))
-    object.__setattr__(atom, "ref_pointer", deserialize_internal(d["ref_pointer"]))
+    # object.__setattr__(atom, "ref_pointer", deserialize_internal(d["ref_pointer"]))
+    object.__setattr__(atom, "ref_pointer", None)
     return atom
 
 serialization_mapping[internals.ZefRef] = serialize_zeftypes
