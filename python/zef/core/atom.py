@@ -417,13 +417,14 @@ class Atom_:
         if type(other) != Atom_:
             return False
         return (_get_atom_type(self) == _get_atom_type(other)
-                and _get_ref_pointer(self) == _get_ref_pointer(other)
+                # and _get_ref_pointer(self) == _get_ref_pointer(other)
                 and _get_atom_id(self) == _get_atom_id(other)
                 and _get_fields(self) == _get_fields(other))
 
     def __hash__(self):
         from .VT.value_type import hash_frozen
-        return hash_frozen(("Atom_", _get_atom_type(self), _get_ref_pointer(self), _get_atom_id(self), _get_fields(self)))
+        # return hash_frozen(("Atom_", _get_atom_type(self), _get_ref_pointer(self), _get_atom_id(self), _get_fields(self)))
+        return hash_frozen(("Atom_", _get_atom_type(self), _get_atom_id(self), _get_fields(self)))
 
 
 # This means we are really specifically just the atom class, not a generic
