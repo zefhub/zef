@@ -474,12 +474,13 @@ def find_concrete_pointer(atom: AtomClass):
     atom_id = _get_atom_id(atom)
     if "frame_uid" not in atom_id:
         return None
-    frame_uid = atom_id.frame_uid
+    frame_uid = atom_id["frame_uid"]
     if isinstance(frame_uid, DBStateUID):
+        from .graph_slice import find_dbstate
         gs = find_dbstate(frame_uid)
         if gs is None:
             return None
-        z = gs[atom_id.global_uid]
+        z = gs[atom_id["global_uid"]]
         return z
     elif isinstance(frame_uid, FlatGraphUID):
         fg = lookup_flatgraph(frame_uid.flatgraph)
