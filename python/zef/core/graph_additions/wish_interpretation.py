@@ -388,6 +388,15 @@ def OS_lvl2cmds_for_dict(input: OldStyleDict, context: Lvl2Context):
     assert len(input) == 1
 
     source_input, rel_dict = single(input.items())
+
+    # If anything is a nested dictionary, treat that "value" as a new dict
+    rel_dict = {**rel_dict}
+    for key in rel_dict:
+        if type(rel_dict[key]) == dict:
+            _, newval, context = OS_lvl2cmds_for_dict(rel_dict[key], context)
+            newval = newval[0]
+            rel_dict[key] = newval
+            
     if isinstance(source_input, UserWishID):
         res = [Atom(force_as_id(source_input), rel_dict)]
     else:
