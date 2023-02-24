@@ -2621,10 +2621,7 @@ def absorbed_imp(x):
     #         return ()
     #     else:
     #         return x._absorbed
-    if False:
-        pass
-    
-    elif isinstance(x, (EntityRef, RelationRef, AttributeEntityRef)):
+    if isinstance(x, (EntityRef, RelationRef, AttributeEntityRef)):
         return x.d['absorbed']
 
     elif isinstance(x, ZefOp):
@@ -10336,47 +10333,121 @@ def starts_with_imp(s: str, prefix: str):
 
 
 
-def explain_imp(val: Any, typ: ValueType)-> Dict:
+def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
+    import builtins
+
     from ..VT.sets import get_union_intersection_subtypes
     from ..VT.extended_containers import tuple_get_params
     from ..VT.helpers import generic_subtype_get, remove_names
 
     default_value = {
         'value': val,
-        'type': typ,
+        'specified_type': typ,
+        'actual_type': type(val),
         'is_a': is_a(val, typ),
-        'reason': []
+        'explanation': [],
     }
+
+    def filter_is_a(explanations):
+        if filter_success: return filter(explanations, lambda d: d['is_a'] == False)
+        return explanations
+        
 
     def union_intersection_imp(val, typ):
         subtypes = get_union_intersection_subtypes(typ)
         return {
             **default_value,
-            'reason': [explain_imp(val, subtype) for subtype in subtypes]
+            'explanation': filter_is_a([explain(val, subtype) for subtype in subtypes])
         }
     
     def list_set_imp(val, typ):    
         subtype = generic_subtype_get(typ)
         return {
             **default_value,
-            'reason': [explain_imp(inner_val, subtype) for inner_val in val] if subtype else []
+            'explanation': filter_is_a([explain(inner_val, subtype) for item_idx, inner_val in enumerate(val)] if subtype else [])
         }
 
     def tuple_imp(val, typ):
         subtypes = tuple_get_params(typ)
         return {
             **default_value,
-            'reason': [explain_imp(inner_val, inner_subtype) for inner_val, inner_subtype in zip(val, subtypes)] if subtypes else []
+            'explanation': filter_is_a([explain(inner_val, inner_subtype) for inner_val, inner_subtype in zip(val, subtypes)] if subtypes else [])
         }
 
     def dict_imp(val, typ):
-        subtypes = remove_names(absorbed(typ))
-        if len(subtypes) == 0: return {**default_value,}
-        T1, T2 = subtypes
-        return {
+
+        def explain_slice(slc) -> Dict:
+            key, vt =  slc.start, slc.stop
+            if key not in val:
+                return {
+                    'key': key,
+                    'rule_type': 'Dict missing key',
+                    'is_a': False,
+                    'explanation': f'The key {key} is missing from the dict.',
+                    'is_terminal': True, 
+                }
+            
+            elif not is_a(val[key], vt):
+                val_ = val[key]
+                return {
+                        'value': val_,
+                        'key': key,
+                        'specified_type': vt,
+                        'is_a': False,
+                        'is_terminal': True, 
+                        'rule_type': 'Dict value type',
+                        'explanation': f"The value {val_} is of representation type {type(val_)} which isn't of type {vt}"
+                }
+
+            else:
+                return {
+                    'value': val[key],
+                    'specified_type': vt,
+                    'actual_type': type(val[key]),
+                    "is_a": True,
+                    'is_terminal': True, 
+                    "explanation": "",
+                }
+
+        types = remove_names(absorbed(typ))
+        if len(types) == 0: return {**default_value,}
+    
+        # (String, Int)
+        if isinstance(types, tuple) and len(types) == 2:
+            T1, T2 = types
+            return {
+                    **default_value,
+                    'explanation': filter_is_a([(explain(key, T1), explain(inner_val, T2)) for key, inner_val in val.items()] )
+            }   
+
+        # (slice('x', Int, None),)
+        elif isinstance(types, tuple) and isinstance(types[0], builtins.slice):
+            return {
                 **default_value,
-                'reason': [(explain_imp(key, T1), explain_imp(inner_val, T2)) for key, inner_val in val.items()]
-        }
+                'explanation': filter_is_a([explain_slice(types[0])])
+            }
+        
+        # ((slice('x', Int, None), slice('y', String, None), slice('z', Float, None)))
+        elif isinstance(types[0], tuple) and isinstance(types[0][0], builtins.slice):
+            return {
+                **default_value,
+                'explanation': filter_is_a([explain_slice(slc) for slc in types[0]])
+            }
+        else:
+            raise Exception(f"Can't explain {val} with type {typ}")
+    
+    def terminal_imp(val, typ):
+        if not is_a(val, typ): 
+            return {
+                **default_value, 
+                'is_terminal': True, 
+                'explanation': f"The value {val} is of representation type {type(val)} which isn't of type {typ}"
+            }
+        return {
+            **default_value,
+            'is_terminal': True,
+            'explanation': ""
+            }
 
     assert is_a(typ, ValueType), f"typ must be a ValueType but is {typ}"
     type_name = typ._d['type_name']
@@ -10386,5 +10457,5 @@ def explain_imp(val: Any, typ: ValueType)-> Dict:
         (Is[lambda name: name in {'List', 'Set'}], lambda _: list_set_imp(val, typ)),
         (Is[equals['Tuple']], lambda _: tuple_imp(val, typ)),
         (Is[equals['Dict']], lambda _: dict_imp(val, typ)),
-        (Any, lambda _: {**default_value})
+        (Any, lambda _: terminal_imp(val, typ))
     ](type_name)
