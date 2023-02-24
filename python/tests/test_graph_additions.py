@@ -237,6 +237,16 @@ class MyTestCase(unittest.TestCase):
 
         gs_updated,receipt = inputs | transact[g] | run
 
+        g = Graph()
+        [{ET.Movie['z1']:
+            {RT.Published: True,
+             RT.Title: 'District 9',
+             RT.Director: {ET.Person['z2']: {RT.FirstName: 'Neill',
+                                             RT.YearOfBirth: 1978, }},
+             RT.CharacterName: 'Wikus van der Merwe'}},
+         {ET.Book: {RT.Writer: Z['z2']}}
+        ] | transact[g] | run | collect
+
 
     def test_all_encode(self):
         # This is meant to follow the list that is in `shorthand.py`. It mostly
