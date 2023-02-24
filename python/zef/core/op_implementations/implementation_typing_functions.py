@@ -10362,16 +10362,32 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
     
     def list_set_imp(val, typ):    
         subtype = generic_subtype_get(typ)
+        explanations = []
+        if subtype:
+            for item_idx, inner_val in enumerate(val):
+                inner_explanation = explain(inner_val, subtype)
+                if not inner_explanation['is_a']: 
+                    inner_explanation['index'] = item_idx
+                    inner_explanation['rule_type'] = 'List/Set item type mismatch'
+                explanations.append(inner_explanation)
         return {
             **default_value,
-            'explanation': filter_is_a([explain(inner_val, subtype) for item_idx, inner_val in enumerate(val)] if subtype else [])
+            'explanation': filter_is_a(explanations)
         }
 
     def tuple_imp(val, typ):
         subtypes = tuple_get_params(typ)
+        explanations = []
+        if subtypes:
+            for item_idx, (inner_val, inner_subtype) in enumerate(zip(val, subtypes)):
+                inner_explanation = explain(inner_val, inner_subtype)
+                if not inner_explanation['is_a']: 
+                    inner_explanation['index'] = item_idx
+                    inner_explanation['rule_type'] = 'Tuple item type mismatch'
+                explanations.append(inner_explanation)
         return {
             **default_value,
-            'explanation': filter_is_a([explain(inner_val, inner_subtype) for inner_val, inner_subtype in zip(val, subtypes)] if subtypes else [])
+            'explanation': filter_is_a(explanations)
         }
 
     def dict_imp(val, typ):
@@ -10415,9 +10431,17 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
         # (String, Int)
         if isinstance(types, tuple) and len(types) == 2:
             T1, T2 = types
+            explanations = []
+            for key, inner_val in val.items():
+                inner_explanations = [explain(key, T1), explain(inner_val, T2)]
+                for inner_explanation in inner_explanations:
+                    if not inner_explanation['is_a']: 
+                        inner_explanation['key'] = key
+                        inner_explanation['rule_type'] = 'Dict value type'
+                    explanations.append(inner_explanation)
             return {
                     **default_value,
-                    'explanation': filter_is_a([(explain(key, T1), explain(inner_val, T2)) for key, inner_val in val.items()] )
+                    'explanation': filter_is_a(explanations)
             }   
 
         # (slice('x', Int, None),)
