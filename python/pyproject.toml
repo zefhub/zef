@@ -5,7 +5,7 @@ before-test = "python -mpip install -r {project}/python/tests/requirements_tests
 test-command = "export ZEFDB_QUIET=YES ZEF_ERROR_HANDLING=FALSE bash {project}/scripts/assert_no_created_tokens.sh && ZEFHUB_AUTH_KEY=GUEST python -mpytest {project}/python/tests && python {project}/python/tests/quick_start.py && cd {project}/python/tests/robot && bash runtests.sh"
 
 [tool.cibuildwheel.linux]
-before-all = "yum install -y openssl-devel graphviz"
+before-all = "ulimit -n 1024 && yum install -y openssl-devel graphviz"
 environment-pass = ["ZEFHUB_AUTH_KEY"]
 
 [tool.cibuildwheel.macos]
