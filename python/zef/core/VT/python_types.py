@@ -44,10 +44,9 @@ Float = make_VT("Float", pytype=float, is_a_func=numeric_is_a)
 String = make_VT('String', pytype=str)
 PyBytes = make_VT('PyBytes', pytype=bytes)
 
-from frozendict import frozendict
 PyList = make_VT('PyList', pytype=list)
 def PyDict_is_a(x, typ):
-    return isinstance(x, (dict, frozendict))
+    return isinstance(x, dict)
 PyDict = make_VT('PyDict', pytype=dict, is_a_func=PyDict_is_a)
 PySet = make_VT('PySet', pytype=set)
 
