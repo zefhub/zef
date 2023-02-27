@@ -26,7 +26,6 @@ from .state import _state
 #     http_send_response_handler,
 # )
 from .http import (
-    http_start_server_handler,
     http_stop_server_handler,
     http_send_response_handler,
     http_send_request_handler
@@ -114,7 +113,6 @@ from .zef_studio import (
 
 # note the ".d" to access the tuple of Strings!
 _effect_handlers = {
-    FX.HTTP.StartServer.d: http_start_server_handler,
     FX.HTTP.StopServer.d: http_stop_server_handler,
     FX.HTTP.SendResponse.d: http_send_response_handler,
     FX.HTTP.Request.d: http_send_request_handler,
