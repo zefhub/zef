@@ -361,8 +361,8 @@ class ZefOp_:
         elif is_supported_stream(other):
             from .fx import FX
             from ._ops import run
-            stream =  {'type': FX.Stream.CreatePushableStream} | run
-            return stream | self
+            stream_d =  {'type': FX.Stream.CreatePushableStream} | run
+            return stream_d['stream'] | self
         elif is_supported_value(other) or is_supported_zef_value(other):
             return LazyValue(other) | self
         # This is just for a bit of help for users to understand what's going on

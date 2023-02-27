@@ -286,7 +286,8 @@ def on_implementation(g, op):
     from ...pyzef import zefops as internal
     from ..fx import FX, Effect
 
-    stream =  FX.Stream.CreatePushableStream() | run
+    stream_d =  FX.Stream.CreatePushableStream() | run
+    stream = stream_d['stream']
     sub_decl = internal.subscribe[internal.keep_alive[True]]
     
     if isinstance(g, Graph):
