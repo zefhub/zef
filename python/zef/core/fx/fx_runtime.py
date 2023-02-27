@@ -84,7 +84,7 @@ def create_http_server(eff: Dict, server_zr: ZefRef) -> Dict:
         thread.start()
 
         log.debug(f"http_server started", uuid=server_uuid, port=port, bind_address=bind_address)
-        return {"server_uuid": server_uuid}
+        return {"server_uuid": server_uuid, "stream": pushable_stream}
     except Exception as exc:
         raise RuntimeError(f'Error starting HTTP server: in FX.HTTP.StartServer handler: {exc}')
 
