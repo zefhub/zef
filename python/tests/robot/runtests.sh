@@ -12,4 +12,16 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+REPORT_ERRORS=$1
+
 python3 -mrobot --pythonpath=libs tests
+error_code=$?
+if [ -n "$REPORT_ERRORS" ] ; then
+    if [ $error_code != 0 ] ; then
+        echo "There was an error in robot, printing stdouts+stderrs"
+        cat /tmp/zefrobot*
+        exit $error_code
+    fi
+else
+    exit $error_code
+fi

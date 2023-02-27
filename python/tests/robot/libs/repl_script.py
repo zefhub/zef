@@ -25,8 +25,11 @@ def wait_and_execute(file_in, file_out):
 
     try:
         exec("""zef.core.internals.wait_for_auth()""", globs, globs)
-    except:
+    except Exception as exc:
+        print("Failed to start:")
+        import traceback ; traceback.print_exc()
         file_out.write("START_FAILURE\n".encode())
+        raise SystemExit(1)
     file_out.write("START_SUCCESS\n".encode())
 
     while True:
@@ -42,22 +45,37 @@ def wait_and_execute(file_in, file_out):
         elif line.startswith("EXEC"):
             try:
                 start = time.time()
-                exec(line[5:], globs, globs)
+                exec(line[len("EXEC")+1:], globs, globs)
                 dt = time.time() - start
                 print("Should be writing success")
                 file_out.write((f"SUCCESS {dt}\n").encode())
             except Exception as exc:
                 print("Should be writing failure")
                 import traceback ; traceback.print_exc()
-                file_out.write(("FAILURE " + str(exc) + "\n").encode())
+                # TODO need to make a proper protocol for sending with bytes
+                file_out.write(("FAILURE " + str(exc).replace("\n", "<NL>") + "\n").encode())
+        # Is this needed???? why was I thinking this??
+        # elif line.startswith("GETERROR"):
+        #     try:
+        #         start = time.time()
+        #         exec(line[len("GETERROR")+1:], globs, globs)
+        #         dt = time.time() - start
+        #         file_out.write((f"FAILURE\n").encode())
+        #     except Exception as exc:
+        #         # TODO need to make a proper protocol for sending with bytes
+        #         out = str(exc).replace("\n", "<NL>")
+        #         file_out.write((f"RESPONSE {dt} {out}\n").encode())
         elif line.startswith("EVAL"):
             try:
                 start = time.time()
-                out = eval(line[5:], globs, globs)
+                out = eval(line[len("EVAL")+1:], globs, globs)
                 dt = time.time() - start
+                # TODO need to make a proper protocol for sending with bytes
+                out = str(out).replace("\n", "<NL>")
                 file_out.write((f"RESPONSE {dt} {out}\n").encode())
             except Exception as exc:
-                file_out.write(("FAILURE " + str(exc) + "\n").encode())
+                # TODO need to make a proper protocol for sending with bytes
+                file_out.write(("FAILURE " + str(exc).replace("\n", "<NL>") + "\n").encode())
         else:
             raise Exception("Unknown command: " + line)
 

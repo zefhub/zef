@@ -56,14 +56,25 @@ class REPLRunner:
         BuiltIn.set_test_variable("${ACTIVE_REPL}", None)
 
     def _end_test(self, name, attrs):
-        for i,repl in enumerate(self.repls):
-            if repl is None:
-                continue
-            if repl.proc.returncode is None:
-                self.quit_repl(i)
+        try:
+            for i,repl in enumerate(self.repls):
+                if repl is None:
+                    continue
+                if repl.proc.returncode is None:
+                    self.quit_repl(i)
+        except Exception as exc:
+            import traceback
+            traceback.print_exc()
+            raise
 
     def _get_active_repl(self):
-        return BuiltIn.replace_variables("${ACTIVE_REPL}")
+        try:
+            return BuiltIn.replace_variables("${ACTIVE_REPL}")
+        except robot.errors.VariableError:
+            if len(self.repls) == 0:
+                raise FatalError("No REPL started yet!")
+            return 0
+
 
     def _set_last(self, i, dt, result):
         self.repls[i].last_dt = dt
@@ -88,6 +99,11 @@ class REPLRunner:
         # self.repls[i].temp_stdout.seek(0)
         stdout = self.repls[i].temp_stdout.read().decode()
 
+        with open(self.repls[i].temp_stderr.name) as file:
+            stderr = file.read()
+        with open(self.repls[i].temp_stdout.name) as file:
+            stdout = file.read()
+
         return stderr,stdout
 
     def report_errors(self, i):
@@ -98,7 +114,7 @@ class REPLRunner:
         print(stdout)
 
     @keyword
-    def start_repl(self):
+    def start_repl(self, auth_key=None):
         script_location = os.path.join(os.path.dirname(__file__), "repl_script.py")
 
         to_repl_read_fd,to_repl_write_fd = os.pipe()
@@ -110,11 +126,18 @@ class REPLRunner:
         print("temp_stdout:", temp_stdout.name)
         print("temp_stderr:", temp_stderr.name)
 
+        if auth_key is None:
+            env = None
+        else:
+            env = os.environ.copy()
+            env["ZEFHUB_AUTH_KEY"] = auth_key
+
         proc = Popen([sys.executable, "-u", script_location, str(to_repl_read_fd), str(from_repl_write_fd)],
                      # stdout=PIPE, stderr=PIPE,
                      # stdout=DEVNULL, stderr=DEVNULL,
                      stdout=temp_stdout, stderr=temp_stderr,
-                     pass_fds=[to_repl_read_fd, from_repl_write_fd])
+                     pass_fds=[to_repl_read_fd, from_repl_write_fd],
+                     env=env)
         os.close(to_repl_read_fd)
         os.close(from_repl_write_fd)
 
@@ -124,12 +147,16 @@ class REPLRunner:
         self.repls += [REPL(proc, to_repl_read_fd, to_repl_write_fd, from_repl_read_fd, from_repl_write_fd, from_file, to_file, temp_stderr, temp_stdout)]
 
         i = len(self.repls) - 1
-        BuiltIn.set_test_variable("${ACTIVE_REPL}", i)
+        try:
+            BuiltIn.set_test_variable("${ACTIVE_REPL}", i)
+        except robot.errors.VariableError:
+            assert len(self.repls) == 1
 
         line = self.repls[i].from_file.readline()
         line = line.strip()
         # TODO: Make this delayed
         if line != b"START_SUCCESS":
+            print("initial line was:", line)
             self.repls[i] = None
             raise Exception("Failed to start REPL properly")
 
@@ -198,8 +225,31 @@ class REPLRunner:
 
         self.repls[i].need_wait = True
 
+    # @keyword
+    # def get_repl_error(self, arg1, arg2=None):
+    #     if arg2 is None:
+    #         cmd = arg1
+    #         i = self._get_active_repl()
+    #     else:
+    #         i,cmd = arg1,arg2
+
+    #     if self.repls[i].need_wait:
+    #         raise Error("Didn't wait after a Send Repl")
+
+    #     assert self.check_not_failed(i)
+    #     print(f"*INFO* running get error for {cmd}")
+    #     try:
+    #         self.repls[i].to_file.write(("GETERROR " + cmd + "\n").encode())
+    #     except BrokenPipeError:
+    #         print("*ERROR* Send REPL failed")
+    #         self.report_errors(i)
+    #         raise
+
+    #     self.repls[i].need_wait = True
+    #     return self.wait_repl(i, expect_response=True)
+
     @keyword
-    def wait_repl(self, i=None):
+    def wait_repl(self, i=None, expect_response=False):
         if i is None:
             i = self._get_active_repl()
 
@@ -210,21 +260,38 @@ class REPLRunner:
         try:
             line = self.repls[i].from_file.readline()
             line = line.strip()
-            if not line.startswith(b"SUCCESS "):
-                # stderr,stdout = self.get_stderrout(i)
-                # print("{stderr}\n{stdout}")
-                print(f"temp_stderr: {self.repls[i].temp_stderr.name}, temp_stdout: {self.repls[i].temp_stdout.name}")
-                raise Failure("Was a failure: '" + line.decode() + "'")
+            if expect_response:
+                if not line.startswith(b"RESPONSE"):
+                    # stderr,stdout = self.get_stderrout(i)
+                    # print("{stderr}\n{stdout}")
+                    print(f"temp_stderr: {self.repls[i].temp_stderr.name}, temp_stdout: {self.repls[i].temp_stdout.name}")
+                    self._set_last(i, None, None)
+                    self.repls[i].need_wait = False
+                    raise Failure(f"*ERROR* Response of command gave a failure: '{line.decode()}'")
+                line = line[len(b"RESPONSE "):].decode()
+                dt,result = line.split(" ", maxsplit=1)
+                dt = float(dt)
+                self._set_last(i, dt, result)
+                self.repls[i].need_wait = False
+                return result
+            else:
+                if not line.startswith(b"SUCCESS "):
+                    # stderr,stdout = self.get_stderrout(i)
+                    # print("{stderr}\n{stdout}")
+                    print(f"temp_stderr: {self.repls[i].temp_stderr.name}, temp_stdout: {self.repls[i].temp_stdout.name}")
+                    self._set_last(i, None, None)
+                    self.repls[i].need_wait = False
+                    raise Failure("Was a failure: '" + line.decode() + "'")
 
-            line = line[len(b"SUCCESS "):].decode()
-            dt = float(line)
-            self._set_last(i, dt, None)
+                line = line[len(b"SUCCESS "):].decode()
+                dt = float(line)
+                self._set_last(i, dt, None)
+                self.repls[i].need_wait = False
         except BrokenPipeError:
             print("*ERROR* Send REPL failed")
             self.report_errors(i)
             raise
 
-        self.repls[i].need_wait = False
 
     @keyword
     def eval_repl(self, arg1, arg2=None):
@@ -237,19 +304,21 @@ class REPLRunner:
         assert self.check_not_failed(i)
         try:
             self.repls[i].to_file.write(("EVAL " + cmd + "\n").encode())
-            line = self.repls[i].from_file.readline()
-            line = line.strip()
-            if not line.startswith(b"RESPONSE"):
-                # stderr,stdout = self.get_stderrout(i)
-                # print("{stderr}\n{stdout}")
-                print(f"temp_stderr: {self.repls[i].temp_stderr.name}, temp_stdout: {self.repls[i].temp_stdout.name}")
-                raise Failure(f"*ERROR* Eval REPL of {cmd}\ngave a failure: '{line.decode()}'")
-            line = line[len(b"RESPONSE "):].decode()
-            dt,result = line.split(" ", maxsplit=1)
-            dt = float(dt)
-            self._set_last(i, dt, result)
+            self.repls[i].need_wait = True
+            return self.wait_repl(i, expect_response=True)
+            # line = self.repls[i].from_file.readline()
+            # line = line.strip()
+            # if not line.startswith(b"RESPONSE"):
+            #     # stderr,stdout = self.get_stderrout(i)
+            #     # print("{stderr}\n{stdout}")
+            #     print(f"temp_stderr: {self.repls[i].temp_stderr.name}, temp_stdout: {self.repls[i].temp_stdout.name}")
+            #     raise Failure(f"*ERROR* Eval REPL of {cmd}\ngave a failure: '{line.decode()}'")
+            # line = line[len(b"RESPONSE "):].decode()
+            # dt,result = line.split(" ", maxsplit=1)
+            # dt = float(dt)
+            # self._set_last(i, dt, result)
 
-            return result
+            # return result
         except BrokenPipeError:
             print("*ERROR* Eval REPL failed")
             self.report_errors(i)
@@ -257,6 +326,7 @@ class REPLRunner:
 
     @keyword
     def quit_repl(self, i=None):
+        print("*INFO* Trying to quit REPL")
         if i is None:
             i = self._get_active_repl()
             
@@ -265,8 +335,10 @@ class REPLRunner:
             self.repls[i].to_file.write(b"EXIT")
             self.repls[i].to_file.close()
             # self.repls[i].proc.wait()
-        except:
+            self.repls[i] = None
+        except Exception as exc:
             print("*ERROR* Quit REPL failed")
+            print("Exception:", exc)
             self.report_errors(i)
             raise
 

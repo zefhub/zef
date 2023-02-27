@@ -1,5 +1,7 @@
 *** Settings ***
 Resource    replkeywords.resource
+Resource     connect.resource
+Library    RequestsLibrary
 
 *** Keywords ***
 Graph ${uid} should not be found
@@ -7,6 +9,14 @@ Graph ${uid} should not be found
 
 Graph ${uid} should be found
     Eval Repl     Graph("${uid}")
+
+Tag ${uid} should not be found
+    Run Keyword And Expect Error    Tag not found    Tag ${uid} should be found
+
+Tag ${uid} should be found
+    ${ret}=    Eval Repl     lookup_uid("${uid}")
+    Log    Tag lookup gave ${ret}
+    Should Be True    $ret != "None"    Tag not found
 
 
 Prepare Big Actions
@@ -58,4 +68,11 @@ Ensure Tag Doesnt Exist
         Send Repl    _temp_g | untag["${tag}"] | run
     END
     
+    
+Get Everyone Token List
+    Set Default Connect Params
+
+    ${response}=    Post To ZefHub REST    as_guest=True    data={"msg_type": "token", "msg_version": 1, "action": "list", "protocol_type": "ZEFDB", "protocol_version": 5}    
+
+    RETURN    ${response}
     
