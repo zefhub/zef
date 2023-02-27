@@ -12,7 +12,7 @@ environment-pass = ["ZEFHUB_AUTH_KEY"]
 before-all = "brew install openssl graphviz"
 
 [tool.cibuildwheel.windows]
-test-command = "set \"ZEFHUB_AUTH_KEY=GUEST\" && set \"ZEFDB_QUIET=YES\" && python -mpytest {project}/python/tests && python {project}/python/tests/quick_start.py"
+test-command = "set \"ZEFHUB_AUTH_KEY=GUEST\" && set \"ZEFDB_QUIET=YES\" && set \"ZEF_ERROR_HANDLING=FALSE\" && python -mpytest {project}/python/tests && python {project}/python/tests/quick_start.py"
 # test-command = ""
 
 [build-system]
