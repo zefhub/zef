@@ -10376,6 +10376,25 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
 
     def tuple_imp(val, typ):
         subtypes = tuple_get_params(typ)
+        ellipsis_count = sum([1 for t in subtypes if isinstance(t, Ellipsis)])
+        if ellipsis_count > 1: raise Exception(f"Tuple absorbed values can only have one Ellipsis. Got: {typ}")
+        if ellipsis_count == 1: 
+            if not isinstance(subtypes[-1], Ellipsis): raise Exception(f"Tuple absorbed values can only have one Ellipsis at the end. Got: {typ}")
+            # Remove the ellipsis
+            subtypes = subtypes[:-1]
+
+        match_exactly = (ellipsis_count == 0)
+        if match_exactly and len(val) != len(subtypes): 
+            return {
+                'value': val,
+                'specified_type': typ,
+                'actual_type': type(val),
+                'is_a': False,
+                'is_terminal': True, 
+                'rule_type': 'Tuple length mismatch',
+                'explanation': f"The tuple {val} has a length of {len(val)} which doesn't match the specified type {typ} which has a length of {len(subtypes)}"
+            }
+
         explanations = []
         if subtypes:
             for item_idx, (inner_val, inner_subtype) in enumerate(zip(val, subtypes)):
@@ -10384,6 +10403,7 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
                     inner_explanation['index'] = item_idx
                     inner_explanation['rule_type'] = 'Tuple item type mismatch'
                 explanations.append(inner_explanation)
+
         return {
             **default_value,
             'explanation': filter_is_a(explanations)
@@ -10466,16 +10486,7 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
                 slices = slices[:-1]
 
 
-            # Exact match validation
             match_exactly = (ellipsis_count == 0)
-            # if match_exactly and (len(slices) != len(val) or sorted([absorbed(slc)[0] for slc in slices]) != sorted(val.keys())) :  # Not enough keys to match with nested slices
-            #     return {
-            #         **default_value,
-            #         'rule_type': 'Dict exact arguments match',
-            #         'is_terminal': True,
-            #         'explanation': 'Dict absorbed types must match the number of keys in the dict.'
-            #     }
-
             return {
                 **default_value,
                 'explanation': filter_is_a([explain_slice(slc, match_exactly) for slc in slices])
