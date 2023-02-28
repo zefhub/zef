@@ -10335,8 +10335,6 @@ def starts_with_imp(s: str, prefix: str):
 
 
 def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
-    import builtins
-
     from ..VT.sets import get_union_intersection_subtypes
     from ..VT.extended_containers import tuple_get_params
     from ..VT.helpers import generic_subtype_get, remove_names
@@ -10393,9 +10391,9 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
 
     def dict_imp(val, typ):
 
-        def explain_slice(slc) -> Dict:
-            key, vt =  slc.start, slc.stop
-            if key not in val:
+        def explain_slice(slc, match_exactly) -> Dict:
+            key, vt =  absorbed(slc)
+            if match_exactly and key not in val:
                 return {
                     'key': key,
                     'rule_type': 'Dict missing key',
@@ -10445,19 +10443,44 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
                     'explanation': filter_is_a(explanations)
             }   
 
-        # (slice('x', Int, None),)
-        elif isinstance(types, tuple) and isinstance(types[0], builtins.slice):
+       
+        elif isinstance(types, tuple):
+
+             # (Slice['x'][Int],)
+            if isinstance(types[0], Slice):
+                slices = types
+
+            # ((Slice['x'][Int], Slice['y'][Int], ...))
+            elif isinstance(types[0], tuple) and isinstance(types[0][0], Slice):
+                slices = types[0]
+            
+            else:
+                raise Exception(f"The absorbed values inside of the Dict type are malformed. Got: {typ}")
+            
+            # Ellipsis validations
+            ellipsis_count = sum([1 for slc in slices if isinstance(slc, Ellipsis)])
+            if ellipsis_count > 1: raise Exception(f"Dict absorbed values can only have one Ellipsis. Got: {typ}")
+            if ellipsis_count == 1: 
+                if not isinstance(slices[-1], Ellipsis): raise Exception(f"Dict absorbed values can only have one Ellipsis at the end. Got: {typ}")
+                # Remove the ellipsis
+                slices = slices[:-1]
+
+
+            # Exact match validation
+            match_exactly = (ellipsis_count == 0)
+            # if match_exactly and (len(slices) != len(val) or sorted([absorbed(slc)[0] for slc in slices]) != sorted(val.keys())) :  # Not enough keys to match with nested slices
+            #     return {
+            #         **default_value,
+            #         'rule_type': 'Dict exact arguments match',
+            #         'is_terminal': True,
+            #         'explanation': 'Dict absorbed types must match the number of keys in the dict.'
+            #     }
+
             return {
                 **default_value,
-                'explanation': filter_is_a([explain_slice(types[0])])
+                'explanation': filter_is_a([explain_slice(slc, match_exactly) for slc in slices])
             }
         
-        # ((slice('x', Int, None), slice('y', String, None), slice('z', Float, None)))
-        elif isinstance(types[0], tuple) and isinstance(types[0][0], builtins.slice):
-            return {
-                **default_value,
-                'explanation': filter_is_a([explain_slice(slc) for slc in types[0]])
-            }
         else:
             raise Exception(f"Can't explain {val} with type {typ}")
     
