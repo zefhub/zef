@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import make_VT
+from . import make_VT, ValueType
 
 # Show of these are not python types but are very close and fit into the category of scalar primitives
 
@@ -51,4 +51,18 @@ PyDict = make_VT('PyDict', pytype=dict, is_a_func=PyDict_is_a)
 PySet = make_VT('PySet', pytype=set)
 
 PyTuple = make_VT('PyTuple', pytype=tuple)
+
+
+
+def is_ellipsis_VT(x, typ):
+    assert typ._d['type_name'] == 'Ellipsis'
+    return isinstance(x, ValueType) and x._d['type_name'] == 'Ellipsis'
+
+make_VT("Ellipsis", is_a_func=is_ellipsis_VT)
+
+def is_slice_VT(x, typ):
+    assert typ._d['type_name'] == 'Slice'
+    return isinstance(x, ValueType) and x._d['type_name'] == 'Slice'
+
+make_VT("Slice", is_a_func=is_slice_VT)
 
