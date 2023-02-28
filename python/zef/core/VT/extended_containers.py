@@ -25,8 +25,16 @@ def tuple_validation(tup):
         return True
     if len(items) >= 2:
         raise Exception("Tuple can't have more than one curried item")
-    tup_params = items[0]
-    assert all(isinstance(x, ValueType) for x in tup_params)
+    
+    subtypes = items[0]
+    ellipsis_count = sum([1 for t in subtypes if isinstance(t, Ellipsis)])
+    if ellipsis_count > 1: raise Exception(f"Tuple absorbed values can only have one Ellipsis. Got: {tup}")
+    if ellipsis_count == 1: 
+        if not isinstance(subtypes[-1], Ellipsis): raise Exception(f"Tuple absorbed values can only have one Ellipsis at the end. Got: {tup}")
+        # Remove the ellipsis
+        subtypes = subtypes[:-1]
+
+    assert all(isinstance(x, ValueType) for x in subtypes)
     return True
 
 def tuple_get_params(tup):
@@ -59,9 +67,20 @@ def tuple_is_a(x, tup):
     import typing
     if not isinstance(x, typing.Iterable):
         return False
-    if len(x) != len(params):
+    
+    subtypes = params
+    ellipsis_count = sum([1 for t in subtypes if isinstance(t, Ellipsis)])
+    if ellipsis_count > 1: return False
+    if ellipsis_count == 1: 
+        if not isinstance(subtypes[-1], Ellipsis): return False
+        # Remove the ellipsis
+        subtypes = subtypes[:-1]
+
+    match_exactly = (ellipsis_count == 0)
+    if match_exactly and len(x) != len(subtypes): 
         return False
-    return all(isinstance(a,b) for a,b in zip(x, params))
+    
+    return all(isinstance(a,b) for a,b in zip(x, subtypes))
 
 make_VT('Tuple', pytype=tuple,
         override_subtype_func=tuple_override_subtype,
