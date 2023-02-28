@@ -170,6 +170,19 @@ class ValueType_:
 
 
     def __getitem__(self, x):
+        if self._d['type_name'] in ['Tuple', 'Dict']:
+            import builtins
+            from . import Ellipsis, Slice
+            def _parse_inputs(x):
+                if isinstance(x, builtins.slice):
+                    x = Slice[x.start][x.stop]
+                elif x is builtins.Ellipsis:
+                    x = Ellipsis
+                elif isinstance(x, tuple):
+                    x = tuple([_parse_inputs(y) for y in x])
+                return x
+            x = _parse_inputs(x)
+            
         new_absorbed = self._d["absorbed"] + (x,)
         return self._replace(absorbed=new_absorbed)
 
