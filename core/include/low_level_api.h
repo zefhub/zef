@@ -200,29 +200,29 @@ namespace zefDB {
         // Value nodes
         template<typename T>
         EZefRef instantiate_value_node(const T & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const bool & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const int & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const double & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const str & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const Time & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const ZefEnumValue & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const QuantityFloat & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const QuantityInt & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const SerializedValue & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template EZefRef instantiate_value_node(const AttributeEntityType & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED EZefRef instantiate_value_node(const bool & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED EZefRef instantiate_value_node(const int & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED EZefRef instantiate_value_node(const double & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED EZefRef instantiate_value_node(const str & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED EZefRef instantiate_value_node(const Time & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED EZefRef instantiate_value_node(const ZefEnumValue & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED EZefRef instantiate_value_node(const QuantityFloat & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED EZefRef instantiate_value_node(const QuantityInt & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED EZefRef instantiate_value_node(const SerializedValue & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED EZefRef instantiate_value_node(const AttributeEntityType & value, GraphData& g);
 
         template<typename T>
         std::optional<EZefRef> search_value_node(const T & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const bool & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const int & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const double & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const str & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const Time & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const ZefEnumValue & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const QuantityFloat & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const QuantityInt & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const SerializedValue & value, GraphData& g);
-        LIBZEF_DLL_EXPORTED extern template std::optional<EZefRef> search_value_node(const AttributeEntityType & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED std::optional<EZefRef> search_value_node(const bool & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED std::optional<EZefRef> search_value_node(const int & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED std::optional<EZefRef> search_value_node(const double & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED std::optional<EZefRef> search_value_node(const str & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED std::optional<EZefRef> search_value_node(const Time & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED std::optional<EZefRef> search_value_node(const ZefEnumValue & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED std::optional<EZefRef> search_value_node(const QuantityFloat & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED std::optional<EZefRef> search_value_node(const QuantityInt & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED std::optional<EZefRef> search_value_node(const SerializedValue & value, GraphData& g);
+        extern template LIBZEF_DLL_EXPORTED std::optional<EZefRef> search_value_node(const AttributeEntityType & value, GraphData& g);
         template<>
         inline std::optional<EZefRef> search_value_node(const value_variant_t & value, GraphData& gd) {
             return std::visit([&gd](auto & x) { return search_value_node(x, gd); }, value);
