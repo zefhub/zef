@@ -31,7 +31,7 @@ jobs:
       - name: Build
         uses: ./.github/actions/build
         # Windows takes forever to build so this needs to be >20min
-        timeout-minutes: 30
+        timeout-minutes: 45
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
