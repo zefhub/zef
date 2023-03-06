@@ -60,10 +60,7 @@ serialization.deserialization_mapping["OriginallyUserID"] = deserialize_original
 @func
 def maybe_unwrap_variable(x):
     return LazyValue(x) | match[
-        (Variable & Is[get_field["name"]
-            | is_a[OriginallyUserID]],
-         get_field["name"]
-               | get_field["obj"]),
+        (OriginallyUserID, get_field["obj"]),
         (Any, identity)
     ] | collect
 
@@ -76,6 +73,9 @@ def maybe_unwrap_variables_in_receipt(receipt):
                | collect)
 
 def wrap_user_id(thing):
+    from ..symbolic_expression import V
+    if isinstance(thing, str):
+        return getattr(V, thing)
     if isinstance(thing, ExtraUserAllowedIDs):
         return convert_extra_allowed_id(thing)
     return SymbolicExpression(OriginallyUserID(thing))

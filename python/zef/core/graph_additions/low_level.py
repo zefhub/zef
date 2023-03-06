@@ -73,14 +73,14 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
             return now(g) | get[id] | collect
         else:
             assert isinstance(id, Variable)
-            return find_euid(origin_uid(receipt[id]))
+            return find_euid(origin_uid(receipt[id.name]))
 
     def record_id(id: AllIDs, z: ZefRef):
         # print("record_id", id, z)
         if isinstance(id, InternalIDs | WrappedValue | DelegateRef):
             internal_mapping[id] = z
         elif isinstance(id, Variable):
-            receipt[id] = Atom(z)
+            receipt[id.name] = Atom(z)
         else:
             raise Exception("Shouldn't get here")
 
