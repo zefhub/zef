@@ -37,18 +37,18 @@ class MyTestCase(unittest.TestCase):
                                                "resolved_variables": {}})
         gs_updated,receipt = perform_level1_commands(concrete_cmd_list, False)
 
-        self.assertSetEqual(set(receipt.keys()), {V.asdf})
-        self.assertIsInstance(receipt[V.asdf], ET.Machine)
+        self.assertSetEqual(set(receipt.keys()), {"asdf"})
+        self.assertIsInstance(receipt["asdf"], ET.Machine)
 
         cmd = PleaseInstantiate({"atom": ET.Machine,
                                  "internal_ids": [V.two],
-                                 "origin_uid": origin_uid(receipt[V.asdf])})
+                                 "origin_uid": origin_uid(receipt["asdf"])})
         cmds = [cmd]
         concrete_cmd_list = Level1CommandInfo({"cmds": cmds,
                                                "gs": now(g2),
                                                "resolved_variables": {}})
         gs_updated,receipt2 = perform_level1_commands(concrete_cmd_list, False)
-        self.assertEqual(origin_uid(receipt[V.asdf]), origin_uid(receipt2[V.two]))
+        self.assertEqual(origin_uid(receipt["asdf"]), origin_uid(receipt2["two"]))
 
     def test_generate_level1(self):
         # lvl1_rules = default_translation_rules
@@ -85,11 +85,11 @@ class MyTestCase(unittest.TestCase):
                                              "origin_uid": origin_uid(z)})})
 
         gs_updated,receipt = perform_level1_commands(output_cmds2, False)
-        self.assertEqual(set(receipt.keys()), {V.one, V.two, V.three, V.four})
-        self.assertEqual(receipt[V.three], receipt[V.four])
-        self.assertNotEqual(receipt[V.one], receipt[V.two])
-        self.assertNotEqual(receipt[V.one], receipt[V.three])
-        self.assertNotEqual(receipt[V.two], receipt[V.three])
+        self.assertEqual(set(receipt.keys()), {"one", "two", "three", "four"})
+        self.assertEqual(receipt["three"], receipt["four"])
+        self.assertNotEqual(receipt["one"], receipt["two"])
+        self.assertNotEqual(receipt["one"], receipt["three"])
+        self.assertNotEqual(receipt["two"], receipt["three"])
 
         cmds = [PleaseTerminate({"target": origin_uid(z)}),
                 PleaseInstantiate({"atom": ET.Machine,
@@ -198,7 +198,7 @@ class MyTestCase(unittest.TestCase):
 
         gs_updated,receipt = inputs | transact[g] | run
 
-        married_rel = receipt[V.married]
+        married_rel = receipt["married"]
         z_married_rel = gs_updated | get[married_rel] | collect
         self.assertEqual(z_married_rel | F.meta | collect, "meta-test")
         self.assertEqual(value(now(ae)), 42)

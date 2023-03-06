@@ -88,7 +88,7 @@ def convert_extra_allowed_id(thing: ExtraUserAllowedIDs):
     else:
         raise Exception("Shouldn't get here")
     # Tag this with OriginallyUserID so that we can unwrap it later on
-    return SymbolicExpression(OriginallyUserID(id))
+    return wrap_user_id(id)
 
 # def names_of_raet(raet):
 #     from .types import WishID
