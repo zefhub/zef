@@ -878,6 +878,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&internals::remove_merge_handler));
 
     internals_submodule.def("register_schema_validator", &internals::register_schema_validator);
+    internals_submodule.def("deregister_schema_validator", &internals::remove_schema_validator);
     internals_submodule.add_object("_cleanup_schema_validator", py::capsule(&internals::remove_schema_validator));
 
     internals_submodule.def("register_value_type_check", &internals::register_value_type_check);
