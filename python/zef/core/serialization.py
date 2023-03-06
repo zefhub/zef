@@ -290,7 +290,7 @@ def serialize_valuetype(vt):
 def serialize_symbolicexpression(se):
     return {
         "_zeftype": "SymbolicExpression",
-        "name": se.name,
+        "name": serialize_internal(se.name),
         "root_node": serialize_internal(se.root_node),
     }
 
@@ -485,7 +485,7 @@ def deserialize_valuetype(d_in):
 
 def deserialize_symbolicexpression(d):
     return SymbolicExpression_(
-        name = d["name"],
+        name = deserialize_internal(d["name"]),
         root_node= deserialize_internal(d["root_node"]),
     )
 

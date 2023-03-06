@@ -46,6 +46,17 @@ class OriginallyUserID:
     def __repr__(self):
         return f"was:{self.obj}"
 
+from .. import serialization
+def serialize_originally_user_id(orig_user_id):
+    return {
+        "_zeftype": "OriginallyUserID",
+        "item": serialization.serialize_internal(orig_user_id.obj),
+    }
+def deserialize_originally_user_id(d):
+    return OriginallyUserID(serialization.deserialize_internal(d["item"]))
+serialization.serialization_mapping[OriginallyUserID] = serialize_originally_user_id
+serialization.deserialization_mapping["OriginallyUserID"] = deserialize_originally_user_id
+
 @func
 def maybe_unwrap_variable(x):
     return LazyValue(x) | match[
