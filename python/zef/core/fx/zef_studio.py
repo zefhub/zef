@@ -339,9 +339,9 @@ type Mutation {
     assignValueBool(  ids: AssignValueIDs!, value: Boolean!): Boolean
     terminateField(fieldID: ID!): Boolean
     addFieldString(sourceID: ID!, relationName: String!, value: String!): ID
-    addFieldFloat(sourceID: ID!, relationName: Float!, value: Float!): ID
-    addFieldInt(sourceID: ID!, relationName: Int!, value: Int!): ID
-    addFieldBool(sourceID: ID!, relationName: Boolean!, value: Boolean!): ID
+    addFieldFloat(sourceID: ID!, relationName: String!, value: Float!): ID
+    addFieldInt(sourceID: ID!, relationName: String!, value: Int!): ID
+    addFieldBool(sourceID: ID!, relationName: String!, value: Boolean!): ID
 }
 
 input AssignValueIDs {
