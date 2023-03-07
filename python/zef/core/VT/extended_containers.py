@@ -138,8 +138,16 @@ def dict_validate(typ):
             if not isinstance(value_type, ValueType):
                 raise Exception(f"Dict validation failed: for key {key_name} absorbed value is not a ValueType ({value_type})")
 
+        # (String, Int),
+        if isinstance(items[0], tuple) and len(items[0]) == 2 and all([not (isinstance(x, Slice) or isinstance(x, Ellipsis)) for x in items[0]]):
+            key_type, value_type = items[0]
+            if not isinstance(key_type, ValueType):
+                raise Exception(f"Dict validation failed: key type is not a ValueType ({key_type})")
+            if not isinstance(value_type, ValueType):
+                raise Exception(f"Dict validation failed: value type is not a ValueType ({value_type})")
+        
         # (Slice['x'][Int],)
-        if isinstance(items[0], Slice):
+        elif isinstance(items[0], Slice):
             validate_slice(items[0])
 
         # ((Slice['x'][Int], Slice['y'][Int], ...))
@@ -164,8 +172,14 @@ def dict_is_a(x, typ):
         return all(isinstance(key, T1) and isinstance(val, T2) for key,val in x.items())
 
     elif isinstance(items, tuple):
+
+        # (String, Int),
+        if isinstance(items[0], tuple) and len(items[0]) == 2 and all([not (isinstance(x, Slice) or isinstance(x, Ellipsis)) for x in items[0]]):
+            T1, T2 = items[0]
+            return all(isinstance(key, T1) and isinstance(val, T2) for key,val in x.items())
+
         # (Slice['x'][Int],)
-        if isinstance(items[0], Slice):
+        elif isinstance(items[0], Slice):
             slices = items
 
         # ((Slice['x'][Int], Slice['y'][Int], ...))

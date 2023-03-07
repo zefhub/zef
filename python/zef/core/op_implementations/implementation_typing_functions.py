@@ -10444,8 +10444,7 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
         types = remove_names(absorbed(typ))
         if len(types) == 0: return {**default_value,}
     
-        # (String, Int)
-        if isinstance(types, tuple) and len(types) == 2:
+        def explain_key_value_types(types):
             T1, T2 = types
             explanations = []
             for key, inner_val in val.items():
@@ -10460,11 +10459,19 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
                     'explanation': filter_is_a(explanations)
             }   
 
+        # (String, Int)
+        if isinstance(types, tuple) and len(types) == 2:
+            return explain_key_value_types(types)
+
        
         elif isinstance(types, tuple):
 
+            # (String, Int),
+            if isinstance(types[0], tuple) and len(types[0]) == 2 and all([not (is_a(x, Slice) or is_a(x, Ellipsis)) for x in types[0]]):
+                return explain_key_value_types(types[0])
+
              # (Slice['x'][Int],)
-            if isinstance(types[0], Slice):
+            elif isinstance(types[0], Slice):
                 slices = types
 
             # ((Slice['x'][Int], Slice['y'][Int], ...))
