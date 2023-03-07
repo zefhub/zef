@@ -256,7 +256,7 @@ namespace zefDB {
             auto ptr = gd.av_hash_lookup->get();
             value_variant_t value_var(std::in_place_type<T>, value);
             auto compare_func = internals::create_compare_func_for_value_node(gd, &value_var);
-            auto preexisting = ptr->find_element(compare_func).second;
+            auto preexisting = ptr->find_element(gd.this_thread_has_write(), compare_func).second;
             if(preexisting != nullptr)
                 return EZefRef{preexisting->val, gd};
             return {};

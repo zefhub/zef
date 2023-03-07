@@ -130,7 +130,7 @@ void apply_action_ATTRIBUTE_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_c
                 auto v = node.primitive_type.value;
                 enum_indx indx = v - v % 16;
                 auto p = gd.ENs_used->get_writer();
-                if(!p->contains(indx))
+                if(!p->contains_write(indx))
                     p->append(indx, p.ensure_func());
             }
         }
@@ -184,7 +184,7 @@ void apply_action_ENTITY_NODE(GraphData & gd, EZefRef uzr, bool fill_caches) {
         if(is_delegate(uzr)) {
             auto p = gd.ETs_used->get_writer();
             auto et = node.entity_type.entity_type_indx;
-            if(!p->contains(et))
+            if(!p->contains_read(et))
                 p->append(et, p.ensure_func());
         }
     }
@@ -217,7 +217,7 @@ void apply_action_RELATION_EDGE(GraphData & gd, EZefRef uzr, bool fill_caches) {
         if(is_delegate(uzr)) {
             auto p = gd.RTs_used->get_writer();
             auto rt = node.relation_type.relation_type_indx;
-            if(!p->contains(rt))
+            if(!p->contains_read(rt))
                 p->append(rt, p.ensure_func());
         }
     }
@@ -407,7 +407,7 @@ void apply_action_ATOMIC_VALUE_ASSIGNMENT_EDGE(GraphData & gd, EZefRef uzr, bool
             enum_indx indx = en.value;
 
             auto p = gd.ENs_used->get_writer();
-            if(!p->contains(indx))
+            if(!p->contains_read(indx))
                 p->append(indx, p.ensure_func());
         }
     }

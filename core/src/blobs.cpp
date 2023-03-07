@@ -250,7 +250,7 @@ namespace zefDB {
     AllEdgeIndexes::Iterator AllEdgeIndexes::begin() const {
         GraphData & gd = *graph_data(uzr_with_edges);
         blob_index last_blob;
-        if(force_to_write_head || (gd.is_primary_instance && gd.open_tx_thread == std::this_thread::get_id()))
+        if(force_to_write_head || (gd.this_thread_has_write()))
             last_blob = gd.write_head.load();
         else
             last_blob = gd.read_head.load();

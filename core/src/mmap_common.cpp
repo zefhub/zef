@@ -156,8 +156,8 @@ namespace zefDB {
                 //     new(main_file_mapping) Prefix_v2{BaseUID::from_hex(uid)};
                 if (version == Prefix_v3::VERSION)
                     new(main_file_mapping) Prefix_v3{uid};
-                else if (version == Prefix_v5::VERSION)
-                    new(main_file_mapping) Prefix_v5{uid};
+                else if (version == Prefix_v6::VERSION)
+                    new(main_file_mapping) Prefix_v6{uid};
                 else
                     throw std::runtime_error("Can't handle this version");
 
@@ -179,8 +179,8 @@ namespace zefDB {
             //     size_t temp = sizeof(Prefix_v1);
             if (version == Prefix_v3::VERSION)
                 temp = sizeof(Prefix_v3);
-            else if (version == Prefix_v5::VERSION)
-                temp = sizeof(Prefix_v5);
+            else if (version == Prefix_v6::VERSION)
+                temp = sizeof(Prefix_v6);
             else
                 throw FileGraphWrongVersion(path_prefix, version, "Don't know prefix_size.");
             size_t num_pages = temp / ZEF_PAGE_SIZE + 1;

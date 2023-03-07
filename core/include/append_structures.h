@@ -275,10 +275,13 @@ namespace zefDB {
         char kind_version;
 
         size_t _size;
+        size_t _read_size;
         size_t _upstream_size;
         size_t _revision;
 
         size_t& size() { return _size; }
+        size_t& read_size() { return _read_size; }
+        void move_read_to_write() { _read_size = _size; }
         size_t& upstream_size() { return _upstream_size; }
         size_t& revision() { return _revision; }
 
@@ -314,22 +317,31 @@ namespace zefDB {
             using reference         = T&;
         };
         Iterator begin() const {return Iterator(*this, 0);}
-        Iterator end() const {return Iterator(*this, _size);}
+        Iterator end_write() const {return Iterator(*this, _size);}
+        Iterator end_read() const {return Iterator(*this, _read_size);}
 
-        bool contains(const T & needle) {
-            for(const auto & item : *this) {
-                if(item == needle)
+        bool contains_read(const T & needle) {
+            for(auto itr = begin(); itr != end_read(); ++itr) {
+                if(*itr == needle)
+                    return true;
+            }
+            return false;
+        }
+
+        bool contains_write(const T & needle) {
+            for(auto itr = begin(); itr != end_write(); ++itr) {
+                if(*itr == needle)
                     return true;
             }
             return false;
         }
 
         std::vector<T> as_vector() {
-            return std::vector<T>(begin(), end());
+            return std::vector<T>(begin(), end_write());
         }
 
         void append(const T & item, const ensure_func_t & ensure_func) {
-            if(contains(item)){
+            if(contains_write(item)){
                 throw std::runtime_error("AppendOnlySet already contains item: " + to_str(item));
             }
             auto& new_this = ensure_func(sizeof(AppendOnlySet) + sizeof(T)*(_size+1));
@@ -338,7 +350,7 @@ namespace zefDB {
         }
 
         void append(T && item, const ensure_func_t & ensure_func) {
-            if(contains(item)) {
+            if(contains_write(item)) {
                 throw std::runtime_error("AppendOnlySet already contains item: " + to_str(item));
             }
             auto& new_this = ensure_func(sizeof(AppendOnlySet) + sizeof(T)*(_size+1));
@@ -375,6 +387,7 @@ namespace zefDB {
                 auto& new_this = ensure_func(sizeof(AppendOnlySet));
                 new_this.kind = AppendOnlyKind::SET;
                 new_this._size = 0;
+                new_this._read_size = 0;
                 new_this._upstream_size = 0;
                 new_this._revision = 0;
             } else {
@@ -482,10 +495,13 @@ namespace zefDB {
         AppendOnlyKind kind;
         char kind_version;
         size_t _size;
+        size_t _read_size;
         size_t _upstream_size;
         size_t _revision;
 
         size_t& size() { return _size; }
+        size_t& read_size() { return _read_size; }
+        void move_read_to_write() { _read_size = _size; }
         size_t& upstream_size() { return _upstream_size; }
         size_t& revision() { return _revision; }
 
@@ -509,8 +525,9 @@ namespace zefDB {
         }
 
 
-        Element * find_element(const KEY & needle, bool return_last=false) {
-            if(_size == 0)
+        Element * find_element(bool as_writer, const KEY & needle, bool return_last=false) {
+            auto _this_size = as_writer ? _size : _read_size;
+            if(_this_size == 0)
                 return nullptr;
 
             Element * cur = index_to_element(0);
@@ -520,12 +537,12 @@ namespace zefDB {
                 if(cur->key == needle)
                     break;
                 else if(needle < cur->key) {
-                    if(cur->left == 0)
+                    if(cur->left == 0 || cur->left >= _this_size)
                         break;
                     last = cur;
                     cur = index_to_element(cur->left);
                 } else { //if(needle > cur->key) {
-                    if(cur->right == 0)
+                    if(cur->right == 0 || cur->right >= _this_size)
                         break;
                     last = cur;
                     cur = index_to_element(cur->right);
@@ -536,27 +553,27 @@ namespace zefDB {
             return cur;
         }
 
-        std::optional<VAL> maybe_at(const KEY & needle) {
+        std::optional<VAL> maybe_at(bool as_writer, const KEY & needle) {
             if(_size == 0)
                 return {};
-            auto el = find_element(needle);
+            auto el = find_element(as_writer, needle);
             if(el->key == needle)
                 return el->val;
             return {};
         }
-        VAL at(const KEY & needle) {
-            auto maybe = maybe_at(needle);
+        VAL at(bool as_writer, const KEY & needle) {
+            auto maybe = maybe_at(as_writer, needle);
             if(maybe)
                 return *maybe;
             throw std::out_of_range("Couldn't find " + to_str(needle) + " in AppendOnlyBinaryTree.");
         }
 
-        bool contains(const KEY & needle) {
-            return bool(maybe_at(needle));
+        bool contains(bool as_writer, const KEY & needle) {
+            return bool(maybe_at(as_writer, needle));
         }
 
         AppendOnlyBinaryTree* _append(KEY && key, VAL && val, const ensure_func_t & ensure_func, bool already_ensured) {
-            auto el = find_element(key);
+            auto el = find_element(true, key);
             if(el != nullptr && el->key == key)
                 throw std::runtime_error("AppendOnlyBinaryTree already contains key: " + to_str(key));
 
@@ -604,7 +621,7 @@ namespace zefDB {
                 std::cerr << key << ":" << val << std::endl;
                 throw std::runtime_error("Pop called with something that doesn't match the final element in the tree");
             }
-            auto before_el = find_element(key, true);
+            auto before_el = find_element(true, key, true);
             if(before_el->left == to_pop_ind) {
                 before_el->left = 0;
             } else if(before_el->right == to_pop_ind) {
@@ -664,6 +681,7 @@ namespace zefDB {
                 auto& new_this = ensure_func(sizeof(AppendOnlyBinaryTree));
                 new_this.kind = AppendOnlyKind::BINARY_TREE;
                 new_this._size = 0;
+                new_this._read_size = 0;
                 new_this._upstream_size = 0;
                 new_this._revision = 0;
             } else {
@@ -691,10 +709,13 @@ namespace zefDB {
         AppendOnlyKind kind;
         char kind_version;
         size_t _size;
+        size_t _read_size;
         size_t _upstream_size;
         size_t _revision;
 
         size_t& size() { return _size; }
+        size_t& read_size() { return _read_size; }
+        void move_read_to_write() { _read_size = _size; }
         size_t& upstream_size() { return _upstream_size; }
         size_t& revision() { return _revision; }
 
@@ -718,8 +739,9 @@ namespace zefDB {
             return std::vector<Element>(index_to_element(0), index_to_element(_size));
         }
 
-        std::pair<Element*,Element*> find_element(compare_func_t compare_func) {
-            if(_size == 0)
+        std::pair<Element*,Element*> find_element(bool is_writer, compare_func_t compare_func) {
+            auto _this_size = is_writer ? _size : _read_size;
+            if(_this_size == 0)
                 return std::pair(nullptr, nullptr);
 
             Element * cur = index_to_element(0);
@@ -732,13 +754,13 @@ namespace zefDB {
 
                 last = cur;
                 if(compare_ret < 0) {
-                    if(cur->left == 0) {
+                    if(cur->left == 0 || cur->left >= _this_size) {
                         cur = nullptr;
                         break;
                     }
                     cur = index_to_element(cur->left);
                 } else {
-                    if(cur->right == 0) {
+                    if(cur->right == 0 || cur->right >= _this_size) {
                         cur = nullptr;
                         break;
                     }
@@ -748,29 +770,29 @@ namespace zefDB {
             return std::pair(last, cur);
         }
 
-        std::optional<VAL> maybe_at(compare_func_t compare_func) {
-            if(_size == 0)
+        std::optional<VAL> maybe_at(bool is_writer, compare_func_t compare_func) {
+            if(is_writer ? _size == 0 : _read_size == 0)
                 return {};
-            auto el = find_element(compare_func).second;
+            auto el = find_element(is_writer, compare_func).second;
             if(el == nullptr)
                 return {};
             return el->val;
         }
-        VAL at(compare_func_t compare_func) {
-            auto maybe = maybe_at(compare_func);
+        VAL at(bool is_writer, compare_func_t compare_func) {
+            auto maybe = maybe_at(is_writer, compare_func);
             if(maybe)
                 return *maybe;
             throw std::out_of_range("Couldn't find item in AppendOnlyCollisionHashMap.");
         }
 
-        bool contains(const KEY & needle) {
-            return bool(maybe_at(needle));
+        bool contains(bool is_writer, const KEY & needle) {
+            return bool(maybe_at(is_writer, needle));
         }
 
         AppendOnlyCollisionHashMap* _append(KEY && key, VAL && val, const compare_func_t & compare_func, const ensure_func_t & ensure_func, bool already_ensured) {
             Element * last_el;
             Element * cur_el;
-            std::tie(last_el, cur_el) = find_element(compare_func);
+            std::tie(last_el, cur_el) = find_element(true, compare_func);
             if(cur_el != nullptr)
                 throw std::runtime_error("AppendOnlyCollisionHashMap already contains key/val: " + to_str(key) + "/" + to_str(val));
 
@@ -816,7 +838,7 @@ namespace zefDB {
             if(compare_func(to_pop->key, to_pop->val) != 0) {
                 throw std::runtime_error("Pop called with something that doesn't match the final element in the tree");
             }
-            auto p = find_element(compare_func);
+            auto p = find_element(true, compare_func);
             Element * before_el = p.first;
             if(p.second == nullptr)
                 throw std::runtime_error("Couldn't find element to pop it.");
@@ -880,6 +902,7 @@ namespace zefDB {
                 auto& new_this = ensure_func(sizeof(AppendOnlyCollisionHashMap));
                 new_this.kind = AppendOnlyKind::COLLISION_HASH_MAP;
                 new_this._size = 0;
+                new_this._read_size = 0;
                 new_this._upstream_size = 0;
                 new_this._revision = 0;
             } else {
@@ -903,9 +926,12 @@ namespace zefDB {
         char kind_version;
         // Size in bytes
         size_t _size;
+        size_t _read_size;
         size_t _upstream_size;
         size_t _revision;
         size_t& size() { return _size; }
+        size_t& read_size() { return _read_size; }
+        void move_read_to_write() { _read_size = _size; }
         size_t& upstream_size() { return _upstream_size; }
         size_t& revision() { return _revision; }
 
@@ -941,10 +967,11 @@ namespace zefDB {
             using reference         = ELEMENT&;
         };
         Iterator begin() const {return Iterator(data());}
-        Iterator end() const {return Iterator(data() + _size);}
+        Iterator end(bool is_writer) const {return Iterator(data() + is_writer ? _size : _read_size);}
 
-        std::optional<SAFE> contains(std::function<bool(const ELEMENT &)> pred) {
-            for(const auto & item : *this) {
+        std::optional<SAFE> contains(bool is_writer, std::function<bool(const ELEMENT &)> pred) {
+            for(auto itr = this->begin() ; itr != this->end(is_writer) ; ++itr) {
+                const auto & item = *itr;
                 if(pred(item))
                     return item.safe_copy();
             }
@@ -955,7 +982,8 @@ namespace zefDB {
             std::vector<SAFE> out;
             // std::transform(begin(), end(), std::back_inserter(out),
             //                [](const ELEMENT & el) { return el.safe_copy(); });
-            for(const auto & item : *this) {
+            for(auto itr = this->begin() ; itr != this->end(true) ; ++itr) {
+                const auto & item = *itr;
                 if(item.deleted)
                     continue;
                 out.push_back(item.safe_copy());
@@ -967,7 +995,7 @@ namespace zefDB {
             size_t new_size = _size + ELEMENT::true_sizeof_from_safe(el);
             
             auto& new_this = ensure_func(sizeof(AppendOnlySetVariable) + new_size);
-            ELEMENT& old_end = new_this.end()._direct();
+            ELEMENT& old_end = new_this.end(true)._direct();
             explicit_copy(old_end, el);
             new_this._size = new_size;
         }
@@ -975,7 +1003,7 @@ namespace zefDB {
         void _pop(const SAFE & el, const ensure_func_t & ensure_func) {
             // This item should be the last one. But we have to traverse through the entire list to find it.
             Iterator last;
-            for(auto itr = this->begin() ; itr != this->end() ; ++itr) {
+            for(auto itr = this->begin() ; itr != this->end(true) ; ++itr) {
                 last = itr;
             }
             // TODO: Handle when set is empty
@@ -993,6 +1021,7 @@ namespace zefDB {
                 auto& new_this = ensure_func(sizeof(AppendOnlySetVariable));
                 new_this.kind = AppendOnlyKind::SET_VARIABLE;
                 new_this._size = 0;
+                new_this._read_size = 0;
                 new_this._upstream_size = 0;
                 new_this._revision = 0;
             } else {
@@ -1021,7 +1050,7 @@ namespace zefDB {
 
             const char * data = diff.c_str();
             const char * end = diff.c_str() + diff.size();
-            char * target = (char*)&new_this->end()._direct();
+            char * target = (char*)&new_this->end(true)._direct();
             while(data < end) {
                 size_t this_size = ((const ELEMENT*)data)->true_sizeof();
                 memcpy(target, data, this_size);
@@ -1050,6 +1079,8 @@ namespace zefDB {
         set_t set;
 
         size_t& size() { return set.size(); }
+        size_t& read_size() { return set.read_size(); }
+        void move_read_to_write() { set.move_read_to_write(); }
         size_t& upstream_size() { return set.upstream_size(); }
         size_t& revision() { return set.revision(); }
 
@@ -1065,13 +1096,13 @@ namespace zefDB {
         }
     
         typename set_t::Iterator begin() const {return set.begin();}
-        typename set_t::Iterator end() const {return set.end();}
+        typename set_t::Iterator end(bool is_writer) const {return set.end(is_writer);}
 
-        element_t* maybe_at_internal(const KEY_Safe & needle, bool last_seen=false) {
+        element_t* maybe_at_internal(bool is_writer, const KEY_Safe & needle, bool last_seen=false) {
             // for(const auto & item : *this) {
 
             std::optional<typename set_t::Iterator> last_deleted;
-            for(auto itr = this->begin() ; itr != this->end() ; ++itr) {
+            for(auto itr = this->begin() ; itr != this->end(is_writer) ; ++itr) {
                 if(itr->deleted) {
                     last_deleted = itr;
                     continue;
@@ -1083,23 +1114,23 @@ namespace zefDB {
                 return &last_deleted->_direct();
             return nullptr;
         }
-        std::optional<VAL_Safe> maybe_at(const KEY_Safe & needle) {
-            element_t * ptr = maybe_at_internal(needle);
+        std::optional<VAL_Safe> maybe_at(bool is_writer, const KEY_Safe & needle) {
+            element_t * ptr = maybe_at_internal(is_writer, needle);
             if(ptr == nullptr)
                 return {};
             
             return ptr->get_second().safe_copy();
         }
-        VAL_Safe at(const KEY_Safe & needle) {
-            auto maybe = maybe_at(needle);
+        VAL_Safe at(bool is_writer, const KEY_Safe & needle) {
+            auto maybe = maybe_at(is_writer, needle);
             if(maybe)
                 return *maybe;
             print_backtrace();
             throw std::out_of_range("Couldn't find " + to_str(needle) + " in AppendOnlyDictVariable.");
         }
 
-        bool contains(const KEY_Safe & needle) {
-            return bool(maybe_at(needle));
+        bool contains(bool is_writer, const KEY_Safe & needle) {
+            return bool(maybe_at(is_writer, needle));
         }
 
         std::vector<element_Safe> as_vector() {
@@ -1116,7 +1147,7 @@ namespace zefDB {
         }
 
         void _append(KEY_Safe && key, VAL_Safe && val, const ensure_func_t & ensure_func) {
-            element_t * maybe = maybe_at_internal(key);
+            element_t * maybe = maybe_at_internal(true, key);
             if(maybe != nullptr) {
                 maybe->deleted = true;
             }
@@ -1126,7 +1157,7 @@ namespace zefDB {
         void _pop(const KEY_Safe & key, const VAL_Safe & val, const ensure_func_t & ensure_func) {
             set._pop(element_Safe{key,val}, map_ensure_func(ensure_func));
             // In the event that we deleted a previous key, look it up
-            auto maybe_last_seen = maybe_at_internal(key, true);
+            auto maybe_last_seen = maybe_at_internal(true, key, true);
             if(maybe_last_seen != nullptr) {
                 maybe_last_seen->deleted = false;
             }
@@ -1142,10 +1173,10 @@ namespace zefDB {
             // We are now retroactively applying the delete logic, but only for things that were before the original end.
             element_t * old_end = (element_t*)((char*)new_this->set.data() + old_size);
             element_t * target = old_end;
-            element_t * end = (element_t*)&new_this->end()._direct();
+            element_t * end = (element_t*)&new_this->end(true)._direct();
             while(target < end) {
                 size_t this_size = target->true_sizeof();
-                element_t * maybe = new_this->maybe_at_internal(target->first.safe_copy());
+                element_t * maybe = new_this->maybe_at_internal(true, target->first.safe_copy());
                 if(maybe != nullptr) {
                     if(maybe < old_end) {
                         maybe->deleted = true;

@@ -177,14 +177,14 @@ namespace zefDB {
                 
                 Prefix_v3(BaseUID uid) : uid(uid) {};
             };
-            struct Prefix_v5 {
+            struct Prefix_v6 {
                 // TODO: This would be great as a flat zef value later, which
                 // would handle the arbitrary length items better.
 
                 // We can cheat here a little with bumping version when the data
                 // layout changes. This has the effect of throwing away old
                 // versions, but it is very manual
-                constexpr static int VERSION = 5;
+                constexpr static int VERSION = 6;
                 int version = VERSION;
                 zefDB::BaseUID uid;
                 blob_index last_update = 0;
@@ -205,9 +205,9 @@ namespace zefDB {
 
                 // WholeFile_v1 tokens_ET_dict;
                 
-                Prefix_v5(BaseUID uid) : uid(uid) {};
+                Prefix_v6(BaseUID uid) : uid(uid) {};
             };
-            using latest_Prefix_t = Prefix_v5;
+            using latest_Prefix_t = Prefix_v6;
             constexpr static int filegraph_default_version = latest_Prefix_t::VERSION;
 
             void * main_file_mapping = nullptr;

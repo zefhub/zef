@@ -204,7 +204,7 @@ namespace zefDB {
                 // Unlike the write_head, we need to inform any listeners if the read_head changes.
                 // update(gd.heads_locker, gd.read_head, gd.write_head.load());  // the zefscription manager can send out updates up to this pointer (not including)		
                 update(gd.heads_locker, [&]() {
-                    gd.read_head = gd.write_head.load();
+                    gd.move_read_heads_to_write_heads(false);
                     gd.latest_complete_tx = gd.index_of_open_tx_node;
                     gd.index_of_open_tx_node = 0;
                 });

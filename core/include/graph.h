@@ -239,7 +239,10 @@ namespace zefDB {
 		EZefRef get_ROOT_node();
 		std::uintptr_t ptr_to_write_head_location() { return (std::uintptr_t(this) + constants::blob_indx_step_in_bytes * write_head); }
 		uint64_t hash(blob_index blob_index_lo, blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
-		uint64_t hash_partial(blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
+		// uint64_t hash_partial(blob_index blob_index_hi, uint64_t seed, std::string working_layout) const;
+
+        void move_read_heads_to_write_heads(bool atomic_update=true);
+        bool this_thread_has_write();
 
 		// GraphData() { get_all_active_graph_data_tracker().register_graph_data(this); }
 		GraphData(MMap::FileGraph * fg, std::optional<BaseUID> maybe_uid, bool generate_root);

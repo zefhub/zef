@@ -208,7 +208,7 @@ namespace zefDB {
             auto root_uid = given_uid ? *given_uid : make_random_uid();
             auto root_indx = constants::ROOT_NODE_blob_index;
             internals::assign_uid(root_uzr, root_uid);
-            read_head = write_head.load();
+            move_read_heads_to_write_heads();
             // (*key_dict)[root_uid] = root_indx;
             internals::apply_action_ROOT_NODE(*this, root_uzr, true);
             latest_complete_tx = root_indx;
@@ -472,6 +472,35 @@ namespace zefDB {
             throw std::runtime_error("Can't hash for layout of " + target_layout_version);
     }
 
+    void GraphData::move_read_heads_to_write_heads(bool atomic_update) {
+        if(atomic_update) {
+            update(heads_locker, [&]() {
+                this->move_read_heads_to_write_heads(false);
+            });
+            return;
+        }
+            
+        read_head = write_head.load();
+
+#define GEN_CACHE(x, y) {                       \
+            auto ptr = this->y->get_writer();   \
+            ptr->move_read_to_write(); \
+        }
+
+            GEN_CACHE("_ETs_used", ETs_used)
+            GEN_CACHE("_RTs_used", RTs_used)
+            GEN_CACHE("_ENs_used", ENs_used)
+            GEN_CACHE("_uid_lookup", uid_lookup)
+            GEN_CACHE("_euid_lookup", euid_lookup)
+            GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
+#undef GEN_CACHE
+    }
+
+    bool GraphData::this_thread_has_write() {
+        return is_primary_instance && open_tx_thread == std::this_thread::get_id();
+    }
+
     uint64_t partial_hash(Graph g, blob_index index_hi, uint64_t seed, std::string target_layout_version) {
         // // Optimised common case
         GraphData & gd = g.my_graph_data();
@@ -560,7 +589,7 @@ namespace zefDB {
         // roll_back_using_only_existing(gd);
         roll_back_to(*gd, index_hi, true);
 
-        gd->read_head = gd->write_head.load();
+        gd->move_read_heads_to_write_heads();
 
         return GraphDataWrapper(gd);
     }
@@ -829,12 +858,12 @@ namespace zefDB {
     bool Graph::contains(const TagString& key) const {
         auto& gd = my_graph_data();
         // wait_same(gd.heads_locker, gd.key_dict_initialized, true);
-        return gd.tag_lookup->get()->contains(key.s);
+        return gd.tag_lookup->get()->contains(gd.this_thread_has_write(), key.s);
     }
     bool Graph::contains(const BaseUID& key) const {
         auto& gd = my_graph_data();
         // wait_same(gd.heads_locker, gd.key_dict_initialized, true);
-        return gd.uid_lookup->get()->contains(key);
+        return gd.uid_lookup->get()->contains(gd.this_thread_has_write(), key);
     }
     bool Graph::contains(const EternalUID& key) const {
         auto& gd = my_graph_data();
@@ -843,7 +872,7 @@ namespace zefDB {
         if(key.graph_uid == uid(*this))
             return contains(key.blob_uid);
         else
-            return gd.euid_lookup->get()->contains(key);
+            return gd.euid_lookup->get()->contains(gd.this_thread_has_write(), key);
     }
     bool Graph::contains(const ZefRefUID& key) const {
         auto& gd = my_graph_data();
@@ -871,13 +900,13 @@ namespace zefDB {
     EZefRef Graph::operator[] (const TagString& key) const {
         auto& gd = my_graph_data();
         // wait_same(gd.heads_locker, gd.key_dict_initialized, true);
-        return operator[](gd.tag_lookup->get()->at(key.s));
+        return operator[](gd.tag_lookup->get()->at(gd.this_thread_has_write(), key.s));
     }
 
     EZefRef Graph::operator[] (const BaseUID& key) const {
         auto& gd = my_graph_data();
         // wait_same(gd.heads_locker, gd.key_dict_initialized, true);
-        return operator[](gd.uid_lookup->get()->at(key));
+        return operator[](gd.uid_lookup->get()->at(gd.this_thread_has_write(), key));
     }
 
     EZefRef Graph::operator[] (const EternalUID& key) const {
@@ -887,7 +916,7 @@ namespace zefDB {
         if(key.graph_uid == uid(*this))
             return operator[](key.blob_uid);
         else
-            return operator[](gd.euid_lookup->get()->at(key));
+            return operator[](gd.euid_lookup->get()->at(gd.this_thread_has_write(), key));
     }
 
     ZefRef Graph::operator[] (const ZefRefUID& key) const {
@@ -955,7 +984,7 @@ namespace zefDB {
 
 #define GEN_CACHE(x,y) {                                     \
                 auto ptr = gd.y->get();                      \
-                heads.caches.push_back({x, 0, ptr->size()}); \
+                heads.caches.push_back({x, 0, ptr->read_size()}); \
             }
 
             GEN_CACHE("_ETs_used", ETs_used)
@@ -1028,21 +1057,6 @@ namespace zefDB {
 
             auto & info = MMap::info_from_blobs(&gd);
             MMap::flush_mmap(info, gd.write_head);
-
-            if(gd.read_head < end_index) {
-                gd.read_head = end_index;
-                // Also try and update the latest complete tx from this
-                // TODO: This is only necessary for zefhub. Clients should be
-                // informed, and not unnecessarily load pages. In the future, this should be removed.
-                if(Butler::butler_is_master) {
-                    EZefRef ctx{gd.latest_complete_tx, gd};
-                    while(ctx | has_out[BT.NEXT_TX_EDGE]) {
-                        ctx = ctx >> BT.NEXT_TX_EDGE;
-                    }
-                    if (index(ctx) != gd.latest_complete_tx)
-                        gd.latest_complete_tx = index(ctx);
-                }
-            }
         }
 
 		void set_data_layout_version_info(const str& new_val, GraphData& gd) {
