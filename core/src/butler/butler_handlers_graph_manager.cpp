@@ -242,7 +242,6 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload_in, 
     // Apply blob updates
 
     internals::include_new_blobs(gd, heads.blobs.from, heads.blobs.to, blob_bytes, double_link, false);
-    update(gd.heads_locker, gd.latest_complete_tx, index(internals::get_latest_complete_tx_node(gd)));
 
     // Apply cache updates
 
@@ -269,6 +268,12 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload_in, 
 
         indx++;
     }
+
+    auto new_complete_tx_index = index(internals::get_latest_complete_tx_node(gd));
+    update(gd.heads_locker, [&gd,new_complete_tx_index]() {
+        gd.move_read_heads_to_write_heads(false);
+        gd.latest_complete_tx = new_complete_tx_index;
+    });
 
     // This can be INCREDIBLY slow! This should be locked behind a zwitch if
     // used, as it can take forever to finish and locks the graph thread up.
