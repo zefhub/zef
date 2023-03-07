@@ -186,6 +186,9 @@ def dict_is_a(x, typ):
 
         # Exact match validation
         match_exactly = (ellipsis_count == 0)
+        if match_exactly and len(x) > len(slices): 
+            return False
+        
         def slice_is_a(slc, match_exactly):
             key, vt =  absorbed(slc)
             if match_exactly and key not in x:

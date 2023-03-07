@@ -10484,6 +10484,16 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
 
 
             match_exactly = (ellipsis_count == 0)
+            if match_exactly and len(val) > len(slices):
+                return {
+                    'value': val,
+                    'specified_type': typ,
+                    'actual_type': type(val),
+                    'is_a': False,
+                    'is_terminal': True, 
+                    'rule_type': 'Dict length mismatch',
+                    'explanation': f"The dict {val} has a length of {len(val)} which doesn't match the specified type {typ} which has a length of {len(slices)}"
+                }
             return {
                 **default_value,
                 'explanation': filter_is_a([explain_slice(slc, match_exactly) for slc in slices])
