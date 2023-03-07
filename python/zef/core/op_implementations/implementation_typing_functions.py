@@ -10424,14 +10424,11 @@ def explain_imp(val: Any, typ: ValueType, filter_success: Bool = True)-> Dict:
             
             elif not is_a(val[key], vt):
                 val_ = val[key]
+                inner_explanation = explain(val_, vt)
                 return {
-                        'value': val_,
+                        **inner_explanation,
                         'key': key,
-                        'specified_type': vt,
-                        'is_a': False,
-                        'is_terminal': True, 
                         'rule_type': 'Dict value type',
-                        'explanation': f"The value {val_} is of representation type {type(val_)} which isn't of type {vt}"
                 }
 
             else:
