@@ -937,7 +937,7 @@ namespace zefDB {
 		return &(my_graph_data()) == &(g2.my_graph_data());  // do they point to the same GraphData struct?
 	}
 
-    LockGraphData::LockGraphData(GraphData * gd) : gd(gd) {
+    LockGraphData::LockGraphData(GraphData * gd, bool block) : gd(gd) {
         if(gd->open_tx_thread == std::this_thread::get_id()) {
             was_already_set = true;
             acquired = true;

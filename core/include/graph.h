@@ -399,7 +399,7 @@ namespace zefDB {
         bool was_already_set;
         bool acquired;
 
-        LockGraphData(GraphData * gd);
+        LockGraphData(GraphData * gd, bool block = true);
         ~LockGraphData();
     };
 
