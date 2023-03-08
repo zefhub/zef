@@ -31,7 +31,7 @@ from graphql.language.ast import (
 
 # TODO add support for parsing enums
 
-def generate_schema_dict(schema_str: str) -> dict:
+def parse_schema(schema_str: str) -> dict:
     """
     Given a GraphQL schema string, generate a dictionary representation of the schema.
     """

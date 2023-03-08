@@ -18,7 +18,7 @@ from ariadne import ObjectType,MutationType,QueryType,InterfaceType,Subscription
 
 
 #--------------------------Schema Generator-------------------------
-def generate_schema_str(schema_dict: dict) -> str:
+def generate_schema(schema_dict: dict) -> str:
     """
     Generate a GraphQL schema string from a GraphQL schema dict.
     """

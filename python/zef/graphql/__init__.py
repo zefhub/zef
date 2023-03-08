@@ -13,13 +13,13 @@
 # limitations under the License.
 
 from .resolvers_generator import generate_resolvers, fill_types_default_resolvers
-from .schema_generator import generate_schema_str
-from .schema_parser import generate_schema_dict
+from .schema_generator import generate_schema
+from .schema_parser import parse_schema
 
 __all__ = [
     "generate_resolvers",
-    "generate_schema_str",
-    "generate_schema_dict",
+    "generate_schema",
+    "parse_schema",
     "make_graphql_api",
     "fill_types_default_resolvers"
 ]
@@ -31,6 +31,6 @@ def make_graphql_api(schema_dict: dict, g = None):
     from ariadne import make_executable_schema
 
     object_types = generate_resolvers(schema_dict, g)
-    simple_schema = generate_schema_str(schema_dict)
+    simple_schema = generate_schema(schema_dict)
     schema = make_executable_schema(simple_schema, object_types)
     return schema

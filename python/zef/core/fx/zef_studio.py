@@ -452,10 +452,10 @@ type ValueAssignedEvent implements Event {
 """
 
 def create_schema_dict(simple_schema):
-   from ...graphql import generate_schema_dict, fill_types_default_resolvers
+   from ...graphql import parse_schema, fill_types_default_resolvers
 
     # Step 1: Create a Schema Dict "Data Structure" from the GraphQL Schema String
-   schema_dict = generate_schema_dict(simple_schema)
+   schema_dict = parse_schema(simple_schema)
 
    # Step 2 (Optional): Fill in the default resolvers for the types
    schema_dict = fill_types_default_resolvers(schema_dict, lambda field_name: get[field_name])
