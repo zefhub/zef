@@ -87,10 +87,10 @@ def generate_resolvers_fcts(schema_root):
     enums_dict = {}
     scalars_dict = {}
 
-    full_dict = {"_Types": types_dict,
-                 "_Inputs": input_types_dict,
-                 "_Enums": enums_dict,
-                 "_Scalars": scalars_dict}
+    full_dict = {"GraphQLTypes": types_dict,
+                 "GraphQLInputs": input_types_dict,
+                 "GraphQLEnums": enums_dict,
+                 "GraphQLScalars": scalars_dict}
 
     scalars_dict["DateTime"] = {
         "serializer": apply[lambda t: datetime.datetime.fromtimestamp(t.seconds_since_1970).isoformat()],
@@ -295,13 +295,13 @@ def generate_resolvers_fcts(schema_root):
 def schema_generate_type_dispatch(z_type, full_dict):
     filter_name = (z_type | F.Name | collect) + "Filter"
     if filter_name not in full_dict["_Inputs"]:
-        full_dict["_Inputs"][filter_name] = None
+        full_dict["GraphQLInputs"][filter_name] = None
         # These will update the full_dict automatically
         if op_is_scalar(z_type):
             schema_generate_scalar_filter(z_type, full_dict)
         else:
             schema_generate_type_filter(z_type, full_dict)
-        assert full_dict["_Inputs"][filter_name] is not None 
+        assert full_dict["GraphQLInputs"][filter_name] is not None 
 
 def schema_generate_list_params(z_type, full_dict):
     name = z_type | F.Name | collect
@@ -360,10 +360,10 @@ def schema_generate_type_filter(z_type, full_dict):
     for field in z_type | out_rels[RT.GQL_Field] | filter[target | op_is_orderable]:
         orderable_fields += [field | F.Name | collect]
 
-    full_dict["_Inputs"][fil_name] = fields
+    full_dict["GraphQLInputs"][fil_name] = fields
 
     if len(orderable_fields) > 0:
-        full_dict["_Inputs"][order_name] = {
+        full_dict["GraphQLInputs"][order_name] = {
             "asc": orderable_name,
             "desc": orderable_name,
             "then": order_name,
@@ -374,7 +374,7 @@ def schema_generate_type_filter(z_type, full_dict):
             "size": "IntFilter",
         }
         orderable_dict = {x: x for x in orderable_fields}
-        full_dict["_Enums"][orderable_name] = orderable_dict
+        full_dict["GraphQLEnums"][orderable_name] = orderable_dict
         
 
 def schema_generate_scalar_filter(z_node, full_dict):

@@ -109,11 +109,11 @@ def parse_schema(schema_str: str) -> dict:
 
     
     dispatch = match[
-        (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"_Types": g[1] | map[dispatch_on_type_or_interface] | merge | collect}),
-        (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"_Interfaces": g[1] | map[dispatch_on_type_or_interface[True]] | merge | collect}),
-        (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"_Scalars": g[1] | map[dispatch_on_scalar] | merge | collect}),
-        (Is[lambda t: t[0] == InputObjectTypeDefinitionNode], lambda g: {"_Inputs": g[1] | map[dispatch_on_input] | merge | collect}),
-        (Is[lambda t: t[0] == EnumTypeDefinitionNode], lambda g: {"_Enums": g[1] | map[dispatch_on_enum] | merge | collect}),
+        (Is[lambda t: t[0] == ObjectTypeDefinitionNode], lambda g: {"GraphQLTypes": g[1] | map[dispatch_on_type_or_interface] | merge | collect}),
+        (Is[lambda t: t[0] == InterfaceTypeDefinitionNode], lambda g: {"GraphQLInterfaces": g[1] | map[dispatch_on_type_or_interface[True]] | merge | collect}),
+        (Is[lambda t: t[0] == ScalarTypeDefinitionNode], lambda g: {"GraphQLScalars": g[1] | map[dispatch_on_scalar] | merge | collect}),
+        (Is[lambda t: t[0] == InputObjectTypeDefinitionNode], lambda g: {"GraphQLInputs": g[1] | map[dispatch_on_input] | merge | collect}),
+        (Is[lambda t: t[0] == EnumTypeDefinitionNode], lambda g: {"GraphQLEnums": g[1] | map[dispatch_on_enum] | merge | collect}),
     ]
 
     document = parse(schema_str, no_location=True)

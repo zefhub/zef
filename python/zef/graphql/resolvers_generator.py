@@ -22,18 +22,18 @@ class ExternalError(Exception):
 
 #--------------------------Resolvers Generator-------------------------
 def fill_types_default_resolvers(schema_d, replace_policy=lambda field_name: field[RT(to_pascal_case(field_name))]):
-    if "_Types" not in schema_d: return schema_d
+    if "GraphQLTypes" not in schema_d: return schema_d
 
     def generate_default_if_unset(type_name, field_name, field_dict):
         # If resolver is either unset or set None
         resolver = field_dict.get("resolver", None)
         if resolver: return None
-        return (('_Types', type_name, field_name, 'resolver'), replace_policy(field_name))
+        return (('GraphQLTypes', type_name, field_name, 'resolver'), replace_policy(field_name))
 
 
     # Generate a list of Tuples[path, default_resolver] for fields where resolver is either unset or set to None
     paths_and_defaults = (
-        schema_d['_Types']
+        schema_d['GraphQLTypes']
         | items
         | filter[lambda x: x[0] not in {"Query", "Mutation"}]
         | map[lambda type_t: (type_t[1] 
@@ -166,7 +166,7 @@ def generate_resolvers(schema_dict, db):
     fallback_resolver = schema_dict.get("fallback_resolvers", [])
     object_types = []
 
-    types = schema_dict.get("_Types", {})
+    types = schema_dict.get("GraphQLTypes", {})
     for object_type, fields_dict in types.items():
     
         object_type = initialize_object_type(object_type)
@@ -176,16 +176,16 @@ def generate_resolvers(schema_dict, db):
             if field_name.startswith("_"): continue
             assign_field_resolver(object_type, field_name, field_dict, db)
 
-    enums = schema_dict.get("_Enums", {})
+    enums = schema_dict.get("GraphQLEnums", {})
     for object_type, options in enums.items():
         object_types.append(resolve_enum_type(object_type, options))
 
-    scalars = schema_dict.get("_Scalars", {})
+    scalars = schema_dict.get("GraphQLScalars", {})
     for object_type, options in scalars.items():
         object_types.append(resolve_scalar_type(object_type, options))
 
     
-    interfaces = schema_dict.get("_Interfaces", {})
+    interfaces = schema_dict.get("GraphQLInterfaces", {})
     for interface_name, interface_d in interfaces.items():
         object_types.append(resolve_interface_type(interface_name, interface_d, db))
 

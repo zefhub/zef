@@ -132,14 +132,14 @@ def generate_schema(schema_dict: dict) -> str:
         )
 
 
-    allowed_keys = ["_Interfaces", "_Types", "_Scalars", "_Enums", "_Inputs"]
+    allowed_keys = ["GraphQLInterfaces", "GraphQLTypes", "GraphQLScalars", "GraphQLEnums", "GraphQLInputs"]
     schema_dict = select_keys(schema_dict, *allowed_keys)
     dispatch = {
-        "_Interfaces":  parse_interfaces_or_types["interface"],
-        "_Types":       parse_interfaces_or_types["type"],
-        "_Scalars":     parse_scalars,
-        "_Enums":       parse_enums,
-        "_Inputs":      parse_inputs,
+        "GraphQLInterfaces":  parse_interfaces_or_types["interface"],
+        "GraphQLTypes":       parse_interfaces_or_types["type"],
+        "GraphQLScalars":     parse_scalars,
+        "GraphQLEnums":       parse_enums,
+        "GraphQLInputs":      parse_inputs,
     }
 
     return (
