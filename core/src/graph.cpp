@@ -522,7 +522,7 @@ namespace zefDB {
 
     GraphDataWrapper create_partial_graph(GraphData & cur_gd, blob_index index_hi) {
         blob_index index_lo = constants::ROOT_NODE_blob_index;
-        if(index_hi > cur_gd.write_head)
+        if(index_hi > cur_gd.read_head)
             throw std::runtime_error("in create_partial_graph: index_hi is larger than current graph");
         if(index_hi < index_lo)
             throw std::runtime_error("in create_partial_graph: index_hi (" + to_str(index_hi) + ") is before the root node!");
@@ -541,20 +541,33 @@ namespace zefDB {
         // std::cerr << "Created temporary internal graph with uid: " << uid(g) << std::endl;
 
         {
-            // LockGraphData cur_lock(&cur_gd);
-            // // Note: even though we hold a lock on the GraphData, this doesn't
-            // // mean that a transaction isn't open. Instead, we can be sure that
-            // // our thread is the only one allowed to write to the graph, so the
-            // // data will be stable while we are in here.
-            // //
-            // // The effect of this is that we must use write_head below, as we
-            // // need to rewind everything affected by blobs past the read_head
-            // // too.
+            LockGraphData cur_lock(&cur_gd);
+            // Note: even though we hold a lock on the GraphData, this doesn't
+            // mean that a transaction isn't open. Instead, we can be sure that
+            // our thread is the only one allowed to write to the graph, so the
+            // data will be stable while we are in here.
+            //
+            // The effect of this is that we must use write_head below, as we
+            // need to rewind everything affected by blobs past the read_head
+            // too.
 
             auto fixed_write_head = cur_gd.write_head.load();
-            // The above is no longer true, as the lock has been removed. The
-            // new behaviour with updating graph heads under the lock should
-            // make this possible, but lots of testing needs to be done.
+            // // The above is no longer true, as the lock has been removed. The
+            // // new behaviour with updating graph heads under the lock should
+            // // make this possible, but lots of testing needs to be done.
+            // //
+            // // The danger is that `roll_back_to` requires a consistent view and
+            // // a way to at least eliminate anything that might be beyond its
+            // // knowledge, *without* having to call unapply on each blob.
+
+            // In the end, I re-enabled locking to avoid this. The better way forward is to allow only a partial graph to be created from:
+            // a) a graph with a lock on (like above) - can use roll back.
+            // b) a set of UpdateHeads, which should be consistent with one another. Can use <= index logic (roll_back_to_using_only_existing but will need cache logic added).
+            //    In fact, we may need to throw away the caches and regenerate them, as the logic is too tightly bound otherwise.
+            //
+            // A partial graph could then be created from a write-in-progress
+            // graph at an arbitrary tx by first creating a partial graph from
+            // the latest read heads, then rolling back to the given index.
 
             char * lo_ptr = (char*)gd + index_lo * constants::blob_indx_step_in_bytes;
             // Note we copy the whole lot across, so that roll back can unapply the caches properly
@@ -571,7 +584,7 @@ namespace zefDB {
 #define GEN_CACHE(x, y) {                                               \
                 auto ptr = gd->y->get_writer();                          \
                 auto cur_ptr = cur_gd.y->get();                         \
-                auto diff = cur_ptr->create_diff(0, cur_ptr->size());   \
+                auto diff = cur_ptr->create_diff(0, cur_ptr->read_size());   \
                 ptr->apply_diff(diff, ptr.ensure_func());               \
             }
 
