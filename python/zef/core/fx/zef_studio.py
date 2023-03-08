@@ -452,10 +452,10 @@ type ValueAssignedEvent implements Event {
 """
 
 def create_schema_dict(simple_schema):
-   from ...graphql import generate_schema_dict, fill_types_default_resolvers
+   from ...graphql import parse_schema, fill_types_default_resolvers
 
     # Step 1: Create a Schema Dict "Data Structure" from the GraphQL Schema String
-   schema_dict = generate_schema_dict(simple_schema)
+   schema_dict = parse_schema(simple_schema)
 
    # Step 2 (Optional): Fill in the default resolvers for the types
    schema_dict = fill_types_default_resolvers(schema_dict, lambda field_name: get[field_name])
@@ -463,21 +463,21 @@ def create_schema_dict(simple_schema):
    # Step 3: Add the resolvers for the fields
    schema_dict = (
       schema_dict 
-      | insert_in[('_Types', 'Query', 'graphs', 'resolver')][graphs] 
-      | insert_in[('_Types', 'Query', 'entityTypes', 'resolver')][entity_types] 
-      | insert_in[('_Types', 'Query', 'entityTable', 'resolver')][entity_table] 
-      | insert_in[('_Types', 'Query', 'atom', 'resolver')][get_atom]
-      | insert_in[('_Types', 'Mutation', 'assignValueString', 'resolver')][assign_value_string]
-      | insert_in[('_Types', 'Mutation', 'assignValueFloat', 'resolver')][assign_value_float]
-      | insert_in[('_Types', 'Mutation', 'assignValueInt', 'resolver')][assign_value_int]
-      | insert_in[('_Types', 'Mutation', 'assignValueBool', 'resolver')][assign_value_bool]
-      | insert_in[('_Types', 'Mutation', 'terminateField', 'resolver')][terminate_field]
-      | insert_in[('_Types', 'Mutation', 'addFieldString', 'resolver')][add_field]
-      | insert_in[('_Types', 'Mutation', 'addFieldFloat', 'resolver')][add_field]
-      | insert_in[('_Types', 'Mutation', 'addFieldInt', 'resolver')][add_field]
-      | insert_in[('_Types', 'Mutation', 'addFieldBool', 'resolver')][add_field]
-      | insert_in[('_Interfaces', 'Cell', '_interface_resolver')][cell_interface_resolver] 
-      | insert_in[('_Interfaces', 'Event', '_interface_resolver')][event_interface_resolver] 
+      | insert_in[('GraphQLTypes', 'Query', 'graphs', 'resolver')][graphs] 
+      | insert_in[('GraphQLTypes', 'Query', 'entityTypes', 'resolver')][entity_types] 
+      | insert_in[('GraphQLTypes', 'Query', 'entityTable', 'resolver')][entity_table] 
+      | insert_in[('GraphQLTypes', 'Query', 'atom', 'resolver')][get_atom]
+      | insert_in[('GraphQLTypes', 'Mutation', 'assignValueFloat', 'resolver')][assign_value_float]
+      | insert_in[('GraphQLTypes', 'Mutation', 'assignValueString', 'resolver')][assign_value_string]
+      | insert_in[('GraphQLTypes', 'Mutation', 'assignValueInt', 'resolver')][assign_value_int]
+      | insert_in[('GraphQLTypes', 'Mutation', 'assignValueBool', 'resolver')][assign_value_bool]
+      | insert_in[('GraphQLTypes', 'Mutation', 'terminateField', 'resolver')][terminate_field]
+      | insert_in[('GraphQLTypes', 'Mutation', 'addFieldString', 'resolver')][add_field]
+      | insert_in[('GraphQLTypes', 'Mutation', 'addFieldFloat', 'resolver')][add_field]
+      | insert_in[('GraphQLTypes', 'Mutation', 'addFieldInt', 'resolver')][add_field]
+      | insert_in[('GraphQLTypes', 'Mutation', 'addFieldBool', 'resolver')][add_field]
+      | insert_in[('GraphQLInterfaces', 'Cell', '_interface_resolver')][cell_interface_resolver] 
+      | insert_in[('GraphQLInterfaces', 'Event', '_interface_resolver')][event_interface_resolver] 
       | collect
    )
    return schema_dict
