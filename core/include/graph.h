@@ -397,6 +397,7 @@ namespace zefDB {
         GraphData * gd;
         // TODO: I was thinking about making this reset to open_tx_thread... might revist later.
         bool was_already_set;
+        bool acquired;
 
         LockGraphData(GraphData * gd);
         ~LockGraphData();
