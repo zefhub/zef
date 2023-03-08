@@ -576,7 +576,7 @@ namespace zefDB {
 #define GEN_CACHE(x, y) {                                               \
                 auto ptr = gd->y->get_writer();                          \
                 auto cur_ptr = cur_gd.y->get();                         \
-                auto diff = cur_ptr->create_diff(0, cur_ptr->read_size());   \
+                auto diff = cur_ptr->create_diff(0, cur_ptr->size());   \
                 ptr->apply_diff(diff, ptr.ensure_func());               \
             }
 
