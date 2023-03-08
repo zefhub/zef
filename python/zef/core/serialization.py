@@ -35,6 +35,7 @@ from .flat_graph import FlatGraph_, FlatRef_, FlatRefs_
 from ..pyzef import internals as pyinternals
 from .symbolic_expression import SymbolicExpression_
 from .user_value_type import UserValueInstance_
+from .atom import Atom_
 
 ##############################
 # * Definition
@@ -289,7 +290,7 @@ def serialize_valuetype(vt):
 def serialize_symbolicexpression(se):
     return {
         "_zeftype": "SymbolicExpression",
-        "name": se.name,
+        "name": serialize_internal(se.name),
         "root_node": serialize_internal(se.root_node),
     }
 
@@ -307,6 +308,18 @@ def serialize_val(val):
         "iid": serialize_internal(val.iid),
     }
 
+def serialize_atom(atom):
+    from .atom import _get_atom_type, _get_atom_id, _get_fields, _get_ref_pointer
+    return {
+        "_zeftype": "Atom",
+        "atom_type": serialize_internal(_get_atom_type(atom)),
+        "atom_id": serialize_internal(_get_atom_id(atom)),
+        "fields": serialize_internal(_get_fields(atom)),
+        # We never serialize a ref pointer - it's an internal optimisation detail only.
+        # "ref_pointer": serialize_internal(_get_ref_pointer(atom)),
+    }
+
+
 
 def deserialize_tuple(json_d: dict) -> tuple:
     return tuple(deserialize_internal(el) for el in json_d["items"])
@@ -322,7 +335,7 @@ def deserialize_dict(json_d):
 def deserialize_zeftypes(z) -> dict:
     if z['_zeftype'] == "ZefRef":
         g = Graph(z['guid'])
-        # Note: can't use in_frame here, because if the z itself is a TX, this will not behave correctly.
+        # Note: can't use to_frame here, because if the z itself is a TX, this will not behave correctly.
         return ZefRef(g[z['uid']], g[z['tx_uid']])
 
     elif z['_zeftype'] == "EZefRef":
@@ -472,7 +485,7 @@ def deserialize_valuetype(d_in):
 
 def deserialize_symbolicexpression(d):
     return SymbolicExpression_(
-        name = d["name"],
+        name = deserialize_internal(d["name"]),
         root_node= deserialize_internal(d["root_node"]),
     )
 
@@ -487,6 +500,15 @@ def deserialize_val(d):
         deserialize_internal(d["arg"]),
         deserialize_internal(d["iid"]),
     )
+
+def deserialize_atom(d):
+    atom = Atom_()
+    object.__setattr__(atom, "atom_type", deserialize_internal(d["atom_type"]))
+    object.__setattr__(atom, "atom_id", deserialize_internal(d["atom_id"]))
+    object.__setattr__(atom, "fields", deserialize_internal(d["fields"]))
+    # object.__setattr__(atom, "ref_pointer", deserialize_internal(d["ref_pointer"]))
+    object.__setattr__(atom, "ref_pointer", None)
+    return atom
 
 serialization_mapping[internals.ZefRef] = serialize_zeftypes
 # serialization_mapping[ZefRefs] = serialize_zeftypes
@@ -530,6 +552,7 @@ serialization_mapping[dict] = serialize_dict
 serialization_mapping[SymbolicExpression_] = serialize_symbolicexpression
 serialization_mapping[UserValueInstance_] = serialize_user_value_instance
 serialization_mapping[Val_] = serialize_val
+serialization_mapping[Atom_] = serialize_atom
 
 deserialization_mapping["dict"] = deserialize_dict
 deserialization_mapping["tuple"] = deserialize_tuple
@@ -575,3 +598,4 @@ deserialization_mapping["ValueType"] = deserialize_valuetype
 deserialization_mapping["SymbolicExpression"] = deserialize_symbolicexpression
 deserialization_mapping["UserValueInstance"] = deserialize_user_value_instance
 deserialization_mapping["Val"] = deserialize_val
+deserialization_mapping["Atom"] = deserialize_atom

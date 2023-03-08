@@ -23,6 +23,8 @@
 using json = nlohmann::json;
 
 namespace zefDB {
+    const wchar_t DB_symbol = L'㏈';
+    // const std::string DB_symbol_s(DB_symbol);
 
 	// used to print out actual memory settings, typically for debugging.
 	// Not to be used in performance critical code, the conversion to string 
@@ -45,6 +47,19 @@ namespace zefDB {
             std::memcpy(binary_uid, to_copy.binary_uid, size_in_bytes);
         };
 		operator str() const;
+        std::string to_base64(bool prefixed=true) const {
+            std::string s = base64_encode(binary_uid, 8);
+            // Remove the final '=' that will always be there.
+            if(s.size() != 12)
+                throw std::runtime_error("Some odd length problem with the base64 of a BaseUID");
+            s = s.substr(0, 11);
+            if(prefixed) {
+                auto DB_symbol_s = get_DB_symbol_s();
+                return DB_symbol_s + s;
+            } else {
+                return s;
+            }
+        }
 
         // Constructing a BaseUID from a string is kept separate from the normal
         // constructors to make it "even more explicit" than an explicit keyword
@@ -64,8 +79,39 @@ namespace zefDB {
             BaseUID base_uid{};
             std::memcpy(base_uid.binary_uid, ptr, size_in_bytes);
             return base_uid;
-        };
+        }
+        static std::string get_DB_symbol_s() {
+            static bool prepared = false;
+            static std::string s;
+            if(prepared)
+                return s;
+            std::mbstate_t state {};
+            // For some reason MB_CUR_MAX is not a constant on windows.
+            char * mb = new char[MB_CUR_MAX];
+            std::size_t ret = std::wcrtomb(mb, DB_symbol, &state);
+            s = std::string(mb, ret) + "_";
+            prepared = true;
+            delete[] mb;
+            return s;
+        }
         static BaseUID random();
+        static BaseUID from_base64(std::string uid, bool prefixed=true) {
+            if(prefixed) {
+                auto DB_symbol_s = get_DB_symbol_s();
+                if(uid.size() != 11 + DB_symbol_s.size())
+                    throw std::runtime_error("base64 encoding of uid is the wrong length");
+                if(uid.find(DB_symbol_s) != 0)
+                    throw std::runtime_error("base64 encoding does not have required prefix");
+                uid = uid.substr(DB_symbol_s.size());
+            } else {
+                if(uid.size() != 11)
+                    throw std::runtime_error("base64 encoding of uid is the wrong length");
+            }
+            BaseUID base_uid{};
+            std::string decoded = base64_decode(uid);
+            std::memcpy(base_uid.binary_uid, decoded.data(), size_in_bytes);
+            return base_uid;
+        }
 
         bool operator<(BaseUID const& rhs) const {
             for(int i = 0 ; i < size_in_bytes ; i++) {
@@ -101,6 +147,22 @@ namespace zefDB {
 
 		operator str() const { return str(blob_uid) + str(graph_uid); };
 
+        std::string to_base64() const {
+            return blob_uid.to_base64(true) + graph_uid.to_base64(false);
+        }
+        static EternalUID from_base64(std::string uid) {
+            auto DB_symbol_s = BaseUID::get_DB_symbol_s();
+            if(uid.size() != 22 + DB_symbol_s.size())
+                throw std::runtime_error("base64 encoding of EternalUID is the wrong length");
+            if(uid.find(DB_symbol_s) != 0)
+                throw std::runtime_error("base64 encoding does not have required prefix");
+            uid = uid.substr(DB_symbol_s.size());
+            return EternalUID(
+                              BaseUID::from_base64(uid.substr(0,11), false),
+                              BaseUID::from_base64(uid.substr(11,11), false)
+            );
+        }
+
         bool operator<(EternalUID const& rhs) const {
             return std::tie(this->blob_uid, this->graph_uid) <
                 std::tie(rhs.blob_uid, rhs.graph_uid);
@@ -132,6 +194,10 @@ namespace zefDB {
         }
 
 		operator str() const { return str(blob_uid) + str(tx_uid) + str(graph_uid); };
+
+        std::string to_base64() const {
+            return blob_uid.to_base64(true) + tx_uid.to_base64(false) + graph_uid.to_base64(false);
+        }
 
         bool operator<(ZefRefUID const& rhs) const {
             return std::tie(this->blob_uid, this->tx_uid, this->graph_uid) <

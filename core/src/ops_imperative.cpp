@@ -219,7 +219,7 @@ namespace zefDB {
         }
 
         Time now() {
-            return Time{ std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()).count() * 1E-6 };
+            return Time{ time_double() };
         }
 
         //////////////////////////////
@@ -698,7 +698,7 @@ namespace zefDB {
                 int this_time_slice = TimeSlice(node.tx);
                 EZefRefs all_outs = filter(outs(to_ezefref(node)), rt);
                 if(length(all_outs) > 0) {
-                    throw std::runtime_error("There are no " + to_str(rt) + " found in the outgoing relations on node " + to_str(node) + " in time slice " + to_str(this_time_slice) + " however there were outgoing " + to_str(rt) + " found in other time slices.\nHint: you may have wanted to change the reference frame via `z | now` or `z | in_frame[...]`.");
+                    throw std::runtime_error("There are no " + to_str(rt) + " found in the outgoing relations on node " + to_str(node) + " in time slice " + to_str(this_time_slice) + " however there were outgoing " + to_str(rt) + " found in other time slices.\nHint: you may have wanted to change the reference frame via `z | now` or `z | to_frame[...]`.");
                 }
                 ZefRefs all_ins = filter(ins(node), rt);
                 if(length(all_ins) > 0) {
@@ -729,7 +729,7 @@ namespace zefDB {
                 int this_time_slice = TimeSlice(node.tx);
                 EZefRefs all_ins = filter(ins(to_ezefref(node)), rt);
                 if(length(all_ins) > 0) {
-                    throw std::runtime_error("There are no " + to_str(rt) + " found in the incoming relations on node " + to_str(node) + " in time slice " + to_str(this_time_slice) + " however there were incoming " + to_str(rt) + " found in other time slices.\nHint: you may have wanted to change the reference frame via `z | now` or `z | in_frame[...]`.");
+                    throw std::runtime_error("There are no " + to_str(rt) + " found in the incoming relations on node " + to_str(node) + " in time slice " + to_str(this_time_slice) + " however there were incoming " + to_str(rt) + " found in other time slices.\nHint: you may have wanted to change the reference frame via `z | now` or `z | to_frame[...]`.");
                 }
                 ZefRefs all_outs = filter(outs(node), rt);
                 if(length(all_outs) > 0) {

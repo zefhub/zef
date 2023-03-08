@@ -471,6 +471,9 @@ if(LIBZEF_BUNDLED_CURL)
   set(BUILD_SHARED_LIBS OFF)
   set(BUILD_TESTING OFF)
   set(HTTP_ONLY ON)
+  # set(CURL_ZLIB OFF)
+  set(CURL_ZLIB OFF CACHE STRING "Override" FORCE)
+  set(CURL_USE_LIBSSH2 OFF)
 
   if(WIN32)
     set(CURL_USE_SCHANNEL ON)
@@ -533,6 +536,44 @@ if(LIBZEF_BUNDLED_LIBARCHIVE)
     GIT_SHALLOW ON
     UPDATE_COMMAND "")
 
+  if(WIN32)
+	# This seems necessary because libarchive is checking in a bad way for these functions.
+	set(HAVE_WCSCPY TRUE)
+	set(HAVE_WCSCMP TRUE)
+	set(HAVE_WCSLEN TRUE)
+  endif()
+
+  # We want to avoid any external dynamic library deps if possible
+  #
+  # Note: using option() here instead of set() because of cmake_policy set inside of archive repo
+  option(ENABLE_MBEDTLS "ENABLE_MBEDTLS" OFF)
+  option(ENABLE_NETTLE "ENABLE_NETTLE" OFF)
+  option(ENABLE_OPENSSL "ENABLE_OPENSSL" OFF)
+  option(ENABLE_LIBB2 "ENABLE_LIBB2" OFF)
+  option(ENABLE_LZ4 "ENABLE_LZ4" OFF)
+  option(ENABLE_LZO "ENABLE_LZO" OFF)
+  option(ENABLE_LZMA "ENABLE_LZMA" OFF)
+  option(ENABLE_ZSTD "ENABLE_ZSTD" OFF)
+  option(ENABLE_ZLIB "ENABLE_ZLIB" OFF)
+  option(ENABLE_BZip2 "ENABLE_BZip2" OFF)
+  option(ENABLE_LIBXML2 "ENABLE_LIBXML2" OFF)
+  option(ENABLE_EXPAT "ENABLE_EXPAT" OFF)
+  option(ENABLE_PCREPOSIX "ENABLE_PCREPOSIX" OFF)
+  option(ENABLE_LibGCC "ENABLE_LibGCC" OFF)
+  option(ENABLE_CNG "ENABLE_CNG" OFF)
+  option(ENABLE_TAR "ENABLE_TAR" OFF)
+  option(ENABLE_TAR_SHARED "ENABLE_TAR_SHARED" OFF)
+  option(ENABLE_CPIO "ENABLE_CPIO" OFF)
+  option(ENABLE_CPIO_SHARED "ENABLE_CPIO_SHARED" OFF)
+  option(ENABLE_CAT "ENABLE_CAT" OFF)
+  option(ENABLE_CAT_SHARED "ENABLE_CAT_SHARED" OFF)
+  option(ENABLE_XATTR "ENABLE_XATTR" OFF)
+  option(ENABLE_ACL "ENABLE_ACL" OFF)
+  option(ENABLE_ICONV "ENABLE_ICONV" OFF)
+  option(ENABLE_TEST "ENABLE_TEST" OFF)
+  option(ENABLE_COVERAGE "ENABLE_COVERAGE" OFF)
+  option(ENABLE_INSTALL "ENABLE_INSTALL" OFF)
+  
   ManualFetchContent_MakeAvailable(archive)
   set_target_properties(archive_static PROPERTIES
     POSITION_INDEPENDENT_CODE ON)
@@ -540,6 +581,8 @@ if(LIBZEF_BUNDLED_LIBARCHIVE)
   target_include_directories(archive_static PUBLIC ${LIBARCHIVE_INCLUDES})
 
   message(STATUS "Libarchive includes at: ${LIBARCHIVE_INCLUDES}")
+  
+
 
   create_license_file("libarchive" ${LAST_SOURCE_DIR}/COPYING NO "This library bundles the libarchive library (https://github.com/libarchive/libarchive)\n\nThe full text of the libarchive license follows below.\n\n")
 
@@ -566,9 +609,13 @@ else()
   if(ARCHIVE_FOUND)
     message(STATUS "Found archive libraries at: ${ARCHIVE_LIBRARIES}")
     message(STATUS "Found archive includes at: ${ARCHIVE_INCLUDE_DIRS}")
+    add_library(archive INTERFACE)
+    target_include_directories(archive SYSTEM INTERFACE ${ARCHIVE_INCLUDE_DIRS})
+    target_link_libraries(archive INTERFACE ${ARCHIVE_LIBRARIES})
   else()
     message(FATAL_ERROR "Couldn't find archive via cmake, pkg-config or find_library")
   endif()
+
 
   add_library (external::archive ALIAS archive)
 endif()

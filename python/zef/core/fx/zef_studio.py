@@ -19,6 +19,10 @@ from ..VT import *
 from ..logger import log
 
 
+# TODO:
+# 3. Add a mutation for adding a new field
+
+
 #-------------------------------------------------------------
 #---------------------Resolvers-------------------------------
 #-------------------------------------------------------------
@@ -61,6 +65,7 @@ def make_cellet_value(obj):
             "id": uid(obj),
             "label": label,
             "etType": str(rae_type(obj)),
+            "color": et_color(rae_type(obj)) #TODOOOO
         }
 
 def make_individual_value(obj):
@@ -89,7 +94,8 @@ def make_cell(obj, rt):
 
 def make_row(obj, connected_rels):
    return {
-      "cells": [make_cell(obj, rt) for rt in connected_rels]
+        "id": str(uid(obj)),
+        "cells": [make_cell(obj, rt) for rt in connected_rels]
    }
 
 
@@ -102,7 +108,7 @@ def make_column(column):
 def make_columns(g, entity_type):
    # TODO Add sorting of columns
    z = delegate_of(entity_type, g)
-   connected_rels = z | out_rels[RT] | map[rae_type] | collect
+   connected_rels = set(z | out_rels[RT] | map[rae_type] | collect)
    return connected_rels, connected_rels | map[make_column] | collect
 
 def make_table_return(g, entity_type, entities):
@@ -115,14 +121,18 @@ def make_table_return(g, entity_type, entities):
 
 @func
 def entity_table(query_args):
-   graph_id = query_args.get('graphID', None)
-   et_type  = query_args.get('entityType', None)
-   if not graph_id or not et_type: return None
+    graph_id = query_args.get('graphID', None)
+    et_type  = query_args.get('entityType', None)
+    if not graph_id or not et_type: return None
 
-   et_type = ET(et_type)
-   limit  = query_args.get('limit', 10)
-   g = Graph(graph_id)
-   return make_table_return(g, et_type, list(g | now |  all[et_type] | take[limit] | collect))
+    limit  = query_args.get('limit', 10)
+    try:
+        et_type = ET(et_type)
+        g = Graph(graph_id)
+        return make_table_return(g, et_type, list(g | now |  all[et_type] | take[limit] | collect))
+    except Exception as e:
+        log.error(f"Error in entityTable: {e}")
+        return None
 
 
 @func
@@ -181,7 +191,7 @@ def value_of_aet_at_tx(aet, tx) -> str:
             return '' if val is None else str(val)
         else:
             return ''
-    except:
+    except Exception:
         return ''
 
 @func
@@ -215,7 +225,7 @@ def atom_events(zr):
         rel_ent_inst_edge = uzr | in_rel[BT.RAE_INSTANCE_EDGE]
         return rel_ent_inst_edge | in_rels[BT] | map[construct_event] | collect
     
-    return zr | out_rels | map[events_for_rt] | concat | sort[lambda d: d['transaction']['txTimestamp']] | collect
+    return zr | out_rels | map[events_for_rt] | concat | sort[lambda d: d['transaction']['txTimestamp']] | reverse | collect
 
 
 def create_tx(tx):
@@ -242,7 +252,7 @@ def create_field(atom, field_rt):
         # "id": str(uid(field_rt)),
         "name": str(field_rt),
         "value": make_cell(atom, field_rt),
-        "isEditable": True,
+        "isEditable": False,
     }
 
 @func
@@ -267,14 +277,49 @@ def get_atom(query_args):
 
     return {
         "id": atom_id,
+        "color": et_color(atom_type),
         "atomType": str(atom_type),
         "fields": atom_fields(atom),
         "events": atom_events(atom),
     }
 
-    
+
+def et_color(et):
+    from zef.core.colors import colors
+    idx =  hash(et) % len(colors)
+    return list(colors.values())[idx].upper()
 
 
+@func
+def terminate_field(query_args):
+    try:
+        field_id  = query_args.get('fieldID')
+        g_id = BaseUID(field_id[-16:])
+        g = Graph(g_id)
+
+        field = g[field_id]
+        field | terminate | g | run
+
+        return True
+    except Exception as e:
+        log.error(f"Failed to terminate field {query_args}. {e}")
+        return False
+
+@func
+def add_field(query_args):
+    try:
+        source_id  = query_args.get('sourceID')
+        relation_name  = query_args.get('relationName')
+        value  = query_args.get('value')
+
+        g_id = BaseUID(source_id[-16:])
+        g = Graph(g_id)
+
+        res = (g[source_id], RT(relation_name), value) | g | run
+        return str(uid(res[-1]))
+    except Exception as e:
+        log.error(f"Failed to add field {query_args}. {e}")
+        raise e
 
 #-------------------------------------------------------------
 #-------------------Schema String-------------------------------
@@ -292,6 +337,11 @@ type Mutation {
     assignValueFloat( ids: AssignValueIDs!, value: Float!): Boolean
     assignValueInt(   ids: AssignValueIDs!, value: Int!): Boolean
     assignValueBool(  ids: AssignValueIDs!, value: Boolean!): Boolean
+    terminateField(fieldID: ID!): Boolean
+    addFieldString(sourceID: ID!, relationName: String!, value: String!): ID
+    addFieldFloat(sourceID: ID!, relationName: String!, value: Float!): ID
+    addFieldInt(sourceID: ID!, relationName: String!, value: Int!): ID
+    addFieldBool(sourceID: ID!, relationName: String!, value: Boolean!): ID
 }
 
 input AssignValueIDs {
@@ -301,6 +351,7 @@ input AssignValueIDs {
 
 type Atom {
 	id: ID!
+    color: String
 	atomType: String    
 	fields:  [Field]
 	events: [Event]
@@ -327,6 +378,7 @@ header: String
 }
 
 type Row {
+id: ID!
 cells: [Cell]
 }
 
@@ -358,6 +410,7 @@ type CellET implements Cell{
 id: ID!
 label: String
 etType: String
+color: String
 }
 
 type CellZef implements Cell{
@@ -401,8 +454,13 @@ type ValueAssignedEvent implements Event {
 def create_schema_dict(simple_schema):
    from ...graphql import generate_schema_dict, fill_types_default_resolvers
 
+    # Step 1: Create a Schema Dict "Data Structure" from the GraphQL Schema String
    schema_dict = generate_schema_dict(simple_schema)
+
+   # Step 2 (Optional): Fill in the default resolvers for the types
    schema_dict = fill_types_default_resolvers(schema_dict, lambda field_name: get[field_name])
+
+   # Step 3: Add the resolvers for the fields
    schema_dict = (
       schema_dict 
       | insert_in[('_Types', 'Query', 'graphs', 'resolver')][graphs] 
@@ -413,20 +471,29 @@ def create_schema_dict(simple_schema):
       | insert_in[('_Types', 'Mutation', 'assignValueFloat', 'resolver')][assign_value_float]
       | insert_in[('_Types', 'Mutation', 'assignValueInt', 'resolver')][assign_value_int]
       | insert_in[('_Types', 'Mutation', 'assignValueBool', 'resolver')][assign_value_bool]
+      | insert_in[('_Types', 'Mutation', 'terminateField', 'resolver')][terminate_field]
+      | insert_in[('_Types', 'Mutation', 'addFieldString', 'resolver')][add_field]
+      | insert_in[('_Types', 'Mutation', 'addFieldFloat', 'resolver')][add_field]
+      | insert_in[('_Types', 'Mutation', 'addFieldInt', 'resolver')][add_field]
+      | insert_in[('_Types', 'Mutation', 'addFieldBool', 'resolver')][add_field]
       | insert_in[('_Interfaces', 'Cell', '_interface_resolver')][cell_interface_resolver] 
       | insert_in[('_Interfaces', 'Event', '_interface_resolver')][event_interface_resolver] 
       | collect
    )
    return schema_dict
 
-def studio_start_server_handler(eff: Dict):
+def studio_start_handler(eff: Dict):
    """Example
    {
-      "type": FX.Studio.StartServer,
+      "type": FX.Studio.Start,
+      "report_errors": True, # Optional
    } | run
    """
+   report_errors = eff.get("report_errors", False)
+   report_errors = "&report_errors=true" if report_errors else ""
+
    def open_browser(port):
-      studio_url = f"https://studio.zefhub.io/?endpoint=http://localhost:{port}/graphql"
+      studio_url = f"https://studio.zefhub.io/?endpoint=http://localhost:{port}/graphql{report_errors}"
       log.info(f"Started Zef Studio at {studio_url}")
       import webbrowser
       webbrowser.open(studio_url)
@@ -441,13 +508,12 @@ def studio_start_server_handler(eff: Dict):
    while trials:
       random_port = random.randint(10000, 30000)
       try:
-         http_r = {
-            "type": FX.GraphQL.StartServer,
+         http_r = FX.GraphQL.StartServer(**{
             "schema_dict" : schema_dict,
-            "g" :  Graph(),
+            "db" :  Graph(),
             "port" :  random_port, 
-            "path" :  "/graphql", 
-         } | run
+             "path" :  "/graphql", 
+         }) | run
 
          server_zr = now(g_process[http_r['server_uuid']])
          
@@ -465,5 +531,5 @@ def studio_start_server_handler(eff: Dict):
 
 
 def studio_stop_server_handler(eff: Dict):
-    return run({**eff, 'type': FX.HTTP.StopServer})
+    return run(FX.HTTP.StopServer(**eff))
 

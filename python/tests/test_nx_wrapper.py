@@ -17,6 +17,8 @@ from zef import *
 from zef.ops import *
 import zef
 
+from zef.core.atom import _get_ref_pointer
+
 class MyTestCase(unittest.TestCase):
     def test_networkx(self):
         from networkx import DiGraph
@@ -31,7 +33,7 @@ class MyTestCase(unittest.TestCase):
                     (5,6), (6,7), (7,8), (8,6)]:
             (zs[i], RT.UsedBy, zs[j]) | g | run
 
-        r = [
+        _,r = [
             (ET.Person["alex"], [(RT.FirstName, "Alex"),
                                 (RT.Status, EN.Status.Developer),
                                 (RT.ZefAge, 1)]),

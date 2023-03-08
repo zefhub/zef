@@ -48,7 +48,6 @@ contains        = make_zefop(internals.RT.Contains)
 contained_in    = make_zefop(internals.RT.ContainedIn)
 skip            = make_zefop(internals.RT.Skip)
 all             = make_zefop(internals.RT.All)
-all2            = make_zefop(internals.RT.All2)
 any             = make_zefop(internals.RT.Any)
 slice           = make_zefop(internals.RT.Slice)                 # lowercase slice is used in core Python
 join            = make_zefop(internals.RT.Join)
@@ -123,6 +122,7 @@ append          = make_zefop(internals.RT.Append)
 interleave      = make_zefop(internals.RT.Interleave)
 interleave_longest = make_zefop(internals.RT.InterleaveLongest)
 chunk           = make_zefop(internals.RT.Chunk)
+chunk_by        = make_zefop(internals.RT.ChunkBy)
 sliding         = make_zefop(internals.RT.Sliding)
 stride          = make_zefop(internals.RT.Stride)
 insert          = make_zefop(internals.RT.Insert)
@@ -147,6 +147,8 @@ max             = make_zefop(internals.RT.Max)
 min             = make_zefop(internals.RT.Min)
 max_by          = make_zefop(internals.RT.MaxBy)
 min_by          = make_zefop(internals.RT.MinBy)
+arg_max         = make_zefop(internals.RT.ArgMax)
+arg_min         = make_zefop(internals.RT.ArgMin)
 clamp           = make_zefop(internals.RT.Clamp)
 first           = make_zefop(internals.RT.First)
 second          = make_zefop(internals.RT.Second)
@@ -163,11 +165,13 @@ skip_while      = make_zefop(internals.RT.SkipWhile)
 skip_until      = make_zefop(internals.RT.SkipUntil)
 skip            = make_zefop(internals.RT.Skip)
 length          = make_zefop(internals.RT.Length) 
+count           = make_zefop(internals.RT.Count) 
 nth             = make_zefop(internals.RT.Nth) 
 now             = make_zefop(internals.RT.Now) 
 events          = make_zefop(internals.RT.Events) 
 preceding_events= make_zefop(internals.RT.PrecedingEvents) 
 to_delegate     = make_zefop(internals.RT.ToDelegate) 
+is_blueprint_atom = make_zefop(internals.RT.IsBlueprintAtom)
 delegate_of     = make_zefop(internals.RT.DelegateOf) 
 target          = make_zefop(internals.RT.Target) 
 source          = make_zefop(internals.RT.Source) 
@@ -180,8 +184,8 @@ sort            = make_zefop(internals.RT.Sort)
 uid             = make_zefop(internals.RT.Uid)
 frame           = make_zefop(internals.RT.Frame)
 discard_frame   = make_zefop(internals.RT.DiscardFrame)
-to_frame        = make_zefop(internals.RT.InFrame)                           # TODO: retire this. Use 'in_frame' instead
-in_frame        = make_zefop(internals.RT.InFrame)
+to_frame        = make_zefop(internals.RT.ToFrame)                           
+in_frame        = make_zefop(internals.RT.ToFrame)# TODO: retire this. Use 'in_frame' instead
 to_graph_slice  = make_zefop(internals.RT.ToGraphSlice)
 to_tx           = make_zefop(internals.RT.ToTx)
 time_travel     = make_zefop(internals.RT.TimeTravel)
@@ -196,7 +200,6 @@ is_represented_as = make_zefop(internals.RT.IsRepresentedAs)
 representation_type = make_zefop(internals.RT.RepresentationType)
 rae_type        = make_zefop(internals.RT.RaeType)
 abstract_type   = make_zefop(internals.RT.AbstractType)
-fill_or_attach  = make_zefop(internals.RT.FillOrAttach)
 set_field       = make_zefop(internals.RT.SetField)
 Assert          = make_zefop(internals.RT.Assert)
 allow_tombstone = make_zefop(internals.RT.AllowTombstone)
@@ -319,6 +322,12 @@ zascii_to_blueprint_fg = make_zefop(internals.RT.ZasciiToBlueprintFg)
 
 
 
+recursive_flatten = make_zefop(internals.RT.RecursiveFlatten)
+split_at          = make_zefop(internals.RT.SplitAt)
+split_lines       = make_zefop(internals.RT.SplitLines)
+filter_map        = make_zefop(internals.RT.FilterMap)
+ends_with         = make_zefop(internals.RT.EndsWith)
+starts_with       = make_zefop(internals.RT.StartsWith)
 
 
 merge           = make_zefop(internals.RT.Merge)                 # We need this for observables. Only there?
@@ -387,6 +396,9 @@ to_object    = make_zefop(internals.RT.ToObject)
 infer_types  = make_zefop(internals.RT.InferTypes)
 deduplicate  = make_zefop(internals.RT.Deduplicate)
 identify_entities = make_zefop(internals.RT.IdentifyEntities)
+
+explain = make_zefop(internals.RT.Explain)
+
 # match
 # split_before
 # split_after
@@ -418,3 +430,16 @@ class FsClass:
         return fields[RT(s)]    # just returns a normal zefop called 'field'
 
 Fs = FsClass()
+
+
+
+
+
+# ----------- Some Types declared in terms of ZefOps -------------
+
+from .VT import insert_VT, Where
+
+insert_VT("StartsWith", Where[starts_with])
+insert_VT("EndsWith", Where[ends_with])
+insert_VT("Contains", Where[contains])
+

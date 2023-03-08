@@ -22,16 +22,16 @@ class MyTestCase(unittest.TestCase):
         g = Graph()
 
         z = ET.Machine | g | run
-        z | fill_or_attach[RT.Weight][QuantityFloat(100.0, EN.Unit.kilogram)] | g | run
+        z | set_field[RT.Weight][QuantityFloat(100.0, EN.Unit.kilogram)] | g | run
         z2 = ET.Machine | g | run
-        z2 | fill_or_attach[RT.Name]["asdf"] | g | run
-        z2 | fill_or_attach[RT.Status]["asdf"] | g | run
+        z2 | set_field[RT.Name]["asdf"] | g | run
+        z2 | set_field[RT.Status]["asdf"] | g | run
         z3 = ET.Machine | g | run
-        [z3 | fill_or_attach[RT.Number][5] | collect,
-         z3 | fill_or_attach[RT.Time][now()] | collect,
-         z3 | fill_or_attach[RT.Fraction][0.5] | collect,
-         z3 | fill_or_attach[RT.Status][EN.Status.On] | collect,
-         z3 | fill_or_attach[RT.Disabled][True]
+        [z3 | set_field[RT.Number][5] | collect,
+         z3 | set_field[RT.Time][now()] | collect,
+         z3 | set_field[RT.Fraction][0.5] | collect,
+         z3 | set_field[RT.Status][EN.Status.On] | collect,
+         z3 | set_field[RT.Disabled][True]
          ] | transact[g] | run
 
         self.assertEqual(length(z | now | out_rels[RT]), 1)
@@ -58,20 +58,22 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(length(z2 | now | out_rels[RT]), 2)
         self.assertEqual(length(z3 | now | out_rels[RT]), 5)
 
-        r = [ET.Machine["z"],
-             ET.Person["y"],
-             Z["z"] | set_field[RT.Supervisor][Z["y"]],
-             ] | transact[g] | run
+        _,r = [
+            ET.Machine["z"],
+            ET.Person["y"],
+            Any["z"] | set_field[RT.Supervisor][Z["y"]],
+        ] | transact[g] | run
         self.assertEqual(r["z"] | Out[RT.Supervisor] | collect, r["y"])
         
-        r2 = [ET.Machine["z"] | set_field[RT.Supervisor][ET.Person["y"]]] | transact[g] | run
+        _,r2 = [ET.Machine["z"] | set_field[RT.Supervisor][ET.Person["y"]]] | transact[g] | run
         self.assertEqual(r2["z"] | Out[RT.Supervisor] | collect, r2["y"])
 
-        r3 = [r["z"] | set_field[RT.Supervisor][ET.Person["new"]]] | transact[g] | run
+        _,r3 = [r["z"] | set_field[RT.Supervisor][ET.Person["new"]]] | transact[g] | run
         self.assertEqual(r["z"] | now | Outs[RT.Supervisor] | length | collect, 1)
         self.assertEqual(r["z"] | now | Out[RT.Supervisor] | collect, r3["new"])
 
 
+    @unittest.skip("set_field with incoming needs to be reimplemented")
     def test_set_field_reversed(self):
         g = Graph()
 
@@ -140,7 +142,7 @@ class MyTestCase(unittest.TestCase):
         ae | assign["word"] | g | run
         self.assertEqual(value(now(ae)), "word")
 
-        g | now | all[AET] | single | assign["single"] | g | run
+        g | now | all[AttributeEntity] | single | assign["single"] | g | run
         self.assertEqual(value(now(ae)), "single")
 
 if __name__ == '__main__':

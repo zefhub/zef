@@ -71,6 +71,7 @@ from ...pyzef.internals import (
     apply_update,
     blob_to_json,
     compress_zstd,
+    create_GraphDataWrapper,
     create_graph_from_bytes,
     create_update_heads,
     create_update_payload,
@@ -85,6 +86,7 @@ from ...pyzef.internals import (
     get_enum_value_from_string,
     get_graph_revision_info,
     get_latest_complete_tx_node,
+    get_loaded_graph,
     get_local_process_graph,
     graph_as_UpdatePayload,
     gtd_info_str,
@@ -119,6 +121,7 @@ from ...pyzef.internals import (
     partial_hash,
     root_node_blob_index,
     search_value_node,
+    setup_pre_lock_hook,
     set_data_layout_version_info,
     set_graph_revision_info,
     show_blob_details,
@@ -159,6 +162,7 @@ from .value_type_check import register_value_type_check
 register_value_type_check()
 from .determine_primitive_type import register_determine_primitive_type
 register_determine_primitive_type()
+setup_pre_lock_hook()
 
 BT = BlobTypeStruct()
 
@@ -223,7 +227,7 @@ def assign_value_imp(z, value):
 
     # We can't be sure what kind of zefref we have, and if it is complex things
     # break at the moment, so do this thoroughly here.
-    if not is_a(z, VT.AET[VT.Any]):
+    if not is_a(z, VT.AttributeEntity):
         print(z)
         raise Exception("E/ZefRef is not an AET!")
     aet = VT.AET(z)
@@ -242,6 +246,13 @@ def assign_value_imp(z, value):
         print(f"There was an exception in the c call for assign value. z={z} and value={value} and aet={aet}")
         raise
 
+def val_as_serialized_if_necessary(val):
+    from .. import VT
+    PrimitiveValue = VT.Int | VT.String | VT.Float | VT.Bool | VT.Time | VT.Enum | VT.QuantityInt | VT.QuantityFloat
+
+    if not isinstance(val.arg, PrimitiveValue):
+        return SerializedValue.serialize(val.arg)
+    return val.arg
 
 def instantiate_value_node_imp(value, g):
     from ...pyzef.zefops import SerializedValue
@@ -277,13 +288,18 @@ from dataclasses import dataclass
 class Val_:
     # arg: VT.Any
     arg: int
-    iid: str = None
-
-    def __getitem__(self, x):
-        if self.iid is not None:
-            raise Exception("Can't overwrite iid")
-        return Val_(self.arg, x)
 
     def __hash__(self):
         from ..VT.value_type import hash_frozen
-        return hash_frozen(("Val_", self.arg, self.iid))
+        return hash_frozen(("Val_", self.arg))
+
+def is_transactor(glike): #: Graph | GraphRef):
+    if isinstance(glike, Graph):
+        return glike.graph_data.is_primary_instance
+    elif isinstance(glike, GraphRef):
+        g = get_loaded_graph(glike)
+        if g is None:
+            return False
+        return is_transactor(g)
+    else:
+        raise Exception("Shoudln't get here")

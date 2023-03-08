@@ -827,12 +827,12 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, LoadPag
 template<>
 void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifySync & content, Butler::msg_ptr & msg) {
     if(me.gd->error_state != GraphData::ErrorState::OK) {
-        msg->promise.set_value(GenericResponse{false, "Graph is in error state"});
+        msg->promise.set_value(GenericResponse{"Graph is in error state"});
         return;
     }
 
     if(me.gd->local_path != "") {
-        msg->promise.set_value(GenericResponse{false, "Can't sync local graphs without giving up consistency"});
+        msg->promise.set_value(GenericResponse{"Can't sync local graphs without giving up consistency"});
         return;
     }
 
@@ -847,9 +847,9 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
 
     if(!want_upstream_connection()) {
         if(have_auth_credentials()) {
-            msg->promise.set_value(GenericResponse{false, "Can't sync when we aren't connected to upstream."});
+            msg->promise.set_value(GenericResponse{"Can't sync when we aren't connected to upstream."});
         } else {
-            msg->promise.set_value(GenericResponse{false, "Can't sync without a login. Please run `login | run` to login to ZefHub first."});
+            msg->promise.set_value(GenericResponse{"Can't sync without a login. Please run `login | run` to login to ZefHub first."});
         }
         return;
     }
@@ -867,12 +867,18 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
             char * end = (char*)(me.gd) + me.gd->read_head.load() * constants::blob_indx_step_in_bytes;
             size_t len = end - blobs_ptr;
             if(!conversions::can_convert_0_3_0_to_0_2_0(blobs_ptr, len)) {
-                msg->promise.set_value(GenericResponse{false, "Can't sync a graph which is not comptabile with 0.2.0 data layout"});
+                msg->promise.set_value(GenericResponse{"Can't sync a graph which is not comptabile with 0.2.0 data layout"});
                 return;
             }
         }
     }
 
+    if(!content.sync && me.gd->is_primary_instance) {
+        msg->promise.set_value(GenericResponse{"Can't stop synchronising graph when we have primary role."});
+        return;
+    }
+
+    bool prior_should_sync = me.gd->should_sync;
     update(me.gd->heads_locker, me.gd->should_sync, content.sync);
 
     // Note: if the graph was already set to sync, the manager should be
@@ -886,7 +892,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
         if (content.sync) {
             // wait_for_auth();
             if(!network.connected) {
-                msg->promise.set_value(GenericResponse{false, "Network did not reconnect in time."});
+                msg->promise.set_value(GenericResponse{"Network did not reconnect in time."});
                 return;
             }
             // We try and do a force update here, even if the sync worker would
@@ -894,14 +900,6 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
             // This occurs via us triggering the sync thread.
             blob_index sync_to = me.gd->read_head;
             wake(me.gd->heads_locker);
-            // bool reached_sync = wait_pred(
-            //     me.gd->heads_locker,
-            //     [&]() { return me.gd->sync_head >= sync_to; },
-            //     std::chrono::duration<double>(butler_generic_timeout.value));
-            // if(!reached_sync) { 
-            //     msg->promise.set_value(GenericResponse{false, "Timed out waiting for sync."});
-            //     return;
-            // }
             // We use poll here to bail out when network disconnection happens.
             // It would be preferable to listen to two CVs simultaneously, but
             // that is not natively supported. Maybe a rewrite of the locks
@@ -911,21 +909,37 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, NotifyS
                           return me.gd->sync_head >= sync_to || !network.connected || me.gd->error_state != GraphData::ErrorState::OK; }, std::chrono::seconds(1));
 
             if(!network.connected) {
-                msg->promise.set_value(GenericResponse{false, "Lost network connection while trying to sync."});
+                msg->promise.set_value(GenericResponse{"Lost network connection while trying to sync."});
                 return;
             }
                 
             if(!me.gd->in_sync()) {
                 if(me.gd->error_state != GraphData::ErrorState::OK) {
-                    msg->promise.set_value(GenericResponse{false, "Graph is in invalid state"});
+                    msg->promise.set_value(GenericResponse{"Graph is in invalid state"});
                     return;
                 }
                 // The only reason we get here should be because another
                 // thread is writing to the graph and the read/write
                 // heads are out of sync.
-                msg->promise.set_value(GenericResponse{false, "Read and write heads are out of sync - another thread is writing to the graph?"});
+                msg->promise.set_value(GenericResponse{"Read and write heads are out of sync - another thread is writing to the graph?"});
                 return;
             }
+        }
+    } else {
+        if(!me.gd->should_sync && me.gd->currently_subscribed) {
+            auto unsub_response = wait_on_zefhub_message({
+                    {"msg_type", "unsubscribe_from_graph"},
+                    {"graph_uid", str(me.uid)},
+                });
+            if(!unsub_response.generic.success) {
+                msg->promise.set_value(unsub_response);
+                return;
+            }
+            developer_output("Successfully unsubscribed to graph: " + to_str(me.uid));
+            me.gd->currently_subscribed = false;
+        }
+        if(me.gd->should_sync && !prior_should_sync) {
+            do_reconnect(*this, me);
         }
     }
     msg->promise.set_value(GenericResponse{true});
@@ -1030,11 +1044,11 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
 
     auto err_reply = [&](std::string text) {
         std::cerr << "Merge request trying to send out error: " << text << std::endl;
-        if(content.task_uid) {
+        if(content.upstream_task_uid) {
             if(content.msg_version <= 0) {
                 send_ZH_message({
                         {"msg_type", "merge_request_response"},
-                        {"task_uid", *content.task_uid},
+                        {"task_uid", *content.upstream_task_uid},
                         {"success", "0"},
                         {"reason", text},
                         {"indices", "[]"},
@@ -1043,7 +1057,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
             } else {
                 send_ZH_message({
                         {"msg_type", "merge_request_response"},
-                        {"task_uid", *content.task_uid},
+                        {"task_uid", *content.upstream_task_uid},
                         {"msg_version", 3},
                         {"success", false},
                         {"reason", text},
@@ -1078,22 +1092,25 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MergeRe
                     // py::gil_scoped_acquire acquire;
                     // auto pymerge = py::module_::import("zef.core.internals.merges").attr("_graphdelta_merge");
                     // json receipt = pymerge(Graph(*me.gd), payload.delta);
-                    json receipt = internals::pass_to_merge_handler(Graph(*me.gd), payload.commands);
+                    json receipt;
+                    EZefRef tx_ezr;
+                    std::tie(tx_ezr, receipt) = internals::pass_to_merge_handler(Graph(*me.gd), payload.commands);
 
-                    if(content.task_uid) {
+                    if(content.upstream_task_uid) {
                         if(content.msg_version <= 0) {
                             throw std::runtime_error("Shouldn't get here - msg_version is zero");
                         } else {
                             send_ZH_message({
                                 {"msg_type", "merge_request_response"},
                                 {"msg_version", 3},
-                                {"task_uid", *content.task_uid},
+                                {"task_uid", *content.upstream_task_uid},
                                 {"success", true},
                                 {"reason", "merged"},
                                 {"receipt", {
                                         {"type", "delta"},
                                         {"receipt", receipt},
-                                        {"read_head", me.gd->read_head.load()}
+                                        {"read_head", me.gd->read_head.load()},
+                                        {"tx_index", index(tx_ezr)}
                                     }}
                             });
                         }
@@ -1122,6 +1139,8 @@ MergeRequestResponse Butler::parse_ws_response<MergeRequestResponse>(json j) {
 
     if(msg_version <= 0) {
         throw std::runtime_error("Shouldn't get old msg_version==0 resposne from merge request anymore.");
+    } else if(msg_version <= 2) {
+        throw std::runtime_error("Merge request responses should be at least version 3 now.");
     } else {
         std::string receipt_type = j["receipt"]["type"].get<std::string>();
         if(receipt_type == "indices") {
@@ -1129,7 +1148,8 @@ MergeRequestResponse Butler::parse_ws_response<MergeRequestResponse>(json j) {
         } else if(receipt_type == "delta") {
             MergeRequestResponse::ReceiptGraphDelta receipt{
                 j["receipt"]["receipt"].get<json>(),
-                j["receipt"]["read_head"].get<blob_index>()
+                j["receipt"]["read_head"].get<blob_index>(),
+                j["receipt"]["tx_index"].get<blob_index>()
             };
             return MergeRequestResponse{generic, receipt};
         } else {
@@ -1197,14 +1217,19 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePri
         return;
     }
 
-    if(content.make_primary == me.gd->is_primary_instance) {
-        // Nothing to do!
+    if(butler_is_master) {
+        me.gd->is_primary_instance = content.make_primary;
         msg->promise.set_value(GenericResponse(true));
         return;
     }
 
-    if(butler_is_master) {
-        me.gd->is_primary_instance = content.make_primary;
+    if(!me.gd->currently_subscribed) {
+        msg->promise.set_value(GenericResponse{"Can't take transactor role when not subscribed to graph."});
+        return;
+    }
+
+    if(content.make_primary == me.gd->is_primary_instance) {
+        // Nothing to do!
         msg->promise.set_value(GenericResponse(true));
         return;
     }
@@ -1215,12 +1240,48 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePri
         heads = client_create_update_heads(*me.gd);
     }
 
-    // First make sure we believe we have everything that upstream has
-    if(me.gd->read_head < me.gd->sync_head) {
-        developer_output("Retrying syncing while taking transactor role");
-        // TODO: This effectively spin-locks, need to fix up.
-        me.queue.push(std::move(msg), true);
-        return;
+    if(me.gd->is_primary_instance) {
+        if(me.gd->read_head > me.gd->sync_head) {
+            // We can block here as it is the sync thread that sends out updates.
+            developer_output("Waiting for sync thread to send out updates before getting rid of transactor role");
+
+            // This is the same as in NotifySync. I wanted to combine the two,
+            // but it is a little annoying with the msg objects.
+            blob_index sync_to = me.gd->read_head;
+            wake(me.gd->heads_locker);
+            // We use poll here to bail out when network disconnection happens.
+            // It would be preferable to listen to two CVs simultaneously, but
+            // that is not natively supported. Maybe a rewrite of the locks
+            // structure would help here.
+            wait_pred_poll(me.gd->heads_locker,
+                      [&]() {
+                          return me.gd->sync_head >= sync_to || !network.connected || me.gd->error_state != GraphData::ErrorState::OK; }, std::chrono::seconds(1));
+
+            if(!network.connected) {
+                msg->promise.set_value(GenericResponse{false, "Lost network connection while trying to sync."});
+                return;
+            }
+
+            // Technically, the user is able to put more updates onto the graph
+            // before we can send out the final updates. For now, going to
+            // consider that their fault (they shouldn't give up the transactor
+            // role and immediately write to it) but in the future we could
+            // instead track this with 2 variables "desired_primary_instance"
+            // and "is_primary_instance". The new variable
+            // "desired_primary_instance" would be what transactions check to
+            // see if they should write to the graph or submit a merge request.
+        }
+    } else {
+        // First make sure we believe we have everything that upstream has
+        if(me.gd->read_head < me.gd->sync_head) {
+            // We can't block here as we need to process GraphUpdate messages in
+            // this queue. Instead we can watch from a separate thread and place
+            // this message back into the queue once ready.
+            developer_output("Retrying syncing while taking transactor role");
+            // TODO: This effectively spin-locks, need to fix up.
+            me.queue.push(std::move(msg), true);
+            return;
+        }
     }
 
     json j = create_json_from_heads_from(heads);
@@ -1258,7 +1319,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, TagGrap
         msg->promise.set_value(GenericResponse("Can't tag graph when not being synchronised."));
         return;
     }
-    if(!wait_diff(me.gd->heads_locker, me.gd->sync_head, 0, std::chrono::duration<double>(butler_generic_timeout))) {
+    if(!wait_diff(me.gd->heads_locker, me.gd->sync_head, 0, std::chrono::duration<double>(zefhub_generic_timeout))) {
         msg->promise.set_value(GenericResponse("Timed out waiting for graph to be synced."));
         return;
     }

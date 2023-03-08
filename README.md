@@ -133,9 +133,9 @@ p1 = ET.Person | g | run                  # add an entity to the graph
 </div>
 
 ```python
-p1 | Out[RT.FirstName]         # one hop: step onto the relation
+p1 | out_rel[RT.FirstName]   # one hop: step onto the relation
 
-p1 | out_rel[RT.FirstName]     # two hops: step onto the target
+p1 | Out[RT.FirstName]       # two hops: step onto the target
 ```
 
 <br />
@@ -145,9 +145,9 @@ p1 | out_rel[RT.FirstName]     # two hops: step onto the target
 </div>
 
 ```python
-p1 | time_travel[-2]                                           # move reference frame back two time slices
+p1 | time_travel[-2]                                        # move reference frame back two time slices
 
-p1 | time_travel[Time('2021 December 4 15:31:00 (+0100)')]     # move to a specific date and time
+p1 | time_travel[Time('2023 January 1 12:34:56 (+0100)')]   # move to a specific date and time
 ```
 
 <br />

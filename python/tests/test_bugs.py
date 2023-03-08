@@ -27,7 +27,7 @@ class MyTestCase(unittest.TestCase):
     def test_terminate_relation(self):
         g = Graph()
 
-        r = [
+        _,r = [
             ET.Person["joe"],
             (Z["joe"], RT.FirstName["rel"], "name"),
         ] | transact[g] | run
@@ -42,7 +42,7 @@ class MyTestCase(unittest.TestCase):
     def test_terminate_relation_merge(self):
         g = Graph()
 
-        r = [
+        _,r = [
             ET.Person["joe"],
             (Z["joe"], RT.FirstName["rel"], "name"),
         ] | transact[g] | run
@@ -51,24 +51,27 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)
 
         g2 = Graph()
-        r2 = [
-            r["rel"] | terminate["rel from g2"],
+        _,r2 = [
+            r["rel"] | terminate,
         ] | transact[g2] | run
         self.assertEqual(1, g | now | all[ET.Person] | length | collect)
         self.assertEqual(1, g | now | all[RT.FirstName] | length | collect)
         self.assertEqual(0, g2 | now | all[ET.Person] | length | collect)
         self.assertEqual(0, g2 | now | all[RT.FirstName] | length | collect)
-        self.assertEqual(None, r2["rel from g2"])
 
     def test_no_duplicate_internal_name(self):
         g = Graph()
         with self.assertRaises(Exception):
-            r = [
+            _,r = [
                 ET.Danny["a"],
                 ET.Machine["a"],
                 (Z["a"], RT.Something, "name")
             ] | transact[g] | run
-        
+
+    def gil_locks(self):
+        g = Graph()
+        with self.assertRaisesRegex(Exception, "Can't lock a graph"):
+            zef.pyzef.internals.test_pre_lock_hook(g)
 
 if __name__ == '__main__':
     unittest.main()

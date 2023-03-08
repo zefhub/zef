@@ -170,6 +170,19 @@ class ValueType_:
 
 
     def __getitem__(self, x):
+        if self._d['type_name'] in ['Tuple', 'Dict']:
+            import builtins
+            from . import Ellipsis, Slice
+            def _parse_inputs(x):
+                if isinstance(x, builtins.slice):
+                    x = Slice[x.start][x.stop]
+                elif x is builtins.Ellipsis:
+                    x = Ellipsis
+                elif isinstance(x, tuple):
+                    x = tuple([_parse_inputs(y) for y in x])
+                return x
+            x = _parse_inputs(x)
+            
         new_absorbed = self._d["absorbed"] + (x,)
         return self._replace(absorbed=new_absorbed)
 
@@ -281,8 +294,8 @@ def is_a_(obj, typ):
         raise Exception(f"ValueType '{typ._d['type_name']}' has no is_a implementation")
 
 def is_subtype_(typ1, typ2):
-    assert is_type_(typ1), f"is_subtype got a non-type: {typ1}"
-    assert is_type_(typ2), f"is_subtype got a non-type: {typ2}"
+    assert is_type_(typ1), f"is_subtype got a non-type: {typ1!r}"
+    assert is_type_(typ2), f"is_subtype got a non-type: {typ2!r}"
 
     if typ1._d["type_name"] in _value_type_override_subtype_funcs:
         result = _value_type_override_subtype_funcs[typ1._d["type_name"]](typ1, typ2)
@@ -333,7 +346,9 @@ def type_name(typ):
 def hash_frozen(obj):
     if type(obj) == dict:
         h = hash("dict")
-        for key in sorted(obj):
+        # The sort key is weird, but ideally everything is done through the
+        # hash. The str is just a fallback for collisions.
+        for key in sorted(obj, key=lambda x: (hash_frozen(x), str(x))):
             h ^= hash(key)
             h ^= hash_frozen(obj[key])
         return h

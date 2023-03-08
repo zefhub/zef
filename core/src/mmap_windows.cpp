@@ -130,7 +130,7 @@ namespace zefDB {
                 throw std::runtime_error("Unknown style for create_mmap to handle.");
             }
 
-            alloc_list.push_back(info);
+            alloc_list.list.push_back(info);
             return blob_ptr;
         }
 
@@ -169,6 +169,14 @@ namespace zefDB {
         }
 
         void destroy_mmap(MMapAllocInfo& info) {
+            std::cerr << "TODO: understand what to call for destroy_mmap and free_mmap" << std::endl;
+            info.released = true;
+        }
+
+        void free_mmap(MMapAllocInfo& info) {
+            if(!info.released)
+                destroy_mmap(info);
+
             if(info.style == MMAP_STYLE_MALLOC) {
                 free(info.location);
             } else if (info.style == MMAP_STYLE_ANONYMOUS) {

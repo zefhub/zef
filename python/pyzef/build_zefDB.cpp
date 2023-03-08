@@ -35,7 +35,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		//.def("__init__", [](const Graph& self, bool sync) {self.my_graph_data().sync = sync; return self; }, py::arg("self"), py::arg("sync") = true, py::return_value_policy::take_ownership)
 		.def(py::init<bool,int>(), py::arg("sync") = false, py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor: sync=False does not register this graph on zefhub. mem_style should be chosen from MMAP_STYLE_AUTO, MMAP_STYLE_ANONYMOUS, MMAP_STYLE_FILE_BACKED.")
 		// .def(py::init<py::bytes, py::bytes, bool, int, bool>(), py::arg("blob_bytes"), py::arg("uid_bytes"), py::arg("is_master_graph") = 0, py::arg("index_of_latest_complete_tx_node_hint") = 0, py::arg("sync") = true, "Graph constructor from blob and uid bytes")
-		.def(py::init<std::string,int>(), py::arg("tag_or_uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid or tag")
+		.def(py::init<std::string,int,bool>(), py::arg("tag_or_uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::arg("create") = false, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid or tag")
 		.def(py::init<BaseUID,int>(), py::arg("uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid")   // TODO: move this into the fct? Is the gil put back on if the constructor throws?
 		.def(py::init<Graph&>())
 		.def(py::init<GraphData&>())
@@ -63,7 +63,15 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def("__contains__", [](const Graph& self, BaseUID key)->bool { return self.contains(key); }, "check whether a key is contained in the graph's key_dict")
 		.def("__contains__", [](const Graph& self, EternalUID key)->bool { return self.contains(key); }, "check whether a key is contained in the graph's key_dict")
 		.def("__contains__", [](const Graph& self, ZefRefUID key)->bool { return self.contains(key); }, "check whether a key is contained in the graph's key_dict")
-		.def("__hash__", [](const Graph& self)->int { return int(self.mem_pool); }, "if graph is used as a key in a python dict or set: consider two graphs equal if they refer to the same graph data object")
+        .def("contains_value", [](const Graph& self, const value_variant_t & value)->bool {
+                GraphData & gd = self.my_graph_data();
+                return std::visit([&gd](auto & x) { return (bool)internals::search_value_node(x, gd); }, value);
+        }, "check whether a value node for the given value is present in the graph")
+        .def("get_value_node", [](const Graph& self, const value_variant_t & value)->std::optional<EZefRef> {
+                GraphData & gd = self.my_graph_data();
+                return std::visit([&gd](auto & x) { return internals::search_value_node(x, gd); }, value);
+        }, "check whether a value node for the given value is present in the graph")
+        .def("__hash__", [](const Graph& self)->int { return int(self.mem_pool); }, "if graph is used as a key in a python dict or set: consider two graphs equal if they refer to the same graph data object")
 		.def("__eq__", [](const Graph& self, const Graph& other)->bool { return self.mem_pool==other.mem_pool; }, "if graph is used as a key in a python dict or set: consider two graphs equal if they refer to the same graph data object", py::is_operator())
 		.def_property_readonly("key_dict", [](const Graph& self)->std::unordered_map<std::string, blob_index> {
                 // Make a copy of the unordered map under a lock
@@ -180,6 +188,8 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
         .def("default_wait_for_tx_finish", py::overload_cast<bool>(&Zwitch::default_wait_for_tx_finish))
         .def("default_rollback_empty_tx", py::overload_cast<>(&Zwitch::default_rollback_empty_tx, py::const_))
         .def("default_rollback_empty_tx", py::overload_cast<bool>(&Zwitch::default_rollback_empty_tx))
+        .def("no_timeout_errors", py::overload_cast<>(&Zwitch::no_timeout_errors, py::const_))
+        .def("no_timeout_errors", py::overload_cast<bool>(&Zwitch::no_timeout_errors))
 		.def("as_dict", &Zwitch::as_dict)
 		;
 	main_module.attr("zwitch") = &zwitch;  // expose this singleton
@@ -600,7 +610,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 
 
 
- 	main_module.def("merge", py::overload_cast<const json&,Graph,bool>(&merge), py::call_guard<py::gil_scoped_release>(), "graph_delta"_a, "target_graph"_a, "fire_and_forget"_a = false);
+ 	main_module.def("merge", py::overload_cast<const json&,GraphRef>(&merge), py::call_guard<py::gil_scoped_release>(), "lvl2_cmds"_a, "target_graph"_a);
 
 
 	main_module.def("instantiate", py::overload_cast<EntityType, const Graph&, std::optional<BaseUID>>(&instantiate), py::call_guard<py::gil_scoped_release>(), "A function to instantiate an entity", "entity_type"_a, "g"_a, "uid"_a=py::none());
@@ -641,7 +651,16 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	main_module.def("tag", py::overload_cast<const Graph&,const std::string&,bool,bool>(&tag), py::call_guard<py::gil_scoped_release>(), "Add a name tag to a graph to retrieve it by that name in the future: tag(g, 'some_graph_name_tag')", "g"_a, "name_tag"_a, "force"_a=false, "adding"_a=true);
 	main_module.def("zef_get", zef_get, py::call_guard<py::gil_scoped_release>(), "get a EZefRef together with the graph for some specified uid (could be on any graph - zefhub searches)", "uid_or_name_tag"_a);
     main_module.def("zearch", zearch, py::call_guard<py::gil_scoped_release>(), "perform a general fuzzy search for stuff on zefhub. Returns a string as an answer.", "zearch_term"_a="");
-    main_module.def("lookup_uid", lookup_uid, py::call_guard<py::gil_scoped_release>(), "lookup a UID for a graph by tag. Should return None if not found but will currently error.", "tag"_a);
+    main_module.def("lookup_uid", [](const std::string& tag) { return lookup_uid(tag); }, py::call_guard<py::gil_scoped_release>(), "lookup a UID for a graph by tag. Should return None if not found but will currently error.", "tag"_a);
+    main_module.def("lookup_uid", [](const std::string& tag, bool create) {
+        if(!create) {
+            // Default to other overload, but we have to return the same thing
+            return std::make_tuple(lookup_uid(tag), false);
+        }
+        bool created;
+        std::optional<GraphRef> guid = lookup_uid(tag, &created);
+        return std::make_tuple(guid, created);
+    }, py::call_guard<py::gil_scoped_release>(), "lookup a UID for a graph by tag. Will return GUID,created", "tag"_a, "create"_a);
 	main_module.def("sync", zefDB::sync, py::call_guard<py::gil_scoped_release>(), "set the sync state of a graph: should it sed / receive updates to/from zefhub? Zpplies to primary and view instances.", "g"_a, "do_sync"_a=true);
 
 	main_module.def("tag", py::overload_cast<ZefRef,const std::string,bool>(&tag), py::call_guard<py::gil_scoped_release>(), "Add a name tag / key_dict entry to for a specific ZefRef:  tag(my_z, 'my_favorite_zefref')", "z"_a, "name_tag"_a, "force_if_name_tags_other_rel_ent"_a=false);
@@ -650,7 +669,8 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 	verification_submodule.def("verify_graph_double_linking", verification::verify_graph_double_linking, "Check that node/edge linking is consistent for the indexes.");
 	verification_submodule.def("verify_chronological_instantiation_order", verification::verify_chronological_instantiation_order, "Check that RAEs and delegates have a correct chronological instantiation order.");
 	verification_submodule.def("break_graph", verification::break_graph, "Internal use checks");
-	verification_submodule.def("verify_graph", verification::verify_graph, "Internal use checks", py::call_guard<py::gil_scoped_release>());
+	verification_submodule.def("verify_graph", py::overload_cast<Graph>(verification::verify_graph), "Internal use checks", py::call_guard<py::gil_scoped_release>());
+	verification_submodule.def("verify_graph", py::overload_cast<GraphDataWrapper>(verification::verify_graph), "Internal use checks", py::call_guard<py::gil_scoped_release>());
 
 	admins_submodule.def("add_user", [](std::string username, std::string key) { zefDB::user_management("add_user", username, "", key);});
 	admins_submodule.def("reset_user_key", [](std::string username, std::string key) { zefDB::user_management("reset_user_key", username, "", key);});
@@ -708,6 +728,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
         return zefdb_config_path().string();
     }, py::call_guard<py::gil_scoped_release>());
 
+    main_module.def("check_env_bool", &check_env_bool, py::arg("var"), py::arg("default")=false);
 
 	fill_internals_module(internals_submodule);
 	create_zefops_module(toplevel_module, internals_submodule);

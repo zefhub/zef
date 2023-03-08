@@ -32,7 +32,7 @@ def stream_create_pushable_stream_handler(eff: Effect):
     z_stream = to_ezefref(ET.PushableStream | g_process | run)
     _state['streams'][z_stream] = Subject()
     # return { 'stream': my_stream }    # too verbose?
-    return Awaitable(z_stream, True)
+    return {'stream' : Awaitable(z_stream, True)}
 
 
 def stream_push_handler(eff: Effect):   # -> Union[Nil, Error]

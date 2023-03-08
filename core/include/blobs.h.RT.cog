@@ -2,7 +2,8 @@
 /*[[[cog
 import cog
 for indx,name in rt:
-    cog.outl(f'const RelationType {name} = RelationType({indx});')
+    if not is_c_keyword(name):
+        cog.outl(f'const RelationType {name} = RelationType({indx});')
 ]]]*/
 const RelationType ZEF_Unspecified = RelationType(0);
 const RelationType ZEF_Any = RelationType(1);

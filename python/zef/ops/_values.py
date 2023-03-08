@@ -22,3 +22,5 @@ def value_or(x, fallback):
     else:
         return value(x)
 maybe_value = value_or[None]
+from ..core.op_structs import _overloaded_repr
+_overloaded_repr[maybe_value.el_ops[0]] = "maybe_value"

@@ -21,10 +21,20 @@ from .._core import *
 from .. import internals
 from ..VT import *
 
+def index_imp(x):
+    if isinstance(x, AtomClass):
+        from ..atom import _get_ref_pointer
+        return index(_get_ref_pointer(x))
+    return index(x)
+
 def yo_implementation(x, display=True):
     import inspect
     from ..fx.fx_types import FXElement, _group_types
     from ..fx import _effect_handlers
+
+    from ..atom import _get_ref_pointer
+    if isinstance(x, AtomClass) and _get_ref_pointer(x) is not None:
+        return yo_implementation(_get_ref_pointer(x), display)
     
     if display:
         import sys
@@ -58,9 +68,13 @@ def yo_implementation(x, display=True):
         if len(x.el_ops) == 1:
             from .dispatch_dictionary import _op_to_functions
             if len(x.el_ops) == 1:
-                f = _op_to_functions[x.el_ops[0][0]][0]
-                doc = inspect.getdoc(f)
-                doc = doc if doc else f"No docstring found for given {x}!"
+                zefop_key = x.el_ops[0][0]
+                if zefop_key not in _op_to_functions:
+                    doc = f"No docstring found for {x}!"
+                else:
+                    f = _op_to_functions[x.el_ops[0][0]][0]
+                    doc = inspect.getdoc(f)
+                    doc = doc if doc else f"No docstring found for {x}!"
                 print(doc, file=file)
         else:
             from .yo_ascii import make_op_chain_ascii_output
@@ -70,7 +84,7 @@ def yo_implementation(x, display=True):
         handler = _effect_handlers.get(x.d, None)
         if handler:
             doc = inspect.getdoc(handler)
-            doc = doc if doc else f"No docstring found for given {x}!"
+            doc = doc if doc else f"No docstring found for {x}!"
             print(doc, file=file)
         else:
             print(x, file=file)
@@ -125,7 +139,7 @@ def tx_view(zr_or_uzr) -> str:
 ======================================================================================================================
 
 uid:                    {uid(uzr)}
-blob index:             {index(uzr)}
+blob index:             {index_imp(uzr)}
 current owning graphs:  {uid(Graph(uzr))} {f", name tags: ({','.join(Graph(uzr).graph_data.tag_list)})"
     if Graph(uzr).graph_data.tag_list else ""}
 total affected:         {length(uzr | events)}
@@ -200,7 +214,7 @@ def value_previous_of_aet(aet, tx) -> str:
             return f" [previous val: {'/' if not val else str(val)}]"
         else:
             return ''
-    except:
+    except Exception:
         return str(f" [previous val: NA]")
 
 
@@ -214,13 +228,13 @@ def value_of_aet_at_tx(aet, tx) -> str:
             return f" [{latest_or_current} val: {'/' if val is None else str(val)}]"
         else:
             return ''
-    except:
+    except Exception:
         return str(f" [{latest_or_current} val: NA]")
 
 
 def readable_datetime_from_tx_uzr(uzr_tx) -> str:
     uzr_tx = to_ezefref(uzr_tx)
-    if index(uzr_tx) == root_node_blob_index():
+    if index_imp(uzr_tx) == root_node_blob_index():
         return '/'
     return f'GraphSlice {str(graph_slice_index(to_graph_slice(uzr_tx)))}: {str(uzr_tx | time | collect)}'
 
@@ -237,7 +251,7 @@ def eternalist_view(zr_or_uzr) -> str:
 ======================================================================================================================
 
 uid:                    {uid(uzr)}
-blob index:             {index(uzr)}
+blob index:             {index_imp(uzr)}
 type:                   {zr_type(uzr)}
 current owning graphs:  {Graph(uzr) | uid | collect} {f", name tags: ({','.join(Graph(uzr).graph_data.tag_list)})"
     if Graph(uzr).graph_data.tag_list else ""}

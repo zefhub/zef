@@ -71,19 +71,22 @@ from . import _image
 from . import _decimal
 from . import _bytes
 # Up to here, DEFINITELY no zefops can be called
-from . import abstract_raes
-from . import graph_slice
 from . import delegates
+from . import graph_slice
+from . import flat_graph
+from . import atom
+from . import abstract_raes
+from . import rae_type_definitions
 from . import op_structs
 from . import _ops
 from . import zef_functions
 from . import graph_delta
-from . import flat_graph
 from . import fx
 from . import serialization
 from . import graph_events
 from . import streams
 from . import z_expression
+from . import graph_additions
 
 from .VT import *
 
@@ -98,7 +101,9 @@ from .serialization import serialize, deserialize
 from .symbolic_expression import SV, SVs, V
 from .z_expression import Z
 
-from .graph_events import Instantiated, Assigned, Terminated
+from .graph_events import Instantiated, Assigned, Terminated, infinity
+from .flat_graph import FlatGraphPlaceholder, FlatRefUID
+from .graph_slice import DBStateUID, DBStateRefUID
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
@@ -117,7 +122,7 @@ def visual_exception_view(error_value):
     except Exception as e:
         try:
             e_s = str(e)
-        except:
+        except Exception:
             e_s = "Can't take str of failure exception"
         print("Failed in displaying zef error: {e_s}")
         pass
@@ -139,7 +144,7 @@ try:
 
         # Overloading ipython exception handler
         ip.set_custom_exc((Exception,), ip_exception_handler) 
-except:
+except Exception:
     pass
 
 pyzef.internals.finished_loading_python_core()

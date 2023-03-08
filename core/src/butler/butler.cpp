@@ -58,7 +58,7 @@ namespace zefDB {
         Butler::Butler(std::string uri) {
             msgqueue.who_am_i = "butler main msg queue";
             network.outside_message_handler = std::bind(&Butler::ws_message_handler, this, std::placeholders::_1);
-            network.outside_close_handler = std::bind(&Butler::ws_close_handler, this);
+            network.outside_close_handler = std::bind(&Butler::ws_close_handler, this, std::placeholders::_1);
             network.outside_fatal_handler = std::bind(&Butler::ws_fatal_handler, this, std::placeholders::_1);
             network.outside_open_handler = std::bind(&Butler::ws_open_handler, this);
             network.uri = uri;
@@ -433,6 +433,7 @@ namespace zefDB {
                 auto response = wait_on_zefhub_message({
                         {"msg_type", "lookup_uid"},
                         {"tag", content.tag_or_uid},
+                        {"create", content.create},
                     });
                 if(!response.generic.success) {
                     msg->promise.set_value(GraphLoaded{"Unable to lookup graph uid: " + response.generic.reason});
@@ -948,7 +949,7 @@ namespace zefDB {
             auto fg_prefix = file_graph_prefix(uid, upstream_name());
             if(!MMap::filegraph_exists(fg_prefix))
                 return std::nullopt;
-            return fg_prefix;
+            return fg_prefix.string();
         }
     }
 }

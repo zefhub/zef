@@ -111,62 +111,6 @@ class Handler(BaseHTTPRequestHandler):
 
 
 
-def http_start_server_handler(eff: dict):
-    """[summary]
-
-    Args:
-        eff : {
-            "type": FX.HTTP.StartServer,
-            "port": 5000, (default = 5000)
-            "bind_address": "0.0.0.0", (default = "localhost")
-            "pipe_into": map[..] | filter[..] | subscribe[run],
-    or
-            "pipe_into": map[middleware_worker[[permit_cors, custom_handle, fallback_not_found, send_response]] | subscribe[run],
-            "logging": True or "Graph" or "Stream"
-        }
-    """
-    # print(f"http_start_server called for effect: {eff}")
-
-    server_uuid = None
-    pushable_stream = None
-    server = None
-    thread = None
-    try:
-        open_requests = {}
-        pushable_stream = {'type': FX.Stream.CreatePushableStream} | run
-        server_uuid = str(uid(pushable_stream.stream_ezefref))
-        if eff.get('pipe_into', None) is not None:
-            pushable_stream | eff['pipe_into']
-        port = eff.get('port', 5000)
-        bind_address = eff.get('bind_address', "localhost")
-        do_logging = eff.get('logging', True)
-
-        zef_locals = {
-            "open_requests": open_requests,
-            "stream" : pushable_stream,
-            "server_uuid": server_uuid,
-            "port": port
-        }
-
-        server = OurHTTPServer((bind_address, port), Handler, do_logging=do_logging)
-        zef_locals["server"] = server
-        server.zef = zef_locals
-
-
-        thread = threading.Thread(target=server.serve_forever, daemon=True)
-        zef_locals["thread"] = thread
-
-        _effects_processes[server_uuid] = zef_locals
-
-        thread.start()
-
-        log.debug(f"http_server started", uuid=server_uuid, port=port, bind_address=bind_address)
-        return zef_locals
-    except Exception as exc:
-        raise RuntimeError(f'Error starting HTTP server: in FX.HTTP.StartServer handler: {exc}')
-        
-
-
 def http_stop_server_handler(eff: dict):
     d = _effects_processes[eff["server_uuid"]]
     d["server"].shutdown()

@@ -19,7 +19,8 @@ from ..ops import *
 import asyncio
 
 def load_graph(tag_or_uid):
-    stream = {'type': FX.Stream.CreatePushableStream} | run
+    stream_d = {'type': FX.Stream.CreatePushableStream} | run
+    stream = stream_d['stream']
     return asyncio.run(load_graph_async(tag_or_uid, stream))
 
 async def load_graph_async(tag_or_uid, stream):

@@ -33,7 +33,8 @@ def ZefRef_to_edge_ref(z, direction):
     else:
         assert direction == Direction.BOTH
         # For consistency, make the smallest index the first node
-        if index(source(z)) < index(target(z)):
+        from ..core.atom import _get_ref_pointer
+        if index(_get_ref_pointer(source(z))) < index(_get_ref_pointer(target(z))):
             return (src_ref, trg_ref)
         else:
             return (trg_ref, src_ref)
@@ -194,8 +195,10 @@ class ProxyGraph:
         #     resolved = item.z
         elif isinstance(item, (str,int)) or is_a(item, UID):
             resolved = self.gs[item]
+        elif isinstance(item, Atom):
+            resolved = self.gs[origin_uid(item)]
         elif isinstance(item, ZefRef):
-            resolved = in_frame(item, self.gs)
+            resolved = to_frame(item, self.gs)
 
         if not resolved:
             raise Exception(f"Couldn't find node {item}")

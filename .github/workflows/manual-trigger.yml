@@ -18,9 +18,14 @@ on:
         required: true
         default: true
         type: boolean
+      targetEnvironment:
+        required: true
+        type: environment
+      
 
 env:
-  ZEFHUB_AUTH_KEY: "GUEST"
+    ZEFHUB_AUTH_KEY: GUEST
+
 
 jobs:
   check-license:
@@ -30,6 +35,7 @@ jobs:
     if: inputs.linuxBuild == true
     needs: check-license
     runs-on: ${{ matrix.os }}
+    environment: ${{ inputs.targetEnvironment }}
     strategy:
       matrix:
         os: [ubuntu-20.04]
@@ -46,11 +52,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
+          test-auth-key: ${{ secrets.TEST_AUTH_KEY }}
 
   macos-build:
     if: inputs.macosBuild == true
     needs: check-license
     runs-on: ${{ matrix.os }}
+    environment: ${{ inputs.targetEnvironment }}
     strategy:
       matrix:
         os: [macos-latest]
@@ -67,11 +75,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
+          test-auth-key: ${{ secrets.TEST_AUTH_KEY }}
 
   windows-build:
     if: inputs.windowsBuild == true
     needs: check-license
     runs-on: ${{ matrix.os }}
+    environment: ${{ inputs.targetEnvironment }}
     strategy:
       matrix:
         os: [windows-latest]
@@ -88,3 +98,4 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}
+          test-auth-key: ${{ secrets.TEST_AUTH_KEY }}

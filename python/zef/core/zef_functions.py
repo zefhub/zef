@@ -148,6 +148,9 @@ class FunctionConstructor:
         # TODO we gotta check if arg is of type Zef Lambda once we implement it
         # return ZefOp(((RT.Function, ((1, arg), )), ))
         return ZefOp(((internals.RT.Function, ((1, arg), )), ))
+    
+    def __repr__(self):
+        return "func"
 
 
 func = FunctionConstructor()
@@ -215,7 +218,7 @@ def compile_zef_function(z_fct: ZefRef):
         z_fct
         | out_rels[RT.Binding]
         | map[lambda z_rel: (z_rel | Out[RT.Name] | value | collect,
-                             z_rel | target | in_frame[
+                             z_rel | target | to_frame[
                                  g[z_rel | Out[RT.UseTimeSlice] | value | collect]
                                  | to_graph_slice | collect
                              ] | collect)]
@@ -377,7 +380,10 @@ def make_function_entity(g, label, is_pure, func, **kwargs):
                 if docstring_maybe: (z_zef_fct, RT.DocString, docstring_maybe) | g | run
         else:
             # zef function does not exist yet. Make a new ET.ZEF_Function and attach the string after processing
-            z_zef_fct = ET.ZEF_Function | g | run
+            # z_zef_fct = ET.ZEF_Function | g | run
+            atom = ET.ZEF_Function | g | run
+            from .atom import _get_ref_pointer
+            z_zef_fct = _get_ref_pointer(atom)
             # replace the function name given by the user with a unique one containing the uid of the rel
             s_renamed = s[:s.find('def')] + f"def zef_function_{uid(z_zef_fct)}" + s[s.find('('):]
             (z_zef_fct, RT.PythonSourceCode, s_renamed) | g | run

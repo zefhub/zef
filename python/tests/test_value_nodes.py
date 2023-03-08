@@ -113,10 +113,10 @@ class MyTestCase(unittest.TestCase):
         vn = zef.pyzef.main.instantiate_value_node(2, g)
         vn2 = zef.pyzef.main.instantiate_value_node(3.0, g)
 
-        ae | assign[vn] | g | run
-        ae | assign[vn2] | g | run
+        ae | assign[value(vn)] | g | run
+        ae | assign[value(vn2)] | g | run
 
-        ae | assign[Val(5)] | g | run
+        ae | assign[5] | g | run
 
         self.assertEqual(type(value(ae | now)), int)
         self.assertEqual(type(value(ae | now | time_travel[-1])), int)
@@ -127,7 +127,7 @@ class MyTestCase(unittest.TestCase):
         num_before = g | all | filter[is_a[BT.VALUE_NODE]] | length | collect
         vn = Val({"something": 42}) | g | run
         ae = AET.Any | g | run
-        ae | assign[Val({"something": 42})] | g | run
+        ae | assign[{"something": 42}] | g | run
         num_after = g | all | filter[is_a[BT.VALUE_NODE]] | length | collect
         self.assertEqual(num_after, num_before + 2)
 
@@ -138,9 +138,9 @@ class MyTestCase(unittest.TestCase):
         vn = Val(VT.Graph) | g | run
         ae = AET.Any | g | run
         ae2 = AET[VT.Graph] | g | run
-        ae | assign[Val(VT.Graph)] | g | run
+        ae | assign[VT.Graph] | g | run
         num_after = g | all | filter[is_a[BT.VALUE_NODE]] | length | collect
-        self.assertEqual(num_after - num_before, 2)
+        self.assertEqual(num_after - num_before, 3)
 
 if __name__ == '__main__':
     unittest.main()

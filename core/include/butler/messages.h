@@ -123,6 +123,7 @@ namespace zefDB {
             std::string tag_or_uid;
             int mem_style = MMap::MMAP_STYLE_AUTO;
             std::optional<load_graph_callback_t> callback;
+            bool create = false;
         };
         struct GraphLoaded {
             GenericResponse generic;
@@ -176,10 +177,11 @@ namespace zefDB {
                 json commands;
             };
             // If task_uid is not set, then this has been generated locally
-            std::optional<std::string> task_uid;
+            std::string idempotent_task_uid;
+            std::optional<std::string> upstream_task_uid;
             std::string target_guid;
             std::variant<PayloadGraphDelta> payload;
-            int msg_version = 2;
+            int msg_version = 3;
         };
 
 
@@ -192,6 +194,7 @@ namespace zefDB {
                 // TODO: Currently this is got from python as a python object, but will later be a native C object.
                 json receipt;
                 blob_index read_head;
+                blob_index tx_index;
             };
 
             GenericResponse generic;
@@ -231,6 +234,7 @@ namespace zefDB {
 
         struct UIDQuery {
             std::string query;
+            bool create;
         };
 
         struct MakePrimary {

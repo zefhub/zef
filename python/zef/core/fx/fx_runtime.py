@@ -18,8 +18,9 @@ from .._ops import *
 def create_eff_to_process_graph_wish(eff: Dict) -> 'FX':
     from .. import internals
     g_process = internals.get_local_process_graph()
-    pushable_stream = {'type': FX.Stream.CreatePushableStream} | run
-
+    pushable_stream_d = {'type': FX.Stream.CreatePushableStream} | run
+    pushable_stream = pushable_stream_d['stream']
+    
     fields_d = {
         "port" : eff.get('port', 5000),
         "bind_address" : eff.get('bind_address', "0.0.0.0"),                      
@@ -30,7 +31,7 @@ def create_eff_to_process_graph_wish(eff: Dict) -> 'FX':
         # "url" : 'ulfsproject.zefhub.io',    
     }
 
-    transact_wish = ET.ZefFXService(**fields_d) | g_process 
+    transact_wish = ET.ZefFXService(**fields_d) | g_process | collect
     return transact_wish
 
 
@@ -84,7 +85,7 @@ def create_http_server(eff: Dict, server_zr: ZefRef) -> Dict:
         thread.start()
 
         log.debug(f"http_server started", uuid=server_uuid, port=port, bind_address=bind_address)
-        return {"server_uuid": server_uuid}
+        return {"server_uuid": server_uuid, "stream": pushable_stream}
     except Exception as exc:
         raise RuntimeError(f'Error starting HTTP server: in FX.HTTP.StartServer handler: {exc}')
 
@@ -93,10 +94,13 @@ fx_dispatch_dict = {
     FX.HTTP.StartServer: {"create_http_server": create_http_server, "create_eff_to_process_graph_wish": create_eff_to_process_graph_wish},
 }
 
-def fx_runtime(eff: Dict):
+def fx_runtime(eff: Effect):
     from ...core.fx import _effect_handlers
-    if not isinstance(eff, Dict): raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run a wish, which are represented as dictionaries.")
+    if not isinstance(eff, Effect): raise TypeError(f"run(x) called with invalid type for x: {type(eff)}. You can only run a wish, which are represented as dictionaries.")
     
+    # Extract the internal dict from the Effect
+    eff = eff._value
+
     if eff['type'] in fx_dispatch_dict:
 
         if eff['type'] == FX.HTTP.StartServer:

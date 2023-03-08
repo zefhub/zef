@@ -24,7 +24,7 @@ class Image_:
         self.buffer = internals.compress_zstd(data)
     def _repr_svg_(self):
         # this function must return a str
-        return internals.decompress_zstd(self.buffer) if self.format=='svg' else None
+        return internals.decompress_zstd(self.buffer).decode('utf-8') if self.format=='svg' else None
     def _repr_png_(self):
         # this function must return bytes
         return internals.decompress_zstd(self.buffer) if self.format in {'gif','png'} else None

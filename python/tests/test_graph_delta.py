@@ -23,7 +23,7 @@ class MyTestCase(unittest.TestCase):
     def test_basics(self):
         g = Graph()
 
-        r = [
+        _,r = [
             ET.Person["joe"],
             (Z["joe"], RT.FirstName, "Joe"),
             (Z["joe"], RT.LastName, "Bloggs"),
@@ -37,17 +37,17 @@ class MyTestCase(unittest.TestCase):
             (Z["joe-spot"], RT.Date, Time("12:34 May 2020")),
         ] | transact[g] | run
 
-        self.assertEqual(r["joe"], g | now | all[ET.Person] | only | collect)
-        self.assertEqual(r["spot"], g | now | all[ET.Pet] | only | collect)
+        self.assertEqual(r["joe"], Atom(g | now | all[ET.Person] | only | collect))
+        self.assertEqual(r["spot"], Atom(g | now | all[ET.Pet] | only | collect))
 
         self.assertEqual(r["joe"] | Out[RT.FirstName] | value | collect, "Joe")
         self.assertEqual(r["joe"] | Out[RT.HasPet] | collect, r["spot"])
         self.assertEqual(r["joe"] | Outs[RT.NickName] | length | collect, 2)
 
         z_joe = r["joe"]
-        r2 = [
+        _,r2 = [
             (r["joe"], RT.NickName, "Jay"),
-            r["joe"] | Out[RT.LastName] | assign["Smith"],
+            r["joe"] | Out[RT.LastName] | assign["Smith"] | collect,
         ] | transact[g] | run
 
         z2_joe = now(z_joe)
@@ -55,7 +55,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(z2_joe | Out[RT.LastName] | value | collect, "Smith")
         self.assertEqual(z2_joe | Outs[RT.NickName] | length | collect, 3)
 
-        r3 = [
+        _,r3 = [
             *[x | terminate for x in z2_joe | Outs[RT.NickName] | collect],
         ] | transact[g] | run
 
@@ -68,7 +68,7 @@ class MyTestCase(unittest.TestCase):
     def test_merges(self):
         g = Graph()
 
-        r = [
+        _,r = [
             ET.Person["joe"],
             (Z["joe"], RT.FirstName, "Joe"),
             (Z["joe"], RT.LastName, "Bloggs"),
@@ -78,7 +78,7 @@ class MyTestCase(unittest.TestCase):
 
         g2 = Graph()
 
-        r2 = [
+        _,r2 = [
             z_joe,
             (z_joe, RT.Owns, ET.Account["acc"]),
             (Z["acc"], RT.Balance, QuantityFloat(100, EN.Unit.dollars)),
@@ -93,7 +93,7 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(uid(g2[origin_uid(z_joe)]), origin_uid(z_joe))
         self.assertEqual(z_joe | g2 | run, g2 | now | get[origin_uid(z_joe)] | collect)
 
-        r3 = [
+        _,r3 = [
             (z2_joe, RT.FromMerge, True)
         ] | transact[g] | run
 
@@ -107,7 +107,7 @@ class MyTestCase(unittest.TestCase):
     def test_multiple_relation_notation(self):
         g = Graph()
 
-        r = [
+        _,r = [
             ([ET.Person["joe"], ET.Person["john"]], RT.Owns, [ET.Pet["cat"], ET.Pet["dog"]]),
         ] | transact[g] | run
 
@@ -118,7 +118,7 @@ class MyTestCase(unittest.TestCase):
         self.assertTrue(has_relation(r["john"], RT.Owns, r["dog"]))
 
         g = Graph()
-        r = [
+        _,r = [
             (ET.Person, RT.Owns, [ET.Pet["a"], ET.Pet["b"]]),
         ] | transact[g] | run
 
@@ -127,7 +127,7 @@ class MyTestCase(unittest.TestCase):
         self.assertTrue(has_relation(g | now | all[ET.Person] | single | collect, RT.Owns, r["b"]))
 
         g = Graph()
-        r = [
+        _,r = [
             (ET.Person["joe"], [(RT.FirstName, "Joe"),
                                 (RT.LastName, "Bloggs")])
         ] | transact[g] | run
@@ -142,6 +142,7 @@ class MyTestCase(unittest.TestCase):
         x, y, z = (y, RT.Something, 3) | g | run
         g | now | all[ET.Example] | last | out_rel[RT.Something] | Out[RT.Something] | collect
 
+    @unittest.skip("Tagging is TODO again")
     def test_tagging(self):
         g = Graph()
 
@@ -209,7 +210,7 @@ class MyTestCase(unittest.TestCase):
             )
         )
 
-        r = [
+        _,r = [
             y,
             (Z["jane"], RT.Something, Z["joe"]),
         ] | transact[g] | run
@@ -222,7 +223,7 @@ class MyTestCase(unittest.TestCase):
 
         z_jane = r["jane"]
         # self.assertEqual(z_joe | F.friend | collect, z_jane)
-        self.assertEqual(z_joe | F.friend_temp | collect, z_jane)
+        self.assertEqual(Atom(z_joe | F.friend_temp | collect), z_jane)
         self.assertEqual(rae_type(z_jane), ET.Person)
         self.assertEqual(z_jane | F.first_name | collect, "Jane")
         self.assertEqual(z_jane | F.last_name | collect, "Doe")

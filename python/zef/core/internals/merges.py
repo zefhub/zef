@@ -17,15 +17,20 @@ def c_merge_handler(g, serialized_delta):
     """Don't call this explicitly. Only for the zefdb core."""
 
     from ..serialization import serialize, deserialize
-    from .._ops import run, transact
+    from .._ops import run, transact, now
 
     # TODO: Double check primary role here.
 
     commands = deserialize(serialized_delta)
-    from zef.core.graph_delta import perform_transaction_commands
-    receipt = perform_transaction_commands(commands, g)
 
-    return serialize(receipt)
+    gs = now(g)
+    from ..graph_additions.wish_translation2 import generate_level1_commands
+    lvl1_cmds = generate_level1_commands(commands["cmds"], gs)
+    from ..graph_additions.low_level import perform_level1_commands
+    new_gs,receipt = perform_level1_commands(lvl1_cmds, commands["keep_internal_ids"])
+
+    s_receipt = serialize(receipt)
+    return new_gs.tx, s_receipt
 
 def register_merge_handler():
     from ...pyzef import internals

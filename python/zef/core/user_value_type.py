@@ -88,39 +88,22 @@ _user_value_type_registry = {}    # append to this: keep track of all types know
 #def UVT_ctor(self, name: String, representation_type, constraints):
 def UVT_ctor(self, *args, **kwargs):
     if "user_type_id" in self._d:
-        # if bool(kwargs):
-        #     # if keyword args, then the representation_type MUST be a dict and no positional args are allowed
-        #     assert args == ()
-        #     assert self.representation_type in {Dict, dict}
-        #     val = kwargs
-
-        # else:
-        #     # if positional args, then the representation_type MUST be a tuple and no keyword args are allowed
-        #     assert bool(kwargs)==False    # no keyword args
-        #     if len(args) == 1:         # if there is only one positional arg, then it is the value itself
-        #         val = args[0]
-        #     elif len(args) == 0 and self.representation_type in {Dict, dict}:
-        #         # The constructor is valid without args only in the case of a dictionary
-        #         val = {}
-        #     else:
-        #         raise ValueError("Error initializing UserValueType")
-        # try:
-        #     cast_val = self.representation_type(val)
-        # except:
-        #     raise Exception(f"UserValueType(name={self.name}) cannot cast '{val}' to {self.representation_type}")
-
         try:
             cast_val = self._d["representation_type"](*args, **kwargs)
-        except:
-            raise ValueError("Couldn't construct type")
+        except Exception as exc:
+            raise ValueError(f"Couldn't construct type: {exc}")
 
         # check whether the constraints are satisfied
         if not isinstance(cast_val, self._d["constraints"]):
-            raise Exception(f"UserValueType(name={self._d['name']}) constraint ({self._d['constraints']}) does not match")
+            raise Exception(f"UserValueType(name={self._d['name']}) constraint ({self._d['constraints']}) does not match for value ({cast_val})")
         
         return UserValueInstance(self._d["user_type_id"], cast_val)
     else:
-        name, representation_type, constraints = args
+        name, representation_type, = args[:2]
+        if len(args) >= 3:
+            constraints = args[2]
+        else:
+            constraints = representation_type
         allowed_keys = {"forced_uid", "object_methods"}
         assert all(x in allowed_keys for x in kwargs)
         the_uid = kwargs.get("forced_uid", None)
@@ -143,7 +126,8 @@ def UVT_ctor(self, *args, **kwargs):
 
 def UVT_str(self):
     if "name" in self._d:
-        return f"UserValueType(name={self._d['name']}, representation_type={self._d['representation_type']}, constraints={self._d['constraints']})"
+        # return f"UserValueType(name={self._d['name']}, representation_type={self._d['representation_type']}, constraints={self._d['constraints']})"
+        return self._d['name']
     else:
         return "UserValueType"
 
@@ -177,6 +161,10 @@ class UserValueInstance_:
         return _user_value_type_registry[self._user_type_id]
         
     def __repr__(self):
+        typ = self._get_type()
+        object_methods = typ._d["object_methods"]
+        if "__repr__" in object_methods:
+            return object_methods["__repr__"](self)
         # look up the name in the _user_value_type_registry from the id
         type_name = self._get_type()._d["name"]
         return f"{type_name}({repr(self._value)})"

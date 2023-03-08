@@ -189,6 +189,12 @@ from .internals import BaseUID, EternalUID, ZefRefUID
 from ..pyzef import zefops as pyzefops
 from .generators import ZefGenerator_
 
+class Evaluating:
+    def __repr__(self):
+        return "evaluating"
+evaluating = Evaluating()
+
+
 # this is used to circumvent the python '<' and '>' operator resolution rules
 _terrible_global_state = {}
 _call_0_args_translation = {
@@ -196,6 +202,28 @@ _call_0_args_translation = {
 }
 _call_n_args_translation = {}
 _sources = {}
+
+_overloaded_repr = {
+    "And": "And",
+    "Assert": "Assert",
+    "If": "If",
+    "In": "In",
+    "Ins": "Ins",
+    "L": "L",
+    "O": "O",
+    "Or": "Or",
+    "Out": "Out",
+    "Outs": "Outs",
+    "Range": "Range",
+    "IsZefRefPromotable": "is_zefref_promotable",
+    "ToEZefRef": "to_ezefref",
+    "ToFlatGraph": "to_flatgraph",
+    "ZasciiToFlatGraph": "zascii_to_flatgraph",
+    "ZasciiToFlatGraph": "zascii_to_flatgraph",
+    (internals.RT.Privileges, (KW.grant,)): "grant",
+    (internals.RT.Privileges, (KW.revoke,)): "revoke",
+    (internals.RT.Run, (evaluating,)): "run",
+}
 
 def unpack_ops(rt, ops):
     if len(ops) > 1:
@@ -235,12 +263,12 @@ def is_supported_value(o):
     from .op_implementations.implementation_typing_functions import ZefGenerator
     from .VT import Entity, Relation, AttributeEntity
     if is_python_scalar_type(o): return True
-    if isinstance(o, (set, range, ZefGenerator, GeneratorType, list, tuple, dict, ValueType, GraphSlice, Time, Image, Bytes, Error, Keyword, ModuleType, UserValueInstance, Delegate, Val, EntityValueInstance, RAE)): return True
+    if isinstance(o, (set, range, ZefGenerator, GeneratorType, list, tuple, dict, ValueType, GraphSlice, Time, Image, Bytes, Error, Keyword, ModuleType, UserValueInstance, Delegate, Val, Atom, RAE, QuantityFloat, QuantityInt)): return True
     if isinstance(o, (BaseUID, EternalUID, ZefRefUID, Enum, ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice)): return True
     return False
 
 def is_supported_zef_value(o):
-    if isinstance(o, (BaseUID, EternalUID, ZefRefUID, Enum, ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice)): return True
+    if isinstance(o, (Atom, BaseUID, EternalUID, ZefRefUID, Enum, ZefRef, EZefRef, Graph, ET, RT, AET, GraphSlice)): return True
     return False
 
 def is_supported_on_subscription(o, op):
@@ -256,14 +284,23 @@ def op_chain_pretty_print(el_ops):
 
     def el_op_to_str(p):
         import types
-        if p[0] == internals.RT.Function:
+        
+        if p[0].name in _overloaded_repr:
+            op_name = _overloaded_repr[p[0].name]
+        elif p in _overloaded_repr:
+            return _overloaded_repr[p]
+
+        elif p[0] == internals.RT.Function:
             inner_f = p[1][0][1]
             if isinstance(inner_f, types.FunctionType):
                 name = inner_f.__name__
                 return name + ''.join([param_to_str(pp) for pp in p[1][1:]])
-        # if p[0] == RT.OutOutOld:
-        #     return f"\n>> todo!!!!"            
-        return to_snake_case(p[0].name) + ''.join([param_to_str(pp) for pp in p[1]])
+            else:
+                op_name = to_snake_case(p[0].name)
+        else:
+            op_name = to_snake_case(p[0].name)
+
+        return op_name + ''.join([param_to_str(pp) for pp in p[1]])
     return ' | '.join(el_op_to_str(x) for x in el_ops)
 
 #   _                          ___                  ___                    _                                _           _    _               
@@ -289,10 +326,7 @@ def op_chain_pretty_print(el_ops):
 # _old_excepthook = sys.excepthook
 # sys.excepthook = lambda *args, prior_hook=_old_excepthook: zef_error_hook(*args, prior_hook=prior_hook)
 
-class Evaluating:
-    def __repr__(self):
-        return "evaluating"
-evaluating = Evaluating()
+
 
 class ZefOp_:    
     def __init__(self, el_ops: tuple):
@@ -327,8 +361,8 @@ class ZefOp_:
         elif is_supported_stream(other):
             from .fx import FX
             from ._ops import run
-            stream =  {'type': FX.Stream.CreatePushableStream} | run
-            return stream | self
+            stream_d =  {'type': FX.Stream.CreatePushableStream} | run
+            return stream_d['stream'] | self
         elif is_supported_value(other) or is_supported_zef_value(other):
             return LazyValue(other) | self
         # This is just for a bit of help for users to understand what's going on
@@ -346,14 +380,8 @@ class ZefOp_:
         
 
     def __lshift__(self, other):
-        # if isinstance(other, TraversableABC):
-        #     return ZefOp( (*self.el_ops, (internals.RT.InInOld, (other, ))) )
-        if is_valid_LorO_op(other):
-            return ZefOp( (*self.el_ops, *unpack_ops(internals.RT.InInOld, other.el_ops)))
-        if is_tmpzefop(other):
-            return ZefOp( (*self.el_ops, *unpack_tmpzefop(internals.RT.InInOld, other.el_ops))) 
-        raise TypeError(f'Unexpected type in "ZefOp << ..." expression. Only an RT or L[RT] makes sense here. It was called with {other} of type {type(other)}' )
-        
+        from ._ops import assign
+        return self | assign[other]
 
     def __rshift__(self, other):
         # if isinstance(other, TraversableABC):
@@ -458,6 +486,9 @@ class ZefOp_:
             else: extra = []
             return _op_to_functions[self.el_ops[0][0]][0](args[0], *self.el_ops[0][1], *extra, **kwargs)
 
+        if len(kwargs) > 0:
+            raise NotImplementedError("A ZefOp was called with kwargs.")
+
         # now()
         if len(self.el_ops) == 1 and len(args) == 0:
             if self.el_ops[0][0] in  _call_0_args_translation: 
@@ -547,7 +578,8 @@ class CollectingOp:
         self.el_ops = other.el_ops
 
     def __repr__(self):
-        return f"CollectingOp({op_chain_pretty_print(self.el_ops)})"
+        ops_str = f"({op_chain_pretty_print(self.el_ops)})" if self.el_ops else ""
+        return f"collect{ops_str}"
         
     def __ror__(self, other):
         if isinstance(other, ZefOp): 
@@ -881,7 +913,7 @@ class SubscribingOp:
         return new_op
 
 
-class LazyValue:
+class LazyValue_:
     def __init__(self, arg):
         # if type(arg) == LazyValue:
         #     # Create a copy
@@ -997,7 +1029,8 @@ class LazyValue:
     # For avoiding common mistakes
     def __eq__(self, other):
         if isinstance(other, LazyValue):
-            return self.initial_val == other.initial_val and self.el_ops == other.el_ops
+            from .symbolic_expression import SymbolicExpression, compose_se
+            return compose_se(ET.Equals, self, other)
 
         import logging
         logging.warning("A LazyValue has been compared with == or !=. This is likely a mistake, and requires an additional '| collect'")
@@ -1020,6 +1053,7 @@ class LazyValue:
         from .op_implementations.dispatch_dictionary import _op_to_functions
         from .op_implementations.implementation_typing_functions import ZefGenerator
         from ..core._error import Error_
+        from .VT import Effect
 
         curr_op = None
         curr_value = self.initial_val
@@ -1053,7 +1087,9 @@ class LazyValue:
                             err.keep_traceback = True
                             err.__traceback__ = e.__traceback__
                             raise err from e
-                    elif isinstance(curr_value, dict): 
+                    elif isinstance(curr_value, Effect): 
+                        # Create a Wrapped Effect type from a dict for ease of passing around
+                        if isinstance(curr_value, Dict): curr_value = curr_value['type'](**curr_value)
                         try:
                             curr_value = _op_to_functions[op[0]][0](curr_value)
                         except Exception as e:
@@ -1228,16 +1264,37 @@ class LazyValue:
                 e = add_error_context(e, {"frames": e.frames,} )
                 raise e 
 
+def lazyvalue_is_a(x, typ):
+    # TODO: Proper version
+    from .VT.helpers import remove_names, absorbed
+    items = remove_names(absorbed(typ))
+    if len(items) >= 3:
+        raise Exception(f"LazyValue type cannot have more than 2 items absorbed, found {items}")
+    init_value_type = items[0] if (len(items) >= 1) else None
+    zefop_type = items[1] if (len(items) >= 2) else None
+    if not isinstance(x, LazyValue_):
+        return False
+    if init_value_type is not None:
+        if not isinstance(x.initial_val, init_value_type):
+            return False
+    if zefop_type is not None:
+        if not isinstance(x.el_ops, zefop_type):
+            return False
+    return True
+LazyValue = make_VT("LazyValue",
+                pytype=LazyValue_,
+                is_a_func=lazyvalue_is_a)
+
 # Monkey patching for some handy warnings
-from .VT.value_type import ValueType_
-old_ValueType_instancecheck = ValueType_.__instancecheck__
-def warning_ValueType_instancecheck(self, instance):
-    if type(instance) == LazyValue and self._d["type_name"] != "LazyValue":
-        import traceback
-        traceback.print_stack()
-        raise Exception("Checking whether a LazyValue is a particular ValueType directly with isinstance will always fail. Use is_a instead, which will handle LazyValues.")
-    return old_ValueType_instancecheck(self, instance)
-ValueType_.__instancecheck__ = warning_ValueType_instancecheck
+# from .VT.value_type import ValueType_
+# old_ValueType_instancecheck = ValueType_.__instancecheck__
+# def warning_ValueType_instancecheck(self, instance):
+#     if type(instance) == LazyValue_ and self._d["type_name"] != "LazyValue":
+#         import traceback
+#         traceback.print_stack()
+#         raise Exception("Checking whether a LazyValue is a particular ValueType directly with isinstance will always fail. Use is_a instead, which will handle LazyValues.")
+#     return old_ValueType_instancecheck(self, instance)
+# ValueType_.__instancecheck__ = warning_ValueType_instancecheck
 
 # Perform type checking when an error occurs
 def type_checking_context(op, function, inp):
@@ -1371,7 +1428,7 @@ def type_spec_iterable(obj, vt_type):
             return vt_type[next(iter(tps))]
         else:
             return vt_type[VT.Any]
-    except:
+    except Exception:
         return vt_type[VT.Any]
         
 def type_spec_dict(obj):

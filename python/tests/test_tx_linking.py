@@ -42,7 +42,7 @@ class MyTestCase(unittest.TestCase):
 
         # Note: the root has delegates coming off of it, so we need to filter by only the concrete relation.
         self.assertEqual(g | now | root | in_rels[RT.Something] | filter[Not[is_a[Delegate]]] | single | collect,
-                         tx_node | now | out_rel[RT.Something] | collect)
+                         Atom(tx_node | now | out_rel[RT.Something] | collect))
 
     def test_linking_with_transaction(self):
         g = Graph()

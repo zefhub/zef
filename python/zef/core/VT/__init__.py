@@ -36,7 +36,29 @@ def make_VT(name, **kwargs):
     return insert_VT(name, vt)
 
 
-make_VT("ValueType", pytype=ValueType_)
+def ValueType_validate(vt):
+    from .value_type import absorbed
+    assert type(vt) == ValueType_
+    abs = absorbed(vt)
+    if len(abs) == 0:
+        return True
+    elif len(abs) == 1:
+        if not isinstance(abs[0], ValueType):
+            raise Exception(f"Absorbed parameter in ValueType is itself not a ValueType: {abs}")
+        return True
+    else:
+        raise Exception(f"ValueType has multiple absorbed things: {abs}")
+def ValueType_is_a(x, vt):
+    assert ValueType_validate(vt)
+    if type(x) != ValueType_:
+        return False
+    from .value_type import absorbed, type_name
+    assert len(absorbed(vt)) <= 1
+    if len(absorbed(vt)) == 0:
+        return True
+    subtype = absorbed(vt)[0]
+    return type_name(x) == type_name(subtype)
+make_VT("ValueType", pytype=ValueType_, is_a_func=ValueType_is_a)
 
 # I think these should become ValueTypeParmeters instead
 # T          = ValueType_(type_name='T',  constructor_func=None)
@@ -52,6 +74,8 @@ from . import python_types
 Variable = String
 
 from . import sets
+
+from . import cond
 
 from . import libzef_types
 

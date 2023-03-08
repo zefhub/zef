@@ -20,7 +20,7 @@ namespace zefDB {
     namespace internals {
         // ** Merge handler
         std::optional<std::function<merge_handler_t>> merge_handler;
-        json pass_to_merge_handler(Graph g, const json & payload) {
+        std::tuple<EZefRef,json> pass_to_merge_handler(Graph g, const json & payload) {
             if(!merge_handler)
                 throw std::runtime_error("Merge handler has not been assigned.");
 
@@ -96,6 +96,26 @@ namespace zefDB {
             if(!determine_primitive_type)
                 std::cerr << "Warning, no determine_primitive_type registered to be removed." << std::endl;
             determine_primitive_type.reset();
+        }
+
+        // ** Graph lock sanity checks
+        std::optional<std::function<pre_lock_hook_t>> pre_lock_hook;
+        void pass_to_pre_lock_hook(BaseUID guid) {
+            if(!pre_lock_hook)
+                return;
+            (*pre_lock_hook)(guid);
+        }
+
+        void register_pre_lock_hook(std::function<pre_lock_hook_t> func) {
+            if(pre_lock_hook)
+                throw std::runtime_error("pre_lock_hook has already been registered.");
+            pre_lock_hook = func;
+        }
+
+        void remove_pre_lock_hook() {
+            if(!pre_lock_hook)
+                std::cerr << "Warning, no pre_lock_hook registered to be removed." << std::endl;
+            pre_lock_hook.reset();
         }
     }
 }

@@ -22,9 +22,11 @@ from ..pyzef.main import Graph
 def merge(obj, g : Graph, fire_and_forget : bool = False):
     from ..pyzef.main import merge as orig_merge
     from .serialization import serialize, deserialize
+    from .graph_slice import GraphSlice
 
-    serialized = serialize(tuple(obj))
-    rs =  orig_merge(serialized, g, fire_and_forget)
+    serialized = serialize(obj)
+    gs_tx,rs = orig_merge(serialized, g)
     receipt = deserialize(rs)
-    return receipt
+    gs = GraphSlice(gs_tx)
+    return gs,receipt
 

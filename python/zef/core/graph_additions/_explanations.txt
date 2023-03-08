@@ -1,0 +1,191 @@
+
+
+# Interaction:
+
+A user creates/causes a graph wish to happen via either `transact` or the shorthand syntax (uses `encode`):
+
+<...> | transact[g] | run
+<...> | g | run
+
+The flow of individual object types is loosely:
+
+GraphWishInput -> PleaseCommandLevel2 -> PleaseCommandLevel1 -> ZefRef
+
+This is a very loose picture as individual objects may create 2+ other objects or even be eliminated entirely (e.g. an unnecessary terminate). Conversion between lists of these objects is done via some logic and using rules.
+
+Starting from the restrictive side (the PleaseCommandLevel1) we can define the set of object types that these cover in the default rules:
+
+- PleaseCommandLevel1
+  - PleaseInstantiate - creates/merges an entity, relation, attribute entity, delegate, value node.
+  - PleaseTerminate - terminates a RAE.
+  - PleaseAssign - assigns a value to an attribute entity
+  - PleaseBeSource - coordinates multiple relations of a particular RT.
+  - PleaseBeTarget - as above
+  - PleaseMustLive - exists solely to prevent terminates happening.
+  - PleaseTag - tags a node (TODO)
+  
+- PleaseCommandLevel2
+  - Includes all PleaseCommandLevel1.
+  - Object notation (EntityValueInstance/ObjectInstance) - defines the creation/update of a RAE which a complex set of field/set/list rules.
+  - PleaseRun - allows for arbitrary LazyValue/ZefOp/SymbolicExpression handling, delaying its evaluation until the concrete GraphSlice is known.
+  
+- GraphWishInput
+  - Includes all PleaseCommandLevel2
+  - SymbolicExpression/LazyValue/ZefOp - could be turned into object notation or delayed with a PleaseRun
+  - RelationTriple - (a, rt, c)
+  - OldStyleRelationTriple - (a, [(rt1, b), (rt2, c)]) or (a, rt, [b,c,d])
+  - GraphWishValue - a PrimitiveValue (int, string, etc...) or a Val
+  - AETWithValue - used internally, implies a particular AET and assignment.
+  - FlatGraph - (TODO)
+  - ET/AET - creates an entity or attribute entity
+  - RAE - merges the corresponding RAE (and maybe its source/target for Relations)
+  - Delegate - ensures the delegate is reified on the graph.
+  - OldStyleDict - old dictionary syntax, e.g. {ET.Person: {RT.FirstName: "Bob"}}.
+
+# Identification:
+
+There are several IDs allowed for refering between items for users and for the internals:
+
+- WishID = Variable (V.x) or WishIDInternal (internal-use for anonymous labels only), which are both restricted forms of giving a string ID.
+
+- UserWishID = WishID or a Z["a"] or Any["a"].
+  - The Z and Any formats are converted internally to WishID with a special "OriginallyUserID" object to tag them.
+  - When generating the receipt at the end, these "OriginallyUserID" are unpacked back into their original value.
+
+- AllIDs: this is used internally for anything that can represent a "uid" of an object and includes:
+  - WishID - "local scope" names for the wish.
+  - EternalUID - "global scope" names obtained from, e.g. RelationRef.
+  - DelegateRef/Val - value-based identity for these kinds of objects.
+
+
+# Process
+
+0. (Only for shorthand `encode`)
+   - Call `encode_cmd` (`shorthand.py`) to produce a name and a set of commands to realised this input.
+
+1. Process a list of inputs using `generate_level2_commands`.
+   - File: `wish_interpretation.py`
+   - Each command type is dispatched on, returning `List[PleaseCommandLevel2]` and `List[GraphWishInput]`.
+   - Emits the level 2 commands and adds the new inputs to the processing list.
+   - Iterates until no more inputs exist.
+   
+2. Process a list of `PleaseCommandLevel2` along with a given `GraphSlice` using `generate_level1_commands`.
+   - File: `wish_translation2.py`
+   a. Prepare each command
+       - Identical to step 1, except emits `PleaseCommandLevel1`s and iterates until no more `PleaseCommandLevel2` are left.
+       - Uses `dispatch_preparation` (`command_preparation.py`).
+       - Note: has advtange over step 1, in that exact `GraphSlice` is known.
+   b. Add PleaseMustLive commands for all source/targets of relations
+   c. Iteratively validates/simplifies commands (`validate_and_simplify_lvl1_cmds`):
+       - Builds mappings of name -> cmd and cmd -> name using `distinguish_cmd` (`command_multi_rules.py`)for each command.
+       - Identifies all cmds that share names as groups (connected components in the bipartite graph of name<->cmd).
+       - For each group, calls `recombination` (`command_recombination.py`) iteratively to simplify commands and validate that command combinations are logical.
+       - Identifies one "winning" name with all commands that survive/are generated from the recombination process.
+       - Relabel all commands with their chosen winning name with `relabel_cmds` (`command_multi_rules.py`).
+       - Repeat from c. until no changes occur from this process.
+   d. Cull any commands that are not needed using `cull_unnecessary_cmds` (`command_multi_rules.py`)
+   e. Order the commands into a linear execution order using `order_level1_commands`:
+       - File: `command_ordering.py`
+       - Builds depedency graph using `command_dep_rules`.
+       - Emits commands when they have no remaining dependencies, removing themselves from their dependents list of dependencies.
+       - Iteates until all commands emitted.
+
+3. Execute the actions onto a graph
+   - File: `low_level.py`
+   - If branches to handle the low-level operations.
+   - Records ZefRef results into the receipt dictionary.
+   - Call `post_process` if provided.
+   
+4. (Only for shorthand `encode`)
+   - Call `unpack_receipt` on the encoded template.
+
+
+Not mentioned in the above list explicitly, are the rules for `ensure_tag` which
+are used by many of the commands above at different stages. The `ensure_tag`
+dispatches on command types to produce a new command with a label (maybe an
+internal id) that can be used to refer to this object in other contexts.
+   
+
+
+## Example: How does a command go from user input to a ZefRef
+
+Following this command: `z | F.name | assign["something"]` for `z` existing without any prior name.
+
+- Inside of `generate_level2_commands`:
+  - Rule: `LazyValue` gives: `lvl2_commands_for_lazyvalue`
+    - Uses `evaluate_chain` to produce an ObjectInstance, fed back into `generate_level2_commands` loop
+  - Rule: `ObjectInstance` causes command to be passed through to next stage.
+
+- Inside of `generate_level1_commands`:
+  - Inside of `dispatch_preparation`:
+    - Rule: `ObjectInstance` gives: `prepare_obj_notation`
+        - Produces many `PleaseInstantiate`, `PleaseAssign`, `PleaseBeSource`
+          commands, along with internal IDs (will continue to follow the
+          `PleaseAssign` command)
+    - Rule: `PleaseCommandLevel1` causes command to be passed through to next stage
+  - Inside of `validate_and_simplify_lvl1_cmds`:
+    - Inside of `distinguish_cmd`:
+      - Rule: `PleaseAssign` gives `distinguish_assign`
+        - Returns the cmd as is and its name of the internal id generated prior.
+    - Inside of `recombination` with other commands:
+      - Rule: `Tuple[~PleaseTerminate, ~PleaseTerminate]` gives `recombination_checks`
+        - No cmd is affected by the recombination in this case.
+  - Inside of `relabel_cmds`:
+    - Rule: `PleaseAssign` gives `relabel_just_target`
+    - Nothing to change so returned unaffected
+  - Inside of `cull_cmds`:
+    - Rule: `PleaseAssign` gives `cull_assign`
+    - Since the value is new it is not culled.
+    
+- Inside of `perform_level1_commands`
+  - If branch causes the low level `assign_value_imp` to be called.
+        
+  
+    
+# What is necessary to add a new type or modify an existing one?
+
+Adding a new command depends on what stage it is required for. As an example, what would happen with adding in the abilty to tag nodes.
+
+
+- Type:
+  - Introduce `PleaseTag` and include into the `PleaseCommandLevel1` group.
+- Low-level:
+  - needs a new if branch to handle low-level commands in `perform_level1_commands`
+- Mid-level:
+  - Needs a new rule for `dispatch_preparation` which is a no-op (pass cmd through unaffected).
+  - Needs a new rule for `distinguish_cmd` to return the cmd and under what names it is identified (name could be the origin uid, or an internal id).
+  - Needs to be handled appropriately in `recombination` rules. Likely it is unaffected by any recombination but raises an error if together with a PleaseTerminate.
+  - Needs a new rule for `relabel_cmds` to handle its internal ids changing.
+  - Needs a new rule for `cull_unnecessary_cmds`, which could remove this cmd if the target node is already tagged.
+- High-level:
+  - Add handling in `evaluate_chain` for the `z | tag["x"]` inputs, so that LazyValues can emit `PleaseTag` commands.
+  - Needs a new rule for `encode_cmd` so that it works in the shorthand syntax.
+  
+  
+As a different example, the `OldStyleRelationTriple` is only at the high-level:
+
+- Type:
+  - Introduce `OldStyleRelationTriple` into the `GraphWishInput` group.
+- High-level:
+  - Needs a new rule for `generate_lvl2_commands`, which produces other inputs such as `RelationTriple`.
+  
+
+
+
+
+
+# TODO things
+
+- Need to properly handle random number generation in cases where I got lazy and
+  used a global for prototyping which ended up in the final thing.
+  
+- Provide "easy" way to pass all of the different rule sets in.
+  - Also need to make things like `ensure_tag` customizable, which means
+    anything that calls `ensure_tag` needs to have access to this customization.
+
+- Get ready the set of deprecation warnings for older syntaxes. This should be
+  easy enough with OldStyleDict and OldStyleRelationTriple handling.
+  
+- The function signatures have been written to fit into a pure functional style,
+  but the actual implementation is only 50% pure functional. Many times lists,
+  etc are mutated in place.

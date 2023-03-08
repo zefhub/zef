@@ -124,8 +124,6 @@ class EntityRef_:
     
 EntityRef = make_VT('EntityRef', pytype=EntityRef_)
 EntityConcrete = insert_VT("EntityConcrete", BlobPtr & BT.ENTITY_NODE)
-Entity = insert_VT("Entity", EntityRef | EntityConcrete)
-    
 
 class AttributeEntityRef_:
     """ 
@@ -170,7 +168,6 @@ class AttributeEntityRef_:
     
 AttributeEntityRef = make_VT('AttributeEntityRef', pytype=AttributeEntityRef_)
 AttributeEntityConcrete = insert_VT("AttributeEntityConcrete", BlobPtr & BT.ATTRIBUTE_ENTITY_NODE)
-AttributeEntity = insert_VT("AttributeEntity", AttributeEntityRef | AttributeEntityConcrete)
 
 class RelationRef_:
     """ 
@@ -216,7 +213,6 @@ class RelationRef_:
 
 RelationRef = make_VT('RelationRef', pytype=RelationRef_)
 RelationConcrete = insert_VT("RelationConcrete", BlobPtr & BT.RELATION_EDGE)
-Relation = insert_VT("Relation", RelationRef | RelationConcrete)
 
 class TXNodeRef_:
     """ 
@@ -260,7 +256,6 @@ class TXNodeRef_:
         
 TXNodeRef = make_VT('TXNodeRef', pytype=TXNodeRef_)
 TXNodeConcrete = insert_VT("TXNodeConcrete", BlobPtr & BT.TX_EVENT_NODE)
-TXNode = insert_VT("TXNode", TXNodeConcrete | TXNodeRef)
 
 class RootRef_:
     """ 
@@ -304,8 +299,6 @@ class RootRef_:
 
 RootRef = make_VT('RootRef', pytype=RootRef_)
 RootConcrete = insert_VT("RootConcrete", BlobPtr & BT.ROOT_NODE)
-Root = insert_VT("Root", RootConcrete | RootRef)
-
 
 def abstract_rae_from_rae_type_and_uid(rae_type, uid):
     if isinstance(rae_type, ET):
@@ -319,11 +312,17 @@ def abstract_rae_from_rae_type_and_uid(rae_type, uid):
 
 RAERef = insert_VT('RAERef', EntityRef | AttributeEntityRef | RelationRef)
 RAEConcrete = insert_VT('RAEConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete)
-RAE = insert_VT('RAE', Entity | AttributeEntity | Relation)
 
+ValConcrete = insert_VT('ValConcrete', BlobPtr & BT.VALUE_NODE)
+
+def is_delegate_import(x):
+    from .internals import is_delegate
+    return is_delegate(x)
+DelegateConcrete = insert_VT('DelegateConcrete', BlobPtr & Is[is_delegate_import])
+
+# For backwards compatibility, DelegateRef and Val don't appear here, even though that's where they should go
 AtomRef = insert_VT('AtomRef', EntityRef | AttributeEntityRef | RelationRef | TXNodeRef | RootRef)
-AtomConcrete = insert_VT('AtomConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete | TXNodeConcrete | RootConcrete)
-Atom = insert_VT('Atom', Entity | AttributeEntity | Relation | TXNode | Root)
+AtomConcrete = insert_VT('AtomConcrete', EntityConcrete | AttributeEntityConcrete | RelationConcrete | TXNodeConcrete | RootConcrete | ValConcrete | DelegateConcrete)
 
 
 

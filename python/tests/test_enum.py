@@ -25,7 +25,7 @@ class MyTestCase(unittest.TestCase):
             enum_val = "TEST"
             EN(enum_type, enum_val)
             ae = AET.Enum(enum_type) | g | run
-            (ae <= EN(enum_type, enum_val)) | g | run
+            ae | assign[EN(enum_type, enum_val)] | g | run
 
         retrieved_value = ae | value | collect
         self.assertEqual(retrieved_value.enum_value, enum_val)

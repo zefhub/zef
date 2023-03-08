@@ -117,6 +117,7 @@ namespace zefDB {
                 // TODO: Should also provide a way to change URI if this has been directed to a load balancer.
                 update(locker, [&]() {
                     connected = false;
+                    connected_from_wspp = false;
                     wspp_in_control = false;
                     last_was_failure = true;
                 });
@@ -127,6 +128,10 @@ namespace zefDB {
         void PersistentConnection::pong_timeout_handler(websocketpp::connection_hdl hdl, std::string s) {
             if(zwitch.zefhub_communication_output()) {
                 std::cerr << "Pong timeout" << std::endl;
+            }
+            if(zwitch.no_timeout_errors()) {
+                std::cerr << "Ignoring pong timeout because no_timeout_errors is set" << std::endl;
+                return;
             }
             // Probably need to assert or forcibly close here.
             // While zefhub doesn't support it yet, we will not fail just yet.
@@ -148,7 +153,10 @@ namespace zefDB {
         };
         void PersistentConnection::open_handler(websocketpp::connection_hdl hdl) {
             debug_time_print("start of open_handler");
-            update(locker, connected, true);
+            update(locker, [&]() {
+                connected = true;
+                connected_from_wspp = true;
+            });
             last_connect_time = std::chrono::steady_clock::now();
             if(should_stop) {
                 visit_endpoint([this,&hdl](auto & endpoint) {
@@ -186,6 +194,7 @@ namespace zefDB {
                 }
                 update(locker, [&]() {
                     connected = false;
+                    connected_from_wspp = false;
                     wspp_in_control = false;
                     // This is getting the shared pointer on our object, not
                     // that of websocketpp. This might not be necessary if we
@@ -347,6 +356,9 @@ namespace zefDB {
                         con->append_header(item.first, item.second);
 
                 debug_time_print("before endpoint connect");
+                // I'm not sure if this could ever be invalid, so I've left it
+                // until right before we trigger the connect
+                connected_from_wspp = false;
                 endpoint->connect(con);
                 // This is a little tricky - we should probably have put the
                 // endpoint and the connection in the same variant to be able to
@@ -363,9 +375,15 @@ namespace zefDB {
 #endif
                 update(locker, [&]() {
                     if(should_stop) {
-                        con->close(websocketpp::close::status::going_away, "", ec);
-                        if(ec) 
-                            std::cout << "> Closing connection error (in start_connection): " << ec.message() << std::endl;
+                        // The connection may not have even be started by the ws
+                        // thread loop so check that first. If the thread does
+                        // kick in and start the connection afterwards, we will
+                        // have to catch that in the cleanup of the manager instead.
+                        if(con->get_state() == websocketpp::session::state::open) {
+                            con->close(websocketpp::close::status::going_away, "", ec);
+                            if(ec) 
+                                std::cout << "> Closing connection error (in start_connection): " << ec.message() << std::endl;
+                        }
                     } else {
                         atomic_store(&ptr_con, con);
                     }
@@ -378,10 +396,14 @@ namespace zefDB {
                 should_stop = true;
                 std::visit([&](auto & con) {
                     if(con) {
-                        std::error_code ec;
-                        con->close(websocketpp::close::status::going_away, "", ec);
-                        if(ec)
-                            std::cout << "> Closing connection error: " << ec.message() << std::endl;
+                        if(con->get_state() == websocketpp::session::state::open) {
+                            std::error_code ec;
+                            con->close(websocketpp::close::status::going_away, "", ec);
+                            // We ignore invalid state messages as these seem to pop
+                            // up even though we have done "the right thing"
+                            if(ec) 
+                                std::cout << "> Closing connection error: " << ec.message() << std::endl;
+                        }
                         con.reset();
                     }
                 }, _con);
@@ -399,10 +421,12 @@ namespace zefDB {
                 if(!con)
                     return;
 
-                std::error_code ec;
-                con->close(websocketpp::close::status::going_away, "", ec);
-                if(ec)
-                    std::cout << "> Closing connection error (in restart): " << ec.message() << std::endl;
+                if(con->get_state() == websocketpp::session::state::open) {
+                    std::error_code ec;
+                    con->close(websocketpp::close::status::going_away, "", ec);
+                    if(ec)
+                        std::cout << "> Closing connection error (in restart): " << ec.message() << std::endl;
+                }
                 con.reset();
                 update(locker, [&]() {
                     connected = false;
@@ -514,6 +538,7 @@ namespace zefDB {
                     start_connection();
                 }
 
+                developer_output("Calling stop_perpetual");
                 visit_endpoint([this](auto & endpoint) {
                     if(endpoint)
                         endpoint->stop_perpetual();
@@ -524,6 +549,20 @@ namespace zefDB {
                 // halfway through its thing)
                 close();
 
+                // We give websocketpp 3 sec max to send out its closing
+                // messages and then we forcibly terminate.
+                int wait_time = 3;
+                wait_same(locker, connected_from_wspp, false, std::chrono::seconds(wait_time));
+                if(connected_from_wspp) {
+                    std::cerr << "Forcibly terminating asio service after " << wait_time << " secs" << std::endl;
+                    visit_endpoint([this](auto & endpoint) {
+                        if(endpoint)
+                            endpoint->stop();
+                    });
+                }
+                
+
+                developer_output("About to join ws_thread");
                 ws_thread->join();
                 ws_thread.reset();
             }

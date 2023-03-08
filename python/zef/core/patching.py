@@ -102,7 +102,7 @@ def create_monkey_patched_Time_ctor(old_init_fct):
             try:
                 my_timestamp = datetime.timestamp(dateparser.parse(x, settings={'TIMEZONE': timezone, 'RETURN_AS_TIMEZONE_AWARE': True}))
                 self = old_init_fct(self, my_timestamp)
-            except:
+            except Exception:
                 raise ValueError(f"Could not parse the following string as a valid datetime: \"{x}\"")
         else:
             raise ValueError('Invalid argument type passed to Time constructor')
@@ -308,9 +308,24 @@ EZefRef.__le__ = convert_to_assign
 original_Graph__contains__ = main.Graph.__contains__
 def Graph__contains__(self, x):
     from .abstract_raes import EntityRef_, AttributeEntityRef_, RelationRef_
-    from ._ops import origin_uid
-    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_]:
+    from ._ops import origin_uid, to_delegate
+    from .internals import val_as_serialized_if_necessary
+    from .atom import Atom_
+    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_, Atom_]:
         return origin_uid(x) in self
+
+    from .VT import Delegate
+    if isinstance(x, Delegate):
+        # In case x is a BlobPtr, convert it to DelegateRef first
+        d = to_delegate(x)
+        maybe_z = to_delegate(d, self)
+        return maybe_z is not None
+
+    from .VT import Val
+    if isinstance(x, Val):
+        val = val_as_serialized_if_necessary(x)
+        maybe_z = self.get_value_node(val)
+        return maybe_z is not None
 
     if type(x) in [ZefRef, EZefRef]:
         if Graph(x) == self:
@@ -323,10 +338,29 @@ main.Graph.__contains__ = Graph__contains__
 original_Graph__getitem__ = main.Graph.__getitem__
 def Graph__getitem__(self, x):
     from .abstract_raes import EntityRef_, AttributeEntityRef_, RelationRef_
-    from ._ops import uid, target
-    from .internals import BT
-    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_]:
-        return self[uid(x)]
+    from .atom import Atom_
+    from ._ops import uid, target, to_delegate, origin_uid
+    from .internals import BT, val_as_serialized_if_necessary
+    if type(x) in [EntityRef_, AttributeEntityRef_, RelationRef_, Atom_]:
+        return self[origin_uid(x)]
+
+    from .VT import Delegate
+    if isinstance(x, Delegate):
+        # In case x is a BlobPtr, convert it to DelegateRef first
+        d = to_delegate(x)
+        maybe_z = to_delegate(d, self)
+        if maybe_z is None:
+            raise KeyError(f"Delegate {x} not present in graph")
+        return maybe_z
+
+    from .VT import Val
+    if isinstance(x, Val):
+        val = val_as_serialized_if_necessary(x)
+        maybe_z = self.get_value_node(val)
+        if maybe_z is None:
+            raise KeyError(f"ValueNode {x} doesn't exist on graph") 
+        return maybe_z
+        
 
     res = original_Graph__getitem__(self, x)
     # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
@@ -349,9 +383,13 @@ main.Graph.__getitem__ = Graph__getitem__
 
 original_Graph__init__ = main.Graph.__init__
 def Graph__init__(self, *args, **kwds):
-    from .graph_slice import GraphSlice_
-    if len(kwds) == 0 and len(args) == 1 and isinstance(args[0], GraphSlice_):
-        return original_Graph__init__(self, args[0].tx)
+    if len(kwds) == 0 and len(args) == 1:
+        from .graph_slice import GraphSlice_
+        from .atom import AtomClass, _get_ref_pointer
+        if isinstance(args[0], GraphSlice_):
+            return original_Graph__init__(self, args[0].tx)
+        elif isinstance(args[0], AtomClass):
+            return original_Graph__init__(self, _get_ref_pointer(args[0]))
 
     return original_Graph__init__(self, *args, **kwds)
 main.Graph.__init__ = Graph__init__
@@ -420,20 +458,48 @@ AttributeEntityType.__str__ = AttributeEntityType_str
 
 
 class EntityValueInstance_:
-    def __init__(self, entity_type, **kwargs):
-        self._entity_type: EntityType = entity_type
+    def __init__(self, arg, *args, **kwargs):
+        from .VT import ET, Entity
+        if isinstance(arg, ET):
+            self._entity_type = arg
+        elif isinstance(arg, Entity):
+            self._entity_type = ET(arg)
+            args = (origin_uid(arg),) + args
+        else:
+            raise Exception(f"Don't understand arg type: {arg}")
+        self._args = args
         self._kwargs = kwargs
         
     def __repr__(self):
         nl = '\n'
-        return f'{self._entity_type}({f", ".join([f"{k}={repr(v)}" for k, v in self._kwargs.items()])})'
+        items = [str(arg) for arg in self._args]
+        items += [f"{k}={v!r}" for k,v in self._kwargs.items()]
+        return f'{self._entity_type}({f", ".join(items)})'
     
     def __getattr__(self, name):
-        return self._kwargs[name]
-
+        # return self._kwargs[name]
+        from ._ops import F
+        return self | getattr(F, name)
+    
     def __eq__(self, other):
         if not isinstance(other, EntityValueInstance_): return False
         return self._entity_type == other._entity_type and self._kwargs == other._kwargs
+
+    def __getitem__(self, name):
+        new_et = self._entity_type[name]
+        return EntityValueInstance_(new_et, *self._args, **self._kwargs)
+
+    def __call__(self, *args, **kwargs):
+        new_kwargs = dict(self._kwargs)
+        new_kwargs.update(kwargs)
+        return EntityValueInstance_(self._entity_type, *(self._args + args), **new_kwargs)
+
+    def __hash__(self):
+        from .VT.value_type import hash_frozen
+        return hash_frozen(("EntityValueInstance", self._entity_type, self._args, self._kwargs))
+    
+    def clone(self):
+        return EntityValueInstance_(self._entity_type, *self._args, **{k: v.clone() if isinstance(v, EntityValueInstance_) else v for k,v in self._kwargs.items()})
 
 
 
@@ -442,4 +508,3 @@ def entity_type_call_func(self, *args, **kwargs):
     return EntityValueInstance_(EntityType(self.value), **kwargs)
 
 EntityType.__call__ = entity_type_call_func
-

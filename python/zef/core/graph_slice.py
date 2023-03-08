@@ -19,6 +19,7 @@ report_import("zef.core.graph_slice")
 from ._core import *
 from .abstract_raes import *
 from .internals import EternalUID
+from .VT import *
 
 class GraphSlice_:
     def __init__(self, *args):
@@ -28,8 +29,7 @@ class GraphSlice_:
         Construct a GraphSlice, aka reference frame.
 
         Signature:
-            ZefRef[TX] -> GraphSlice
-            EZefRef[TX] -> GraphSlice
+            TX -> GraphSlice
             (Time, Graph) -> GraphSlice
             (Graph, Time) -> GraphSlice
         """
@@ -37,8 +37,14 @@ class GraphSlice_:
         # ZefRef[TX] -> GraphSlice and EZefRef[TX] -> GraphSlice
         if len(args) == 1:
             z = args[0]
-            if not (isinstance(z, ZefRef) or isinstance(z, EZefRef)):
-                raise TypeError(f'When calling the GraphSlice constructor with a single arguments, this has to be a ZefRef[TX] / EZefRef[TX]. Called with: args={args}')
+            from .VT import TX, AtomClass
+            if not isinstance(z, TX):
+                raise TypeError(f'When calling the GraphSlice constructor with a single arguments, this has to be a TX. Called with: args={args}')
+            if isinstance(z, AtomClass):
+                from .atom import _get_ref_pointer
+                z = _get_ref_pointer(z)
+                if z is None:
+                    raise TypeError(f"Atom did not have a BlobPtr contained in it: {args}.")
             self.tx = to_ezefref(z)
             # Hold a reference to the graph open
             self._g = Graph(self.tx)
@@ -89,28 +95,75 @@ class GraphSlice_:
         return hash(self.tx)
 
     def __getitem__(self, thing):
-        from ._ops import in_frame, uid, collect
-        
-        g = Graph(self.tx)
-        ezr = g[thing]
-        # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
-        # Accessing the low-level BTs can only be done through traversals
-        if BT(ezr) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
-            res = get_instance_rae(uid(thing), self)
-            if res is None:
-                raise KeyError("RAE doesn't have an alive instance in this timeslice")
-            return res
+        from ._ops import to_frame, uid, collect, to_delegate, exists_at
+        from . import internals
+        from .atom import AtomClass
 
+        from .VT import Delegate, Val
+        if isinstance(thing, Delegate):
+            # In case thing is a BlobPtr, convert it to DelegateRef first
+            d = to_delegate(thing)
+            maybe_z = to_delegate(d, self)
+            if maybe_z is None:
+                raise KeyError(f"Delegate {thing} not present in this timeslice")
+            return maybe_z
+
+        elif isinstance(thing, Val):
+            val = internals.val_as_serialized_if_necessary(thing)
+            maybe_z = Graph(self.tx).get_value_node(val)
+            if maybe_z is None:
+                raise KeyError(f"ValueNode {thing} doesn't exist on graph") 
+            if not maybe_z | exists_at[self] | collect:
+                raise KeyError(f"ValueNode {thing} isn't alive in this timeslice") 
+            return maybe_z | to_frame[self] | collect
+        
         else:
-            return ezr | in_frame[GraphSlice(self.tx)] | collect
+            g = Graph(self.tx)
+            ezr = g[thing]
+            # We magically transform any FOREIGN_ENTITY_NODE accesses to the real RAEs.
+            # Accessing the low-level BTs can only be done through traversals
+            if BT(ezr) in [BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE]:
+                out = get_instance_rae(uid(thing), self)
+                if out is None:
+                    raise KeyError("RAE doesn't have an alive instance in this timeslice")
+
+            else:
+                out = ezr | to_frame[GraphSlice(self.tx)] | collect
+
+        from .atom import AtomClass
+        if out is not None:
+            out = AtomClass(out)
+        return out
 
     def __contains__(self, thing):
-        from ._ops import exists_at, uid, collect
+        from ._ops import exists_at, uid, collect, to_delegate, origin_uid
+        from . import internals
+        from .rae_type_definitions import RAE
 
-        if isinstance(thing, (EntityRef, AttributeEntityRef, RelationRef)):
-            return get_instance_rae(uid(thing), self) is not None
+        if isinstance(thing, RAE):
+            return get_instance_rae(origin_uid(thing), self) is not None
+
+        from .VT import Delegate
+        if isinstance(thing, Delegate):
+            # In case thing is a BlobPtr, convert it to DelegateRef first
+            d = to_delegate(thing)
+            maybe_z = to_delegate(d, self)
+            return maybe_z is not None
+
+        from .VT import Val
+        if isinstance(thing, Val):
+            val = internals.val_as_serialized_if_necessary(thing)
+            maybe_z = Graph(self.tx).get_value_node(val)
+            if maybe_z is None:
+                return False
+            return maybe_z | exists_at[self] | collect
+            
 
         g = Graph(self.tx)
+        if isinstance(thing, EternalUID):
+            z = get_instance_rae(thing, self)
+            return z is not None
+
         if thing not in g:
             return False
         z = g[thing]
@@ -121,7 +174,7 @@ from .VT import make_VT
 GraphSlice = make_VT("GraphSlice", pytype=GraphSlice_)
 
 
-def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
+def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice, allow_tombstone=False)->ZefRef:
     """
     Returns the instance of a foreign rae in the given slice. It could be that
     the node asked for has its origin on this graph (the original rae may still
@@ -136,22 +189,88 @@ def get_instance_rae(origin_uid: EternalUID, gs: GraphSlice)->ZefRef:
         None: this graph knows nothing about this RAE
     """
     # TODO: Temporary imports while ops are moving around
-    from ._ops import map, target, exists_at, filter, collect, only, in_frame, Ins
+    from ._ops import map, target, exists_at, filter, collect, only, to_frame, Ins
     g = Graph(gs.tx)
     if origin_uid not in g:
         return None
 
     zz = g[origin_uid]
     if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
-        z_candidates = zz | Ins[BT.ORIGIN_RAE_EDGE] | map[target] | filter[exists_at[gs]] | collect
+        z_candidates = zz | Ins[BT.ORIGIN_RAE_EDGE] | map[target] | collect
+        if not allow_tombstone:
+            z_candidates = z_candidates | filter[exists_at[gs]] | collect
         if len(z_candidates) > 1:
             raise RuntimeError(f"Error: More than one instance alive found for RAE with origin uid {origin_uid}")
         elif len(z_candidates) == 1:
-            return z_candidates | only | in_frame[gs] | collect
+            from . import _ops
+            out = z_candidates | only | to_frame[gs][_ops.allow_tombstone] | collect
         else:
-            return None     # no instance alive at the moment
+            out = None     # no instance alive at the moment
         
-    elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}:
-        return zz
+    elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE, BT.TX_EVENT_NODE, BT.ROOT_NODE}:
+        if allow_tombstone:
+            from . import _ops
+            out = zz | to_frame[gs][_ops.allow_tombstone] | collect
+        else:
+            out = zz | to_frame[gs] | collect
     else:
-        raise RuntimeError("Unexpected option in get_instance_rae")
+        raise RuntimeError(f"Unexpected option in get_instance_rae: {zz}")
+
+    from .atom import AtomClass
+    if out is not None:
+        out = AtomClass(out)
+    return out
+
+
+# This is like a GraphSlice but without an explicit ZefRef tx.
+DBStateUID = UserValueType("DBStateUID",
+                           Dict,
+                           Pattern[{"tx_uid": BaseUID,
+                                    "graph_uid": BaseUID}],
+                           forced_uid="5f58a60ab5ae121b")
+
+def make_dbstate_uid(gs):
+    from ._ops import uid
+    ctx = gs.tx
+    tx_uid = uid(ctx).blob_uid
+    graph_uid = uid(ctx).graph_uid
+    return DBStateUID(tx_uid=tx_uid, graph_uid=graph_uid)
+
+
+def find_dbstate(dbstate_uid: DBStateUID):
+    # Tries to find the DBState for the given UID but returns None if we can't
+    # without causing a graph load.
+    gref = GraphRef(dbstate_uid.graph_uid)
+    from .internals import get_loaded_graph
+    g = get_loaded_graph(gref)
+    if g is None:
+        return None
+    gs = GraphSlice(g[dbstate_uid.tx_uid])
+    return gs
+
+    
+# A temporary internal structure to represent a global id with a reference frame
+DBStateRefUID = UserValueType("DBStateRefUID",
+                           Dict,
+                           Pattern[{"global_uid": EternalUID | DelegateRef | Val,
+                                    "dbstate_uid": DBStateUID}],
+                           forced_uid="e2481c246411fd50")
+
+def make_dbstateref_uid(z):
+    from .VT import AtomClass
+    from .atom import _get_ref_pointer
+    if isinstance(z, AtomClass):
+        z = _get_ref_pointer(z)
+    if not isinstance(z, ZefRef):
+        raise Exception(f"Can't get DBStateRefUID from a {z}")
+
+    from ._ops import origin_uid, frame, get_field, collect, uid
+
+    global_uid = origin_uid(z)
+    # Have to avoid calling to_tx as that would recurse into this function.
+    dbstate_uid = make_dbstate_uid(z | frame | collect)
+
+    return DBStateRefUID(
+        global_uid=global_uid,
+        dbstate_uid=dbstate_uid,
+    )

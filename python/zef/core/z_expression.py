@@ -214,17 +214,21 @@ def z_expression_to_vt(op_type: ET, arg1, arg2) -> VT:
     This function is hit when a binary comparison operator is encountered in a ZExpression.
     It returns a value type, which wraps a predicate function.
     """
-       
+    from .VT import Atom
+    from .atom import _get_atom_type
+
     def step(expr) -> func:
+
         import zef
         is_lambda = lambda x: callable(x) and not isinstance(x, zef.core.op_structs.ZefOp_)
 
         # exit early if this is the main variable (ET.Z  => identity function)
         # or a constant expression, i.e. not another nested expression in the form of an EntityValueInstance_
+        
         if expr == ET.Z:
             return lambda x: x
 
-        if not isinstance(expr, zef.core.patching.EntityValueInstance_):
+        if not isinstance(expr, Atom):
             return expr   # normal value
 
         # once we're here, it must be an EntityValueInstance_: recurse into its children
@@ -234,10 +238,10 @@ def z_expression_to_vt(op_type: ET, arg1, arg2) -> VT:
         # print(f"step will dispatch on: {op_type} {f1}    {f2}  {callable(f1)} {callable(f2)}")
         # one extra lambda layer to prevent evaluation of the first term
         return {
-            (False, False): lambda:           compose_fct(expr._entity_type, f1, f2),
-            (True, False):  lambda: lambda x: compose_fct(expr._entity_type, f1(x), f2),
-            (False, True):  lambda: lambda x: compose_fct(expr._entity_type, f1, f2(x)),
-            (True, True):   lambda: lambda x: compose_fct(expr._entity_type, f1(x), f2(x)),
+            (False, False): lambda:           compose_fct(_get_atom_type(expr), f1, f2),
+            (True, False):  lambda: lambda x: compose_fct(_get_atom_type(expr), f1(x), f2),
+            (False, True):  lambda: lambda x: compose_fct(_get_atom_type(expr), f1, f2(x)),
+            (True, True):   lambda: lambda x: compose_fct(_get_atom_type(expr), f1(x), f2(x)),
         }[is_lambda(f1), is_lambda(f2)]()
 
     a = op_type(arg1=unwrap_zexpr(arg1), arg2=unwrap_zexpr(arg2))

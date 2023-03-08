@@ -12,21 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from . import make_VT
+from . import make_VT, ValueType
 
 # Show of these are not python types but are very close and fit into the category of scalar primitives
 
 make_VT('Nil', pytype=type(None))
 make_VT('Any',
-              is_a_func=lambda x,typ: True,
-              is_subtype_func=lambda x,typ: True)
+        is_a_func=lambda x,typ: True,
+        is_subtype_func=lambda x,typ: True,
+        constructor_func=lambda self,x: x,
+        pass_self=True,
+        )
 
 def numeric_is_a(x, typ):
     from .value_type import _value_type_pytypes
     python_type = _value_type_pytypes[typ._d['type_name']]
     try:
         return isinstance(x, python_type) or python_type(x) == x
-    except:
+    except Exception:
         return False
 
 PyBool = make_VT("PyBool", pytype=bool)
@@ -41,12 +44,25 @@ Float = make_VT("Float", pytype=float, is_a_func=numeric_is_a)
 String = make_VT('String', pytype=str)
 PyBytes = make_VT('PyBytes', pytype=bytes)
 
-from frozendict import frozendict
 PyList = make_VT('PyList', pytype=list)
 def PyDict_is_a(x, typ):
-    return isinstance(x, (dict, frozendict))
+    return isinstance(x, dict)
 PyDict = make_VT('PyDict', pytype=dict, is_a_func=PyDict_is_a)
 PySet = make_VT('PySet', pytype=set)
 
 PyTuple = make_VT('PyTuple', pytype=tuple)
+
+
+
+def is_ellipsis_VT(x, typ):
+    assert typ._d['type_name'] == 'Ellipsis'
+    return isinstance(x, ValueType) and x._d['type_name'] == 'Ellipsis'
+
+make_VT("Ellipsis", is_a_func=is_ellipsis_VT)
+
+def is_slice_VT(x, typ):
+    assert typ._d['type_name'] == 'Slice'
+    return isinstance(x, ValueType) and x._d['type_name'] == 'Slice'
+
+make_VT("Slice", is_a_func=is_slice_VT)
 

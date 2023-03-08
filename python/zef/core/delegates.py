@@ -18,36 +18,64 @@ from . import internals
 from ..pyzef import zefops as pyzefops
 
 def to_delegate_imp(first_arg, *curried_args):
+    from .flat_graph import FlatGraph, FlatRef
+    from .VT import GraphSlice
     # TODO: Break this up and document
 
     if isinstance(first_arg, DelegateRef):
         if len(curried_args) == 0:
             return first_arg
-        if isinstance(curried_args[0], Graph):
-            g = curried_args[0]
+        if isinstance(curried_args[0], Graph | FlatGraph):
+            glike = curried_args[0]
         else:
-            assert isinstance(curried_args[0], GraphSlice)
-            g = Graph(curried_args[0])
-        if len(curried_args) == 1:
-            d_ezr = internals.delegate_to_ezr(first_arg, g, False, 0)
-        elif len(curried_args) == 2:
-            d_ezr = internals.delegate_to_ezr(first_arg, g, curried_args[1], 0)
+            assert isinstance(curried_args[0], GraphSlice), f"{curried_args[0]} is not a GraphSlice"
+            glike = Graph(curried_args[0])
+
+        if isinstance(glike, Graph):
+            if len(curried_args) == 1:
+                d_ezr = internals.delegate_to_ezr(first_arg, glike, False, 0)
+            elif len(curried_args) == 2:
+                d_ezr = internals.delegate_to_ezr(first_arg, glike, curried_args[1], 0)
+            else:
+                raise Exception("Too many args for to_delegate with a Delegate")
+        elif isinstance(glike, FlatGraph):
+            if len(curried_args) == 1:
+                pass
+            elif len(curried_args) == 2:
+                if curried_args[1]:
+                    raise Exception("Can't create a delegate automatically on a FlatGraph")
+            else:
+                raise Exception("Too many args for to_delegate with a Delegate")
+            if first_arg in glike:
+                d_ezr = glike[first_arg]
+            else:
+                d_ezr = None
         else:
-            raise Exception("Too many args for to_delegate with a Delegate")
+            raise Exception("Shouldn't get here")
 
         if d_ezr is None:
             return None
-        elif isinstance(curried_args[0], Graph):
-            return d_ezr
-        else:
-            from ._ops import in_frame, exists_at
+        elif isinstance(curried_args[0], GraphSlice):
+            from ._ops import to_frame, exists_at
             if not exists_at(d_ezr, curried_args[0]):
                 raise Exception("Delegate does not exist at given graph slice.")
-            return in_frame(d_ezr, curried_args[0])
+            return to_frame(d_ezr, curried_args[0])
+        else:
+            return d_ezr
 
-    if isinstance(first_arg, ZefRef) or isinstance(first_arg, EZefRef):
+    from .op_implementations.implementation_typing_functions import check_Atom_with_ref
+    from .atom import _get_ref_pointer, AtomClass
+    if check_Atom_with_ref(first_arg):
+        # TODO: Lots of fixups needed - reconsider the whole thing carefully
+        out = to_delegate_imp(_get_ref_pointer(first_arg), *curried_args)
+        if isinstance(out, BlobPtr | FlatRef):
+            return AtomClass(out)
+        return out
+    if isinstance(first_arg, BlobPtr):
         assert len(curried_args) == 0
         return internals.ezr_to_delegate(first_arg)
+    if isinstance(first_arg, FlatRef):
+        raise NotImplementedError("TODO")
 
     raise Exception(f"Unknown type for to_delegate: {type(first_arg)}. Maybe you meant to write delegate_of?")
 
@@ -64,7 +92,16 @@ def attempt_to_delegate(args):
 
 def delegate_of_imp(x, arg1=None, arg2=None):
     # TODO: Move implementation
-    from ._ops import in_frame, frame, collect
+    from ._ops import to_frame, frame, collect
+
+    from .op_implementations.implementation_typing_functions import check_Atom_with_ref
+    from .atom import _get_ref_pointer, AtomClass
+    if check_Atom_with_ref(x):
+        # TODO: Lots of fixups needed - reconsider the whole thing carefully
+        out = delegate_of_imp(_get_ref_pointer(x), arg1, arg2)
+        if isinstance(out, BlobPtr):
+            return AtomClass(out)
+        return out
 
     # TODO: Break this up and document
     if isinstance(x, EZefRef) or isinstance(x, ZefRef):
@@ -80,7 +117,7 @@ def delegate_of_imp(x, arg1=None, arg2=None):
         if z is None:
             return None
         if isinstance(x, ZefRef):
-            z = z | in_frame[frame(x)] | collect
+            z = z | to_frame[frame(x)] | collect
         return z
 
     if isinstance(x, DelegateRef):
@@ -122,26 +159,33 @@ DelegateRef = make_VT("DelegateRef", pytype=internals.Delegate,
                       constructor_func=DelegateRef_ctor)
 
 
-def delegate_is_a(x, typ):
-    if isinstance(x, BlobPtr):
-        if not internals.is_delegate(x):
-            return False
-        del_ref = to_delegate_imp(x)
-    elif isinstance(x, DelegateRef):
-        del_ref = x
-    else:
-        return False
+# def delegate_is_a(x, typ):
+#     from .VT import AtomClass
+#     if isinstance(x, BlobPtr):
+#         if not internals.is_delegate(x):
+#             return False
+#         del_ref = to_delegate_imp(x)
+#     elif isinstance(x, DelegateRef):
+#         del_ref = x
+#     elif isinstance(x, AtomClass):
+#         from .atom import get_most_authorative_id
+#         auth_id = get_most_authorative_id(x)
+#         if not isinstance(auth_id, Delegate):
+#             return False
+#         del_ref = auth_id
+#     else:
+#         return False
 
-    # Get to here, x is at least some kind of delegate
-    if len(typ._d["absorbed"]) == 0:
-        return True
+#     # Get to here, x is at least some kind of delegate
+#     if len(typ._d["absorbed"]) == 0:
+#         return True
 
-    raise NotImplementedError("TODO")
-    # Could probably just do a isinstance on the absorbed part, but not if
-    # there's more interesting types going in there.
+#     raise NotImplementedError("TODO")
+#     # Could probably just do a isinstance on the absorbed part, but not if
+#     # there's more interesting types going in there.
 
-Delegate = make_VT("Delegate", is_a_func=delegate_is_a)
+# Delegate = make_VT("Delegate", is_a_func=delegate_is_a)
 
-def instancecheck_Delegate(self, other):
-    raise NotImplementedError("TODO")
+# def instancecheck_Delegate(self, other):
+    # raise NotImplementedError("TODO")
     

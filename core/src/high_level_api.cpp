@@ -206,15 +206,29 @@ namespace zefDB {
         return response.j["matches"].get<std::vector<std::string>>();
 	}
 
-    std::optional<GraphRef> lookup_uid(const std::string& tag) {
+    std::optional<GraphRef> lookup_uid(const std::string& tag, bool * created) {
+        bool should_create = (created != nullptr);
         auto butler = Butler::get_butler();
-        auto response = butler->msg_push_timeout<Messages::GenericZefHubResponse>(Messages::UIDQuery{tag});
+        auto response = butler->msg_push_timeout<Messages::GenericZefHubResponse>(Messages::UIDQuery{tag, should_create});
         if(!response.generic.success)
             throw std::runtime_error("Failed with uid lookup: " + response.generic.reason);
+
+        int msg_version = 0;
+        if(response.j.contains("msg_version"))
+            msg_version = response.j["msg_version"];
+        if(should_create && msg_version < 2)
+            throw std::runtime_error("ZefHub is too old to be able to handle creating a graph when the tag is missing");
+
+        std::optional<GraphRef> guid;
         if(response.j.contains("graph_uid"))
-            return GraphRef(BaseUID::from_hex(response.j["graph_uid"].get<std::string>()));
-        else
-            return std::optional<GraphRef>();
+            guid = GraphRef(BaseUID::from_hex(response.j["graph_uid"].get<std::string>()));
+        if(should_create) {
+            if(response.j.contains("created"))
+                *created = response.j["created"];
+            else
+                *created = false;
+        }
+        return guid;
     }
 
 
@@ -716,26 +730,41 @@ namespace zefDB {
 	}
 
 
-    nlohmann::json merge(const nlohmann::json & j, Graph target_graph, bool fire_and_forget) {
+    std::tuple<EZefRef,nlohmann::json> merge(const nlohmann::json & j, GraphRef target_graph) {
        auto butler = Butler::get_butler();
 
        Messages::MergeRequest msg {
+           generate_random_task_uid(),
            {},
            internals::get_graph_uid(target_graph),
            Messages::MergeRequest::PayloadGraphDelta{j},
        };
 
-       if(fire_and_forget) {
-           butler->msg_push_internal(std::move(msg));
-           // Empty reply is a little weird, but need to return something
-           return {};
+       // We retry any merge that fails because of a disconnect, but fail
+       // through for anything else.
+       std::optional<Messages::MergeRequestResponse> response_store;
+       while(true) {
+           try {
+           response_store =
+               butler->msg_push_timeout<Messages::MergeRequestResponse>(
+                   // Note: don't move, as we might be redoing this.
+                   msg,
+                   Butler::zefhub_generic_timeout,
+                   false,
+                   msg.idempotent_task_uid
+               );
+           } catch(const Communication::disconnected_exception &) {
+               std::cerr << "Disconnected in the middle of a merge request, going to wait for auth and try again." << std::endl;
+               // wait_for_auth();
+               continue;
+           } catch(const Butler::Butler::timeout_exception &) {
+               std::cerr << "Got a timeout in the middle of a merge request, going to try again." << std::endl;
+               continue;
+           }
+           break;
        }
 
-       auto response =
-           butler->msg_push_timeout<Messages::MergeRequestResponse>(
-               std::move(msg),
-               Butler::zefhub_generic_timeout
-           );
+       auto response = *response_store;
 
        if(!response.generic.success)
            throw std::runtime_error("Unable to perform merge: " + response.generic.reason);
@@ -745,16 +774,22 @@ namespace zefDB {
        // TODO: This is not possible now, but need to do this in the future.
 
        auto r = std::get<Messages::MergeRequestResponse::ReceiptGraphDelta>(response.receipt);
-       // Wait for graph to be up to date before deserializing
-       auto & gd = target_graph.my_graph_data();
+       // Wait for graph to be up to date before deserializing - this means we
+       // are loading the graph which breaks the laziness, but we will worry
+       // about this once things like GraphSliceRef is available to the C code.
+       auto & gd = Graph(target_graph).my_graph_data();
+       double chosen_timeout = zwitch.no_timeout_errors() ? 3600 : 60.0;
        bool reached_sync = wait_pred(gd.heads_locker,
                                      [&]() { return gd.read_head >= r.read_head; },
                                      // std::chrono::duration<double>(Butler::butler_generic_timeout.value));
-                                     std::chrono::duration<double>(60.0));
+                                     std::chrono::duration<double>(chosen_timeout));
        if(!reached_sync)
            throw std::runtime_error("Did not sync in time to handle merge receipt.");
        
-       return r.receipt;
+       // The graph slice is obtainable from the tx_index provided
+       EZefRef ez_tx{r.tx_index, gd};
+
+       return std::make_tuple(ez_tx, r.receipt);
     }
 
 
