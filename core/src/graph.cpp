@@ -514,16 +514,10 @@ namespace zefDB {
 
     GraphDataWrapper create_partial_graph(GraphData & cur_gd, blob_index index_hi) {
         blob_index index_lo = constants::ROOT_NODE_blob_index;
-        {
-            LockGraphData cur_lock(&cur_gd);
-            // // Optimised common case
-            // if(index_hi == cur_gd.write_head)
-            //     return cur_gd.hash(index_lo, index_hi);
-            if(index_hi > cur_gd.write_head)
-                throw std::runtime_error("in create_partial_graph: index_hi is larger than current graph");
-            if(index_hi < index_lo)
-                throw std::runtime_error("in create_partial_graph: index_hi (" + to_str(index_hi) + ") is before the root node!");
-        }
+        if(index_hi > cur_gd.write_head)
+            throw std::runtime_error("in create_partial_graph: index_hi is larger than current graph");
+        if(index_hi < index_lo)
+            throw std::runtime_error("in create_partial_graph: index_hi (" + to_str(index_hi) + ") is before the root node!");
 
         // We create a proper graph here so that we can access it like normal.
         // The only potential issue is that the graph uid will no longer match
@@ -539,26 +533,31 @@ namespace zefDB {
         // std::cerr << "Created temporary internal graph with uid: " << uid(g) << std::endl;
 
         {
-            LockGraphData cur_lock(&cur_gd);
-            // Note: even though we hold a lock on the GraphData, this doesn't
-            // mean that a transaction isn't open. Instead, we can be sure that
-            // our thread is the only one allowed to write to the graph, so the
-            // data will be stable while we are in here.
-            //
-            // The effect of this is that we must use write_head below, as we
-            // need to rewind everything affected by blobs past the read_head
-            // too.
+            // LockGraphData cur_lock(&cur_gd);
+            // // Note: even though we hold a lock on the GraphData, this doesn't
+            // // mean that a transaction isn't open. Instead, we can be sure that
+            // // our thread is the only one allowed to write to the graph, so the
+            // // data will be stable while we are in here.
+            // //
+            // // The effect of this is that we must use write_head below, as we
+            // // need to rewind everything affected by blobs past the read_head
+            // // too.
+
+            auto fixed_write_head = cur_gd.write_head.load();
+            // The above is no longer true, as the lock has been removed. The
+            // new behaviour with updating graph heads under the lock should
+            // make this possible, but lots of testing needs to be done.
 
             char * lo_ptr = (char*)gd + index_lo * constants::blob_indx_step_in_bytes;
             // Note we copy the whole lot across, so that roll back can unapply the caches properly
-            size_t len = (cur_gd.write_head - index_lo)*constants::blob_indx_step_in_bytes;
+            size_t len = (fixed_write_head - index_lo)*constants::blob_indx_step_in_bytes;
             MMap::ensure_or_alloc_range(lo_ptr, len);
 
             char * cur_lo_ptr = (char*)&cur_gd + index_lo * constants::blob_indx_step_in_bytes;
             Butler::ensure_or_get_range(cur_lo_ptr, len);
             std::memcpy(lo_ptr, cur_lo_ptr, len);
             // gd.write_head = index_hi;
-            gd->write_head = cur_gd.write_head.load();
+            gd->write_head = fixed_write_head;
             gd->latest_complete_tx = cur_gd.latest_complete_tx.load();
 
 #define GEN_CACHE(x, y) {                                               \
@@ -1303,27 +1302,28 @@ namespace zefDB {
 		}	
 
         Butler::UpdateHeads full_graph_heads(GraphData & gd) {
-            LockGraphData lock{&gd};
-            Butler::UpdateHeads heads{
-                {constants::ROOT_NODE_blob_index, gd.read_head}
-            };
+            return with_lock(gd.heads_locker, [&gd]() {
+                Butler::UpdateHeads heads{
+                    {constants::ROOT_NODE_blob_index, gd.read_head}
+                };
 
-#define GEN_CACHE(x,y) {                                     \
-                auto ptr = gd.y->get();                      \
-                heads.caches.push_back({x, 0, ptr->read_size()}); \
-            }
+    #define GEN_CACHE(x,y) {                                     \
+                    auto ptr = gd.y->get();                      \
+                    heads.caches.push_back({x, 0, ptr->read_size()}); \
+                }
 
-            GEN_CACHE("_ETs_used", ETs_used)
-            GEN_CACHE("_RTs_used", RTs_used)
-            GEN_CACHE("_ENs_used", ENs_used)
+                GEN_CACHE("_ETs_used", ETs_used)
+                GEN_CACHE("_RTs_used", RTs_used)
+                GEN_CACHE("_ENs_used", ENs_used)
 
-            GEN_CACHE("_uid_lookup", uid_lookup)
-            GEN_CACHE("_euid_lookup", euid_lookup)
-            GEN_CACHE("_tag_lookup", tag_lookup)
-            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
-#undef GEN_CACHE
+                GEN_CACHE("_uid_lookup", uid_lookup)
+                GEN_CACHE("_euid_lookup", euid_lookup)
+                GEN_CACHE("_tag_lookup", tag_lookup)
+                GEN_CACHE("_av_hash_lookup", av_hash_lookup)
+    #undef GEN_CACHE
 
-            return heads;
+                return heads;
+            });
         }
 
         Butler::UpdatePayload graph_as_UpdatePayload(GraphData& gd, std::string target_layout) {

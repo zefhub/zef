@@ -565,16 +565,39 @@ namespace zefDB {
         GraphData * gd;
         // TODO: I was thinking about making this reset to open_tx_thread... might revist later.
         bool was_already_set;
+        bool acquired;
 
-        LockGraphData(GraphData * gd) : gd(gd) {
-            if(gd->open_tx_thread == std::this_thread::get_id())
+        LockGraphData(GraphData * gd, bool block=true) : gd(gd) {
+            if(gd->open_tx_thread == std::this_thread::get_id()) {
                 was_already_set = true;
-            else {
+                acquired = true;
+            } else {
                 was_already_set = false;
-                update_when_ready(gd->open_tx_thread_locker,
-                                  gd->open_tx_thread,
-                                  std::thread::id(),
-                                  std::this_thread::get_id());
+                if(block) {
+                    update_when_ready(gd->open_tx_thread_locker,
+                                    gd->open_tx_thread,
+                                    std::thread::id(),
+                                    std::this_thread::get_id());
+                    acquired = true;
+                } else {
+                    std::unique_lock lock(gd->open_tx_thread_locker.mutex, std::try_to_lock);
+                    if(!lock.owns_lock()) {
+                        acquired = false;
+                    } else {
+                        auto expected = std::thread::id();
+                        // I don't think it is necessary to use atomic exchange,
+                        // but will include for safety.
+                        std::atomic_compare_exchange_weak(
+                            &gd->open_tx_thread,
+                            &expected,
+                            std::this_thread::get_id()
+                        );
+                        if(expected != std::thread::id())
+                            acquired = false;
+                        else
+                            acquired = true;
+                    }
+                }
             }
         }
         ~LockGraphData() {

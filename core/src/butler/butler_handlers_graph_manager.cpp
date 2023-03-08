@@ -52,20 +52,17 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
     // Going with sync_head for now. Can change the logic upstream.
     blob_index hash_to;
     uint64_t hash;
-    UpdateHeads update_heads;
-    {
-        LockGraphData lock{me.gd};
-        update_heads = client_create_update_heads(*me.gd);
-        if(me.gd->sync_head == 0)
-            hash_to = me.gd->read_head.load();
-        else {
-            hash_to = me.gd->sync_head.load();
-            if(me.gd->read_head < hash_to)
-                hash_to = me.gd->read_head;
-        }
-
-        hash = partial_hash(Graph(me.gd, false), hash_to, 0, working_layout);
+    UpdateHeads update_heads = client_create_update_heads(*me.gd);
+    if(update_heads.blobs.from == 0)
+        // hash_to = me.gd->read_head.load();
+        hash_to = update_heads.blobs.to;
+    else {
+        hash_to = update_heads.blobs.from;
+        if(update_heads.blobs.to < hash_to)
+            hash_to = update_heads.blobs.to;
     }
+
+    hash = partial_hash(Graph(me.gd, false), hash_to, 0, working_layout);
     json j = create_json_from_heads_from(update_heads);
     j["msg_type"] = "subscribe_to_graph";
     j["msg_version"] = 3;
@@ -126,11 +123,7 @@ void do_reconnect(Butler & butler, Butler::GraphTrackingData & me) {
 
     // Now we try and get the primary role back again, if we had it before.
     if(me.gd->is_primary_instance) {
-        UpdateHeads our_heads;
-        {
-            LockGraphData lock{me.gd};
-            our_heads = client_create_update_heads(*me.gd);
-        }
+        UpdateHeads our_heads = client_create_update_heads(*me.gd);
         json j = create_json_from_heads_from(our_heads);
         j["msg_type"] = "make_primary";
         j["graph_uid"] = str(me.uid);
@@ -988,11 +981,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, GraphUp
             if(zwitch.graph_event_output())
                 std::cerr << "Warning: got an update we couldn't apply. Letting upstream know what our heads are." << std::endl;
             std::string working_layout = upstream_layout();
-            UpdateHeads our_heads;
-            {
-                LockGraphData lock{me.gd};
-                our_heads = client_create_update_heads(*me.gd);
-            }
+            UpdateHeads our_heads = client_create_update_heads(*me.gd);
             json j = create_json_from_heads_latest(our_heads);
             j["msg_type"] = "graph_heads";
             j["msg_version"] = 1;
@@ -1210,11 +1199,7 @@ void Butler::graph_worker_handle_message(Butler::GraphTrackingData & me, MakePri
         return;
     }
 
-    UpdateHeads heads;
-    {
-        LockGraphData lock{me.gd};
-        heads = client_create_update_heads(*me.gd);
-    }
+    UpdateHeads heads = client_create_update_heads(*me.gd);
 
     // First make sure we believe we have everything that upstream has
     if(me.gd->read_head < me.gd->sync_head) {

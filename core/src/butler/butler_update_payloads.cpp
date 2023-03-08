@@ -33,6 +33,15 @@ UpdatePayload create_update_payload_current(GraphData & gd, const UpdateHeads & 
     if(update_heads.blobs.from > update_heads.blobs.to)
         throw std::runtime_error("Somehow upstream is ahead of us and we're primary!");
 
+    // Try and lock this down. If we can't then lets create a partial graph and
+    // continue with that instead.
+    LockGraphData lock{&gd, false};
+    if(!lock.acquired) {
+        auto gd_partial = create_partial_graph(gd, update_heads.blobs.to);
+        return create_update_payload_current(*gd_partial.gd, update_heads);
+    }
+            
+
     // TODO: need to find the latest complete tx in the blob range given.
     blob_index last_tx = gd.latest_complete_tx;
     if(last_tx > update_heads.blobs.to) {
@@ -173,20 +182,18 @@ json create_json_from_heads_latest(const UpdateHeads & update_heads) {
     return j;
 }
 
-UpdateHeads client_create_update_heads(const GraphData & gd) {
-    if(gd.open_tx_thread != std::this_thread::get_id())
-        throw std::runtime_error("Need write lock to carefully read update heads.");
-
-    blob_index update_from = gd.sync_head;
-    if(update_from == 0)
-        update_from = constants::ROOT_NODE_blob_index;
-    UpdateHeads update_heads{ {update_from, gd.read_head} };
+UpdateHeads client_create_update_heads(GraphData & gd) {
+    return with_lock(gd.heads_locker, [&gd]() {
+        blob_index update_from = gd.sync_head;
+        if(update_from == 0)
+            update_from = constants::ROOT_NODE_blob_index;
+        UpdateHeads update_heads{ {update_from, gd.read_head} };
 
 #define GEN_CACHE(x, y) {                                               \
-        auto ptr = gd.y->get();                                         \
-        update_heads.caches.push_back({x, ptr->upstream_size(), ptr->size(), ptr->revision()}); \
-    }
-    GEN_CACHE("_ETs_used", ETs_used)
+            auto ptr = gd.y->get();                                     \
+            update_heads.caches.push_back({x, ptr->upstream_size(), ptr->read_size(), ptr->revision()}); \
+        }
+        GEN_CACHE("_ETs_used", ETs_used)
         GEN_CACHE("_RTs_used", RTs_used)
         GEN_CACHE("_ENs_used", ENs_used)
         GEN_CACHE("_uid_lookup", uid_lookup)
@@ -195,6 +202,7 @@ UpdateHeads client_create_update_heads(const GraphData & gd) {
         GEN_CACHE("_av_hash_lookup", av_hash_lookup)
 #undef GEN_CACHE
         return update_heads;
+    });
 }
 
 void parse_filegraph_update_heads(MMap::FileGraph & fg, json & j, std::string working_layout) {
@@ -367,13 +375,7 @@ void Butler::send_update(Butler::GraphTrackingData & me) {
     if(me.gd->sync_head > 0 && !me.gd->currently_subscribed)
         return;
 
-    UpdateHeads update_heads;
-    {
-        // Let's stop transactions from happening while we do this.
-        LockGraphData lock{me.gd};
-
-        update_heads = client_create_update_heads(*me.gd);
-    }
+    UpdateHeads update_heads = client_create_update_heads(*me.gd);
 
     if(is_up_to_date(update_heads))
         return;

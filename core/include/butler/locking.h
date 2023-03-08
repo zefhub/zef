@@ -138,6 +138,14 @@ inline void update(AtomicLockWrapper & locker, std::function<void()> update_func
     locker.cv.notify_all();
 }
 
+// This is almost like update, but it doesn't have to notify afterwards.
+// template <typename R>
+template <typename F>
+auto with_lock(AtomicLockWrapper & locker, F func) {
+    std::lock_guard lock(locker.mutex);
+    return func();
+}
+
 template <typename T>
 void update(AtomicLockWrapper & locker, std::atomic<T> & atom, T update_val) {
     update(locker, [&atom,&update_val]() {atom = update_val;});
@@ -156,20 +164,42 @@ inline void wake(AtomicLockWrapper & locker) {
 #endif
 
 
+// TODO: Could this code be simplified by keeping the update inside the lock? We
+// would have to ensure that all users of the lock are holding the mutex while
+// updating it. This is true for read_head but not write_heads. Also not true in
+// general if another use is found for this...
+//
+// I have at least moved the atomic exchange inside the lock. This is now more
+// of an overkill, but also allows external code that is only relying on the
+// lock to work, knowing the value won't change while the lock is held.
 template <typename T>
 void update_when_ready(AtomicLockWrapper & locker, std::atomic<T> & atom, T ready_value, T new_value) {
     while(atom != new_value) {
+        // // A custom wait - waiting for either the ready_value or the new_value.
+        // {
+        //     std::unique_lock lock(locker.mutex);
+        //     locker.cv.wait(lock, [&]() { return atom == ready_value || atom == new_value; });
+        // }
+        // T expected = atom.load();
+        // if(expected != ready_value && expected != new_value)
+        //     continue;
+        // std::atomic_compare_exchange_weak(&atom,
+        //                                     &expected,
+        //                                     new_value);
+
         // A custom wait - waiting for either the ready_value or the new_value.
         {
             std::unique_lock lock(locker.mutex);
             locker.cv.wait(lock, [&]() { return atom == ready_value || atom == new_value; });
+            // Only time the below should hit the continue is if the wait was
+            // interrupted for a non-predicate reason.
+            T expected = atom.load();
+            if(expected != ready_value && expected != new_value)
+                continue;
+            std::atomic_compare_exchange_weak(&atom,
+                                                &expected,
+                                                new_value);
         }
-        T expected = atom.load();
-        if(expected != ready_value && expected != new_value)
-            continue;
-        std::atomic_compare_exchange_weak(&atom,
-                                            &expected,
-                                            new_value);
     }
 }
 
