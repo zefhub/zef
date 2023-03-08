@@ -263,10 +263,12 @@ void apply_update_with_caches(GraphData & gd, const UpdatePayload & payload_in, 
         indx++;
     }
 
-    auto new_complete_tx_index = index(internals::get_latest_complete_tx_node(gd));
-    update(gd.heads_locker, [&gd,new_complete_tx_index]() {
+    update(gd.heads_locker, [&gd]() {
         gd.move_read_heads_to_write_heads(false);
-        gd.latest_complete_tx = new_complete_tx_index;
+        // Note: this complete_tx calc needs to happen after the heads have been
+        // moved, so it can't go outside this loop. The alternative would be to
+        // create a traversal method that could be forced into "write mode".
+        gd.latest_complete_tx = index(internals::get_latest_complete_tx_node(gd));
     });
 
     // This can be INCREDIBLY slow! This should be locked behind a zwitch if
