@@ -967,7 +967,7 @@ namespace zefDB {
             using reference         = ELEMENT&;
         };
         Iterator begin() const {return Iterator(data());}
-        Iterator end(bool is_writer) const {return Iterator(data() + is_writer ? _size : _read_size);}
+        Iterator end(bool is_writer) const {return Iterator(data() + (is_writer ? _size : _read_size));}
 
         std::optional<SAFE> contains(bool is_writer, std::function<bool(const ELEMENT &)> pred) {
             for(auto itr = this->begin() ; itr != this->end(is_writer) ; ++itr) {
