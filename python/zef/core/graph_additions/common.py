@@ -45,6 +45,9 @@ class OriginallyUserID:
 
     def __repr__(self):
         return f"was:{self.obj}"
+    def __hash__(self):
+        from ..VT.value_type import hash_frozen
+        return hash_frozen(self.obj)
 
 from .. import serialization
 def serialize_originally_user_id(orig_user_id):

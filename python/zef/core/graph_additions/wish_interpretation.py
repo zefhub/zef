@@ -32,7 +32,7 @@ InterpretationFunc = Any
 
 
 # Really want to use Subtype[GraphWishInput] instead of ValueType
-def generate_level2_commands(inputs: List[GraphWishInput], rules: List[Tuple[ValueType,InterpretationFunc]]):
+def generate_level2_commands(inputs: List[GraphWishInput], rules: List[Tuple[ValueType,InterpretationFunc]], context=None):
     # For each input
     #
     # - if it's a please command, just include
@@ -41,9 +41,10 @@ def generate_level2_commands(inputs: List[GraphWishInput], rules: List[Tuple[Val
     # - if its a zefop, then store as PleaseRun
 
     output_cmds = []
-    context = {
-        "gen_id_state": generate_initial_state("lvl2"),
-    }
+    if context is None:
+        context = {
+            "gen_id_state": generate_initial_state("lvl2"),
+        }
 
     todo = list(inputs)
     while len(todo) > 0:
@@ -127,13 +128,14 @@ def lvl2cmds_for_relation_triple(input: RelationTriple, context: Lvl2Context):
         d["internal_ids"] = others
 
     cmds = [PleaseInstantiate(d)]
+    todo_cmds = [src_obj, trg_obj]
 
     # If the RT is itself an atom with further fields, we need to pass those fields through too
     if isinstance(input[1], RelationAtom):
-        cmds += [input[1]]
+        todo_cmds += [input[1]]
 
     context = context | insert["gen_id_state"][gen_id_state] | collect
-    return cmds, [src_obj, trg_obj], context
+    return cmds, todo_cmds, context
 
 @func
 def OS_lvl2cmds_for_relation_triple(input: OldStyleRelationTriple, context: Lvl2Context):
@@ -301,14 +303,86 @@ def discard_unnecessary_frame(x):
     return discard_frame(x)
         
 @func
-def lvl2cmds_for_atom(atom, context):
+def lvl2cmds_for_atom(atom, context, allowed_to_be_detached=False):
+    from ..atom import _get_fields, _get_atom_id
+    done_cmds = []
+    todo_cmds = []
+    
+    # First parse the fields, to turn them into the things we need - basically
+    # only touching the atoms nested inside.
+    old_fields = _get_fields(atom)
+    new_fields = {}
+
+    for name,(rel,val) in old_fields.items():
+        if isinstance(rel, AtomClass):
+             this_done, this_todo, context = lvl2cmds_for_atom(rel, context, allowed_to_be_detached=True)
+             # Either there is one cmd in this_done (the new atom) or there is
+             # no longer an atom, and it's in this_todo
+             if len(this_done) == 1:
+                 rel = this_done[0]
+                 todo_cmds += this_todo
+             elif len(this_done) == 0:
+                 raise Exception("Shouldn't get here, as a relation can't be a Val or Delegate")
+             else:
+                 raise Exception("Done cmds list length was 2+")
+        else:
+            assert isinstance(rel, RAET)
+
+        if type(val) != set:
+            vals = [val]
+        else:
+            vals = list(val)
+        
+        new_vals = []
+        for val in vals:
+            # First pass
+            if isinstance(val, PureET | PureAET):
+                val = Atom(val)
+            elif isinstance(val, BlobPtr):
+                val = Atom(val)
+
+            # Everything pass
+            if isinstance(val, AtomClass):
+                this_done, this_todo, context = lvl2cmds_for_atom(val, context)
+                # Either there is one cmd in this_done (the new atom) or there is
+                # no longer an atom, and it's in this_todo
+                if len(this_done) == 1:
+                    val = this_done[0]
+                    todo_cmds += this_todo
+                elif len(this_done) == 0:
+                    val = this_todo[0]
+                    assert len(this_todo) == 1
+                else:
+                    raise Exception("Done cmds list length was 2+")
+            elif isinstance(val, ExtraUserAllowedIDs):
+                val = convert_extra_allowed_id(val)
+            else:
+                assert isinstance(val, GraphWishValue | WishID), f"Field value is not valid: {name}={val}"
+
+            new_vals += [val]
+
+        new_fields[name] = (rel, set(new_vals))
+
+    atom_id = _get_atom_id(atom)
+    if "local_names" in atom_id:
+        assert len(atom_id["local_names"]) == 1, "Only one name permitted in atoms at the moment."
+        local_name = atom_id["local_names"][0]
+        authorative_id = get_most_authorative_id(atom)
+        assert atom_id["local_names"][0] == authorative_id, "If a local name is present, it must also be the authorative ID"
+        if not isinstance(local_name, WishID):
+            local_name = wrap_user_id(local_name)
+            atom_id = dict(atom_id, local_names=(local_name,))
+
+    atom = atom.__replace__(fields=new_fields, atom_id=atom_id)
+
+    # Then branch on everything else
     if isinstance(rae_type(atom), Nil):
-        return [atom], [], context
+        done_cmds += [atom]
 
-    if isinstance(atom, Entity | TX | Root):
-        return [discard_unnecessary_frame(atom)], [], context
+    elif isinstance(atom, Entity | TX | Root):
+        done_cmds += [discard_unnecessary_frame(atom)]
 
-    if isinstance(atom, Relation):
+    elif isinstance(atom, Relation):
         # We need to ensure the relation source/target is also included.
 
         # If the relation atom is included without an id, either global or
@@ -316,7 +390,11 @@ def lvl2cmds_for_atom(atom, context):
         # then we should have a local name by this point.
         authorative_id = get_most_authorative_id(atom)
         if authorative_id is None:
-            raise Exception("Can't have relation Atom without source/target")
+            # We should only get here if this atom is given as a relation of a parent atom.
+            if not allowed_to_be_detached:
+                raise Exception("Can't have relation Atom without source/target")
+            # Good enough, source/target will be defined by parent.
+            return [atom], [], context
 
         if isinstance(authorative_id, WishID):
             # Good enough, source/target should be defined elsewhere
@@ -333,9 +411,10 @@ def lvl2cmds_for_atom(atom, context):
         trg = Atom(target(z))
         plain_rt = rae_type(atom)[authorative_id]
 
-        return [discard_unnecessary_frame(atom)], [(src, plain_rt, trg)], context
+        done_cmds += [discard_unnecessary_frame(atom)]
+        todo_cmds += [(src, plain_rt, trg)]
 
-    if isinstance(atom, AttributeEntity):
+    elif isinstance(atom, AttributeEntity):
         # We need to ensure the value is also included, if the reference frame is accessible.
         #
         # If the frame is not given, we can assume "no value" is what is intended.
@@ -360,23 +439,28 @@ def lvl2cmds_for_atom(atom, context):
                 cmds = [PleaseAssign(target=authorative_id, value=Val(val), droppable=True)]
             else:
                 cmds = []
-            return [discard_unnecessary_frame(atom)], cmds, context
+            done_cmds += [discard_unnecessary_frame(atom)]
+            todo_cmds += cmds
         else:
-            return [atom], [], context
+            done_cmds += [atom]
 
-    if isinstance(atom, ValAtom):
+    elif isinstance(atom, ValAtom):
         auth_id = get_most_authorative_id(atom)
         assert isinstance(auth_id, Val), f"Auth id is not a Val: {auth_id}"
+        assert len(_get_fields(atom)) == 0, "ValAtoms are currently not allowed to have fields (why??)"
 
-        return [auth_id], [], context
+        todo_cmds += [auth_id]
 
-    if isinstance(atom, Delegate):
+    elif isinstance(atom, Delegate):
         auth_id = get_most_authorative_id(atom)
         assert isinstance(auth_id, Delegate)
+        assert len(_get_fields(atom)) == 0, "DelegateAtoms are currently not allowed to have fields (why??)"
 
-        return [auth_id], [], context
+        todo_cmds += [auth_id]
+    else:
+        raise Exception(f"Shouldn't get here: {atom}")
 
-    raise Exception(f"Shouldn't get here: {atom}")
+    return done_cmds, todo_cmds, context
 
 
 

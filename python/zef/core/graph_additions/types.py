@@ -42,6 +42,7 @@ __all__ = [
     "PleaseRun",
     "PleaseCommandLevel2",
     "Level2CommandInfo",
+    "Level2AtomClass",
 
     "PureET",
     "PureRT",
@@ -289,7 +290,37 @@ PleaseRun = UserValueType("PleaseRun",
                           Pattern[{"action": LazyValue | ZefOp | ZExpression}],
                           forced_uid="37775167477")
 
-PleaseCommandLevel2 = _alias(PleaseCommandLevel1 | PleaseRun | AtomClass,
+# This is a restricted version of an atom, which does not allow too many different things in the fields.
+def Level2AtomClass_is_a(x, typ):
+    from ..atom import Atom_, _get_atom_id, _get_fields, _get_atom_type, _get_ref_pointer
+    if type(x) != Atom_: return False
+
+    # ref_pointer = _get_ref_pointer(x)
+    # if ref_pointer is not None: return False
+
+    atom_type = _get_atom_type(x)
+    if not (isinstance(atom_type, RAET) or atom_type in [BT.TX_EVENT_NODE, BT.ROOT_NODE, Val, None]): return False
+
+    atom_id = _get_atom_id(x)
+    # if "flatref_idx" in atom_id: return False
+    if "global_uid" in atom_id:
+        if not isinstance(atom_id["global_uid"], EternalUID | DelegateRef | Val): return False
+    if "frame_uid" in atom_id:
+        # Urgh this is ugly. A flatref needs its flatgraph to be able to
+        # uniquely identify itself. So we allow that, but not any other frame.
+        if "flatref_idx" not in atom_id: return False
+
+    fields = _get_fields(x)
+    for name,(rel,val) in fields.items():
+        if not isinstance(rel, Level2AtomClass | RT): return False
+        if not isinstance(val, Set[GraphWishValue | Level2AtomClass | WishID]): return False
+
+    return True
+        
+
+Level2AtomClass = make_VT("Level2AtomClass", is_a_func=Level2AtomClass_is_a)
+
+PleaseCommandLevel2 = _alias(PleaseCommandLevel1 | PleaseRun | Level2AtomClass,
                                  "PleaseCommandLevel2")
 Level2CommandInfo = UserValueType("Level2CommandInfo",
                                   Dict,

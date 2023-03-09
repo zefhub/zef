@@ -75,7 +75,17 @@ def prepare_obj_notation(cmd, gs, context):
         if isinstance(rae_type(cmd), PureET | PureAET):
             # TODO: Probably need to handle multiple names here at some point
             # assert len(get_names(cmd)) == 1
-            cmds += [rae_type(cmd)[me]]
+            # cmds += [rae_type(cmd)[me]]
+            if isinstance(me, EternalUID):
+                cmds += [PleaseInstantiate(
+                    atom=rae_type(cmd),
+                    origin_uid=me,
+                )]
+            else:
+                cmds += [PleaseInstantiate(
+                    atom=rae_type(cmd),
+                    internal_ids=(me,),
+                )]
         elif isinstance(rae_type(cmd), PureRT):
             raise Exception("Shouldn't get here anymore")
         else:
@@ -205,7 +215,11 @@ def nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state):
 
             for item in to_create:
                 item,item_id,gen_id_state = ensure_tag(item, gen_id_state)
-                cmds += [item]
+                context = {"gen_id_state": gen_id_state}
+                item_ready_cmds, item_cmds, context = prepare_interpret(item, None, context)
+                assert len(item_ready_cmds) == 0
+                gen_id_state = context["gen_id_state"]
+                cmds += item_cmds
                 id_rel,gen_id_state = gen_internal_id(gen_id_state)
                 cmds += [PleaseInstantiate(
                     atom=dict(rt=rt, source=obj_id, target=item_id),
@@ -310,19 +324,16 @@ def prepare_pass_through(cmd, gs, context):
 def prepare_interpret(cmd, gs, context):
     # raise NotImplementedError("TODO fallback to interpret")
     from .wish_interpretation import generate_level2_commands, default_interpretation_rules
-    cmds,todo,context = (cmd,context) | match_rules[[
-        *default_interpretation_rules,
-        (Any, not_implemented_error["Unknown cmd type for interpretation during preparation"]),
-    ]] | collect
+    output = generate_level2_commands([cmd], default_interpretation_rules, context)
     # All outputs are todo from the point of view of preparation vs interpration.
-    return [], cmds + todo, context
+    return [], output["cmds"], context
 
 preparation_rules = [
-    (AtomClass, prepare_obj_notation),
+    (Level2AtomClass, prepare_obj_notation),
     (PleaseRun, prepare_please_run),
     (PleaseInstantiate & Is[get["atom"] | is_a[PleaseInstantiateRelation]], prepare_relations),
     (PleaseCommandLevel1, prepare_pass_through),
     # Fallback to interpretation rules here but make them pass back into this list always (i.e. redirect the lists)
-    (GraphWishInput, prepare_interpret),
+    # (GraphWishInput, prepare_interpret),
 ]
     

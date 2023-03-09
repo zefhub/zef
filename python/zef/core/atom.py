@@ -350,7 +350,9 @@ class Atom_:
             # the RAET capture
             elif is_a(arg, ValueType & RAET):
                 assert atom_type is None
-                atom_type = arg
+                from .VT.rae_types import RAET_get_names, RAET_without_names
+                atom_type = RAET_without_names(arg)
+                names = RAET_get_names(arg) + names
 
             elif is_a(arg, Dict):
                 new_fields = user_dict_to_fields_dict(arg)
@@ -361,6 +363,12 @@ class Atom_:
                 if len(overlaps) > 0:
                     raise Exception(f"There are relations assigned through both kwargs and explicit dictionary: {overlaps}")
                 fields.update(new_fields)
+            elif is_a(arg, Val):
+                names = (arg, *names)
+                if atom_type is None:
+                    atom_type = Val
+                else:
+                    assert atom_type == Val
             else:
                 names = names + (arg,)
         

@@ -84,6 +84,7 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
         ready_cmds, new_todo, context = dispatch_preparation(cmd,gs,context)
         # print()
         # print("===")
+        # print("From:", cmd)
         # print(ready_cmds)
         # print(new_todo)
         # print()
