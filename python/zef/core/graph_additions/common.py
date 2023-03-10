@@ -75,19 +75,37 @@ def maybe_unwrap_variables_in_receipt(receipt):
                | func[dict]
                | collect)
 
+# def wrap_user_id(thing):
+#     from ..symbolic_expression import V
+#     if isinstance(thing, str):
+#         return getattr(V, thing)
+#     if isinstance(thing, ExtraUserAllowedIDs):
+#         return convert_extra_allowed_id(thing)
+#     return SymbolicExpression(OriginallyUserID(thing))
 def wrap_user_id(thing):
-    from ..symbolic_expression import V
     if isinstance(thing, str):
-        return getattr(V, thing)
+        return VariableOpt(thing)
     if isinstance(thing, ExtraUserAllowedIDs):
         return convert_extra_allowed_id(thing)
-    return SymbolicExpression(OriginallyUserID(thing))
+    return VariableOpt(OriginallyUserID(thing))
 
+# def convert_extra_allowed_id(thing: ExtraUserAllowedIDs):
+#     if isinstance(thing, NamedZ):
+#         id = thing.root_node.arg2
+#     elif isinstance(thing, NamedAny):
+#         id = single(absorbed(thing))
+#     else:
+#         raise Exception("Shouldn't get here")
+#     # Tag this with OriginallyUserID so that we can unwrap it later on
+#     return wrap_user_id(id)
 def convert_extra_allowed_id(thing: ExtraUserAllowedIDs):
     if isinstance(thing, NamedZ):
         id = thing.root_node.arg2
     elif isinstance(thing, NamedAny):
         id = single(absorbed(thing))
+    elif isinstance(thing, Variable):
+        # This is just an optimised internal conversion, so no need to tag it.
+        return VariableOpt(thing.name)
     else:
         raise Exception("Shouldn't get here")
     # Tag this with OriginallyUserID so that we can unwrap it later on

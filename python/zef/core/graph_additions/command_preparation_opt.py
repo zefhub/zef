@@ -15,17 +15,25 @@
 from ... import report_import
 report_import("zef.core.graph_additions.command_preparation")
 
-from .common import *
+from .common_opt import *
+
+from ..atom import _get_atom_type, _get_atom_id, _get_fields, _get_ref_pointer
 
 ##############################################
 # * Preparation dispatch
 #--------------------------------------------
 
 def dispatch_preparation(cmd, gs, context):
-    return (cmd,gs,context) | match_rules[[
-        *preparation_rules,
-        (Any, not_implemented_error["Unknown cmd type for preparation"]),
-    ]] | collect
+    if is_a_Level2AtomClass(cmd):
+        return prepare_obj_notation(cmd, gs, context)
+    elif is_a_PleaseRun(cmd):
+        return prepare_please_run(cmd, gs, context)
+    elif is_a_PleaseInstantiate(cmd) and is_a_PleaseInstantiateRelation(cmd._value["atom"]):
+        return prepare_relations(cmd, gs, context)
+    elif is_a_PleaseCommandLevel1(cmd):
+        return prepare_pass_through(cmd, gs, context)
+    else:
+        not_implemented_error(cmd, "Unknown cmd type for preparation")
 
 
 # TODO: This should be possible to process even at interpretation phase if we
@@ -34,7 +42,7 @@ def dispatch_preparation(cmd, gs, context):
 # existing object. They can use the same code for final application.
 def prepare_obj_notation(cmd, gs, context):
     gen_id_state = context["gen_id_state"]
-    from .wish_tagging import ensure_tag
+    from .wish_tagging_opt import ensure_tag
 
     cmds = []
 
@@ -42,23 +50,15 @@ def prepare_obj_notation(cmd, gs, context):
 
     z_on_graph = None
     need_to_create = False
-    if isinstance(me, EntityRef):
-        raise Exception("Shouldn't get here anymore")
-        # cmds += [me]
-        # names = RAET_get_names(et)
-        # if len(names) > 0:
-        #     cmds += [PleaseAlias(ids=(force_as_id(me),) + names)]
-        # if me in gs:
-        #     z_on_graph = gs | get[me] | collect
-    elif isinstance(me, WishID):
-        if rae_type(cmd) is None:
+    if is_a_WishID(me):
+        if _get_atom_type(cmd) is None:
             pass
-        elif isinstance(rae_type(cmd), RT):
+        elif is_a_RT(_get_atom_type(cmd)):
             need_to_create = False
         else:
             need_to_create = True
-    elif isinstance(me, EternalUID):
-        if isinstance(rae_type(cmd), RT):
+    elif is_a_EternalUID(me):
+        if is_a_RT(_get_atom_type(cmd)):
             need_to_create = False
         else:
             z_on_graph = find_rae_in_target(me, gs)
@@ -72,21 +72,21 @@ def prepare_obj_notation(cmd, gs, context):
         # (the ET.x[y] is a legacy style), this might have to change into
         # something more directly the pure ET creation, i.e. a PleaseInstantiate
         # itself directly.
-        if isinstance(rae_type(cmd), PureET | PureAET):
+        if is_a_ET(_get_atom_type(cmd)) or is_a_AET(_get_atom_type(cmd)):
             # TODO: Probably need to handle multiple names here at some point
             # assert len(get_names(cmd)) == 1
             # cmds += [rae_type(cmd)[me]]
-            if isinstance(me, EternalUID):
-                cmds += [PleaseInstantiate(
-                    atom=rae_type(cmd),
+            if is_a_EternalUID(me):
+                cmds += [UVT_ctor_opt(PleaseInstantiate, dict(
+                    atom=_get_atom_type(cmd),
                     origin_uid=me,
-                )]
+                ))]
             else:
-                cmds += [PleaseInstantiate(
-                    atom=rae_type(cmd),
+                cmds += [UVT_ctor_opt(PleaseInstantiate, dict(
+                    atom=_get_atom_type(cmd),
                     internal_ids=(me,),
-                )]
-        elif isinstance(rae_type(cmd), PureRT):
+                ))]
+        elif is_a_RT(_get_atom_type(cmd)):
             raise Exception("Shouldn't get here anymore")
         else:
             raise NotImplementedError(f"TODO can't create something without a known type: {cmd}")
@@ -98,19 +98,21 @@ def prepare_obj_notation(cmd, gs, context):
     more_cmds,gen_id_state = nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state)
     cmds += more_cmds
 
-    context = context | insert["gen_id_state"][gen_id_state] | collect
+    context = dict(context)
+    context["gen_id_state"] = gen_id_state
     return [], cmds, context
 
 def nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state):
-    from .wish_tagging import ensure_tag, Taggable
+    from .wish_tagging_opt import ensure_tag, Taggable
     cmds = []
 
     for k, (obj, v) in fields.items():
         rt = RT(k)
-        if isinstance(v, PrimitiveValue | Taggable | UserWishID):
+        # Going to assume we have the correct types getting here
+        if type(v) != set:
             v = {v}
 
-        if isinstance(v, set):
+        if type(v) == set:
             # First go through and figure out the minimal set of changes.
             #
             # to_create = make a new relation and possibly a new AE (if it is a value)
@@ -127,12 +129,12 @@ def nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state):
                 to_assign = []
                 to_keep = []
 
-                existing_rels = z_on_graph | out_rels[rt] | collect
+                existing_rels = pyzo.traverse_out_rels_multi(z_on_graph, get_c_token(rt))
                 existing_items = {}
                 for rel in existing_rels:
-                    t = target(rel)
-                    if isinstance(t, AttributeEntity):
-                        t_val = value(t)
+                    t = pyzo.target(rel)
+                    if pyzo.rae_type(t) == AttributeEntityType:
+                        t_val = pyzo.value(t)
                     else:
                         t_val = None
                     existing_items[rel] = (t, t_val)
@@ -140,13 +142,13 @@ def nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state):
                 assign_candidates = {}
                 existing_free = set(existing_rels)
                 for item in v:
-                    if isinstance(item, UserWishID):
+                    if is_aUserWishID(item):
                         to_create += [item]
                         continue
                     this_assign_candidates = []
                     for existing_rel in existing_free:
                         existing_target,existing_val = existing_items[existing_rel]
-                        if isinstance(item, AtomClass):
+                        if type(item) == Atom_:
                             if discard_frame(item) == discard_frame(existing_target):
                                 to_keep += [existing_rel]
                                 existing_free.remove(existing_rel)
@@ -159,7 +161,7 @@ def nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state):
                             if can_assign_to(item, existing_target):
                                 this_assign_candidates += [existing_rel]
                     else:
-                        if isinstance(item, AtomClass):
+                        if type(item) == Atom_:
                             to_create += [item]
                         else:
                             assign_candidates[item] = this_assign_candidates
@@ -182,11 +184,10 @@ def nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state):
             # multiple relations created), and we will let the fallout after
             # this function handle that error case.
             prior_name = None
-            if isinstance(obj, AtomClass):
-                from ..atom import get_most_authorative_id
+            if type(obj) == Atom_:
                 # Note: this could be None
-                prior_name = get_most_authorative_id(obj)
-            elif isinstance(obj, ValueType & RT):
+                prior_name = get_most_authorative_id_opt(obj)
+            elif is_a_RT(obj):
                 from ..VT.rae_types import RAET_get_names
                 names = RAET_get_names(obj)
                 if len(names) > 2:
@@ -198,33 +199,33 @@ def nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state):
             exact_zs = []
 
             for rel in to_keep:
-                exact_ids += [origin_uid(rel)]
+                exact_ids += [pyzo.origin_uid(rel)]
                 exact_zs += [rel]
                 if prior_name is not None:
-                    cmds += [PleaseAlias(ids=[origin_uid(rel), prior_name])]
+                    cmds += [UVT_ctor_opt(PleaseAlias, dict(ids=[pyzo.origin_uid(rel), prior_name]))]
 
             for rel in to_terminate:
-                cmds += [PleaseTerminate(target=origin_uid(rel))]
+                cmds += [UVT_ctor_opt(PleaseTerminate, dict(target=pyzo.origin_uid(rel)))]
 
             for val,rel in to_assign:
-                exact_ids += [origin_uid(rel)]
+                exact_ids += [pyzo.origin_uid(rel)]
                 exact_zs += [rel]
-                cmds += [PleaseAssign(target=origin_uid(target(rel)), value=Val(val))]
+                cmds += [UVT_ctor_opt(PleaseAssign, dict(target=pyzo.origin_uid(pyzo.target(rel)), value=Val(val)))]
                 if prior_name is not None:
-                    cmds += [PleaseAlias(ids=[origin_uid(rel), prior_name])]
+                    cmds += [UVT_ctor_opt(PleaseAlias, dict(ids=[pyzo.origin_uid(rel), prior_name]))]
 
             for item in to_create:
                 item,item_id,gen_id_state = ensure_tag(item, gen_id_state)
                 context = {"gen_id_state": gen_id_state}
-                item_ready_cmds, item_cmds, context = prepare_interpret(item, None, context)
+                item_ready_cmds, item_cmds, context = prepare_reduced_interpret(item, None, context)
                 assert len(item_ready_cmds) == 0
                 gen_id_state = context["gen_id_state"]
                 cmds += item_cmds
                 id_rel,gen_id_state = gen_internal_id(gen_id_state)
-                cmds += [PleaseInstantiate(
+                cmds += [UVT_ctor_opt(PleaseInstantiate, dict(
                     atom=dict(rt=rt, source=obj_id, target=item_id),
                     internal_ids=[id_rel]
-                )]
+                ))]
                 exact_ids += [id_rel]
                 exact_zs += [None]
 
@@ -233,12 +234,12 @@ def nested_prepare_obj_fields(obj_id, z_on_graph, fields, gen_id_state):
                     # the PleaseInstantiate, as all names can be aliased but the
                     # instantiate requires choosing between origin_uid and
                     # internal_ids.
-                    cmds += [PleaseAlias(ids=[id_rel, prior_name])]
+                    cmds += [UVT_ctor_opt(PleaseAlias, dict(ids=[id_rel, prior_name]))]
 
-            cmds += [PleaseBeSource(target=obj_id, rel_ids=exact_ids, exact=True, rt=rt)]
+            cmds += [UVT_ctor_opt(PleaseBeSource, dict(target=obj_id, rel_ids=exact_ids, exact=True, rt=rt))]
 
             # Now check if we have additional information that should be added to the relations
-            if isinstance(obj, AtomClass):
+            if type(obj) == Atom_:
                 from ..atom import _get_fields
                 fields = _get_fields(obj)
                 if len(fields) > 0:
@@ -297,19 +298,20 @@ def prepare_please_run(cmd, gs, context):
     return cmds, todo, context
 
 def prepare_relations(cmd, gs, context):
-    # Relations getting to this point are pure, but they need to indicate their
+    # Reltaions getting to this point are pure, but they need to indicate their
     # implicit behaviour on the source/target nodes to effectively "claim
     # territory" that other relation-creating commands (like the EVI) need to
     # cooperate with.
     out_cmds = []
     gen_id_state = context["gen_id_state"]
 
-    names = cmd | get_field["_value"] | get["internals_ids"][[]] | collect
-    print(names, type(names))
+    names = cmd._value.get("internals_ids", [])
     if len(names) == 0:
         id,gen_id_state = gen_internal_id(gen_id_state)
         names = [id]
-        cmd = cmd._get_type()(cmd._value | insert["internal_ids"][names] | collect)
+        new_dict = dict(cmd._value)
+        new_dict["internal_ids"] = names
+        cmd = UVT_ctor_opt(PleaseInstantiate, new_dict)
     id = names[0]
 
     src = cmd.atom["source"]
@@ -317,10 +319,11 @@ def prepare_relations(cmd, gs, context):
     rt = cmd.atom["rt"]
 
     out_cmds += [cmd]
-    out_cmds += [PleaseBeSource(target=force_as_id(src), rel_ids=[id], exact=False, rt=rt)]
-    out_cmds += [PleaseBeTarget(target=force_as_id(trg), rel_ids=[id], exact=False, rt=rt)]
+    out_cmds += [UVT_ctor_opt(PleaseBeSource, dict(target=force_as_id(src), rel_ids=[id], exact=False, rt=rt))]
+    out_cmds += [UVT_ctor_opt(PleaseBeTarget, dict(target=force_as_id(trg), rel_ids=[id], exact=False, rt=rt))]
 
-    context = context | insert["gen_id_state"][gen_id_state] | collect
+    context = dict(context)
+    context["gen_id_state"] = gen_id_state
     return out_cmds, [], context
 
 def prepare_pass_through(cmd, gs, context):
@@ -333,12 +336,22 @@ def prepare_interpret(cmd, gs, context):
     # All outputs are todo from the point of view of preparation vs interpration.
     return [], output["cmds"], context
 
-preparation_rules = [
-    (Level2AtomClass, prepare_obj_notation),
-    (PleaseRun, prepare_please_run),
-    (PleaseInstantiate & Is[get_field["atom"] | is_a[PleaseInstantiateRelation]], prepare_relations),
-    (PleaseCommandLevel1, prepare_pass_through),
-    # Fallback to interpretation rules here but make them pass back into this list always (i.e. redirect the lists)
-    # (GraphWishInput, prepare_interpret),
-]
-    
+def prepare_reduced_interpret(cmd, gs, context):
+    if is_a_Val(cmd):
+        new_cmd = UVT_ctor_opt(PleaseInstantiate, dict(atom=cmd))
+        return [], [new_cmd], context
+    elif is_a_PleaseAssign(cmd):
+        from .wish_interpretation import lvl2cmds_for_ETorAET
+        assert is_a_AET(cmd._value["target"])
+        temp_cmds, _, context = lvl2cmds_for_ETorAET(cmd._value["target"], context)
+        aet_cmd = temp_cmds[0]
+        me = aet_cmd._value["internal_ids"][0]
+
+        new_assign_cmd = UVT_ctor_opt(PleaseAssign, dict(target=me, value=cmd._value["value"]))
+        return [], [new_assign_cmd, aet_cmd], context
+    elif is_a_Level2AtomClass(cmd):
+        return [], [cmd], context
+    elif is_a_WishID(cmd):
+        return [], [], context
+    else:
+        raise Exception(f"Command not in reduced set: {cmd}")

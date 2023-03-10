@@ -66,6 +66,7 @@ __all__ = [
     "InternalIDs",
     "FlatRefUID",
     "Variable",
+    "VariableOpt",
     "AllIDs",
     "UserWishID",
     "ExtraUserAllowedIDs",
@@ -106,6 +107,9 @@ _alias = non_zefop_alias
 # WishID = String | Variable
 Variable = _alias(SymbolicExpression & Is[_ops.get_field["root_node"] | _ops.equals[None]],
                  "Variable")
+
+# This should really only be Strings or OriginallyUserID, but that hasn't been defined yet.
+VariableOpt = UserValueType("VariableOpt", Any, forced_uid="17493853382")
     
 # Internal wish ids as used to reference items, but are themselves not returned in the receipt.
 WishIDInternal = UserValueType("WishIDInternal", String, forced_uid="83192238824")
@@ -116,7 +120,7 @@ TagIDInternal = UserValueType("TagIDInternal", Any, forced_uid="54701468908")
 
 InternalIDs = WishIDInternal | FlatRefUID | TagIDInternal
 
-WishID = _alias(Variable | InternalIDs,
+WishID = _alias(VariableOpt | InternalIDs,
                "WishID")
 
 # This is to allow us potentially switching up the intention of Val in the main
@@ -136,7 +140,7 @@ def delayed_check_namedz(x):
     return True
 NamedZ = Is[delayed_check_namedz]
 
-ExtraUserAllowedIDs = NamedZ | NamedAny
+ExtraUserAllowedIDs = NamedZ | NamedAny | Variable
 
 UserWishID = WishID | ExtraUserAllowedIDs
 
@@ -236,7 +240,7 @@ PleaseBeSource = UserValueType("PleaseBeSource",
 PleaseBeTarget = UserValueType("PleaseBeTarget",
                                Dict,
                                Pattern[{"target": AllIDs,
-                                        "rel_ids": [AllIDs],
+                                        "rel_ids": List[AllIDs],
                                         "exact": Bool,
                                         "rt": RT,
                                         }],
@@ -263,7 +267,11 @@ PleaseCommandLevel1 = _alias(PleaseInstantiate
 def are_commands_ordered(info):
     from .command_ordering import are_commands_ordered
     return are_commands_ordered(info["cmds"], info["gs"])
+def are_commands_ordered_opt(info):
+    from .command_ordering_opt import are_commands_ordered
+    return are_commands_ordered(info["cmds"], info["gs"])
 OrderedCommands = Is[are_commands_ordered]
+OrderedCommandsOpt = Is[are_commands_ordered_opt]
 # When prepared, a list of commands must be in the context of a graph slice
 ResolvedVariableDict = Dict[Variable][EternalUID | Variable]
 Level1CommandInfo = UserValueType(

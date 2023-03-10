@@ -21,9 +21,17 @@ from ..internals import Transaction
 from ... import pyzef
 from ..VT.rae_types import RAET_get_token
 
-from .common import *
+from .common_opt import *
+
+show_profiling = False
 
 def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids: Bool) -> GraphWishReceipt:
+    from pyinstrument import Profiler
+    do_profile = False
+    if do_profile:
+        profiler = Profiler()
+        profiler.start()
+
     assert isinstance(command_struct, Level1CommandInfo)
 
     if len(command_struct.cmds) == 0:
@@ -60,20 +68,20 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
 
     def find_id(id: AtomRef | AllIDs) -> ZefRef:
         # print("find_id", id)
-        if isinstance(id, EternalUID):
+        if is_a_EternalUID(id):
             return find_euid(id)
-        elif isinstance(id, AtomRef):
-            return find_euid(origin_uid(id))
-        elif isinstance(id, InternalIDs):
+        # elif isinstance(id, AtomRef):
+        #     return find_euid(origin_uid(id))
+        elif is_a_InternalID(id):
             return internal_mapping[id]
-        elif isinstance(id, WrappedValue | DelegateRef):
+        elif is_a_Val(id) or is_a_DelegateRef(id):
             if id in internal_mapping:
                 return internal_mapping[id]
             # It must already be on the graph
-            return now(g) | get[id] | collect
+            return GraphSlice_getitem(now(g), id)
         else:
             assert isinstance(id, VariableOpt)
-            return find_euid(origin_uid(receipt[id._value]))
+            return find_euid(origin_uid_opt(receipt[id._value]))
 
     def record_id(id: AllIDs, z: ZefRef):
         # print("record_id", id, z)
@@ -93,7 +101,7 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
 
         for cmd in command_struct.cmds:
             # print("Doing cmd", cmd)
-            if isinstance(cmd, PleaseInstantiate):
+            if is_a_PleaseInstantiate(cmd):
                 # If is a brand-new item (no origin_uid) then create
                 # Otherwise, merge in, referencing the original via lineage
 
@@ -109,13 +117,13 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
                         # an instance that was created and terminated.
                         raise NotImplementedError("TODO: reviving a terminated instance")
                     else:
-                        if isinstance(cmd["atom"], PleaseInstantiateEntity):
+                        if is_a_ET(cmd["atom"]):
                             z = internals.merge_entity_(g, RAET_get_token(cmd.atom), cmd.origin_uid.blob_uid, cmd.origin_uid.graph_uid)
                             z = now(z)
-                        elif isinstance(cmd["atom"], PleaseInstantiateAttributeEntity):
+                        elif is_a_AET(cmd["atom"]):
                             z = internals.merge_atomic_entity_(g, RAET_get_token(cmd.atom), cmd.origin_uid.blob_uid, cmd.origin_uid.graph_uid)
                             z = now(z)
-                        elif isinstance(cmd["atom"], PleaseInstantiateRelation):
+                        elif is_a_PleaseInstantiateRelation(cmd["atom"]):
                             z_src = find_id(cmd["atom"]["source"])
                             z_trg = find_id(cmd["atom"]["target"])
                             z = internals.merge_relation_(g, RAET_get_token(cmd.atom["rt"]),
@@ -127,18 +135,18 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
 
                     euid_mapping[cmd.origin_uid] = z
                 else:
-                    if isinstance(cmd.atom, PleaseInstantiateEntity | PleaseInstantiateAttributeEntity):
+                    if is_a_ET(cmd.atom) or is_a_AET(cmd.atom):
                         raet = RAET_get_token(cmd.atom)
                         z = pyzef.main.instantiate(RAET_get_token(cmd.atom), g)
-                    elif isinstance(cmd.atom, PleaseInstantiateRelation):
+                    elif is_a_PleaseInstantiateRelation(cmd.atom):
                         z_source = find_id(cmd.atom["source"])
                         z_target = find_id(cmd.atom["target"])
                         z = pyzef.main.instantiate(z_source, RAET_get_token(cmd.atom["rt"]), z_target, g)
-                    elif isinstance(cmd.atom, PleaseInstantiateDelegate):
+                    elif is_a_DelegateRef(cmd.atom):
                         z = to_delegate(cmd.atom, now(g), True)
                         # Special case for recording an id
                         record_id(cmd.atom, z)
-                    elif isinstance(cmd.atom, PleaseInstantiateValueNode):
+                    elif is_a_Val(cmd.atom):
                         val = internals.val_as_serialized_if_necessary(cmd.atom)
                         z = pyzef.main.instantiate_value_node(val, Graph(gs))
                         # Special case for recording an id
@@ -154,10 +162,10 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
                     # print("About to record", z)
                     for id in cmd.internal_ids:
                         record_id(id, z)
-            elif isinstance(cmd, PleaseAssign):
+            elif is_a_PleaseAssign(cmd):
                 z = find_id(cmd.target)
                 internals.assign_value_imp(z, cmd.value.arg)
-            elif isinstance(cmd, PleaseTerminate):
+            elif is_a_PleaseTerminate(cmd):
                 z = find_id(cmd.target)
                 # Note: if we don't find a z here, it could be that this is a
                 # relation which was terminated by its source/target
@@ -166,7 +174,7 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
                 # it here.
                 if z is not None:
                     pyzef.zefops.terminate(z)
-            elif isinstance(cmd, PleaseTag):
+            elif is_a_PleaseTag(cmd):
                 z = find_id(cmd.target)
                 pyzef.main.tag(z, cmd.tag)
             else:
@@ -186,5 +194,10 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
 
     # We undo any non-variable user ids based upon their included value
     receipt = maybe_unwrap_variables_in_receipt(receipt)
+
+    if do_profile:
+        profiler.stop()
+        if show_profiling:
+            profiler.open_in_browser()
      
     return gs_updated, receipt

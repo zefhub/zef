@@ -173,8 +173,8 @@ def unpack_receipt_graphslice(template, receipt, gs):
     if isinstance(template, List):
         return tuple((unpack_receipt(el, receipt, gs) for el in template))
     if isinstance(template, WishID):
-        if isinstance(template, Variable):
-            template = template.name
+        if isinstance(template, VariableOpt):
+            template = template._value
         if isinstance(template, OriginallyUserID):
             template = template.obj
         # This should probably be an atom already in the receipt
