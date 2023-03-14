@@ -151,6 +151,7 @@ UserValueType = make_VT('UserValueType',
                         str_func=UVT_str,
                         is_a_func=UVT_is_a)
 
+from .VT.value_type import hash_frozen
 class UserValueInstance_:
     def __init__(self, user_type_id, value):
         # only store the id here, not the name?
@@ -179,8 +180,10 @@ class UserValueInstance_:
         return True
 
     def __hash__(self):
-        from .VT.value_type import hash_frozen
-        return hash_frozen((self._user_type_id, self._value))
+        # from .VT.value_type import hash_frozen
+        # return hash_frozen((self._user_type_id, self._value))
+        return hash_frozen((object.__getattribute__(self, "_user_type_id"),
+                            object.__getattribute__(self, "_value")))
     
 
     def __getattr__(self, other):

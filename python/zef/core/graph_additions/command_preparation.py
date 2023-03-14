@@ -304,8 +304,7 @@ def prepare_relations(cmd, gs, context):
     out_cmds = []
     gen_id_state = context["gen_id_state"]
 
-    names = cmd | get_field["_value"] | get["internals_ids"][[]] | collect
-    print(names, type(names))
+    names = cmd | get_field["_value"] | get["internal_ids"][[]] | collect
     if len(names) == 0:
         id,gen_id_state = gen_internal_id(gen_id_state)
         names = [id]

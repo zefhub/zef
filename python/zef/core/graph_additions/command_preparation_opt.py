@@ -305,7 +305,7 @@ def prepare_relations(cmd, gs, context):
     out_cmds = []
     gen_id_state = context["gen_id_state"]
 
-    names = cmd._value.get("internals_ids", [])
+    names = cmd._value.get("internal_ids", [])
     if len(names) == 0:
         id,gen_id_state = gen_internal_id(gen_id_state)
         names = [id]
@@ -341,7 +341,7 @@ def prepare_reduced_interpret(cmd, gs, context):
         new_cmd = UVT_ctor_opt(PleaseInstantiate, dict(atom=cmd))
         return [], [new_cmd], context
     elif is_a_PleaseAssign(cmd):
-        from .wish_interpretation import lvl2cmds_for_ETorAET
+        from .wish_interpretation_opt import lvl2cmds_for_ETorAET
         assert is_a_AET(cmd._value["target"])
         temp_cmds, _, context = lvl2cmds_for_ETorAET(cmd._value["target"], context)
         aet_cmd = temp_cmds[0]

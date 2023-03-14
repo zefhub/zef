@@ -114,7 +114,7 @@ def cull_instantiate(cmd: PleaseInstantiate, gs):
     elif isinstance(cmd.atom, PleaseInstantiateValueNode):
         maybe_ezr = find_value_node_in_target(cmd.atom, gs)
     elif isinstance(cmd.atom, PleaseInstantiateDelegate):
-        maybe_ezr = to_delegate(cmd.atom, gs, False)
+        maybe_ezr = to_delegate_gs_opt(cmd.atom, gs, False)
 
     if maybe_ezr is not None:
         # We have an existing item, don't need to action this but do store the
@@ -183,9 +183,9 @@ def distinguish_instantiate(cmd: PleaseInstantiate) -> Tuple[PleaseInstantiate, 
 
 def cull_assign(cmd: PleaseAssign, gs):
     if isinstance(cmd.target, EternalUID):
-        if cmd.target in gs:
-            z = gs | get[cmd.target] | collect
-            if Val(value(z)) == cmd.value:
+        if GraphSlice_contains(gs, cmd.target):
+            z = GraphSlice_getitem(gs, cmd.target)
+            if Val(pyzo.value(z)) == cmd.value:
                 # Only here are we sure we can skip this!
                 return [], {cmd.target: z}
 
@@ -202,7 +202,7 @@ def distinguish_assign(cmd: PleaseAssign) -> Tuple[PleaseAssign, List[AllIDs]]:
 def cull_terminate(cmd: PleaseTerminate, gs):
     # If not on the graph, don't need to terminate
     if isinstance(cmd.target, EternalUID):
-        if cmd.target not in gs:
+        if not GraphSlice_contains(gs, cmd.target):
             return [], {cmd.target: None}
     return [cmd], {}
 

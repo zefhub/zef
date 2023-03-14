@@ -85,10 +85,12 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
 
     def record_id(id: AllIDs, z: ZefRef):
         # print("record_id", id, z)
-        if isinstance(id, InternalIDs | WrappedValue | DelegateRef):
+        # if isinstance(id, InternalIDs | WrappedValue | DelegateRef):
+        if is_a_InternalID(id) or is_a_Val(id) or is_a_DelegateRef(id):
             internal_mapping[id] = z
-        elif isinstance(id, VariableOpt):
-            receipt[id._value] = Atom(z)
+        elif is_a_VariableOpt(id):
+            # receipt[id._value] = Atom(z)
+            receipt[id._value] = Atom_ctor_opt_ZefRef(z)
         else:
             raise Exception("Shouldn't get here")
 
@@ -96,7 +98,8 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
     with Transaction(g) as ctx:
         # Note: we might have a transaction open around us so check both now and
         # the previous graph slices.
-        if gs != now(g) and gs != now(g) | time_travel[-1] | collect:
+        # if gs != now(g) and gs != now(g) | time_travel[-1] | collect:
+        if gs != now(g) and gs != previous_slice_opt(now(g)):
             raise Exception("Can't perform level 1 commands onto a different graph slice from which they were constructed: {now(g)=}, {gs=}")
 
         for cmd in command_struct.cmds:
@@ -164,7 +167,8 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
                         record_id(id, z)
             elif is_a_PleaseAssign(cmd):
                 z = find_id(cmd.target)
-                internals.assign_value_imp(z, cmd.value.arg)
+                # internals.assign_value_imp(z, cmd.value.arg)
+                assign_value_opt(z, cmd.value.arg)
             elif is_a_PleaseTerminate(cmd):
                 z = find_id(cmd.target)
                 # Note: if we don't find a z here, it could be that this is a
@@ -193,7 +197,7 @@ def perform_level1_commands(command_struct: Level1CommandInfo, keep_internal_ids
         receipt.update(internal_mapping)
 
     # We undo any non-variable user ids based upon their included value
-    receipt = maybe_unwrap_variables_in_receipt(receipt)
+    receipt = maybe_unwrap_variables_in_receipt_opt(receipt)
 
     if do_profile:
         profiler.stop()

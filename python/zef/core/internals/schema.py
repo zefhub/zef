@@ -18,13 +18,16 @@ def c_schema_validator(ctx):
 
     # We can move this to another section later on
     from .. import Graph
-    from .. import _ops as zo
+    from .. import _ops as zo, internals
+    from ...pyzef import zefops as pyzo
     from ...pyzef.internals import AbortTransaction
     from .. import RT
 
     try:
-        gs = ctx | zo.to_graph_slice | zo.collect
-        for schema in gs | zo.root | zo.Outs[RT.ZEF_Schema]:
+        root_node = pyzo.now(Graph(ctx)[internals.root_node_blob_index()])
+        schemas = pyzo.traverse_out_node_multi(root_node, internals.RT.ZEF_Schema)
+        for schema in schemas:
+            # This stays python-style as we will will only get here when a schema is present.
             lt = schema | zo.value | zo.collect
             if {"graph_slice": gs} | zo.Not[zo.is_a[lt]] | zo.collect:
                 raise Exception(f"{schema} failed to validate graph slice.")

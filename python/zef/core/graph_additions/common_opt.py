@@ -62,20 +62,17 @@ def deserialize_originally_user_id(d):
 serialization.serialization_mapping[OriginallyUserID] = serialize_originally_user_id
 serialization.deserialization_mapping["OriginallyUserID"] = deserialize_originally_user_id
 
-@func
-def maybe_unwrap_variable(x):
-    return LazyValue(x) | match[
-        (OriginallyUserID, get_field["obj"]),
-        (Any, identity)
-    ] | collect
+def maybe_unwrap_variable_opt(x):
+    if type(x) == OriginallyUserID:
+        return x.obj
+    else:
+        return x
 
-def maybe_unwrap_variables_in_receipt(receipt):
-    return (receipt
-               | items
-               | map[apply[first | maybe_unwrap_variable,
-                           second]]
-               | func[dict]
-               | collect)
+def maybe_unwrap_variables_in_receipt_opt(receipt):
+    out = {}
+    for key,val in receipt.items():
+        out[maybe_unwrap_variable_opt(key)] = val
+    return out
 
 def wrap_user_id(thing):
     # from ..symbolic_expression import V
@@ -105,38 +102,31 @@ def convert_extra_allowed_id(thing: ExtraUserAllowedIDs):
 #     # Note: need tuple as collect produces lists by default which are not what
 #     # is usually in absorbed.
 #     return raet._replace(absorbed=tuple(raet._d["absorbed"] | filter[Not[WishID]] | collect))
-def names_of_raet(raet):
-    from .types import WishID
-    names = (raet
-             | match[
-                 (PureET | PureRT | PureAET, RAET_get_names),
-                 (AtomClass, get_all_ids),
-             ]
-             | map[match[
-                 (AllIDs, identity),
-                 (Any, wrap_user_id)
-                 ]]
-             | collect)
-    return names
-def bare_raet(raet):
-    if isinstance(raet, PureET | PureRT | PureAET):
-        return RAET_without_names(raet)
-    elif isinstance(raet, AtomClass):
-        return rae_type(raet)
+def names_of_raet_opt(raet):
+    if is_a_ET(raet) or is_a_RT(raet) or is_a_AET(raet):
+        names = RAET_get_names(raet)
     else:
-        raise Exception(f"Unknown type in bare_raet: {raet}")
+        assert type(raet) == Atom_
+        names = get_all_ids(raet)
 
+    out_names = []
+    for name in names:
+        if not is_a_AllID(name):
+            name = wrap_user_id(name)
+        out_names += [name]
+    return out_names
 
-@func
-def not_implemented_error(obj, text, *others):
-    raise NotImplementedError(text + f" Obj: {obj}")
+def bare_raet_opt(raet):
+    if is_a_ET(raet) or is_a_RT(raet) or is_a_AET(raet):
+        return RAET_without_names(raet)
+    else:
+        assert type(raet) == Atom_
+        from ..atom import _get_atom_type
+        return _get_atom_type(raet)
+
 
 def not_implemented_error_opt(obj, text, *others):
     raise NotImplementedError(text + f" Obj: {obj}")
-
-@func
-def wrap_list(x):
-    return [x]
 
 def generate_initial_state(label: String) -> GenIDState:
     import time
@@ -216,22 +206,23 @@ def most_recent_rae_on_graph(origin_uid: EternalUID, g: Graph) -> Nil|ZefRef:
         ZefRef: this graph knows about this: found instance
         None: this graph knows nothing about this RAE
     """
-    if origin_uid not in g:
+    from ..patching import original_Graph__contains__, original_Graph__getitem__
+    if not original_Graph__contains__(g, origin_uid):
         return None     # this graph never knew about a RAE with this origin uid
 
     from ..atom import _get_ref_pointer
-    zz = g[origin_uid]
-    if BT(zz) in {BT.FOREIGN_ENTITY_NODE, BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, BT.FOREIGN_RELATION_EDGE}:
+    zz = original_Graph__getitem__(g, origin_uid)
+    if internals.BT(zz) in {internals.BT.FOREIGN_ENTITY_NODE, internals.BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, internals.BT.FOREIGN_RELATION_EDGE}:
         out = get_instance_rae_opt(origin_uid, now(g))
         out = _get_ref_pointer(out)
         
-    elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}:
-        if zz | exists_at[now(g)] | collect:
-            out = zz | in_frame[now(g)] | collect
+    elif internals.BT(zz) in {internals.BT.ENTITY_NODE, internals.BT.ATTRIBUTE_ENTITY_NODE, internals.BT.RELATION_EDGE}:
+        if pyzo.exists_at(zz, pyzo.now(g)):
+            out = pyzo.to_frame(zz, pyzo.now(g))
         else:
             out = None
-    elif BT(zz) in {BT.ROOT_NODE, BT.TX_EVENT_NODE}:
-        out = zz | in_frame[now(g)] | collect
+    elif internals.BT(zz) in {internals.BT.ROOT_NODE, internals.BT.TX_EVENT_NODE}:
+        out = pyzo.to_frame(zz, pyzo.now(g))
     else:
         raise RuntimeError("Unexpected option in most_recent_rae_on_graph")
 
@@ -279,7 +270,7 @@ def reducemany(itr, reducers, maybe_init=None):
     return itr | scanmany[reducers][maybe_init] | last | collect
 
 def merge_nodups(x, y):
-    shared_keys = set(keys(x)) & set(keys(y))
+    shared_keys = set(x.keys()) & set(y.keys())
     assert len(shared_keys) == 0, f"Duplicates found in keys of dictionaries passed into merge_nodups: {shared_keys}"
     x.update(y)
 
@@ -361,13 +352,15 @@ def find_value_node_in_target(val, glike):
 # Copy pasted speed ups
 
 def get_instance_rae_opt(origin_uid, gs, allow_tombstone=False)->ZefRef:
+    assert is_a_EternalUID(origin_uid)
+    from ..patching import original_Graph__contains__, original_Graph__getitem__
     g = Graph(gs.tx)
-    if origin_uid not in g:
+    if not original_Graph__contains__(g, origin_uid):
         return None
 
-    zz = g[origin_uid]
-    if BT(zz) in {pymain.BT.FOREIGN_ENTITY_NODE, pymain.BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, pymain.BT.FOREIGN_RELATION_EDGE}:
-        z_candidates = pyzo.traverse_in_node_multi(zz, pymain.BT.ORIGIN_RAE_EDGE)
+    zz = original_Graph__getitem__(g, origin_uid)
+    if internals.BT(zz) in {internals.BT.FOREIGN_ENTITY_NODE, internals.BT.FOREIGN_ATTRIBUTE_ENTITY_NODE, internals.BT.FOREIGN_RELATION_EDGE}:
+        z_candidates = pyzo.traverse_in_node_multi(zz, internals.BT.ORIGIN_RAE_EDGE)
         z_candidates = [pyzo.target(x) for x in z_candidates]
         if not allow_tombstone:
             z_candidates = [x for x in z_candidates if pyzo.exists_at(gs.tx)]
@@ -378,7 +371,7 @@ def get_instance_rae_opt(origin_uid, gs, allow_tombstone=False)->ZefRef:
         else:
             out = None     # no instance alive at the moment
         
-    elif BT(zz) in {pymain.BT.ENTITY_NODE, pymain.BT.ATTRIBUTE_ENTITY_NODE, pymain.BT.RELATION_EDGE, pymain.BT.TX_EVENT_NODE, pymain.BT.ROOT_NODE}:
+    elif internals.BT(zz) in {internals.BT.ENTITY_NODE, internals.BT.ATTRIBUTE_ENTITY_NODE, internals.BT.RELATION_EDGE, internals.BT.TX_EVENT_NODE, internals.BT.ROOT_NODE}:
         if allow_tombstone:
             from . import _ops
             out = pyzo.to_frame(zz, gs.tx, allow_tombstone)
@@ -392,6 +385,21 @@ def get_instance_rae_opt(origin_uid, gs, allow_tombstone=False)->ZefRef:
 
 def UVT_ctor_opt(typ, val):
     return UserValueInstance(typ._d["user_type_id"], val)
+
+def Atom_ctor_opt_ZefRef(z):
+    from ..graph_slice import DBStateUID
+    # Manually put the pieces in that we know
+    a = Atom_()
+    zr_uid = pyzo.uid(z)
+    a = a.__replace__(atom_type=rae_type(z),
+                  atom_id=dict(
+                      global_uid=origin_uid_opt(z),
+                      frame_uid=UVT_ctor_opt(DBStateUID, dict(tx_uid=zr_uid.tx_uid,
+                                                              graph_uid=zr_uid.graph_uid)),
+                  ),
+                  ref_pointer=z)
+    return a
+                  
 
 from ..internals import get_c_token
 
@@ -486,6 +494,56 @@ def origin_uid_opt(z) -> EternalUID:
         # The origin must have been terminated at some point and z is of the
         # same lineage
         return pyzo.uid(pyzo.to_ezefref(pyzo.target(z_or)))
+
+
+def to_delegate_gs_opt(d, gs, create):
+    assert is_a_DelegateRef(d)
+
+    glike = Graph(gs)
+
+    d_ezr = internals.delegate_to_ezr(d, glike, create, 0)
+
+    if d_ezr is None:
+        return None
+    else:
+        if not pyzo.exists_at(d_ezr, gs.tx):
+            raise Exception("Delegate does not exist at given graph slice.")
+        return pyzo.to_frame(d_ezr, gs.tx)
+
+def assign_value_opt(z, value):
+    from ...pyzef.zefops import SerializedValue, assign_value as c_assign_value
+    from .. import VT, internals
+    from ..internals.rel_ent_classes import AET as internal_AET
+    from ..graph_delta import scalar_types
+
+    assert is_a_BlobPtr(z)
+
+    # We can't be sure what kind of zefref we have, and if it is complex things
+    # break at the moment, so do this thoroughly here.
+    if not pymain.rae_type(z) != internals.BT.ATTRIBUTE_ENTITY_NODE:
+        print(z)
+        raise Exception("E/ZefRef is not an AET!")
+    aet = VT.AET(z)
+    if is_a_AET(value):
+        value = internals.get_c_token(value)
+    if type(value) == ValueType_:
+        value = internal_AET[value]
+
+    if not isinstance(value, scalar_types):
+        value = SerializedValue.serialize(value)
+    elif get_c_token(aet).rep_type == internals.VRT.Serialized:
+        value = SerializedValue.serialize(value)
+    try:
+        c_assign_value(z, value)
+    except Exception as exc:
+        print(f"There was an exception in the c call for assign value. z={z} and value={value} and aet={aet}")
+        raise
+
+def previous_slice_opt(gs):
+    from ..graph_slice import GraphSlice_
+    return GraphSlice_(
+        pyzo.traverse_in_node(gs.tx, internals.BT.NEXT_TX_EDGE)
+    )
 
 # Hardcoded type checks
 

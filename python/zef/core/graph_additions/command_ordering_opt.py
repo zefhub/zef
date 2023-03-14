@@ -23,16 +23,17 @@ def order_level1_commands(commands: List[PleaseCommandLevel1], gs: GraphSlice):
     # Take partial ordering from graph, using order of original commands to decide ties.
 
     def simple_key(cmd):
-        if isinstance(cmd, PleaseInstantiate):
-            if isinstance(cmd.atom, PleaseInstantiateEntity | PleaseInstantiateAttributeEntity):
+        if is_a_PleaseInstantiate(cmd):
+            if is_a_ET(cmd.atom) or is_a_AET(cmd.atom):
                 return 0
-            elif isinstance(cmd.atom, PleaseInstantiateRelation):
+            elif is_a_PleaseInstantiateRelation(cmd.atom):
                 return 1
-        elif isinstance(cmd, PleaseAssign):
+        elif is_a_PleaseAssign(cmd):
             return 10
         return 999
 
-    commands = commands | sort[simple_key] | collect
+    # commands = commands | sort[simple_key] | collect
+    commands.sort(key=simple_key)
 
 
     # TODO: Build a dependency graph
@@ -95,12 +96,21 @@ def order_level1_commands(commands: List[PleaseCommandLevel1], gs: GraphSlice):
                     continue
                 name = reverse_mapping[cmd]
                 print("----")
-                print(name)
-                print(cmd)
+                print("Name:", name)
+                print("cmd:", cmd)
                 print("--")
                 for dep in dependencies[name]:
                     print(dep)
                 
+            print()
+            print("Commands done:")
+            # print(new_commands)
+            for cmd in new_commands:
+                print(cmd)
+            print()
+            print()
+            print("Old commands:")
+            print(commands)
             print()
             raise Exception("Unable to order all commands")
 
@@ -162,7 +172,8 @@ def deps_instantiate(cmd, gs):
     elif "origin_uid" in cmd:
         name = ("Instantiate", cmd.origin_uid)
     elif "internal_ids" in cmd:
-        name = ("Instantiate", single(cmd.internal_ids))
+        assert len(cmd.internal_ids) == 1
+        name = ("Instantiate", cmd.internal_ids[0])
     else:
         name = None
     return name,deps
@@ -175,13 +186,13 @@ def deps_terminate(cmd, gs):
 def deps_assign(cmd, gs):
     name = ("Assign", cmd.target)
     deps = []
-    if not is_a_EternalUID(cmd.target) or cmd.target not in gs:
+    if not is_a_EternalUID(cmd.target) or not GraphSlice_contains(gs, cmd.target):
         deps += [("Instantiate", cmd.target)]
     return name,deps
 
 def deps_tag(cmd, gs):
     name = ("Tag", cmd.target)
     deps = []
-    if not is_a_EternalUID(cmd.target) or cmd.target not in gs:
+    if not is_a_EternalUID(cmd.target) or GraphSlice_contains(gs, cmd.target):
         deps += [("Instantiate", cmd.target)]
     return name,deps

@@ -231,7 +231,7 @@ def serialize_zeftypes(z) -> dict:
     elif isinstance(z, Image):
         import base64
         encoded_buffer = z.buffer
-        encoded_buffer = base64.b64encode(internals.decompress_zstd(encoded_buffer))
+        encoded_buffer = base64.b64encode(internals.decompress_zstd(encoded_buffer)).decode()
         return {"_zeftype": "Image", "format": z.format, "compression": z.compression, "buffer" : encoded_buffer}
 
     elif isinstance(z, (EntityRef, RelationRef, AttributeEntityRef)):

@@ -45,7 +45,7 @@ def ensure_tag_primitive(obj, gen_id_state):
     return ensure_tag_assign(obj, gen_id_state)
 
 def ensure_tag_pure_et_aet(obj, gen_id_state):
-    names = names_of_raet(obj)
+    names = names_of_raet_opt(obj)
     if len(names) == 0:
         me,gen_id_state = gen_internal_id(gen_id_state)
         obj = obj[me]

@@ -119,33 +119,33 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
     out_cmds = []
 
     def add_must_live_cmds(src_or_trg):
-        if isinstance(src_or_trg, WishID):
+        from ..atom import _get_atom_type
+        if is_a_WishID(src_or_trg):
             id = src_or_trg
-        elif isinstance(src_or_trg, Delegate):
+        elif is_a_DelegateRef(src_or_trg):
             return
-        elif isinstance(src_or_trg, WrappedValue):
+        elif is_a_Val(src_or_trg):
             return
-        elif isinstance(src_or_trg, Relation):
-            add_must_live_cmds(source(src_or_trg))
-            add_must_live_cmds(target(src_or_trg))
+        elif type(src_or_trg) == Atom_:
             id = origin_uid(src_or_trg)
-        elif isinstance(src_or_trg, AtomClass):
-            id = origin_uid(src_or_trg)
-        elif isinstance(src_or_trg, EternalUID):
+            if is_a_RT(_get_atom_type(src_or_trg)):
+                add_must_live_cmds(source(src_or_trg))
+                add_must_live_cmds(target(src_or_trg))
+        elif is_a_EternalUID(src_or_trg):
             id = src_or_trg
             z = find_rae_in_target(id, gs)
-            if isinstance(z, Relation):
+            if z is not None and is_a_RT(pymain.rae_type(z)):
                 add_must_live_cmds(source(z))
                 add_must_live_cmds(target(z))
-        elif isinstance(src_or_trg, BlobPtr):
+        elif is_a_BlobPtr(src_or_trg):
             id = origin_uid(src_or_trg)
-            if isinstance(src_or_trg, Relation):
+            if is_a_RT(pymain.rae_type(src_or_trg)):
                 add_must_live_cmds(source(src_or_trg))
                 add_must_live_cmds(target(src_or_trg))
         else:
             raise Exception(f"Shouldn't get here: {src_or_trg}")
         nonlocal out_cmds
-        out_cmds += [PleaseMustLive({"target": id})]
+        out_cmds += [UVT_ctor_opt(PleaseMustLive, dict(target=id))]
             
     for cmd in prepared_cmds:
         if is_a_PleaseInstantiate(cmd) and is_a_PleaseInstantiateRelation(cmd.atom):
@@ -181,6 +181,14 @@ def generate_level1_commands(commands: List[PleaseCommandLevel2], gs: GraphSlice
     start_time = time.time()
     while True:
         new_cmds,simplify_aliases,did_something = validate_and_simplify_lvl1_cmds(cur_cmds)
+        if debugging_active:
+            print()
+            print("BEFORE RELABELLING")
+            for cmd in cur_cmds:
+                print(cmd)
+            print()
+        # print("Aliases")
+        # print(simplify_aliases)
         cur_cmds = relabel_cmds(new_cmds, simplify_aliases)
         if not did_something and new_cmds == cur_cmds:
             break
@@ -275,6 +283,12 @@ def validate_and_simplify_lvl1_cmds(cmds_in):
             did_something = True
         for name in names:
             name_mapping[name].add(cmd_distinguish)
+        # print()
+        # print("%%%%%%%%%%%%%%%%%%%%")
+        # print(cmd)
+        # print("---")
+        # print(cmd_distinguish)
+        # print("%%%%%%%%%%%%%%%%%%%%")
         cmd_mapping[cmd_distinguish].update(names)
             
     # print("After name mapping:", time.time() - start_time)
