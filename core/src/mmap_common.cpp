@@ -22,7 +22,16 @@ namespace zefDB {
         // * Alloc list functions
 
         // Keeps track of all mmap info structures
-        std::vector<MMapAllocInfo*> alloc_list;
+        struct MMapAllocInfoList {
+            std::vector<MMapAllocInfo*> list;
+
+            ~MMapAllocInfoList() {
+                for(auto & it : list) {
+                    free_mmap(*it);
+                }
+            }
+        };
+        MMapAllocInfoList alloc_list;
 
         //////////////////////////////
         // * FileGraph
@@ -476,6 +485,10 @@ namespace zefDB {
             }
             lock.lock();
             return parent->ptr;
+        }
+
+        bool is_graph_mem_alive(void * ptr) {
+            return !info_from_blob(ptr).released;
         }
     }
 }

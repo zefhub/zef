@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core")
+
 ####################################
 # * Locating libzef
 #----------------------------------
@@ -59,11 +62,11 @@ from .overrides import *
 # actually provide useful exports.
 from . import internals
 from . import pure_utils
-from . import error
-from . import image
+from . import _image
+from . import _decimal
+from . import _bytes
 from . import op_structs
 from . import _ops
-from . import VT
 from . import zef_functions
 from . import abstract_raes
 from . import graph_delta
@@ -72,55 +75,13 @@ from . import flat_graph
 from . import fx
 from . import serialization
 
-from .error import Error
-
-from .image import Image
+from ._image import Image
 
 from .fx.fx_types import Effect, FX
 
-from .units import unit
-
 from .graph_slice import GraphSlice
 
-
-from .flat_graph import FlatGraph_, FlatRef, FlatRefs, Val
-
-# TODO: import the other ValueTypes here and implement constructor by forwarding args
-from .VT import (
-    TX,
-    Nil,
-    Any,
-    Bool,
-    Int,
-    Float,
-    String,
-    Bytes,
-    Decimal,
-    List,
-    Dict,
-    Set,
-    Stream,
-    ValueType,
-    Instantiated, 
-    Terminated, 
-    Assigned,
-    FlatGraph,
-
-    Union,
-    Intersection,
-    Complement,
-    Is,
-    SetOf,
-    RP,
-    HasValue,
-    Pattern,
-    SameAs,
-
-    RelatedOps,
-    UsedFor,
-    OperatesOn
-    )
-from .VT.value_type import ValueType_
+from .flat_graph import FlatGraph, FlatRef, FlatRefs, Val
 
 from .abstract_raes import Entity, AttributeEntity, Relation, TXNode, Root, make_custom_entity
 
@@ -149,7 +110,6 @@ nil                = make_custom_entity(name_to_display='nil',         predeterm
 
 # Implementations come last, so that they can make use of everything else
 from . import op_implementations
-from .symbolic_expression import SV, SVs, v, unwrap_vars_hack
 
 pyzef.internals.finished_loading_python_core()
 

@@ -17,6 +17,7 @@ import unittest  # pytest takes ages to run anything as soon as anything from ze
 import zef
 from zef import *
 from zef.ops import *
+from zef import internals
 
 
 class MyTestCase(unittest.TestCase):

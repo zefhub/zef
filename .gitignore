@@ -128,3 +128,6 @@ tests/Testing/Temporary/
 python/zef/pyzef.pyd
 core/CMakeSettings.json
 /python/zef/auth.html
+/python/tests/robot/log.html
+/python/tests/robot/output.xml
+/python/tests/robot/report.html

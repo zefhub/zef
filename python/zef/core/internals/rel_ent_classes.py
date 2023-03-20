@@ -19,4 +19,4 @@
 # EN = ZefEnumStruct()
 # AET = AttributeEntityTypeStruct()
 
-from ...pyzef.internals import ET, RT, EN, AET
+from ...pyzef.internals import ET, RT, EN, AET, VRT

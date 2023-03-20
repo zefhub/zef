@@ -224,7 +224,7 @@ namespace zefDB {
                 throw std::runtime_error("Unknown style for create_mmap to handle.");
             }
 
-            alloc_list.push_back(info);
+            alloc_list.list.push_back(info);
             return blob_ptr;
         }
 
@@ -260,24 +260,45 @@ namespace zefDB {
             }
         }
 
+        void* get_end_of_info(MMapAllocInfo * info) {
+            uintptr_t immediate = (uintptr_t)&info + sizeof(MMapAllocInfo);
+            return ceil_ptr((void*)immediate, getpagesize());
+        }
+
         void destroy_mmap(MMapAllocInfo& info) {
+            info.released = true;
             if(info.style == MMAP_STYLE_MALLOC) {
-                free(info.location);
-            } else if (info.style == MMAP_STYLE_ANONYMOUS) {
-                // munmap can remove multiple mappings, so no need to loop through all alloced pages
-                munmap(info.location, MAX_MMAP_SIZE);
-            } else if (info.style == MMAP_STYLE_FILE_BACKED) {
-                // if(close(info.blob_fd) != 0 || close(info.uid_fd) != 0)
-                //     error_p("Problem closing fds for mmap");
-                flush_mmap(info);
-                delete info.file_graph;
-                // Doing a sync flush here, instead of the async in flush_mmap.
-                msync(info.location, MAX_MMAP_SIZE, MS_SYNC);
-                munmap(info.location, MAX_MMAP_SIZE);
+                // free(info.location);
+                std::cerr << "TODO: MALLOC releasing of memory is incomplete." << std::endl;
+            } else {
+                // We just want to shrink down the mmap to just contain the info part.
+                uintptr_t end_of_info = (uintptr_t)get_end_of_info(&info);
+
+                size_t release_size = MAX_MMAP_SIZE - end_of_info;
+                if (info.style == MMAP_STYLE_ANONYMOUS) {
+                    // munmap can remove multiple mappings, so no need to loop through all alloced pages
+                    munmap((void*)end_of_info, release_size);
+                } else if (info.style == MMAP_STYLE_FILE_BACKED) {
+                    flush_mmap(info);
+                    delete info.file_graph;
+                    // Doing a sync flush here, instead of the async in flush_mmap.
+                    msync(info.location, MAX_MMAP_SIZE, MS_SYNC);
+                    munmap((void*)end_of_info, release_size);
+                }
             }
         }
 
+        void free_mmap(MMapAllocInfo& info) {
+            if(!info.released)
+                destroy_mmap(info);
 
-
+            if(info.style == MMAP_STYLE_MALLOC) {
+                free(info.location);
+            } else {
+                uintptr_t end_of_info = (uintptr_t)get_end_of_info(&info);
+                size_t release_size = end_of_info - (uintptr_t)info.location;
+                munmap(info.location, MAX_MMAP_SIZE);
+            }
+        }
     }
 }

@@ -526,6 +526,8 @@ def resolve_add(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     try:
+        if info.context["read_only"]:
+            raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             name_gen = NameGen()
             actions = []
@@ -578,6 +580,8 @@ def resolve_upfetch(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     try:
+        if info.context["read_only"]:
+            raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             # Upfetch is a lot like add with upsert, except it uses the specially
             # indicated upfetch field to work on, rather than id.
@@ -630,6 +634,8 @@ def resolve_update(_, info, *, type_node, **params):
     # TODO: @unique checks should probably be done post change as multiple adds
     # could try changing the same thing, including nested types.
     try:
+        if info.context["read_only"]:
+            raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             if "input" not in params or "filter" not in params["input"]:
                 raise Exception("Not allowed to update everything!")
@@ -664,6 +670,8 @@ def resolve_update2(obj, type_node, graphql_info, query_args):
 
 def resolve_delete(_, info, *, type_node, **params):
     try:
+        if info.context["read_only"]:
+            raise ExternalError("Read only mode is enabled")
         with mutation_lock:
             # Do the same thing as a resolve_query but delete the entities instead.
             if "filter" not in params:
@@ -854,7 +862,7 @@ def scalar_comparison_op(sub):
                 
 def get_field_rel_by_name(z_type, name):
     return (z_type | out_rels[RT.GQL_Field]
-            | filter[Z | F.Name | equals[name]]
+            | filter[F.Name | equals[name]]
             | first
             | collect)
 
@@ -916,9 +924,9 @@ def internal_resolve_field(z, info, z_field, auth_required=True):
 
         if is_triple:
             if is_incoming:
-                assert rae_type(z) == rae_type(target(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {target(relation)}"
+                assert rae_type(z) == rae_type(target(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {target(relation)!r}"
             else:
-                assert rae_type(z) == rae_type(source(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {source(relation)}"
+                assert rae_type(z) == rae_type(source(relation)), f"The RAET of the object {z} is not the same as that of the delegate relation {source(relation)!r}"
 
         if is_incoming:
             opts = z | Ins[rt]
@@ -929,10 +937,12 @@ def internal_resolve_field(z, info, z_field, auth_required=True):
             if is_triple:
                 opts = opts | filter[is_a[rae_type(target(relation))]]
     elif z_field | has_out[RT.GQL_FunctionResolver] | collect:
-        opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, info)
+        # TODO: Sort this out when renaming info -> ctx/sctx
+        context = info.context
+        opts = func[z_field | Out[RT.GQL_FunctionResolver] | collect](z, context, z_field, context)
         # This is to mimic the behaviour that people probably expect from a
         # non-list resolver.
-        if type(opts) not in [list,tuple]:
+        if not is_a(opts, List):
             if opts is None:
                 opts = []
             else:
@@ -972,6 +982,9 @@ def find_existing_entity_by_id(info, type_node, id):
     
     gs = info.context["gs"]
 
+    if op_is_relation(type_node):
+        raise Exception("Can't query for all types when that type is a relation.")
+
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
     ent = gs[uid(id)] | collect
     if not is_a(ent, et):
@@ -984,6 +997,9 @@ def find_existing_entity_by_id(info, type_node, id):
 def find_existing_entity_by_field(info, type_node, z_field, val):
     if val is None:
         raise Exception("Can't find an entity by a None field value")
+
+    if op_is_relation(type_node):
+        raise Exception("Can't query for all types when that type is a relation.")
 
     gs = info.context["gs"]
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
@@ -1010,6 +1026,9 @@ def add_new_entity(info, type_node, params, name_gen):
     type_name = type_node | F.Name | collect
 
     post_checks += [("add", this, type_node)]
+
+    if op_is_relation(type_node):
+        raise Exception("Can't add type when that type is a relation.")
 
     et = ET(type_node | Out[RT.GQL_Delegate] | collect)
     actions += [et[this]]
@@ -1115,7 +1134,29 @@ def update_entity(z, info, type_node, set_d, remove_d, name_gen):
         rt = RT(z_field | Out[RT.GQL_Resolve_With] | collect)
 
         if op_is_list(z_field):
-            raise Exception(f"Updating list things is a todo (for z_field={z_field})")
+            if z_field | target | op_is_scalar | collect:
+                raise Exception("Updating lists with scalars is TODO")
+            else:
+                found_zs = []
+                for ent_val in val:
+                    found_z,new_actions,new_post_checks = find_or_add_entity(ent_val, info, target(z_field), name_gen)
+                    actions += new_actions
+                    post_checks += new_post_checks
+                    found_zs += [found_z]
+
+                if op_is_incoming(z_field):
+                    preexisting = z | in_rels[rt] | map[apply[identity, source]] | collect
+                else:
+                    preexisting = z | out_rels[rt] | map[apply[identity, target]] | collect
+
+                to_add = found_zs | without[preexisting | map[second]] | collect
+                to_remove = preexisting | filter[Not[second | contained_in[found_zs]]] | map[first] | collect
+
+                actions += to_remove | map[terminate] | collect
+                if op_is_incoming(z_field):
+                    actions += to_add | map[apply[lambda x: (x, rt, z)]] | collect
+                else:
+                    actions += to_add | map[apply[lambda x: (z, rt, x)]] | collect
         else:
             if op_is_unique(z_field):
                 # This used to be checked directly, here but just in case
@@ -1172,12 +1213,18 @@ def pass_auth_generic(z, schema_node, info, rt_list):
     else:
         return True
 
+    context = info.context
+    auth = info.context | get["auth"][None] | collect
     # TODO: Later on these will be zef functions so easier to call
     return temporary__call_string_as_func(
+        # TODO: Update this call signature
         to_call | value | collect,
         z=z,
+        type_node=schema_node,
+        # Too many things - these will change with dctx/sctx updates
+        context=context,
         info=info,
-        type_node=schema_node
+        auth=auth
     )
 
 @func
@@ -1218,11 +1265,13 @@ def temporary__call_string_as_func(s, **kwds):
     if isinstance(out, LazyValue):
         out = collect(out)
     elif isinstance(out, ZefOp):
-        out = out(kwds.get("z", None))
+        input = {"z": kwds["z"],
+                 "ctx": kwds["context"]}
+        out = out(input)
 
     return out
 
-def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
+def auth_helper_auth_field(field_name, auth_type, *, z, type_node, info, **kwds):
     # A helper function for graphql schema, that requests an auth check of the
     # given kind on one of its fields.
 
@@ -1231,28 +1280,28 @@ def auth_helper_auth_field(field_name, auth, *, z, type_node, info):
         z_field = get_field_rel_by_name(type_node, field_name)
         z_field_node = target(z_field)
         val = field_resolver_by_name(z, type_node, info, field_name)
-    except:
+    except Exception as exc:
         # Going to assume this is because traversal failed auth along the way somewhere.
         if info.context["debug_level"] >= 0:
-            log.error("auth_field helper got an exception, assuming failure of auth")
+            log.error("auth_field helper got an exception, assuming failure of auth", exc_info=exc)
         return False
 
     if val is None:
         # This is something we can't query on, so therefore the query has failed.
         return False
 
-    if auth == "query":
+    if auth_type == "query":
         func = pass_query_auth
-    elif auth == "add":
+    elif auth_type == "add":
         func = pass_add_auth
-    elif auth == "update":
+    elif auth_type == "update":
         func = pass_pre_update_auth
-    elif auth == "updatePost":
+    elif auth_type == "updatePost":
         func = pass_post_update_auth
-    elif auth == "delete":
+    elif auth_type == "delete":
         func = pass_delete_auth
     else:
-        raise Exception(f"Don't understand auth type '{auth}' in auth_helper_auth_field")
+        raise Exception(f"Don't understand auth type '{auth_type}' in auth_helper_auth_field")
 
     return func(val, z_field_node, info)
 

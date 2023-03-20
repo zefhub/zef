@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.graph_slice")
+
+
 from ._core import *
 from ._ops import *
 from .abstract_raes import *

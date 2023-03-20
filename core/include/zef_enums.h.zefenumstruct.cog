@@ -16,6 +16,7 @@ from functional import seq
 
 (seq(en)
         .filter(lambda el: enum_val(el[1]) != '')  # exclude the enum types
+        .filter(lambda el: not is_c_keyword(enum_val(el[1])) and not is_c_keyword(enum_type(el[1])))  # exclude keyword enums
         .group_by(lambda el: enum_type(el[1]))
         .map(map_enum_type_to_struct_defs)
         .for_each(cog.outl)

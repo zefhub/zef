@@ -20,14 +20,14 @@ If you want to compile from the latest of a branch from the GitHub repo, then
 you have two choices:
 
 1. Use a system-installed libzef. This is currently not possible.
-2. Use a bundled lizef. In order to do this you should make an sdist package
+2. Use a bundled libzef. In order to do this you should make an sdist package
 yourself. This is because of the way that pip and friends find files to copy.
 Hence:
 
 ```
 git clone https://github.com/zefhub/zef
 cd zef/python
-python setup.py sdist
+python3 setup.py sdist
 pip install dist/zef-<version>.tar.gz
 ```
 
@@ -46,16 +46,22 @@ and the following build-time python libraries:
 - cogapp
 - pyfunctional
 
-
 # For Developers
+
+Start by checking out the `dev` branch:
+
+```
+git clone https://github.com/zefhub/zef
+cd zef
+git checkout dev
+```
 
 A convenience script exists in the repo root:
 
 `bash compile_for_local_dev.sh`
 
-which compiles both libzef and the python bindings, along with including a symlink to the library in the source repo. Adding the `<repo_root>/python` path to `PYTHONPATH` will then allow `import zef` to find the package.
+which compiles both libzef and the python bindings, and includes a symlink to the library in the source repo. Adding the `<repo_root>/python` path to `PYTHONPATH` will then allow `import zef` to find the package.
 
-You may need to manually include all of the python requirements for Zef by
-running:
+The script may ask you to install a few tools, such as `jq` and `realpath`. You may also need to manually include all of the python requirements for Zef by running:
 
 `pip install -r python/requirements.txt`

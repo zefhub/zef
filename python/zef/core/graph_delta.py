@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.graph_delta")
+
 __all__ = [
     "GraphDelta",
 ]
@@ -28,7 +31,6 @@ from .graph_slice import GraphSlice
 from .abstract_raes import Entity, Relation, AttributeEntity, TXNode, Root
 from ..pyzef.zefops import SerializedValue
 from .logger import log
-from .VT import Is, Any, ValueType_
 from .internals import instantiate_value_node_imp
 
 from abc import ABC
@@ -136,15 +138,17 @@ def dispatch_ror_graph(g, x):
         unpacking_template, commands = encode(x)
         # insert "internal_id" with uid here: the unpacking must get to the RAEs from the receipt
         def insert_id_maybe(cmd: dict):
+            if 'internal_id' in cmd or 'internal_ids' in cmd:
+                return cmd
             if 'origin_rae' in cmd:
-                if is_a(cmd['origin_rae'], Delegate):
+                if is_a(cmd['origin_rae'], Delegate) or type(cmd['origin_rae']) == Val:
                     internal_id = cmd['origin_rae']
                 else:
                     internal_id = uid(cmd['origin_rae'])
                 return {**cmd, 'internal_id': internal_id}
             return cmd
 
-        commands_with_ids = [insert_id_maybe(c) for  c in commands]
+        commands_with_ids = [insert_id_maybe(c) for c in commands]
         return {
                 "type": FX.Graph.Transact,
                 "target_graph": g,
@@ -423,7 +427,7 @@ def iteration_step(state: dict, gen_id)->dict:
     # WARNING: this mutates but is necessary for speed
     if not isinstance(exprs, list):
         exprs = list(exprs)
-    expr = exprs.pop()
+    expr = exprs.pop(0)
 
     new_exprs,new_cmds = dispatch_cmds_for(expr, gen_id)
 
@@ -546,7 +550,7 @@ def cmds_for_instantiable(x):
     return (), [cmd]
 
 def cmds_for_mergable(x):
-    origin = origin_rae(x)
+    origin = discard_frame(x)
 
     cmd = {"cmd": "merge",
            "origin_rae": origin,
@@ -642,11 +646,11 @@ def cmds_for_lv_terminate(x):
     assert is_a(op, terminate)
     cmd = {
         'cmd': 'terminate', 
-        'origin_rae': origin_rae(target)
+        'origin_rae': discard_frame(target)
         }
     a_id = get_absorbed_id(LazyValue(op))
     if a_id is not None:
-        cmd['internal_id'] = a_id
+        cmd['internal_ids'] = [a_id]
 
     return (), [cmd]
 
@@ -688,9 +692,10 @@ def cmds_for_delegate(x):
     if a_id is not None:
         internal_ids += [a_id]
 
+    # The to_delegate below takes care of whether x is a DelegateRef or a ZefRef
     return (), [{
         'cmd': 'merge', 
-        'origin_rae': x,
+        'origin_rae': to_delegate(x),
         'internal_ids': internal_ids,
         }]
 
@@ -868,6 +873,8 @@ def realise_single_node(x, gen_id):
             d = to_delegate(x)
             exprs = [d]
             iid = d
+        elif isinstance(x, BT.VALUE_NODE):
+            iid,exprs = realise_single_node(Val(value(x)), gen_id)
         else:
             exprs = [x]
             iid = origin_uid(x)
@@ -1095,7 +1102,7 @@ def get_id(cmd):
 
 def get_ids(cmd):
     ids = []
-    if cmd['cmd'] == 'merge':
+    if cmd['cmd'] in ['merge', "terminate"]:
         ids += cmd["internal_ids"]
         if is_a(cmd['origin_rae'], Delegate):
             ids += [cmd['origin_rae']]
@@ -1149,7 +1156,7 @@ def resolve_dag_ordering_step(arg: dict)->dict:
             'output': (*state['output'], *can),
             'known_ids': {*state['known_ids'], *(can | map[get_ids] | concat)},
         },
-        "num_changed": len(can) > 0
+        "num_changed": len(can)
     }
     
         
@@ -1454,7 +1461,7 @@ def perform_transaction_commands(commands: list, g: Graph):
             d_raes['tx'] = None
 
             # Update all ZefRefs to be in the latest frame instead of the previously created tx.
-            reset_frame = in_frame[now(g)][allow_tombstone]
+            reset_frame = to_frame[now(g)][allow_tombstone]
             for key,val in d_raes.items():
                 if key == 'tx': continue
 
@@ -1554,11 +1561,11 @@ def most_recent_rae_on_graph(origin_uid: str, g: Graph)->ZefRef:
         
     elif BT(zz) in {BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}:
         if zz | exists_at[now(g)] | collect:
-            return zz | in_frame[now(g)] | collect
+            return zz | to_frame[now(g)] | collect
         else:
             return None
     elif BT(zz) in {BT.ROOT_NODE, BT.TX_EVENT_NODE}:
-        return zz | in_frame[now(g)] | collect
+        return zz | to_frame[now(g)] | collect
     else:
         raise RuntimeError("Unexpected option in most_recent_rae_on_graph")
         

@@ -13,6 +13,10 @@
 # limitations under the License.
 
 #%%
+
+from .. import report_import
+report_import("zef.core.op_structs")
+
 """ 
 Until we have flat graphs, we represent zefops as tuples of tuples.
 The outer dimensio represents the data flow direction.
@@ -561,6 +565,8 @@ class CollectingOp:
         raise TypeError(f'Unexpected type in "ZefType << CollectingOp" expression. It was called with {other} of type {type(other)}' )
         
     def __eq__(self, other):
+        if not hasattr(other, "el_ops"):
+            return NotImplemented
         return self.el_ops == other.el_ops
 
     def __call__(self, *args):
@@ -572,6 +578,10 @@ class CollectingOp:
         if len(args) == 1:
             return args[0] | self
 OpLike.register(CollectingOp)
+
+    def __hash__(self):
+        return hash(self.el_ops)
+        
 
 
 class ConcreteAwaitable:
@@ -1070,7 +1080,7 @@ def type_spec_iterable(obj, vt_type):
             return vt_type[next(iter(tps))]
         else:
             return vt_type[VT.Any]
-    except:
+    except Exception:
         return vt_type[VT.Any]
         
 def type_spec_dict(obj):

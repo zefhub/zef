@@ -298,6 +298,7 @@ void Butler::handle_guest_message(NewGraph & content, Butler::msg_ptr & msg) {
 template <>
 void Butler::handle_guest_message(ZearchQuery & content, Butler::msg_ptr & msg) {
     task_ptr task = add_task(true, 0, std::move(msg->promise));
+    wait_for_auth();
     try {
         send_ZH_message({
                 {"msg_type", "zearch"},
@@ -313,6 +314,7 @@ void Butler::handle_guest_message(ZearchQuery & content, Butler::msg_ptr & msg) 
 template <>
 void Butler::handle_guest_message(UIDQuery & content, Butler::msg_ptr & msg) {
     task_ptr task = add_task(true, 0, std::move(msg->promise));
+    wait_for_auth();
     try {
         send_ZH_message({
                 {"msg_type", "lookup_uid"},
@@ -354,6 +356,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
         }
 
         task = add_task(true, 0, std::move(msg->promise), false, content.idempotent_task_uid);
+        wait_for_auth();
         // Need to delegate to zefhub
         std::visit(overloaded {
                 [&](MergeRequest::PayloadGraphDelta & payload) {
@@ -364,7 +367,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
                     } else {
                         send_ZH_message({
                                 {"msg_type", "merge_request"},
-                                {"msg_version", 2},
+                                {"msg_version", 3},
                                 {"task_uid", task->task_uid},
                                 {"target_guid", str(content.target_guid)},
                                 {"payload", {
@@ -383,7 +386,7 @@ void Butler::handle_guest_message(MergeRequest & content, Butler::msg_ptr & msg)
             // This is a remote request, so we should let upstream know of the problem.
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 2},
+                    {"msg_version", 3},
                     {"task_uid", task->task_uid},
                     {"target_guid", str(content.target_guid)},
                     {"success", false},
@@ -427,6 +430,7 @@ void Butler::handle_guest_message(OLD_STYLE_UserManagement & content, Butler::ms
 template <>
 void Butler::handle_guest_message(TokenManagement & content, Butler::msg_ptr & msg) {
     task_ptr task = add_task(true, 0, std::move(msg->promise));
+    wait_for_auth();
     try {
         send_ZH_message({
                 {"msg_type", "token_management"},

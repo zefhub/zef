@@ -36,19 +36,24 @@ def inject_in_line(line: list, title: str):
     return [*line[:3] , title, *line[3+len(title):]] 
 
 
+def count_emojis(s):
+    double_space_emojis = {'✅', '❌', '💥', '🆔'}
+    return len([c for c in s if c in double_space_emojis])
+
+
 @func
 def make_box(content, label = ""):
     max_width = content | map[length] | max | collect
-    width  = max_width + 30
+    width  = max_width + 10
     padding_v = 2
-    padding_h = 8
+    padding_h = 2
 
     up     = ("─" | repeat |  take[width] | prepend["┌"] | append["┐"] | collect)  
     up     = inject_in_line(up, label) | join | collect
 
     middle = " " | repeat |  take[width] | prepend["│"] | append["│"] | join | repeat | take[padding_v] | join["\n"] | collect
     
-    middle_content = content | map[lambda l: f"|{pad_side(l, padding_h, True, width)}|"] | join["\n"] | collect
+    middle_content = content | map[lambda l: f"|{pad_side(l, padding_h, True, max(len(l), width-count_emojis(l)))}|"] | join["\n"] | collect
     
     bottom = "─"  | repeat |  take[width] | join | prepend["└"] | append["┘"] | join | collect
     return [up, middle, middle_content, middle, bottom]  | join["\n"] | collect
@@ -59,7 +64,7 @@ def make_box_details(op_chain, out_types, op_purity):
 !! This is an incomplete/incorrect output !!
 Operator 🔗:    {op_chain}
 Signature:      {out_types[0]} -> {out_types[-1]}
-Purity:         {random.SystemRandom().choice(['🌿 pristenly pure', '👹 possibly mutating'])}\n\n"""
+Purity:         {random.SystemRandom().choice(['🌿 pristinely pure', '👹 possibly mutating'])}\n\n"""
 
 
 @func

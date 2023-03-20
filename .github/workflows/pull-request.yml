@@ -11,12 +11,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        # os: [ubuntu-20.04, macos-latest, windows-latest]
-        os: [ubuntu-20.04, macos-latest]
-        python-version: [3.7, "3.10"]
+        os: [ubuntu-20.04, macos-latest, windows-latest]
+        # os: [ubuntu-20.04, macos-latest]
+        python-version: [3.7, "3.10", "3.11"]
         exclude:
-          - os: macos-latest
-            python-version: "3.8"
           - os: macos-latest
             python-version: "3.7"
     env:
@@ -24,7 +22,7 @@ jobs:
     steps:
       ########
       # Git things
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           persist-credentials: true
@@ -33,7 +31,7 @@ jobs:
       - name: Build
         uses: ./.github/actions/build
         # Windows takes forever to build so this needs to be >20min
-        timeout-minutes: 30
+        timeout-minutes: 45
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}

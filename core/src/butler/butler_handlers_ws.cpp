@@ -35,7 +35,7 @@ void Butler::ws_open_handler(void) {
     network.send(j.dump());
 }
 
-void Butler::ws_close_handler(void) {
+void Butler::ws_close_handler(bool problem) {
     if(should_stop)
         return;
 
@@ -51,6 +51,9 @@ void Butler::ws_close_handler(void) {
     if(connection_authed)
         msg_push(Disconnected{}, false, true);
     connection_authed = false;
+
+    if(problem)
+        update(auth_locker, fatal_connection_error, true);
 }
 
 void Butler::ws_fatal_handler(std::string reason) {
@@ -213,6 +216,19 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
 
             // All of these messages must be passed down the line
             std::string task_uid = j["task_uid"].get<std::string>();
+
+            if(j.contains("please_ack") && j["please_ack"].get<bool>()) {
+                developer_output("Got a message requesting an ack");
+                // Send a quick response acknolwedging we have got this message
+                //
+                // Is this possible? Are we blocking the WS thread, therefore
+                // making it impossible to ensure that we are connected?
+                send_ZH_message({
+                        {"msg_type", "ACK_RECEIPT"},
+                        {"task_uid", task_uid},
+                    }, {}, true);
+            }
+
             task_promise_ptr task_promise = find_task(task_uid);
             if(!task_promise)
                 throw std::runtime_error("Task uid isn't in the waiting list!");
@@ -234,7 +250,6 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                 if(msg_type == "merge_request_response") {
                     auto msg = parse_ws_response<MergeRequestResponse>(j);
                     task_promise->promise.set_value(msg);
-                    wake(task_promise->task->locker);
                 } else if(msg_type == "token_response") {
                     handle_token_response(*this, j, task_promise);
                 } else {
@@ -244,8 +259,8 @@ void Butler::handle_incoming_message(json & j, std::vector<std::string> & rest) 
                     msg.j = j;
                     msg.rest = rest;
                     task_promise->promise.set_value(msg);
-                    wake(task_promise->task->locker);
                 }
+                wake(task_promise->task->locker);
                 return;
             } catch(...) {
                 task_promise->promise.set_exception(std::current_exception());
@@ -427,12 +442,12 @@ void Butler::handle_incoming_merge_request(json & j) {
     int msg_version = 0;
     if(j.contains("msg_version"))
         msg_version = j["msg_version"].get<int>();
-    int preferred_msg_version = 2;
+    int preferred_msg_version = 3;
 
     if(msg_version <= 0) {
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 2},
+                    {"msg_version", 3},
                     {"task_uid", task_uid},
                     {"success", false},
                     {"reason", "Version too old"},
@@ -457,7 +472,7 @@ void Butler::handle_incoming_merge_request(json & j) {
         } else {
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 2},
+                    {"msg_version", preferred_msg_version},
                     {"task_uid", task_uid},
                     {"success", false},
                     {"reason", "Don't understand payload type: '" + payload_type + "'"},
@@ -491,7 +506,7 @@ void Butler::handle_incoming_merge_request(json & j) {
         } else {
             send_ZH_message({
                     {"msg_type", "merge_request_response"},
-                    {"msg_version", 1},
+                    {"msg_version", preferred_msg_version},
                     {"task_uid", task_uid},
                     {"success", false},
                     {"reason", "Don't have target graph loaded"},

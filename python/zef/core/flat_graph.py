@@ -12,10 +12,12 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.flat_graph")
+
 from operator import ne
 from ._ops import *
 from dataclasses import dataclass
-from . import VT
 
 
 @dataclass
@@ -31,12 +33,13 @@ class FlatGraph_:
     Each element of self.blobs is a tuple of the form 
     (
         index: Int, 
-        blob_type: e.g. ET.Foo / 'BT.ValueNode' / RT.Bar / AET.Int,
+        blob_type: e.g. ET.Foo / BT.VALUE_NODE / RT.Bar / AET.Int,
         edge_list: a list of blob indexes (integers). Positive for outgoing, negative for incoming
         origin_uid (optional)
     )
     """
     def __init__(self, *args):
+        from ._ops import insert, collect
         if args == ():
             self.key_dict = {}
             self.blobs = ()
@@ -45,6 +48,9 @@ class FlatGraph_:
             new_fg = new_fg | insert[args[0]] | collect
             self.key_dict = new_fg.key_dict
             self.blobs = new_fg.blobs
+        elif len(args) == 1 and isinstance(args[0], FlatRef_):
+            self.key_dict =  args[0].fg.key_dict
+            self.blobs = args[0].fg.blobs
         else:
             raise NotImplementedError("FlatGraph with args")
 
@@ -61,6 +67,13 @@ class FlatGraph_:
 
     def __getitem__(self, key):
         return get(self, key)
+
+    def __contains__(self, key):
+        if isinstance(key, Val):
+            from ._ops import value_hash
+            return value_hash(key.arg) in self.key_dict
+        else:
+            return key in self.key_dict
 
 
 class FlatRef:
@@ -100,6 +113,9 @@ class FlatRefs:
 
     def __iter__(self):
         return (FlatRef(self.fg, i) for i in self.idxs)
+
+    def __len__(self):
+        return len(self.idxs)
 
     def __gt__(self, other):
         return LazyValue(self) > other

@@ -106,12 +106,15 @@ namespace zefDB {
             }
         };
 
+        struct ClosedQueue : std::exception {};
+
         template <typename T>
         void MessageQueue<T>::push(MessageQueue<T>::ptr && message, bool ignore_closed) {
             if(_closed) {
                 if(ignore_closed)
                     return;
-                throw std::runtime_error("Throwing because of closed queue, because it's the simplest thing to do");
+                // throw std::runtime_error("Throwing because of closed queue, because it's the simplest thing to do");
+                throw ClosedQueue();
             }
             // This function puts its message onto the queue. If there isn't
             // space it will block until space becomes available and it has

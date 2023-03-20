@@ -15,6 +15,8 @@
 from ... import *
 from ...ops import *
 
+from ...core.logger import log
+
 import json
 import graphql
 
@@ -44,9 +46,15 @@ def parse_partial_graphql(schema):
         name, details = parts
         name = name.strip()
 
+        assert name in ["SchemaVersion", "DataTag", "Authentication", "Route", "GraphQLRoute"], f"Don't understand Zef directive of name {name}"
+
         if name == "SchemaVersion":
             assert "schema_version" not in output, "Not allowed to have multiple Zef.SchemaVersion directives."
             output["schema_version"] = details.strip()
+            continue
+        elif name == "DataTag":
+            assert "data_tag" not in output, "Not allowed to have multiple Zef.DataTag directives."
+            output["data_tag"] = details.strip()
             continue
 
         # Anything else requires json parsing
@@ -67,6 +75,10 @@ def parse_partial_graphql(schema):
                 raise Exception("Custom route should not alias '/' or '/gql'")
             routes = output.setdefault("routes", [])
             routes.append((details["route"], details["hook"]))
+        elif name == "GraphQLRoute":
+            assert set(keys(details)) == {"route"}
+            routes = output.setdefault("graphql_routes", [])
+            routes.append(details["route"])
         else:
             raise Exception(f"Unsupported Zef.{name} directive")
 
@@ -102,12 +114,15 @@ def parse_partial_graphql(schema):
                     if arg.name.value != "field":
                         raise Exception("upfetch directive needs exactly one argument, 'field'")
                     t_def["_Upfetch"] = arg.value.value
-                elif directive.name.value == "ET":
-                    assert len(directive.arguments) == 1, "ET directive needs exactly one argument, 'et'"
+                elif directive.name.value == "RAE":
+                    assert len(directive.arguments) == 1, "RAE directive needs exactly one argument, 'et' or 'rt'"
                     arg = directive.arguments[0]
-                    if arg.name.value != "et":
+                    if arg.name.value not in ["et", "rt"]:
                         raise Exception("ET directive needs exactly one argument, 'et'")
-                    t_def["_ET"] = arg.value.value
+                    if arg.name.value == "et":
+                        t_def["_RAE"] = ET(arg.value.value)
+                    if arg.name.value == "rt":
+                        t_def["_RAE"] = RT(arg.value.value)
                 elif directive.name.value == "hook":
                     for arg in directive.arguments:
                         for hook_name in ["Create", "Remove", "Update"]:
@@ -257,6 +272,12 @@ def json_to_minimal_nodes(json, g):
             actions += [(Z["root"], RT.Route,
                          {ET.Route: {RT.Route: route,
                                      RT.Hook: g | now | get[hook] | collect}})]
+    if "graphql_routes" in json:
+        for route in json["graphql_routes"]:
+            actions += [(Z["root"], RT.GraphQLRoute, route)]
+
+    if "data_tag" in json:
+        actions += [(Z["root"], RT.DataTag, json["data_tag"])]
                 
 
     for gql_name,typ in core_types.items():
@@ -272,27 +293,28 @@ def json_to_minimal_nodes(json, g):
             return getattr(internals.VRT, core_types[name])
         if name in json["enums"]:
             return getattr(internals.VRT.Enum, name)
-        return ET(name)
+        rae = json["types"][name].get("_RAE", ET(name))
+        return rae
 
     for type_name,fields in json["types"].items():
 
         actions += [(ET.GQL_Type[type_name], RT.Name, type_name)]
         actions += [(Z["root"], RT.GQL_Type, Z[type_name])]
 
-        et_name = fields.get("_ET", type_name)
-        actions += [(Z[type_name], RT.GQL_Delegate, delegate_of(ET(et_name)))]
+        rae = name_to_raet(type_name)
+        actions += [(Z[type_name], RT.GQL_Delegate, delegate_of(rae))]
 
         for field_name,field in fields.items():
             assert field_name != "id", "id is an automatically generated field, do not explicitly include"
 
             if field_name.startswith("_"):
                 # Special handling here
-                if field_name == "_ET":
+                if field_name == "_RAE":
                     continue
                 elif field_name in ["_AllowQuery", "_AllowAdd", "_AllowUpdate", "_AllowUpdatePost", "_AllowDelete"]:
                     # TODO: Turn into a zef function later on
                     actions += [(Z[type_name], RT(field_name[1:]), field)]
-                elif field_name in ["_OnCreate", "_OnRemove", "_OnUpdaate"]:
+                elif field_name in ["_OnCreate", "_OnRemove", "_OnUpdate"]:
                     # Find the zef function that this corresponds to
                     if field not in now(g):
                         raise Exception(f"Hook named {field} not found on schema graph")
@@ -331,7 +353,7 @@ def json_to_minimal_nodes(json, g):
                         resolve_with = delegate_of(field["relation"])
                         del field["relation"]
                     else:
-                        this = ET(type_name)
+                        this = rae
                         rt = RT(simple_capitalize(field_name))
                         other = name_to_raet(field["type"])
                         if field.get("incoming", False):

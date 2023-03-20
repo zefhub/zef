@@ -115,3 +115,10 @@ namespace pybind11 { namespace detail {
        template <>
        struct type_caster<EZefRefs> : list_caster<EZefRefs, EZefRef> {}; 
 }}
+
+struct Subscription_deleter {
+    void operator()(Subscription * sub) {
+        py::gil_scoped_release release;
+        delete sub;
+    }
+};

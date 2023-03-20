@@ -19,6 +19,10 @@ inputs:
     default: 'true'
     required: false
 
+  test-auth-key:
+    default: ''
+    required: false
+
 runs:
   using: 'composite'
   steps:
@@ -34,7 +38,7 @@ runs:
 
     - name: Setup python on linux and windows
       if: ${{ !startsWith(inputs.os, 'macos') }}
-      uses: actions/setup-python@v2
+      uses: actions/setup-python@v4
       with:
         python-version: ${{ inputs.python-version }}
 
@@ -57,10 +61,10 @@ runs:
       shell: bash
       run: |
         python3 -m pip install --upgrade pip
-        echo ::set-output name=pipdir::$(pip3 cache dir)
+        echo "pipdir=$(pip3 cache dir)" >> $GITHUB_OUTPUT
 
     - name: pip cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         path: ${{ steps.pipdir.outputs.pipdir }}
         key: pip-${{ inputs.os }}-${{ inputs.python-version }}-${{ hashFiles('**/requirements.txt') }}
@@ -71,7 +75,7 @@ runs:
     # Julia
 
     # - name: Julia cache
-    #   uses: actions/cache@v2
+    #   uses: actions/cache@v3
     #   with:
     #     path: ~/.julia
     #     key: ${{ runner.os }}-julia_depot-${{ steps.pipdir.outputs.pyver }}-${{ hashFiles('**/Manifest.toml', '**/Project.toml') }}
@@ -109,13 +113,13 @@ runs:
       shell: bash
       run: |
         sudo apt-get update
-        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev ninja-build jq
+        sudo apt-get install -y zstd libzstd-dev openssl libssl-dev libcurl4-openssl-dev ninja-build jq graphviz
 
     - name: Grab homebrew packages
       if: ${{ startsWith(inputs.os, 'macos') }}
       shell: bash
       run: |
-        brew install ninja openssl@1.1 zstd jq coreutils
+        brew install ninja openssl@1.1 zstd jq coreutils graphviz
         echo
         brew --prefix
         echo
@@ -151,13 +155,21 @@ runs:
     # cmake then rebuild.
 
     - name: Make
-      if: steps.build-cache.outputs.cache-hit != 'true'
+      if: ${{ steps.build-cache.outputs.cache-hit != 'true' && !startsWith(inputs.os, 'windows') }}
       env:
         WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
       shell: bash
       run: |
         export PATH=$(python3 -m site --user-base)/bin:$PATH
         bash compile_for_local_dev.sh
+
+    - name: Make
+      if: ${{ steps.build-cache.outputs.cache-hit != 'true' && startsWith(inputs.os, 'windows') }}
+      env:
+        WITH_JULIA: ${{ (inputs.with-julia == 'true') && '1' || '0' }}
+      shell: powershell
+      run: |
+        powershell .\compile_for_local_dev.ps1
 
     #########
     # Testing
@@ -168,6 +180,32 @@ runs:
         pip3 install --user -r python/requirements.txt
         pip3 install --user -r python/tests/requirements_tests.txt
 
+    - name: Robot Framework tests
+      id: robot-framework
+      if: ${{ inputs.test-auth-key != '' && !startsWith(inputs.os, 'windows') }}
+      shell: bash
+      env:
+        ZEFDB_QUIET: YES
+        ZEF_ERROR_HANDLING: NO
+        # Because the robot tests end up creating/loading graphs, we need a real user here
+        ZEFHUB_AUTH_KEY: ${{ inputs.test-auth-key }}
+      run: |
+        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        cd python/tests/robot
+        bash runtests.sh
+
+    - name: Save robot logs on failure
+      if: ${{ failure() && steps.robot-framework.outcome == 'failure' }}
+      uses: actions/upload-artifact@v3
+      with:
+        name: robot-logs
+        path: |
+          python/tests/robot/output.xml
+          python/tests/robot/log.html
+          python/tests/robot/report.html
+          /tmp/zefrobot*
+      
+
     - name: Check no created tokens
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash
@@ -177,22 +215,33 @@ runs:
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         bash scripts/assert_no_created_tokens.sh
 
+    - name: Check pyi file up to date
+      if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
+      shell: bash
+      env:
+        ZEFDB_OFFLINE_MODE: TRUE
+      run: |
+        export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
+        bash scripts/assert_pyi_file_up_to_date.sh
+
     - name: Run python tests linux/macos
       if: ${{ inputs.run-tests == 'true' && !startsWith(inputs.os, 'windows') }}
       shell: bash
       env:
         ZEFDB_QUIET: YES
+        ZEF_ERROR_HANDLING: NO
         ZEFHUB_AUTH_KEY: GUEST
       run: |
         export PYTHONPATH="${GITHUB_WORKSPACE}/python:$PYTHONPATH"
         python3 python/tests/quick_start.py
-        python3 -mpytest python/tests
+        python3 -mpytest --tb=no python/tests
 
     - name: Run python tests
       if: ${{ inputs.run-tests == 'true' && startsWith(inputs.os, 'windows') }}
       shell: cmd
       env:
         ZEFDB_QUIET: YES
+        ZEF_ERROR_HANDLING: NO
         ZEFHUB_AUTH_KEY: GUEST
       run: |
         set "PYTHONPATH=%GITHUB_WORKSPACE%/python;%PYTHONPATH%"
@@ -201,3 +250,4 @@ runs:
         REM Because of some strange weirdness, going to try unittest here instead of pytest
         REM python3 -mpytest python/tests
         python3 -munittest discover -s python/tests
+        

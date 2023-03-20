@@ -17,6 +17,7 @@
 #include "ops_imperative.h"
 #include "synchronization.h"
 #include "external_handlers.h"
+#include "transaction.h"
 #include <iterator>
 #include <unordered_set>
 #include <doctest/doctest.h>
@@ -121,7 +122,7 @@ namespace zefDB {
         return false;
     }
 
-    std::variant<EntityType, RelationType, AttributeEntityType> rae_type(EZefRef uzr) {
+    std::variant<EntityType, RelationType, AttributeEntityType, ValueRepType> rae_type(EZefRef uzr) {
         // Given any ZefRef or EZefRef, return the ET, RT or AET. Throw an error if it is a different blob type.
         if (BT(uzr)==BT.ENTITY_NODE)
             return ET(uzr);
@@ -132,6 +133,8 @@ namespace zefDB {
                 return VRT(uzr);
             else
                 return AET(uzr);
+        } else if (BT(uzr)==BT.VALUE_NODE) {
+            return VRT(uzr);
         } else
             throw std::runtime_error("Item is not a RAE blob type: " + to_str(BT(uzr)));
     }
@@ -203,7 +206,7 @@ namespace zefDB {
         return response.j["matches"].get<std::vector<std::string>>();
 	}
 
-    std::optional<std::string> lookup_uid(const std::string& tag, bool * created) {
+    std::optional<GraphRef> lookup_uid(const std::string& tag, bool * created) {
         bool should_create = (created != nullptr);
         auto butler = Butler::get_butler();
         auto response = butler->msg_push_timeout<Messages::GenericZefHubResponse>(Messages::UIDQuery{tag, should_create});
@@ -216,9 +219,9 @@ namespace zefDB {
         if(should_create && msg_version < 2)
             throw std::runtime_error("ZefHub is too old to be able to handle creating a graph when the tag is missing");
 
-        std::optional<std::string> guid;
+        std::optional<GraphRef> guid;
         if(response.j.contains("graph_uid"))
-            guid = response.j["graph_uid"];
+            guid = GraphRef(BaseUID::from_hex(response.j["graph_uid"].get<std::string>()));
         if(should_create) {
             if(response.j.contains("created"))
                 *created = response.j["created"];
@@ -606,6 +609,8 @@ namespace zefDB {
 			*/
 			// assert BT(z_instance) in { BT.ENTITY_NODE, BT.ATOMIC_ENTITY_NODE, BT.RELATION_EDGE }
 
+            if(is_delegate(z_instance))
+                return z_instance;
 			auto z_rae_inst = (z_instance < BT.RAE_INSTANCE_EDGE);
 			auto origin_candidates = z_rae_inst >> L[BT.ORIGIN_RAE_EDGE];
 			return length(origin_candidates) == 1 ? (origin_candidates | only) : z_rae_inst;
@@ -735,12 +740,6 @@ namespace zefDB {
            Messages::MergeRequest::PayloadGraphDelta{j},
        };
 
-       if(fire_and_forget) {
-           butler->msg_push_internal(std::move(msg));
-           // Empty reply is a little weird, but need to return something
-           return {};
-       }
-
        // We retry any merge that fails because of a disconnect, but fail
        // through for anything else.
        std::optional<Messages::MergeRequestResponse> response_store;
@@ -775,8 +774,10 @@ namespace zefDB {
        // TODO: This is not possible now, but need to do this in the future.
 
        auto r = std::get<Messages::MergeRequestResponse::ReceiptGraphDelta>(response.receipt);
-       // Wait for graph to be up to date before deserializing
-       auto & gd = target_graph.my_graph_data();
+       // Wait for graph to be up to date before deserializing - this means we
+       // are loading the graph which breaks the laziness, but we will worry
+       // about this once things like GraphSliceRef is available to the C code.
+       auto & gd = Graph(target_graph).my_graph_data();
        double chosen_timeout = zwitch.no_timeout_errors() ? 3600 : 60.0;
        bool reached_sync = wait_pred(gd.heads_locker,
                                      [&]() { return gd.read_head >= r.read_head; },

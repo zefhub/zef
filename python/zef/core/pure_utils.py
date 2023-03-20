@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from .. import report_import
+report_import("zef.core.pure_utils")
 
 
 def get_in_pure(d, path, default_val):

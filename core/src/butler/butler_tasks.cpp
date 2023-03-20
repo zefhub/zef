@@ -177,7 +177,7 @@ void Butler::fill_out_ZH_message(json & j) { //, bool add_hints) {
     // }
 }
 
-void Butler::send_ZH_message(json & j, const std::vector<std::string> & rest) {
+void Butler::send_ZH_message(json & j, const std::vector<std::string> & rest, bool ignore_wait) {
     if(butler_is_master)
         throw std::runtime_error("Should not be trying to send messages to ZefHub when we are running in offline mode.");
     if(!want_upstream_connection()) {
@@ -187,9 +187,11 @@ void Butler::send_ZH_message(json & j, const std::vector<std::string> & rest) {
     // We do our own wait here, so that this is a proper timeout.
     // network.wait_for_connected(constants::zefhub_reconnect_timeout);
     // wait_for_auth(constants::zefhub_reconnect_timeout);
-    wait_for_auth();
-    if(!network.connected)
-        throw Communication::disconnected_exception();
+    if(!ignore_wait) { 
+        wait_for_auth();
+        if(!network.connected)
+            throw Communication::disconnected_exception();
+    }
 
     // Note that "fill out" has to happen after the auth wait, as we
     // won't know the protocol versions etc before then.

@@ -16,6 +16,8 @@
 
 #pragma once
 
+#cmakedefine LIBZEF_PACKAGE_VERSION "@LIBZEF_PACKAGE_VERSION@"
+
 #cmakedefine LIBZEF_FORCE_ASSERTS
 #ifdef LIBZEF_FORCE_ASSERTS
 #undef NDEBUG
@@ -39,6 +41,12 @@
 #define LIBZEF_DLL_EXPORTED
 /* #pragma message "Building to import DLL (gcc)" */
 #endif
+#endif
+
+#cmakedefine LIBZEF_BUNDLED_LIBARCHIVE 
+#ifdef LIBZEF_BUNDLED_LIBARCHIVE
+// Need this on windows
+#define LIBARCHIVE_STATIC
 #endif
 
 #if defined(_MSC_VER) || defined(WIN32) || defined(__WIN32__)

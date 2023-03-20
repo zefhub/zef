@@ -13,7 +13,11 @@
 # limitations under the License.
 
 from ._core import RT
+from .. import report_import
+report_import("zef.core._ops")
+
 from .op_structs import  evaluating, LazyValue, Awaitable, ZefOp, CollectingOp, SubscribingOp, ForEachingOp
+from . import internals
 
 def register_zefop(rt, imp, tp):
     from .dispatch_dictionary import _op_to_functions

@@ -171,10 +171,10 @@ namespace zefDB {
             void cancel_online_tasks();
 
             void fill_out_ZH_message(json & j);
-            void send_ZH_message(json & j, const std::vector<std::string> & rest = {});
+            void send_ZH_message(json & j, const std::vector<std::string> & rest = {}, bool ignore_wait=false);
             // This is to allow brace initialisation, while still preferring pass-by-reference.
-            void send_ZH_message(json && j, const std::vector<std::string> & rest = {}) {
-                send_ZH_message(j, rest);
+            void send_ZH_message(json && j, const std::vector<std::string> & rest = {}, bool ignore_wait=false) {
+                send_ZH_message(j, rest, ignore_wait);
             }
             void send_chunked_ZH_message(std::string main_task_uid, json & j, const std::vector<std::string> & rest);
 
@@ -307,7 +307,7 @@ namespace zefDB {
 
             void ws_open_handler(void); 
             void ws_message_handler(std::string msg);
-            void ws_close_handler(void);
+            void ws_close_handler(bool problem=false);
             void ws_fatal_handler(std::string reason);
             void handle_successful_auth(void);
 
@@ -322,6 +322,8 @@ namespace zefDB {
             T msg_push(Request && content);
 
             void msg_push(Request && content, bool wait = true, bool ignore_closed=false);
+
+            void msg_push_internal_move_whole_msg(std::shared_ptr<RequestWrapper> && msg, bool ignore_closed);
 
             // NOTE: This should not be used very much because it is far better
             // to keep the timeouts in one place i.e. the graph manager. The
@@ -396,6 +398,8 @@ namespace zefDB {
 
             std::optional<Graph> local_process_graph;
             Graph get_local_process_graph();
+
+            std::optional<std::string> filegraph_exists(BaseUID uid);
         };
 
 

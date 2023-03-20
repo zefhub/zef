@@ -193,7 +193,7 @@ def value_previous_of_aet(aet, tx) -> str:
             return f" [previous val: {'/' if not val else str(val)}]"
         else:
             return ''
-    except:
+    except Exception:
         return str(f" [previous val: NA]")
 
 
@@ -207,7 +207,7 @@ def value_of_aet_at_tx(aet, tx) -> str:
             return f" [{latest_or_current} val: {'/' if val is None else str(val)}]"
         else:
             return ''
-    except:
+    except Exception:
         return str(f" [{latest_or_current} val: NA]")
 
 
@@ -304,9 +304,11 @@ def timeline_view(zr_or_uzr) -> str:
         #     return f'<<<<<<<<<  <---- Cloned: ....'
         if BT(low_level_edge_uzr) == BT.ATOMIC_VALUE_ASSIGNMENT_EDGE:
             return f'    x      <---- Value assignment: {value_of_aet_at_tx(uzr,low_level_edge_uzr | source | collect)}'  # get the value: pass the respective tx
+        if BT(low_level_edge_uzr) == BT.ATTRIBUTE_VALUE_ASSIGNMENT_EDGE:
+            return f'    x      <---- Value assignment: {value_of_aet_at_tx(uzr,low_level_edge_uzr | source | collect)}'  # get the value: pass the respective tx
         if BT(low_level_edge_uzr) == BT.TERMINATION_EDGE:
             return f'=========  <---- Termination'
-        raise Exception("To be fixed with new lineage system")
+        raise Exception(f"To be fixed with new lineage system ({BT(low_level_edge_uzr)})")
 
     # Function: visually list all details about a single relation.
     # Output is affected by the "in" or "out" direction and also the state of the rt_uzr.
@@ -376,6 +378,7 @@ def graph_info(g) -> str:
     bl = blobs(g)
     grouped_by_bts =  dict(
         bl 
+        | filter[Not[is_delegate]]
         | group_by[BT] 
         | filter[lambda x: x[0] in {BT.TX_EVENT_NODE, BT.ENTITY_NODE, BT.ATTRIBUTE_ENTITY_NODE, BT.RELATION_EDGE}] 
         | collect

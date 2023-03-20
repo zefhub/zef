@@ -16,8 +16,10 @@ import unittest  # pytest takes ages to run anything as soon as anything from ze
 from zef import *
 from zef.ops import *
 import zef
+import sys
 
 class MyTestCase(unittest.TestCase):
+    @unittest.skipIf(sys.platform.startswith("win"), "Not testing local graphs on windows")
     def test_local_graph(self):
         import tempfile
         with tempfile.TemporaryDirectory() as tmpdir:

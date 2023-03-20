@@ -24,9 +24,9 @@ class MyTestCase(unittest.TestCase):
         a,b,c = (z, RT.Something, "data") | g | run
 
         to_check = [z,a,b,c]
-        to_check += [origin_rae(a)]
-        to_check += [origin_rae(b)]
-        to_check += [origin_rae(c)]
+        to_check += [discard_frame(a)]
+        to_check += [discard_frame(b)]
+        to_check += [discard_frame(c)]
         to_check += [uid(z)]
 
         to_check += [

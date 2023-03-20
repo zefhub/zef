@@ -15,19 +15,19 @@ jobs:
     strategy:
       matrix:
         os: [ubuntu-20.04]
-        python-version: [3.7, "3.10"]
+        python-version: [3.7, "3.10", "3.11"]
     env:
       ZEFHUB_AUTH_KEY: "GUEST"
     steps:
       ########
       # Git things
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v3
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build
         uses: ./.github/actions/build
-        timeout-minutes: 15
+        timeout-minutes: 25
         with:
           python-version: ${{ matrix.python-version }}
           os: ${{ matrix.os }}

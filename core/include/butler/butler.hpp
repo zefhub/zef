@@ -77,8 +77,11 @@ namespace zefDB {
                         auto task_promise = find_task(*maybe_task_uid);
                         if(task_promise) {
                             // New timeout from new activity.
-                            timeout = time_double() - task_promise->task->last_activity;
-                            if(timeout > 0)
+                            double time_since_activity = time_double() - task_promise->task->last_activity;
+                            if(zwitch.developer_output()) {
+                                std::cerr << "While waiting for msg to finish, we are checking for a task timeout and found a time_since_acitivity of: " << time_since_activity << std::endl;
+                            }
+                            if(time_since_activity < timeout)
                                 continue;
                             // Note: we can't forget task in here as we might
                             // have a timeout/disconnect from higher up.

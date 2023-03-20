@@ -154,6 +154,7 @@ namespace zefDB {
             payload.rest[0] = convert_blobs_0_3_0_to_0_2_0(std::move(payload.rest[0]));
 
             payload.j["hash_full_graph"] = gd.hash(constants::ROOT_NODE_blob_index, update_heads.blobs.to, 0, "0.2.0");
+            payload.j["hash_type"] = "blobs_full";
             payload.j["data_layout_version"] = "0.2.0";
 
             // We remove the av_hash cache but leave the rest
@@ -236,8 +237,10 @@ namespace zefDB {
             };
 
             // We are able to do a full hash in this case.
-            if(payload.j["blob_index_lo"] == constants::ROOT_NODE_blob_index)
+            if(payload.j["blob_index_lo"] == constants::ROOT_NODE_blob_index) {
                 out.j["hash_full_graph"] = internals::hash_memory_range(blobs.data(), blobs.size());
+                out.j["hash_type"] = "blobs_full";
+            }
 
             out.j["caches"] = payload.j["caches"];
 

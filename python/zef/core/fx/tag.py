@@ -21,7 +21,7 @@ def graph_tag_handler(eff: Effect):
         tag(eff["graph"], eff["tag"], adding=eff["adding"], force=eff["force"])
         return {}
     except Exception as e:
-        return Error(f'executing FX.Graph.Tag for effect {eff}:\n{repr(e)}')
+        raise Exception(f'executing FX.Graph.Tag for effect {eff}:\n{repr(e)}')
 
 
 
@@ -34,5 +34,5 @@ def rae_tag_handler(eff: Effect):
         tag(eff["rae"], eff["tag"], force_if_name_tags_other_rel_ent=eff["force"])
         return {}
     except Exception as e:
-        return Error(f'executing FX.RAE.Tag for effect {eff}:\n{repr(e)}')
+        raise Exception(f'executing FX.RAE.Tag for effect {eff}:\n{repr(e)}')
 

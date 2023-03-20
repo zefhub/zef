@@ -37,9 +37,11 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		// .def(py::init<py::bytes, py::bytes, bool, int, bool>(), py::arg("blob_bytes"), py::arg("uid_bytes"), py::arg("is_master_graph") = 0, py::arg("index_of_latest_complete_tx_node_hint") = 0, py::arg("sync") = true, "Graph constructor from blob and uid bytes")
 		.def(py::init<std::string,int,bool>(), py::arg("tag_or_uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::arg("create") = false, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid or tag")
 		.def(py::init<BaseUID,int>(), py::arg("uid"), py::arg("mem_style") = MMap::MMAP_STYLE_AUTO, py::call_guard<py::gil_scoped_release>(), "Graph constructor from graph uid")   // TODO: move this into the fct? Is the gil put back on if the constructor throws?
+		.def(py::init<Graph&>())
 		.def(py::init<GraphData&>())
 		.def(py::init<EZefRef>(), "Graph constructor from EZefRef")
 		.def(py::init<ZefRef>(), "Graph constructor from ZefRef: returns the graph that owns the zefref data, not the reference frame graph")
+		.def(py::init<GraphRef&>(), py::arg("graph_ref"), py::call_guard<py::gil_scoped_release>())
 		.def_property_readonly("graph_data", [](Graph& g)->GraphData& { return g.my_graph_data(); }, py::return_value_policy::reference)  // the mem policy return_value_policy::reference_internal is used here by default: ties lifetime of property returned to lifetime of parent (also stops parent from being destroyed while this is alive)
 		.def_property_readonly("uid", [](Graph& g)->BaseUID { return uid(g); })
 		.def("hash", &Graph::hash, py::arg("blob_index_lo"), py::arg("blob_index_hi"), py::arg("seed")=0, py::arg("working_layout")="", "calculate the xxhash of the data within the specified blob range. This is non-cryptographic hash fct.")
@@ -61,7 +63,15 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 		.def("__contains__", [](const Graph& self, BaseUID key)->bool { return self.contains(key); }, "check whether a key is contained in the graph's key_dict")
 		.def("__contains__", [](const Graph& self, EternalUID key)->bool { return self.contains(key); }, "check whether a key is contained in the graph's key_dict")
 		.def("__contains__", [](const Graph& self, ZefRefUID key)->bool { return self.contains(key); }, "check whether a key is contained in the graph's key_dict")
-		.def("__hash__", [](const Graph& self)->int { return int(self.mem_pool); }, "if graph is used as a key in a python dict or set: consider two graphs equal if they refer to the same graph data object")
+        .def("contains_value", [](const Graph& self, const value_variant_t & value)->bool {
+                GraphData & gd = self.my_graph_data();
+                return std::visit([&gd](auto & x) { return (bool)internals::search_value_node(x, gd); }, value);
+        }, "check whether a value node for the given value is present in the graph")
+        .def("get_value_node", [](const Graph& self, const value_variant_t & value)->std::optional<EZefRef> {
+                GraphData & gd = self.my_graph_data();
+                return std::visit([&gd](auto & x) { return internals::search_value_node(x, gd); }, value);
+        }, "check whether a value node for the given value is present in the graph")
+        .def("__hash__", [](const Graph& self)->int { return int(self.mem_pool); }, "if graph is used as a key in a python dict or set: consider two graphs equal if they refer to the same graph data object")
 		.def("__eq__", [](const Graph& self, const Graph& other)->bool { return self.mem_pool==other.mem_pool; }, "if graph is used as a key in a python dict or set: consider two graphs equal if they refer to the same graph data object", py::is_operator())
 		.def_property_readonly("key_dict", [](const Graph& self)->std::unordered_map<std::string, blob_index> {
                 // Make a copy of the unordered map under a lock
@@ -120,6 +130,20 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
 			return bool(self.my_graph_data().observables) ? std::optional<Graph>(*(*self.my_graph_data().observables).g_observables) : std::optional<Graph>({}) ;
 		})
 		;
+
+    py::class_<zefDB::GraphRef>(main_module, "GraphRef", py::buffer_protocol())
+		.def(py::init<BaseUID>(), py::arg("uid"), py::call_guard<py::gil_scoped_release>())
+		.def(py::init<Graph>(), py::arg("graph"), py::call_guard<py::gil_scoped_release>())
+        .def("__repr__", [](GraphRef& self) { return to_str(self); })
+        .def_readonly("uid", &GraphRef::uid)
+		;
+
+    main_module.def("filegraph_exists", [](const BaseUID & uid) {
+        auto butler = Butler::get_butler();
+        return butler->filegraph_exists(uid);
+    }, py::arg("uid"), py::call_guard<py::gil_scoped_release>());
+
+    // TODO: ??Already exists?? Load graph from JSON for specific UID, then sync it
 
     main_module.def("load_graph",
                     // &effect_load_graph,
@@ -632,7 +656,7 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
             return std::make_tuple(lookup_uid(tag), false);
         }
         bool created;
-        std::optional<std::string> guid = lookup_uid(tag, &created);
+        std::optional<GraphRef> guid = lookup_uid(tag, &created);
         return std::make_tuple(guid, created);
     }, py::call_guard<py::gil_scoped_release>(), "lookup a UID for a graph by tag. Will return GUID,created", "tag"_a, "create"_a);
 	main_module.def("sync", zefDB::sync, py::call_guard<py::gil_scoped_release>(), "set the sync state of a graph: should it sed / receive updates to/from zefhub? Zpplies to primary and view instances.", "g"_a, "do_sync"_a=true);
@@ -697,6 +721,10 @@ PYBIND11_MODULE(pyzef, toplevel_module) {
     main_module.def("set_config_var", &set_config_var, py::call_guard<py::gil_scoped_release>(), "Set a variable in the config.", py::arg("key"), py::arg("value"));
     main_module.def("list_config", &list_config, py::call_guard<py::gil_scoped_release>(), "List the config including all default/environment set variables.", py::arg("filter")="");
     main_module.def("validate_config_file", &validate_config_file, py::call_guard<py::gil_scoped_release>(), "Ensure the config file and environment overrides have sensible values.");
+
+    main_module.def("zefdb_config_path", []() {
+        return zefdb_config_path().string();
+    }, py::call_guard<py::gil_scoped_release>());
 
     main_module.def("check_env_bool", &check_env_bool, py::arg("var"), py::arg("default")=false);
 

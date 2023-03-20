@@ -58,7 +58,7 @@ namespace zefDB {
         Butler::Butler(std::string uri) {
             msgqueue.who_am_i = "butler main msg queue";
             network.outside_message_handler = std::bind(&Butler::ws_message_handler, this, std::placeholders::_1);
-            network.outside_close_handler = std::bind(&Butler::ws_close_handler, this);
+            network.outside_close_handler = std::bind(&Butler::ws_close_handler, this, std::placeholders::_1);
             network.outside_fatal_handler = std::bind(&Butler::ws_fatal_handler, this, std::placeholders::_1);
             network.outside_open_handler = std::bind(&Butler::ws_open_handler, this);
             network.uri = uri;
@@ -81,8 +81,10 @@ namespace zefDB {
                         std::cerr << "Starting butler automatically. Call initialise_butler if you want more control." << std::endl;
                     butler_allow_auto_start = false;
                     initialise_butler();
-                } else
+                } else {
+                    abort();
                     throw std::runtime_error("This action needs the zefDB butler running, yet its autostart has been disabled. Note: autostart is disabled after the butler has been started once.");
+                }
             }
             return butler;
         }
@@ -115,9 +117,6 @@ namespace zefDB {
             initialise_butler(std::get<std::string>(get_config_var("login.zefhubURL")));
         }
         void initialise_butler(std::string zefhub_uri) {
-#ifdef DEBUG
-            internals::static_checks();
-#endif
             if(!validate_config_file()) {
                 std::cerr << "WARNING: config options are invalid..." << std::endl;
             }
@@ -136,11 +135,16 @@ namespace zefDB {
                 return;
             }
 
+            developer_output("libzef version: '" LIBZEF_PACKAGE_VERSION "'");
             // Going to try some weird debugging
             std::set_terminate( terminate_handler );
 
             // std::cerr << "Before making butler" << std::endl;
             butler = std::make_unique<Butler>(zefhub_uri);
+
+// #ifdef DEBUG
+//             internals::static_checks();
+// #endif
 
             // std::cerr << "Before making butler thread" << std::endl;
             butler->thread = std::make_unique<std::thread>(&Butler::msgqueue_listener, &(*butler));
@@ -278,25 +282,20 @@ namespace zefDB {
                 std::cerr << "Removing local process graph" << std::endl;
             butler->local_process_graph.reset();
 
-            if(zwitch.developer_output())
-                std::cerr << "Stopping network" << std::endl;
+            developer_output("Stopping network");
             butler->network.stop_running();
-            if(zwitch.developer_output())
-                std::cerr << "Clear waiting tasks" << std::endl;
+            developer_output("Clear waiting tasks");
             butler->waiting_tasks.clear();
-            if(zwitch.developer_output())
-                std::cerr << "Save tokens to cache" << std::endl;
+            developer_output("Save tokens to cache");
             global_token_store().save_cached_tokens();
 
-            if(zwitch.developer_output())
-                std::cerr << "Joining main butler thread" << std::endl;
+            developer_output("Joining main butler thread");
             long_wait_or_kill(*butler->thread, butler->return_value, "butler");
             // This seems to be necessary if there's someone else holding onto
             // the butler shared_ptr. I'm not sure why this is the case though,
             // because we have already joined the thread.
             butler->thread.reset();
-            if(zwitch.developer_output())
-                std::cerr << "Finished stopping butler" << std::endl;
+            developer_output("Finished stopping butler");
             butler.reset();
 
             _running = false;
@@ -534,6 +533,13 @@ namespace zefDB {
                 // std::cerr << "Starting graph manager shutdown" << std::endl;
                 remove_graph_manager(me);
 
+                // We close the queue here, so that it happens after the graph
+                // manager has disappeared from the GM list. This way new
+                // messages will be going to a freshly created graph manager and
+                // we can transfer all lingering messages over to it too.
+                if(!me->queue._closed) me->queue.set_closed();
+                me->debug_last_action = "Closed queue";
+
                 // Now pop all messages - the only ones we act upon are the
                 // LoadGraphs, which we feed back onto the main butler
                 // again.
@@ -544,9 +550,9 @@ namespace zefDB {
                 do {
                     if(msg == nullptr)
                         continue;
-                    if(std::holds_alternative<LoadGraph>(msg->content))
-                        msg_push(std::move(msg->content), false, true);
-                    else {
+                    if(std::holds_alternative<LoadGraph>(msg->content)) {
+                        msg_push_internal_move_whole_msg(std::move(msg), true);
+                    } else {
                         // We don't need to set promises, just make sure the promises are destructed, which is done through popping.
                     }
                 } while(me->queue.pop_any(msg));
@@ -636,7 +642,6 @@ namespace zefDB {
                         // TODO:
                         update(me.gd->heads_locker, me.gd->manager_tx_head, index(this_tx));
                     }
-                    internals::execute_queued_fcts(*me.gd);
 
                     if(me.gd->error_state != GraphData::ErrorState::OK)
                         throw std::runtime_error("Sync worker for graph detected invalid state and is aborting");
@@ -772,9 +777,14 @@ namespace zefDB {
                 if(zwitch.developer_output())
                     std::cerr << "Reset the keep alive" << std::endl;
                 gtd->gd->started_destructing = true;
-                if(!gtd->queue._closed)
-                    gtd->queue.set_closed();
-                gtd->debug_last_action = "Closed queue";
+
+                // We no longer close the queue here, but leave it for the graph
+                // manager thread. That is the place which manages messages and
+                // it is better to have the graph removed from the manager
+                // before the queue is closed, so that messages can be
+                // transferred from the closing queue to a new one.
+                // if(!gtd->queue._closed) gtd->queue.set_closed();
+                // gtd->debug_last_action = "Closed queue";
 
                 // This order of cleanup is important. First, make sure we send
                 // out any updates, so that any new manager will not conflict
@@ -919,7 +929,7 @@ namespace zefDB {
 
         Graph Butler::get_local_process_graph() {
             if(!local_process_graph) {
-                Graph g;
+                Graph g(false);
                 set_keep_alive(g);
                 local_process_graph = g;
             }
@@ -933,6 +943,13 @@ namespace zefDB {
                 throw std::runtime_error("Shouldn't be asking for upstream layout when we haven't connected and done a handshake.");
 
             return conversions::version_layout(zefdb_protocol_version);
+        }
+
+        std::optional<std::string> Butler::filegraph_exists(BaseUID uid) {
+            auto fg_prefix = file_graph_prefix(uid, upstream_name());
+            if(!MMap::filegraph_exists(fg_prefix))
+                return std::nullopt;
+            return fg_prefix.string();
         }
     }
 }

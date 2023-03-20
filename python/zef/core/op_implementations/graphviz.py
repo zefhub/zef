@@ -154,6 +154,7 @@ def graphviz_imp(zz, *flags):
             elif isinstance(v, str): return f'"{v}"' if len(v) < 20 else f'"{v[:18]}..."'
             else: return str(v)
         def val_to_str_html(z):
+            if internals.is_delegate(z): return "NA"
             v = value(z)
             if v is None: return 'None'
             elif isinstance(v, str):
@@ -255,7 +256,7 @@ def graphviz_imp(zz, *flags):
             pass
 
     nodes, edges = zz | group_by[is_node][(True,False)] | map[second] |  collect
-    if 'expand' in flags or plotting_eternal_graph:
+    if True in flags or plotting_eternal_graph:
         nodes | for_each[add_node]
         edges | for_each[add_edge_as_gv_node]
     else:

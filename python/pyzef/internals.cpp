@@ -35,7 +35,6 @@ void declare_zef_tensor_1(py::module& m, const std::string& typestr) {
 		;
 }
 
-
 void fill_internals_module(py::module_ & internals_submodule) {
     using namespace zefDB;
     using namespace zefDB::zefOps;
@@ -117,6 +116,11 @@ void fill_internals_module(py::module_ & internals_submodule) {
     });
     internals_submodule.def("make_random_uid", []() { return make_random_uid(); } );
 
+    internals_submodule.def("has_uid", &internals::has_uid);
+
+    internals_submodule.def("value_hash", [](const value_variant_t& val) { return internals::value_hash(val); });
+    internals_submodule.def("search_value_node", [](const value_variant_t& val, Graph& g) { return internals::search_value_node(val, g.my_graph_data()); });
+
 	internals_submodule.def("size_of_blob", &size_of_blob);
 
 	internals_submodule.def("show_blob_details", [](const EZefRef & uzr) {
@@ -124,8 +128,9 @@ void fill_internals_module(py::module_ & internals_submodule) {
                      uzr);
     });
 
-	internals_submodule.def("blob_to_json", &blob_to_json);
+	internals_submodule.def("blob_to_json", &blob_to_json, py::arg("blob"), py::arg("collapse_edges")=true);
 	internals_submodule.def("create_from_json", &internals::create_from_json, py::call_guard<py::gil_scoped_release>());
+	internals_submodule.def("create_from_json_fixed_layout", &internals::create_from_json_fixed_layout, py::call_guard<py::gil_scoped_release>());
 
 	//declare_zef_tensor_1<bool>(internals_submodule, str("Bool"));   // Careful: uses vector<bool> which is quite flawed
 	declare_zef_tensor_1<double>(internals_submodule, str("Float"));
@@ -538,6 +543,13 @@ void fill_internals_module(py::module_ & internals_submodule) {
             return "\"NOT FOUND\"";
         return gtd->info_str();
     }, "This is a low-level function. Do not use if you don't know what you are doing.");
+    internals_submodule.def("get_loaded_graph", [](GraphRef gref)->std::optional<Graph> {
+        auto butler = Butler::get_butler();
+        auto gtd = butler->find_graph_manager(gref.uid);
+        if(!gtd)
+            return std::nullopt;
+        return Graph(gref);
+        }, "Return a Graph object referencing (and keeping alive) the given GraphRef, only if it has already been loaded. Otherwise return nullopt.");
 
     py::class_<Butler::UpdateHeads>(internals_submodule, "UpdateHeads", py::buffer_protocol())
         .def("__str__", [](const Butler::UpdateHeads & heads) {
@@ -582,13 +594,18 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("heads_apply", &Butler::heads_apply, "Low-level function to see an update can be applied onto a graph.", py::call_guard<py::gil_scoped_release>());
     internals_submodule.def("parse_payload_update_heads", &Butler::parse_payload_update_heads, py::call_guard<py::gil_scoped_release>());
 
-    internals_submodule.def("create_update_heads", [](GraphData & gd, blob_index blob_head, py::dict _cache_heads) {
-        // Convert the python dictionary to a simple mapping
-        std::vector<std::tuple<std::string,size_t,size_t>> temp_cache_heads;
-        for(auto & it : _cache_heads) {
-            std::string name = py::cast<std::string>(it.first);
-            size_t head = py::cast<size_t>(it.second["head"]);
-            size_t revision = py::cast<size_t>(it.second["revision"]);
+    internals_submodule.def("create_update_heads", [](GraphData & gd, blob_index blob_head, json cache_heads) {
+        LockGraphData lock{&gd};
+
+        Butler::UpdateHeads update_heads{ {blob_head, gd.read_head} };
+
+        for(auto & it : cache_heads.items()) {
+            std::string name = it.key();
+            if(false) {}
+#define GEN_CACHE(x,y) else if(name == x) { \
+                auto ptr = gd.y->get(); \
+                update_heads.caches.push_back({x, it.value()["head"].get<size_t>(), ptr->size(), it.value()["revision"].get<size_t>()}); \
+            }
 
             temp_cache_heads.push_back(std::make_tuple(name, head, revision));
         }
@@ -624,8 +641,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
             return update_heads;
         }
     },
-        // DO NOT RELEASE THE GIL FOR THIS FUNCTION
-            "Low-level function to see if an update needs to be sent out.");
+        py::call_guard<py::gil_scoped_release>(),
+        "Low-level function to see if an update needs to be sent out.");
 
     internals_submodule.def("create_update_heads", [](GraphData & gd) {
         return internals::full_graph_heads(gd);
@@ -647,6 +664,8 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		// .def_readwrite("zefscription_head_was_sent_out_head", &GraphData::zefscription_head_was_sent_out_head)
 		.def_readonly("is_primary_instance", &GraphData::is_primary_instance)
 		.def_property_readonly("should_sync", [](const GraphData & self) { return self.should_sync.load(); })
+		.def_property_readonly("currently_subscribed", [](const GraphData & self) { return self.currently_subscribed.load(); })
+		.def_property_readonly("has_errored", [](const GraphData & self) { return self.error_state != GraphData::ErrorState::OK; } )
 		.def_readonly("revision", &GraphData::revision)
 		.def_readwrite("tag_list", &GraphData::tag_list)
 		.def("__repr__", [](const GraphData& self)->std::string { std::stringstream ss; ss << self; return ss.str(); })
@@ -693,8 +712,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
 		//.def("__repr__", [](const ZefObservables::DictElement& self) { return to_str(self); })
 		;
 
-	
-	py::class_<zefDB::Subscription>(internals_submodule, "Subscription", py::buffer_protocol())
+	py::class_<zefDB::Subscription, std::unique_ptr<Subscription, Subscription_deleter>>(internals_submodule, "Subscription", py::buffer_protocol())
 		.def_property_readonly("subscription_graph", [](const Subscription& self) {return *(self.zef_observables_ptr.lock()->g_observables); })  // if the Subscription object exists, the 'self.zef_observables_ptr' was definitely created
 		// .def_property_readonly("callbacks_and_refcount", [](const Subscription& self) {return self.zef_observables_ptr->callbacks_and_refcount; })
 		.def_readonly("uid", &Subscription::uid)
@@ -873,6 +891,7 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.add_object("_cleanup_merge_handler", py::capsule(&internals::remove_merge_handler));
 
     internals_submodule.def("register_schema_validator", &internals::register_schema_validator);
+    internals_submodule.def("deregister_schema_validator", &internals::remove_schema_validator);
     internals_submodule.add_object("_cleanup_schema_validator", py::capsule(&internals::remove_schema_validator));
 
     internals_submodule.def("register_value_type_check", &internals::register_value_type_check);
@@ -881,5 +900,30 @@ void fill_internals_module(py::module_ & internals_submodule) {
     internals_submodule.def("register_determine_primitive_type", &internals::register_determine_primitive_type);
     internals_submodule.add_object("_cleanup_determine_primitive_type", py::capsule(&internals::remove_determine_primitive_type));
 
-    internals_submodule.def("copy_graph_slice", &copy_graph_slice,  py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("setup_pre_lock_hook", []() {
+        internals::register_pre_lock_hook([](BaseUID guid) {
+            if(PyGILState_Check())
+                throw std::runtime_error("Can't lock a graph (guid=" + to_str(guid) + ") while holding onto the GIL");
+        });
+    }, "Sets up the check for no GIL acquired while trying to lock a graph");
+    internals_submodule.add_object("_cleanup_pre_lock_hook", py::capsule(&internals::remove_pre_lock_hook));
+
+    internals_submodule.def("test_pre_lock_hook", [](Graph g) {
+        LockGraphData lock{&g.my_graph_data()};
+    }, "Only for test suite. Should raise an exception.");
+
+    internals_submodule.def("copy_graph_slice", &copy_graph_slice, py::call_guard<py::gil_scoped_release>());
+
+    // internals_submodule.def("decompress_zstd", &decompress_zstd, py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("decompress_zstd", [](const std::string & input) {
+        std::string temp = decompress_zstd(input);
+        {
+            py::gil_scoped_acquire acquire;
+            return py::bytes(temp);
+        }
+    }, py::call_guard<py::gil_scoped_release>());
+    // internals_submodule.def("compress_zstd", &compress_zstd, py::arg("input"), py::arg("compression_level")=10, py::call_guard<py::gil_scoped_release>());
+    internals_submodule.def("compress_zstd", [](const std::string & input, int compression_level) {
+        return py::bytes(compress_zstd(input, compression_level));
+    }, py::arg("input"), py::arg("compression_level")=10, py::call_guard<py::gil_scoped_release>());
 }

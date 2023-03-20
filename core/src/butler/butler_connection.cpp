@@ -82,6 +82,8 @@ void Butler::determine_login_token() {
         if(*key_string == constants::zefhub_guest_key) {
             std::cerr << "Connecting as guest user" << std::endl;
             have_logged_in_as_guest = true;
+        } else if(using_private_key()) {
+            refresh_token = *key_string;
         } else  {
             api_key = *key_string;
         }
@@ -208,8 +210,13 @@ void wait_for_token_errors(std::vector<Butler::task_ptr> tasks) {
             break;
         }
     }
-    } catch(...) {
-        failed = true;
+    } catch(const Communication::disconnected_exception &) {
+        // Do nothing so we don't spam on an early exit
+    } catch(const std::exception & e) {
+        // One final check to see if the butler is running - if not then don't bother printing a failed message.
+        auto butler = get_butler();
+        if(butler && butler->network.is_running())
+            failed = true;
     }
     if(failed) {
         std::cerr << "=============================================" << std::endl;
@@ -248,7 +255,8 @@ void Butler::handle_successful_auth() {
     send_ZH_message({
             {"msg_type", "register_metadata"},
             {"hostname", hostname},
-            {"client_version", zefdb_protocol_version.load()}
+            {"client_version", zefdb_protocol_version.load()},
+            {"libzef_version", LIBZEF_PACKAGE_VERSION}
         });
 
     // Request our tokens
@@ -327,6 +335,11 @@ void Butler::msg_push(Request && content, bool wait, bool ignore_closed) {
     auto future = msg_push_internal(std::move(content), ignore_closed);
     if(wait)
         future.get();
+}
+
+void Butler::msg_push_internal_move_whole_msg(std::shared_ptr<RequestWrapper> && msg, bool ignore_closed) {
+    // This is an internal-use only to do the "trivial" move of the entire message onto the queue. Just a way to stop writing hard-coded message pushing
+    msgqueue.push(std::move(msg), ignore_closed);
 }
 
 std::string Butler::upstream_name() {
@@ -418,11 +431,16 @@ bool Butler::is_credentials_file_valid() {
 
 void Butler::ensure_auth_credentials() {
     // TODO: mutex here
+
+    // TODO: There is too much duplication between this, determine_login_token,
+    // and who_am_i.
             
     std::optional<std::string> forced_zefhub_key = load_forced_zefhub_key(); 
     if(forced_zefhub_key) {
         if(*forced_zefhub_key == constants::zefhub_guest_key)
             have_logged_in_as_guest = true;
+        else if(using_private_key())
+            refresh_token = *forced_zefhub_key;
         else
             api_key = *forced_zefhub_key;
     } else {

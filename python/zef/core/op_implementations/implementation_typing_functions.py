@@ -322,23 +322,25 @@ def transpose_imp(iterable):
     original List, if the operation succeeds.
 
     ---- Examples ----
-    >>> [ [2,3,4], [5,6,7] ]                    # => [ [2, 5], [3,6], [4,7] ]
+    >>> [ [2,3,4], [5,6,7] ] | transpose             # => [ [2, 5], [3,6], [4,7] ]
      
     >>> # terminates upon the shortest one:
-    >>> [ range(2, infinity), [5,6], [15,16,17] ]    # => [[2, 5, 15], [3, 6, 16]]
+    >>> [ range(2, infinity), [5,6], [15,16,17] ] | transpose    # => [[2, 5, 15], [3, 6, 16]]
 
     ---- Tags ----
     - used for: list manipulation
     - used for: linear algebra
     - same naming as: C++ Ranges V3
     """
-    its = [iter(el) for el in iterable]
-    while True:
-        try:
-            yield [next(it) for it in its]
-        except StopIteration:
-            # if any one of the iterators completes, this completes
-            return
+    def transpose_generator():
+        its = [iter(el) for el in iterable]
+        while True:
+            try:
+                yield [next(it) for it in its]
+            except StopIteration:
+                # if any one of the iterators completes, this completes
+                return
+    return ZefGenerator(transpose_generator)
 
 
 def transpose_tp(op, curr_type):
@@ -2546,7 +2548,7 @@ def subtract_tp(a, second):
     
 
 #---------------------------------------- multiply -----------------------------------------------
-def multiply_imp(a, second=None, *args):
+def multiply_imp(a, b):
     """ 
     Binary operator only. For a list of numbers, use `product`.
 
@@ -2567,10 +2569,9 @@ def multiply_imp(a, second=None, *args):
     related zefop: subtract
     related zefop: unpack
     """
-    from functools import reduce
-    if second is None:
-        return reduce(lambda x, y: x * y, a)
-    return reduce(lambda x, y: x * y, [a, second, *args])
+    if type(a) in {list, tuple, Generator} or type(b) in {list, tuple, Generator}:
+        raise TypeError(f"`multiply` is a binary operator, i.e. always takes two arguments. If you want to calculate the product of all elements in a list, use `product`")
+    return a*b
     
 
 def multiply_tp(a, second, *args):
@@ -2601,7 +2602,7 @@ def divide_imp(a, b=None):
     related zefop: unpack
     """
     if type(a) in {list, tuple} or type(b) in {list, tuple}:
-        raise TypeError(f"`subtract` is a binary operator, i.e. always takes two arguments.")
+        raise TypeError(f"`divide` is a binary operator, i.e. always takes two arguments.")
     return a/b
     
     
@@ -2750,6 +2751,22 @@ def logarithm_tp(x,base):
 
 #---------------------------------------- max -----------------------------------------------
 def max_imp(*args):
+    """
+    Returns the maximum of the given iterable.
+
+    ---- Examples ----
+    >>> [1,2,3] | max    # => 3
+
+    ---- Signature ----
+    Iterable[T] -> T
+
+    ---- Tags ----
+    - used for: maths
+    - operates on: List
+    - related zefop: min
+    - related zefop: max_by
+    - related zefop: clamp
+    """
     return builtins.max(*args)
     
     
@@ -2783,6 +2800,22 @@ def min_tp(a, second, *args):
 
 #---------------------------------------- min_by -----------------------------------------------
 def min_by_imp(v, min_by_function=None):
+    """
+    Returns the minimum of the given iterable.
+
+    ---- Examples ----
+    >>> [1,2,3] | min    # => 1
+
+    ---- Signature ----
+    Iterable[T] -> T
+
+    ---- Tags ----
+    - used for: maths
+    - operates on: List
+    - related zefop: max
+    - related zefop: max_by
+    - related zefop: clamp
+    """
     if min_by_function is None:
         raise RuntimeError(f'A function needs to be provided when using min_by. Called for v={v}')
     return builtins.min(v, key=min_by_function)
@@ -3233,10 +3266,15 @@ def scan_implementation(iterable, fct, initial_val=None):
     ---- Signature ----    
     (List[T1], ((T2, T1)->T2), T2)  ->  List[T2]
     """
-    return itertools.accumulate(iterable, fct, initial=initial_val)
+    import sys
+    if sys.version_info.minor >= 8:
+        return ZefGenerator(lambda: itertools.accumulate(iterable, fct, initial=initial_val))
+    else:
+        if initial_val is None:
+            return ZefGenerator(lambda: itertools.accumulate(iterable, fct))
 
-
-
+        combined = prepend_imp(iterable, initial_val)
+        return scan_implementation(combined, fct)
 
 def scan_type_info(op, curr_type):
     func = op[1][0]
@@ -3332,8 +3370,12 @@ def skip_while_imp(it, predicate):
     """
     import itertools
     predicate = make_predicate(predicate)
-    return itertools.dropwhile(predicate, it)
-
+    res = itertools.dropwhile(predicate, it)
+    def wrapper():
+            it = iter(res)
+            for el in it:
+                yield el                
+    return ZefGenerator(wrapper)
 def skip_while_tp(it_tp, pred_type):
     return it_tp
 
@@ -5406,9 +5448,20 @@ def map_implementation(v, f):
 # -------------------------------- reduce -------------------------------------------------
  
 
-def reduce_implementation(iterable, fct, init):
-    import functools
-    return functools.reduce(fct, iterable, init)
+def reduce_implementation(iterable, fct, init=None):
+    """
+    An operator that take a list of values together with an initial state 
+    an emits the last state.
+
+    reduce[f][state_ini] == scan[f][state_ini] | last
+
+    ---- Examples ----
+    >>> ['a', 'b', 'c', 'd', 'e'] | scan[lambda s, el: s+el]  # => 'abcde'
+    
+    ---- Signature ----    
+    (List[T1], ((T2, T1)->T2), T2)  ->  T2
+    """
+    return last(scan_implementation(iterable, fct, init))
 
 
 

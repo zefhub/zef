@@ -94,7 +94,7 @@ def create_monkey_patched_Time_ctor(old_init_fct):
             try:
                 my_timestamp = datetime.timestamp(dateparser.parse(x, settings={'TIMEZONE': timezone, 'RETURN_AS_TIMEZONE_AWARE': True}))
                 self = old_init_fct(self, my_timestamp)
-            except:
+            except Exception:
                 raise ValueError(f"Could not parse the following string as a valid datetime: \"{x}\"")
         else:
             raise ValueError('Invalid argument type passed to Time constructor')

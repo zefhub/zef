@@ -49,6 +49,7 @@ if not l:
     print("No tokens to add!")
     sys.exit(0)
 
+import zef
 
 print("About to add these tokens:")
 for x in l:
@@ -56,6 +57,7 @@ for x in l:
 
 print("Type 'yes' if you would like to continue")
 check = input()
+
 
 if check != "yes":
     sys.exit(1)

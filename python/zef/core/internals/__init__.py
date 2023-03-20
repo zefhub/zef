@@ -14,11 +14,29 @@
 
 # Note: This should never depend on core at the top level!
 
+from ... import report_import
+report_import("zef.core.internals")
+
+from ...pyzef.main import (
+    EntityType,
+    RelationType,
+    Graph,
+    GraphRef,
+    ZefRef,
+    EZefRef,
+    ZefEnumValue,
+)
+
 from ...pyzef.internals import (
-    AttributeEntityTypeStruct,
+    AttributeEntityType,
+    AttributeEntityTypeStruct_QuantityFloat,
+    AttributeEntityTypeStruct_QuantityInt,
+    AttributeEntityTypeStruct_Enum,
     BaseUID,
     BlobType,
     BlobTypeStruct,
+    Delegate,
+    DelegateRelationTriple,
     EntityTypeStruct,
     EternalUID,
     FinishTransaction,
@@ -35,6 +53,11 @@ from ...pyzef.internals import (
     Subscription,
     UpdateHeads,
     UpdatePayload,
+    ValueRepType,
+    ValueRepTypeStruct_QuantityFloat,
+    ValueRepTypeStruct_QuantityInt,
+    ValueRepTypeStruct_Enum,
+    VRT,
     ZefEnumStruct,
     ZefEnumStructPartial,
     ZefRefUID,
@@ -47,12 +70,14 @@ from ...pyzef.internals import (
     all_relation_types,
     apply_update,
     blob_to_json,
+    compress_zstd,
     create_GraphDataWrapper,
     create_graph_from_bytes,
     create_update_heads,
     create_update_payload,
     created_token_list,
     current_zefdb_protocol_version,
+    decompress_zstd,
     delete_graphdata,
     delegate_to_ezr,
     early_token_list,
@@ -61,10 +86,12 @@ from ...pyzef.internals import (
     get_enum_value_from_string,
     get_graph_revision_info,
     get_latest_complete_tx_node,
+    get_loaded_graph,
     get_local_process_graph,
     graph_as_UpdatePayload,
     gtd_info_str,
     has_delegate,
+    has_uid,
     heads_apply,
     initialise_butler,
     initialise_butler_as_master,
@@ -93,6 +120,8 @@ from ...pyzef.internals import (
     parse_payload_update_heads,
     partial_hash,
     root_node_blob_index,
+    search_value_node,
+    setup_pre_lock_hook,
     set_data_layout_version_info,
     set_graph_revision_info,
     show_blob_details,
@@ -102,12 +131,15 @@ from ...pyzef.internals import (
     stop_connection,
     to_uid,
     validate_message_version,
-    VRT,
+    value_hash,
     wait_for_auth,
 )
 
 from ...pyzef.verification import (
     verify_graph
+)
+from ...pyzef.zefops import (
+    SerializedValue
 )
 
 from ...pyzef.main import ZefRef, zwitch
@@ -130,6 +162,7 @@ from .value_type_check import register_value_type_check
 register_value_type_check()
 from .determine_primitive_type import register_determine_primitive_type
 register_determine_primitive_type()
+setup_pre_lock_hook()
 
 BT = BlobTypeStruct()
 
@@ -217,3 +250,14 @@ def instantiate_value_node_imp(value, g):
     elif type(value) not in scalar_types:
         value = SerializedValue.serialize(value)
     return c_instantiate_value_node(value, g)
+
+def is_transactor(glike): #: Graph | GraphRef):
+    if isinstance(glike, Graph):
+        return glike.graph_data.is_primary_instance
+    elif isinstance(glike, GraphRef):
+        g = get_loaded_graph(glike)
+        if g is None:
+            return False
+        return is_transactor(g)
+    else:
+        raise Exception("Shoudln't get here")

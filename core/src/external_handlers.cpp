@@ -97,5 +97,25 @@ namespace zefDB {
                 std::cerr << "Warning, no determine_primitive_type registered to be removed." << std::endl;
             determine_primitive_type.reset();
         }
+
+        // ** Graph lock sanity checks
+        std::optional<std::function<pre_lock_hook_t>> pre_lock_hook;
+        void pass_to_pre_lock_hook(BaseUID guid) {
+            if(!pre_lock_hook)
+                return;
+            (*pre_lock_hook)(guid);
+        }
+
+        void register_pre_lock_hook(std::function<pre_lock_hook_t> func) {
+            if(pre_lock_hook)
+                throw std::runtime_error("pre_lock_hook has already been registered.");
+            pre_lock_hook = func;
+        }
+
+        void remove_pre_lock_hook() {
+            if(!pre_lock_hook)
+                std::cerr << "Warning, no pre_lock_hook registered to be removed." << std::endl;
+            pre_lock_hook.reset();
+        }
     }
 }

@@ -27,10 +27,10 @@ namespace zefDB {
 
     namespace internals {
         // ** Merge handler
-        typedef json (merge_handler_t)(Graph, const json &);
+        typedef std::tuple<EZefRef,json> (merge_handler_t)(Graph, const json &);
         LIBZEF_DLL_EXPORTED void register_merge_handler(std::function<merge_handler_t> func);
         LIBZEF_DLL_EXPORTED void remove_merge_handler();
-        LIBZEF_DLL_EXPORTED json pass_to_merge_handler(Graph g, const json & payload);
+        LIBZEF_DLL_EXPORTED std::tuple<EZefRef,json> pass_to_merge_handler(Graph g, const json & payload);
 
         // ** Schema validator
         typedef void (schema_validator_t)(ZefRef);
@@ -50,6 +50,16 @@ namespace zefDB {
         LIBZEF_DLL_EXPORTED void register_determine_primitive_type(std::function<determine_primitive_type_t> func);
         LIBZEF_DLL_EXPORTED void remove_determine_primitive_type();
         LIBZEF_DLL_EXPORTED ValueRepType pass_to_determine_primitive_type(AttributeEntityType aet);
+
+        // ** Graph lock sanity checks
+        //
+        // This is primarily designed for a hook so that python bindings can be
+        // sure no graph lock occurs when the GIL is held. If such a scenario
+        // happens, then 2 locks are attempting to be held at the same time.
+        typedef void (pre_lock_hook_t)(BaseUID guid);
+        LIBZEF_DLL_EXPORTED void register_pre_lock_hook(std::function<pre_lock_hook_t> func);
+        LIBZEF_DLL_EXPORTED void remove_pre_lock_hook();
+        LIBZEF_DLL_EXPORTED void pass_to_pre_lock_hook(BaseUID guid);
 
     }
 }
