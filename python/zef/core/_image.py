@@ -17,7 +17,7 @@ report_import("zef.core.image")
 
 from . import internals
 
-class Image_:
+class Image:
     def __init__(self, data, format='svg'):
         self.format = format
         self.compression = 'zstd'
@@ -63,6 +63,3 @@ class Image_:
             "type": FX.LocalFile.SystemOpenWith,
             "filepath": filename
         } | run
-
-from .VT import make_VT
-make_VT("Image", pytype=Image_)

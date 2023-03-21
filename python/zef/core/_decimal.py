@@ -101,6 +101,3 @@ class Decimal_:
 
     def __rmul__(self, x):
         return self*x
-
-from .VT import make_VT
-make_VT('Decimal', pytype=Decimal_)

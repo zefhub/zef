@@ -69,7 +69,7 @@
 
 
 from .fx_types import Effect
-from ..error import Error
+# from ..error import Error
 
 
 def clipboard_copy_to_handler(eff: dict):
@@ -96,7 +96,7 @@ def clipboard_copy_to_handler(eff: dict):
             raise RuntimeError(f"copying a type type(val)={type(val)} to the clipboard is not supported. Value: {val}")
         return {}
     except Exception as e:
-        return Error(f'executing FX.Clipboard.CopyTo for effect {eff}:\n{repr(e)}')
+        raise Exception(f'executing FX.Clipboard.CopyTo for effect {eff}:\n{repr(e)}')
 
 
 

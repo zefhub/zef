@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .fx_types import Effect
-from ..error import Error
+# from ..error import Error
 
 def graph_sync_handler(eff: Effect):
     try:
@@ -21,5 +21,5 @@ def graph_sync_handler(eff: Effect):
         sync(eff["graph"], eff["sync_state"])
         return {}
     except Exception as e:
-        return Error(f'executing FX.Graph.Sync for effect {eff}:\n{repr(e)}')
+        raise Exception(f'executing FX.Graph.Sync for effect {eff}:\n{repr(e)}')
 

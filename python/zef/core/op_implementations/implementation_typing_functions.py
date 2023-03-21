@@ -26,12 +26,17 @@ from .._ops import *
 from ..abstract_raes import abstract_rae_from_rae_type_and_uid
 from .flatgraph_implementations import *
 from ..logger import log
+from .._bytes import Bytes
+from ..VT import Instantiated, Terminated, Assigned, Tagged
 
 from ...pyzef import zefops as pyzefops, main as pymain
 from ..internals import BaseUID, EternalUID, ZefRefUID, BlobType, EntityTypeStruct, AttributeEntityTypeStruct, RelationTypeStruct, to_uid, ZefEnumStruct, ZefEnumStructPartial
 from .. import internals
 import itertools
 from typing import Generator, Iterable, Iterator
+
+class MissingDefault:
+    pass
 
 zef_types = [VT.Graph, VT.ZefRef, VT.EZefRef]
 ref_types = [VT.ZefRef, VT.EZefRef]
@@ -560,12 +565,12 @@ def prepend_imp(v, item, *additional_items):
         args must be existing RAEs on the graph
         """
         z_list = now(v)
-        if not verify_zef_list(z_list): return Error('Invalid Zef List')
+        if not verify_zef_list(z_list): raise Exception('Invalid Zef List')
         elements_to_prepend = [item, *additional_items]
         all_zef = elements_to_prepend | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
-        if not all_zef: return Error("Append only takes ZefRef or EZefRef for Zef List")
+        if not all_zef: raise Exception("Append only takes ZefRef or EZefRef for Zef List")
         is_any_terminated = elements_to_prepend | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
-        if is_any_terminated: return Error("Cannot append a terminated ZefRef")
+        if is_any_terminated: raise Exception("Cannot append a terminated ZefRef")
 
         
         g = Graph(z_list)
@@ -648,13 +653,13 @@ def append_imp(v, item, *additional_items):
         args must be existing RAEs on the graph
         """
         z_list = now(v)
-        if not verify_zef_list(z_list): return Error('Invalid Zef List')
+        if not verify_zef_list(z_list): raise Exception('Invalid Zef List')
 
         elements_to_append = [item, *additional_items]
         all_zef = elements_to_append | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
-        if not all_zef: return Error("Append only takes ZefRef or EZefRef for Zef List")
+        if not all_zef: raise Exception("Append only takes ZefRef or EZefRef for Zef List")
         is_any_terminated = elements_to_append | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
-        if is_any_terminated: return Error("Cannot append a terminated ZefRef")
+        if is_any_terminated: raise Exception("Cannot append a terminated ZefRef")
 
         
         g = Graph(z_list)
@@ -705,7 +710,7 @@ def append_tp(op, curr_type):
 
 
 #---------------------------------------- get_in --------------------------------------------------
-def get_in_imp(d: dict, path, default_val=VT.Error):
+def get_in_imp(d: dict, path, default_val=MissingDefault):
     """
     Enable one-shot access to elements in nested dictionary
     by specifying path as a tuple of keys.
@@ -726,7 +731,10 @@ def get_in_imp(d: dict, path, default_val=VT.Error):
     assert isinstance(path, list) or isinstance(path, tuple)
 
     from ..pure_utils import get_in_pure
-    return get_in_pure(d, path, default_val)
+    out = get_in_pure(d, path, default_val)
+    if out == MissingDefault:
+        raise Exception("No default")
+    return out
 
     
 def get_in_tp(d_tp, path_tp, default_val_tp):
@@ -1355,7 +1363,7 @@ def insert_imp(d: dict, key, val=None):
     elif isinstance(d, dict):
         return {**d, key: val}
     else:
-        return Error(f'"insert" zefop called with unhandled type d={d} key={key} val={val}')
+        raise Exception(f'"insert" zefop called with unhandled type d={d} key={key} val={val}')
 
 
 def insert_tp(input_arg0_tp, input_arg1_tp):
@@ -1434,7 +1442,7 @@ def insert_into_imp(key_val_pair, x):
     """
     from typing import Generator
     if not isinstance(key_val_pair, (list, tuple)):
-        return Error(f'in "insert_into": key_val_pair must be a list or tuple. It was type(x)={type(x)}     x={x}')
+        raise Exception(f'in "insert_into": key_val_pair must be a list or tuple. It was type(x)={type(x)}     x={x}')
     
     k, v = key_val_pair
     if isinstance(x, dict):
@@ -1492,7 +1500,7 @@ def remove_tp(input_arg0_tp, input_arg1_tp):
 
 
 #---------------------------------------- get -----------------------------------------------
-def get_imp(d, key, default=Error('Key not found in "get"')):
+def get_imp(d, key, default=MissingDefault):
     """
     Typically used for key lookups, equivalent to '[]' operator.
     External function equivalent to Python's '__get__' method.
@@ -1520,16 +1528,19 @@ def get_imp(d, key, default=Error('Key not found in "get"')):
     if is_a(d, FlatGraph):
         return fg_get_imp(d, key)
     elif isinstance(d, dict):
-        return d.get(key, default)
+        out = d.get(key, default)
     elif isinstance(d, list) or isinstance(d, tuple) or isinstance(d, Generator) or isinstance(d, ZefGenerator):
-        return Error(f"get called on a list. Use 'nth' to get an element at a specified index.")
+        raise Exception(f"get called on a list. Use 'nth' to get an element at a specified index.")
     elif isinstance(d, Graph) or isinstance(d, GraphSlice):
         try:
             return d[key]
         except KeyError:
-            return default
+            out = default
     else:
-        return Error(f"get called with unsupported type {type(d)}.")
+        raise Exception(f"get called with unsupported type {type(d)}.")
+    if out == MissingDefault:
+        raise Exception('Key not found in "get"')
+    return out
 
 def get_tp(d_tp, key_tp):
     return VT.Any
@@ -1970,7 +1981,7 @@ def any_tp(v_tp):
 
 
 #---------------------------------------- join -----------------------------------------------
-def join_imp(list_of_strings: VT.List[VT.String], x=''):
+def join_imp(list_of_strings, x=''):
     """ 
     Join a list of strings with a binding character.
 
@@ -2354,7 +2365,7 @@ def absorbed_imp(x):
 
     elif isinstance(x, ZefOp):
         if len(x.el_ops) != 1: 
-            return Error(f'"absorbed" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on x={x}')
+            raise Exception(f'"absorbed" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on x={x}')
         return x.el_ops[0][1]
 
     elif isinstance(x, ZefRef) or isinstance(x, EZefRef):
@@ -2364,7 +2375,7 @@ def absorbed_imp(x):
         return x.d['absorbed']
 
     else:
-        return Error(f'absorbed called on type(x)={type(x)}   x={x}')
+        raise Exception(f'absorbed called on type(x)={type(x)}   x={x}')
 
 
 
@@ -2423,7 +2434,7 @@ def without_absorbed_imp(x):
 
     elif isinstance(x, ZefOp):
         if len(x.el_ops) != 1: 
-            return Error(f'"without_absorbed_imp" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on x={x}')
+            raise Exception(f'"without_absorbed_imp" can only be called on an elementary ZefOp, i.e. one of length 1. It was called on x={x}')
         return ZefOp( ((x.el_ops[0][0], ()),) )
 
     elif isinstance(x, ValueType_):
@@ -2431,7 +2442,7 @@ def without_absorbed_imp(x):
 
     elif isinstance(x, (Entity, AttributeEntity, RelationType)):
         return type(x)(remove(x.d, 'absorbed'))
-    return Error('Not Implemented')
+    raise Exception('Not Implemented')
 
 
 
@@ -2848,7 +2859,7 @@ def clamp_imp(x, x_min, x_max):
     related zefop: min
     related zefop: max
     """
-    if x_max < x_min: return Error(f'clamp: x_min={x_min} must be less than or equal to x_max={x_max}')
+    if x_max < x_min: raise Exception(f'clamp: x_min={x_min} must be less than or equal to x_max={x_max}')
     return max(x_min, min(x, x_max))
 
     
@@ -3517,7 +3528,7 @@ def take_until_tp(it_tp, pred_type):
 
 
 #---------------------------------------- take_until -----------------------------------------------
-def skip_until_imp(v: List, predicate):
+def skip_until_imp(v, predicate):
     """ 
     Skips the elements of the sequence while the predicate is true.    
     
@@ -3684,7 +3695,7 @@ def first_imp(iterable):
     try:
         return next(it)
     except StopIteration:
-        return Error("Empty iterable when asking for first element.")
+        raise Exception("Empty iterable when asking for first element.")
 
 
 
@@ -3722,7 +3733,7 @@ def second_imp(iterable):
         _ = next(it)
         return next(it)
     except StopIteration:
-        return Error("Iterable is not long enough to find a second element")
+        raise Exception("Iterable is not long enough to find a second element")
         # raise ValueError("Iterable is not long enough to find a second element")
 
 
@@ -5037,6 +5048,9 @@ def discard_frame_imp(x):
         if   BT(x) == BT.ENTITY_NODE: return Entity(x)
         elif BT(x) == BT.RELATION_EDGE: return Relation(x)
         elif BT(x) == BT.ATTRIBUTE_ENTITY_NODE: return AttributeEntity(x)
+        elif BT(x) == BT.TX_EVENT_NODE: return TXNode(x)
+        elif BT(x) == BT.ROOT_NODE: return Root(x)
+        else: raise Exception("Not a ZefRef that is a concrete RAE")
     if isinstance(x, Entity) or isinstance(x, Relation) or isinstance(x, AttributeEntity):
         return x
     raise TypeError(f"'discard_frame' not implemented for type {type(x)}: it was passed {x}")
@@ -6546,7 +6560,7 @@ def representation_type_imp(x):
             # GraphDelta !!!!! not required, just a dict
         }[tp]
     except KeyError:
-        return Error(f'"zef_type" function received a value of type {type(x)} which is not implemented yet.')
+        raise Exception(f'"zef_type" function received a value of type {type(x)} which is not implemented yet.')
 
 
 
@@ -6558,7 +6572,6 @@ def is_a_implementation(x, typ):
     """
 
     """
-    from ..error import _ErrorType
     def union_matching(el, union):
         for t in union.d['absorbed']: 
             if is_a(el, t): 
@@ -6574,13 +6587,13 @@ def is_a_implementation(x, typ):
         from typing import Callable
         for t in setof.d['absorbed']: 
             if isinstance(t, ValueType_): 
-                return Error.ValueError(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
+                raise Exception(f"A ValueType_ was passed to Is but it only takes predicate functions. Try wrapping in is_a[{t}]")
             elif isinstance(t, (ZefOp, Callable)):
                 try:
                     if not t(el): return False
                 except:
                     return False
-            else: return Error.ValueError(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
+            else: raise Exception(f"Expected a predicate function or a ZefOp type inside Is but got {t} instead.")
         return True
     
 
@@ -6690,7 +6703,7 @@ def is_a_implementation(x, typ):
                 return x | items | map[lambda p: is_a(p[0], T1) and is_a(p[1], T2)] | all | collect
             else:
                 print(f'Something went wrong in `is_a[Dict[T1, T2]]`: exactly two subtypes must be given. Got {ab}', file=sys.stderr)
-                return Error('Error matching Dict[...]')
+                raise Exception('Error matching Dict[...]')
         else:
             return True
 
@@ -6721,7 +6734,7 @@ def is_a_implementation(x, typ):
             except:
                 return False
 
-        if vt.d['type_name'] not in vt_name_to_python_type: return Error.NotImplementedError(f"ValueType_ matching not implemented for {vt}")
+        if vt.d['type_name'] not in vt_name_to_python_type: raise NotImplementedError(f"ValueType_ matching not implemented for {vt}")
         python_type = vt_name_to_python_type[vt.d['type_name']]
         return isinstance(el, python_type)
     
@@ -6773,8 +6786,8 @@ def is_a_implementation(x, typ):
             return pattern_vt_matching(x, typ)
 
         if typ.d['type_name'] == "FlatGraph":
-            from zef.core.flat_graph import FlatGraph_
-            return isinstance(x, FlatGraph_)
+            from zef.core.flat_graph import FlatGraph
+            return isinstance(x, FlatGraph)
 
         return valuetype_matching(x, typ)
                     
@@ -6789,9 +6802,6 @@ def is_a_implementation(x, typ):
         return is_a(x, py_type_to_vt[typ])
 
 
-    if type(x) == _ErrorType:
-        if typ == Error:
-            return True
     if type(x) in [BaseUID, EternalUID, ZefRefUID]:
         if is_a(typ, ZefOp) and is_a(typ, uid):
             return True
@@ -6982,11 +6992,11 @@ def docstring_imp(a) -> str:
     from zef.core.op_implementations.dispatch_dictionary import _op_to_functions
     import inspect
     if not isinstance(a, ZefOp):
-        return Error('"docstring" can only be called on ZefOps')
+        raise Exception('"docstring" can only be called on ZefOps')
 
     # is this a bare zef function? We want to implement that separately
     if len(a.el_ops) == 1 and a.el_ops[0][0]==RT.Function:
-        return Error('"docstring" not implemented for Zef functions yet')
+        raise Exception('"docstring" not implemented for Zef functions yet')
 
 
     if len(a.el_ops) == 1:
@@ -7016,11 +7026,11 @@ def source_code_imp(a) -> str:
     from zef.core.op_implementations.dispatch_dictionary import _op_to_functions
     import inspect
     if not isinstance(a, ZefOp):
-        return Error('"source_code" can only be called on ZefOps')
+        raise Exception('"source_code" can only be called on ZefOps')
 
     # is this a bare zef function? We want to implement that separately
     if len(a.el_ops) == 1 and a.el_ops[0][0]==RT.Function:
-        return Error('"source_code" not implemented for Zef functions yet')
+        raise Exception('"source_code" not implemented for Zef functions yet')
 
 
     if len(a.el_ops) == 1:
@@ -7231,7 +7241,7 @@ def is_represented_as_implementation(arg, vt):
     if isinstance(arg, float):
         return vt == VT.Float
     
-    return Error(f"Is Represented As not implemented for {type(arg)}")
+    raise Exception(f"Is Represented As not implemented for {type(arg)}")
 
 
 def is_represented_as_type_info(op, curr_type):
@@ -7821,7 +7831,7 @@ def inject_list_tp():
 
 
 #---------------------------------------- Zascii -----------------------------------------------
-def zascii_to_asg_imp(zascii_str: VT.String) -> VT.Dict:
+def zascii_to_asg_imp(zascii_str) -> VT.Dict:
     """ 
     Takes a zascii string and returns an asg dict.
 
@@ -7849,7 +7859,7 @@ def zascii_to_asg_imp(zascii_str: VT.String) -> VT.Dict:
 def zascii_to_asg_tp(op, curr_type):
     return VT.Dict
 
-def zascii_to_flatgraph_imp(zascii_str: VT.String) -> VT.FlatGraph:
+def zascii_to_flatgraph_imp(zascii_str) -> VT.FlatGraph:
     """ 
     Takes a zascii string representing a Graph and returns a FlatGraph containing all the RAEs 
     appearing in the string.
@@ -7936,7 +7946,7 @@ def zascii_to_flatgraph_tp(op, curr_type):
     return VT.FlatGraph
 
 
-def zascii_to_blueprint_fg_imp(zascii_str: VT.String) -> VT.FlatGraph:
+def zascii_to_blueprint_fg_imp(zascii_str) -> VT.FlatGraph:
     """ 
     Takes a zascii string representing a Graph Blueprint and returns a FlatGraph containing all the delegates 
     appearing in the string.
@@ -8099,7 +8109,7 @@ def replace_at_imp(str_or_list, index, new_el):
                 return
         return ZefGenerator(wrapper)
     else:
-        return Error.TypeError(f"Expected an string or a list. Got {type(str_or_list)} instead.")
+        raise Exception(f"Expected an string or a list. Got {type(str_or_list)} instead.")
 
 
 
@@ -8338,7 +8348,7 @@ def permute_to_imp(v, indices: VT.List[VT.Int]):
 
 
 #---------------------------------------- is_alpha -----------------------------------------------
-def is_alpha_imp(s: VT.String) -> VT.Bool:
+def is_alpha_imp(s) -> VT.Bool:
     """ 
     Given a string return if it is only composed of Alphabet characters
     """
@@ -8407,7 +8417,7 @@ def is_alpha_numeric_imp(x):
 
 
 #---------------------------------------- to_upper_case -----------------------------------------------
-def to_upper_case_imp(s: VT.String) -> VT.Bool:
+def to_upper_case_imp(s) -> VT.Bool:
     """ 
     Given a string, capitalize each character.
 
@@ -8436,7 +8446,7 @@ def to_upper_case_tp(op, curr_type):
 
 
 #---------------------------------------- to_lower_case -----------------------------------------------
-def to_lower_case_imp(s: VT.String) -> VT.Bool:
+def to_lower_case_imp(s) -> VT.Bool:
     """ 
     Given a string, convert each character to lower case.
 
@@ -8465,7 +8475,7 @@ def to_lower_case_tp(op, curr_type):
 
 #---------------------------------------- to_pascal_case -----------------------------------------------
 
-def to_pascal_case_imp(s: VT.String) -> VT.String:
+def to_pascal_case_imp(s):
     """Convert a string to PascalCase style. Uses the caseconverter module.
     
     This is intended for use in producing variable names. It is also useful for
@@ -8497,7 +8507,7 @@ def to_pascal_case_tp(op, curr_type):
 
 
 #---------------------------------------- to_camel_case -----------------------------------------------
-def to_camel_case_imp(s: VT.String) -> VT.String:
+def to_camel_case_imp(s):
     """Convert a string to camelCase style. Uses the caseconverter module.
     
     This is intended for use in producing variable names.
@@ -8699,9 +8709,9 @@ def value_hash_tp(op, curr_type):
 #-------------------------------ZEF LIST------------------------------------------
 def to_zef_list_imp(elements: list):
     all_zef = elements | map[lambda v: isinstance(v, ZefRef) or isinstance(v, EZefRef)] | all | collect
-    if not all_zef: return Error("to_zef_list only takes ZefRef or EZefRef.")
+    if not all_zef: raise Exception("to_zef_list only takes ZefRef or EZefRef.")
     is_any_terminated = elements | map[events[Terminated]] | filter[None] | length | greater_than[0] | collect 
-    if is_any_terminated: return Error("Cannot create a Zef List Element from a terminated ZefRef")
+    if is_any_terminated: raise Exception("Cannot create a Zef List Element from a terminated ZefRef")
     rels_to_els = (elements 
             | enumerate 
             | map[lambda p: (Z['zef_list'], RT.ZEF_ListElement[str(p[0])], p[1])] 
@@ -9174,7 +9184,7 @@ def traverse_flatref_imp(fr, rt, direction, traverse_type):
     blob = fr.fg.blobs[fr.idx]
     specific = blob[2] | filter[greater_than[0] if direction in {"out", "outout"} else less_than[0]] | collect
     specific_blobs = specific | map[lambda idx: fr.fg.blobs[abs(idx)]] | filter[lambda b: b[1] == rt] | collect
-    if traverse_type == "single" and len(specific_blobs) != 1: return Error.ValueError(f"There isn't exactly one {translation_dict[direction]} RT.{rt} Relation. Did you mean {translation_dict[direction]}s[RT.{rt}]?")
+    if traverse_type == "single" and len(specific_blobs) != 1: raise Exception(f"There isn't exactly one {translation_dict[direction]} RT.{rt} Relation. Did you mean {translation_dict[direction]}s[RT.{rt}]?")
     
     if direction == "inin": idx = 4
     elif direction == "outout": idx = 5
@@ -9405,7 +9415,7 @@ InInOld_implementation = partial(traverse_implementation,
 
 
 
-def zstandard_compress_imp(x: bytes, compression_level=0.1) -> Bytes:
+def zstandard_compress_imp(x: bytes, compression_level=0.1):
     """
     Compress a Bytes value using ZStandard.
     The compression level can be specified optionally.
@@ -9457,7 +9467,7 @@ def zstandard_decompress_imp(x: Bytes) -> Bytes:
 
 
 # ----------------------------- to_bytes -----------------------------
-def to_bytes_imp(x: String) -> Bytes:
+def to_bytes_imp(x) -> Bytes:
     """
     Convert a string to a ValueType Bytes using utf8 encoding.
     Python bytes are wrapped and Bytes are forwarded.
@@ -9481,7 +9491,7 @@ def to_bytes_imp(x: String) -> Bytes:
 
 
 # ----------------------------- utf8bytes_to_string -----------------------------
-def utf8bytes_to_string_imp(b: Bytes) -> String | VT.Error:
+def utf8bytes_to_string_imp(b: Bytes):
     """
     Convert a Byes value that is a utf8 encoded string,
     return the string. Not all bytes values are valid utf8.
@@ -9504,7 +9514,7 @@ def utf8bytes_to_string_imp(b: Bytes) -> String | VT.Error:
 
 
 # ----------------------------- base64string_to_bytes -----------------------------
-def base64string_to_bytes_imp(s: str) -> Bytes | VT.Error:
+def base64string_to_bytes_imp(s: str):
     """
     Convert data that is in a valid base64 encoding as a string to bytes.
     Not all strings are valid base64 encoded strings.
@@ -9529,7 +9539,7 @@ def base64string_to_bytes_imp(s: str) -> Bytes | VT.Error:
 
 
 # ----------------------------- bytes_to_base64string -----------------------------
-def bytes_to_base64string_imp(b: Bytes) -> String:
+def bytes_to_base64string_imp(b: Bytes):
     """
     Convert any bytes object into a base64 encoded string.
     
@@ -9553,7 +9563,7 @@ def bytes_to_base64string_imp(b: Bytes) -> String:
 
 
 # ----------------------------- is_between_imp -----------------------------
-def is_between_imp(x, lo, hi) -> Bool:
+def is_between_imp(x, lo, hi):
     """
     Checks whether a specified value lies within the 
     specified range for some orderable data type.
@@ -9625,7 +9635,7 @@ def without_imp(x, y):
     try:
         y_itr = iter(y)
     except:
-        return Error("The given argument to `without` is not iterable. If you have passed a single value, then you must wrap it in a list first, e.g. `| without[[1]]` instead of `| without[1]`.")
+        raise Exception("The given argument to `without` is not iterable. If you have passed a single value, then you must wrap it in a list first, e.g. `| without[[1]]` instead of `| without[1]`.")
         
     if isinstance(x, dict):
         return x | items | filter[first | Not[contained_in[y]]] | func[dict] | collect
@@ -9660,6 +9670,8 @@ def blueprint_imp(x, include_edges=False):
     (Graph, Bool) => List[EZefRef]
     (GraphSlice, Bool) => List[ZefRef]
     """
+
+    from ..VT import Any, Is
 
     if isinstance(x, Graph):
         g = x
@@ -9699,7 +9711,7 @@ def blueprint_imp(x, include_edges=False):
                  | map[in_frame[x][allow_tombstone]]
                 | collect)
 
-    return Error(f"Don't know how to handle type of {type(x)} in blueprint zefop")
+    raise Exception(f"Don't know how to handle type of {type(x)} in blueprint zefop")
 
 
 # ----------------------------- field -----------------------------
@@ -10240,6 +10252,7 @@ def gather_imp(z_initial, rules=None):
 
     # --------------------------------- verify the rules data structure-------------------------------
     # TODO: once type checking is in place, hoist this out of the body into the function signature
+    from ..VT import List, Is
     ValidRule = (
         List &
         Is[length | equals[3]] & (
@@ -10252,7 +10265,7 @@ def gather_imp(z_initial, rules=None):
     ValidRuleList = EveryElement(ValidRule)
 
     if not rules | is_a[ValidRuleList] | collect:
-        return Error(f'`gather` called with an invalid set of rules: {rules}')
+        raise Exception(f'`gather` called with an invalid set of rules: {rules}')
 
 
     # --------------------------------- explicit rules -------------------------------
@@ -10359,7 +10372,7 @@ def splice_imp(x, start_pos, els_to_replace, replacement):
         return ZefGenerator(wrapper)
 
     else:
-        return Error(f'Unsupported type passed to "splice": {type(x)}')
+        raise Exception(f'Unsupported type passed to "splice": {type(x)}')
 
 
 
@@ -10471,7 +10484,7 @@ def flatten_dict_imp(y):
 
 
 
-def unflatten_dict_imp(d: Dict) -> Dict:
+def unflatten_dict_imp(d):
     """
     Given a flattened dictionary, return a nested version.
     

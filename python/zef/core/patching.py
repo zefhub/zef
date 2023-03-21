@@ -34,7 +34,7 @@ from ..pyzef.internals import AttributeEntityType, EntityTypeStruct, RelationTyp
 override_types = (EntityTypeStruct, RelationTypeStruct, AttributeEntityTypeStruct, BlobTypeStruct, BlobType, AttributeEntityType, EntityType, RelationType)
 
 def or_for_types(self, other):
-    from . import ValueType_
+    from .VT import ValueType_
     allowed_types = (ValueType_,) + override_types
     if isinstance(other, allowed_types):
         return ValueType_(type_name='Union', absorbed=(self, other,))
@@ -42,7 +42,7 @@ def or_for_types(self, other):
     return NotImplemented
     
 def and_for_types(self, other):
-    from . import ValueType_
+    from .VT import ValueType_
     allowed_types = (ValueType_,) + override_types
     if isinstance(other, allowed_types):
         return ValueType_(type_name='Intersection', absorbed=(self, other,))

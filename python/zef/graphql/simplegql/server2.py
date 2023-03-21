@@ -204,8 +204,6 @@ def start_server(z_gql_root,
         'logging': logging,
         'bind_address': bind_address,
     } | run
-    if is_a(http_r, Error):
-        raise Exception("Error in creating server") from http_r.args[0]
 
     return http_r["server_uuid"]
 

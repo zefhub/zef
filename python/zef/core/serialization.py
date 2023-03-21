@@ -25,13 +25,13 @@ from .internals import BaseUID, EternalUID, ZefRefUID
 from ._ops import *
 from .op_structs import ZefOp, CollectingOp, SubscribingOp, ForEachingOp, LazyValue, Awaitable, is_python_scalar_type
 from .abstract_raes import Entity, Relation, AttributeEntity
-from .error import _ErrorType, Error
-from .image import Image
+# from .error import _ErrorType, Error
+from ._image import Image
 from .fx.fx_types import FXElement, Effect
-from .flat_graph import FlatGraph_, FlatRef, FlatRefs
+from .flat_graph import FlatGraph, FlatRef, FlatRefs
 from ..pyzef import internals as pyinternals
 from .VT import ValueType_
-from .symbolic_expression import SymbolicExpression_
+# from .symbolic_expression import SymbolicExpression_
 
 ##############################
 # * Definition
@@ -123,7 +123,7 @@ def deserialize_internal(v):
 # * Implementations
 #----------------------------------
 def serialize_flatgraph_or_flatref(fg_or_fr) -> dict:
-    if isinstance(fg_or_fr, FlatGraph_):
+    if isinstance(fg_or_fr, FlatGraph):
         return {
             "_zeftype": "FlatGraph",
             "key_dict": serialize_dict(fg_or_fr.key_dict),
@@ -234,8 +234,8 @@ def serialize_zeftypes(z) -> dict:
         absorbed_args = z.d['absorbed']
         return {"_zeftype": abstract_type, "type": type_or_types, uid_or_uids: serialize_internal(z.d[uid_or_uids]), 'absorbed': serialize_internal(absorbed_args)}
 
-    elif isinstance(z, _ErrorType):
-        return {"_zeftype": "ErrorType", "type": z.name, "args": serialize_list(z.args)}
+    # elif isinstance(z, _ErrorType):
+    #     return {"_zeftype": "ErrorType", "type": z.name, "args": serialize_list(z.args)}
 
     elif isinstance(z, FXElement):
         return {"_zeftype": "FXElement", "elements": [e for e in z.d]}
@@ -284,13 +284,13 @@ def serialize_valuetype(vt):
     }
 
 
-def serialize_symbolicexpression(se):
-    return {
-        "_zeftype": "SymbolicExpression",
-        "name": se.name,
-        "root_node": serialize_internal(se.root_node),
-        "absorbed": serialize_internal(se.absorbed)
-    }
+# def serialize_symbolicexpression(se):
+#     return {
+#         "_zeftype": "SymbolicExpression",
+#         "name": se.name,
+#         "root_node": serialize_internal(se.root_node),
+#         "absorbed": serialize_internal(se.absorbed)
+#     }
 
 
 def deserialize_tuple(json_d: dict) -> tuple:
@@ -394,8 +394,8 @@ def deserialize_zeftypes(z) -> dict:
         absorbed_args = deserialize_internal(z['absorbed'])
         return abstract_type({'type': type_or_types, uid_or_uids: uid_or_uids_value, 'absorbed': absorbed_args})
 
-    elif z['_zeftype'] == "ErrorType":
-        return Error.__getattribute__(z['type'])(*deserialize_list(z['args']))
+    # elif z['_zeftype'] == "ErrorType":
+    #     return Error.__getattribute__(z['type'])(*deserialize_list(z['args']))
 
     elif z['_zeftype'] == "Effect":
         return deserialize_dict(z['internal_dict'])
@@ -404,7 +404,7 @@ def deserialize_zeftypes(z) -> dict:
         return FXElement(tuple(z['elements']))
 
     elif z['_zeftype'] == "FlatGraph":
-        new_fg = FlatGraph_()
+        new_fg = FlatGraph()
         new_fg.key_dict = deserialize_dict(z['key_dict'])
         new_fg.blobs = deserialize_tuple(z['blobs'])
         return new_fg
@@ -460,12 +460,12 @@ def deserialize_valuetype(d):
             return ValueType_(type_name=d["type_name"], absorbed=absorbed)
     raise Exception(f"Couldn't find a ValueType of type '{d['type_name']}'")
 
-def deserialize_symbolicexpression(d):
-    return SymbolicExpression_(
-        name = d["name"],
-        root_node= deserialize_internal(d["root_node"]),
-        absorbed = deserialize_internal(d["absorbed"]),
-    )
+# def deserialize_symbolicexpression(d):
+#     return SymbolicExpression_(
+#         name = d["name"],
+#         root_node= deserialize_internal(d["root_node"]),
+#         absorbed = deserialize_internal(d["absorbed"]),
+#     )
 
 serialization_mapping[ZefRef] = serialize_zeftypes
 # serialization_mapping[ZefRefs] = serialize_zeftypes
@@ -491,11 +491,11 @@ serialization_mapping[ZefRefUID] = serialize_zeftypes
 serialization_mapping[Entity] = serialize_zeftypes
 serialization_mapping[Relation] = serialize_zeftypes
 serialization_mapping[AttributeEntity] = serialize_zeftypes
-serialization_mapping[_ErrorType] = serialize_zeftypes
+# serialization_mapping[_ErrorType] = serialize_zeftypes
 serialization_mapping[Image] = serialize_zeftypes
 serialization_mapping[FXElement] = serialize_zeftypes
 serialization_mapping[Delegate] = serialize_delegate
-serialization_mapping[FlatGraph_] = serialize_flatgraph_or_flatref
+serialization_mapping[FlatGraph] = serialize_flatgraph_or_flatref
 serialization_mapping[FlatRef] = serialize_flatgraph_or_flatref
 serialization_mapping[FlatRefs] = serialize_flatgraph_or_flatref
 serialization_mapping[pyinternals.DelegateTX] = serialize_delegate
@@ -505,7 +505,7 @@ serialization_mapping[ValueType_] = serialize_valuetype
 serialization_mapping[list] = serialize_list
 serialization_mapping[tuple] = serialize_tuple
 serialization_mapping[dict] = serialize_dict
-serialization_mapping[SymbolicExpression_] = serialize_symbolicexpression
+# serialization_mapping[SymbolicExpression_] = serialize_symbolicexpression
 
 deserialization_mapping["dict"] = deserialize_dict
 deserialization_mapping["tuple"] = deserialize_tuple
@@ -531,7 +531,7 @@ deserialization_mapping["UID"] = deserialize_zeftypes
 deserialization_mapping["Entity"] = deserialize_zeftypes
 deserialization_mapping["Relation"] = deserialize_zeftypes
 deserialization_mapping["AttributeEntity"] = deserialize_zeftypes
-deserialization_mapping["ErrorType"] = deserialize_zeftypes
+# deserialization_mapping["ErrorType"] = deserialize_zeftypes
 deserialization_mapping["Image"] = deserialize_zeftypes
 deserialization_mapping["Effect"] = deserialize_zeftypes
 deserialization_mapping["FXElement"] = deserialize_zeftypes
@@ -543,4 +543,4 @@ deserialization_mapping["pyinternals.DelegateTX"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateRoot"] = deserialize_delegate
 deserialization_mapping["pyinternals.DelegateRelationTriple"] = deserialize_delegate
 deserialization_mapping["ValueType"] = deserialize_valuetype
-deserialization_mapping["SymbolicExpression"] = deserialize_symbolicexpression
+# deserialization_mapping["SymbolicExpression"] = deserialize_symbolicexpression

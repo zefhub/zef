@@ -18,7 +18,7 @@ from .fx_types import Effect, FX
 from ..VT import Pattern, SetOf
 from uuid import uuid4
 from .._ops import *
-from ..error import Error
+# from ..error import Error
 
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 import threading
@@ -205,7 +205,7 @@ def http_send_response_handler(eff: Effect):
     d = eff
     if "server_uuid" not in d:
         # TODO: register this on ProcessLogger
-        return Error(f"An FX.HTTP.SendResponse event must contain a 'server_uuid' field. This was not the case for eff={eff}")
+        raise Exception(f"An FX.HTTP.SendResponse event must contain a 'server_uuid' field. This was not the case for eff={eff}")
 
     d = _effects_processes[eff["server_uuid"]]
     future = d["open_requests"][eff["request_id"]]

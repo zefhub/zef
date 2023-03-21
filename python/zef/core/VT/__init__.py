@@ -49,8 +49,8 @@ def decimal_ctor(*args, **kwargs):
 
 
 def flatgraph_ctor(*args, **kwargs):
-    from ...core.flat_graph import FlatGraph_
-    return FlatGraph_(*args)
+    from ...core.flat_graph import FlatGraph
+    return FlatGraph(*args)
 
 
 def union_getitem(x):

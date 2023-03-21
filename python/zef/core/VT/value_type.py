@@ -64,7 +64,6 @@ This custom structure may rearrange and parse terms.
 ---------- User Defined Types ----------
 needed?
 """
-from ..error import Error
 from .._core import *
 from ..internals import *
 
@@ -105,7 +104,7 @@ class ValueType_:
         try:
             f = _value_type_constructor_funcs[self.d["type_name"]]
         except KeyError:
-            return Error(f'{self.d["type_name"]}(...) was called, but no constructor function was registered for this type')
+            raise Exception(f'{self.d["type_name"]}(...) was called, but no constructor function was registered for this type')
         if self.pass_self: return f(self, *args, **kwargs)
         return f(*args, **kwargs)
 

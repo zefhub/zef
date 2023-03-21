@@ -22,9 +22,9 @@ from dataclasses import dataclass
 
 @dataclass
 class Val:
-    arg: VT.Any
+    arg: None
 
-class FlatGraph_:
+class FlatGraph:
     """
     Internal data representation:
     1) self.blobs: a tuple of blobs
@@ -44,7 +44,7 @@ class FlatGraph_:
             self.key_dict = {}
             self.blobs = ()
         elif len(args) == 1 and isinstance(args[0], list):
-            new_fg = FlatGraph_()
+            new_fg = FlatGraph()
             new_fg = new_fg | insert[args[0]] | collect
             self.key_dict = new_fg.key_dict
             self.blobs = new_fg.blobs

@@ -15,7 +15,7 @@
 from .. import report_import
 report_import("zef.core.bytes")
 
-class Bytes_:
+class Bytes:
     """
     The default repr uses hexadecimal encoding.
     """
@@ -40,7 +40,3 @@ class Bytes_:
         >>> bytes(my_zef_bytes)
         """
         return self.data
-
-
-from .VT import make_VT
-make_VT('Bytes', pytype=Bytes_)

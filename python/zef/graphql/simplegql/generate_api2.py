@@ -34,7 +34,7 @@ def is_core_scalar(z):
         is_a(z, AET.Bool)
     )
     
-assert_type = Assert[is_a[ET.GQL_Type | ET.GQL_Enum | AET]][lambda z: f"{z} is not a GQL type"]
+assert_type = Assert[Or[is_a[ET.GQL_Type]][is_a[ET.GQL_Enum]][is_a[AET]]][lambda z: f"{z} is not a GQL type"]
 assert_field = Assert[is_a[RT.GQL_Field]][lambda z: f"{z} is not a GQL field"]
 
 optional = single_or[None]

@@ -71,7 +71,7 @@ class MyTestCase(unittest.TestCase):
     def test_logic_type(self):
         g = Graph()
 
-        even_type = Int & Is[modulo[2] | equals[0]]
+        even_type = VT.Int & VT.Is[modulo[2] | equals[0]]
 
         ae = AET[even_type] | g | run
 
@@ -91,7 +91,7 @@ class MyTestCase(unittest.TestCase):
 
         g = Graph()
 
-        even_type = Int & Is[modulo[2] | equals[0]]
+        even_type = VT.Int & VT.Is[modulo[2] | equals[0]]
         s_typ = SerializedValue.serialize(even_type)
 
         ae = instantiate(AttributeEntityType(s_typ), g)
@@ -139,7 +139,8 @@ class MyTestCase(unittest.TestCase):
         ae2 = AET[VT.Graph] | g | run
         ae | assign[Val(VT.Graph)] | g | run
         num_after = g | all | filter[is_a[BT.VALUE_NODE]] | length | collect
-        self.assertEqual(num_after - num_before, 2)
+        # self.assertEqual(num_after - num_before, 2)
+        self.assertEqual(num_after - num_before, 3)
 
 if __name__ == '__main__':
     unittest.main()

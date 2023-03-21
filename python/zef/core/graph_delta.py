@@ -32,6 +32,7 @@ from .abstract_raes import Entity, Relation, AttributeEntity, TXNode, Root
 from ..pyzef.zefops import SerializedValue
 from .logger import log
 from .internals import instantiate_value_node_imp
+from .VT import Is, Any
 
 from abc import ABC
 class ListOrTuple(ABC):
@@ -651,6 +652,8 @@ def cmds_for_lv_terminate(x):
     a_id = get_absorbed_id(LazyValue(op))
     if a_id is not None:
         cmd['internal_ids'] = [a_id]
+    else:
+        cmd['internal_ids'] = []
 
     return (), [cmd]
 
@@ -873,7 +876,7 @@ def realise_single_node(x, gen_id):
             d = to_delegate(x)
             exprs = [d]
             iid = d
-        elif isinstance(x, BT.VALUE_NODE):
+        elif BT(x) == BT.VALUE_NODE:
             iid,exprs = realise_single_node(Val(value(x)), gen_id)
         else:
             exprs = [x]
@@ -1487,7 +1490,7 @@ class TaggedVal:
         self.iid = iid
 
 
-scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue, ValueType_}
+scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue}
 shorthand_scalar_types = {int, float, bool, str, Time, QuantityFloat, QuantityInt, ZefEnumValue, SerializedValue}
 
 def make_enum_aet(x):
@@ -1523,7 +1526,7 @@ map_scalar_to_aet_type = {
     ZefEnumValue:       make_enum_aet,
     QuantityFloat:      make_qf_aet, 
     QuantityInt:        make_qi_aet, 
-    ValueType_:         lambda x: AET.Type,
+    # ValueType_:         lambda x: AET.Type,
     }
 
 def get_curried_arg(op, n):

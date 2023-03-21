@@ -13,14 +13,14 @@
 # limitations under the License.
 
 from .fx_types import Effect
-from ..error import Error
+# from ..error import Error
 from .. import internals
 import yaml 
 import json 
 import toml
 import pandas as pd
 import io
-from ..image import Image
+from .._image import Image
 
 #TODO Docstring!
 
@@ -95,7 +95,7 @@ def load_localfile_handler(eff: Effect):
         format    = eff.get("format", None)
 
         if not format:
-            if "." not in filename: return Error.ValueError("filename is missing an extension and a format wasn't provided!", filename)
+            if "." not in filename: raise ValueError("filename is missing an extension and a format wasn't provided!", filename)
             else: format = filename[filename.rindex(".") + 1:]
         elif "." not in filename: filename = filename + f".{format}"
 
@@ -118,7 +118,7 @@ def load_localfile_handler(eff: Effect):
 
         return {"content": content, "format": format, "filename": filename}
     except Exception as e:
-        return Error(f'executing FX.LocalFile.Load for effect {eff}:\n{repr(e)}')
+        raise Exception(f'executing FX.LocalFile.Load for effect {eff}:\n{repr(e)}')
 
 
 
@@ -141,7 +141,7 @@ def save_localfile_handler(eff: Effect):
         
         if isinstance(content, Image):
             format = f'.{content.format}'
-            if format not in formats: return Error.ValueError(f'Image format needs to be one of these types {formats} got {format} instead.')        
+            if format not in formats: raise Exception(f'Image format needs to be one of these types {formats} got {format} instead.')        
             filename = filename if format == (filename[-4:] or filename[-5:])  else filename + format
             with open(filename, 'wb') as f: f.write(internals.decompress_zstd(content.buffer))
             
@@ -156,14 +156,14 @@ def save_localfile_handler(eff: Effect):
             elif format == "json":
                 with open(filename, 'w') as f: f.write(json.dumps(content))
             else:
-                return Error.NotImplementedError(f'Unsupported writing to file type {format}!')
+                raise Exception(f'Unsupported writing to file type {format}!')
         else:
             filename += ".txt"
             with open(filename, 'w') as f: f.write(content)
 
         return {"filename": filename}
     except Exception as e:
-        return Error(f'executing FX.LocalFile.Save for effect {eff}: {repr(e)}')
+        raise Exception(f'executing FX.LocalFile.Save for effect {eff}: {repr(e)}')
 
 
 def write_localfile_handler(eff: Effect):
@@ -207,7 +207,7 @@ def system_open_with_handler(eff: Effect):
             subprocess.Popen(('xdg-open', eff['filepath']))
 
     except Exception as e:
-        return Error(f'executing FX.LocalFile.SystemOpenWith for effect {eff}:\n{repr(e)}')
+        raise Exception(f'executing FX.LocalFile.SystemOpenWith for effect {eff}:\n{repr(e)}')
 
 
 

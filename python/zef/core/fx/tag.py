@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from .fx_types import Effect
-from ..error import Error
+# from ..error import Error
 
 def graph_tag_handler(eff: Effect):
     try:
@@ -30,7 +30,7 @@ def rae_tag_handler(eff: Effect):
     try:
         from ...pyzef.main import tag
         if not eff["adding"]:
-            return Error("Untagging a RAE is not supported (yet).")
+            raise Exception("Untagging a RAE is not supported (yet).")
         tag(eff["rae"], eff["tag"], force_if_name_tags_other_rel_ent=eff["force"])
         return {}
     except Exception as e:

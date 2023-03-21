@@ -236,12 +236,11 @@ def is_supported_value(o):
     from . import  GraphSlice
     from types import GeneratorType
     from .. import Image
-    from .error import _ErrorType
     from ..pyzef.main import Keyword
-    from ..core.bytes import Bytes_
+    from ..core._bytes import Bytes
     from types import ModuleType
     if is_python_scalar_type(o): return True
-    if type(o) in {set, range, GeneratorType, list, tuple, dict, ValueType_, GraphSlice, Time, Image, Bytes_, _ErrorType, Keyword, ModuleType}: return True
+    if type(o) in {set, range, GeneratorType, list, tuple, dict, GraphSlice, Time, Image, Bytes, Keyword, ModuleType, ValueType_}: return True
     return False
 
 def is_supported_zef_value(o):
@@ -577,10 +576,11 @@ class CollectingOp:
         # collect([1,2,3] | map[...] | last)
         if len(args) == 1:
             return args[0] | self
-OpLike.register(CollectingOp)
-
     def __hash__(self):
         return hash(self.el_ops)
+
+OpLike.register(CollectingOp)
+
         
 
 
@@ -958,9 +958,6 @@ class LazyValue:
                 curr_value = _op_to_functions[op[0]][0](curr_value,  *op[1])
             except Exception as e:
                 raise RuntimeError(f"An Exception occured while evaluating '{self.initial_val} | {ZefOp(self.el_ops.el_ops)}'.\nThe exception occured while calling {op[0]} with ({curr_value,  *op[1]}). The exception was {e}") from e
-            
-            from .error import _ErrorType
-            if isinstance(curr_value, _ErrorType): raise RuntimeError(f"The evaluation engine returned an Error from '{ZefOp((op,))}'.\nThe error was {curr_value}")
             
             # if not primary_type_info: 
             #     curr_type, curr_value = find_type_of_current_value(curr_value)

@@ -29,6 +29,7 @@ from ...pyzef.main import (
 
 from ...pyzef.internals import (
     AttributeEntityType,
+    AttributeEntityTypeStruct,
     AttributeEntityTypeStruct_QuantityFloat,
     AttributeEntityTypeStruct_QuantityInt,
     AttributeEntityTypeStruct_Enum,

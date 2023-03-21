@@ -385,6 +385,3 @@ def width_or_default():
 show = run[print_rich]
 displayable = run[match_and_dispatch]
 to_rich_str = run[to_rich_str_imp]
-
-from ..core.op_structs import _overloaded_repr
-_overloaded_repr[show.el_ops[0]] = "show"

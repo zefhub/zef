@@ -13,7 +13,7 @@
 # limitations under the License.
 
 from ...pyzef.internals import login, login_manual, logout
-from ..error import Error
+# from ..error import Error
 from .fx_types import Effect
 
 def zefhub_login_handler(eff: Effect):
@@ -70,7 +70,7 @@ def zefhub_login_handler(eff: Effect):
             return {"success": True,
                     "comments": comments}
     except Exception as e:
-        return Error(f'executing FX.ZefHub.Login for effect {eff}:\n{repr(e)}')
+        raise Exception(f'executing FX.ZefHub.Login for effect {eff}:\n{repr(e)}')
 
 
 def zefhub_logout_handler(eff: Effect):
@@ -80,4 +80,4 @@ def zefhub_logout_handler(eff: Effect):
         print("referencing these old graphs will cause a segmentation fault!")
         return {"success": True}
     except Exception as e:
-        return Error(f'executing FX.ZefHub.Login for effect {eff}:\n{repr(e)}')
+        raise Exception(f'executing FX.ZefHub.Login for effect {eff}:\n{repr(e)}')

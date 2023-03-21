@@ -607,39 +607,19 @@ void fill_internals_module(py::module_ & internals_submodule) {
                 update_heads.caches.push_back({x, it.value()["head"].get<size_t>(), ptr->size(), it.value()["revision"].get<size_t>()}); \
             }
 
-            temp_cache_heads.push_back(std::make_tuple(name, head, revision));
+            GEN_CACHE("_ETs_used", ETs_used)
+            GEN_CACHE("_RTs_used", RTs_used)
+            GEN_CACHE("_ENs_used", ENs_used)
+
+            GEN_CACHE("_uid_lookup", uid_lookup)
+            GEN_CACHE("_euid_lookup", euid_lookup)
+            GEN_CACHE("_tag_lookup", tag_lookup)
+            GEN_CACHE("_av_hash_lookup", av_hash_lookup)
+            else
+                throw std::runtime_error("Don't understand cache: " + name);
         }
 
-        {
-            py::gil_scoped_release release;
-            LockGraphData lock{&gd};
-
-            Butler::UpdateHeads update_heads{ {blob_head, gd.read_head} };
-
-            for(auto & it : temp_cache_heads) {
-                std::string name = std::get<0>(it);
-                size_t head = std::get<1>(it);
-                size_t revision = std::get<2>(it);
-                if(false) {}
-    #define GEN_CACHE(x,y) else if(name == x) { \
-                    auto ptr = gd.y->get(); \
-                    update_heads.caches.push_back({x, head, ptr->size(), revision}); \
-                }
-
-                GEN_CACHE("_ETs_used", ETs_used)
-                GEN_CACHE("_RTs_used", RTs_used)
-                GEN_CACHE("_ENs_used", ENs_used)
-
-                GEN_CACHE("_uid_lookup", uid_lookup)
-                GEN_CACHE("_euid_lookup", euid_lookup)
-                GEN_CACHE("_tag_lookup", tag_lookup)
-                GEN_CACHE("_av_hash_lookup", av_hash_lookup)
-                else
-                    throw std::runtime_error("Don't understand cache: " + name);
-            }
-
-            return update_heads;
-        }
+        return update_heads;
     },
         py::call_guard<py::gil_scoped_release>(),
         "Low-level function to see if an update needs to be sent out.");
