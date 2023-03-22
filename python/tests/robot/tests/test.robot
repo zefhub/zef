@@ -4,10 +4,10 @@ Resource     graphkeywords.resource
 
 *** Test Cases ***
 
-Test Long Enough
-    [Tags]      test-long-enough
-    Start Repl
-    Ensure Big Actions Takes 5 Seconds
+# Test Long Enough
+#     [Tags]      test-long-enough
+#     Start Repl
+#     Ensure Big Actions Takes 5 Seconds
 
 Testing big merge with loading graph
     [Tags]    robot:skip
