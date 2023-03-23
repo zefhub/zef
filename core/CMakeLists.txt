@@ -22,7 +22,7 @@ project(ZefCore CXX)
 #########################
 # customizable variables
 
-option(LOCAL_ZEFTYPES "Disable getting zeftypes from zefhub" FALSE)
+option(LOCAL_ZEFTYPES "Disable getting zeftypes from zefhub" TRUE)
 option(ZEFDB_ALLOW_NO_TLS "Allow insecure websockets for ZefHub connections" TRUE)
 option(ZEFDB_TEST_NO_MMAP_CHECKS "Test for mmap slowness" FALSE)
 option(LIBZEF_PYZEF_BUNDLED "libzef is going to be bundled together with pyzef, which means putting files in different places." FALSE)
