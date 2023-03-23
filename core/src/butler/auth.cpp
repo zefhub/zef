@@ -27,6 +27,7 @@ using json = nlohmann::json;
 #include "zwitch.h"
 
 #include "butler/auth.h"
+#include "zef_config.h"
 
 namespace zefDB {
 
@@ -128,15 +129,13 @@ namespace zefDB {
     time token_expire_time = clock::now();
 
     bool using_private_key() {
-        char * env = getenv("ZEFDB_PRIVATE_KEY");
-        return (env != NULL && env[0] != '\0');
+        auto key = std::get<std::string>(get_config_var("login.privateKey"));
+        return key != "";
     }
 
     std::string get_private_token(std::string auth_id) {
         assert(using_private_key());
-
-        char * env = getenv("ZEFDB_PRIVATE_KEY");
-        std::string private_key(env);
+        auto private_key = std::get<std::string>(get_config_var("login.privateKey"));
 
         std::string token = jwt::create<jwt::traits::nlohmann_json>()
             .set_issuer("local")

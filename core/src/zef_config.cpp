@@ -32,6 +32,8 @@ namespace zefDB {
             "Whether the butler will automatically be started on import of the zefdb module."},
             {"login.zefhubURL", "wss://hub.zefhub.io", {}, "ZEFHUB_URL",
             "Which URL to connect to ZefHub."},
+            {"login.privateKey", "", {}, "ZEFDB_PRIVATE_KEY",
+            "If a preshared key should be used for zefhub connections."},
             {"tokens.cachePath", "$CONFIG/tokens_cache.json", {}, "ZEFDB_TOKENS_CACHE_PATH",
             "Where are the tokens cached between sessions"},
             {"tokens.pullOnConnect", true, {}, "ZEFDB_TOKENS_PULL_ON_CONNECT",
