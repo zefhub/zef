@@ -276,26 +276,27 @@ set(COG_DUMMY ${CMAKE_CURRENT_SOURCE_DIR}/dummy_cog.tracker)
 
   if(LOCAL_ZEFTYPES)
     # Copy over the bootstrap files if the non-bootstrap versions don't exist
+    set(ZEF_TOKEN_TEMPLATES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/../scripts/templates)
     add_custom_command(
-      DEPENDS templates/zeftypes_bootstrap_ET.json
+      DEPENDS ${ZEF_TOKEN_TEMPLATES_DIR}/zeftypes_bootstrap_ET.json
       OUTPUT zeftypes_ET.json
       COMMENT "Copying ET bootstrap"
-      COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/templates/zeftypes_bootstrap_ET.json zeftypes_ET.json)
+      COMMAND cp ${ZEF_TOKEN_TEMPLATES_DIR}/zeftypes_bootstrap_ET.json zeftypes_ET.json)
     add_custom_command(
-      DEPENDS templates/zeftypes_bootstrap_RT.json
+      DEPENDS ${ZEF_TOKEN_TEMPLATES_DIR}/zeftypes_bootstrap_RT.json
       OUTPUT zeftypes_RT.json
       COMMENT "Copying RT bootstrap"
-      COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/templates/zeftypes_bootstrap_RT.json zeftypes_RT.json)
+      COMMAND cp ${ZEF_TOKEN_TEMPLATES_DIR}/zeftypes_bootstrap_RT.json zeftypes_RT.json)
     add_custom_command(
-      DEPENDS templates/zeftypes_bootstrap_EN.json
+      DEPENDS ${ZEF_TOKEN_TEMPLATES_DIR}/zeftypes_bootstrap_EN.json
       OUTPUT zeftypes_EN.json
       COMMENT "Copying EN bootstrap"
-      COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/templates/zeftypes_bootstrap_EN.json zeftypes_EN.json)
+      COMMAND cp ${ZEF_TOKEN_TEMPLATES_DIR}/zeftypes_bootstrap_EN.json zeftypes_EN.json)
     add_custom_command(
-      DEPENDS templates/zeftypes_bootstrap_KW.json
+      DEPENDS ${ZEF_TOKEN_TEMPLATES_DIR}/zeftypes_bootstrap_KW.json
       OUTPUT zeftypes_KW.json
       COMMENT "Copying KW bootstrap"
-      COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/templates/zeftypes_bootstrap_KW.json zeftypes_KW.json)
+      COMMAND cp ${ZEF_TOKEN_TEMPLATES_DIR}/zeftypes_bootstrap_KW.json zeftypes_KW.json)
   else()
     # We can find the get_zeftypes.py file in various places depending on if we
     # have been packaged into a sdist with python.
