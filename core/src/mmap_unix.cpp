@@ -261,7 +261,7 @@ namespace zefDB {
         }
 
         void* get_end_of_info(MMapAllocInfo * info) {
-            uintptr_t immediate = (uintptr_t)&info + sizeof(MMapAllocInfo);
+            uintptr_t immediate = (uintptr_t)info + sizeof(MMapAllocInfo);
             return ceil_ptr((void*)immediate, getpagesize());
         }
 
@@ -274,9 +274,11 @@ namespace zefDB {
                 // We just want to shrink down the mmap to just contain the info part.
                 uintptr_t end_of_info = (uintptr_t)get_end_of_info(&info);
 
-                size_t release_size = MAX_MMAP_SIZE - end_of_info;
+                size_t release_size = MAX_MMAP_SIZE - (end_of_info - (uintptr_t)info.location);
                 if (info.style == MMAP_STYLE_ANONYMOUS) {
                     // munmap can remove multiple mappings, so no need to loop through all alloced pages
+                    developer_output("Unmapping main memory content: " + to_str((void*)end_of_info));
+                    developer_output("release_size: " + to_str(release_size));
                     munmap((void*)end_of_info, release_size);
                 } else if (info.style == MMAP_STYLE_FILE_BACKED) {
                     flush_mmap(info);
@@ -296,7 +298,7 @@ namespace zefDB {
                 free(info.location);
             } else {
                 uintptr_t end_of_info = (uintptr_t)get_end_of_info(&info);
-                size_t release_size = end_of_info - (uintptr_t)info.location;
+                developer_output("Unmapping info segment: " + to_str((void*)info.location));
                 munmap(info.location, MAX_MMAP_SIZE);
             }
         }
