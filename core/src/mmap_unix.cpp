@@ -298,8 +298,9 @@ namespace zefDB {
                 free(info.location);
             } else {
                 uintptr_t end_of_info = (uintptr_t)get_end_of_info(&info);
+                size_t release_size = end_of_info - (uintptr_t)info.location;
                 developer_output("Unmapping info segment: " + to_str((void*)info.location));
-                munmap(info.location, MAX_MMAP_SIZE);
+                munmap(info.location, release_size);
             }
         }
     }
