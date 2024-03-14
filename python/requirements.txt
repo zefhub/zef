@@ -17,3 +17,4 @@ case-converter>=1.0.2
 watchdog>=2.1.9
 rich>=12.6.0
 blake3>=0.3.1
+numpy>=1.22.2 # not directly required, pinned by Snyk to avoid a vulnerability
