@@ -23,10 +23,6 @@
     <br />
     <a href="https://zef.zefhub.io/">Docs</a>
     <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
-    <a href="https://blog.zefhub.io/">Blog</a>
-    <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
-    <a href="https://zef.chat/">Chat</a>
-    <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
     <a href="https://www.zefhub.io/">ZefHub</a>
 </div>
 
