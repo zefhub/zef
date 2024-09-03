@@ -85,7 +85,7 @@ jobs:
 
       - name: Grab built wheels
         if: ${{ !contains(github.ref, 'dev') }}
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4.1.7
         with:
           name: wheels
           path: wheelhouse
